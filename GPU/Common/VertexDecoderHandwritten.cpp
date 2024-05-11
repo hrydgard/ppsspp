@@ -3,12 +3,26 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#include <smmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 
 // Candidates for hand-writing
 // (found using our custom Very Sleepy).
 // GPU::P:_f_N:_s8_C:_8888_T:_u16__(24b)_040001BE  (5%+ of God of War execution)
 // GPU::P:_f_N:_s8_C:_8888_T:_u16_W:_f_(1x)__(28b)_040007BE (1%+ of God of War execution)
 
+// This is the first GoW one.
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	struct GOWVTX {
 		union {
@@ -43,21 +57,39 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 
 	u32 alpha = 0xFFFFFFFF;
 
-	// TODO: Update alpha properly! Forgot about that.
-
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
+	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
 		u32 normal = src[i].packed_normal;
-		__m128 colpos = _mm_loadu_ps((const float *)&src[i].col);
+		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
 		_mm_store1_pd((double *)&dst[i].u, _mm_castps_pd(finalUV));
 		dst[i].packed_normal = normal;
-		_mm_storeu_ps((float *)&dst[i].col, colpos);
+		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
+		alphaMask = _mm_and_si128(alphaMask, colpos);
 	}
+	alpha = _mm_cvtsi128_si32(alphaMask);
+
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x2_t uvScale = vmul_f32(vld1_f32(&uvScaleOffset->uScale), vdup_n_f32(1.0f / 32768.0f));
+	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
+	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
+	for (int i = 0; i < count; i++) {
+		uint16x4_t uv = vld1_u16(&src[i].u);  // TODO: We only need the first two lanes, maybe there's a better way?
+		uint32x2_t fuv = vget_low_u32(vmovl_u16(uv));  // Only using the first two lanes
+		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
+		u32 normal = src[i].packed_normal;
+		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
+        alphaMask = vandq_u32(alphaMask, colpos);
+		vst1_f32(&dst[i].u, finalUV);
+		dst[i].packed_normal = normal;
+		vst1q_u32(&dst[i].col, colpos);
+	}
+    alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;
@@ -109,7 +141,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 	float uoff = uvScaleOffset->uOff;
 	float voff = uvScaleOffset->vOff;
 
-	u32 alpha = 0xFFFFFFFF;
+	uint64_t alpha = 0xFFFFFFFFFFFFFFFFULL;
 
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
@@ -159,7 +191,63 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		dst[i + 1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
 	}
 
-	alpha = alpha & (alpha >> 16);
+	alpha = alpha & (alpha >> 32);
+
+#elif PPSSPP_ARCH(ARM_NEON)
+
+	float32x4_t uvScaleOff = vld1q_f32(&uvScaleOffset->uScale);
+	float32x4_t uvScale = vmulq_f32(vcombine_f32(vget_low_f32(uvScaleOff), vget_low_f32(uvScaleOff)), vdupq_n_f32(1.0f / 128.0f));
+	float32x4_t uvOffset = vcombine_f32(vget_high_f32(uvScaleOff), vget_high_f32(uvScaleOff));
+	float32x4_t posScale = vdupq_n_f32(1.0f / 32768.0f);
+	uint32x2_t rmask = vdup_n_u32(0x001F);
+	uint32x2_t gmask = vdup_n_u32(0x03E0);
+	uint32x2_t bmask = vdup_n_u32(0x7c00);
+	uint32x2_t amask = vdup_n_u32(0x8000);
+	uint32x2_t lowbits = vdup_n_u32(0x00070707);
+
+	// Two vertices at a time, we can share some calculations.
+	// It's OK to accidentally decode an extra vertex.
+	// Doing four vertices at a time might be even better, can share more of the pesky color format conversion.
+	for (int i = 0; i < count; i += 2) {
+		int16x4_t pos0 = vld1_s16(&src[i].x);
+		int16x4_t pos1 = vld1_s16(&src[i + 1].x);
+		// Translate UV, combined. TODO: Can possibly shuffle UV and col together here
+		uint32_t uv0 = (uint32_t)src[i].uv | ((uint32_t)src[i + 1].uv << 16);
+		uint64_t col0 = (uint64_t)src[i].col | ((uint64_t)src[i + 1].col << 32);
+		int32x4_t pos0_32 = vmovl_s16(pos0);
+		int32x4_t pos1_32 = vmovl_s16(pos1);
+		float32x4_t pos0_ext = vmulq_f32(vcvtq_f32_s32(pos0_32), posScale);
+		float32x4_t pos1_ext = vmulq_f32(vcvtq_f32_s32(pos1_32), posScale);
+
+		uint64x1_t uv8_one = vdup_n_u64(uv0);
+		uint8x8_t uv8 = vreinterpret_s8_u64(uv8_one);
+		uint16x4_t uv16 = vget_low_u16(vmovl_u8(uv8));
+		uint32x4_t uv32 = vmovl_u16(uv16);
+		float32x4_t uvf = vaddq_f32(vmulq_f32(vcvtq_f32_u32(uv32), uvScale), uvOffset);
+
+		alpha &= col0;
+
+		// Combined RGBA
+		uint32x2_t col = vreinterpret_u32_u64(vdup_n_u64(col0));
+		uint32x2_t r = vshl_n_u32(vand_u32(col, rmask), 8 - 5);
+		uint32x2_t g = vshl_n_u32(vand_u32(col, gmask), 16 - 10);
+		uint32x2_t b = vshl_n_u32(vand_u32(col, bmask), 24 - 15);
+		int32x2_t a_shifted = vshr_n_s32(vreinterpret_s32_u32(vshl_n_u32(vand_u32(col, amask), 16)), 7);
+		uint32x2_t a = vreinterpret_u32_s32(a_shifted);
+		col = vorr_u32(vorr_u32(r, g), b);
+		col = vorr_u32(col, vand_u32(vshl_n_u32(col, 5), lowbits));
+		col = vorr_u32(col, a);
+
+		// TODO: Mix into fewer stores.
+		vst1q_f32(&dst[i].x, pos0_ext);
+		vst1q_f32(&dst[i + 1].x, pos1_ext);
+		vst1_f32(&dst[i].u, vget_low_f32(uvf));
+		vst1_f32(&dst[i + 1].u, vget_high_f32(uvf));
+		dst[i].col = vget_lane_u32(col, 0);
+		dst[i + 1].col = vget_lane_u32(col, 1);
+	}
+
+	alpha = alpha & (alpha >> 32);
 
 #else
 
@@ -180,5 +268,6 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 	}
 
 #endif
+
 	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
 }

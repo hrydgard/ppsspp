@@ -1283,6 +1283,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
 
+	// Only use the handwritten decoders if we have SSE or NEON. Don't want to use these on RISC-V, probably?
+#if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 	// See GetVertTypeID
 	uint32_t fmtWithoutSkinFlag = (fmt_ & ~0x04000000);
 	if (fmtWithoutSkinFlag == (GE_VTYPE_TC_8BIT | GE_VTYPE_COL_5551 | GE_VTYPE_POS_16BIT)) {
@@ -1290,11 +1292,12 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		jitted_ = &VtxDec_Tu8_C5551_Ps16;
 		return;
 	}
-	/*  // Fails to update alphaFull properly.
+	// Fails to update alphaFull properly.
 	else if (!options.expand8BitNormalsToFloat && fmtWithoutSkinFlag == (GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT)) {
 		jitted_ = &VtxDec_Tu16_C8888_Pfloat;
 		return;
-	}*/
+	}
+#endif
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
