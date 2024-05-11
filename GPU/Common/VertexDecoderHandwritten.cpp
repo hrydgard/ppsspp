@@ -3,12 +3,26 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#include <smmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 
 // Candidates for hand-writing
 // (found using our custom Very Sleepy).
 // GPU::P:_f_N:_s8_C:_8888_T:_u16__(24b)_040001BE  (5%+ of God of War execution)
 // GPU::P:_f_N:_s8_C:_8888_T:_u16_W:_f_(1x)__(28b)_040007BE (1%+ of God of War execution)
 
+// This is the first GoW one.
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	struct GOWVTX {
 		union {
@@ -43,21 +57,39 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 
 	u32 alpha = 0xFFFFFFFF;
 
-	// TODO: Update alpha properly! Forgot about that.
-
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
+	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
 		u32 normal = src[i].packed_normal;
-		__m128 colpos = _mm_loadu_ps((const float *)&src[i].col);
+		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
 		_mm_store1_pd((double *)&dst[i].u, _mm_castps_pd(finalUV));
 		dst[i].packed_normal = normal;
-		_mm_storeu_ps((float *)&dst[i].col, colpos);
+		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
+		alphaMask = _mm_and_si128(alphaMask, colpos);
 	}
+	alpha = _mm_cvtsi128_si32(alphaMask);
+
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x2_t uvScale = vmul_f32(vld1_f32(&uvScaleOffset->uScale), vdup_n_f32(1.0f / 32768.0f));
+	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
+	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
+	for (int i = 0; i < count; i++) {
+		uint16x4_t uv = vld1_u16(&src[i].u);  // TODO: We only need the first two lanes, maybe there's a better way?
+		uint32x2_t fuv = vget_low_u32(vmovl_u16(uv));  // Only using the first two lanes
+		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
+		u32 normal = src[i].packed_normal;
+		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
+        alphaMask = vandq_u32(alphaMask, colpos);
+		vst1_f32(&dst[i].u, finalUV);
+		dst[i].packed_normal = normal;
+		vst1q_u32(&dst[i].col, colpos);
+	}
+    alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;
