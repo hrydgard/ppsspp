@@ -380,6 +380,13 @@ public:
 	VKContext(VulkanContext *vulkan, bool useRenderThread);
 	~VKContext();
 
+	BackendState GetCurrentBackendState() const override {
+		return BackendState{
+			(u32)renderManager_.GetNumSteps(),
+			true,
+		};
+	}
+
 	void DebugAnnotate(const char *annotation) override;
 	void Wait() override {
 		vkDeviceWaitIdle(vulkan_->GetDevice());

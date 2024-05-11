@@ -1279,17 +1279,25 @@ bool EmuScreen::checkPowerDown() {
 	return false;
 }
 
-bool EmuScreen::canBeBackground(bool isTop) const {
-	if (g_Config.bSkipBufferEffects) {
-		return isTop || (g_Config.bTransparentBackground && Core_ShouldRunBehind());
-	}
+ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
+	auto CanBeBackground = [&]() -> bool {
+		if (g_Config.bSkipBufferEffects) {
+			return isTop || (g_Config.bTransparentBackground && Core_ShouldRunBehind());
+		}
 
-	if (!g_Config.bTransparentBackground && !isTop) {
-		if (Core_ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
-			return true;
-		return false;
+		if (!g_Config.bTransparentBackground && !isTop) {
+			if (Core_ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
+				return true;
+			return false;
+		}
+		return true;
+	};
+
+	ScreenRenderRole role = ScreenRenderRole::MUST_BE_FIRST;
+	if (CanBeBackground()) {
+		role |= ScreenRenderRole::CAN_BE_BACKGROUND;
 	}
-	return true;
+	return role;
 }
 
 void EmuScreen::darken() {
@@ -1312,6 +1320,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (!draw) {
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
 	}
+
+	// Sanity check
+#ifdef _DEBUG
+	Draw::BackendState state = draw->GetCurrentBackendState();
+	_dbg_assert_(!state.valid || state.passes == 0);
+#endif
 
 	GamepadUpdateOpacity();
 

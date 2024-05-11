@@ -533,6 +533,10 @@ public:
 	void StartThreads();
 	void StopThreads();
 
+	size_t GetNumSteps() const {
+		return steps_.size();
+	}
+
 private:
 	void EndCurRenderStep();
 
