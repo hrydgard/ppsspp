@@ -1054,8 +1054,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		INFO_LOG(G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
 	}
 
-	bugs_.Infest(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
-
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
 	if (multisampleAllowed) {
 		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
