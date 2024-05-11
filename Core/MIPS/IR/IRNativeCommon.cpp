@@ -153,13 +153,14 @@ void IRNativeBackend::DoMIPSInst(uint32_t value) {
 }
 
 uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
-	IRInst inst;
+	IRInst inst[2];
 	memcpy(&inst, &value, sizeof(inst));
 
 	if constexpr (enableDebugStats)
-		debugSeenNotCompiledIR[(uint8_t)inst.op]++;
+		debugSeenNotCompiledIR[(uint8_t)inst[0].op]++;
 
-	return IRInterpret(currentMIPS, &inst, 1);
+	inst[1].op = IROp::ExitToPC;
+	return IRInterpret(currentMIPS, &inst[0]);
 }
 
 int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {

@@ -18,8 +18,6 @@
 // MIPS->target JITs.
 
 enum class IROp : uint8_t {
-	Nop,
-
 	SetConst,
 	SetConstF,
 
@@ -230,6 +228,8 @@ enum class IROp : uint8_t {
 	ValidateAddress16,
 	ValidateAddress32,
 	ValidateAddress128,
+
+	Nop,
 };
 
 enum IRComparison {
@@ -358,7 +358,7 @@ struct IRInst {
 };
 
 // Returns the new PC.
-u32 IRInterpret(MIPSState *ms, const IRInst *inst, int count);
+u32 IRInterpret(MIPSState *ms, const IRInst *inst);
 
 // Each IR block gets a constant pool.
 class IRWriter {
