@@ -43,6 +43,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 
 	u32 alpha = 0xFFFFFFFF;
 
+	// TODO: Update alpha properly! Forgot about that.
+
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
