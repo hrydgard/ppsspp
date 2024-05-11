@@ -84,12 +84,12 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
 		u32 normal = src[i].packed_normal;
 		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
-        alphaMask = vandq_u32(alphaMask, colpos);
+		alphaMask = vandq_u32(alphaMask, colpos);
 		vst1_f32(&dst[i].u, finalUV);
 		dst[i].packed_normal = normal;
 		vst1q_u32(&dst[i].col, colpos);
 	}
-    alpha = vgetq_lane_u32(alphaMask, 0);
+	alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;

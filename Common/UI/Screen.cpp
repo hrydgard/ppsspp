@@ -187,7 +187,8 @@ ScreenRenderFlags ScreenManager::render() {
 		bool first = true;
 		do {
 			--iter;
-			if (!foundBackgroundScreen && iter->screen->canBeBackground(first)) {
+			ScreenRenderRole role = iter->screen->renderRole(first);
+			if (!foundBackgroundScreen && (role & ScreenRenderRole::CAN_BE_BACKGROUND)) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
 				layers.push_back(iter->screen);
 				foundBackgroundScreen = iter->screen;
@@ -198,6 +199,9 @@ ScreenRenderFlags ScreenManager::render() {
 				coveringScreen = iter->screen;
 			}
 			first = false;
+			if (role & ScreenRenderRole::MUST_BE_FIRST) {
+				break;
+			}
 		} while (iter != stack_.begin());
 
 		if (backgroundScreen_ && !foundBackgroundScreen) {

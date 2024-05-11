@@ -380,6 +380,13 @@ public:
 	VKContext(VulkanContext *vulkan, bool useRenderThread);
 	~VKContext();
 
+	BackendState GetCurrentBackendState() const override {
+		return BackendState{
+			(u32)renderManager_.GetNumSteps(),
+			true,
+		};
+	}
+
 	void DebugAnnotate(const char *annotation) override;
 	void Wait() override {
 		vkDeviceWaitIdle(vulkan_->GetDevice());
@@ -1046,8 +1053,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
 		INFO_LOG(G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
 	}
-
-	bugs_.Infest(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
 	if (multisampleAllowed) {

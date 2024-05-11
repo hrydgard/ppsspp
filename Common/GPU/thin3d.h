@@ -687,6 +687,11 @@ enum class DebugFlags {
 };
 ENUM_CLASS_BITOPS(DebugFlags);
 
+struct BackendState {
+	u32 passes;
+	bool valid;
+};
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -704,6 +709,10 @@ public:
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetSurfaceFormatList() const { return std::vector<std::string>(); }
+
+	virtual BackendState GetCurrentBackendState() const {
+		return BackendState{};
+	}
 
 	// Describes the primary shader language that this implementation prefers.
 	const ShaderLanguageDesc &GetShaderLanguageDesc() {
