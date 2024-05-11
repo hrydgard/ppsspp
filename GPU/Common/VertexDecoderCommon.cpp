@@ -1265,7 +1265,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		decOff += DecFmtSize(DecVtxFormat::PosFmt());
 	}
 
-	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
+	decFmt.stride = align(decOff, 4);
 
 	decFmt.ComputeID();
 
