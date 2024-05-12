@@ -39,7 +39,7 @@ FrameTiming g_frameTiming;
 void WaitUntil(double now, double timestamp, const char *reason) {
 #if 1
 	// Use precise timing.
-	sleep_precise(timestamp - now);
+	sleep_precise(timestamp - now, reason);
 #else
 
 #if PPSSPP_PLATFORM(WINDOWS)

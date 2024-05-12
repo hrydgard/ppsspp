@@ -1251,9 +1251,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This is only necessary in MAILBOX or IMMEDIATE presentation modes.
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
-		if (sleepTime > 0)
-			sleep_ms(sleepTime, "fallback-throttle");
+		int sleepTimeUs = (int)(1000000 * ((1.0 / refreshRate) - diffTime));
+		if (sleepTimeUs > 0)
+			sleep_us(sleepTimeUs, "fallback-throttle");
 	}
 }
 

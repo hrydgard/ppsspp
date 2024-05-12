@@ -882,8 +882,6 @@ private:
 	std::mutex syncMutex_;
 	std::condition_variable syncCondVar_;
 
-	bool firstFrame_ = true;
-	bool vrRenderStarted_ = false;
 	bool syncDone_ = false;
 
 	GLDeleter deleter_;
