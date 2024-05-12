@@ -56,6 +56,7 @@
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/sceKernel.h"  // GPI/GPO
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -141,6 +142,11 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
+	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
+		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
+		return UI::EVENT_DONE;
+	});
+
 	items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
 		GPURecord::RecordNextFrame([](const Path &dumpPath) {
 			NOTICE_LOG(SYSTEM, "Frame dump created at '%s'", dumpPath.c_str());
@@ -211,6 +217,16 @@ void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
 	// TriggerFinish(DR_OK);
+}
+
+void GPIGPOScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	parent->Add(new CheckBox(&g_Config.bShowGPOLEDs, dev->T("Show GPO LEDs")));
+	for (int i = 0; i < 8; i++) {
+		std::string name = ApplySafeSubstitutions(dev->T("GPI switch %1"), i);
+		parent->Add(new BitCheckBox(&g_GPIBits, 1 << i, name));
+	}
 }
 
 void LogScreen::UpdateLog() {

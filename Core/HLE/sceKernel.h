@@ -569,6 +569,9 @@ struct KernelStats {
 extern KernelStats kernelStats;
 extern u32 registeredExitCbId;
 
+extern u32 g_GPOBits;
+extern u32 g_GPIBits;
+
 void Register_ThreadManForUser();
 void Register_ThreadManForKernel();
 void Register_LoadExecForUser();

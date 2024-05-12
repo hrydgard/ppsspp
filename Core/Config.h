@@ -265,6 +265,9 @@ public:
 	bool bRenderDuplicateFrames;
 	bool bRenderMultiThreading;
 
+	// HW debug
+	bool bShowGPOLEDs;
+
 	// Sound
 	bool bEnableSound;
 	int iAudioBackend;

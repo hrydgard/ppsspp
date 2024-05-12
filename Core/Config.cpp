@@ -306,6 +306,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	ConfigSetting("RunBehindPauseMenu", &g_Config.bRunBehindPauseMenu, false, CfgFlag::DEFAULT),
+
+	ConfigSetting("ShowGPOLEDs", &g_Config.bShowGPOLEDs, false, CfgFlag::PER_GAME),
 };
 
 static bool DefaultSasThread() {

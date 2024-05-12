@@ -1521,6 +1521,8 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
+	if (g_Config.bShowGPOLEDs)
+		return true;
 	// Debug UI.
 	if ((DebugOverlay)g_Config.iDebugOverlay != DebugOverlay::OFF || g_Config.bShowDeveloperMenu)
 		return true;
@@ -1570,6 +1572,26 @@ void EmuScreen::renderUI() {
 		DrawProfile(*ctx);
 	}
 #endif
+
+	if (g_Config.bShowGPOLEDs) {
+		// Draw a vertical strip of LEDs at the right side of the screen.
+		const float ledSize = 24.0f;
+		const float spacing = 4.0f;
+		const float height = 8 * ledSize + 7 * spacing;
+		const float x = ctx->GetBounds().w - spacing - ledSize;
+		const float y = (ctx->GetBounds().h - height) * 0.5f;
+		ctx->FillRect(UI::Drawable(0xFF000000), Bounds(x - spacing, y - spacing, ledSize + spacing * 2, height + spacing * 2));
+		for (int i = 0; i < 8; i++) {
+			int bit = (g_GPOBits >> i) & 1;
+			uint32_t color = 0xFF30FF30;
+			if (!bit) {
+				color = darkenColor(darkenColor(color));
+			}
+			Bounds ledBounds(x, y + (spacing + ledSize) * i, ledSize, ledSize);
+			ctx->FillRect(UI::Drawable(color), ledBounds);
+		}
+		ctx->Flush();
+	}
 
 	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
 		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
