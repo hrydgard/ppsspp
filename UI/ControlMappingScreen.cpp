@@ -97,15 +97,16 @@ void SingleControlMapper::Refresh() {
 	Clear();
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	std::map<std::string, ImageID> keyImages;
-	keyImages["Circle"] = ImageID("I_CIRCLE");
-	keyImages["Cross"] = ImageID("I_CROSS");
-	keyImages["Square"] = ImageID("I_SQUARE");
-	keyImages["Triangle"] = ImageID("I_TRIANGLE");
-	keyImages["Start"] = ImageID("I_START");
-	keyImages["Select"] = ImageID("I_SELECT");
-	keyImages["L"] = ImageID("I_L");
-	keyImages["R"] = ImageID("I_R");
+	std::map<std::string, ImageID> keyImages = {
+		{ "Circle",   ImageID("I_CIRCLE")   },
+		{ "Cross",    ImageID("I_CROSS")    },
+		{ "Square",   ImageID("I_SQUARE")   },
+		{ "Triangle", ImageID("I_TRIANGLE") },
+		{ "Start",    ImageID("I_START")    },
+		{ "Select",   ImageID("I_SELECT")   },
+		{ "L",        ImageID("I_L")        },
+		{ "R",        ImageID("I_R")        }
+	};
 
 	using namespace UI;
 

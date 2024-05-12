@@ -40,7 +40,7 @@ void DisassembleFake(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-FakeJit::FakeJit(MIPSState *mipsState) : blocks(mipsState, this), mips_(mipsState)
+FakeJit::FakeJit(MIPSState *mipsState) : blocks(mipsState, this), mips_(mipsState), js()
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
