@@ -237,7 +237,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	bool ok = true;
 	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
 		const auto &fileSuffix = fileSuffixesToMove[i];
-		progressReporter.SetProgress(ms->T("Checking..."), (int)i, (int)fileSuffixesToMove.size());
+		progressReporter.SetProgress(ms->T("Checking..."), i, fileSuffixesToMove.size());
 
 		Path to = moveDest / fileSuffix.suffix;
 
