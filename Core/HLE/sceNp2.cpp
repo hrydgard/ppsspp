@@ -219,7 +219,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			text = entity.substr(ofs, ofs2 - ofs);
 			INFO_LOG(SCENET, "%s - Agent-FQDN#%d Status: %s", __FUNCTION__, i, text.c_str());
 
-			ofs = entity.find(">", ++ofs2);
+			ofs = entity.find('>', ++ofs2);
 			if (ofs == std::string::npos)
 				return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent host not found");
 

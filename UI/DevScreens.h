@@ -264,6 +264,5 @@ protected:
 };
 
 void DrawProfile(UIContext &ui);
-const char *GetCompilerABI();
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);

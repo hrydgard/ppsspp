@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <shlwapi.h>
+
 #include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
 #include "BufferLock.h"
@@ -114,12 +115,14 @@ HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride);
 ReaderCallback::ReaderCallback(WindowsCaptureDevice *_device) : device(_device) {}
 
 ReaderCallback::~ReaderCallback() {
+#ifdef USE_FFMPEG
 	if (img_convert_ctx) {
 		sws_freeContext(img_convert_ctx);
 	}
 	if (resample_ctx) {
 		swr_free(&resample_ctx);
 	}
+#endif
 }
 
 HRESULT ReaderCallback::QueryInterface(REFIID riid, void** ppv)
@@ -178,6 +181,7 @@ HRESULT ReaderCallback::OnReadSample(
 				else
 					srcPadding = device->deviceParam.default_stride - lStride;
 
+#ifdef USE_FFMPEG
 				if (SUCCEEDED(hr)) {
 					// Convert image to RGB24
 					if (lStride > 0) {
@@ -196,6 +200,25 @@ HRESULT ReaderCallback::OnReadSample(
 						av_free(invertedSrcImg);
 					}
 
+					// Mirror the image in-place if needed.
+					if (g_Config.bCameraMirrorHorizontal) {
+						for (int y = 0; y < dstH; y++) {
+							uint8_t *line = device->imageRGB + y * device->imgRGBLineSizes[0];
+							for (int x = 0; x < dstW / 2; x++) {
+								const int invX = dstW - 1 - x;
+								const uint8_t r = line[x * 3 + 0];
+								const uint8_t g = line[x * 3 + 1];
+								const uint8_t b = line[x * 3 + 2];
+								line[x * 3 + 0] = line[invX * 3 + 0];
+								line[x * 3 + 1] = line[invX * 3 + 1];
+								line[x * 3 + 2] = line[invX * 3 + 2];
+								line[invX * 3 + 0] = r;
+								line[invX * 3 + 1] = g;
+								line[invX * 3 + 2] = b;
+							}
+						}
+					}
+
 					// Compress image to jpeg from RGB24.
 					jpge::compress_image_to_jpeg_file_in_memory(
 						device->imageJpeg, imgJpegSize,
@@ -204,6 +227,7 @@ HRESULT ReaderCallback::OnReadSample(
 						3,
 						device->imageRGB);
 				}
+#endif
 				Camera::pushCameraImage(imgJpegSize, device->imageJpeg);
 			}
 			// Request the next frame.
@@ -278,11 +302,13 @@ void ReaderCallback::imgConvert(
 	unsigned char *dst, unsigned int &dstW, unsigned int &dstH, int dstLineSizes[4],
 	unsigned char *src, const unsigned int &srcW, const unsigned int &srcH, const GUID &srcFormat, 
 	const int &srcPadding) {
+#ifdef USE_FFMPEG
 	int srcLineSizes[4] = { 0, 0, 0, 0 };
 	unsigned char *pSrc[4];
 	unsigned char *pDst[4];
 
 	AVPixelFormat srcAVFormat = getAVVideoFormatbyMFVideoFormat(srcFormat);
+
 
 	av_image_fill_linesizes(srcLineSizes, srcAVFormat, srcW);
 
@@ -322,9 +348,11 @@ void ReaderCallback::imgConvert(
 			dstLineSizes
 		);
 	}
+#endif
 }
 
 void ReaderCallback::imgInvert(unsigned char *dst, unsigned char *src, const int &srcW, const int &srcH, const GUID &srcFormat, const int &srcStride) {
+#ifdef USE_FFMPEG
 	AVPixelFormat srcAvFormat = getAVVideoFormatbyMFVideoFormat(srcFormat);
 	int dstLineSizes[4] = { 0, 0, 0, 0 };
 
@@ -338,6 +366,7 @@ void ReaderCallback::imgInvert(unsigned char *dst, unsigned char *src, const int
 		imgInvertYUY2(dst, dstLineSizes[0], src, srcStride, srcH);
 	else if (srcFormat == MFVideoFormat_NV12)
 		imgInvertNV12(dst, dstLineSizes[0], src, srcStride, srcH);;
+#endif
 }
 
 void ReaderCallback::imgInvertRGBA(unsigned char *dst, int &dstStride, unsigned char *src, const int &srcStride, const int &h) {
@@ -392,6 +421,7 @@ void ReaderCallback::imgInvertNV12(unsigned char *dst, int &dstStride, unsigned 
 }
 
 u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u32 *dstSize, u8 *src, const u32 &srcSampleRate, const u32 &srcChannels, const GUID &srcFormat, const u32& srcSize, const u32& srcBitsPerSample) {
+#ifdef USE_FFMPEG
 	AVSampleFormat srcAVFormat = getAVAudioFormatbyMFAudioFormat(srcFormat, srcBitsPerSample);
 	int outSamplesCount = 0;
 	if (resample_ctx == nullptr) {
@@ -427,6 +457,9 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 	if (outSamplesCount < 0)
 		return 0;
 	return av_samples_get_buffer_size(nullptr, dstChannels, outSamplesCount, AV_SAMPLE_FMT_S16, 0);
+#else
+	return 0;
+#endif
 }
 
 WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
@@ -450,6 +483,7 @@ WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
 }
 
 WindowsCaptureDevice::~WindowsCaptureDevice() {
+#ifdef USE_FFMPEG
 	switch (type) {
 	case CAPTUREDEVIDE_TYPE::VIDEO:
 		av_freep(&imageRGB);
@@ -459,6 +493,7 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 		av_freep(&resampleBuf);
 		break;
 	}
+#endif
 }
 
 void WindowsCaptureDevice::CheckDevices() {
@@ -555,6 +590,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 					targetMediaParam.height = resolution->at(1);
 					delete resolution;
 				}
+#ifdef USE_FFMPEG
 
 				av_freep(&imageRGB);
 				av_freep(&imageJpeg);
@@ -562,6 +598,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 				imgJpegSize = av_image_get_buffer_size(AV_PIX_FMT_YUVJ411P, targetMediaParam.width, targetMediaParam.height, 1);
 				imageJpeg = (unsigned char*)av_malloc(imgJpegSize);
 				av_image_fill_linesizes(imgRGBLineSizes, AV_PIX_FMT_RGB24, targetMediaParam.width);
+#endif
 
 				for (DWORD i = 0; ; i++) {
 					hr = m_pReader->GetNativeMediaType(

@@ -968,7 +968,7 @@ void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics done");
 }
 
-static void TakeScreenshot() {
+static void TakeScreenshot(Draw::DrawContext *draw) {
 	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
@@ -991,9 +991,19 @@ static void TakeScreenshot() {
 		i++;
 	}
 
-	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
+	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString());
+		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString(), 0.0f, "screenshot_link");
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
+				Path *path = reinterpret_cast<Path *>(data);
+				if (clicked) {
+					System_ShowFileInFolder(*path);
+				} else {
+					delete path;
+				}
+			}, new Path(filename));
+		}
 	} else {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
@@ -1002,7 +1012,7 @@ static void TakeScreenshot() {
 
 void CallbackPostRender(UIContext *dc, void *userdata) {
 	if (g_TakeScreenshot) {
-		TakeScreenshot();
+		TakeScreenshot(dc->GetDrawContext());
 		g_TakeScreenshot = false;
 	}
 }

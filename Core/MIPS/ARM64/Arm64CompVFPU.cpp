@@ -948,6 +948,12 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vh2f(MIPSOpcode op) {
+		// TODO: Fix by porting the general SSE solution to NEON
+		// FCVTL doesn't provide identical results to the PSP hardware, according to the unit test:
+		// O vh2f: 00000000,400c0000,00000000,7ff00000
+		// E vh2f: 00000000,400c0000,00000000,7f800380
+		DISABLE;
+
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;

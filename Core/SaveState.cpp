@@ -988,7 +988,7 @@ namespace SaveState
 				if (title.empty()) {
 					// Homebrew title
 					title = PSP_CoreParameter().fileToStart.ToVisualString();
-					std::size_t lslash = title.find_last_of("/");
+					std::size_t lslash = title.find_last_of('/');
 					title = title.substr(lslash + 1);
 				}
 				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
@@ -1056,7 +1056,7 @@ namespace SaveState
 			case SAVESTATE_SAVE_SCREENSHOT:
 			{
 				int maxResMultiplier = 2;
-				tempResult = TakeGameScreenshot(op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxResMultiplier);
+				tempResult = TakeGameScreenshot(nullptr, op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxResMultiplier);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());

@@ -240,6 +240,17 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3data.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus_data.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\compat.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\fft.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\get_bits.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\intreadwrite.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\mem.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h" />
@@ -254,6 +265,8 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -379,6 +392,15 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdec.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdsp.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\compat.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\fft.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\get_bits.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\mem.cpp" />
     <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c" />
     <ClCompile Include="..\..\ext\libpng17\pngerror.c" />
@@ -396,6 +418,7 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>
   <ItemGroup>
@@ -419,6 +442,10 @@
     <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">
       <Project>{c249f016-7f82-45cf-bb6e-0642a988c4d3}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\at3_standalone\CMakeLists.txt" />
+    <Text Include="..\..\ext\at3_standalone\README.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

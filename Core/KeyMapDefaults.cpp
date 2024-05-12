@@ -352,7 +352,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 	switch (dmap) {
 	case DEFAULT_MAPPING_KEYBOARD:
 	{
-		int keyboardLayout = System_GetPropertyInt(SYSPROP_KEYBOARD_LAYOUT);
+		int keyboardLayout = (int)System_GetPropertyInt(SYSPROP_KEYBOARD_LAYOUT);
 		switch (keyboardLayout) {
 		case KEYBOARD_LAYOUT_QWERTZ:
 			SetDefaultKeyMap(DEVICE_ID_KEYBOARD, defaultQwertzKeyboardKeyMap, ARRAY_SIZE(defaultQwertzKeyboardKeyMap), replace);

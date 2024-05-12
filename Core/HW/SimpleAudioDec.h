@@ -17,88 +17,45 @@
 
 #pragma once
 
-#include <cmath>
-
 #include "Core/HW/MediaEngine.h"
 #include "Core/HLE/sceAudio.h"
 
-struct AVFrame;
-struct AVCodec;
-struct AVCodecContext;
-struct SwrContext;
-
-#ifdef USE_FFMPEG
-
-extern "C" {
-#include "libavutil/version.h"
-};
-
-#endif
-
-// Wraps FFMPEG for audio decoding in a nice interface.
 // Decodes packet by packet - does NOT demux.
 
-// Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
-
 // audioType
-enum {
+enum PSPAudioType {
 	PSP_CODEC_AT3PLUS = 0x00001000,
 	PSP_CODEC_AT3 = 0x00001001,
 	PSP_CODEC_MP3 = 0x00001002,
 	PSP_CODEC_AAC = 0x00001003,
 };
 
-class SimpleAudio {
+class AudioDecoder {
 public:
-	SimpleAudio(int audioType, int sample_rate = 44100, int channels = 2);
-	~SimpleAudio();
+	virtual ~AudioDecoder() {}
 
-	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
-	bool IsOK() const;
+	virtual PSPAudioType GetAudioType() const = 0;
 
-	int GetOutSamples();
-	int GetSourcePos();
-	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
+	// inbytesConsumed can include skipping metadata.
+	// outSamples is in stereo samples. So you have to multiply by 4 for 16-bit stereo audio to get bytes.
+	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) = 0;
+	virtual bool IsOK() const = 0;
 
-	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
-	void SetExtraData(const u8 *data, int size, int wav_bytes_per_packet);
-
-	void SetChannels(int channels);
-
-	// These two are only here because of save states.
-	int GetAudioType() const { return audioType; }
-	void SetResampleFrequency(int freq) { wanted_resample_freq = freq; }
+	virtual void SetChannels(int channels) = 0;
+	virtual void FlushBuffers() {}
 
 	// Just metadata.
-	void SetCtxPtr(u32 ptr) { ctxPtr = ptr;  }
-	u32 GetCtxPtr() const { return ctxPtr; }
+	void SetCtxPtr(uint32_t ptr) { ctxPtr = ptr; }
+	uint32_t GetCtxPtr() const { return ctxPtr; }
 
 private:
-	void Init();
-	bool OpenCodec(int block_align);
-
-	u32 ctxPtr;
-	int audioType;
-	int sample_rate_;
-	int channels_;
-	int outSamples; // output samples per frame
-	int srcPos; // bytes consumed in source during the last decoding
-	int wanted_resample_freq; // wanted resampling rate/frequency
-
-	AVFrame *frame_;
-#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
-	const
-#endif
-	AVCodec *codec_;
-	AVCodecContext  *codecCtx_;
-	SwrContext      *swrCtx_;
-
-	bool codecOpen_;
+	uint32_t ctxPtr = 0xFFFFFFFF;
 };
 
-void AudioClose(SimpleAudio **ctx);
+void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
-bool IsValidCodec(int codec);
+bool IsValidCodec(PSPAudioType codec);
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2, size_t blockAlign = 0, const uint8_t *extraData = nullptr, size_t extraDataSize = 0);
 
 class AuCtx {
 public:
@@ -113,18 +70,7 @@ public:
 	int AuStreamWorkareaSize();
 	u32 AuResetPlayPosition();
 	u32 AuResetPlayPositionByFrame(int position);
-
-	u32 AuSetLoopNum(int loop);
-	u32 AuGetLoopNum();
-
 	u32 AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr);
-	u32 AuGetMaxOutputSample() const { return MaxOutputSample; }
-	u32 AuGetSumDecodedSample() const { return SumDecodedSamples; }
-	int AuGetChannelNum() const { return Channels; }
-	int AuGetBitRate() const { return BitRate; }
-	int AuGetSamplingRate() const { return SamplingRate; }
-	int AuGetVersion() const { return Version; }
-	int AuGetFrameNum() const { return FrameNum; }
 
 	void SetReadPos(int pos) { readPos = pos; }
 	int ReadPos() { return readPos;  }
@@ -146,7 +92,8 @@ public:
 	u32 AuBufSize = 0;
 	u32 PCMBuf = 0;
 	u32 PCMBufSize = 0;
-	int freq = -1;
+
+	int freq = -1;  // used by AAC only?
 	int BitRate = 0;
 	int SamplingRate = -1;
 	int Channels = 0;
@@ -159,10 +106,7 @@ public:
 	int FrameNum = 0;
 
 	// Au decoder
-	SimpleAudio *decoder = nullptr;
-
-	// Au type
-	int audioType = 0;
+	AudioDecoder *decoder = nullptr;
 
 private:
 	size_t FindNextMp3Sync();
@@ -171,7 +115,7 @@ private:
 
 	// buffers informations
 	int AuBufAvailable = 0; // the available buffer of AuBuf to be able to recharge data
-	int readPos; // read position in audio source file
+	int readPos = 0; // read position in audio source file
 	int askedReadSize = 0; // the size of data requied to be read from file by the game
 	int nextOutputHalf = 0;
 };

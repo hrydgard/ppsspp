@@ -696,7 +696,7 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 
 static u32 sysclib_strcat(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
@@ -704,7 +704,7 @@ static u32 sysclib_strcat(u32 dst, u32 src) {
 
 static int sysclib_strcmp(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		return strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
@@ -714,7 +714,7 @@ static int sysclib_strcmp(u32 dst, u32 src) {
 
 static u32 sysclib_strcpy(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src)) {
+	if (Memory::IsValidAddress(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
 	return dst;
@@ -722,7 +722,7 @@ static u32 sysclib_strcpy(u32 dst, u32 src) {
 
 static u32 sysclib_strlen(u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
-	if (Memory::IsValidAddress(src)) {
+	if (Memory::IsValidNullTerminatedString(src)) {  // TODO: This computes the length, could reuse it maybe.
 		return (u32)strlen(Memory::GetCharPointerUnchecked(src));
 	} else {
 		// What to do? Crash, probably.
@@ -741,18 +741,158 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(fmt)) {
-		// TODO: Properly use the format string with more parameters.
-		return sprintf((char *)Memory::GetPointerUnchecked(dst), "%s", Memory::GetCharPointerUnchecked(fmt));
-	} else {
-		// What to do? Crash, probably.
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
+
+	if (!Memory::IsValidNullTerminatedString(fmt)) {
+		ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad fmt");
 		return 0;
 	}
+
+	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+	currentMIPS->r[MIPS_REG_A0],
+	currentMIPS->r[MIPS_REG_A1],
+	currentMIPS->r[MIPS_REG_A2],
+	currentMIPS->r[MIPS_REG_A3],
+	currentMIPS->r[MIPS_REG_T0],
+	currentMIPS->r[MIPS_REG_T1],
+	currentMIPS->r[MIPS_REG_T2],
+	currentMIPS->r[MIPS_REG_T3]
+	);
+
+	bool processing_specifier = false;
+	std::string specifier = "";
+	int bytes_to_read = 0;
+	int arg_idx = 0;
+	std::string result = "";
+	for (const char *c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++) {
+		if (!processing_specifier) {
+			if (*c == '%') {
+				specifier = "%";
+				processing_specifier = true;
+				bytes_to_read = 0;
+			} else {
+				result.append(1, *c);
+			}
+		} else {
+			specifier.append(1, *c);
+
+			// going by https://cplusplus.com/reference/cstdio/printf/#compatibility
+			// no idea what the kernel module really supports as of writing this
+			switch (*c) {
+			case '%':
+			{
+				result.append(specifier);
+				processing_specifier = false;
+				break;
+			}
+			case 's':
+			{
+				// consume 4 bytes from arguments
+				u32 val = 0;
+				if (arg_idx <= 1) {
+					val = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+				} else if(arg_idx <= 5) {
+					val = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+				} else {
+					int stack_idx = arg_idx - 6;
+					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+					if (!Memory::IsValidAddress(stack_cur)) {
+						ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+						return 0;
+					}
+					val = Memory::Read_U32(stack_cur);
+					DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
+				}
+				arg_idx++;
+
+				if (!Memory::IsValidNullTerminatedString(val)) {
+					ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference at %08x", val);
+					return 0;
+				}
+				result.append(Memory::GetCharPointerUnchecked(val));
+				processing_specifier = false;
+				break;
+			}
+			case 'd':
+			case 'i':
+			case 'u':
+			case 'o':
+			case 'x':
+			case 'X':
+			case 'f':
+			case 'e':
+			case 'E':
+			case 'g':
+			case 'G':
+			case 'c':
+			case 'p':
+			case 'n':
+			{
+				u64 val = 0;
+				if (bytes_to_read == 0) {
+					bytes_to_read = 4;
+				}
+				int read_cnt = 0;
+				while (bytes_to_read != 0) {
+					u32 val_from_arg = 0;
+					if (arg_idx <= 1) {
+						val_from_arg = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+					} else if (arg_idx <= 5) {
+						val_from_arg = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+					} else {
+						int stack_idx = arg_idx - 6;
+						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+						if (!Memory::IsValidAddress(stack_cur)) {
+							ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+							return 0;
+						}
+						val_from_arg = Memory::Read_U32(stack_cur);
+						DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
+					}
+					arg_idx++;
+
+					val = val | ((u64)val_from_arg << (read_cnt * 32));
+
+					bytes_to_read = bytes_to_read - 4;
+					read_cnt++;
+				}
+				char buf[128] = {0};
+				snprintf(buf, sizeof(buf), specifier.c_str(), val);
+				buf[sizeof(buf) - 1] = '\0';
+				result.append(buf);
+				processing_specifier = false;
+				break;
+			}
+			case 'h':
+			{
+				// allegrex calling convention is 4 bytes aligned
+				bytes_to_read = 4;
+				break;
+			}
+			case 'l':
+			{
+				bytes_to_read = bytes_to_read + 4;
+				break;
+			}
+			}
+		}
+	}
+
+	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	DEBUG_LOG(SCEKERNEL, "%s", result.c_str());
+	if (!Memory::IsValidRange(dst, result.length() + 1)) {
+		ERROR_LOG(SCEKERNEL, "sysclib_sprintf result string is too long or dst is invalid");
+		return 0;
+	}
+	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
+	return (int)result.length();
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
+	DEBUG_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidRange(destAddr, size)) {
 		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
@@ -761,8 +901,8 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 }
 
 static int sysclib_strstr(u32 s1, u32 s2) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
-	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
+	DEBUG_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
+	if (Memory::IsValidNullTerminatedString(s1) && Memory::IsValidNullTerminatedString(s2)) {
 		std::string str1 = Memory::GetCharPointerUnchecked(s1);
 		std::string str2 = Memory::GetCharPointerUnchecked(s2);
 		size_t index = str1.find(str2);
@@ -775,8 +915,8 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 }
 
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
-	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
+	DEBUG_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
+	if (Memory::IsValidRange(s1, size) && Memory::IsValidRange(s2, size)) {
 		const char * str1 = Memory::GetCharPointerUnchecked(s1);
 		const char * str2 = Memory::GetCharPointerUnchecked(s2);
 		return strncmp(str1, str2, size);
@@ -785,7 +925,7 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 }
 
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
+	DEBUG_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
@@ -796,7 +936,7 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 }
 
 static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
-	if (!Memory::IsValidAddress(dest) || Memory::IsValidAddress(src)) {
+	if (!Memory::IsValidAddress(dest) || !Memory::IsValidAddress(src)) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 
@@ -821,7 +961,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
-	if (!Memory::IsValidAddress(strPtr)) {
+	if (!Memory::IsValidNullTerminatedString(strPtr)) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 	const char* str = Memory::GetCharPointer(strPtr);
@@ -833,7 +973,7 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 }
 
 static u32 sysclib_strchr(u32 src, int c) {
-	if (!Memory::IsValidAddress(src)) {
+	if (!Memory::IsValidNullTerminatedString(src)) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
@@ -845,7 +985,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 }
 
 static u32 sysclib_strrchr(u32 src, int c) {
-	if (!Memory::IsValidAddress(src)) {
+	if (!Memory::IsValidNullTerminatedString(src)) {
 		return hleLogError(SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);

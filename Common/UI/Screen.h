@@ -61,6 +61,14 @@ enum class ScreenRenderFlags {
 };
 ENUM_CLASS_BITOPS(ScreenRenderFlags);
 
+
+enum class ScreenRenderRole {
+	NONE = 0,
+	CAN_BE_BACKGROUND = 1,
+	MUST_BE_FIRST = 2,
+};
+ENUM_CLASS_BITOPS(ScreenRenderRole);
+
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
@@ -74,7 +82,7 @@ public:
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
-	virtual bool canBeBackground(bool isTop) const { return false; }
+	virtual ScreenRenderRole renderRole(bool isTop) const { return ScreenRenderRole::NONE; }
 	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);

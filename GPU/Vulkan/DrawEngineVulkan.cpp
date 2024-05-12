@@ -62,10 +62,6 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	: draw_(draw) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	decOptions_.alignOutputToWord = true;
-#endif
-
 	indexGen.Setup(decIndex_);
 }
 

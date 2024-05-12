@@ -240,6 +240,9 @@ bool Path::FilePathContainsNoCase(std::string_view needle) const {
 }
 
 bool Path::StartsWith(const Path &other) const {
+	if (other.empty()) {
+		return true;
+	}
 	if (type_ != other.type_) {
 		// Bad
 		return false;

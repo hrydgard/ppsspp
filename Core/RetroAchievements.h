@@ -34,20 +34,6 @@ struct Statistics {
 	int badMemoryAccessCount;
 };
 
-// RAIntegration only exists for Windows, so no point checking it on other platforms.
-#ifdef WITH_RAINTEGRATION
-
-bool IsUsingRAIntegration();
-
-#else
-
-static inline bool IsUsingRAIntegration()
-{
-	return false;
-}
-
-#endif
-
 // Returns true if the user is logged in properly, and everything is set up for playing games with achievements.
 bool IsLoggedIn();
 
@@ -79,6 +65,9 @@ bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view messa
 
 // Returns the length of the string. If (size_t)-1, there's no message.
 size_t GetRichPresenceMessage(char *buffer, size_t bufSize);
+
+// Returns true if the user has unsaved RAIntegration changes. Should prompt the user to be sure they want to exit.
+bool RAIntegrationDirty();
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.

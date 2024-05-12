@@ -62,13 +62,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 			return false;
 		break;
 
-	case 606910136:
-	case -392708513:
-	case -384083808:
-		// VUID-vkCmdDraw-None-02686
-		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
-		// See https://github.com/hrydgard/ppsspp/pull/16354
-		return false;
 	case -375211665:
 		// VUID-vkAllocateMemory-pAllocateInfo-01713
 		// Can happen when VMA aggressively tries to allocate aperture memory for upload. It gracefully

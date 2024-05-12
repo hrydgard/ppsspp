@@ -1422,7 +1422,10 @@ public abstract class NativeActivity extends Activity {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				if (command.equals("browse_file_audio")) {
-					intent.setType("audio/x-wav");
+					// Trickery for multiple mime types.
+					String [] mimeTypes = {"audio/x-wav", "audio/x-mpeg3", "audio/mpeg"};
+					intent.setType("*/*");
+					intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
 				} else if (command.equals("browse_file_zip")) {
 					intent.setType("application/zip");
 				} else {

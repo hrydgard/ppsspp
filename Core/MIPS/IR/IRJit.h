@@ -127,6 +127,9 @@ public:
 			return nullptr;
 		}
 	}
+	IRBlock *GetBlockUnchecked(int i) {
+		return &blocks_[i];
+	}
 	const IRBlock *GetBlock(int i) const {
 		if (i >= 0 && i < (int)blocks_.size()) {
 			return &blocks_[i];

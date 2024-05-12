@@ -24,6 +24,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/Screen.h"
 
 enum class PauseScreenMode {
 	MAIN,
@@ -65,6 +66,7 @@ private:
 
 	// hack
 	bool finishNextFrame_ = false;
+	DialogResult finishNextFrameResult_ = DR_CANCEL;
 	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 
 	UI::Button *playButton_ = nullptr;

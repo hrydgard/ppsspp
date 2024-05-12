@@ -303,7 +303,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:
 			return 44100;
@@ -349,6 +349,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
+		case SYSPROP_LIMITED_FILE_BROWSING:
+			return false;  // But will return true in app store builds.
 #ifndef HTTPS_NOT_AVAILABLE
 		case SYSPROP_SUPPORTS_HTTPS:
 			return true;
@@ -363,7 +365,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		exit(0);

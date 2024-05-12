@@ -84,7 +84,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: "Test in the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already fixed."
+        - label: "Test in the [latest git build](https://www.ppsspp.org/devbuilds) in case it's already fixed."
           required: true
         - label: "Make sure to run `git submodule update --init --recursive` before building."
           required: true

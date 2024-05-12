@@ -145,6 +145,7 @@ void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID)
 	CheckSetting(iniFile, gameID, "ForceMono", &vrCompat_.ForceMono);
 	CheckSetting(iniFile, gameID, "IdentityViewHack", &vrCompat_.IdentityViewHack);
 	CheckSetting(iniFile, gameID, "MirroringVariant", &vrCompat_.MirroringVariant);
+	CheckSetting(iniFile, gameID, "ProjectionHack", &vrCompat_.ProjectionHack);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
 

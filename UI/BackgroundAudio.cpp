@@ -1,6 +1,8 @@
 #include <string>
 #include <mutex>
 
+#include "ext/minimp3/minimp3_ex.h"
+
 #include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
 
@@ -36,7 +38,7 @@ struct WavData {
 	int raw_data_size = 0;
 	u8 at3_extradata[16];
 
-	void Read(RIFFReader &riff);
+	bool Read(RIFFReader &riff);
 
 	~WavData() {
 		free(raw_data);
@@ -49,7 +51,7 @@ struct WavData {
 	}
 };
 
-void WavData::Read(RIFFReader &file_) {
+bool WavData::Read(RIFFReader &file_) {
 	// If we have no loop start info, we'll just loop the entire audio.
 	raw_offset_loop_start = 0;
 	raw_offset_loop_end = 0;
@@ -72,7 +74,7 @@ void WavData::Read(RIFFReader &file_) {
 				break;
 			default:
 				ERROR_LOG(SCEAUDIO, "Unexpected wave format %04x", format);
-				return;
+				return false;
 			}
 
 			num_channels = temp >> 16;
@@ -97,7 +99,7 @@ void WavData::Read(RIFFReader &file_) {
 		} else {
 			ERROR_LOG(AUDIO, "Error - no format chunk in wav");
 			file_.Ascend();
-			return;
+			return false;
 		}
 
 		if (file_.Descend('smpl')) {
@@ -157,20 +159,21 @@ void WavData::Read(RIFFReader &file_) {
 				ERROR_LOG(AUDIO, "Error - bad blockalign or channels");
 				free(raw_data);
 				raw_data = nullptr;
-				return;
+				return false;
 			}
 			file_.Ascend();
 		} else {
 			ERROR_LOG(AUDIO, "Error - no data chunk in wav");
 			file_.Ascend();
-			return;
+			return false;
 		}
 		file_.Ascend();
 	} else {
 		ERROR_LOG(AUDIO, "Could not descend into RIFF file.");
-		return;
+		return false;
 	}
 	sample_rate = samplesPerSec;
+	return true;
 }
 
 // Really simple looping in-memory AT3 player that also takes care of reading the file format.
@@ -186,10 +189,17 @@ public:
 
 		wave_.Read(file_);
 
-		decoder_ = new SimpleAudio(wave_.codec, wave_.sample_rate, wave_.num_channels);
+		uint8_t *extraData = nullptr;
+		size_t extraDataSize = 0;
+		size_t blockSize = 0;
 		if (wave_.codec == PSP_CODEC_AT3) {
-			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
+			extraData = &wave_.at3_extradata[2];
+			extraDataSize = 14;
+			blockSize = wave_.raw_bytes_per_frame;
+		} else if (wave_.codec == PSP_CODEC_AT3PLUS) {
+			blockSize = wave_.raw_bytes_per_frame;
 		}
+		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels, blockSize, extraData, extraDataSize);
 		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
@@ -207,10 +217,12 @@ public:
 			return false;
 
 		while (bgQueue.size() < (size_t)(len * 2)) {
-			int outBytes = 0;
-			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, (uint8_t *)buffer_, &outBytes);
-			if (!outBytes)
+			int outSamples = 0;
+			int inbytesConsumed = 0;
+			bool result = decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (int16_t *)buffer_, &outSamples);
+			if (!result || !outSamples)
 				return false;
+			int outBytes = outSamples * 2 * sizeof(int16_t);
 
 			if (wave_.raw_offset_loop_end != 0 && raw_offset_ == wave_.raw_offset_loop_end) {
 				// Only take the remaining bytes, but convert to stereo s16.
@@ -253,7 +265,7 @@ private:
 	int skip_next_samples_ = 0;
 	FixedSizeQueue<s16, 128 * 1024> bgQueue;
 	short *buffer_ = nullptr;
-	SimpleAudio *decoder_ = nullptr;
+	AudioDecoder *decoder_ = nullptr;
 };
 
 BackgroundAudio g_BackgroundAudio;
@@ -380,40 +392,60 @@ inline int16_t ConvertU8ToI16(uint8_t value) {
 }
 
 Sample *Sample::Load(const std::string &path) {
-	size_t bytes = 0;
-	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
-	if (!data || bytes > 100000000) {
+	size_t data_size = 0;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &data_size);
+	if (!data || data_size > 100000000) {
 		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
 		return nullptr;
 	}
 
-	RIFFReader reader(data, (int)bytes);
-
-	WavData wave;
-	wave.Read(reader);
-
-	delete[] data;
-
-	if (!wave.IsSimpleWAV()) {
-		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
-		return nullptr;
-	}
-
-	int16_t *samples = new int16_t[wave.num_channels * wave.numFrames];
-	if (wave.raw_bytes_per_frame == wave.num_channels * 2) {
-		// 16-bit
-		memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
-	} else if (wave.raw_bytes_per_frame == wave.num_channels) {
-		// 8-bit. Convert.
-		for (int i = 0; i < wave.num_channels * wave.numFrames; i++) {
-			samples[i] = ConvertU8ToI16(wave.raw_data[i]);
+	const char *mp3_magic = "ID3\03";
+	const char *wav_magic = "RIFF";
+	if (!memcmp(data, wav_magic, 4)) {
+		RIFFReader reader(data, (int)data_size);
+		WavData wave;
+		if (!wave.Read(reader)) {
+			delete[] data;
+			return nullptr;
 		}
+		// A wav file.
+		delete[] data;
+
+		if (!wave.IsSimpleWAV()) {
+			ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
+			return nullptr;
+		}
+
+		int16_t *samples = new int16_t[wave.num_channels * wave.numFrames];
+		if (wave.raw_bytes_per_frame == wave.num_channels * 2) {
+			// 16-bit
+			memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
+		} else if (wave.raw_bytes_per_frame == wave.num_channels) {
+			// 8-bit. Convert.
+			for (int i = 0; i < wave.num_channels * wave.numFrames; i++) {
+				samples[i] = ConvertU8ToI16(wave.raw_data[i]);
+			}
+		}
+
+		// Protect against bad metadata.
+		int actualFrames = std::min(wave.numFrames, wave.raw_data_size / wave.raw_bytes_per_frame);
+
+		return new Sample(samples, wave.num_channels, actualFrames, wave.sample_rate);
 	}
 
-	// Protect against bad metadata.
-	int actualFrames = std::min(wave.numFrames, wave.raw_data_size / wave.raw_bytes_per_frame);
-
-	return new Sample(samples, wave.num_channels, actualFrames, wave.sample_rate);
+	// Something else.
+	// Let's see if minimp3 can read it.
+	mp3dec_t mp3d;
+	mp3dec_init(&mp3d);
+	mp3dec_file_info_t mp3_info;
+	int samples = mp3dec_load_buf(&mp3d, data, data_size, &mp3_info, nullptr, nullptr);
+	// mp3_info contains the decoded data.
+	int16_t *sample_data = new int16_t[mp3_info.samples];
+	memcpy(sample_data, mp3_info.buffer, mp3_info.samples * sizeof(int16_t));
+	Sample *sample = new Sample(sample_data, mp3_info.channels, (int)mp3_info.samples, mp3_info.hz);
+	free(mp3_info.buffer);
+	delete[] data;
+	return sample;
 }
 
 static inline int16_t Clamp16(int32_t sample) {

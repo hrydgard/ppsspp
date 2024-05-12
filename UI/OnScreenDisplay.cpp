@@ -379,7 +379,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		edges[(size_t)pos].maxWidth = std::max(edges[(size_t)pos].maxWidth, measuredEntry.w);
 	}
 
-	std::vector<ClickZone> dismissZones;
+	std::vector<ClickZone> clickZones;
 
 	// Now, perform layout for all 8 edges.
 	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
@@ -471,7 +471,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				case OSDType::MESSAGE_FILE_LINK:
 				case OSDType::ACHIEVEMENT_UNLOCKED:
 					// Save the location of the popup, for easy dismissal.
-					dismissZones.push_back(ClickZone{ (int)j, b });
+					clickZones.push_back(ClickZone{ (int)j, b });
 					break;
 				default:
 					break;
@@ -486,7 +486,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	std::lock_guard<std::mutex> lock(clickMutex_);
-	clickZones_ = dismissZones;
+	clickZones_ = clickZones;
 }
 
 std::string OnScreenMessagesView::DescribeText() const {
@@ -508,7 +508,7 @@ bool OnScreenMessagesView::Dismiss(float x, float y) {
 	double now = time_now_d();
 	for (auto &zone : clickZones_) {
 		if (zone.bounds.Contains(x, y)) {
-			g_OSD.DismissEntry(zone.index, now);
+			g_OSD.ClickEntry(zone.index, now);
 			dismissed = true;
 		}
 	}

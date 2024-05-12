@@ -585,6 +585,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Auto"
    },
    {
+      "ppsspp_smart_2d_texture_filtering",
+      "Smart 2D Texture Filtering",
+      NULL,
+      "Gets rid of some visual artifacts caused by unnecessary texture filtering in some 2D games, by switching to nearest filtering.",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_texture_replacement",
       "Texture Replacement",
       NULL,

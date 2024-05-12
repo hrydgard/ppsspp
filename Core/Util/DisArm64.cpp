@@ -916,8 +916,6 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 			} else if (((w >> 10) & 0x3f) == 0x0 && opcode == 0) {
 				char ir = sf ? 'x' : 'w';
 				char roundmode = "npmz"[(w >> 19) & 3];
-				if (opcode & 0x4)
-					roundmode = 'a';
 				char fr = ((w >> 22) & 1) ? 'd' : 's';
 				snprintf(instr->text, sizeof(instr->text), "fcvt%cs %c%d, %c%d", roundmode, ir, Rd, fr, Rn);
 			} else if ((opcode & 6) == 2) {

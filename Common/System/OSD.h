@@ -35,6 +35,8 @@ enum class OSDType {
 // Data holder for on-screen messages.
 class OnScreenDisplay {
 public:
+	~OnScreenDisplay();
+
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
 	void Show(OSDType type, std::string_view text, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, "", duration_s, id);
@@ -72,6 +74,9 @@ public:
 	// Fades out everything related to achievements. Should be used on game shutdown.
 	void ClearAchievementStuff();
 
+	// Can't add an infinite number of "Show" functions, so starting to offer post-modification.
+	void SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata);
+
 	struct Entry {
 		OSDType type;
 		std::string text;
@@ -79,6 +84,12 @@ public:
 		std::string iconName;
 		int numericID;
 		std::string id;
+
+		// We could use std::function, but prefer to do it the oldschool way.
+		void (*clickCallback)(bool, void *);
+		void *clickUserData;
+
+		int instanceID;
 		double startTime;
 		double endTime;
 
@@ -91,7 +102,7 @@ public:
 	std::vector<Entry> Entries();
 
 	// TODO: Use something more stable than the index.
-	void DismissEntry(size_t index, double now);
+	void ClickEntry(size_t index, double now);
 
 	static float FadeinTime() { return 0.1f; }
 	static float FadeoutTime() { return 0.25f; }

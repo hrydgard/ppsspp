@@ -1615,7 +1615,7 @@ static int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 			doVideoStep = false;
 		} else {
 			// This is an approximation, it should allow a certain amount ahead before skipping frames.
-			while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
+			while (!psmfplayer->mediaengine->IsVideoEnd() && deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
 				psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
 				deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			}

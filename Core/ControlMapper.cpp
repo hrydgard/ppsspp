@@ -577,7 +577,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 }
 
 void ControlMapper::ToggleSwapAxes() {
-	std::lock_guard<std::mutex> guard(mutex_);
+	// Note: The lock is already locked here.
 
 	swapAxes_ = !swapAxes_;
 

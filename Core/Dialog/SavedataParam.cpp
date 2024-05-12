@@ -110,32 +110,31 @@ namespace
 		return info;
 	}
 
-	bool PSPMatch(const std::string &text, const std::string &regexp)
-	{
-		if(text.empty() && regexp.empty())
+	bool PSPMatch(std::string_view text, std::string_view regexp) {
+		if (text.empty() && regexp.empty())
 			return true;
-		else if(regexp == "*")
+		else if (regexp == "*")
 			return true;
-		else if(text.empty())
+		else if (text.empty())
 			return false;
-		else if(regexp.empty())
+		else if (regexp.empty())
 			return false;
-		else if(regexp == "?" && text.length() == 1)
+		else if (regexp == "?" && text.length() == 1)
 			return true;
-		else if(text == regexp)
+		else if (text == regexp)
 			return true;
-		else if(regexp.data()[0] == '*')
+		else if (regexp.data()[0] == '*')
 		{
 			bool res = PSPMatch(text.substr(1),regexp.substr(1));
 			if(!res)
 				res = PSPMatch(text.substr(1),regexp);
 			return res;
 		}
-		else if(regexp.data()[0] == '?')
+		else if (regexp.data()[0] == '?')
 		{
 			return PSPMatch(text.substr(1),regexp.substr(1));
 		}
-		else if(regexp.data()[0] == text.data()[0])
+		else if (regexp.data()[0] == text.data()[0])
 		{
 			return PSPMatch(text.substr(1),regexp.substr(1));
 		}
@@ -145,7 +144,7 @@ namespace
 
 	int align16(int address)
 	{
-		return ((address + 0xF) >> 4) << 4;
+		return (address + 15) & ~15;
 	}
 
 	int GetSDKMainVersion(int sdkVersion)
@@ -473,7 +472,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		u8 *data_ = param->dataBuf;
 
 		int aligned_len = align16(cryptedSize);
-		cryptedData = new u8[aligned_len + 0x10];
+		cryptedData = new u8[aligned_len + 0x10]{};
 		memcpy(cryptedData, data_, cryptedSize);
 
 		int decryptMode = DetermineCryptMode(param);
@@ -537,10 +536,8 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	delete[] updatedList;
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
-	u8 *tmpData = new u8[128];
-	memset(tmpData, 0, 128);
-	sfoFile->SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
-	delete[] tmpData;
+	u8 zeroes[128]{};
+	sfoFile->SetValue("SAVEDATA_PARAMS", zeroes, 128, 128);
 
 	u8 *sfoData;
 	size_t sfoSize;
@@ -583,16 +580,14 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		// copy back save name in request
 		strncpy(param->saveName, saveDirName.c_str(), 20);
 
-		if (fileName.empty()) {
-			delete[] cryptedData;
-		} else {
+		if (!fileName.empty()) {
 			if (!WritePSPFile(filePath, data_, saveSize)) {
 				ERROR_LOG(SCEUTILITY, "Error writing file %s", filePath.c_str());
 				delete[] cryptedData;
 				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 			}
-			delete[] cryptedData;
 		}	
+		delete[] cryptedData;
 	}
 
 
@@ -1010,6 +1005,7 @@ int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *data
 	return 0;
 }
 
+// Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
 int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
 {
 	int alignedLen = align16(sfoSize);
@@ -1059,19 +1055,18 @@ int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset,
 	return 0;
 }
 
-int SavedataParam::BuildHash(unsigned char *output,
-		unsigned char *data,
+// Requires sfoData to be padded with zeroes to the next 16-byte boundary.
+int SavedataParam::BuildHash(uint8_t *output,
+		const uint8_t *data,
 		unsigned int len,
 		unsigned int alignedLen,
 		int mode,
-		unsigned char *cryptkey)
-{
+		const uint8_t *cryptkey) {
 	pspChnnlsvContext1 ctx1;
 
 	/* Set up buffers */
 	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
 	memset(output, 0, 0x10);
-	memset(data + len, 0, alignedLen - len);
 
 	/* Perform the magic */
 	if (sceSdSetIndex_(ctx1, mode & 0xFF) < 0)

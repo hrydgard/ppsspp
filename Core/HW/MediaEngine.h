@@ -31,7 +31,7 @@
 #include "Core/HW/SimpleAudioDec.h"
 
 class PointerWrap;
-class SimpleAudio;
+class AudioDecoder;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
@@ -50,8 +50,7 @@ inline s64 getMpegTimeStamp(const u8 *buf) {
 bool InitFFmpeg();
 #endif
 
-class MediaEngine
-{
+class MediaEngine {
 public:
 	MediaEngine();
 	~MediaEngine();
@@ -144,7 +143,7 @@ private:
 	s64 m_lastPts = -1;
 
 	MpegDemux *m_demux = nullptr;
-	SimpleAudio *m_audioContext = nullptr;
+	AudioDecoder *m_audioContext = nullptr;
 	s64 m_audiopts = 0;
 
 	// used for audio type 

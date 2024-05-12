@@ -27,7 +27,9 @@
 #include <cstring>
 #include <set>
 #include <sstream>
+#ifndef __OpenBSD__
 #include <sys/auxv.h>
+#endif
 #include <vector>
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -201,6 +203,15 @@ void CPUInfo::Detect()
 	}
 #endif
 
+#ifdef __OpenBSD__
+	/* OpenBSD uses RV64GC */
+	RiscV_M = true;
+	RiscV_A = true;
+	RiscV_F = true;
+	RiscV_D = true;
+	RiscV_C = true;
+	RiscV_V = false;
+#else
 	unsigned long hwcap = getauxval(AT_HWCAP);
 	RiscV_M = ExtensionSupported(hwcap, 'M');
 	RiscV_A = ExtensionSupported(hwcap, 'A');
@@ -208,6 +219,7 @@ void CPUInfo::Detect()
 	RiscV_D = ExtensionSupported(hwcap, 'D');
 	RiscV_C = ExtensionSupported(hwcap, 'C');
 	RiscV_V = ExtensionSupported(hwcap, 'V');
+#endif
 	// We assume as in RVA20U64 that F means Zicsr is available.
 	RiscV_Zicsr = RiscV_F;
 

@@ -52,6 +52,7 @@ void GameInfoTex::Clear() {
 		texture->Release();
 		texture = nullptr;
 	}
+	timeLoaded = 0.0;
 }
 
 GameInfo::GameInfo(const Path &gamePath) : filePath_(gamePath) {
@@ -357,7 +358,7 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
-		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), tex.data.size());
+		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
 	}
 }
 
