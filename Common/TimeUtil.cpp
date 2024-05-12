@@ -256,6 +256,9 @@ double Instant::ElapsedSeconds() const {
 #define SLEEP_LOG_ENABLED 0
 
 void sleep_ms(int ms, const char *reason) {
+	if (ms <= 0) {
+		return;
+	}
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
 #endif
@@ -271,6 +274,9 @@ void sleep_ms(int ms, const char *reason) {
 }
 
 void sleep_us(int us, const char *reason) {
+	if (us <= 0) {
+		return;
+	}
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep %d us: %s", us, reason);
 #endif

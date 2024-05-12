@@ -817,8 +817,6 @@ public:
 private:
 	std::string text_;
 	std::string rightText_;
-
-	bool choiceStyle_ = false;
 };
 
 class AbstractChoiceWithValueDisplay : public Choice {
@@ -1094,7 +1092,7 @@ public:
 private:
 	std::string text_;
 	ImageID atlasImage_;
-	ImageSizeMode sizeMode_;
+	ImageSizeMode sizeMode_;  // TODO: Not actually used yet.
 	float scale_ = 1.0f;
 };
 
