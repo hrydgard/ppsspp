@@ -318,7 +318,7 @@ bool CreateICOFromPNGData(const uint8_t *imageData, size_t imageDataSize, const 
 	entry.bHeight = pngHeader.Height();
 	entry.bColorCount = 0;
 	entry.dwBytesInRes = (DWORD)imageDataSize;
-	entry.wPlanes = 32;
+	entry.wPlanes = 1;
 	entry.wBitCount = 32;
 	entry.dwImageOffset = sizeof(hdr) + sizeof(entry);
 
