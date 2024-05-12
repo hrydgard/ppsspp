@@ -100,6 +100,8 @@ static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
 KernelStats kernelStats;
 u32 registeredExitCbId;
+u32 g_GPOBits;  // Really just 8 bits on the real hardware.
+u32 g_GPIBits;  // Really just 8 bits on the real hardware.
 
 void __KernelInit()
 {
@@ -161,6 +163,7 @@ void __KernelInit()
 	__PPGeInit();
 
 	kernelRunning = true;
+	g_GPOBits = 0;
 	INFO_LOG(SCEKERNEL, "Kernel initialized.");
 }
 
@@ -355,18 +358,19 @@ int sceKernelRegisterDefaultExceptionHandler()
 	return 0;
 }
 
-void sceKernelSetGPO(u32 ledAddr)
+void sceKernelSetGPO(u32 ledBits)
 {
-	// Sets debug LEDs.
-	// Not really interesting, and a few games really spam it
-	// DEBUG_LOG(SCEKERNEL, "sceKernelSetGPO(%02x)", ledAddr);
+	// Sets debug LEDs. Some games do interesting stuff with this, like a metronome in Parappa.
+	// Shows up as a vertical strip of LEDs at the side of the screen, if enabled.
+	g_GPOBits = ledBits;
 }
 
 u32 sceKernelGetGPI()
 {
 	// Always returns 0 on production systems.
-	DEBUG_LOG(SCEKERNEL, "0=sceKernelGetGPI()");
-	return 0;
+	// On developer systems, there are 8 switches that control the lower 8 bits of the return value.
+	DEBUG_LOG(SCEKERNEL, "%d=sceKernelGetGPI()", g_GPIBits);
+	return g_GPIBits;
 }
 
 // #define LOG_CACHE

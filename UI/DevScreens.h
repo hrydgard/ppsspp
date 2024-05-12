@@ -145,6 +145,15 @@ private:
 	unsigned int addr_;
 };
 
+class GPIGPOScreen : public PopupScreen {
+public:
+	GPIGPOScreen(std::string_view title) : PopupScreen(title, "OK") {}
+	const char *tag() const override { return "GPIGPO"; }
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+};
+
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
 	void CreateViews() override;

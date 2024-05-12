@@ -916,10 +916,8 @@ private:
 
 class BitCheckBox : public CheckBox {
 public:
-	BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
-		: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
-	}
-    
+	// bit is a bitmask (should only have a single bit set), not a bit index.
+	BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr);
 	BitCheckBox(int *bitfield, int bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {}
 
 	void Toggle() override;

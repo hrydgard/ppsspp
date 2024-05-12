@@ -852,6 +852,11 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	w = bounds_.w;
 }
 
+BitCheckBox::BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText, LayoutParams *layoutParams)
+	: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
+	_dbg_assert_msg_(bit != 0, "bit is a mask, not a bit index");
+}
+
 void BitCheckBox::Toggle() {
 	if (bitfield_) {
 		*bitfield_ = *bitfield_ ^ bit_;
