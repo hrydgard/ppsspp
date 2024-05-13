@@ -547,6 +547,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return deviceType != DEVICE_TYPE_VR;
 	case SYSPROP_HAS_ACCELEROMETER:
 		return deviceType == DEVICE_TYPE_MOBILE;
+	case SYSPROP_CAN_CREATE_SHORTCUT:
+		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
@@ -1662,7 +1664,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 
 // NOTE: This is defunct and not working, due to how the Android storage functions currently require
 // a PpssppActivity specifically and we don't have one here.
-extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
+extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv * env, jclass, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
 		INFO_LOG(SYSTEM, "No thread manager - initializing one");
@@ -1709,4 +1711,59 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	}
 
 	return env->NewStringUTF(result.c_str());
+}
+
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz, jstring jpath) {
+	bool teardownThreadManager = false;
+	if (!g_threadManager.IsInitialized()) {
+		INFO_LOG(SYSTEM, "No thread manager - initializing one");
+		// Need a thread manager.
+		teardownThreadManager = true;
+		g_threadManager.Init(1, 1);
+	}
+	// TODO: implement requestIcon()
+
+	Path path = Path(GetJavaString(env, jpath));
+
+	INFO_LOG(SYSTEM, "queryGameIcon(%s)", path.c_str());
+
+	jbyteArray result = nullptr;
+
+	GameInfoCache *cache = new GameInfoCache();
+	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::ICON);
+	// Wait until it's done: this is synchronous, unfortunately.
+	if (info) {
+		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
+        int attempts = 1000;
+        while (!info->Ready(GameInfoFlags::ICON)) {
+            sleep_ms(1);
+            attempts--;
+            if (!attempts) {
+                break;
+            }
+        }
+        INFO_LOG(SYSTEM, "Done waiting");
+        if (info->Ready(GameInfoFlags::ICON)) {
+            if (!info->icon.data.empty()) {
+                INFO_LOG(SYSTEM, "requestIcon: Got icon");
+                result = env->NewByteArray(info->icon.data.size());
+                env->SetByteArrayRegion(result, 0, info->icon.data.size(), (const jbyte *)info->icon.data.data());
+            }
+        } else {
+            INFO_LOG(SYSTEM, "requestIcon: Filetype unknown");
+        }
+    } else {
+        INFO_LOG(SYSTEM, "No info from cache");
+    }
+
+    delete cache;
+
+    if (teardownThreadManager) {
+        g_threadManager.Teardown();
+    }
+
+    return result;
 }
