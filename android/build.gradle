@@ -11,6 +11,7 @@ androidGitVersion {
 }
 
 dependencies {
+	// 1.2.0 is the newest version we can use that won't complain about minSdk version.
 	def appcompat_version = "1.2.0"
 
 	implementation "androidx.appcompat:appcompat:$appcompat_version"
@@ -21,7 +22,7 @@ dependencies {
 }
 
 android {
-	flavorDimensions "variant"
+	flavorDimensions += "variant"
 	namespace 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
@@ -45,10 +46,20 @@ android {
 		}
 	}
 
-	compileSdk 33
+	compileSdk 34
 	ndkVersion "21.4.7075529"
 
 	defaultConfig {
+		/*
+		configurations.all {
+			resolutionStrategy {
+				// Newer versions are not compatible with our minsdk. Should find a way to exclude it entirely
+				// since we have no use for this transitive dependency.
+				force 'androidx.emoji2:emoji2-views-helper:1.0.0'
+			}
+		}
+		*/
+
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
 			// Start using automatic Android version numbers from version 1.4.
@@ -63,7 +74,7 @@ android {
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
 		minSdk 9
-		targetSdk 33
+		targetSdk 34
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
