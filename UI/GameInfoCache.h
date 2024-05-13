@@ -109,6 +109,10 @@ public:
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
 
+	const Path &GetFilePath() const {
+		return filePath_;
+	}
+
 	bool Ready(GameInfoFlags flags) {
 		std::unique_lock<std::mutex> guard(lock);
 		// Avoid the operator, we want to check all the bits.

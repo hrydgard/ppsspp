@@ -456,7 +456,7 @@ public:
 			// Mark everything requested as done, so 
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
-			ERROR_LOG(LOADER, "Failed getting game info.");
+			ERROR_LOG(LOADER, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
 			return;
 		}
 

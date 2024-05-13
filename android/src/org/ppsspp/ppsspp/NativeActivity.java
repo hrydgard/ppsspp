@@ -443,6 +443,7 @@ public abstract class NativeActivity extends Activity {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 		String shortcut = overrideShortcutParam == null ? shortcutParam : overrideShortcutParam;
 		overrideShortcutParam = null;
+		shortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
@@ -594,6 +595,7 @@ public abstract class NativeActivity extends Activity {
 		// whether to start at 1x or 2x.
 		sizeManager.updateDisplayMeasurements();
 
+		boolean wasInitialized = initialized;
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -660,6 +662,13 @@ public abstract class NativeActivity extends Activity {
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			startRenderLoopThread();
+		}
+
+		if (shortcutParam != null && shortcutParam.length() > 0) {
+			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
+			// Make sure we only send it once.
+			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
+			shortcutParam = null;
 		}
 	}
 
