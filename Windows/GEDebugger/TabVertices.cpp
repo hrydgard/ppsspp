@@ -47,7 +47,7 @@ static const GenericListViewColumn vertexListCols[] = {
 };
 
 GenericListViewDef vertexListDef = {
-	vertexListCols,	ARRAY_SIZE(vertexListCols),	NULL,	false
+	vertexListCols,	NULL,	ARRAY_SIZE(vertexListCols),	false
 };
 
 enum VertexListCols {
@@ -72,7 +72,7 @@ static const GenericListViewColumn matrixListCols[] = {
 };
 
 GenericListViewDef matrixListDef = {
-	matrixListCols,	ARRAY_SIZE(matrixListCols),	NULL,	false
+	matrixListCols,	NULL,	ARRAY_SIZE(matrixListCols),	false
 };
 
 enum MatrixListCols {

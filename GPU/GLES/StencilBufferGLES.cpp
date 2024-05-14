@@ -49,7 +49,7 @@ const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
 } };
 
 static const SamplerDef samplers[] = {
-	{ 0, "tex" },
+	{ "tex", {}, 0 },
 };
 
 static const VaryingDef varyings[] = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -74,26 +74,7 @@ public:
 	u32 GetCtxPtr() const { return ctxPtr; }
 
 private:
-	void Init();
-	bool OpenCodec(int block_align);
-
-	u32 ctxPtr;
-	int audioType;
-	int sample_rate_;
-	int channels_;
-	int outSamples; // output samples per frame
-	int srcPos; // bytes consumed in source during the last decoding
-	int wanted_resample_freq; // wanted resampling rate/frequency
-
-	AVFrame *frame_;
-#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
-	const
-#endif
-	AVCodec *codec_;
-	AVCodecContext  *codecCtx_;
-	SwrContext      *swrCtx_;
-
-	bool codecOpen_;
+	uint32_t ctxPtr = 0xFFFFFFFF;
 };
 
 void AudioClose(SimpleAudio **ctx);

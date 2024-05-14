@@ -144,10 +144,6 @@ namespace MIPSAnalyst
 		u32 opcodeAddress;
 		MIPSOpcode encodedOpcode;
 
-		// shared between branches and conditional moves
-		bool isConditional;
-		bool conditionMet;
-
 		// branches
 		u32 branchTarget;
 		bool isBranch;
@@ -157,12 +153,16 @@ namespace MIPSAnalyst
 		int branchRegisterNum;
 
 		// data access
+		u32 dataAddress;
 		bool isDataAccess;
 		int dataSize;
-		u32 dataAddress;
 
-		bool hasRelevantAddress;
 		u32 relevantAddress;
+		bool hasRelevantAddress;
+
+		// shared between branches and conditional moves
+		bool isConditional;
+		bool conditionMet;
 	} MipsOpcodeInfo;
 
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);

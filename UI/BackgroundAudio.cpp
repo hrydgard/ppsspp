@@ -21,6 +21,10 @@
 #include "UI/BackgroundAudio.h"
 
 struct WavData {
+	u8 at3_extradata[16];
+	uint8_t* raw_data = nullptr;
+	int raw_data_size = 0;
+
 	int num_channels = -1;
 	int sample_rate = -1;
 	int numFrames = -1;
@@ -32,9 +36,6 @@ struct WavData {
 	int loop_end_offset = 0;
 	int codec = 0;
 	int raw_bytes_per_frame = 0;
-	uint8_t *raw_data = nullptr;
-	int raw_data_size = 0;
-	u8 at3_extradata[16];
 
 	void Read(RIFFReader &riff);
 
