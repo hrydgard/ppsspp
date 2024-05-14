@@ -791,6 +791,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::vector<std::string> temp;
 	args.push_back(app_name.c_str());
 	if (!shortcut_param.empty()) {
+		EARLY_LOG("NativeInit shortcut param %s", shortcut_param.c_str());
 		parse_args(temp, shortcut_param);
 		for (const auto &arg : temp) {
 			args.push_back(arg.c_str());
@@ -799,7 +800,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
-	// In debug mode, don't allow creating software Vulkan devices (reject by VulkaMaybeAvailable).
+	// In debug mode, don't allow creating software Vulkan devices (reject by VulkanMaybeAvailable).
 	// Needed for #16931.
 #ifdef NDEBUG
 	if (!VulkanMayBeAvailable()) {
@@ -1321,9 +1322,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 	NativeAccelerometer(x, y, z);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring message, jstring param) {
-	std::string msg = GetJavaString(env, message);
-	std::string prm = GetJavaString(env, param);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring jmessage, jstring jparam) {
+	std::string msg = GetJavaString(env, jmessage);
+	std::string prm = GetJavaString(env, jparam);
 
 	// A bit ugly, see InputDeviceState.java.
 	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
@@ -1366,6 +1367,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		System_PostUIMessage(UIMessage::POWER_SAVING, prm);
 	} else if (msg == "exception") {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string("Java Exception"), prm, 10.0f);
+	} else if (msg == "shortcutParam") {
+		if (prm.empty()) {
+			WARN_LOG(SYSTEM, "shortcutParam empty");
+			return;
+		}
+		INFO_LOG(SYSTEM, "shortcutParam received: %s", prm.c_str());
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, StripQuotes(prm));
 	} else {
 		ERROR_LOG(SYSTEM, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}

@@ -99,7 +99,9 @@ public class PpssppActivity extends NativeActivity {
 		if (data != null) {
 			String path = data.toString();
 			Log.i(TAG, "Found Shortcut Parameter in data: " + path);
-			super.setShortcutParam("\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
+			String escaped = "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+			Log.i(TAG, "Escaped: " + escaped);
+			super.setShortcutParam(escaped);
 			// Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
 		} else {
 			String param = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);

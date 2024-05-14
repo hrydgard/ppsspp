@@ -537,6 +537,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			return;
 		}
 	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
+		// TODO: Ignore or not if it's the same game that's already running?
+		if (gamePath_ == Path(value)) {
+			WARN_LOG(LOADER, "Game already running, ignoring");
+			return;
+		}
 		const char *ext = strrchr(value, '.');
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
 			SaveState::Load(Path(value), -1, &AfterStateBoot);
