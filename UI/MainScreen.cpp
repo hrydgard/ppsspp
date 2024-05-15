@@ -1126,12 +1126,19 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
+#ifdef PPSSPP_PLATFORM(IOS)
+		std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
+		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
+#else
+		std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
+		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
+#endif
 
 		GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
-			mm->T("How to get games"), "https://www.ppsspp.org/getgames",
+			mm->T("How to get games"), getGamesUri,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		GameBrowser *tabHomebrew = new GameBrowser(GetRequesterToken(), GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
-			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew",
+			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), getHomebrewUri,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 		scrollAllGames_->Add(tabAllGames);
@@ -1274,12 +1281,13 @@ void MainScreen::CreateViews() {
 
 	if (!vertical) {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
 			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 			gold->OnClick.Handle(this, &MainScreen::OnSupport);
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 		}
+#endif
 	}
 
 	rightColumnChoices->Add(new Spacer(25.0));
