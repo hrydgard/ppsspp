@@ -209,6 +209,12 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { "222MHz",   NULL },
          { "266MHz",   NULL },
          { "333MHz",   NULL },
+         { "444MHz",   NULL },
+         { "555MHz",   NULL },
+         { "666MHz",   NULL },
+         { "777MHz",   NULL },
+         { "888MHz",   NULL },
+         { "999MHz",   NULL },
          { NULL, NULL },
       },
       "disabled"
