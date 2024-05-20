@@ -10,7 +10,7 @@
 #import "LocationHelper.h"
 
 @interface ViewController : GLKViewController <iCadeEventDelegate,
-            LocationHandlerDelegate, CameraFrameDelegate>
+            LocationHandlerDelegate, CameraFrameDelegate, UIGestureRecognizerDelegate>
 
 - (void)shareText:(NSString *)text;
 - (void)shutdown;

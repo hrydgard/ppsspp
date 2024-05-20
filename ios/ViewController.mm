@@ -192,6 +192,12 @@ extern float g_safeInsetBottom;
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
 
+    UISwipeGestureRecognizer *mSwipeLeftRecognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:)];
+
+    [mSwipeLeftRecognizer setDirection:(UISwipeGestureRecognizerDirectionLeft | UISwipeGestureRecognizerDirectionRight)];
+
+    [[self view] addGestureRecognizer:mSwipeLeftRecognizer];
+    
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
@@ -248,6 +254,17 @@ extern float g_safeInsetBottom;
 
 		threadStopped = true;
 	});
+}
+
+- (void)handleSwipeFrom:(UISwipeGestureRecognizer *)recognizer
+{
+    if (recognizer.direction == UISwipeGestureRecognizerDirectionLeft) {
+        INFO_LOG(SYSTEM, "LEFT");
+    } else if (recognizer.direction == UISwipeGestureRecognizerDirectionRight) {
+        INFO_LOG(SYSTEM, "RIGHT");
+    } else {
+        INFO_LOG(SYSTEM, "OTHER SWIPE: %d", (int)recognizer.direction);
+    }
 }
 
 - (void)appWillTerminate:(NSNotification *)notification
@@ -753,7 +770,7 @@ void System_LaunchUrl(LaunchUrlType urlType, char const* url)
 {
 	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
 	dispatch_async(dispatch_get_main_queue(), ^{
-		[[UIApplication sharedApplication] openURL:nsUrl] options:@{} completionHandler:nil];
+		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
 	});
 }
 
