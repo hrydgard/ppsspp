@@ -192,12 +192,10 @@ extern float g_safeInsetBottom;
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
 
-    UISwipeGestureRecognizer *mSwipeLeftRecognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:)];
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
-    [mSwipeLeftRecognizer setDirection:(UISwipeGestureRecognizerDirectionLeft | UISwipeGestureRecognizerDirectionRight)];
-
-    [[self view] addGestureRecognizer:mSwipeLeftRecognizer];
-    
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
@@ -256,15 +254,16 @@ extern float g_safeInsetBottom;
 	});
 }
 
-- (void)handleSwipeFrom:(UISwipeGestureRecognizer *)recognizer
+- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
 {
-    if (recognizer.direction == UISwipeGestureRecognizerDirectionLeft) {
-        INFO_LOG(SYSTEM, "LEFT");
-    } else if (recognizer.direction == UISwipeGestureRecognizerDirectionRight) {
-        INFO_LOG(SYSTEM, "RIGHT");
-    } else {
-        INFO_LOG(SYSTEM, "OTHER SWIPE: %d", (int)recognizer.direction);
-    }
+	if (recognizer.state == UIGestureRecognizerStateEnded) {
+		KeyInput key;
+		key.flags = KEY_DOWN | KEY_UP;
+		key.keyCode = NKCODE_BACK;
+		key.deviceId = DEVICE_ID_TOUCH;
+		NativeKey(key);
+		INFO_LOG(SYSTEM, "Detected back swipe");
+	}
 }
 
 - (void)appWillTerminate:(NSNotification *)notification
