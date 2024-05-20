@@ -56,6 +56,13 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 // Going forward, "optional" things (PPSSPP will still function alright without it) will be requests,
 // to make implementations simpler in the default case.
 
+enum class UIEventNotification {
+	MENU_RETURN,
+	POPUP_CLOSED,
+	TEXT_GOTFOCUS,
+	TEXT_LOSTFOCUS,
+};
+
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
 	ASK_USERNAME_PASSWORD,
@@ -79,7 +86,7 @@ enum class SystemRequestType {
 	// Note: height specified as param3, width based on param1.size() / param3.
 	SEND_DEBUG_SCREENSHOT,
 
-	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
+	NOTIFY_UI_EVENT,  // Used to manage events that are useful for popup virtual keyboards.
 	SET_KEEP_SCREEN_BRIGHT,
 
 	// High-level hardware control

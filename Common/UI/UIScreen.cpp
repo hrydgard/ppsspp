@@ -398,7 +398,7 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 		OnCompleted(result);
 	}
 	// Inform UI that popup close to hide OSK (if visible)
-	System_NotifyUIState("popup_closed");
+	System_NotifyUIEvent(UIEventNotification::POPUP_CLOSED);
 }
 
 void PopupScreen::CreateViews() {

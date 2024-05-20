@@ -548,21 +548,23 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			});
 		return true;
 	}
-	case SystemRequestType::NOTIFY_UI_STATE:
+	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
-		if (!param1.empty()) {
-			if (!strcmp(param1.c_str(), "menu")) {
-				CloseLaunchItem();
-			}
-			else if (!strcmp(param1.c_str(), "popup_closed")) {
-				DeactivateTextEditInput();
-			}
-			else if (!strcmp(param1.c_str(), "text_gotfocus")) {
-				ActivateTextEditInput(true);
-			}
-			else if (!strcmp(param1.c_str(), "text_lostfocus")) {
-				DeactivateTextEditInput(true);
-			}
+		switch ((UIEventNotification)param3) {
+		case UIEventNotification::MENU_RETURN:
+			CloseLaunchItem();
+			break;
+		case UIEventNotification::POPUP_CLOSED:
+			DeactivateTextEditInput();
+			break;
+		case UIEventNotification::TEXT_GOTFOCUS:
+			ActivateTextEditInput(true);
+			break;
+		case UIEventNotification::TEXT_LOSTFOCUS:
+			DeactivateTextEditInput(true);
+			break;
+		default:
+			break;
 		}
 		return true;
 	}
