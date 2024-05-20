@@ -10,10 +10,12 @@
 #import "LocationHelper.h"
 
 @interface ViewController : GLKViewController <iCadeEventDelegate,
-            LocationHandlerDelegate, CameraFrameDelegate, UIGestureRecognizerDelegate>
+            LocationHandlerDelegate, CameraFrameDelegate, UIGestureRecognizerDelegate, UIKeyInput>
 
 - (void)shareText:(NSString *)text;
 - (void)shutdown;
+- (void)hideKeyboard;
+- (void)showKeyboard;
 
 @end
 
