@@ -197,7 +197,7 @@ extern float g_safeInsetBottom;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	view.drawableStencilFormat = GLKViewDrawableStencilFormat8;
 	[EAGLContext setCurrentContext:self.context];
-	self.preferredFramesPerSecond = 60;
+	self.preferredFramesPerSecond = 60;  // NOTE: We don't yet take advantage of 120hz screens
 
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
@@ -238,7 +238,6 @@ extern float g_safeInsetBottom;
 		while (threadEnabled) {
 			NativeFrame(graphicsContext);
 		}
-
 
 		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
 		NativeShutdownGraphics();
@@ -752,7 +751,10 @@ void stopLocation() {
 
 void System_LaunchUrl(LaunchUrlType urlType, char const* url)
 {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[[UIApplication sharedApplication] openURL:nsUrl] options:@{} completionHandler:nil];
+	});
 }
 
 void bindDefaultFBO()
