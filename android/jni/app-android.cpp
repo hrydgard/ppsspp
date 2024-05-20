@@ -1156,8 +1156,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::SHARE_TEXT:
 		PushCommand("share_text", param1);
 		return true;
-	case SystemRequestType::NOTIFY_UI_STATE:
-		PushCommand("uistate", param1);
+	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
+		PushCommand("set_keep_screen_bright", param3 ? "on" : "off");
 		return true;
 	case SystemRequestType::SHOW_FILE_IN_FOLDER:
 		PushCommand("show_folder", param1);

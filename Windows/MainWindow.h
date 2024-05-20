@@ -81,6 +81,7 @@ namespace MainWindow
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
 	void RunCallbackInWndProc(void (*callback)(void *window, void *userdata), void *userdata);
+	void SetKeepScreenBright(bool keepBright);
 }
 
 #endif
