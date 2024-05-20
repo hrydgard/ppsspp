@@ -437,6 +437,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		[sharedViewController shareText:text];
 		return true;
 	}
+/*
+	// Not 100% sure the threading is right
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		@autoreleasepool {
+			[UIPasteboard generalPasteboard].string = @(param1.c_str());
+			return 0;
+		}
+	}
+*/
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
         dispatch_async(dispatch_get_main_queue(), ^{
             INFO_LOG(SYSTEM, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
@@ -550,3 +560,4 @@ int main(int argc, char *argv[])
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }
+

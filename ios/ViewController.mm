@@ -192,12 +192,16 @@ extern float g_safeInsetBottom;
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
 
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+	[[self view] addGestureRecognizer:mBackGestureRecognizer];
+
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	view.drawableStencilFormat = GLKViewDrawableStencilFormat8;
 	[EAGLContext setCurrentContext:self.context];
-	self.preferredFramesPerSecond = 60;
+	self.preferredFramesPerSecond = 60;  // NOTE: We don't yet take advantage of 120hz screens
 
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
@@ -239,7 +243,6 @@ extern float g_safeInsetBottom;
 			NativeFrame(graphicsContext);
 		}
 
-
 		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
 		NativeShutdownGraphics();
 
@@ -249,6 +252,18 @@ extern float g_safeInsetBottom;
 
 		threadStopped = true;
 	});
+}
+
+- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
+{
+	if (recognizer.state == UIGestureRecognizerStateEnded) {
+		KeyInput key;
+		key.flags = KEY_DOWN | KEY_UP;
+		key.keyCode = NKCODE_BACK;
+		key.deviceId = DEVICE_ID_TOUCH;
+		NativeKey(key);
+		INFO_LOG(SYSTEM, "Detected back swipe");
+	}
 }
 
 - (void)appWillTerminate:(NSNotification *)notification
@@ -752,7 +767,10 @@ void stopLocation() {
 
 void System_LaunchUrl(LaunchUrlType urlType, char const* url)
 {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
+	});
 }
 
 void bindDefaultFBO()
