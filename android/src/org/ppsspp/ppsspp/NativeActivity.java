@@ -1631,10 +1631,10 @@ public abstract class NativeActivity extends Activity {
 			} else if (params.equals("stopRecording")) {
 				NativeApp.audioRecording_Stop();
 			}
-		} else if (command.equals("uistate")) {
+		} else if (command.equals("set_keep_screen_bright")) {
 			Window window = this.getWindow();
-			if (params.equals("ingame")) {
-				// Keep the screen bright - very annoying if it goes dark when tilting away
+			if (params.equals("on")) {
+				// Keep the screen bright - very annoying if it goes dark when using tilt or a joystick
 				window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				updateSustainedPerformanceMode();
 			} else {

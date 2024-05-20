@@ -559,8 +559,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 		if ([[GCController controllers] count] > 0) {
 			[self setupController:[[GCController controllers] firstObject]];
-		} else {
-			[[UIApplication sharedApplication] setIdleTimerDisabled:NO];
 		}
 	}
 }
@@ -589,8 +587,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		self.gameController = nil;
 		return;
 	}
-
-	[[UIApplication sharedApplication] setIdleTimerDisabled:YES];   // prevent auto-lock
 
 	self.gameController.controllerPausedHandler = ^(GCController *controller) {
 		KeyInput key;

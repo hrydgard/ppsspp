@@ -128,17 +128,7 @@ void UpdateUIState(GlobalUIState newState) {
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		System_Notify(SystemNotification::DISASSEMBLY);
-		const char *state = nullptr;
-		switch (globalUIState) {
-		case UISTATE_EXIT: state = "exit";  break;
-		case UISTATE_INGAME: state = "ingame"; break;
-		case UISTATE_MENU: state = "menu"; break;
-		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
-		case UISTATE_EXCEPTION: state = "exception"; break;
-		}
-		if (state) {
-			System_NotifyUIState(state);
-		}
+		System_SetKeepScreenBright(globalUIState == UISTATE_INGAME);
 	}
 }
 

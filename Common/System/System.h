@@ -80,6 +80,7 @@ enum class SystemRequestType {
 	SEND_DEBUG_SCREENSHOT,
 
 	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
+	SET_KEEP_SCREEN_BRIGHT,
 
 	// High-level hardware control
 	CAMERA_COMMAND,

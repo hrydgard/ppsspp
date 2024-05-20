@@ -164,6 +164,10 @@ inline void System_NotifyUIState(std::string_view state) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_STATE, NO_REQUESTER_TOKEN, nullptr, nullptr, state, "", 0);
 }
 
+inline void System_SetKeepScreenBright(bool keepScreenBright) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SET_KEEP_SCREEN_BRIGHT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)keepScreenBright);
+}
+
 inline void System_SetWindowTitle(std::string_view param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, NO_REQUESTER_TOKEN, nullptr, nullptr, param, "", 0);
 }

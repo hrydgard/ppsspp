@@ -1126,7 +1126,7 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
-#ifdef PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS)
 		std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
 		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
 #else

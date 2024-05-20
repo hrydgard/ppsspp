@@ -137,6 +137,7 @@ namespace MainWindow
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_isFullscreen = false;
+	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
@@ -159,6 +160,10 @@ namespace MainWindow
 
 	HWND GetDisplayHWND() {
 		return hwndDisplay;
+	}
+
+	void SetKeepScreenBright(bool keepBright) {
+		g_keepScreenBright = keepBright;
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -1083,16 +1088,25 @@ namespace MainWindow
 			trapMouse = true;
 			break;
 
-		// Turn off the screensaver.
+		// Turn off the screensaver if in-game.
 		// Note that if there's a screensaver password, this simple method
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
 			{
-				switch (wParam) {
-				case SC_SCREENSAVE:
-					return 0;
-				case SC_MONITORPOWER:
-					return 0;
+				if (g_keepScreenBright) {
+					switch (wParam) {
+					case SC_SCREENSAVE:
+						return 0;
+					case SC_MONITORPOWER:
+						if (lParam == 1 || lParam == 2) {
+							return 0;
+						} else {
+							break;
+						}
+					default:
+						// fall down to DefWindowProc
+						break;
+					}
 				}
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
