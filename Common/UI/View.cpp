@@ -1110,14 +1110,12 @@ TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_vi
 }
 
 void TextEdit::FocusChanged(int focusFlags) {
-#if PPSSPP_PLATFORM(UWP)
 	if (focusFlags == FF_GOTFOCUS) {
-		System_NotifyUIState("text_gotfocus");
+		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
 	}
 	else {
-		System_NotifyUIState("text_lostfocus");
+		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
 	}
-#endif
 }
 
 void TextEdit::Draw(UIContext &dc) {
