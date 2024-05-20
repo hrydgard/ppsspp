@@ -1,5 +1,5 @@
 # vim:noexpandtab:
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(PPSSPP)
 enable_testing()
 
@@ -131,7 +131,18 @@ if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")
 else()
-	message("Normal Build")
+	message("Non-gold Build")
+endif()
+
+if(IOS_APP_STORE)
+	add_definitions(-DPPSSPP_PLATFORM_IOS_APP_STORE)
+	add_definitions(-DGLES_SILENCE_DEPRECATION)
+	# Set a global default to not generate schemes for each target.
+	# Makes using XCode sligthly more sane.
+	set(CMAKE_XCODE_GENERATE_SCHEME NO)
+	message("iOS App Store build")
+else()
+	message("iOS sideload build")
 endif()
 
 # User-editable options (go into CMakeCache.txt)
@@ -312,6 +323,8 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
 	message(STATUS "No build type selected, default to Release")
 	set(CMAKE_BUILD_TYPE "Release")
+else()
+	message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 endif()
 
 message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -364,9 +377,15 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
 	endif()
 	if(CLANG)
-		add_definitions(-Wno-nullability-completeness)
-		add_definitions(-Wno-tautological-pointer-compare)
-		add_definitions(-Wno-deprecated-register)
+		add_definitions(
+			-Wno-nullability-completeness
+			-Wno-tautological-pointer-compare
+			-Wno-deprecated-register
+			-Wno-sign-conversion
+			-Wno-shorten-64-to-32
+			# Hack around a bad check for __GNUC__ in basis_universal that makes it use old stuff on iOS
+			-Wno-deprecated-builtins
+		)
 	endif()
 
 	if(USE_ASAN)
@@ -422,7 +441,7 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		if(LIBRETRO AND ARM64)
 			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14")
@@ -1310,6 +1329,7 @@ elseif(IOS AND NOT LIBRETRO)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
 	set(TargetBin PPSSPP)
 elseif(IOS AND LIBRETRO)
     set(nativeExtraLibs ${nativeExtraLibs} "-framework GLKit")
@@ -2762,8 +2782,15 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
+			set(AssetCatalog "")
+			if(IOS_APP_STORE)
+				message("Adding asset catalog to build")
+				set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
+			endif()
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			if(NOT IOS_APP_STORE)
+				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
+			endif()
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
@@ -2795,7 +2822,11 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
-	set(DEPLOYMENT_TARGET 11.0)
+	if(IOS_APP_STORE)
+		set(DEPLOYMENT_TARGET 12.0)
+	else()
+		set(DEPLOYMENT_TARGET 11.0)
+	endif()
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -2805,34 +2836,96 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	set(RSRC_XIB_FILES "Launch Screen.storyboard")
+	set(RSRC_XIB_FILES assets/Icon@2x.png "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
+
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
+
 	#This breaks in modern XCode. Not sure when it worked...
 	#if(CMAKE_GENERATOR STREQUAL "Xcode")
 	#	set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
 	#else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
-	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND mkdir -p \"${APP_DIR_NAME}\"
-		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
-	)
+
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
-	set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
-		RESOURCE "ios/Launch Screen.storyboard"
-		RESOURCE "ios/Settings.bundle"
-		RESOURCE "ext/vulkan/iOS/Frameworks"
-		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
-		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
-		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-	)
+	if(IOS_APP_STORE)
+		if(GOLD)
+			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStoreGold.plist")
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
+			set(ICON_NAME "AppIconGold")
+			set(PRODUCT_NAME "PPSSPP")
+		else()
+			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist")
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
+			set(ICON_NAME "AppIcon")
+			set(PRODUCT_NAME "PPSSPP")
+		endif()
+		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
+		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+		# This is for injecting the version into the plist, and also copying resources.
+		# Should find a different way to do both these things.
+		add_custom_command(TARGET ${TargetBin} POST_BUILD
+			COMMAND echo "Creating ${APP_DIR_NAME} for app store build"
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
+			# Prepend -v to the extracting command to see the files copied.
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			# This updates the version in the plist.
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
+		)
+		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
+		set_target_properties(${TargetBin} PROPERTIES
+			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ios/assets.xcassets"
+			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
+			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+			BUILD_WITH_INSTALL_RPATH YES
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+			# Some sources say we should generate the PLIST. There's stuff in it that
+			# I don't know how to generate, though.
+			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
+			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
+			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			XCODE_ATTRIBUTE_SKIP_INSTALL NO
+   			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
+		)
+	else()
+		# This is for injecting the version into the plist.
+		add_custom_command(TARGET PPSSPP POST_BUILD
+			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+		)
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
+			XCODE_GENERATE_SCHEME YES
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+		)
+	endif()
 endif()
 
 if(MACOSX AND NOT IOS)

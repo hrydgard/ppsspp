@@ -1317,9 +1317,9 @@ int main(int argc, char *argv[]) {
 			x = g_Config.iWindowX;
 		if (g_Config.iWindowY != -1)
 			y = g_Config.iWindowY;
-		if (g_Config.iWindowWidth > 0)
+		if (g_Config.iWindowWidth > 0 && set_xres <= 0)
 			w = g_Config.iWindowWidth;
-		if (g_Config.iWindowHeight > 0)
+		if (g_Config.iWindowHeight > 0 && set_yres <= 0)
 			h = g_Config.iWindowHeight;
 	}
 

@@ -652,7 +652,7 @@ Path GameBrowser::HomePath() {
 	if (!homePath_.empty()) {
 		return homePath_;
 	}
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
 	return g_Config.memStickDirectory;
 #else
 	return Path(getenv("HOME"));
@@ -773,7 +773,11 @@ void GameBrowser::Refresh() {
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			// Don't show a browse button, not meaningful to browse outside the documents folder it seems,
+			// as we can't list things like document folders of another app, as far as I can tell.
+			// However, we do show a Load.. button for picking individual files, that seems to work.
+#elif PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 			// on Darwin, we don't show the 'Browse' text alongside the image
 			// we show just the image, because we don't need to emphasize the button on Darwin
 			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
@@ -848,6 +852,8 @@ void GameBrowser::Refresh() {
 	std::vector<GameButton *> gameButtons;
 
 	listingPending_ = !path_.IsListingReady();
+
+	// TODO: If listing failed, show a special error message.
 
 	std::vector<Path> filenames;
 	if (HasSpecialFiles(filenames)) {
@@ -1120,12 +1126,19 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
+#ifdef PPSSPP_PLATFORM(IOS)
+		std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
+		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
+#else
+		std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
+		std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
+#endif
 
 		GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
-			mm->T("How to get games"), "https://www.ppsspp.org/getgames",
+			mm->T("How to get games"), getGamesUri,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		GameBrowser *tabHomebrew = new GameBrowser(GetRequesterToken(), GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
-			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew",
+			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), getHomebrewUri,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 		scrollAllGames_->Add(tabAllGames);
@@ -1268,7 +1281,6 @@ void MainScreen::CreateViews() {
 
 	if (!vertical) {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
 			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 			gold->OnClick.Handle(this, &MainScreen::OnSupport);
@@ -1277,7 +1289,10 @@ void MainScreen::CreateViews() {
 	}
 
 	rightColumnChoices->Add(new Spacer(25.0));
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+#endif
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -1535,7 +1550,9 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+#elif PPSSPP_PLATFORM(ANDROID)
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");

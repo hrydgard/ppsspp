@@ -29,6 +29,9 @@
 #include "Common/Log.h"
 #include "UI/DarwinFileSystemServices.h"
 
+// Compile out all the hackery in app store builds.
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+
 struct cs_blob_index {
 	uint32_t type;
 	uint32_t offset;
@@ -269,6 +272,7 @@ bool jb_enable_ptrace_hack(void) {
 	
 	return true;
 }
+#endif
 
 float g_safeInsetLeft = 0.0;
 float g_safeInsetRight = 0.0;
@@ -335,6 +339,10 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_HAS_FILE_BROWSER:
+			return true;
+		case SYSPROP_HAS_FOLDER_BROWSER:
+			return true;
 		case SYSPROP_HAS_OPEN_DIRECTORY:
 			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
@@ -350,7 +358,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
 		case SYSPROP_LIMITED_FILE_BROWSING:
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			return true;
+#else
 			return false;  // But will return true in app store builds.
+#endif
 #ifndef HTTPS_NOT_AVAILABLE
 		case SYSPROP_SUPPORTS_HTTPS:
 			return true;
@@ -362,6 +374,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
+	default: break;
 	}
 }
 
@@ -434,7 +447,9 @@ void System_AskForPermission(SystemPermission permission) {}
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
+#endif
 
 BOOL SupportsTaptic() {
 	// we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
@@ -461,6 +476,7 @@ void System_Vibrate(int mode) {
 		}
 		[app.feedbackGenerator selectionChanged];
 	} else {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 		NSArray *pattern = @[@YES, @30, @NO, @2];
 
@@ -468,27 +484,26 @@ void System_Vibrate(int mode) {
 		dictionary[@"Intensity"] = @2;
 
 		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
+#endif
 	}
 }
 
 int main(int argc, char *argv[])
 {
-	// Hacky hacks to try to enable JIT by pretending to be a debugger.
-	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
-	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
-	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
-	// see https://github.com/hrydgard/ppsspp/issues/11905
-
-	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
-	// but it just succeeds, and then fails when you try to execute from it.
-
-	// So, we'll just resort to a version check.
-
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
 	}
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	g_jitAvailable = false;
+#else
+	// Hacky hacks to try to enable JIT by pretending to be a debugger.
+	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
+	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
+	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
+	// see https://github.com/hrydgard/ppsspp/issues/11905
 
 	if (jb_spawn_ptrace_child(argc, argv)) {
 		INFO_LOG(SYSTEM, "JIT: ptrace() child spawn trick\n");
@@ -505,6 +520,11 @@ int main(int argc, char *argv[])
 		g_jitAvailable = false;
 	}
 
+	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
+	// but it just succeeds, and then fails when you try to execute from it.
+
+	// So, we'll just resort to a version check.
+	// TODO: This seems outdated.
 /*
 	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
 		g_jitAvailable = false;
@@ -512,13 +532,13 @@ int main(int argc, char *argv[])
 		g_jitAvailable = true;
 	}
 */
-
-	PROFILE_INIT();
+#endif
 
 	// Ignore sigpipe.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		perror("Unable to ignore SIGPIPE");
 	}
+	PROFILE_INIT();
 
 	@autoreleasepool {
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));

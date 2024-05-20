@@ -1231,7 +1231,9 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+#endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, ARRAY_SIZE(dateFormat), I18NCat::SYSTEM, screenManager()));
@@ -1770,6 +1772,7 @@ void DeveloperToolsScreen::CreateViews() {
 	bool canUseJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 	// iOS can now use JIT on all modes, apparently.
 	// The bool may come in handy for future non-jit platforms though (UWP XB1?)
+	// In iOS App Store builds, we disable the JIT.
 
 	static const char *cpuCores[] = {"Interpreter", "Dynarec/JIT (recommended)", "IR Interpreter", "JIT using IR"};
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
@@ -1782,7 +1785,7 @@ void DeveloperToolsScreen::CreateViews() {
 		core->HideChoice(1);
 		core->HideChoice(3);
 	}
-	// TODO: Enable on more architectures.
+	// TODO: Enable "JIT using IR" on more architectures.
 #if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
 	core->HideChoice(3);
 #endif

@@ -135,7 +135,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
 			entry.fileName.resize(trunc + 1);
 
-		entry.firstBlock = strtol(line.c_str(), NULL, 16);
+		entry.firstBlock = (u32)strtol(line.c_str(), NULL, 16);
 		if (entry.handler != NULL && entry.handler->IsValid()) {
 			HandlerFileHandle temp = entry.handler;
 			if (temp.Open(basePath.ToString(), entry.fileName, FILEACCESS_READ)) {

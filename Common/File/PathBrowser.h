@@ -47,6 +47,9 @@ public:
 	bool empty() const {
 		return path_.empty();
 	}
+	bool Success() const {
+		return success_;
+	}
 
 private:
 	void HandlePath();
@@ -67,5 +70,6 @@ private:
 	bool pendingCancel_ = false;
 	bool pendingStop_ = false;
 	bool ready_ = false;
+	bool success_ = true;
 };
 

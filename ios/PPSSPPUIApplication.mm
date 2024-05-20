@@ -35,6 +35,8 @@
 #include <sys/sysctl.h>
 #include <mach/machine.h>
 
+// This stuff reads directly from _gsEvent which is not allowed on the App Store.
+
 #ifndef IS_IOS7
 #define IS_IOS7 ([[UIDevice currentDevice].systemVersion floatValue]>=7.0)
 #endif
@@ -62,6 +64,8 @@
 #define GSEVENT_FLAG_RALT       4194304         // 0x00400000 - not sent IOS9
 
 @implementation PPSSPPUIApplication
+
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 
 - (void)decodeKeyEvent:(NSInteger *)eventMem {
     NSInteger eventType = eventMem[GSEVENT_TYPE];
@@ -107,5 +111,7 @@
         }
     }
 }
+
+#endif  // IOS_APP_STORE
 
 @end

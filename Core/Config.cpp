@@ -357,9 +357,11 @@ static const ConfigSetting cpuSettings[] = {
 };
 
 static int DefaultInternalResolution() {
-	// Auto on Windows and Linux, 2x on large screens, 1x elsewhere.
+	// Auto on Windows and Linux, 2x on large screens and iOS, 1x elsewhere.
 #if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	return 0;
+#elif PPSSPP_PLATFORM(IOS)
+	return 2;
 #else
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
 		return 4;
@@ -380,7 +382,7 @@ static int DefaultFastForwardMode() {
 }
 
 static int DefaultAndroidHwScale() {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
 		// doesn't really help very much and mostly causes problems. See #11151
@@ -1167,6 +1169,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
 	if (iMaxRecent == 0)
 		iMaxRecent = 60;
+
+	// Fix JIT setting if no longer available.
+	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
+		if (iCpuCore == (int)CPUCore::JIT || iCpuCore == (int)CPUCore::JIT_IR) {
+			WARN_LOG(LOADER, "Forcing JIT off due to unavailablility");
+			iCpuCore = (int)CPUCore::IR_INTERPRETER;
+		}
+	}
 
 	if (iMaxRecent > 0) {
 		private_->ResetRecentIsosThread();

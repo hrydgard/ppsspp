@@ -1322,7 +1322,7 @@ void sendChat(const std::string &chatString) {
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
 			if (IsSocketReady((int)metasocket, false, true) > 0) {
-				int chatResult = send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
+				int chatResult = (int)send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 				std::string name = g_Config.sNickName;
 
@@ -1437,7 +1437,7 @@ int friendFinder(){
 
 				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
 				if (IsSocketReady((int)metasocket, false, true) > 0) {
-					int iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
+					int iResult = (int)send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
 					int error = errno;
 					// KHBBS seems to be getting error 10053 often
 					if (iResult == SOCKET_ERROR) {
@@ -1464,7 +1464,7 @@ int friendFinder(){
 
 			// Check for Incoming Data
 			if (IsSocketReady((int)metasocket, true, false) > 0) {
-				int received = recv((int)metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
+				int received = (int)recv((int)metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
 
 				// Free Network Lock
 				//_freeNetworkLock();
@@ -2262,7 +2262,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	IsSocketReady((int)metasocket, false, true, nullptr, adhocDefaultTimeout);
 	DEBUG_LOG(SCENET, "InitNetwork: Sending LOGIN OPCODE %d", packet.base.opcode);
-	int sent = send((int)metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
+	int sent = (int)send((int)metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 	if (sent > 0) {
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
