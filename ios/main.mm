@@ -349,6 +349,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return false;
 		case SYSPROP_HAS_ACCELEROMETER:
 			return true;
+		case SYSPROP_HAS_KEYBOARD:
+			return true;
+		case SYSPROP_KEYBOARD_IS_SOFT:
+			// If a hardware keyboard is connected, and we add support, we could return false here.
+			return true;
 		case SYSPROP_APP_GOLD:
 #ifdef GOLD
 			return true;
@@ -435,6 +440,23 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
 		[sharedViewController shareText:text];
+		return true;
+	}
+	case SystemRequestType::NOTIFY_UI_EVENT:
+	{
+		switch ((UIEventNotification)param3) {
+		case UIEventNotification::POPUP_CLOSED:
+			[sharedViewController hideKeyboard];
+			break;
+		case UIEventNotification::TEXT_GOTFOCUS:
+			[sharedViewController showKeyboard];
+			break;
+		case UIEventNotification::TEXT_LOSTFOCUS:
+			[sharedViewController hideKeyboard];
+			break;
+		default:
+			break;
+		}
 		return true;
 	}
 /*

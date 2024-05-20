@@ -19,7 +19,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -177,6 +177,11 @@ extern float g_safeInsetBottom;
 		g_safeInsetTop = self.view.safeAreaInsets.top;
 		g_safeInsetBottom = 0.0f;
 	}
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+	[super viewDidAppear:animated];
+	[self hideKeyboard];
 }
 
 - (void)viewDidLoad {
@@ -761,6 +766,55 @@ void stopLocation() {
 					newLocation.altitude,
 					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
 					0 /* bearing */);
+}
+
+// The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
+// It's a bit limited but good enough.
+
+-(void) deleteBackward {
+	KeyInput input{};
+	input.deviceId = DEVICE_ID_KEYBOARD;
+	input.flags = KEY_DOWN | KEY_UP;
+	input.keyCode = NKCODE_DEL;
+	NativeKey(input);
+	INFO_LOG(SYSTEM, "Backspace");
+}
+
+-(BOOL) hasText
+{
+	return YES;
+}
+
+-(void) insertText:(NSString *)text
+{
+	std::string str = std::string([text UTF8String]);
+	INFO_LOG(SYSTEM, "Chars: %s", str.c_str());
+	UTF8 chars(str);
+	while (!chars.end()) {
+		uint32_t codePoint = chars.next();
+		KeyInput input{};
+		input.deviceId = DEVICE_ID_KEYBOARD;
+		input.flags = KEY_CHAR;
+		input.unicodeChar = codePoint;
+		NativeKey(input);
+	}
+}
+
+-(BOOL) canBecomeFirstResponder
+{
+	return YES;
+}
+
+-(void) showKeyboard {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self becomeFirstResponder];
+	});
+}
+
+-(void) hideKeyboard {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self resignFirstResponder];
+	});
 }
 
 @end

@@ -537,6 +537,9 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	}
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
+	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
+		popupScreen->SetAlignTop(true);
+	}
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);

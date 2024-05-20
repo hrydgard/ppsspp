@@ -385,10 +385,6 @@ void PopupScreen::SetPopupOrigin(const UI::View *view) {
 	popupOrigin_ = view->GetBounds().Center();
 }
 
-void PopupScreen::SetPopupOffset(float y) {
-	offsetY_ = y;
-}
-
 void PopupScreen::TriggerFinish(DialogResult result) {
 	if (CanComplete(result)) {
 		ignoreInput_ = true;
@@ -411,8 +407,18 @@ void PopupScreen::CreateViews() {
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
-	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true));
+	AnchorLayoutParams *anchorParams;
+	if (!alignTop_) {
+		// Standard centering etc.
+		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
+			dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true);
+	} else {
+		// Top-aligned, for dialogs where we need to pop a keyboard below.
+		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
+			NONE, 0, NONE, NONE, false);
+	}
+
+	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
 
 	root_->Add(box_);
 	box_->SetBG(dc.theme->popupStyle.background);
