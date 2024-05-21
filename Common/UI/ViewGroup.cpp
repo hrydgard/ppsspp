@@ -1194,8 +1194,10 @@ void CollapsibleSection::Update() {
 }
 
 void CollapsibleSection::UpdateVisibility() {
+	const bool open = *open_;
+	// Skipping over the header, we start from 1, not 0.
 	for (size_t i = 1; i < views_.size(); i++) {
-		views_[i]->SetVisibility(*open_ ? V_VISIBLE : V_GONE);
+		views_[i]->SetVisibility(open ? V_VISIBLE : V_GONE);
 	}
 }
 
