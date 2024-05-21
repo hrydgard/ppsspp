@@ -91,14 +91,15 @@
 
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
+	PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
 	// Here we can switch viewcontroller depending on backend.
-	self.viewController = [[PPSSPPViewControllerGL alloc] init];
+	self.viewController = vc;
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
 
-	self.window.rootViewController = self.viewController;
+	self.window.rootViewController = vc;
 	[self.window makeKeyAndVisible];
 
 	return YES;

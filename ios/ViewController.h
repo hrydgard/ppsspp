@@ -16,6 +16,7 @@
 - (void)shareText:(NSString *)text;
 - (void)shutdown;
 - (void)bindDefaultFBO;
+- (UIView *)getView;
 @end
 
 @interface PPSSPPViewControllerGL : GLKViewController <

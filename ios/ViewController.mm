@@ -599,6 +599,10 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	return UIRectEdgeAll;
 }
 
+- (UIView *)getView {
+	return [self view];
+}
+
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
