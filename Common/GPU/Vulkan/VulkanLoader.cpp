@@ -39,6 +39,7 @@
 #endif
 
 namespace PPSSPP_VK {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -240,12 +241,14 @@ PFN_vkCreateRenderPass2 vkCreateRenderPass2;
 PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
-
+#endif
 } // namespace PPSSPP_VK
 
 using namespace PPSSPP_VK;
 
-#if PPSSPP_PLATFORM(SWITCH)
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+// Statically linked MoltenVK
+#elif PPSSPP_PLATFORM(SWITCH)
 typedef void *VulkanLibraryHandle;
 static VulkanLibraryHandle vulkanLibrary;
 #define dlsym(x, y) nullptr
@@ -280,7 +283,8 @@ static const char * const device_name_blacklist[] = {
 
 #ifndef _WIN32
 static const char * const so_names[] = {
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#elif PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
@@ -295,6 +299,7 @@ static const char * const so_names[] = {
 };
 #endif
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Always unavailable, for now.
@@ -346,11 +351,13 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 				break;
 			}
 		}
-}
+	}
 	return lib;
 #endif
 }
+#endif
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 	if (h) {
 #if PPSSPP_PLATFORM(SWITCH)
@@ -363,6 +370,7 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 		h = nullptr;
 	}
 }
+#endif
 
 void VulkanSetAvailable(bool available) {
 	INFO_LOG(G3D, "Setting Vulkan availability to true");
@@ -371,6 +379,13 @@ void VulkanSetAvailable(bool available) {
 }
 
 bool VulkanMayBeAvailable() {
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	g_vulkanAvailabilityChecked = true;
+	g_vulkanMayBeAvailable = true;
+	INFO_LOG(G3D, "iOS: VulkanMayBeAvailable(): Reporting Vulkan as available");
+	return true;
+#else
+
 	// Unsupported in VR at the moment
 	if (IsVREnabled()) {
 		return false;
@@ -557,9 +572,15 @@ bail:
 		WARN_LOG(G3D, "Vulkan with working device not detected.");
 	}
 	return g_vulkanMayBeAvailable;
+#endif
 }
 
 bool VulkanLoad(std::string *errorStr) {
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	INFO_LOG(G3D, "iOS: Vulkan doesn't need loading");
+	return true;
+#else
+
 	if (!vulkanLibrary) {
 		vulkanLibrary = VulkanLoadLibrary(errorStr);
 		if (!vulkanLibrary) {
@@ -585,9 +606,11 @@ bool VulkanLoad(std::string *errorStr) {
 		VulkanFreeLibrary(vulkanLibrary);
 		return false;
 	}
+#endif
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion) {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -655,12 +678,14 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 	}
 
 	INFO_LOG(G3D, "Vulkan instance functions loaded.");
+#endif
 }
 
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion) {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	INFO_LOG(G3D, "Vulkan device functions loaded.");
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
@@ -799,10 +824,13 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	if (enabledExtensions.KHR_create_renderpass2) {
 		LOAD_DEVICE_FUNC_CORE(device, vkCreateRenderPass2, vkCreateRenderPass2KHR, VK_API_VERSION_1_2);
 	}
+#endif
 }
 
 void VulkanFree() {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	VulkanFreeLibrary(vulkanLibrary);
+#endif
 }
 
 const char *VulkanResultToString(VkResult res) {

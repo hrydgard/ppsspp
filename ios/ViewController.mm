@@ -216,7 +216,8 @@ extern float g_safeInsetBottom;
 
 	[self hideKeyboard];
 
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+	// Was previously DISPATCH_QUEUE_PRIORITY_HIGH.
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
 		INFO_LOG(SYSTEM, "Emulation thread starting\n");
