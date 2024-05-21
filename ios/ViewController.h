@@ -18,7 +18,7 @@
 - (void)bindDefaultFBO;
 @end
 
-@interface ViewController : GLKViewController <
+@interface PPSSPPViewControllerGL : GLKViewController <
     iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
     UIGestureRecognizerDelegate, UIKeyInput, PPSSPPViewController>
 @end

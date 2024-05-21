@@ -2,13 +2,13 @@
 
 #import <UIKit/UIKit.h>
 
-@class ViewController;
+@class PPSSPPViewControllerGL;
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
 @property (strong, nonatomic) UIScreen *screen;
 
-@property (strong, nonatomic) ViewController *viewController;
+@property (strong, nonatomic) PPSSPPViewControllerGL *viewController;
 
 @end
