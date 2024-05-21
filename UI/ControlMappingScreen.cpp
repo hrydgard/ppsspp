@@ -282,14 +282,14 @@ void ControlMappingScreen::CreateViews() {
 	struct Cat {
 		const char *catName;
 		int firstKey;
-		bool *open;
 	};
+
 	// Category name, first input from psp_button_names.
 	static const Cat cats[] = {
-		{"Standard PSP controls", CTRL_UP, &categoryToggles_[0]},
-		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW, &categoryToggles_[1]},
-		{"Emulator controls", VIRTKEY_FASTFORWARD, &categoryToggles_[2]},
-		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX, &categoryToggles_[3]},
+		{"Standard PSP controls", CTRL_UP},
+		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
+		{"Emulator controls", VIRTKEY_FASTFORWARD},
+		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
 	};
 
 	int curCat = -1;
@@ -297,7 +297,7 @@ void ControlMappingScreen::CreateViews() {
 	for (size_t i = 0; i < numMappableKeys; i++) {
 		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
 			if (curCat >= 0) {
-				curSection->SetOpenPtr(cats[curCat].open);
+				curSection->SetOpenPtr(&categoryToggles_[curCat]);
 			}
 			curCat++;
 			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
@@ -310,8 +310,9 @@ void ControlMappingScreen::CreateViews() {
 		mappers_.push_back(mapper);
 	}
 	if (curCat >= 0 && curSection) {
-		curSection->SetOpenPtr(cats[curCat].open);
+		curSection->SetOpenPtr(&categoryToggles_[curCat]);
 	}
+	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 1);
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }
