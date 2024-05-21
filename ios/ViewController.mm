@@ -325,12 +325,6 @@ extern float g_safeInsetBottom;
 	[self shutdown];
 }
 
-// For iOS before 6.0
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
-{
-	return UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-}
-
 // For iOS 6.0 and up
 - (NSUInteger)supportedInterfaceOrientations
 {
@@ -346,7 +340,6 @@ extern float g_safeInsetBottom;
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
 	float scale = [UIScreen mainScreen].scale;
-
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
 		scale = [UIScreen mainScreen].nativeScale;
 	}
