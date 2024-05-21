@@ -98,7 +98,7 @@ static bool threadEnabled = true;
 static bool threadStopped = false;
 static UITouch *g_touches[10];
 
-__unsafe_unretained ViewController* sharedViewController;
+id<PPSSPPViewController> sharedViewController;
 static GraphicsContext *graphicsContext;
 static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
@@ -181,7 +181,6 @@ extern float g_safeInsetBottom;
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
-	[self hideKeyboard];
 }
 
 - (void)viewDidLoad {
@@ -239,6 +238,8 @@ extern float g_safeInsetBottom;
 
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
+
+	[self hideKeyboard];
 
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
