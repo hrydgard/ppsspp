@@ -1,4 +1,10 @@
 // main.mm boilerplate
+//
+// Overview
+//
+// main.mm: JIT enablement, starting the next step
+// AppDelegate.mm: Runs NativeInit, launches the main ViewController
+// ViewController.mm: The main application window
 
 #import <UIKit/UIKit.h>
 #import <dlfcn.h>

@@ -166,7 +166,7 @@
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / (float)g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / (float)g_display.dp_yres;
 	
-	[[sharedViewController view] setContentScaleFactor:scale];
+	[[sharedViewController getView] setContentScaleFactor:scale];
 	
 	// PSP native resize
 	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;

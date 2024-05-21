@@ -89,15 +89,17 @@
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
 
-
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-	self.viewController = [[ViewController alloc] init];
+
+	PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
+	// Here we can switch viewcontroller depending on backend.
+	self.viewController = vc;
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
 
-	self.window.rootViewController = self.viewController;
+	self.window.rootViewController = vc;
 	[self.window makeKeyAndVisible];
 
 	return YES;

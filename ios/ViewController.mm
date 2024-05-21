@@ -45,9 +45,9 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSGraphicsContext : public GraphicsContext {
+class IOSGLESContext : public GraphicsContext {
 public:
-	IOSGraphicsContext() {
+	IOSGLESContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext(false);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -56,7 +56,7 @@ public:
 		bool success = draw_->CreatePresets();
 		_assert_msg_(success, "Failed to compile preset shaders");
 	}
-	~IOSGraphicsContext() {
+	~IOSGLESContext() {
 		delete draw_;
 	}
 	Draw::DrawContext *GetDrawContext() override {
@@ -98,12 +98,12 @@ static bool threadEnabled = true;
 static bool threadStopped = false;
 static UITouch *g_touches[10];
 
-__unsafe_unretained ViewController* sharedViewController;
+id<PPSSPPViewController> sharedViewController;
 static GraphicsContext *graphicsContext;
 static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
 
-@interface ViewController () {
+@interface PPSSPPViewControllerGL () {
 	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
 }
 
@@ -116,7 +116,7 @@ static LocationHelper *locationHelper;
 
 @end
 
-@implementation ViewController
+@implementation PPSSPPViewControllerGL
 
 -(id) init {
 	self = [super init];
@@ -181,7 +181,6 @@ extern float g_safeInsetBottom;
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
-	[self hideKeyboard];
 }
 
 - (void)viewDidLoad {
@@ -210,7 +209,7 @@ extern float g_safeInsetBottom;
 
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
-	graphicsContext = new IOSGraphicsContext();
+	graphicsContext = new IOSGLESContext();
 
 	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
@@ -239,6 +238,8 @@ extern float g_safeInsetBottom;
 
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
+
+	[self hideKeyboard];
 
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
@@ -596,6 +597,10 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 -(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
 {
 	return UIRectEdgeAll;
+}
+
+- (UIView *)getView {
+	return [self view];
 }
 
 - (void)setupController:(GCController *)controller
