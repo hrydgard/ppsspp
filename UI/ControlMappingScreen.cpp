@@ -235,6 +235,20 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+
+struct BindingCategory {
+	const char *catName;
+	int firstKey;
+};
+
+// Category name, first input from psp_button_names.
+static const BindingCategory cats[] = {
+	{"Standard PSP controls", CTRL_UP},
+	{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
+	{"Emulator controls", VIRTKEY_FASTFORWARD},
+	{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
+};
+
 void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
@@ -278,19 +292,6 @@ void ControlMappingScreen::CreateViews() {
 
 	size_t numMappableKeys = 0;
 	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
-
-	struct Cat {
-		const char *catName;
-		int firstKey;
-	};
-
-	// Category name, first input from psp_button_names.
-	static const Cat cats[] = {
-		{"Standard PSP controls", CTRL_UP},
-		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
-		{"Emulator controls", VIRTKEY_FASTFORWARD},
-		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
-	};
 
 	int curCat = -1;
 	CollapsibleSection *curSection = nullptr;
