@@ -88,9 +88,6 @@ private:
 	GLRenderManager *renderManager_;
 };
 
-static float dp_xscale = 1.0f;
-static float dp_yscale = 1.0f;
-
 static double lastSelectPress = 0.0f;
 static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
@@ -214,9 +211,6 @@ extern float g_safeInsetBottom;
 
 	graphicsContext->ThreadStart();
 
-	dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
-	dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
-
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
@@ -318,7 +312,6 @@ extern float g_safeInsetBottom;
 	[self shutdown];
 }
 
-// For iOS 6.0 and up
 - (NSUInteger)supportedInterfaceOrientations
 {
 	return UIInterfaceOrientationMaskLandscape;
@@ -328,27 +321,6 @@ extern float g_safeInsetBottom;
 {
 	if (sharedViewController)
 		graphicsContext->ThreadFrame();
-}
-
-static void SendTouchEvent(float x, float y, int code, int pointerId) {
-	float scale = [UIScreen mainScreen].scale;
-	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
-		scale = [UIScreen mainScreen].nativeScale;
-	}
-
-	float scaledX = (int)(x * dp_xscale) * scale;
-	float scaledY = (int)(y * dp_yscale) * scale;
-
-	TouchInput input;
-	input.x = scaledX;
-	input.y = scaledY;
-	switch (code) {
-		case 1: input.flags = TOUCH_DOWN; break;
-		case 2: input.flags = TOUCH_UP; break;
-		default: input.flags = TOUCH_MOVE; break;
-	}
-	input.id = pointerId;
-	NativeTouch(input);
 }
 
 int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
@@ -377,8 +349,9 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
+	UIView *view = self.view;
 	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:self.view];
+		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
 		SendTouchEvent(point.x, point.y, 1, touchId);
 	}
@@ -386,8 +359,9 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
+	UIView *view = self.view;
 	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:self.view];
+		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
 		SendTouchEvent(point.x, point.y, 0, touchId);
 	}
@@ -395,8 +369,9 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
+	UIView *view = self.view;
 	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:self.view];
+		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
 			SendTouchEvent(point.x, point.y, 2, touchId);
@@ -407,8 +382,9 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
+	UIView *view = self.view;
 	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:self.view];
+		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
 			SendTouchEvent(point.x, point.y, 2, touchId);

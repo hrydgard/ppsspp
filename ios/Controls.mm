@@ -3,6 +3,7 @@
 #include "Common/Log.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Display.h"
 
 static void controllerButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	KeyInput key;
@@ -146,3 +147,28 @@ bool SetupController(GCController *controller) {
 
     return true;
 }
+
+void SendTouchEvent(float x, float y, int code, int pointerId) {
+	float scale = [UIScreen mainScreen].scale;
+	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
+		scale = [UIScreen mainScreen].nativeScale;
+	}
+
+	float dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
+	float dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
+
+	float scaledX = (int)(x * dp_xscale) * scale;
+	float scaledY = (int)(y * dp_yscale) * scale;
+
+	TouchInput input;
+	input.x = scaledX;
+	input.y = scaledY;
+	switch (code) {
+		case 1: input.flags = TOUCH_DOWN; break;
+		case 2: input.flags = TOUCH_UP; break;
+		default: input.flags = TOUCH_MOVE; break;
+	}
+	input.id = pointerId;
+	NativeTouch(input);
+}
+
