@@ -7,15 +7,7 @@
 #import "CameraHelper.h"
 #import "LocationHelper.h"
 
-@protocol PPSSPPViewController<NSObject>
-@optional
-- (void)hideKeyboard;
-- (void)showKeyboard;
-- (void)shareText:(NSString *)text;
-- (void)shutdown;
-- (void)bindDefaultFBO;
-- (UIView *)getView;
-@end
+#include "ViewControllerCommon.h"
 
 @interface PPSSPPViewControllerGL : GLKViewController <
     iCadeEventDelegate, LocationHandlerDelegate, CameraFrameDelegate,
@@ -23,9 +15,3 @@
 @end
 
 extern id <PPSSPPViewController> sharedViewController;
-
-void setCameraSize(int width, int height);
-void startVideo();
-void stopVideo();
-void startLocation();
-void stopLocation();

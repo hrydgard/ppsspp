@@ -1292,6 +1292,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/DisplayManager.mm
 		ios/Controls.h
 		ios/Controls.mm
+		ios/ViewControllerCommon.h
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/iOSCoreAudio.mm
