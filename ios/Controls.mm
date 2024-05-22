@@ -16,8 +16,8 @@ static void controllerButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 }
 
 bool SetupController(GCController *controller) {
-	GCGamepad *baseProfile = controller.gamepad;
-	if (baseProfile == nil) {
+	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
+	if (extendedProfile == nil) {
 		return false;
 	}
 
@@ -29,49 +29,45 @@ bool SetupController(GCController *controller) {
 		NativeKey(key);
 	};
 
-	baseProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
 	};
 
-	baseProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_3); // Circle
 	};
 
-	baseProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_4); // Square
 	};
 
-	baseProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_1); // Triangle
 	};
 
-	baseProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_7); // LTrigger
 	};
 
-	baseProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_8); // RTrigger
 	};
 
-	baseProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_DPAD_UP);
 	};
 
-	baseProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_DPAD_DOWN);
 	};
 
-	baseProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_DPAD_LEFT);
 	};
 
-	baseProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+	extendedProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_DPAD_RIGHT);
 	};
-
-	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
-	if (extendedProfile == nil)
-		return; // controller doesn't support extendedGamepad profile
 
 	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_9); // Select
