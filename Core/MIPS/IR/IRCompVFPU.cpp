@@ -969,6 +969,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
+
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
 		int optype = (op >> 16) & 0x1f;
 		if (optype == 0) {
 			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
