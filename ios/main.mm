@@ -429,8 +429,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		if (!strncmp(param1.c_str(), "startVideo", 10)) {
 			int width = 0, height = 0;
 			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
-			setCameraSize(width, height);
-			startVideo();
+			startVideo(width, height);
 		} else if (!strcmp(param1.c_str(), "stopVideo")) {
 			stopVideo();
 		}

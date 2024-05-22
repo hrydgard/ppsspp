@@ -382,12 +382,8 @@ extern float g_safeInsetBottom;
 	}
 }
 
-void setCameraSize(int width, int height) {
-	[cameraHelper setCameraSize: width h:height];
-}
-
-void startVideo() {
-	[cameraHelper startVideo];
+void startVideo(int width, int height) {
+	[cameraHelper startVideo: width h:height];
 }
 
 void stopVideo() {

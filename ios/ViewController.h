@@ -16,6 +16,5 @@
 
 extern id <PPSSPPViewController> sharedViewController;
 
-void setCameraSize(int width, int height);
-void startVideo();
+void startVideo(int width, int height);
 void stopVideo();
