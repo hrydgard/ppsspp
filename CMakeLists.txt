@@ -1295,6 +1295,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerCommon.h
 		ios/ViewController.mm
 		ios/ViewController.h
+		ios/ViewControllerMetal.mm
+		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/CameraHelper.mm
