@@ -1,9 +1,11 @@
 #include "Controls.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
+#include "Core/KeyMap.h"
 
 static void controllerButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	KeyInput key;
@@ -231,5 +233,130 @@ void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
             SendTouchEvent(point.x, point.y, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
+	}
+}
+
+void ICadeTracker::InitKeyMap() {
+    iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
+    iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
+    iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
+    iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
+    iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
+    iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
+    iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
+    iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
+    iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
+    iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
+    iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
+    iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
+}
+
+void ICadeTracker::ButtonDown(iCadeState button) {
+	if (simulateAnalog &&
+		((button == iCadeJoystickUp) ||
+		 (button == iCadeJoystickDown) ||
+		 (button == iCadeJoystickLeft) ||
+		 (button == iCadeJoystickRight))) {
+		AxisInput axis;
+		switch (button) {
+			case iCadeJoystickUp :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = -1.0f;
+				break;
+
+			case iCadeJoystickDown :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = 1.0f;
+				break;
+
+			case iCadeJoystickLeft :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = -1.0f;
+				break;
+
+			case iCadeJoystickRight :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = 1.0f;
+				break;
+
+			default:
+				break;
+		}
+		axis.deviceId = DEVICE_ID_PAD_0;
+		NativeAxis(&axis, 1);
+	} else {
+		KeyInput key;
+		key.flags = KEY_DOWN;
+		key.keyCode = iCadeToKeyMap[button];
+		key.deviceId = DEVICE_ID_PAD_0;
+		NativeKey(key);
+	}
+}
+
+void ICadeTracker::ButtonUp(iCadeState button) {
+    if (!iCadeConnectNotified) {
+		iCadeConnectNotified = true;
+		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, "iCade");
+	}
+
+	if (button == iCadeButtonA) {
+		// Pressing Select twice within 1 second toggles the DPad between
+		//     normal operation and simulating the Analog stick.
+		if ((lastSelectPress + 1.0f) > time_now_d())
+			simulateAnalog = !simulateAnalog;
+		lastSelectPress = time_now_d();
+	}
+
+	if (button == iCadeButtonC) {
+		// Pressing Start twice within 1 second will take to the Emu menu
+		if ((lastStartPress + 1.0f) > time_now_d()) {
+			KeyInput key;
+			key.flags = KEY_DOWN;
+			key.keyCode = NKCODE_ESCAPE;
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			NativeKey(key);
+			return;
+		}
+		lastStartPress = time_now_d();
+	}
+
+	if (simulateAnalog &&
+		((button == iCadeJoystickUp) ||
+		 (button == iCadeJoystickDown) ||
+		 (button == iCadeJoystickLeft) ||
+		 (button == iCadeJoystickRight))) {
+		AxisInput axis;
+		switch (button) {
+			case iCadeJoystickUp :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = 0.0f;
+				break;
+
+			case iCadeJoystickDown :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = 0.0f;
+				break;
+
+			case iCadeJoystickLeft :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = 0.0f;
+				break;
+
+			case iCadeJoystickRight :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = 0.0f;
+				break;
+
+			default:
+				break;
+		}
+		axis.deviceId = DEVICE_ID_PAD_0;
+		NativeAxis(&axis, 1);
+	} else {
+		KeyInput key;
+		key.flags = KEY_UP;
+		key.keyCode = iCadeToKeyMap[button];
+		key.deviceId = DEVICE_ID_PAD_0;
+		NativeKey(key);
 	}
 }
