@@ -807,14 +807,6 @@ void stopLocation() {
 
 @end
 
-void System_LaunchUrl(LaunchUrlType urlType, char const* url)
-{
-	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
-	});
-}
-
 void bindDefaultFBO()
 {
 	[sharedViewController bindDefaultFBO];
