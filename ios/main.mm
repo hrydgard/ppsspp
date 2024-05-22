@@ -429,9 +429,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		if (!strncmp(param1.c_str(), "startVideo", 10)) {
 			int width = 0, height = 0;
 			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
-			startVideo(width, height);
+			[sharedViewController startVideo:width height:height];
 		} else if (!strcmp(param1.c_str(), "stopVideo")) {
-			stopVideo();
+			[sharedViewController stopVideo];
 		}
 		return true;
 	case SystemRequestType::GPS_COMMAND:

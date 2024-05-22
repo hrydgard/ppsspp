@@ -15,6 +15,3 @@
 @end
 
 extern id <PPSSPPViewController> sharedViewController;
-
-void startVideo(int width, int height);
-void stopVideo();

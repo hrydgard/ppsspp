@@ -382,11 +382,11 @@ extern float g_safeInsetBottom;
 	}
 }
 
-void startVideo(int width, int height) {
-	[cameraHelper startVideo: width h:height];
+- (void)startVideo:(int)width height:(int)height {
+	[cameraHelper startVideo:width h:height];
 }
 
-void stopVideo() {
+- (void)stopVideo {
 	[cameraHelper stopVideo];
 }
 
