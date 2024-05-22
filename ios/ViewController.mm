@@ -95,13 +95,13 @@ id<PPSSPPViewController> sharedViewController;
 
 // TODO: Reach these through sharedViewController
 static CameraHelper *cameraHelper;
-static LocationHelper *locationHelper;
 
 @interface PPSSPPViewControllerGL () {
 	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
 
 	GraphicsContext *graphicsContext;
+	LocationHelper *locationHelper;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
@@ -394,19 +394,19 @@ void stopVideo() {
 	[cameraHelper stopVideo];
 }
 
--(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
 	Camera::pushCameraImage(len, data);
 }
 
-void startLocation() {
+- (void)startLocation {
 	[locationHelper startLocationUpdates];
 }
 
-void stopLocation() {
+- (void)stopLocation {
 	[locationHelper stopLocationUpdates];
 }
 
--(void) SetGpsDataIOS:(CLLocation *)newLocation {
+- (void)SetGpsDataIOS:(CLLocation *)newLocation {
 	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
 					newLocation.horizontalAccuracy/5.0,
 					newLocation.coordinate.latitude, newLocation.coordinate.longitude,

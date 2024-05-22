@@ -437,9 +437,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::GPS_COMMAND:
 		if (param1 == "open") {
-			startLocation();
+			[sharedViewController startLocation];
 		} else if (param1 == "close") {
-			stopLocation();
+			[sharedViewController stopLocation];
 		}
 		return true;
 	case SystemRequestType::SHARE_TEXT:
