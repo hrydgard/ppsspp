@@ -93,15 +93,13 @@ static bool threadStopped = false;
 
 id<PPSSPPViewController> sharedViewController;
 
-// TODO: Reach these through sharedViewController
-static CameraHelper *cameraHelper;
-
 @interface PPSSPPViewControllerGL () {
 	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
 
 	GraphicsContext *graphicsContext;
 	LocationHelper *locationHelper;
+	CameraHelper *cameraHelper;
 }
 
 @property (nonatomic, strong) EAGLContext* context;

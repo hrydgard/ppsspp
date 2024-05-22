@@ -33,6 +33,7 @@
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 #define VK_NO_PROTOTYPES
+#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
 #endif
 
 #include "ext/vulkan/vulkan.h"

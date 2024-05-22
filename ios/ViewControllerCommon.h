@@ -17,3 +17,5 @@
 - (void)stopVideo;
 
 @end
+
+extern id <PPSSPPViewController> sharedViewController;

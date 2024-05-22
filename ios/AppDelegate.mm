@@ -1,5 +1,6 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
+#import "ViewControllerMetal.h"
 #import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
@@ -91,16 +92,24 @@
 
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
-	PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
-	// Here we can switch viewcontroller depending on backend.
-	self.viewController = vc;
+	// Choose viewcontroller depending on backend.
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		PPSSPPViewControllerMetal *vc = [[PPSSPPViewControllerMetal alloc] init];
+
+		self.viewController = vc;
+		self.window.rootViewController = vc;
+
+	} else {
+		PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
+		// Here we can switch viewcontroller depending on backend.
+		self.viewController = vc;
+		self.window.rootViewController = vc;
+	}
+
+	[self.window makeKeyAndVisible];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
-
-	self.window.rootViewController = vc;
-	[self.window makeKeyAndVisible];
 
 	return YES;
 }

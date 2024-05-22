@@ -140,6 +140,8 @@ if(IOS_APP_STORE)
 	# Set a global default to not generate schemes for each target.
 	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
 	message("iOS App Store build")
 else()
 	message("iOS sideload build")
