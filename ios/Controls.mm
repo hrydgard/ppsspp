@@ -148,7 +148,7 @@ bool SetupController(GCController *controller) {
     return true;
 }
 
-void SendTouchEvent(float x, float y, int code, int pointerId) {
+void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
 	float scale = [UIScreen mainScreen].scale;
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
 		scale = [UIScreen mainScreen].nativeScale;
@@ -172,3 +172,64 @@ void SendTouchEvent(float x, float y, int code, int pointerId) {
 	NativeTouch(input);
 }
 
+int TouchTracker::ToTouchID(UITouch *uiTouch, bool allowAllocate) {
+	// Find the id for the touch.
+	for (int localId = 0; localId < (int)ARRAY_SIZE(touches_); ++localId) {
+		if (touches_[localId] == uiTouch) {
+			return localId;
+		}
+	}
+
+	// Allocate a new one, perhaps?
+	if (allowAllocate) {
+		for (int localId = 0; localId < (int)ARRAY_SIZE(touches_); ++localId) {
+			if (touches_[localId] == 0) {
+				touches_[localId] = uiTouch;
+				return localId;
+			}
+		}
+
+		// None were free. Ignore?
+		return 0;
+	}
+
+	return -1;
+}
+
+void TouchTracker::Began(NSSet *touches, UIView *view) {
+	for (UITouch* touch in touches) {
+		CGPoint point = [touch locationInView:view];
+		int touchId = ToTouchID(touch, true);
+		SendTouchEvent(point.x, point.y, 1, touchId);
+	}
+}
+
+void TouchTracker::Moved(NSSet *touches, UIView *view) {
+    for (UITouch* touch in touches) {
+		CGPoint point = [touch locationInView:view];
+		int touchId = ToTouchID(touch, true);
+		SendTouchEvent(point.x, point.y, 0, touchId);
+	}
+}
+
+void TouchTracker::Ended(NSSet *touches, UIView *view) {
+    for (UITouch* touch in touches) {
+		CGPoint point = [touch locationInView:view];
+		int touchId = ToTouchID(touch, false);
+		if (touchId >= 0) {
+            SendTouchEvent(point.x, point.y, 2, touchId);
+			touches_[touchId] = nullptr;
+		}
+	}
+}
+
+void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
+    for (UITouch* touch in touches) {
+		CGPoint point = [touch locationInView:view];
+		int touchId = ToTouchID(touch, false);
+		if (touchId >= 0) {
+            SendTouchEvent(point.x, point.y, 2, touchId);
+			touches_[touchId] = nullptr;
+		}
+	}
+}

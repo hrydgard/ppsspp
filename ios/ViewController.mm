@@ -94,7 +94,7 @@ static bool simulateAnalog = false;
 static bool iCadeConnectNotified = false;
 static bool threadEnabled = true;
 static bool threadStopped = false;
-static UITouch *g_touches[10];
+static TouchTracker g_touchTracker;
 
 id<PPSSPPViewController> sharedViewController;
 static GraphicsContext *graphicsContext;
@@ -118,8 +118,6 @@ static LocationHelper *locationHelper;
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
-		memset(g_touches, 0, sizeof(g_touches));
-
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
 		iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
@@ -323,74 +321,24 @@ extern float g_safeInsetBottom;
 		graphicsContext->ThreadFrame();
 }
 
-int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
-	// Find the id for the touch.
-	for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
-		if (g_touches[localId] == uiTouch) {
-			return localId;
-		}
-	}
-
-	// Allocate a new one, perhaps?
-	if (allowAllocate) {
-		for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
-			if (g_touches[localId] == 0) {
-				g_touches[localId] = uiTouch;
-				return localId;
-			}
-		}
-
-		// None were free. Ignore?
-		return 0;
-	}
-
-	return -1;
-}
-
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	UIView *view = self.view;
-	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:view];
-		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 1, touchId);
-	}
+	g_touchTracker.Began(touches, self.view);
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	UIView *view = self.view;
-	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:view];
-		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 0, touchId);
-	}
+	g_touchTracker.Moved(touches, self.view);
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	UIView *view = self.view;
-	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:view];
-		int touchId = ToTouchID(touch, false);
-		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
-			g_touches[touchId] = nullptr;
-		}
-	}
+	g_touchTracker.Ended(touches, self.view);
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-	UIView *view = self.view;
-	for (UITouch* touch in touches) {
-		CGPoint point = [touch locationInView:view];
-		int touchId = ToTouchID(touch, false);
-		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
-			g_touches[touchId] = nullptr;
-		}
-	}
+	g_touchTracker.Cancelled(touches, self.view);
 }
 
 - (void)bindDefaultFBO
