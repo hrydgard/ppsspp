@@ -39,13 +39,6 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <mach/machine.h>
-
-#define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
-#define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
-
 class IOSGLESContext : public GraphicsContext {
 public:
 	IOSGLESContext() {
@@ -118,12 +111,8 @@ id<PPSSPPViewController> sharedViewController;
 		g_iCadeTracker.InitKeyMap();
 
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
-
-		if ([GCController class]) // Checking the availability of a GameController framework
-		{
-			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
-			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
-		}
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
 	return self;
 }
@@ -174,10 +163,6 @@ extern float g_safeInsetBottom;
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
 
-	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
-	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
-	[[self view] addGestureRecognizer:mBackGestureRecognizer];
-
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
@@ -200,10 +185,8 @@ extern float g_safeInsetBottom;
 	self.iCadeView.delegate = self;
 	self.iCadeView.active = YES;*/
 
-	if ([GCController class]) {
-		if ([[GCController controllers] count] > 0) {
-			[self setupController:[[GCController controllers] firstObject]];
-		}
+	if ([[GCController controllers] count] > 0) {
+		[self setupController:[[GCController controllers] firstObject]];
 	}
 
 	cameraHelper = [[CameraHelper alloc] init];
@@ -213,6 +196,10 @@ extern float g_safeInsetBottom;
 	[locationHelper setDelegate:self];
 
 	[self hideKeyboard];
+
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
 	// Was previously DISPATCH_QUEUE_PRIORITY_HIGH.
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -279,9 +266,7 @@ extern float g_safeInsetBottom;
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
-	if ([GCController class]) {
-		self.gameController = nil;
-	}
+	self.gameController = nil;
 
 	if (graphicsContext) {
 		graphicsContext->Shutdown();
@@ -294,6 +279,7 @@ extern float g_safeInsetBottom;
 
 - (void)dealloc
 {
+	INFO_LOG(SYSTEM, "dealloc");
 	[self shutdown];
 }
 

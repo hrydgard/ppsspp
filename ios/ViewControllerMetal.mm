@@ -23,6 +23,8 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 
 // TODO: Share this between backends.
 static uint32_t FlagsFromConfig() {
@@ -249,12 +251,8 @@ static std::mutex renderLock;
 		g_iCadeTracker.InitKeyMap();
 
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
-
-		if ([GCController class]) // Checking the availability of a GameController framework
-		{
-			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
-			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
-		}
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
 	return self;
 }
@@ -361,10 +359,24 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	int desiredBackbufferSizeX = g_display.pixel_xres;
 	int desiredBackbufferSizeY = g_display.pixel_yres;
 
+	if ([[GCController controllers] count] > 0) {
+		[self setupController:[[GCController controllers] firstObject]];
+	}
+
 	INFO_LOG(G3D, "Detected size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
 	CAMetalLayer *layer = (CAMetalLayer *)self.view.layer;
 
+	cameraHelper = [[CameraHelper alloc] init];
+	[cameraHelper setDelegate:self];
+
+	locationHelper = [[LocationHelper alloc] init];
+	[locationHelper setDelegate:self];
+
 	[self hideKeyboard];
+
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
@@ -384,33 +396,19 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	return [self view];
 }
 
-/** Since this is a single-view app, initialize Vulkan as view is appearing. */
-- (void)viewWillAppear:(BOOL) animated {
+- (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear: animated];
-
 	self.view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
-
-	uint32_t fps = 60;
-	/*
-	_displayLink = [CADisplayLink displayLinkWithTarget: self selector: @selector(renderLoop)];
-	[_displayLink setFrameInterval: 60 / fps];
-	[_displayLink addToRunLoop: NSRunLoop.currentRunLoop forMode: NSDefaultRunLoopMode];
-	*/
 }
 
-/*
--(void) renderLoop {
-	demo_draw(&demo);
-}
-*/
-
-- (void)viewDidDisappear: (BOOL) animated {
-	// [_displayLink invalidate];
-	// [_displayLink release];
-	// demo_cleanup(&demo);
+- (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+	[super viewDidAppear:animated];
+	[self hideKeyboard];
+}
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
     return YES;
@@ -440,9 +438,40 @@ extern float g_safeInsetBottom;
 	}
 }
 
+// Enables tapping for edge area.
+-(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
+{
+	return UIRectEdgeAll;
+}
+
 - (void)bindDefaultFBO
 {
 	// Do nothing
+}
+
+- (NSUInteger)supportedInterfaceOrientations
+{
+	return UIInterfaceOrientationMaskLandscape;
+}
+
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
+{
+	g_touchTracker.Began(touches, self.view);
+}
+
+- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
+{
+	g_touchTracker.Moved(touches, self.view);
+}
+
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+{
+	g_touchTracker.Ended(touches, self.view);
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+	g_touchTracker.Cancelled(touches, self.view);
 }
 
 - (void)buttonDown:(iCadeState)button
@@ -455,6 +484,74 @@ extern float g_safeInsetBottom;
 	g_iCadeTracker.ButtonUp(button);
 }
 
+- (void)controllerDidConnect:(NSNotification *)note
+{
+	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
+
+	if (self.gameController != nil) return; // already have a connected controller
+
+	[self setupController:(GCController *)note.object];
+}
+
+- (void)controllerDidDisconnect:(NSNotification *)note
+{
+	if (self.gameController == note.object) {
+		self.gameController = nil;
+
+		if ([[GCController controllers] count] > 0) {
+			[self setupController:[[GCController controllers] firstObject]];
+		}
+	}
+}
+
+- (void)setupController:(GCController *)controller
+{
+	self.gameController = controller;
+	if (!SetupController(controller)) {
+		self.gameController = nil;
+	}
+}
+
+- (void)startVideo:(int)width height:(int)height {
+	[cameraHelper startVideo:width h:height];
+}
+
+- (void)stopVideo {
+	[cameraHelper stopVideo];
+}
+
+- (void)PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+	Camera::pushCameraImage(len, data);
+}
+
+- (void)startLocation {
+	[locationHelper startLocationUpdates];
+}
+
+- (void)stopLocation {
+	[locationHelper stopLocationUpdates];
+}
+
+- (void)SetGpsDataIOS:(CLLocation *)newLocation {
+	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+					newLocation.horizontalAccuracy/5.0,
+					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+					newLocation.altitude,
+					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
+					0 /* bearing */);
+}
+
+- (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
+{
+	if (recognizer.state == UIGestureRecognizerStateEnded) {
+		KeyInput key;
+		key.flags = KEY_DOWN | KEY_UP;
+		key.keyCode = NKCODE_BACK;
+		key.deviceId = DEVICE_ID_TOUCH;
+		NativeKey(key);
+		INFO_LOG(SYSTEM, "Detected back swipe");
+	}
+}
 // The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
 // It's a bit limited but good enough.
 
