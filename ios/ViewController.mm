@@ -330,8 +330,7 @@ extern float g_safeInsetBottom;
 		graphicsContext->ThreadFrame();
 }
 
-- (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
-{
+static void SendTouchEvent(float x, float y, int code, int pointerId) {
 	float scale = [UIScreen mainScreen].scale;
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
 		scale = [UIScreen mainScreen].nativeScale;
@@ -344,17 +343,9 @@ extern float g_safeInsetBottom;
 	input.x = scaledX;
 	input.y = scaledY;
 	switch (code) {
-		case 1 :
-			input.flags = TOUCH_DOWN;
-			break;
-
-		case 2 :
-			input.flags = TOUCH_UP;
-			break;
-
-		default :
-			input.flags = TOUCH_MOVE;
-			break;
+		case 1: input.flags = TOUCH_DOWN; break;
+		case 2: input.flags = TOUCH_UP; break;
+		default: input.flags = TOUCH_MOVE; break;
 	}
 	input.id = pointerId;
 	NativeTouch(input);
@@ -384,35 +375,31 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	return -1;
 }
 
-
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:self.view];
 		int touchId = ToTouchID(touch, true);
-		[self touchX:point.x y:point.y code:1 pointerId:touchId];
+		SendTouchEvent(point.x, point.y, 1, touchId);
 	}
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:self.view];
 		int touchId = ToTouchID(touch, true);
-		[self touchX:point.x y:point.y code:0 pointerId: touchId];
+		SendTouchEvent(point.x, point.y, 0, touchId);
 	}
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:self.view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			[self touchX:point.x y:point.y code:2 pointerId: touchId];
+			SendTouchEvent(point.x, point.y, 2, touchId);
 			g_touches[touchId] = nullptr;
 		}
 	}
@@ -420,12 +407,11 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:self.view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			[self touchX:point.x y:point.y code:2 pointerId: touchId];
+			SendTouchEvent(point.x, point.y, 2, touchId);
 			g_touches[touchId] = nullptr;
 		}
 	}
