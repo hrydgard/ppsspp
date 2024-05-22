@@ -176,6 +176,7 @@ extern float g_safeInsetBottom;
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
+	[self hideKeyboard];
 }
 
 - (void)viewDidLoad {
