@@ -1290,6 +1290,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/AppDelegate.h
 		ios/DisplayManager.h
 		ios/DisplayManager.mm
+		ios/Controls.h
+		ios/Controls.mm
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/iOSCoreAudio.mm

@@ -489,7 +489,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_Toast(std::string_view text) {}
 void System_AskForPermission(SystemPermission permission) {}
 
-PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+void System_LaunchUrl(LaunchUrlType urlType, const char *url)
+{
+	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
+	});
+}
+
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
+	 return PERMISSION_STATUS_GRANTED;
+}
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);

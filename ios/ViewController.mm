@@ -8,6 +8,7 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
 #import "DisplayManager.h"
+#include "Controls.h"
 #import "iOSCoreAudio.h"
 
 #import <GLKit/GLKit.h>
@@ -87,32 +88,26 @@ private:
 	GLRenderManager *renderManager_;
 };
 
-static float dp_xscale = 1.0f;
-static float dp_yscale = 1.0f;
-
-static double lastSelectPress = 0.0f;
-static double lastStartPress = 0.0f;
-static bool simulateAnalog = false;
-static bool iCadeConnectNotified = false;
 static bool threadEnabled = true;
 static bool threadStopped = false;
-static UITouch *g_touches[10];
 
 id<PPSSPPViewController> sharedViewController;
-static GraphicsContext *graphicsContext;
+
+// TODO: Reach these through sharedViewController
 static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
 
 @interface PPSSPPViewControllerGL () {
-	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
+	ICadeTracker g_iCadeTracker;
+	TouchTracker g_touchTracker;
+
+	GraphicsContext *graphicsContext;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
 
 //@property (nonatomic) iCadeReaderView* iCadeView;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
-#endif
 
 @end
 
@@ -122,30 +117,15 @@ static LocationHelper *locationHelper;
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
-		memset(g_touches, 0, sizeof(g_touches));
-
-		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
-		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
-		iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
-		iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
-		iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
-		iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
-		iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
-		iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
-		iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
-		iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
-		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
-		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
+		g_iCadeTracker.InitKeyMap();
 
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 		if ([GCController class]) // Checking the availability of a GameController framework
 		{
 			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 		}
-#endif
 	}
 	return self;
 }
@@ -170,7 +150,6 @@ extern float g_safeInsetBottom;
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];
-		char safeArea[100];
 		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
 		g_safeInsetLeft = self.view.safeAreaInsets.left;
 		g_safeInsetRight = self.view.safeAreaInsets.right;
@@ -181,6 +160,7 @@ extern float g_safeInsetBottom;
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
+	[self hideKeyboard];
 }
 
 - (void)viewDidLoad {
@@ -217,21 +197,16 @@ extern float g_safeInsetBottom;
 
 	graphicsContext->ThreadStart();
 
-	dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
-	dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
-
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
 	self.iCadeView.active = YES;*/
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
 		if ([[GCController controllers] count] > 0) {
 			[self setupController:[[GCController controllers] firstObject]];
 		}
 	}
-#endif
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -305,11 +280,9 @@ extern float g_safeInsetBottom;
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
 		self.gameController = nil;
 	}
-#endif
 
 	if (graphicsContext) {
 		graphicsContext->Shutdown();
@@ -325,13 +298,6 @@ extern float g_safeInsetBottom;
 	[self shutdown];
 }
 
-// For iOS before 6.0
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
-{
-	return UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-}
-
-// For iOS 6.0 and up
 - (NSUInteger)supportedInterfaceOrientations
 {
 	return UIInterfaceOrientationMaskLandscape;
@@ -343,106 +309,24 @@ extern float g_safeInsetBottom;
 		graphicsContext->ThreadFrame();
 }
 
-- (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
-{
-	float scale = [UIScreen mainScreen].scale;
-
-	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
-		scale = [UIScreen mainScreen].nativeScale;
-	}
-
-	float scaledX = (int)(x * dp_xscale) * scale;
-	float scaledY = (int)(y * dp_yscale) * scale;
-
-	TouchInput input;
-	input.x = scaledX;
-	input.y = scaledY;
-	switch (code) {
-		case 1 :
-			input.flags = TOUCH_DOWN;
-			break;
-
-		case 2 :
-			input.flags = TOUCH_UP;
-			break;
-
-		default :
-			input.flags = TOUCH_MOVE;
-			break;
-	}
-	input.id = pointerId;
-	NativeTouch(input);
-}
-
-int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
-	// Find the id for the touch.
-	for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
-		if (g_touches[localId] == uiTouch) {
-			return localId;
-		}
-	}
-
-	// Allocate a new one, perhaps?
-	if (allowAllocate) {
-		for (int localId = 0; localId < (int)ARRAY_SIZE(g_touches); ++localId) {
-			if (g_touches[localId] == 0) {
-				g_touches[localId] = uiTouch;
-				return localId;
-			}
-		}
-
-		// None were free. Ignore?
-		return 0;
-	}
-
-	return -1;
-}
-
-
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
-		CGPoint point = [touch locationInView:self.view];
-		int touchId = ToTouchID(touch, true);
-		[self touchX:point.x y:point.y code:1 pointerId:touchId];
-	}
+	g_touchTracker.Began(touches, self.view);
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
-		CGPoint point = [touch locationInView:self.view];
-		int touchId = ToTouchID(touch, true);
-		[self touchX:point.x y:point.y code:0 pointerId: touchId];
-	}
+	g_touchTracker.Moved(touches, self.view);
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
-		CGPoint point = [touch locationInView:self.view];
-		int touchId = ToTouchID(touch, false);
-		if (touchId >= 0) {
-			[self touchX:point.x y:point.y code:2 pointerId: touchId];
-			g_touches[touchId] = nullptr;
-		}
-	}
+	g_touchTracker.Ended(touches, self.view);
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in touches)
-	{
-		CGPoint point = [touch locationInView:self.view];
-		int touchId = ToTouchID(touch, false);
-		if (touchId >= 0) {
-			[self touchX:point.x y:point.y code:2 pointerId: touchId];
-			g_touches[touchId] = nullptr;
-		}
-	}
+	g_touchTracker.Cancelled(touches, self.view);
 }
 
 - (void)bindDefaultFBO
@@ -452,118 +336,14 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 
 - (void)buttonDown:(iCadeState)button
 {
-	if (simulateAnalog &&
-		((button == iCadeJoystickUp) ||
-		 (button == iCadeJoystickDown) ||
-		 (button == iCadeJoystickLeft) ||
-		 (button == iCadeJoystickRight))) {
-			AxisInput axis;
-			switch (button) {
-				case iCadeJoystickUp :
-					axis.axisId = JOYSTICK_AXIS_Y;
-					axis.value = -1.0f;
-					break;
-
-				case iCadeJoystickDown :
-					axis.axisId = JOYSTICK_AXIS_Y;
-					axis.value = 1.0f;
-					break;
-
-				case iCadeJoystickLeft :
-					axis.axisId = JOYSTICK_AXIS_X;
-					axis.value = -1.0f;
-					break;
-
-				case iCadeJoystickRight :
-					axis.axisId = JOYSTICK_AXIS_X;
-					axis.value = 1.0f;
-					break;
-
-				default:
-					break;
-			}
-			axis.deviceId = DEVICE_ID_PAD_0;
-			NativeAxis(&axis, 1);
-		} else {
-			KeyInput key;
-			key.flags = KEY_DOWN;
-			key.keyCode = iCadeToKeyMap[button];
-			key.deviceId = DEVICE_ID_PAD_0;
-			NativeKey(key);
-		}
+	g_iCadeTracker.ButtonDown(button);
 }
 
 - (void)buttonUp:(iCadeState)button
 {
-	if (!iCadeConnectNotified) {
-		iCadeConnectNotified = true;
-		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, "iCade");
-	}
-
-	if (button == iCadeButtonA) {
-		// Pressing Select twice within 1 second toggles the DPad between
-		//     normal operation and simulating the Analog stick.
-		if ((lastSelectPress + 1.0f) > time_now_d())
-			simulateAnalog = !simulateAnalog;
-		lastSelectPress = time_now_d();
-	}
-
-	if (button == iCadeButtonC) {
-		// Pressing Start twice within 1 second will take to the Emu menu
-		if ((lastStartPress + 1.0f) > time_now_d()) {
-			KeyInput key;
-			key.flags = KEY_DOWN;
-			key.keyCode = NKCODE_ESCAPE;
-			key.deviceId = DEVICE_ID_KEYBOARD;
-			NativeKey(key);
-			return;
-		}
-		lastStartPress = time_now_d();
-	}
-
-	if (simulateAnalog &&
-		((button == iCadeJoystickUp) ||
-		 (button == iCadeJoystickDown) ||
-		 (button == iCadeJoystickLeft) ||
-		 (button == iCadeJoystickRight))) {
-		AxisInput axis;
-		switch (button) {
-			case iCadeJoystickUp :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickDown :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickLeft :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickRight :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = 0.0f;
-				break;
-
-			default:
-				break;
-		}
-		axis.deviceId = DEVICE_ID_PAD_0;
-		NativeAxis(&axis, 1);
-	} else {
-		KeyInput key;
-		key.flags = KEY_UP;
-		key.keyCode = iCadeToKeyMap[button];
-		key.deviceId = DEVICE_ID_PAD_0;
-		NativeKey(key);
-	}
-
+	g_iCadeTracker.ButtonUp(button);
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 - (void)controllerDidConnect:(NSNotification *)note
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
@@ -584,15 +364,6 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	}
 }
 
-- (void)controllerButtonPressed:(BOOL)pressed keyCode:(InputKeyCode)keyCode
-{
-	KeyInput key;
-	key.deviceId = DEVICE_ID_PAD_0;
-	key.flags = pressed ? KEY_DOWN : KEY_UP;
-	key.keyCode = keyCode;
-	NativeKey(key);
-}
-
 // Enables tapping for edge area.
 -(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
 {
@@ -606,139 +377,10 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
-
-	GCGamepad *baseProfile = self.gameController.gamepad;
-	if (baseProfile == nil) {
+	if (!SetupController(controller)) {
 		self.gameController = nil;
-		return;
 	}
-
-	self.gameController.controllerPausedHandler = ^(GCController *controller) {
-		KeyInput key;
-		key.flags = KEY_DOWN;
-		key.keyCode = NKCODE_ESCAPE;
-		key.deviceId = DEVICE_ID_KEYBOARD;
-		NativeKey(key);
-	};
-
-	baseProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_2]; // Cross
-	};
-
-	baseProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_3]; // Circle
-	};
-
-	baseProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_4]; // Square
-	};
-
-	baseProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_1]; // Triangle
-	};
-
-	baseProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_7]; // LTrigger
-	};
-
-	baseProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_8]; // RTrigger
-	};
-
-	baseProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_UP];
-	};
-
-	baseProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_DOWN];
-	};
-
-	baseProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_LEFT];
-	};
-
-	baseProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_RIGHT];
-	};
-
-	GCExtendedGamepad *extendedProfile = self.gameController.extendedGamepad;
-	if (extendedProfile == nil)
-		return; // controller doesn't support extendedGamepad profile
-
-	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_9]; // Select
-	};
-
-	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_10]; // Start
-	};
-
-#if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
-	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
-		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_11];
-		};
-	}
-	if ([extendedProfile respondsToSelector:@selector(rightThumbstickButton)] && extendedProfile.rightThumbstickButton != nil) {
-		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_12];
-		};
-	}
-#endif
-#if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
-	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
-		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_13];
-		};
-	}
-	if ([extendedProfile respondsToSelector:@selector(buttonMenu)] && extendedProfile.buttonMenu != nil) {
-		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_14];
-		};
-	}
-#endif
-#if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
-	if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
-		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_15];
-		};
-	}
-#endif
-
-	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	// Map right thumbstick as another analog stick, particularly useful for controllers like the DualShock 3/4 when connected to an iOS device
-	extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
 }
-#endif
 
 void setCameraSize(int width, int height) {
 	[cameraHelper setCameraSize: width h:height];
@@ -823,14 +465,6 @@ void stopLocation() {
 }
 
 @end
-
-void System_LaunchUrl(LaunchUrlType urlType, char const* url)
-{
-	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
-	});
-}
 
 void bindDefaultFBO()
 {

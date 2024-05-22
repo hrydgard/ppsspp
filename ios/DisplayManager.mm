@@ -139,14 +139,14 @@
 		scale = screen.nativeScale;
 	}
 	
-	CGSize size = screen.applicationFrame.size;
+	CGSize size = screen.bounds.size;
 	
 	if (size.height > size.width) {
 		float h = size.height;
 		size.height = size.width;
 		size.width = h;
 	}
-	
+
 	if (screen == [UIScreen mainScreen]) {
 		g_display.dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 	} else {
