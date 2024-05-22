@@ -110,9 +110,7 @@ static LocationHelper *locationHelper;
 @property (nonatomic, strong) EAGLContext* context;
 
 //@property (nonatomic) iCadeReaderView* iCadeView;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
-#endif
 
 @end
 
@@ -139,13 +137,11 @@ static LocationHelper *locationHelper;
 
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 		if ([GCController class]) // Checking the availability of a GameController framework
 		{
 			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 		}
-#endif
 	}
 	return self;
 }
@@ -170,7 +166,6 @@ extern float g_safeInsetBottom;
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];
-		char safeArea[100];
 		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
 		g_safeInsetLeft = self.view.safeAreaInsets.left;
 		g_safeInsetRight = self.view.safeAreaInsets.right;
@@ -225,13 +220,11 @@ extern float g_safeInsetBottom;
 	self.iCadeView.delegate = self;
 	self.iCadeView.active = YES;*/
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
 		if ([[GCController controllers] count] > 0) {
 			[self setupController:[[GCController controllers] firstObject]];
 		}
 	}
-#endif
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -305,11 +298,9 @@ extern float g_safeInsetBottom;
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
 		self.gameController = nil;
 	}
-#endif
 
 	if (graphicsContext) {
 		graphicsContext->Shutdown();
@@ -553,10 +544,8 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		key.deviceId = DEVICE_ID_PAD_0;
 		NativeKey(key);
 	}
-
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 - (void)controllerDidConnect:(NSNotification *)note
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;

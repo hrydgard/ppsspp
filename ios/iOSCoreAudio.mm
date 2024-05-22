@@ -25,10 +25,9 @@
 #include <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
 
-
 #define SAMPLE_RATE 44100
 
-AudioComponentInstance audioInstance = nil;
+static AudioComponentInstance audioInstance = nil;
 
 int NativeMix(short *audio, int numSamples, int sampleRate);
 
@@ -77,83 +76,85 @@ void iOSCoreAudioInit()
 		}
 	}
 	
-	if (!audioInstance) {
-		OSErr err;
-		
-		// first, grab the default output
-		AudioComponentDescription defaultOutputDescription;
-		defaultOutputDescription.componentType = kAudioUnitType_Output;
-		defaultOutputDescription.componentSubType = kAudioUnitSubType_RemoteIO;
-		defaultOutputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
-		defaultOutputDescription.componentFlags = 0;
-		defaultOutputDescription.componentFlagsMask = 0;
-		AudioComponent defaultOutput = AudioComponentFindNext(NULL, &defaultOutputDescription);
-		
-		// create our instance
-		err = AudioComponentInstanceNew(defaultOutput, &audioInstance);
-		if (err != noErr) {
-			audioInstance = nil;
-			return;
-		}
-		
-		// create our callback so we can give it the audio data
-		AURenderCallbackStruct input;
-		input.inputProc = iOSCoreAudioCallback;
-		input.inputProcRefCon = NULL;
-		err = AudioUnitSetProperty(audioInstance,
-								   kAudioUnitProperty_SetRenderCallback,
-								   kAudioUnitScope_Input,
-								   0,
-								   &input,
-								   sizeof(input));
-		if (err != noErr) {
-			AudioComponentInstanceDispose(audioInstance);
-			audioInstance = nil;
-			return;
-		}
-		
-		// setup the audio format we'll be using (stereo pcm)
-		AudioStreamBasicDescription streamFormat;
-		memset(&streamFormat, 0, sizeof(streamFormat));
-		streamFormat.mSampleRate = SAMPLE_RATE;
-		streamFormat.mFormatID = kAudioFormatLinearPCM;
-		streamFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
-		streamFormat.mBitsPerChannel = sizeof(short) * 8;
-		streamFormat.mChannelsPerFrame = 2;
-		streamFormat.mFramesPerPacket = 1;
-		streamFormat.mBytesPerFrame = (streamFormat.mBitsPerChannel / 8) * streamFormat.mChannelsPerFrame;
-		streamFormat.mBytesPerPacket = streamFormat.mBytesPerFrame * streamFormat.mFramesPerPacket;
-		err = AudioUnitSetProperty(audioInstance,
-								   kAudioUnitProperty_StreamFormat,
-								   kAudioUnitScope_Input,
-								   0,
-								   &streamFormat,
-								   sizeof(AudioStreamBasicDescription));
-		if (err != noErr) {
-			AudioComponentInstanceDispose(audioInstance);
-			audioInstance = nil;
-			return;
-		}
-		
-		// k, all setup, so init
-		err = AudioUnitInitialize(audioInstance);
-		if (err != noErr) {
-			AudioComponentInstanceDispose(audioInstance);
-			audioInstance = nil;
-			return;
-		}
-		
-		// finally start playback
-		err = AudioOutputUnitStart(audioInstance);
-		if (err != noErr) {
-			AudioUnitUninitialize(audioInstance);
-			AudioComponentInstanceDispose(audioInstance);
-			audioInstance = nil;
-			return;
-		}
-		
-		// we're good to go
+	if (audioInstance) {
+		// Already running
+		return;
 	}
+	OSErr err;
+
+	// first, grab the default output
+	AudioComponentDescription defaultOutputDescription;
+	defaultOutputDescription.componentType = kAudioUnitType_Output;
+	defaultOutputDescription.componentSubType = kAudioUnitSubType_RemoteIO;
+	defaultOutputDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+	defaultOutputDescription.componentFlags = 0;
+	defaultOutputDescription.componentFlagsMask = 0;
+	AudioComponent defaultOutput = AudioComponentFindNext(NULL, &defaultOutputDescription);
+
+	// create our instance
+	err = AudioComponentInstanceNew(defaultOutput, &audioInstance);
+	if (err != noErr) {
+		audioInstance = nil;
+		return;
+	}
+
+	// create our callback so we can give it the audio data
+	AURenderCallbackStruct input;
+	input.inputProc = iOSCoreAudioCallback;
+	input.inputProcRefCon = NULL;
+	err = AudioUnitSetProperty(audioInstance,
+								kAudioUnitProperty_SetRenderCallback,
+								kAudioUnitScope_Input,
+								0,
+								&input,
+								sizeof(input));
+	if (err != noErr) {
+		AudioComponentInstanceDispose(audioInstance);
+		audioInstance = nil;
+		return;
+	}
+
+	// setup the audio format we'll be using (stereo pcm)
+	AudioStreamBasicDescription streamFormat;
+	memset(&streamFormat, 0, sizeof(streamFormat));
+	streamFormat.mSampleRate = SAMPLE_RATE;
+	streamFormat.mFormatID = kAudioFormatLinearPCM;
+	streamFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
+	streamFormat.mBitsPerChannel = sizeof(short) * 8;
+	streamFormat.mChannelsPerFrame = 2;
+	streamFormat.mFramesPerPacket = 1;
+	streamFormat.mBytesPerFrame = (streamFormat.mBitsPerChannel / 8) * streamFormat.mChannelsPerFrame;
+	streamFormat.mBytesPerPacket = streamFormat.mBytesPerFrame * streamFormat.mFramesPerPacket;
+	err = AudioUnitSetProperty(audioInstance,
+								kAudioUnitProperty_StreamFormat,
+								kAudioUnitScope_Input,
+								0,
+								&streamFormat,
+								sizeof(AudioStreamBasicDescription));
+	if (err != noErr) {
+		AudioComponentInstanceDispose(audioInstance);
+		audioInstance = nil;
+		return;
+	}
+
+	// k, all setup, so init
+	err = AudioUnitInitialize(audioInstance);
+	if (err != noErr) {
+		AudioComponentInstanceDispose(audioInstance);
+		audioInstance = nil;
+		return;
+	}
+
+	// finally start playback
+	err = AudioOutputUnitStart(audioInstance);
+	if (err != noErr) {
+		AudioUnitUninitialize(audioInstance);
+		AudioComponentInstanceDispose(audioInstance);
+		audioInstance = nil;
+		return;
+	}
+
+	// we're good to go
 }
 
 void iOSCoreAudioShutdown()
