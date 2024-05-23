@@ -86,6 +86,9 @@
 		argv[argc++] = (char*)string;
 	}
 
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+
 	return [self launchPPSSPP:argc argv:argv];
 }
 
@@ -113,9 +116,6 @@
 
 	[self.window makeKeyAndVisible];
 
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
-
 	return YES;
 }
 
@@ -123,9 +123,19 @@
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)restart {
+- (void)restart:(const char*)restartArgs {
+	INFO_LOG(G3D, "Restart requested: %s", restartArgs);
+	[self.viewController willResignActive];
+	self.viewController = nil;
+
 	// App was requested to restart, probably.
-	INFO_LOG(G3D, "Restart requested");
+	INFO_LOG(G3D, "viewController nilled");
+
+	NativeShutdown();
+
+	// TODO: Ignoring the command line for now.
+	// Hoping that overwriting the viewController works as expected...
+	[self launchPPSSPP:0 argv:nullptr];
 }
 
 -(void) applicationWillResignActive:(UIApplication *)application {

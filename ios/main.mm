@@ -393,7 +393,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
         dispatch_async(dispatch_get_main_queue(), ^{
-			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart];
+			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
 		});
 		break;
 

@@ -1502,7 +1502,7 @@ void NativeShutdown() {
 
 	ShutdownWebServer();
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(ANDROID)
 	System_ExitApp();
 #endif
 
