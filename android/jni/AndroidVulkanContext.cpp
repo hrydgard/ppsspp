@@ -68,33 +68,7 @@ bool AndroidVulkanContext::InitAPI() {
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = FlagsFromConfig();
-	VkResult res = g_Vulkan->CreateInstance(info);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
-		VulkanSetAvailable(false);
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	int physicalDevice = g_Vulkan->GetBestPhysicalDevice();
-	if (physicalDevice < 0) {
-		ERROR_LOG(G3D, "No usable Vulkan device found.");
-		g_Vulkan->DestroyInstance();
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	g_Vulkan->ChooseDevice(physicalDevice);
-
-	INFO_LOG(G3D, "Creating Vulkan device (flags: %08x)", info.flags);
-	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
-		INFO_LOG(G3D, "Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
-		System_Toast("No Vulkan driver found. Using OpenGL instead.");
-		g_Vulkan->DestroyInstance();
+	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		state_ = GraphicsContextState::FAILED_INIT;
