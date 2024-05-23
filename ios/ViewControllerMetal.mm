@@ -26,6 +26,9 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 
+// ViewController lifecycle:
+// https://www.progressconcepts.com/blog/ios-appdelegate-viewcontroller-method-order/
+
 // TODO: Share this between backends.
 static uint32_t FlagsFromConfig() {
 	uint32_t flags;
@@ -178,33 +181,7 @@ bool IOSVulkanContext::InitAPI() {
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = FlagsFromConfig();
-	VkResult res = g_Vulkan->CreateInstance(info);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
-		VulkanSetAvailable(false);
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	int physicalDevice = g_Vulkan->GetBestPhysicalDevice();
-	if (physicalDevice < 0) {
-		ERROR_LOG(G3D, "No usable Vulkan device found.");
-		g_Vulkan->DestroyInstance();
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	g_Vulkan->ChooseDevice(physicalDevice);
-
-	INFO_LOG(G3D, "Creating Vulkan device (flags: %08x)", info.flags);
-	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
-		INFO_LOG(G3D, "Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
-		System_Toast("No Vulkan driver found. Using OpenGL instead.");
-		g_Vulkan->DestroyInstance();
+	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		state_ = GraphicsContextState::FAILED_INIT;
@@ -228,6 +205,7 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static bool renderer_inited = false;
 static std::mutex renderLock;
+static std::thread g_vulkanRenderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
 	ICadeTracker g_iCadeTracker;
@@ -258,7 +236,7 @@ static std::mutex renderLock;
 }
 
 // Should be very similar to the Android one, probably mergeable.
-void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLayer, int desiredBackbufferSizeX, int desiredBackbufferSizeY) {
+void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLayer) {
 	SetCurrentThreadName("EmuThread");
 
 	if (!graphicsContext) {
@@ -277,6 +255,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
+
+	int desiredBackbufferSizeX = g_display.pixel_xres;
+	int desiredBackbufferSizeY = g_display.pixel_yres;
 
 	//WARN_LOG(G3D, "runVulkanRenderLoop. desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
 	//	desiredBackbufferSizeX, desiredBackbufferSizeY);
@@ -328,6 +309,45 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	WARN_LOG(G3D, "Render loop function exited.");
 }
 
+- (bool)runVulkanRenderLoop {
+	if (!graphicsContext) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		return false;
+	}
+
+	if (g_vulkanRenderLoopThread.joinable()) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
+		return false;
+	}
+
+	CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
+	g_vulkanRenderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
+	return true;
+}
+
+- (void)requestExitVulkanRenderLoop {
+	if (!renderLoopRunning) {
+		ERROR_LOG(SYSTEM, "Render loop already exited");
+		return;
+	}
+	_assert_(g_vulkanRenderLoopThread.joinable());
+	exitRenderLoop = true;
+	g_vulkanRenderLoopThread.join();
+	_assert_(!g_vulkanRenderLoopThread.joinable());
+	g_vulkanRenderLoopThread = std::thread();
+}
+
+// These two are forwarded from the appDelegate
+- (void)didBecomeActive {
+	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
+	// on its own.
+	[self runVulkanRenderLoop];
+}
+
+- (void)willResignActive {
+	[self requestExitVulkanRenderLoop];
+}
+
 - (void)loadView {
 	INFO_LOG(G3D, "Creating metal view");
 
@@ -356,15 +376,11 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		_assert_msg_(false, "Failed to init Vulkan");
 	}
 
-	int desiredBackbufferSizeX = g_display.pixel_xres;
-	int desiredBackbufferSizeY = g_display.pixel_yres;
-
 	if ([[GCController controllers] count] > 0) {
 		[self setupController:[[GCController controllers] firstObject]];
 	}
 
-	INFO_LOG(G3D, "Detected size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
-	CAMetalLayer *layer = (CAMetalLayer *)self.view.layer;
+	INFO_LOG(G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -378,11 +394,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
-	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
-	// on its own.
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-		VulkanRenderLoop(graphicsContext, layer, desiredBackbufferSizeX, desiredBackbufferSizeY);
-	});
 }
 
 // Allow device rotation to resize the swapchain
@@ -397,8 +408,14 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (void)viewWillAppear:(BOOL)animated {
-	[super viewWillAppear: animated];
+	[super viewWillAppear:animated];
+	INFO_LOG(G3D, "viewWillAppear");
 	self.view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+	[super viewWillDisappear:animated];
+	INFO_LOG(G3D, "viewWillDisappear");
 }
 
 - (void)viewDidDisappear:(BOOL)animated {

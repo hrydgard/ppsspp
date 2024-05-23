@@ -1,4 +1,5 @@
 #import "AppDelegate.h"
+#import "ViewControllerCommon.h"
 #import "ViewController.h"
 #import "ViewControllerMetal.h"
 #import "iOSCoreAudio.h"
@@ -119,6 +120,9 @@
 }
 
 -(void) applicationWillResignActive:(UIApplication *)application {
+	INFO_LOG(G3D, "willResignActive");
+
+	[self.viewController willResignActive];
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioShutdown();
 	}
@@ -127,11 +131,13 @@
 }
 
 -(void) applicationDidBecomeActive:(UIApplication *)application {
+	INFO_LOG(G3D, "didBecomeActive");
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioInit();
 	}
 
 	System_PostUIMessage(UIMessage::GOT_FOCUS);
+	[self.viewController didBecomeActive];
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {

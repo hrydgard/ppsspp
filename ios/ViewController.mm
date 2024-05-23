@@ -238,6 +238,14 @@ extern float g_safeInsetBottom;
 	[self shutdown];
 }
 
+- (void)willResignActive {
+
+}
+
+- (void)didBecomeActive {
+
+}
+
 - (void)shutdown
 {
 	if (sharedViewController == nil) {

@@ -16,6 +16,10 @@
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
 
+// Forwarded from the AppDelegate
+- (void)didBecomeActive;
+- (void)willResignActive;
+
 @end
 
 extern id <PPSSPPViewController> sharedViewController;

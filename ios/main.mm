@@ -392,6 +392,7 @@ void System_Notify(SystemNotification notification) {
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
+		// NOTE: on iOS, this is considered a crash and not a valid way to exit.
 		exit(0);
 		// The below seems right, but causes hangs. See #12140.
 		// dispatch_async(dispatch_get_main_queue(), ^{
