@@ -382,7 +382,6 @@ bool VulkanMayBeAvailable() {
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = true;
-	INFO_LOG(G3D, "iOS: VulkanMayBeAvailable(): Reporting Vulkan as available");
 	return true;
 #else
 

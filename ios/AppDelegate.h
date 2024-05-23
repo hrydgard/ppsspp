@@ -11,4 +11,7 @@
 
 @property (strong, nonatomic) id<PPSSPPViewController> viewController;
 
+- (void)restart;
+- (BOOL)launchPPSSPP:(int)argc argv:(char**)argv;
+
 @end

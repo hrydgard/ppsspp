@@ -76,10 +76,9 @@
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-
 	int argc = 1;
-	char *argv[3] = { 0 };
-	NSURL* nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
+	char *argv[5]{};
+	NSURL *nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
 
 	if (nsUrl != nullptr && nsUrl.isFileURL) {
 		NSString *nsString = nsUrl.path;
@@ -87,6 +86,11 @@
 		argv[argc++] = (char*)string;
 	}
 
+	return [self launchPPSSPP:argc argv:argv];
+}
+
+- (BOOL)launchPPSSPP:(int)argc argv:(char**)argv;
+{
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
@@ -115,8 +119,13 @@
 	return YES;
 }
 
--(void) dealloc {
+- (void)dealloc {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)restart {
+	// App was requested to restart, probably.
+	INFO_LOG(G3D, "Restart requested");
 }
 
 -(void) applicationWillResignActive:(UIApplication *)application {
