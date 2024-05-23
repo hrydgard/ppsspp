@@ -183,6 +183,10 @@ public:
 	int GetPhysicalDeviceByName(const std::string &name);
 	void ChooseDevice(int physical_device);
 
+	// Convenience method to avoid code duplication.
+	// If it returns false, delete the context.
+	bool CreateInstanceAndDevice(const CreateInfo &info);
+
 	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
 	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
 	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);

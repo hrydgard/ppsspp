@@ -847,6 +847,33 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 	return res;
 }
 
+bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
+	VkResult res = CreateInstance(info);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(G3D, "Failed to create vulkan context: %s", InitError().c_str());
+		VulkanSetAvailable(false);
+		return false;
+	}
+
+	int physicalDevice = GetBestPhysicalDevice();
+	if (physicalDevice < 0) {
+		ERROR_LOG(G3D, "No usable Vulkan device found.");
+		DestroyInstance();
+		return false;
+	}
+
+	ChooseDevice(physicalDevice);
+
+	INFO_LOG(G3D, "Creating Vulkan device (flags: %08x)", info.flags);
+	if (CreateDevice() != VK_SUCCESS) {
+		INFO_LOG(G3D, "Failed to create vulkan device: %s", InitError().c_str());
+		DestroyInstance();
+		return false;
+	}
+
+	return true;
+}
+
 void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name) {
 	VkDebugUtilsObjectNameInfoEXT info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
 	info.pObjectName = name;
