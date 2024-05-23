@@ -3,7 +3,7 @@
 #include <cstdint>
 
 template <typename T>
-static T clamp(T f, T low, T high);
+T clamp(T f, T low, T high);
 uint32_t whiteAlpha(float alpha);
 uint32_t blackAlpha(float alpha);
 uint32_t colorAlpha(uint32_t color, float alpha);
