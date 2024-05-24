@@ -788,15 +788,15 @@ static bool TestAndroidContentURI() {
 
 class UnitTestWordWrapper : public WordWrapper {
 public:
-	UnitTestWordWrapper(const char *str, float maxW, int flags)
+	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
 		: WordWrapper(str, maxW, flags) {
 	}
 
 protected:
-	float MeasureWidth(const char *str, size_t bytes) override {
+	float MeasureWidth(std::string_view str) override {
 		// Simple case for unit testing.
 		int w = 0;
-		for (UTF8 utf(str); !utf.end() && (size_t)utf.byteIndex() < bytes; ) {
+		for (UTF8 utf(str); !utf.end(); ) {
 			uint32_t c = utf.next();
 			switch (c) {
 			case ' ':
