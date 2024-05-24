@@ -13,8 +13,8 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 
-static inline const char *DeNull(const char *ptr) {
-	return ptr ? ptr : "";
+static inline std::string_view DeNull(const char *ptr) {
+	return ptr ? std::string_view(ptr) : "";
 }
 
 // Compound view, creating a FileChooserChoice inside.
@@ -560,7 +560,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();

@@ -277,8 +277,8 @@ void TextDrawerSDL::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerSDL::MeasureString(std::string_view str, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -312,8 +312,8 @@ void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str, len);
+void TextDrawerSDL::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
@@ -364,9 +364,9 @@ void TextDrawerSDL::MeasureStringRect(const char *str, size_t len, const Bounds 
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerSDL::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!strlen(str))
+	if (str.empty())
 		return;
 
 	CacheKey key{ std::string(str), fontHash_ };
@@ -416,8 +416,8 @@ void TextDrawerSDL::DrawString(DrawBuffer &target, const char *str, float x, flo
 	}
 }
 
-void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+	if (str.empty()) {
 		bitmapData.clear();
 		return;
 	}

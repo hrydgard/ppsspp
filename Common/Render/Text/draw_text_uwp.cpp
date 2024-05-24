@@ -198,8 +198,8 @@ void TextDrawerUWP::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerUWP::MeasureString(std::string_view str, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 	
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -213,7 +213,7 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 		}
 		if (!format) return;
 
-		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(std::string(str, len), "\n", "\r\n"), "&&", "&"));
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(std::string(str), "\n", "\r\n"), "&&", "&"));
 
 		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 		
@@ -242,7 +242,7 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerUWP::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
 	IDWriteTextFormat *format = nullptr;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
@@ -254,7 +254,7 @@ void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds 
 		return;
 	}
 
-	std::string toMeasure = std::string(str, len);
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
@@ -312,8 +312,8 @@ void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds 
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+	if (!str.empty()) {
 		bitmapData.clear();
 		return;
 	}
@@ -439,10 +439,11 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	ctx_->mirror_bmp->Unmap();
 }
 
-void TextDrawerUWP::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerUWP::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!strlen(str))
+	if (str.empty()) {
 		return;
+	}
 
 	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);
