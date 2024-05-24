@@ -1,7 +1,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 
 template <typename T>
-T clamp(T f, T low, T high) {
+static T clamp(T f, T low, T high) {
 	if (f < low)
 		return low;
 	if (f > high)
