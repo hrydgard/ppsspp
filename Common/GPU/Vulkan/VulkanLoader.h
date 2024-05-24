@@ -17,7 +17,9 @@
 
 #pragma once
 
-#ifdef __ANDROID__
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -29,7 +31,10 @@
 #define VK_USE_PLATFORM_METAL_EXT
 #endif
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 #define VK_NO_PROTOTYPES
+#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
+#endif
 
 #include "ext/vulkan/vulkan.h"
 #include <string>
@@ -40,6 +45,7 @@
 #endif
 
 namespace PPSSPP_VK {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 // Putting our own Vulkan function pointers in a namespace ensures that ppsspp_libretro.so doesn't collide with libvulkan.so.
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkDestroyInstance vkDestroyInstance;
@@ -240,6 +246,7 @@ extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesE
 extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+#endif  // !PPSSPP_PLATFORM(IOS_APP_STORE)
 } // namespace PPSSPP_VK
 
 // For fast extension-enabled checks.

@@ -16,4 +16,13 @@
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
 
+// Forwarded from the AppDelegate
+- (void)didBecomeActive;
+- (void)willResignActive;
+
 @end
+
+extern id <PPSSPPViewController> sharedViewController;
+
+#define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
+#define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)

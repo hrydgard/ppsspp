@@ -133,18 +133,11 @@
 }
 
 - (void)updateResolution:(UIScreen *)screen {
-	float scale = screen.scale;
-	
-	if ([screen respondsToSelector:@selector(nativeScale)]) {
-		scale = screen.nativeScale;
-	}
-	
+	float scale = screen.nativeScale;
 	CGSize size = screen.bounds.size;
 	
 	if (size.height > size.width) {
-		float h = size.height;
-		size.height = size.width;
-		size.width = h;
+		std::swap(size.height, size.width);
 	}
 
 	if (screen == [UIScreen mainScreen]) {
@@ -159,10 +152,10 @@
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 	g_display.pixel_xres = size.width * scale;
 	g_display.pixel_yres = size.height * scale;
-	
+
 	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
 	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
-	
+
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / (float)g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / (float)g_display.dp_yres;
 	
@@ -171,7 +164,7 @@
 	// PSP native resize
 	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-	
+
 	NativeResized();
 	
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", g_display.pixel_xres, g_display.pixel_yres, scale);

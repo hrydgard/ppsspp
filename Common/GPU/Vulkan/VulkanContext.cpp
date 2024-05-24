@@ -183,6 +183,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	if (EnableInstanceExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, 0)) {
+
+	}
+#endif
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
@@ -205,6 +210,10 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.ppEnabledLayerNames = instance_layer_names_.size() ? instance_layer_names_.data() : nullptr;
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 
 #if SIMULATE_VULKAN_FAILURE == 2
 	VkResult res = VK_ERROR_INCOMPATIBLE_DRIVER;
@@ -896,7 +905,7 @@ VkResult VulkanContext::ReinitSurface() {
 		surface_ = VK_NULL_HANDLE;
 	}
 
-	INFO_LOG(G3D, "Creating Vulkan surface for window (%p %p)", winsysData1_, winsysData2_);
+	INFO_LOG(G3D, "Creating Vulkan surface for window (data1=%p data2=%p)", winsysData1_, winsysData2_);
 
 	VkResult retval = VK_SUCCESS;
 
@@ -1311,7 +1320,11 @@ bool VulkanContext::InitSwapchain() {
 	VkExtent2D currentExtent { surfCapabilities_.currentExtent };
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
 	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
-	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu) {
+	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu
+#if PPSSPP_PLATFORM(IOS)
+		|| currentExtent.width == 0 || currentExtent.height == 0
+#endif
+		) {
 		_dbg_assert_((bool)cbGetDrawSize_)
 		if (cbGetDrawSize_) {
 			currentExtent = cbGetDrawSize_();

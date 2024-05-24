@@ -140,6 +140,8 @@ if(IOS_APP_STORE)
 	# Set a global default to not generate schemes for each target.
 	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
 	message("iOS App Store build")
 else()
 	message("iOS sideload build")
@@ -1295,6 +1297,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerCommon.h
 		ios/ViewController.mm
 		ios/ViewController.h
+		ios/ViewControllerMetal.mm
+		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/CameraHelper.mm
@@ -1313,7 +1317,7 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices" )
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
@@ -2879,13 +2883,18 @@ if(IOS AND NOT LIBRETRO)
 			# This updates the version in the plist.
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
 		)
+
+		# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
+		target_link_libraries(${TargetBin}
+			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+		)
+
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
 			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ios/assets.xcassets"
-			RESOURCE "ext/vulkan/iOS/Frameworks"
 			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
 			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}

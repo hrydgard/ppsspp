@@ -1,5 +1,11 @@
-iOS Build Instructions
-======================
+The Old iOS Build Instructions
+==============================
+
+Important Notes
+---------------
+
+These instructions have not been updated for a long time and may be outdated.
+
 
 Prerequisites:
 --------------

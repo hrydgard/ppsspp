@@ -31,6 +31,7 @@
 #include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Common/Log.h"
 #include "UI/DarwinFileSystemServices.h"
@@ -391,7 +392,14 @@ void System_Notify(SystemNotification notification) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
+	case SystemRequestType::RESTART_APP:
+        dispatch_async(dispatch_get_main_queue(), ^{
+			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
+		});
+		break;
+
 	case SystemRequestType::EXIT_APP:
+		// NOTE: on iOS, this is considered a crash and not a valid way to exit.
 		exit(0);
 		// The below seems right, but causes hangs. See #12140.
 		// dispatch_async(dispatch_get_main_queue(), ^{
@@ -543,6 +551,7 @@ void System_Vibrate(int mode) {
 
 int main(int argc, char *argv[])
 {
+	// SetCurrentThreadName("MainThread");
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.

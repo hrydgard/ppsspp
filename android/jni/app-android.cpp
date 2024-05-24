@@ -112,6 +112,7 @@ enum class EmuThreadState {
 	STOPPED,
 };
 
+// OpenGL emu thread
 static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
@@ -1549,7 +1550,7 @@ static void ProcessFrameCommands(JNIEnv *env) {
 	}
 }
 
-std::thread g_vulkanRenderLoopThread;
+std::thread g_renderLoopThread;
 
 static void VulkanEmuThread(ANativeWindow *wnd);
 
@@ -1563,7 +1564,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 		return false;
 	}
 
-	if (g_vulkanRenderLoopThread.joinable()) {
+	if (g_renderLoopThread.joinable()) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
 		return false;
 	}
@@ -1577,7 +1578,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 		return false;
 	}
 
-	g_vulkanRenderLoopThread = std::thread(VulkanEmuThread, wnd);
+	g_renderLoopThread = std::thread(VulkanEmuThread, wnd);
 	return true;
 }
 
@@ -1586,11 +1587,11 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 		ERROR_LOG(SYSTEM, "Render loop already exited");
 		return;
 	}
-	_assert_(g_vulkanRenderLoopThread.joinable());
+	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
-	g_vulkanRenderLoopThread.join();
-	_assert_(!g_vulkanRenderLoopThread.joinable());
-	g_vulkanRenderLoopThread = std::thread();
+	g_renderLoopThread.join();
+	_assert_(!g_renderLoopThread.joinable());
+	g_renderLoopThread = std::thread();
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
