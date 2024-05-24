@@ -110,6 +110,25 @@ namespace Libretro
    static float runSpeed = 0.0f;
    static s64 runTicksLast = 0;
 
+   /**
+    * Clamp a value to a given range.
+    *
+    * This implementation was taken from `RGBAUtil.cpp` to allow building when `std::clamp()` is unavailable.
+    *
+    * @param f The value to clamp.
+    * @param low The lower bound of the range.
+    * @param high The upper bound of the range.
+    * @return The clamped value.
+    */
+   template <typename T>
+   static T clamp(T f, T low, T high) {
+      if (f < low)
+         return low;
+      if (f > high)
+         return high;
+      return f;
+   }
+
    static void VsyncSwapIntervalReset()
    {
       expectedTimeUsPerRun = (s64)(1000000.0f / (60.0f / 1.001f));
@@ -1430,8 +1449,8 @@ static void retro_input(void)
    }
 
    float mappedNorm = norm;
-   x_left = std::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
-   y_left = std::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
+   x_left = Libretro::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
+   y_left = Libretro::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
 
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
