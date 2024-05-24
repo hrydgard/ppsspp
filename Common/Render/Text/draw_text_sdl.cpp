@@ -277,8 +277,8 @@ void TextDrawerSDL::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerSDL::MeasureString(std::string_view str, size_t len, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -312,8 +312,8 @@ void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str, len);
+void TextDrawerSDL::MeasureStringRect(std::string_view str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;

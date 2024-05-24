@@ -51,8 +51,8 @@ void TextDrawerQt::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerQt::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerQt::MeasureString(std::string_view str, size_t len, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -61,7 +61,7 @@ void TextDrawerQt::MeasureString(const char *str, size_t len, float *w, float *h
 	} else {
 		QFont* font = fontMap_.find(fontHash_)->second;
 		QFontMetrics fm(*font);
-		QSize size = fm.size(0, QString::fromUtf8(str, (int)len));
+		QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
 
 		entry = new TextMeasureEntry();
 		entry->width = size.width();

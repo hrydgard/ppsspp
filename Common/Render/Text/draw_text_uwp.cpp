@@ -198,7 +198,7 @@ void TextDrawerUWP::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *h) {
+void TextDrawerUWP::MeasureString(std::string_view str, size_t len, float *w, float *h) {
 	CacheKey key{ std::string(str, len), fontHash_ };
 	
 	TextMeasureEntry *entry;
@@ -242,7 +242,7 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerUWP::MeasureStringRect(std::string_view str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
 	IDWriteTextFormat *format = nullptr;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {

@@ -22,7 +22,7 @@ TextDrawer::~TextDrawer() {
 
 float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	float w, h;
-	drawer_->MeasureString(str.data(), str.length(), &w, &h);
+	drawer_->MeasureString(str, &w, &h);
 	return w;
 }
 

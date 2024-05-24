@@ -121,8 +121,8 @@ void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerWin32::MeasureString(std::string_view str, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 	
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -134,7 +134,7 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 			SelectObject(ctx_->hDC, iter->second->hFont);
 		}
 
-		std::string toMeasure = ReplaceAll(std::string(str, len), "&&", "&");
+		std::string toMeasure = ReplaceAll(std::string(str), "&&", "&");
 
 		std::vector<std::string_view> lines;
 		SplitString(toMeasure, '\n', lines);
@@ -161,13 +161,13 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerWin32::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}
 
-	std::string toMeasure = std::string(str, len);
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;

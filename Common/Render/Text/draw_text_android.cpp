@@ -82,14 +82,14 @@ std::string TextDrawerAndroid::NormalizeString(std::string str) {
 	return ReplaceAll(str, "&&", "&");
 }
 
-void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, float *h) {
-	if (!str) {
+void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) {
+	if (str.empty()) {
 		*w = 0.0;
 		*h = 0.0;
 		return;
 	}
 
-	CacheKey key{ std::string(str, len), fontHash_ };
+	CacheKey key{ std::string(str), fontHash_ };
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
 	if (iter != sizeCache_.end()) {
@@ -102,7 +102,7 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 		} else {
 			ERROR_LOG(G3D, "Missing font");
 		}
-		std::string text(NormalizeString(std::string(str, len)));
+		std::string text(NormalizeString(std::string(str)));
 		auto env = getEnv();
 		jstring jstr = env->NewStringUTF(text.c_str());
 		uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
@@ -118,7 +118,12 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+    if (str.empty()) {
+        *w = 0.0;
+        *h = 0.0;
+        return;
+    }
 	double scaledSize = 14;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
@@ -127,7 +132,7 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 		ERROR_LOG(G3D, "Missing font");
 	}
 
-	std::string toMeasure = std::string(str, len);
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;

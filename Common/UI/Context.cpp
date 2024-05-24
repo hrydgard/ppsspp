@@ -215,7 +215,7 @@ void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scal
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureString(str.data(), str.length(), x, y);
+		textDrawer_->MeasureString(str, x, y);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
@@ -229,7 +229,7 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureStringRect(str.data(), str.length(), bounds, x, y, align);
+		textDrawer_->MeasureStringRect(str, bounds, x, y, align);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
