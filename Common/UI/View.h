@@ -826,7 +826,7 @@ public:
 protected:
 	virtual std::string ValueText() const = 0;
 
-	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
 	bool passwordDisplay_ = false;
 };

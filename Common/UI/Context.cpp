@@ -206,35 +206,30 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 	}
 }
 
-void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
-	MeasureTextCount(style, scaleX, scaleY, str, (int)strlen(str), x, y, align);
-}
-
-void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
+void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align) const {
+	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextCount(style.atlasFont, str, count, x, y);
+		Draw()->MeasureTextCount(style.atlasFont, str.data(), str.length(), x, y);
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureString(str, count, x, y);
+		textDrawer_->MeasureString(str.data(), str.length(), x, y);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
 
-void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
+void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align) const {
+	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextRect(style.atlasFont, str, count, bounds, x, y, align);
+		Draw()->MeasureTextRect(style.atlasFont, str.data(), str.length(), bounds, x, y, align);
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureStringRect(str, count, bounds, x, y, align);
+		textDrawer_->MeasureStringRect(str.data(), str.length(), bounds, x, y, align);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
@@ -291,10 +286,10 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 
 static constexpr float MIN_TEXT_SCALE = 0.7f;
 
-float UIContext::CalculateTextScale(const char *text, float availWidth, float availHeight) const {
+float UIContext::CalculateTextScale(std::string_view str, float availWidth, float availHeight) const {
 	float actualWidth, actualHeight;
 	Bounds availBounds(0, 0, availWidth, availHeight);
-	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, text, (int)strlen(text), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
 		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 	}

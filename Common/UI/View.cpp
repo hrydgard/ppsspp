@@ -483,10 +483,10 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		}
 		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
 			availWidth = layoutParams_->width;
-		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
+		float scale = dc.CalculateTextScale(text_, availWidth, bounds_.h);
 		Bounds availBounds(0, 0, availWidth, vert.size);
 		float textW = 0.0f, textH = 0.0f;
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &textW, &textH, FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_, availBounds, &textW, &textH, FLAG_WRAP_TEXT);
 		totalH = std::max(totalH, textH);
 		totalW += textW;
 	}
@@ -580,7 +580,7 @@ void InfoItem::Draw(UIContext &dc) {
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
 
 	float leftWidth, leftHeight;
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), padBounds, &leftWidth, &leftHeight, ALIGN_VCENTER);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_, padBounds, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawTextRect(text_.c_str(), padBounds, style.fgColor, ALIGN_VCENTER);
@@ -616,7 +616,7 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
-	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_, bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 std::string ItemHeader::DescribeText() const {
@@ -658,7 +658,7 @@ void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureS
 		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
-	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_, bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -840,11 +840,11 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 
 	if (!text_.empty()) {
-		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
+		float scale = dc.CalculateTextScale(text_, availWidth, bounds_.h);
 
 		float actualWidth, actualHeight;
 		Bounds availBounds(0, 0, availWidth, bounds_.h);
-		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_, availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		h = std::max(actualHeight, ITEM_HEIGHT);
 	} else {
 		h = std::max(imageH, ITEM_HEIGHT);
@@ -1043,7 +1043,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	if (bullet_) {
 		bounds.w -= bulletOffset;
 	}
-	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
+	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_, bounds, &w, &h, textAlign_);
 	w += pad_ * 2.0f;
 	h += pad_ * 2.0f;
 	if (bullet_) {
@@ -1141,7 +1141,7 @@ void TextEdit::Draw(UIContext &dc) {
 
 	if (HasFocus()) {
 		// Hack to find the caret position. Might want to find a better way...
-		dc.MeasureTextCount(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
 		float caretX = w - scrollPos_;
 		if (caretX > bounds_.w) {
 			scrollPos_ += caretX - bounds_.w;
