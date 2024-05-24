@@ -44,6 +44,7 @@ Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
 	}
+	jo.optimizeForInterpreter = false;
 #ifdef MASKED_PSP_MEMORY
 	jo.enablePointerify = false;
 #endif

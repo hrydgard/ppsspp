@@ -39,6 +39,7 @@ RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
 	}
+	jo.optimizeForInterpreter = false;
 
 	// Since we store the offset, this is as big as it can be.
 	// We could shift off one bit to double it, would need to change RiscVAsm.

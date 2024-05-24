@@ -48,6 +48,8 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	// blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
 	InitIR();
 
+	jo.optimizeForInterpreter = true;
+
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
 #if PPSSPP_ARCH(RISCV64)
@@ -65,6 +67,7 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	opts.unalignedLoadStoreVec4 = false;
 	opts.preferVec4 = true;
 #endif
+	opts.optimizeForInterpreter = jo.optimizeForInterpreter;
 	frontend_.SetOptions(opts);
 }
 

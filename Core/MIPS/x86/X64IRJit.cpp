@@ -41,6 +41,7 @@ X64JitBackend::X64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
 	}
+	jo.optimizeForInterpreter = false;
 
 	// Since we store the offset, this is as big as it can be.
 	AllocCodeSpace(1024 * 1024 * 16);
