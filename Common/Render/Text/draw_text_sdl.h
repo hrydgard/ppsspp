@@ -35,9 +35,6 @@ protected:
 	uint32_t fontHash_;
 	std::map<uint32_t, _TTF_Font *> fontMap_;
 
-	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
-
 	std::vector<_TTF_Font *> fallbackFonts_;
 	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index
 

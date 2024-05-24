@@ -43,9 +43,6 @@ private:
 	bool use4444Format_ = false;
 
 	std::map<uint32_t, AndroidFontEntry> fontMap_;
-
-	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
 
 #endif

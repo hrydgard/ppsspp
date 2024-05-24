@@ -28,9 +28,6 @@ protected:
 
 	uint32_t fontHash_;
 	std::map<uint32_t, QFont *> fontMap_;
-
-	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
 
 #endif

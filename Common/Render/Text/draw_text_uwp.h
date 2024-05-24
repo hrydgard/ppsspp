@@ -36,9 +36,6 @@ protected:
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 
 	uint32_t fontHash_;
-	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
-	
 
 	// Direct2D drawing components.
 	ID2D1Factory5*        m_d2dFactory;
