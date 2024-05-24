@@ -164,7 +164,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 		dc.FillRect(backgroundDark, bottomTextBounds);
 		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(details.c_str(), bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
+		dc.DrawTextRect(details, bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 }

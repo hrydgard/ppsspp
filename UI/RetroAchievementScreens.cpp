@@ -13,8 +13,8 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 
-static inline const char *DeNull(const char *ptr) {
-	return ptr ? ptr : "";
+static inline std::string_view DeNull(const char *ptr) {
+	return ptr ? std::string_view(ptr) : "";
 }
 
 // Compound view, creating a FileChooserChoice inside.

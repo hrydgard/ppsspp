@@ -84,12 +84,12 @@ public:
 	void SetFontScale(float scaleX, float scaleY);
 	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
 	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
-	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
-	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 	// Will squeeze the text into the bounds if needed.
-	void DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 
 	float CalculateTextScale(std::string_view str, float availWidth, float availHeight) const;
 

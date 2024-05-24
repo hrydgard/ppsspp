@@ -15,7 +15,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
 	dc.Begin();
 	Bounds textBounds(bounds_.x, bounds_.centerY() + minRadius + 5.0, bounds_.w, bounds_.h / 2 - minRadius - 5.0);
-	dc.DrawTextShadowRect(title_.c_str(), textBounds, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER | FLAG_WRAP_TEXT);
+	dc.DrawTextShadowRect(title_, textBounds, 0xFFFFFFFF, ALIGN_TOP | ALIGN_HCENTER | FLAG_WRAP_TEXT);
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
