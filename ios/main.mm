@@ -31,6 +31,7 @@
 #include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Common/Log.h"
 #include "UI/DarwinFileSystemServices.h"
@@ -550,6 +551,7 @@ void System_Vibrate(int mode) {
 
 int main(int argc, char *argv[])
 {
+	// SetCurrentThreadName("MainThread");
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.

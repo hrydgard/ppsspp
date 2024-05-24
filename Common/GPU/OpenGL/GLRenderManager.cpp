@@ -348,6 +348,9 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 	curProgram_ = nullptr;
 #endif
 
+	// Shouldn't call BeginFrame unless we're in a run state.
+	_dbg_assert_(runCompileThread_);
+
 	int curFrame = GetCurFrame();
 
 	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameIdGen_);
@@ -366,10 +369,6 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 			frameData.fenceCondVar.wait(lock);
 		}
 		frameData.readyForFence = false;
-	}
-
-	if (!runCompileThread_) {
-		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 
 	insideFrame_ = true;

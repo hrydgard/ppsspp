@@ -126,6 +126,8 @@
 - (void)restart:(const char*)restartArgs {
 	INFO_LOG(G3D, "Restart requested: %s", restartArgs);
 	[self.viewController willResignActive];
+	[self.viewController shutdown];
+	self.window.rootViewController = nil;
 	self.viewController = nil;
 
 	// App was requested to restart, probably.
@@ -136,12 +138,14 @@
 	// TODO: Ignoring the command line for now.
 	// Hoping that overwriting the viewController works as expected...
 	[self launchPPSSPP:0 argv:nullptr];
+	[self.viewController didBecomeActive];
 }
 
--(void) applicationWillResignActive:(UIApplication *)application {
+- (void)applicationWillResignActive:(UIApplication *)application {
 	INFO_LOG(G3D, "willResignActive");
 
 	[self.viewController willResignActive];
+
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioShutdown();
 	}
@@ -149,7 +153,7 @@
 	System_PostUIMessage(UIMessage::LOST_FOCUS);
 }
 
--(void) applicationDidBecomeActive:(UIApplication *)application {
+- (void)applicationDidBecomeActive:(UIApplication *)application {
 	INFO_LOG(G3D, "didBecomeActive");
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioInit();

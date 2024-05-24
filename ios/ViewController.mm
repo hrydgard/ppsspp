@@ -26,6 +26,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
@@ -81,8 +82,9 @@ private:
 	GLRenderManager *renderManager_;
 };
 
-static bool threadEnabled = true;
-static bool threadStopped = false;
+static std::atomic<bool> exitRenderLoop;
+static std::atomic<bool> renderLoopRunning;
+static std::thread g_renderLoopThread;
 
 id<PPSSPPViewController> sharedViewController;
 
@@ -90,7 +92,7 @@ id<PPSSPPViewController> sharedViewController;
 	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
 
-	GraphicsContext *graphicsContext;
+	IOSGLESContext *graphicsContext;
 	LocationHelper *locationHelper;
 	CameraHelper *cameraHelper;
 }
@@ -143,6 +145,59 @@ extern float g_safeInsetBottom;
 		g_safeInsetTop = self.view.safeAreaInsets.top;
 		g_safeInsetBottom = 0.0f;
 	}
+}
+
+// The actual rendering is NOT on this thread, this is the emu thread
+// that runs game logic.
+void GLRenderLoop(IOSGLESContext *graphicsContext) {
+	SetCurrentThreadName("EmuThreadGL");
+	renderLoopRunning = true;
+
+	// graphicsContext->StartThread();
+	NativeInitGraphics(graphicsContext);
+
+	INFO_LOG(SYSTEM, "Emulation thread starting\n");
+	while (!exitRenderLoop) {
+		NativeFrame(graphicsContext);
+	}
+
+	INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
+	NativeShutdownGraphics();
+
+	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
+	INFO_LOG(SYSTEM, "Emulation thread stopping\n");
+
+	exitRenderLoop = false;
+	renderLoopRunning = false;
+}
+
+- (bool)runGLRenderLoop {
+	if (!graphicsContext) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		return false;
+	}
+
+	if (g_renderLoopThread.joinable()) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
+		return false;
+	}
+
+	_dbg_assert_(!renderLoopRunning);
+	_dbg_assert_(!exitRenderLoop);
+
+	g_renderLoopThread = std::thread(GLRenderLoop, graphicsContext);
+	return true;
+}
+
+- (void)requestExitGLRenderLoop {
+	if (!renderLoopRunning) {
+		ERROR_LOG(SYSTEM, "Render loop already exited");
+		return;
+	}
+	_assert_(g_renderLoopThread.joinable());
+	exitRenderLoop = true;
+	g_renderLoopThread.join();
+	_assert_(!g_renderLoopThread.joinable());
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -201,24 +256,7 @@ extern float g_safeInsetBottom;
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
-	// Was previously DISPATCH_QUEUE_PRIORITY_HIGH.
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-		NativeInitGraphics(graphicsContext);
-
-		INFO_LOG(SYSTEM, "Emulation thread starting\n");
-		while (threadEnabled) {
-			NativeFrame(graphicsContext);
-		}
-
-		INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
-		NativeShutdownGraphics();
-
-		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-		INFO_LOG(SYSTEM, "Emulation thread stopping\n");
-		graphicsContext->StopThread();
-
-		threadStopped = true;
-	});
+	INFO_LOG(G3D, "Done with viewDidLoad. Next up, OpenGL");
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
@@ -238,31 +276,24 @@ extern float g_safeInsetBottom;
 	[self shutdown];
 }
 
-- (void)willResignActive {
-
+- (void)didBecomeActive {
+	INFO_LOG(SYSTEM, "didBecomeActive begin");
+	[self runGLRenderLoop];
+	INFO_LOG(SYSTEM, "didBecomeActive end");
 }
 
-- (void)didBecomeActive {
-
+- (void)willResignActive {
+	INFO_LOG(SYSTEM, "willResignActive begin");
+	[self requestExitGLRenderLoop];
+	INFO_LOG(SYSTEM, "willResignActive end");
 }
 
 - (void)shutdown
 {
-	if (sharedViewController == nil) {
-		return;
-	}
+	INFO_LOG(SYSTEM, "shutdown GL");
 
-	iOSCoreAudioShutdown();
-
-	if (threadEnabled) {
-		threadEnabled = false;
-		while (graphicsContext->ThreadFrame()) {
-			continue;
-		}
-		while (!threadStopped) {}
-		graphicsContext->ThreadEnd();
-	}
-
+	_dbg_assert_(graphicsContext);
+	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
 
 	if (self.context) {
@@ -276,19 +307,15 @@ extern float g_safeInsetBottom;
 
 	self.gameController = nil;
 
-	if (graphicsContext) {
-		graphicsContext->Shutdown();
-		delete graphicsContext;
-		graphicsContext = NULL;
-	}
-
-	NativeShutdown();
+	graphicsContext->StopThread();
+	graphicsContext->Shutdown();
+	delete graphicsContext;
+	graphicsContext = nullptr;
 }
 
 - (void)dealloc
 {
-	INFO_LOG(SYSTEM, "dealloc");
-	[self shutdown];
+	INFO_LOG(SYSTEM, "dealloc GL");
 }
 
 - (NSUInteger)supportedInterfaceOrientations
@@ -298,8 +325,14 @@ extern float g_safeInsetBottom;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
+	if (!renderLoopRunning) {
+		INFO_LOG(G3D, "Ignoring drawInRect");
+		return;
+	}
+	INFO_LOG(G3D, "drawInRect start");
 	if (sharedViewController)
 		graphicsContext->ThreadFrame();
+	INFO_LOG(G3D, "drawInRect end");
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event

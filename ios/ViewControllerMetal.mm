@@ -152,8 +152,6 @@ void IOSVulkanContext::Resize() {
 	INFO_LOG(G3D, "IOSVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
-extern const char *PPSSPP_GIT_VERSION;
-
 bool IOSVulkanContext::InitAPI() {
 	INFO_LOG(G3D, "IOSVulkanContext::Init");
 	init_glslang();
@@ -203,9 +201,7 @@ bool IOSVulkanContext::InitAPI() {
 
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
-static bool renderer_inited = false;
-static std::mutex renderLock;
-static std::thread g_vulkanRenderLoopThread;
+static std::thread g_renderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
 	ICadeTracker g_iCadeTracker;
@@ -237,7 +233,8 @@ static std::thread g_vulkanRenderLoopThread;
 
 // Should be very similar to the Android one, probably mergeable.
 void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLayer) {
-	SetCurrentThreadName("EmuThread");
+	SetCurrentThreadName("EmuThreadVulkan");
+	INFO_LOG(G3D, "Entering EmuThreadVulkan");
 
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
@@ -281,14 +278,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 			// Gonna be in a weird state here..
 		}
 		graphicsContext->ThreadStart();
-		renderer_inited = true;
-
 		while (!exitRenderLoop) {
-			{
-				std::lock_guard<std::mutex> renderGuard(renderLock);
-				NativeFrame(graphicsContext);
-			}
-			// Here Android processes frame commands.
+			NativeFrame(graphicsContext);
 		}
 		INFO_LOG(G3D, "Leaving Vulkan main loop.");
 	} else {
@@ -297,7 +288,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	NativeShutdownGraphics();
 
-	renderer_inited = false;
 	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
@@ -310,42 +300,71 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (bool)runVulkanRenderLoop {
+	INFO_LOG(G3D, "runVulkanRenderLoop");
+
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
-	if (g_vulkanRenderLoopThread.joinable()) {
+	if (g_renderLoopThread.joinable()) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
 		return false;
 	}
 
 	CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
-	g_vulkanRenderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
+	g_renderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
 	return true;
 }
 
 - (void)requestExitVulkanRenderLoop {
+	INFO_LOG(G3D, "requestExitVulkanRenderLoop");
+
 	if (!renderLoopRunning) {
 		ERROR_LOG(SYSTEM, "Render loop already exited");
 		return;
 	}
-	_assert_(g_vulkanRenderLoopThread.joinable());
+	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
-	g_vulkanRenderLoopThread.join();
-	_assert_(!g_vulkanRenderLoopThread.joinable());
-	g_vulkanRenderLoopThread = std::thread();
+	g_renderLoopThread.join();
+	_assert_(!g_renderLoopThread.joinable());
 }
 
 // These two are forwarded from the appDelegate
 - (void)didBecomeActive {
+	INFO_LOG(G3D, "didBecomeActive GL");
+
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
 }
 
 - (void)willResignActive {
+	INFO_LOG(G3D, "willResignActive GL");
 	[self requestExitVulkanRenderLoop];
+}
+
+- (void)shutdown
+{
+	INFO_LOG(SYSTEM, "shutdown VK");
+
+	_dbg_assert_(sharedViewController != nil);
+	sharedViewController = nil;
+
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+
+	self.gameController = nil;
+
+	if (graphicsContext) {
+		graphicsContext->Shutdown();
+		delete graphicsContext;
+		graphicsContext = NULL;
+	}
+}
+
+- (void)dealloc
+{
+	INFO_LOG(SYSTEM, "dealloc VK");
 }
 
 - (void)loadView {
@@ -393,14 +412,12 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 	[[self view] addGestureRecognizer:mBackGestureRecognizer];
-
 }
 
 // Allow device rotation to resize the swapchain
 -(void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id)coordinator {
 	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 	// TODO: Handle resizing properly.
-	// demo_resize(&demo);
 }
 
 - (UIView *)getView {
@@ -424,7 +441,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
+	INFO_LOG(G3D, "viewDidAppear");
 	[self hideKeyboard];
+	INFO_LOG(G3D, "viewDidAppearDone");
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
