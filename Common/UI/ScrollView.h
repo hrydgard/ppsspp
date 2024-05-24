@@ -44,7 +44,7 @@ public:
 		alignOpposite_ = alignOpposite;
 	}
 
-	NeighborResult FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) override;
+	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
 
 private:
 	float HardClampedScrollPos(float pos) const;

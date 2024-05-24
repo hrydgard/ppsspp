@@ -288,7 +288,7 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
-NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
 	if (ContainsSubview(view) && views_[0]->IsViewGroup()) {
 		ViewGroup *vg = static_cast<ViewGroup *>(views_[0]);
 		int found = -1;
@@ -315,7 +315,7 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, F
 			}
 
 			// Okay, now where is our ideal target?
-			Point targetPos = view->GetBounds().Center();
+			Point2D targetPos = view->GetBounds().Center();
 			if (orientation_ == ORIENT_VERTICAL)
 				targetPos.y += mult * bounds_.h;
 			else

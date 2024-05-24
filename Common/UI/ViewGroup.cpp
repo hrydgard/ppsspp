@@ -284,7 +284,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / minH);
 }
 
-float GetTargetScore(const Point &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
+float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -293,7 +293,7 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
 
-	Point destPos = destination->GetFocusPosition(Opposite(direction));
+	Point2D destPos = destination->GetFocusPosition(Opposite(direction));
 
 	float dx = destPos.x - originPos.x;
 	float dy = destPos.y - originPos.y;
@@ -385,7 +385,7 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 }
 
 static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusDirection direction) {
-	Point originPos = origin->GetFocusPosition(direction);
+	Point2D originPos = origin->GetFocusPosition(direction);
 	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }
 
@@ -444,7 +444,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		}
 	case FOCUS_PREV_PAGE:
 	case FOCUS_NEXT_PAGE:
-		return FindScrollNeighbor(view, Point(INFINITY, INFINITY), direction, result);
+		return FindScrollNeighbor(view, Point2D(INFINITY, INFINITY), direction, result);
 	case FOCUS_PREV:
 		// If view not found, no neighbor to find.
 		if (num == -1)
@@ -462,7 +462,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 	}
 }
 
-NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
 	if (!IsEnabled())
 		return best;
 	if (GetVisibility() != V_VISIBLE)
@@ -1015,21 +1015,21 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		// Currently displayed, so let's reset it.
 		if (skipTween) {
 			tabs_[currentTab_]->SetVisibility(V_GONE);
-			tabTweens_[tab]->Reset(Point(0.0f, 0.0f));
+			tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
 			tabTweens_[tab]->Apply(tabs_[tab]);
 		} else {
-			tabTweens_[currentTab_]->Reset(Point(0.0f, 0.0f));
+			tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
 
 			if (orient == ORIENT_HORIZONTAL) {
-				tabTweens_[tab]->Reset(Point(bounds_.w * dir, 0.0f));
-				tabTweens_[currentTab_]->Divert(Point(bounds_.w * -dir, 0.0f));
+				tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
+				tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
 			} else {
-				tabTweens_[tab]->Reset(Point(0.0f, bounds_.h * dir));
-				tabTweens_[currentTab_]->Divert(Point(0.0f, bounds_.h * -dir));
+				tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
+				tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
 			}
 			// Actually move it to the initial position now, just to avoid any flicker.
 			tabTweens_[tab]->Apply(tabs_[tab]);
-			tabTweens_[tab]->Divert(Point(0.0f, 0.0f));
+			tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
 		}
 		tabs_[tab]->SetVisibility(V_VISIBLE);
 
