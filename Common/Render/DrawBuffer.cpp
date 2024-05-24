@@ -450,15 +450,15 @@ public:
 	}
 
 protected:
-	float MeasureWidth(const char *str, size_t bytes) override;
+	float MeasureWidth(std::string_view str) override;
 
 	const AtlasFont &atlasfont_;
 	const float scale_;
 };
 
-float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+float AtlasWordWrapper::MeasureWidth(std::string_view str) {
 	float w = 0.0f;
-	for (UTF8 utf(str); utf.byteIndex() < (int)bytes; ) {
+	for (UTF8 utf(str); !utf.end(); ) {
 		uint32_t c = utf.next();
 		if (c == '&') {
 			// Skip ampersand prefixes ("&&" is an ampersand.)

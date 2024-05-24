@@ -20,9 +20,9 @@ TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 TextDrawer::~TextDrawer() {
 }
 
-float TextDrawerWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	float w, h;
-	drawer_->MeasureString(str, bytes, &w, &h);
+	drawer_->MeasureString(str.data(), str.length(), &w, &h);
 	return w;
 }
 

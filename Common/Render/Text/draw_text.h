@@ -94,7 +94,7 @@ public:
 		: WordWrapper(str, maxW, flags), drawer_(drawer) {}
 
 protected:
-	float MeasureWidth(const char *str, size_t bytes) override;
+	float MeasureWidth(std::string_view str) override;
 
 	TextDrawer *drawer_;
 };

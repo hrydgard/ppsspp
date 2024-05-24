@@ -167,7 +167,7 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 
 		if (lastLineStart_ != out_.size()) {
 			// To account for kerning around spaces, we recalculate the entire line width.
-			x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
+			x_ = MeasureWidth(std::string_view(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_));
 		} else {
 			x_ = 0.0f;
 		}
@@ -179,7 +179,7 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 void WordWrapper::Wrap() {
 	// First, let's check if it fits as-is.
 	size_t len = strlen(str_);
-	if (MeasureWidth(str_, len) <= maxW_) {
+	if (MeasureWidth(std::string_view(str_, len)) <= maxW_) {
 		// If it fits, we don't need to go through each character.
 		out_ = str_;
 		return;
@@ -190,7 +190,7 @@ void WordWrapper::Wrap() {
 	out_.reserve(len + len / 16);
 
 	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
-		ellipsisWidth_ = MeasureWidth("...", 3);
+		ellipsisWidth_ = MeasureWidth("...");
 	}
 
 	for (UTF8 utf(str_); !utf.end(); ) {
@@ -219,7 +219,7 @@ void WordWrapper::Wrap() {
 		}
 
 		// Measure the entire word for kerning purposes.  May not be 100% perfect.
-		float newWordWidth = MeasureWidth(str_ + lastIndex_, afterIndex - lastIndex_);
+		float newWordWidth = MeasureWidth(std::string_view(str_ + lastIndex_, afterIndex - lastIndex_));
 
 		// Is this the end of a word (space)?  We'll also output up to a soft hyphen.
 		if (wordWidth_ > 0.0f && IsSpaceOrShy(c)) {

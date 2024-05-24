@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 class WordWrapper {
 public:
@@ -12,7 +13,7 @@ public:
 	std::string Wrapped();
 
 protected:
-	virtual float MeasureWidth(const char *str, size_t bytes) = 0;
+	virtual float MeasureWidth(std::string_view str) = 0;
 	void Wrap();
 	bool WrapBeforeWord();
 	void AppendWord(int endIndex, int lastChar, bool addNewline);
