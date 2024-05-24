@@ -144,7 +144,7 @@ private:
 	int finishFrame_ = -1;
 	DialogResult finishResult_ = DR_CANCEL;
 	bool hasPopupOrigin_ = false;
-	Point popupOrigin_;
+	Point2D popupOrigin_;
 	float offsetY_ = 0.0f;
 	bool alignTop_ = false;
 
