@@ -446,7 +446,8 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 class AtlasWordWrapper : public WordWrapper {
 public:
 	// Note: maxW may be height if rotated.
-	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW, int flags) : WordWrapper(str, maxW, flags), atlasfont_(atlasfont), scale_(scale) {
+	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, std::string_view str, float maxW, int flags)
+		: WordWrapper(str, maxW, flags), atlasfont_(atlasfont), scale_(scale) {
 	}
 
 protected:
@@ -535,7 +536,7 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 			*h = 0.0f;
 			return;
 		}
-		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure.c_str(), bounds.w, wrap);
+		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, bounds.w, wrap);
 		toMeasure = wrapper.Wrapped();
 	}
 	MeasureText(font_id, toMeasure, w, h);
@@ -578,7 +579,7 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 	if (!atlasfont)
 		atlasfont = atlas->getFont(font);
 	if (wrap && atlasfont) {
-		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
+		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw, w, wrap);
 		toDraw = wrapper.Wrapped();
 	}
 
@@ -610,7 +611,7 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 // ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, Color color, int align) {
 	// rough estimate
-	int textLen = text.length();
+	int textLen = (int)text.length();
 	if (count_ + textLen * 6 > MAX_VERTS) {
 		Flush(true);
 		if (textLen * 6 >= MAX_VERTS) {

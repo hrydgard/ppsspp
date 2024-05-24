@@ -5,7 +5,7 @@
 
 class WordWrapper {
 public:
-	WordWrapper(const char *str, float maxW, int flags)
+	WordWrapper(std::string_view str, float maxW, int flags)
 		: str_(str), maxW_(maxW), flags_(flags) {
 	}
 	virtual ~WordWrapper() {}
@@ -27,7 +27,7 @@ protected:
 		return IsSpace(c) || IsShy(c);
 	}
 
-	const char *const str_;
+	const std::string_view str_;
 	const float maxW_;
 	const int flags_;
 	std::string out_;

@@ -26,7 +26,7 @@ float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	return w;
 }
 
-void TextDrawer::WrapString(std::string &out, const char *str, float maxW, int flags) {
+void TextDrawer::WrapString(std::string &out, std::string_view str, float maxW, int flags) {
 	TextDrawerWordWrapper wrapper(this, str, maxW, flags);
 	out = wrapper.Wrapped();
 }

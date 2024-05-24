@@ -141,7 +141,7 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 
 	// This will include the newline.
 	if (x_ <= maxW_) {
-		out_.append(str_ + lastWordStartIndex, str_ + endIndex);
+		out_.append(str_.data() + lastWordStartIndex, str_.data() + endIndex);
 	} else {
 		scanForNewline_ = true;
 	}
@@ -178,10 +178,10 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 
 void WordWrapper::Wrap() {
 	// First, let's check if it fits as-is.
-	size_t len = strlen(str_);
-	if (MeasureWidth(std::string_view(str_, len)) <= maxW_) {
+	size_t len = str_.length();
+	if (MeasureWidth(str_) <= maxW_) {
 		// If it fits, we don't need to go through each character.
-		out_ = str_;
+		out_ = std::string(str_);
 		return;
 	}
 
@@ -219,7 +219,7 @@ void WordWrapper::Wrap() {
 		}
 
 		// Measure the entire word for kerning purposes.  May not be 100% perfect.
-		float newWordWidth = MeasureWidth(std::string_view(str_ + lastIndex_, afterIndex - lastIndex_));
+		float newWordWidth = MeasureWidth(str_.substr(lastIndex_, afterIndex - lastIndex_));
 
 		// Is this the end of a word (space)?  We'll also output up to a soft hyphen.
 		if (wordWidth_ > 0.0f && IsSpaceOrShy(c)) {

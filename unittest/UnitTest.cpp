@@ -788,7 +788,7 @@ static bool TestAndroidContentURI() {
 
 class UnitTestWordWrapper : public WordWrapper {
 public:
-	UnitTestWordWrapper(const char *str, float maxW, int flags)
+	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
 		: WordWrapper(str, maxW, flags) {
 	}
 
