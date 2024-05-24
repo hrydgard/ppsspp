@@ -329,10 +329,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		INFO_LOG(G3D, "Ignoring drawInRect");
 		return;
 	}
-	INFO_LOG(G3D, "drawInRect start");
-	if (sharedViewController)
+	if (sharedViewController) {
 		graphicsContext->ThreadFrame();
-	INFO_LOG(G3D, "drawInRect end");
+	}
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event

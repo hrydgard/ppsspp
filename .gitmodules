@@ -61,4 +61,4 @@
 	url = https://github.com/KhronosGroup/OpenXR-SDK.git
 [submodule "ios/MoltenVK"]
 	path = ios/MoltenVK
-	url = git@github.com:hrydgard/ppsspp-moltenvk.git
+	url = https://github.com/hrydgard/ppsspp-moltenvk.git
