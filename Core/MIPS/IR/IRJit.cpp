@@ -57,7 +57,7 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	opts.unalignedLoadStore = false;
 	opts.unalignedLoadStoreVec4 = true;
 	opts.preferVec4 = cpu_info.RiscV_V;
-#elif PPSSPP_ARCH(ARM)
+#elif PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
 	opts.unalignedLoadStoreVec4 = true;
 	opts.preferVec4 = cpu_info.bASIMD || cpu_info.bNEON;
