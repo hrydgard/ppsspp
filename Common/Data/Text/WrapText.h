@@ -10,10 +10,12 @@ public:
 	}
 	virtual ~WordWrapper() {}
 
+	// TODO: This should return a vector of std::string_view for the lines, instead of building up a new string.
 	std::string Wrapped();
 
 protected:
 	virtual float MeasureWidth(std::string_view str) = 0;
+
 	void Wrap();
 	bool WrapBeforeWord();
 	void AppendWord(int endIndex, int lastChar, bool addNewline);

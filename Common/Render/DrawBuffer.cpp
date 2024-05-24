@@ -542,7 +542,7 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 	MeasureText(font_id, toMeasure, w, h);
 }
 
-void DrawBuffer::DrawTextShadow(FontID font, const char *text, float x, float y, Color color, int flags) {
+void DrawBuffer::DrawTextShadow(FontID font, std::string_view text, float x, float y, Color color, int flags) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	DrawText(font, text, x + 2, y + 2, alpha, flags);
 	DrawText(font, text, x, y, color, flags);
@@ -559,9 +559,8 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 	}
 }
 
-
 // TODO: Actually use the rect properly, take bounds.
-void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color, int align) {
+void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float y, float w, float h, Color color, int align) {
 	if (align & ALIGN_HCENTER) {
 		x += w / 2;
 	} else if (align & ALIGN_RIGHT) {
@@ -573,7 +572,7 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 		y += h;
 	}
 
-	std::string toDraw = text;
+	std::string toDraw(text);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
 	if (!atlasfont)

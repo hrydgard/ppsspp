@@ -135,9 +135,9 @@ public:
 
 	void MeasureTextRect(FontID font, std::string_view text, const Bounds &bounds, float *w, float *h, int align = 0);
 
-	void DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextRect(FontID font, std::string_view text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(FontID font, std::string_view text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
-	void DrawTextShadow(FontID font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextShadow(FontID font, std::string_view text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;
