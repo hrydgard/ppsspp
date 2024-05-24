@@ -248,9 +248,9 @@ std::string PopupSliderChoice::ValueText() const {
 	char temp[256];
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0) {
-		truncate_cpy(temp, zeroLabel_.c_str());
+		truncate_cpy(temp, zeroLabel_);
 	} else if (negativeLabel_.size() && *value_ < 0) {
-		truncate_cpy(temp, negativeLabel_.c_str());
+		truncate_cpy(temp, negativeLabel_);
 	} else {
 		// Would normally be dangerous to have user-controlled format strings!
 		// However, let's check that there's only one % sign, and that it's not followed by an S.
@@ -290,7 +290,7 @@ std::string PopupSliderChoiceFloat::ValueText() const {
 	char temp[256];
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
-		truncate_cpy(temp, zeroLabel_.c_str());
+		truncate_cpy(temp, zeroLabel_);
 	} else if (IsValidNumberFormatString(fmt_)) {
 		snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 	} else {

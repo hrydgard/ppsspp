@@ -560,7 +560,7 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();

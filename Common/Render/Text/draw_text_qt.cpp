@@ -51,7 +51,7 @@ void TextDrawerQt::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerQt::MeasureString(std::string_view str, size_t len, float *w, float *h) {
+void TextDrawerQt::MeasureString(std::string_view str, float *w, float *h) {
 	CacheKey key{ std::string(str), fontHash_ };
 
 	TextMeasureEntry *entry;
@@ -74,8 +74,8 @@ void TextDrawerQt::MeasureString(std::string_view str, size_t len, float *w, flo
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerQt::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str, len);
+void TextDrawerQt::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
@@ -89,15 +89,15 @@ void TextDrawerQt::MeasureStringRect(const char *str, size_t len, const Bounds &
 	*h = (float)size.height() * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+	if (str.empty()) {
 		bitmapData.clear();
 		return;
 	}
 
 	QFont *font = fontMap_.find(fontHash_)->second;
 	QFontMetrics fm(*font);
-	QSize size = fm.size(0, QString::fromUtf8(str));
+	QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
 	QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
 	if (image.isNull()) {
 		bitmapData.clear();
@@ -110,7 +110,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	painter.setFont(*font);
 	painter.setPen(0xFFFFFFFF);
 	// TODO: Involve ALIGN_HCENTER (bounds etc.)
-	painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str).replace("&&", "&"));
+	painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str.data(), str.length()).replace("&&", "&"));
 	painter.end();
 
 	entry.texture = nullptr;
@@ -138,10 +138,11 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	}
 }
 
-void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerQt::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!strlen(str))
+	if (str.empty()) {
 		return;
+	}
 
 	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);

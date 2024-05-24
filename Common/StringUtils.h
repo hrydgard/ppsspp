@@ -102,6 +102,10 @@ inline size_t truncate_cpy(char(&out)[Count], const char *src) {
 	return truncate_cpy(out, Count, src);
 }
 size_t truncate_cpy(char *dest, size_t destSize, std::string_view src);
+template<size_t Count>
+inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
+	return truncate_cpy(out, Count, src);
+}
 
 const char* safe_string(const char* s);
 

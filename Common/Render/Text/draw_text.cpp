@@ -46,7 +46,7 @@ float TextDrawer::CalculateDPIScale() {
 	return scale;
 }
 
-void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
+void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	float x = bounds.x;
 	float y = bounds.y;
 	if (align & ALIGN_HCENTER) {
@@ -60,7 +60,7 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 		y = bounds.y2();
 	}
 
-	std::string toDraw = str;
+	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
@@ -70,8 +70,8 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 	DrawString(target, toDraw.c_str(), x, y, color, align);
 }
 
-void TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, const Bounds &bounds, int align) {
-	std::string toDraw = str;
+void TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align) {
+	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;

@@ -174,8 +174,8 @@ void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bo
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+	if (str.empty()) {
 		bitmapData.clear();
 		return;
 	}
@@ -189,7 +189,7 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	}
 
 	auto env = getEnv();
-	jstring jstr = env->NewStringUTF(str);
+	jstring jstr = env->NewStringUTF(std::string(str).c_str());
 	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
@@ -246,9 +246,9 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	env->DeleteLocalRef(imageData);
 }
 
-void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerAndroid::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!str)
+	if (str.empty())
 		return;
 
 	std::string text(NormalizeString(std::string(str)));
@@ -275,7 +275,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, text.c_str(), align);
+		DrawStringBitmap(bitmapData, *entry, texFormat, text, align);
 		desc.initData.push_back(&bitmapData[0]);
 
 		desc.type = TextureType::LINEAR2D;

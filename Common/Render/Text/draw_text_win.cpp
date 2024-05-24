@@ -211,8 +211,8 @@ void TextDrawerWin32::MeasureStringRect(std::string_view str, const Bounds &boun
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+	if (str.empty()) {
 		bitmapData.clear();
 		return;
 	}
@@ -304,10 +304,11 @@ void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	}
 }
 
-void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerWin32::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!strlen(str))
+	if (str.empty()) {
 		return;
+	}
 
 	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);

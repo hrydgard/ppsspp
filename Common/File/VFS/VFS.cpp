@@ -25,7 +25,7 @@ void VFS::Clear() {
 }
 
 // TODO: Use Path more.
-static bool IsLocalAbsolutePath(const char *path) {
+static bool IsLocalAbsolutePath(std::string_view path) {
 	bool isUnixLocal = path[0] == '/';
 #ifdef _WIN32
 	bool isWindowsLocal = (isalpha(path[0]) && path[1] == ':') || startsWith(path, "\\\\") || startsWith(path, "//");
