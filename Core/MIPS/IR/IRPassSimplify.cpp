@@ -1175,16 +1175,21 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IRTEMP_LR_VALUE:
 		case IRTEMP_LR_MASK:
 		case IRTEMP_LR_SHIFT:
-			// Unlike other registers, these don't need to persist between blocks.
-			// So we consider them not read unless proven read.
-			lastWrittenTo[dest] = i;
-			// If this is a copy, we might be able to optimize out the copy.
-			if (inst.op == IROp::Mov) {
-				Check check(dest, i, false);
-				check.srcReg = inst.src1;
-				checks.push_back(check);
+			// Check that it's not a barrier instruction (like CallReplacement). Don't want to even consider optimizing those.
+			if (!(inst.m.flags & IRFLAG_BARRIER)) {
+				// Unlike other registers, these don't need to persist between blocks.
+				// So we consider them not read unless proven read.
+				lastWrittenTo[dest] = i;
+				// If this is a copy, we might be able to optimize out the copy.
+				if (inst.op == IROp::Mov) {
+					Check check(dest, i, false);
+					check.srcReg = inst.src1;
+					checks.push_back(check);
+				} else {
+					checks.push_back(Check(dest, i, false));
+				}
 			} else {
-				checks.push_back(Check(dest, i, false));
+				lastWrittenTo[dest] = i;
 			}
 			break;
 

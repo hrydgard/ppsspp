@@ -1656,7 +1656,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	for (int index : indexes) {
 		bool didReplace = false;
-		auto entry = GetReplacementFunc(index);
+		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
