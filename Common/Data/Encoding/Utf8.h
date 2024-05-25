@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 
@@ -39,7 +40,7 @@ class UTF8 {
 public:
 	static const uint32_t INVALID = (uint32_t)-1;
 	// TODO: Try to get rid of this constructor.
-	explicit UTF8(const char *c);
+	explicit UTF8(const char *c) : c_(c), size_((int)strlen(c)), index_(0) {}
 	explicit UTF8(std::string_view view) : c_(view.data()), size_((int)view.size()), index_(0) {}
 	explicit UTF8(std::string_view view, int index) : c_(view.data()), size_((int)view.size()), index_(index) {}
 	bool end() const { return index_ == size_; }

@@ -29,6 +29,7 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Encoding/Utf16.h"
+#include "Common/Log.h"
 
 // is start of UTF sequence
 inline bool isutf(char c) {
@@ -209,6 +210,7 @@ int u8_charnum(const char *s, int offset)
 /* reads the next utf-8 sequence out of a string, updating an index */
 uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	uint32_t ch = 0;
+	_dbg_assert_(*index >= 0 && *index < 100000000);
 	int sz = 0;
 	int i = *index;
 	do {
@@ -371,8 +373,6 @@ int u8_is_locale_utf8(const char *locale)
   }
   return 0;
 }
-
-UTF8::UTF8(const char *c) : c_(c), size_((int)strlen(c)), index_(0) {}
 
 bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	int i = 0;

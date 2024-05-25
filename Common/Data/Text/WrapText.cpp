@@ -219,7 +219,10 @@ void WordWrapper::Wrap() {
 		}
 
 		// Measure the entire word for kerning purposes.  May not be 100% perfect.
-		float newWordWidth = MeasureWidth(str_.substr(lastIndex_, afterIndex - lastIndex_));
+		float newWordWidth = 0.0f;
+		if (afterIndex <= str_.length()) {
+			newWordWidth = MeasureWidth(str_.substr(lastIndex_, afterIndex - lastIndex_));
+		}
 
 		// Is this the end of a word (space)?  We'll also output up to a soft hyphen.
 		if (wordWidth_ > 0.0f && IsSpaceOrShy(c)) {
