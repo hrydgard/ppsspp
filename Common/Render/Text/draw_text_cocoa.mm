@@ -41,12 +41,12 @@ public:
 	void Create() {
 		// Create an attributed string with string and font information
 		CGFloat fontSize = height * dpiScale;
-		CTFontRef font = CTFontCreateWithName(CFSTR("Helvetica Light"), fontSize, nil);
+		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d", fname.c_str(), height);
+		CTFontRef font = CTFontCreateWithName(CFSTR("Helvetica"), fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
-								(id)font, kCTFontAttributeName, 
-								kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,
-								nil];
-		//[attributes setValue:kCGColorWhite forKey: kCTForegroundColorAttributeName];
+			(id)font, kCTFontAttributeName,
+			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
+			nil];
 	}
 	void Destroy() {
 		//CFRelease(font);
@@ -261,7 +261,9 @@ void TextDrawerCocoa::DrawString(DrawBuffer &target, std::string_view str, float
 		// because we need white. Well, we could using swizzle, but not all our backends support that.
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
+		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align)) {
+			return;
+		}
 		desc.initData.push_back(&bitmapData[0]);
 
 		desc.type = TextureType::LINEAR2D;
@@ -291,17 +293,18 @@ void TextDrawerCocoa::DrawString(DrawBuffer &target, std::string_view str, float
 	}
 }
 
-void TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
-	NSString* string = [[NSString alloc] initWithBytes:str.data() length:str.size() encoding: NSUTF8StringEncoding];
+	std::string printable = ReplaceAll(str, "&&", "&");
+	NSString* string = [[NSString alloc] initWithBytes:printable.data() length:printable.length() encoding: NSUTF8StringEncoding];
 
 	auto iter = fontMap_.find(fontHash_);
 	if (iter == fontMap_.end()) {
-		return;
+		return false;
 	}
 	NSDictionary* attributes = iter->second->attributes;
 	NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
@@ -314,6 +317,12 @@ void TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	// On iOS 4.0 and Mac OS X v10.6 you can pass null for data
 	size_t width = (size_t)ceilf(fWidth);
 	size_t height = (size_t)ceilf(ascent + descent);
+
+	if (!width || !height) {
+		WARN_LOG(G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
+		return false;
+	}
+
 	uint32_t *bitmap = new uint32_t[width * height];
 	memset(bitmap, 0, width * height * 4);
 
@@ -387,6 +396,7 @@ void TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	}
 	
 	delete [] bitmap;
+	return true;
 }
 
 void TextDrawerCocoa::OncePerFrame() {

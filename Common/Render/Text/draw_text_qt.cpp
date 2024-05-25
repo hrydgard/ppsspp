@@ -89,10 +89,10 @@ void TextDrawerQt::MeasureStringRect(std::string_view str, const Bounds &bounds,
 	*h = (float)size.height() * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
 	QFont *font = fontMap_.find(fontHash_)->second;
@@ -101,7 +101,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
 	if (image.isNull()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 	image.fill(0);
 
@@ -136,6 +136,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	} else {
 		_assert_msg_(false, "Bad TextDrawer format");
 	}
+	return true;
 }
 
 void TextDrawerQt::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {

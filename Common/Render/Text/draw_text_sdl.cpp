@@ -416,10 +416,10 @@ void TextDrawerSDL::DrawString(DrawBuffer &target, std::string_view str, float x
 	}
 }
 
-void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
 	// Replace "&&" with "&"
@@ -492,6 +492,7 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	SDL_UnlockSurface(text);
 	SDL_FreeSurface(text);
+	return true;
 }
 
 void TextDrawerSDL::OncePerFrame() {

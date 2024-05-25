@@ -807,8 +807,6 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text.h
 	Common/Render/Text/draw_text_android.cpp
 	Common/Render/Text/draw_text_android.h
-	Common/Render/Text/draw_text_cocoa.mm
-	Common/Render/Text/draw_text_cocoa.h
 	Common/Render/Text/draw_text_sdl.cpp
 	Common/Render/Text/draw_text_sdl.h
 	Common/Render/Text/draw_text_win.cpp
@@ -1271,6 +1269,12 @@ set(nativeExtraLibs)
 
 if(OPENXR AND NOT ARMV7_DEVICE)
 	set(nativeExtraLibs ${nativeExtraLibs} openxr_loader)
+endif()
+
+if(IOS OR MACOSX)
+	set(nativeExtra ${nativeExtra}
+		Common/Render/Text/draw_text_cocoa.mm
+		Common/Render/Text/draw_text_cocoa.h)
 endif()
 
 if(ANDROID)

@@ -211,10 +211,10 @@ void TextDrawerWin32::MeasureStringRect(std::string_view str, const Bounds &boun
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
@@ -302,6 +302,7 @@ void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	} else {
 		_assert_msg_(false, "Bad TextDrawer format");
 	}
+	return true;
 }
 
 void TextDrawerWin32::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
