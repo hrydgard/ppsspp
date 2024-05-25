@@ -40,8 +40,8 @@ public:
 
 	void Create() {
 		// Create an attributed string with string and font information
-		CGFloat fontSize = height * dpiScale;
-		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d", fname.c_str(), height);
+		CGFloat fontSize = height / dpiScale;
+		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", fname.c_str(), height, fontSize);
 		CTFontRef font = CTFontCreateWithName(CFSTR("Helvetica"), fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
 			(id)font, kCTFontAttributeName,
@@ -86,7 +86,7 @@ uint32_t TextDrawerCocoa::SetFont(const char *fontName, int size, int flags) {
 	if (fontName)
 		fname = fontName;
 	else
-		fname = "Helvetica Light";
+		fname = "Helvetica";
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
 	font->bold = false;
@@ -209,6 +209,7 @@ void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &boun
 			entry = new TextMeasureEntry();
 			entry->width = width;
 			entry->height = height;
+			entry->leading = leading;
 			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 		}
 		entry->lastUsedFrame = frameCount_;
@@ -216,7 +217,7 @@ void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &boun
 		if (total_w < entry->width) {
 			total_w = entry->width;
 		}
-		int h = entry->height; // i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
+		int h = i == lines.size() - 1 ? entry->height : (entry->height + entry->leading);
 		total_h += h;
 	}
 
@@ -404,6 +405,7 @@ void TextDrawerCocoa::OncePerFrame() {
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
+		INFO_LOG(G3D, "TextDrawerCocoa: DPI scale: %0.1f", newDpiScale);
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		RecreateFonts();

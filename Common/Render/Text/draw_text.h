@@ -34,6 +34,7 @@ struct TextStringEntry {
 struct TextMeasureEntry {
 	int width;
 	int height;
+	int leading;  // only used with Cocoa
 	int lastUsedFrame;
 };
 
