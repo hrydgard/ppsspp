@@ -90,7 +90,7 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	drawer = new TextDrawerWin32(draw);
 #elif PPSSPP_PLATFORM(UWP)
 	drawer = new TextDrawerUWP(draw);
-#elif PPSSPP_PLATFORM(MAC)
+#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	drawer = new TextDrawerCocoa(draw);
 #elif defined(USING_QT_UI)
 	drawer = new TextDrawerQt(draw);

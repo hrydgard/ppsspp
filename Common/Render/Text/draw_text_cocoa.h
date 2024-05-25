@@ -2,7 +2,7 @@
 
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 
 #include <map>
 #include "Common/Render/Text/draw_text.h"
