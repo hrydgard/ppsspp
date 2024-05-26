@@ -741,6 +741,8 @@ void RestoreDefault() {
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
+#elif PPSSPP_PLATFORM(IOS)
+	SetDefaultKeyMap(DEFAULT_MAPPING_IOS_PAD, false);
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);

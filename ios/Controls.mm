@@ -15,19 +15,19 @@ static void controllerButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	NativeKey(key);
 }
 
+static void analogTriggerPressed(InputAxis axis, float value) {
+	AxisInput axisInput;
+	axisInput.deviceId = DEVICE_ID_PAD_0;
+	axisInput.axisId = axis;
+	axisInput.value = value;
+	NativeAxis(&axisInput, 1);
+}
+
 bool SetupController(GCController *controller) {
 	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
 	if (extendedProfile == nil) {
 		return false;
 	}
-
-	controller.controllerPausedHandler = ^(GCController *controller) {
-		KeyInput key;
-		key.flags = KEY_DOWN;
-		key.keyCode = NKCODE_ESCAPE;
-		key.deviceId = DEVICE_ID_KEYBOARD;
-		NativeKey(key);
-	};
 
 	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
@@ -46,11 +46,11 @@ bool SetupController(GCController *controller) {
 	};
 
 	extendedProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_7); // LTrigger
+		controllerButtonPressed(pressed, NKCODE_BUTTON_L1); // LTrigger
 	};
 
 	extendedProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_8); // RTrigger
+		controllerButtonPressed(pressed, NKCODE_BUTTON_R1); // RTrigger
 	};
 
 	extendedProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
@@ -70,34 +70,36 @@ bool SetupController(GCController *controller) {
 	};
 
 	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_9); // Select
+		INFO_LOG(SYSTEM, "ltrigger: %f %d", value, (int)pressed);
+		analogTriggerPressed(JOYSTICK_AXIS_LTRIGGER, value);
 	};
 
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_10); // Start
+		INFO_LOG(SYSTEM, "rtrigger: %f %d", value, (int)pressed);
+		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
 	};
 
 #if defined(__IPHONE_12_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_12_1
 	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
 		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_11);
+			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBL);
 		};
 	}
 	if ([extendedProfile respondsToSelector:@selector(rightThumbstickButton)] && extendedProfile.rightThumbstickButton != nil) {
 		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_12);
+			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBR);
 		};
 	}
 #endif
 #if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
 	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
 		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_13);
+			controllerButtonPressed(pressed, NKCODE_BUTTON_SELECT);
 		};
 	}
 	if ([extendedProfile respondsToSelector:@selector(buttonMenu)] && extendedProfile.buttonMenu != nil) {
 		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_14);
+			controllerButtonPressed(pressed, NKCODE_BUTTON_START);
 		};
 	}
 #endif
@@ -143,7 +145,7 @@ bool SetupController(GCController *controller) {
 		NativeAxis(&axisInput, 1);
 	};
 
-    return true;
+	return true;
 }
 
 void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
@@ -203,7 +205,7 @@ void TouchTracker::Began(NSSet *touches, UIView *view) {
 }
 
 void TouchTracker::Moved(NSSet *touches, UIView *view) {
-    for (UITouch* touch in touches) {
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
 		SendTouchEvent(point.x, point.y, 0, touchId);
@@ -211,40 +213,40 @@ void TouchTracker::Moved(NSSet *touches, UIView *view) {
 }
 
 void TouchTracker::Ended(NSSet *touches, UIView *view) {
-    for (UITouch* touch in touches) {
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-            SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point.x, point.y, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}
 }
 
 void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
-    for (UITouch* touch in touches) {
+	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-            SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point.x, point.y, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}
 }
 
 void ICadeTracker::InitKeyMap() {
-    iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
-    iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
-    iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
-    iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
-    iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
-    iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
-    iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
-    iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
-    iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
-    iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
-    iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
-    iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
+	iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
+	iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
+	iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
+	iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
+	iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
+	iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
+	iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
+	iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
+	iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
+	iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
+	iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
+	iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
 }
 
 void ICadeTracker::ButtonDown(iCadeState button) {
@@ -290,7 +292,7 @@ void ICadeTracker::ButtonDown(iCadeState button) {
 }
 
 void ICadeTracker::ButtonUp(iCadeState button) {
-    if (!iCadeConnectNotified) {
+	if (!iCadeConnectNotified) {
 		iCadeConnectNotified = true;
 		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, "iCade");
 	}
