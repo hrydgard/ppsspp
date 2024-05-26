@@ -20,6 +20,8 @@
 - (void)didBecomeActive;
 - (void)willResignActive;
 
+- (void)uiStateChanged;
+
 @end
 
 extern id <PPSSPPViewController> sharedViewController;

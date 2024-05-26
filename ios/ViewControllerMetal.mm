@@ -477,7 +477,22 @@ extern float g_safeInsetBottom;
 // Enables tapping for edge area.
 -(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
 {
-	return UIRectEdgeAll;
+	if (GetUIState() == UISTATE_INGAME) {
+		// In-game, we need all the control we can get. Though, we could possibly
+		// allow the top edge?
+		INFO_LOG(SYSTEM, "Defer system gestures on all edges");
+		return UIRectEdgeAll;
+	} else {
+		INFO_LOG(SYSTEM, "Allow system gestures on the bottom");
+		// Allow task switching gestures to take precedence, without causing
+		// scroll events in the UI.
+		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
+	}
+}
+
+- (void)uiStateChanged
+{
+	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
 }
 
 - (void)bindDefaultFBO

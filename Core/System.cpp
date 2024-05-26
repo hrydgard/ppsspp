@@ -128,6 +128,7 @@ void UpdateUIState(GlobalUIState newState) {
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::UI_STATE_CHANGED);
 		System_SetKeepScreenBright(globalUIState == UISTATE_INGAME);
 	}
 }

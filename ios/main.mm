@@ -386,7 +386,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
-	default: break;
+	case SystemNotification::UI_STATE_CHANGED:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				[sharedViewController uiStateChanged];
+			}
+		});
+		break;
+	default:
+		break;
 	}
 }
 
