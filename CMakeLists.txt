@@ -2949,8 +2949,8 @@ if(IOS AND NOT LIBRETRO)
 		)
 	endif()
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND plutil -replace CFBundleDisplayName -string \"${DISPLAY_NAME}\" "\"${APP_DIR_NAME}\"/Info.plist"
-		COMMAND plutil -replace CFBundleIdentifier -string \"${BUNDLE_IDENTIFIER}\" "\"${APP_DIR_NAME}\"/Info.plist"
+		COMMAND plutil -replace CFBundleDisplayName -string "${DISPLAY_NAME}" "\"${APP_DIR_NAME}\"/Info.plist"
+		COMMAND plutil -replace CFBundleIdentifier -string "${BUNDLE_IDENTIFIER}" "\"${APP_DIR_NAME}\"/Info.plist"
 	)
 endif()
 
