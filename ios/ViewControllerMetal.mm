@@ -81,7 +81,7 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 		return false;
 	}
 
-	VkResult res = g_Vulkan->InitSurface(WINDOWSYSTEM_METAL_EXT, (void *)layer, nullptr);
+	VkResult res = g_Vulkan->InitSurface(WINDOWSYSTEM_METAL_EXT, (__bridge void *)layer, nullptr);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "g_Vulkan->InitSurface failed: '%s'", VulkanResultToString(res));
 		return false;
@@ -229,6 +229,11 @@ static std::thread g_renderLoopThread;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
 	return self;
+}
+
+- (void)appWillTerminate:(NSNotification *)notification
+{
+	[self shutdown];
 }
 
 // Should be very similar to the Android one, probably mergeable.

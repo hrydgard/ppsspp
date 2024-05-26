@@ -164,7 +164,8 @@
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {
-	exit(0);
+	// Seems like a bad idea.
+	// exit(0);
 }
 
 @end
