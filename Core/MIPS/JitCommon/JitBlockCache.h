@@ -109,6 +109,7 @@ public:
 	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
 	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0;
 	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
+	virtual bool IsValidBlock(int blockNum) const = 0;
 
 	virtual ~JitBlockCacheDebugInterface() {}
 };
@@ -164,6 +165,7 @@ public:
 	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	int GetNumBlocks() const override { return num_blocks_; }
+	bool IsValidBlock(int blockNum) const override { return blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
 
 	static int GetBlockExitSize();
 

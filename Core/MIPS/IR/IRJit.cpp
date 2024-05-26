@@ -146,7 +146,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 
 	IRBlock *b = blocks_.GetBlock(block_num);
 	b->SetInstructions(instructions);
-	b->SetOriginalSize(mipsBytes);
+	b->SetOriginalAddrSize(em_address, mipsBytes);
 	if (preload) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.

@@ -714,6 +714,10 @@ void IRNativeBlockCacheDebugInterface::Init(const IRNativeBackend *backend) {
 	backend_ = backend;
 }
 
+bool IRNativeBlockCacheDebugInterface::IsValidBlock(int blockNum) const {
+	return irBlocks_.IsValidBlock(blockNum);
+}
+
 int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
 	return irBlocks_.GetNumBlocks();
 }

@@ -1060,6 +1060,9 @@ void JitCompareScreen::UpdateDisasm() {
 	}
 
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	if (!blockCacheDebug->IsValidBlock(currentBlock_)) {
+		return;
+	}
 
 	char temp[256];
 	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
@@ -1205,7 +1208,13 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
-		currentBlock_ = rand() % numBlocks;
+		int tries = 100;
+		while (tries-- > 0) {
+			currentBlock_ = rand() % numBlocks;
+			if (blockCache->IsValidBlock(currentBlock_)) {
+				break;
+			}
+		}
 	}
 	UpdateDisasm();
 	return UI::EVENT_DONE;
