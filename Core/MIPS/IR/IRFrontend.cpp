@@ -277,7 +277,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	IRWriter simplified;
 	IRWriter *code = &ir;
 	if (!js.hadBreakpoints) {
-		static const IRPassFunc passes[] = {
+		std::vector<IRPassFunc> passes{
 			&ApplyMemoryValidation,
 			&RemoveLoadStoreLeftRight,
 			&OptimizeFPMoves,
@@ -288,7 +288,12 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
 		};
-		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified, opts))
+
+		if (opts.optimizeForInterpreter) {
+			// Add special passes here.
+			// passes.push_back(&ReorderLoadStore);
+		}
+		if (IRApplyPasses(passes.data(), passes.size(), ir, simplified, opts))
 			logBlocks = 1;
 		code = &simplified;
 		//if (ir.GetInstructions().size() >= 24)

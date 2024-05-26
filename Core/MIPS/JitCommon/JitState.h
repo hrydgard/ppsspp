@@ -237,6 +237,8 @@ namespace MIPSComp {
 		// ARM64 and RV64
 		bool useStaticAlloc;
 		bool enablePointerify;
+		// IR Interpreter
+		bool optimizeForInterpreter;
 
 		// Common
 		bool enableBlocklink;
@@ -245,6 +247,4 @@ namespace MIPSComp {
 		bool continueJumps;
 		int continueMaxInstructions;
 	};
-
 }
-

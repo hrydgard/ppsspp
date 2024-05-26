@@ -69,7 +69,8 @@ public:
 	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
 	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
-	void SetOriginalSize(u32 size) {
+	void SetOriginalAddrSize(u32 address, u32 size) {
+		origAddr_ = address;
 		origSize_ = size;
 	}
 	void SetTargetOffset(int offset) {
@@ -114,25 +115,28 @@ public:
 	IRBlockCache() {}
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
-	void FinalizeBlock(int i, bool preload = false);
+	void FinalizeBlock(int blockNum, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));
 		return (int)blocks_.size() - 1;
 	}
-	IRBlock *GetBlock(int i) {
-		if (i >= 0 && i < (int)blocks_.size()) {
-			return &blocks_[i];
+	IRBlock *GetBlock(int blockNum) {
+		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
+			return &blocks_[blockNum];
 		} else {
 			return nullptr;
 		}
 	}
-	IRBlock *GetBlockUnchecked(int i) {
-		return &blocks_[i];
+	bool IsValidBlock(int blockNum) const override {
+		return blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
 	}
-	const IRBlock *GetBlock(int i) const {
-		if (i >= 0 && i < (int)blocks_.size()) {
-			return &blocks_[i];
+	IRBlock *GetBlockUnchecked(int blockNum) {
+		return &blocks_[blockNum];
+	}
+	const IRBlock *GetBlock(int blockNum) const {
+		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
+			return &blocks_[blockNum];
 		} else {
 			return nullptr;
 		}

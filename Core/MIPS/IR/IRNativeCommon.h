@@ -162,10 +162,11 @@ class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
 public:
 	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
 	void Init(const IRNativeBackend *backend);
-	int GetNumBlocks() const;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
-	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
-	void ComputeStats(BlockCacheStats &bcStats) const;
+	int GetNumBlocks() const override;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	void ComputeStats(BlockCacheStats &bcStats) const override;
+	bool IsValidBlock(int blockNum) const override;
 
 private:
 	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;

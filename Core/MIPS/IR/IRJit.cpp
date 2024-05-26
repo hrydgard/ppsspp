@@ -48,6 +48,8 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	// blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
 	InitIR();
 
+	jo.optimizeForInterpreter = true;
+
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
 #if PPSSPP_ARCH(RISCV64)
@@ -55,7 +57,7 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	opts.unalignedLoadStore = false;
 	opts.unalignedLoadStoreVec4 = true;
 	opts.preferVec4 = cpu_info.RiscV_V;
-#elif PPSSPP_ARCH(ARM)
+#elif PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
 	opts.unalignedLoadStoreVec4 = true;
 	opts.preferVec4 = cpu_info.bASIMD || cpu_info.bNEON;
@@ -65,6 +67,7 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 	opts.unalignedLoadStoreVec4 = false;
 	opts.preferVec4 = true;
 #endif
+	opts.optimizeForInterpreter = jo.optimizeForInterpreter;
 	frontend_.SetOptions(opts);
 }
 
@@ -143,7 +146,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 
 	IRBlock *b = blocks_.GetBlock(block_num);
 	b->SetInstructions(instructions);
-	b->SetOriginalSize(mipsBytes);
+	b->SetOriginalAddrSize(em_address, mipsBytes);
 	if (preload) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.
