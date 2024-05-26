@@ -515,7 +515,7 @@ int Config::NextValidBackend() {
 	return iGPUBackend;
 }
 
-bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
+bool Config::IsBackendEnabled(GPUBackend backend) {
 	std::vector<std::string> split;
 
 	SplitString(sDisabledGPUBackends, ',', split);
@@ -534,10 +534,8 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	if (backend != GPUBackend::OPENGL)
 		return false;
 #elif PPSSPP_PLATFORM(WINDOWS)
-	if (validate) {
-		if (backend == GPUBackend::DIRECT3D11 && !DoesVersionMatchWindows(6, 0, 0, 0, true))
-			return false;
-	}
+	if (backend == GPUBackend::DIRECT3D11 && !DoesVersionMatchWindows(6, 0, 0, 0, true))
+		return false;
 #else
 	if (backend == GPUBackend::DIRECT3D11 || backend == GPUBackend::DIRECT3D9)
 		return false;
@@ -547,11 +545,9 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
-	if (validate) {
-		if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
-			return false;
-	}
-
+	INFO_LOG(SYSTEM, "Checking for VK");
+	if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
+		return false;
 	return true;
 }
 

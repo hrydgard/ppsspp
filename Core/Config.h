@@ -602,7 +602,7 @@ public:
 
 	bool IsPortrait() const;
 	int NextValidBackend();
-	bool IsBackendEnabled(GPUBackend backend, bool validate = true);
+	bool IsBackendEnabled(GPUBackend backend);
 
 	bool UseFullScreen() const {
 		if (iForceFullScreen != -1)
