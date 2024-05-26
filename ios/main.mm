@@ -561,7 +561,7 @@ int main(int argc, char *argv[])
 {
 	// SetCurrentThreadName("MainThread");
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
-	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
+	if (1 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
 	}
