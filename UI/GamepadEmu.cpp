@@ -712,16 +712,23 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 		bottom_key_spacing *= 0.8f;
 	}
 
+// On IOS, nudge the bottom button up a little to avoid the task switcher.
+#if PPSSPP_PLATFORM(IOS)
+	const float bottom_button_Y = 80.0f;
+#else
+	const float bottom_button_Y = 60.0f;
+#endif
+
 	int start_key_X = halfW + bottom_key_spacing * scale;
-	int start_key_Y = yres - 60 * scale;
+	int start_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchStartKey, start_key_X, start_key_Y);
 
 	int select_key_X = halfW;
-	int select_key_Y = yres - 60 * scale;
+	int select_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchSelectKey, select_key_X, select_key_Y);
 
 	int fast_forward_key_X = halfW - bottom_key_spacing * scale;
-	int fast_forward_key_Y = yres - 60 * scale;
+	int fast_forward_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 
 	// L and R------------------------------------------------------------

@@ -229,6 +229,7 @@ enum class SystemNotification {
 	TEST_JAVA_EXCEPTION,
 	KEEP_SCREEN_AWAKE,
 	ACTIVITY,
+	UI_STATE_CHANGED,
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of

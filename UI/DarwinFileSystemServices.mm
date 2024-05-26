@@ -7,6 +7,7 @@
 
 #include "ppsspp_config.h"
 #include "Core/Config.h"
+#include "Common/Log.h"
 #include "DarwinFileSystemServices.h"
 #include <dispatch/dispatch.h>
 #include <CoreServices/CoreServices.h>
@@ -16,6 +17,7 @@
 #endif
 
 #if __has_include(<UIKit/UIKit.h>)
+#include "../ios/ViewControllerCommon.h"
 #include <UIKit/UIKit.h>
 
 @interface DocumentPickerDelegate : NSObject <UIDocumentPickerDelegate>
@@ -24,18 +26,27 @@
 
 @implementation DocumentPickerDelegate
 -(instancetype)initWithCallback: (DarwinDirectoryPanelCallback)callback {
-    if (self = [super init]) {
-        self.callback = callback;
-    }
-    
-    return self;
+	if (self = [super init]) {
+		self.callback = callback;
+	}
+	return self;
 }
 
-- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-    if (urls.count >= 1)
+- (void)didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+	if (urls.count >= 1)
 		self.callback(true, Path(urls[0].path.UTF8String));
-    else
-        self.callback(false, Path());
+	else
+		self.callback(false, Path());
+
+	INFO_LOG(SYSTEM, "Callback processed, pre-emptively hide keyboard");
+	[sharedViewController hideKeyboard];
+}
+
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+	self.callback(false, Path());
+
+	INFO_LOG(SYSTEM, "Picker cancelled, pre-emptively hide keyboard");
+	[sharedViewController hideKeyboard];
 }
 
 @end
@@ -77,6 +88,7 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
         
         NSModalResponse modalResponse = [panel runModal];
+		INFO_LOG(SYSTEM, "Mac: Received response from modal");
         if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
             callback(true, Path(panel.URLs.firstObject.path.UTF8String));
         } else if (modalResponse == NSModalResponseCancel) {

@@ -392,7 +392,22 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 // Enables tapping for edge area.
 -(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
 {
-	return UIRectEdgeAll;
+	if (GetUIState() == UISTATE_INGAME) {
+		// In-game, we need all the control we can get. Though, we could possibly
+		// allow the top edge?
+		INFO_LOG(SYSTEM, "Defer system gestures on all edges");
+		return UIRectEdgeAll;
+	} else {
+		INFO_LOG(SYSTEM, "Allow system gestures on the bottom");
+		// Allow task switching gestures to take precedence, without causing
+		// scroll events in the UI.
+		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
+	}
+}
+
+- (void)uiStateChanged
+{
+	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
 }
 
 - (UIView *)getView {
@@ -448,11 +463,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "Backspace");
 }
 
--(BOOL) hasText
-{
-	return YES;
-}
-
 -(void) insertText:(NSString *)text
 {
 	std::string str = std::string([text UTF8String]);
@@ -460,6 +470,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	UTF8 chars(str);
 	while (!chars.end()) {
 		uint32_t codePoint = chars.next();
+		INFO_LOG(SYSTEM, "Codepoint#: %d", codePoint);
 		KeyInput input{};
 		input.deviceId = DEVICE_ID_KEYBOARD;
 		input.flags = KEY_CHAR;
@@ -470,17 +481,24 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 -(BOOL) canBecomeFirstResponder
 {
-	return YES;
+	return true;
+}
+
+-(BOOL) hasText
+{
+	return true;
 }
 
 -(void) showKeyboard {
 	dispatch_async(dispatch_get_main_queue(), ^{
+		INFO_LOG(SYSTEM, "becomeFirstResponder");
 		[self becomeFirstResponder];
 	});
 }
 
 -(void) hideKeyboard {
 	dispatch_async(dispatch_get_main_queue(), ^{
+		INFO_LOG(SYSTEM, "resignFirstResponder");
 		[self resignFirstResponder];
 	});
 }
