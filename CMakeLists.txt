@@ -2794,7 +2794,6 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			set(AssetCatalog "")
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
