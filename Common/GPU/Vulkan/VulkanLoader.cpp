@@ -382,7 +382,7 @@ bool VulkanMayBeAvailable() {
 #if PPSSPP_PLATFORM(IOS)
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 13;
-	INFO_LOG(SYSTEM, "VulkanMayBeAvailable: Detected version: %d", System_GetPropertyInt(SYSPROP_SYSTEMVERSION));
+	INFO_LOG(SYSTEM, "VulkanMayBeAvailable: Detected version: %d", (int)System_GetPropertyInt(SYSPROP_SYSTEMVERSION));
 	return g_vulkanMayBeAvailable;
 #else
 	// Unsupported in VR at the moment

@@ -20,3 +20,8 @@
 
 void iOSCoreAudioInit();
 void iOSCoreAudioShutdown();
+
+// Ignore mute switch when connected to external display.
+// Also, obey other settings.
+void iOSCoreAudioUpdateSession();
+void iOSCoreAudioSetDisplayConnected(bool connected);

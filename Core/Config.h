@@ -280,6 +280,10 @@ public:
 	bool bAutoAudioDevice;
 	bool bUseNewAtrac;
 
+	// iOS only for now
+	bool bAudioMixWithOthers;
+	bool bAudioRespectSilentMode;
+
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowStatusFlags;

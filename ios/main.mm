@@ -24,6 +24,7 @@
 #import "AppDelegate.h"
 #import "PPSSPPUIApplication.h"
 #import "ViewController.h"
+#import "iOSCoreAudio.h"
 
 #include "Common/MemoryUtil.h"
 #include "Common/System/NativeApp.h"
@@ -391,6 +392,11 @@ void System_Notify(SystemNotification notification) {
 			if (sharedViewController) {
 				[sharedViewController uiStateChanged];
 			}
+		});
+		break;
+	case SystemNotification::AUDIO_MODE_CHANGED:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			iOSCoreAudioUpdateSession();
 		});
 		break;
 	default:

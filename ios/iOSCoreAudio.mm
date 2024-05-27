@@ -21,6 +21,7 @@
 #include "iOSCoreAudio.h"
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 
 #include <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
@@ -28,6 +29,50 @@
 #define SAMPLE_RATE 44100
 
 static AudioComponentInstance audioInstance = nil;
+static bool g_displayConnected = false;
+
+void iOSCoreAudioUpdateSession() {
+	NSError *error = nil;
+	if (g_displayConnected) {
+		INFO_LOG(AUDIO, "Display connected, setting Playback mode");
+		// Special handling when a display is connected. Always exclusive.
+		// Let's revisit this later.
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
+		return;
+	}
+
+	INFO_LOG(AUDIO, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
+
+	// Hacky hack to force iOS to re-evaluate.
+	// Switching from CatogoryPlayback to CategoryPlayback with an option otherwise does nothing.
+	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&error];
+
+	// Here, we apply the settings.
+	const bool mixWithOthers = g_Config.bAudioMixWithOthers;
+	if (g_Config.bAudioMixWithOthers) {
+		if (g_Config.bAudioRespectSilentMode) {
+			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+		} else {
+			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
+		}
+	} else {
+		if (g_Config.bAudioRespectSilentMode) {
+			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategorySoloAmbient error:&error];
+		} else {
+			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:0 error:&error];
+		}
+		// Can't achieve exclusive + respect silent mode
+	}
+
+	if (error) {
+		NSLog(@"%@", error);
+	}
+}
+
+void iOSCoreAudioSetDisplayConnected(bool connected) {
+	g_displayConnected = connected;
+	iOSCoreAudioUpdateSession();
+}
 
 int NativeMix(short *audio, int numSamples, int sampleRate);
 
@@ -64,6 +109,8 @@ OSStatus iOSCoreAudioCallback(void *inRefCon,
 
 void iOSCoreAudioInit()
 {
+	iOSCoreAudioUpdateSession();
+
 	NSError *error = nil;
 	AVAudioSession *session = [AVAudioSession sharedInstance];
 	if (![session setActive:YES error:&error]) {
@@ -75,7 +122,7 @@ void iOSCoreAudioInit()
 			NSLog(@"%@", error.localizedFailureReason);
 		}
 	}
-	
+
 	if (audioInstance) {
 		// Already running
 		return;

@@ -617,7 +617,23 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));
+	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));	
+
+#if PPSSPP_PLATFORM(IOS)
+	CheckBox *respectSilentMode = audioSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
+	respectSilentMode->OnClick.Add([=](EventParams &e) {
+		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
+		return UI::EVENT_DONE;
+	});
+	respectSilentMode->SetEnabledPtr(&g_Config.bEnableSound);
+	CheckBox *mixWithOthers = audioSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
+	mixWithOthers->OnClick.Add([=](EventParams &e) {
+		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
+		return UI::EVENT_DONE;
+	});
+	mixWithOthers->SetEnabledPtr(&g_Config.bEnableSound);
+#endif
+
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
