@@ -21,6 +21,7 @@
 #include "iOSCoreAudio.h"
 
 #include "Common/Log.h"
+#include "Core/Config.h"
 
 #include <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
@@ -38,6 +39,8 @@ void iOSCoreAudioUpdateSession() {
 	} else {
 		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
 	}
+
+	INFO_LOG(AUDIO, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
 }
 
 void iOSCoreAudioSetDisplayConnected(bool connected) {
@@ -80,6 +83,8 @@ OSStatus iOSCoreAudioCallback(void *inRefCon,
 
 void iOSCoreAudioInit()
 {
+	iOSCoreAudioUpdateSession();
+
 	NSError *error = nil;
 	AVAudioSession *session = [AVAudioSession sharedInstance];
 	if (![session setActive:YES error:&error]) {

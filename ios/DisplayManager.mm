@@ -6,6 +6,7 @@
 //
 
 #import "DisplayManager.h"
+#import "iOSCoreAudio.h"
 #import "ViewController.h"
 #import "AppDelegate.h"
 #include "Common/System/Display.h"

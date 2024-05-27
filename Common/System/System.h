@@ -230,6 +230,7 @@ enum class SystemNotification {
 	KEEP_SCREEN_AWAKE,
 	ACTIVITY,
 	UI_STATE_CHANGED,
+	AUDIO_MODE_CHANGED,
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of
