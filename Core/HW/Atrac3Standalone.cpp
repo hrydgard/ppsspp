@@ -82,6 +82,10 @@ public:
 			*inbytesConsumed = result;
 		}
 		if (outSamples) {
+			// Allow capping the output samples by setting *outSamples to non-zero.
+			if (*outSamples != 0) {
+				nb_samples = std::min(*outSamples, nb_samples);
+			}
 			*outSamples = nb_samples;
 		}
 		if (nb_samples > 0) {
