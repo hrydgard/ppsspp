@@ -64,6 +64,9 @@
 	[self setOriginalFrame: [gameWindow frame]];
 	[self setOriginalBounds:[gameWindow bounds]];
 	[self setOriginalTransform:[gameWindow transform]];
+
+	// TODO: From iOS 13, should use UIScreenDidConnectNotification instead of the below.
+
 	// Display connected
 	[[NSNotificationCenter defaultCenter] addObserverForName:UIScreenDidConnectNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull notification) {
 		UIScreen *screen = (UIScreen *) notification.object;
@@ -74,8 +77,7 @@
 			return;
 		}
 		// Ignore mute switch when connected to external display
-		NSError *error = nil;
-		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
+		iOSCoreAudioSetDisplayConnected(true);
 		[self updateScreen:screen];
 	}];
 	// Display disconnected
@@ -89,8 +91,7 @@
 			UIScreen *newScreen = [[self extDisplays] lastObject];
 			[self updateScreen:newScreen];
 		} else {
-			NSError *error = nil;
-			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+			iOSCoreAudioSetDisplayConnected(false);
 			[self updateScreen:[UIScreen mainScreen]];
 		}
 	}];

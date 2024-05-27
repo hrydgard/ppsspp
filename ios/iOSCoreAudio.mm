@@ -28,6 +28,22 @@
 #define SAMPLE_RATE 44100
 
 static AudioComponentInstance audioInstance = nil;
+static bool g_displayConnected = false;
+
+void iOSCoreAudioUpdateSession() {
+	NSError *error = nil;
+	// Default mode
+	if (g_displayConnected) {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
+	} else {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+	}
+}
+
+void iOSCoreAudioSetDisplayConnected(bool connected) {
+	g_displayConnected = connected;
+	iOSCoreAudioUpdateSession();
+}
 
 int NativeMix(short *audio, int numSamples, int sampleRate);
 
@@ -75,7 +91,7 @@ void iOSCoreAudioInit()
 			NSLog(@"%@", error.localizedFailureReason);
 		}
 	}
-	
+
 	if (audioInstance) {
 		// Already running
 		return;
