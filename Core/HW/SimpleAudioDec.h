@@ -38,6 +38,8 @@ public:
 
 	// inbytesConsumed can include skipping metadata.
 	// outSamples is in stereo samples. So you have to multiply by 4 for 16-bit stereo audio to get bytes.
+	// For Atrac3, if *outSamples != 0, it'll cap the number of samples to output. In this case, its value can only shrink.
+	// TODO: Implement that in the other decoders too, if needed.
 	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) = 0;
 	virtual bool IsOK() const = 0;
 
