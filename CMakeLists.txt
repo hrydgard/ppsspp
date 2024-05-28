@@ -2794,11 +2794,7 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			set(AssetCatalog "")
-			if(IOS_APP_STORE)
-				message("Adding asset catalog to build")
-				set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			endif()
+			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
@@ -2848,7 +2844,7 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	set(RSRC_XIB_FILES assets/Icon@2x.png "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
+	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
 
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
@@ -2862,18 +2858,26 @@ if(IOS AND NOT LIBRETRO)
 	#endif()
 
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
-	if(IOS_APP_STORE)
-		if(GOLD)
-			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStoreGold.plist")
+	set(PRODUCT_NAME "PPSSPP")
+	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	if(GOLD)
+		if(IOS_APP_STORE)
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
-			set(ICON_NAME "AppIconGold")
-			set(PRODUCT_NAME "PPSSPP")
 		else()
-			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist")
-			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
-			set(ICON_NAME "AppIcon")
-			set(PRODUCT_NAME "PPSSPP")
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppssppgold")
 		endif()
+		set(ICON_NAME "AppIconGold")
+		set(DISPLAY_NAME "PPSSPP Gold")
+	else()
+		if(IOS_APP_STORE)
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
+		else()
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp")
+		endif()
+		set(ICON_NAME "AppIcon")
+		set(DISPLAY_NAME "PPSSPP")
+	endif()
+	if(IOS_APP_STORE)
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
 		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
@@ -2931,11 +2935,12 @@ if(IOS AND NOT LIBRETRO)
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 		)
 		set_target_properties(${TargetBin} PROPERTIES
-			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
 			XCODE_GENERATE_SCHEME YES
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
 			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
 			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
@@ -2943,6 +2948,10 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 		)
 	endif()
+	add_custom_command(TARGET PPSSPP POST_BUILD
+		COMMAND plutil -replace CFBundleDisplayName -string "${DISPLAY_NAME}" "${APP_DIR_NAME}/Info.plist"
+		COMMAND plutil -replace CFBundleIdentifier -string "${BUNDLE_IDENTIFIER}" "${APP_DIR_NAME}/Info.plist"
+	)
 endif()
 
 if(MACOSX AND NOT IOS)
