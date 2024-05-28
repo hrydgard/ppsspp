@@ -361,7 +361,7 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
 	}
-	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Achievement sound volume"), screenManager()));
+	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, ac->T("Achievement sound volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
 
