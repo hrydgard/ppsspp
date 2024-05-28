@@ -270,15 +270,18 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::
 	return found;
 }
 
-void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
+static bool DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
+	_dbg_assert_(outbuffer->empty());
 	int dechunkedBytes = 0;
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
 		if (!line.size())
-			return;
+			return false;
 		unsigned int chunkSize = 0;
-		sscanf(line.c_str(), "%x", &chunkSize);
+		if (sscanf(line.c_str(), "%x", &chunkSize) != 1) {
+			return false;
+		}
 		if (chunkSize) {
 			std::string data;
 			inbuffer->Take(chunkSize, &data);
@@ -286,11 +289,13 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
 		} else {
 			// a zero size chunk should mean the end.
 			inbuffer->clear();
-			return;
+			return true;
 		}
 		dechunkedBytes += chunkSize;
 		inbuffer->Skip(2);
 	}
+	// Unreachable
+	return true;
 }
 
 int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
@@ -475,7 +480,11 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	// output now contains the rest of the reply. Dechunk it.
 	if (!output->IsVoid()) {
 		if (chunked) {
-			DeChunk(readbuf, output, contentLength);
+			if (!DeChunk(readbuf, output, contentLength)) {
+				ERROR_LOG(HTTP, "Bad chunked data, couldn't read chunk size");
+				progress->Update(0, 0, true);
+				return -1;
+			}
 		} else {
 			output->Append(*readbuf);
 		}
@@ -563,14 +572,13 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 }
 
-std::string HTTPRequest::RedirectLocation(const std::string &baseUrl) {
+std::string HTTPRequest::RedirectLocation(const std::string &baseUrl) const {
 	std::string redirectUrl;
 	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
 		Url url(baseUrl);
 		url = url.Relative(redirectUrl);
 		redirectUrl = url.ToString();
 	}
-
 	return redirectUrl;
 }
 
@@ -582,6 +590,7 @@ void HTTPRequest::Do() {
 
 	std::string downloadURL = url_;
 	while (resultCode_ == 0) {
+		// This is where the new request is performed.
 		int resultCode = Perform(downloadURL);
 		if (resultCode == -1) {
 			SetFailed(resultCode);
@@ -599,8 +608,11 @@ void HTTPRequest::Do() {
 			}
 
 			// Perform the next GET.
-			if (resultCode_ == 0)
+			if (resultCode_ == 0) {
 				INFO_LOG(HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+				buffer_.clear();
+				responseHeaders_.clear();
+			}
 			downloadURL = redirectURL;
 			continue;
 		}
