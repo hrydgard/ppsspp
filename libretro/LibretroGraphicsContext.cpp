@@ -2,7 +2,6 @@
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/LibretroGLContext.h"
 #include "libretro/LibretroGLCoreContext.h"
-#include "libretro/libretro.h"
 #include "libretro/LibretroVulkanContext.h"
 #ifdef _WIN32
 #include "libretro/LibretroD3D11Context.h"
@@ -26,9 +25,9 @@ static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->Cont
 bool LibretroHWRenderContext::Init(bool cache_context) {
 	hw_render_.cache_context = cache_context;
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_))
-      return false;
-   libretro_get_proc_address = hw_render_.get_proc_address;
-   return true;
+		return false;
+	libretro_get_proc_address = hw_render_.get_proc_address;
+	return true;
 }
 
 LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor) {
@@ -43,10 +42,8 @@ LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_t
 void LibretroHWRenderContext::ContextReset() {
 	INFO_LOG(G3D, "Context reset");
 
-	// needed to restart the thread
-	// TODO: find a way to move this to ContextDestroy.
-	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED) {
-		DestroyDrawContext();
+	if (gpu) {
+		gpu->DeviceLost();
 	}
 
 	if (!draw_) {
@@ -66,11 +63,15 @@ void LibretroHWRenderContext::ContextDestroy() {
 	INFO_LOG(G3D, "Context destroy");
 
 	if (Libretro::useEmuThread) {
-#if 0
-		Libretro::EmuThreadPause();
-#else
 		Libretro::EmuThreadStop();
-#endif
+	}
+
+	if (gpu) {
+		gpu->DeviceLost();
+	}
+
+	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED) {
+		DestroyDrawContext();
 	}
 
 	if (!hw_render_.cache_context && !Libretro::useEmuThread) {
@@ -139,6 +140,6 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 #endif
 
 	ctx = new LibretroSoftwareContext();
-   ctx->Init();
-   return ctx;
+	ctx->Init();
+	return ctx;
 }

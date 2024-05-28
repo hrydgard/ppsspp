@@ -8,7 +8,7 @@
 #include "libretro/LibretroGLContext.h"
 
 bool LibretroGLContext::Init() {
-	if (!LibretroHWRenderContext::Init(true))
+	if (!LibretroHWRenderContext::Init(false))
 		return false;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
