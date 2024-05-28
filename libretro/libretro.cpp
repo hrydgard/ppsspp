@@ -32,7 +32,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
-#include "Core/HW/StereoResampler.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -1743,11 +1742,7 @@ float System_GetPropertyFloat(SystemProperty prop)
    switch (prop)
    {
       case SYSPROP_DISPLAY_REFRESH_RATE:
-         // Have to lie here and report 60 Hz instead
-         // of (60.0 / 1.001), otherwise the internal
-         // stereo resampler will output at the wrong
-         // frequency...
-         return 60.0f;
+         return 60.0f / 1.001f;
       case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
       case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
       case SYSPROP_DISPLAY_SAFE_INSET_TOP:

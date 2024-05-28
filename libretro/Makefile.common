@@ -726,7 +726,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/MemoryStick.cpp \
 	       $(COREDIR)/HW/SasAudio.cpp \
 	       $(COREDIR)/HW/SasReverb.cpp \
-	       $(COREDIR)/HW/StereoResampler.cpp \
 	       $(COREDIR)/Compatibility.cpp \
 	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
