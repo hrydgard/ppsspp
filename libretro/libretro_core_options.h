@@ -279,7 +279,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_memstick_inserted",
-      "Memory Stick inserted",
+      "Memory Stick Inserted",
       NULL,
       "Some games require ejecting/inserting the Memory Stick.",
       NULL,
@@ -390,7 +390,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       NULL,
       "video",
       BOOL_OPTIONS,
-      "disabled"
+      "enabled"
    },
    {
       "ppsspp_detect_vsync_swap_interval",
