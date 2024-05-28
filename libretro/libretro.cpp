@@ -32,7 +32,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
-#include "Core/HW/StereoResampler.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -69,6 +68,13 @@
 
 #define SAMPLERATE 44100
 
+/* Audio output buffer */
+static struct {
+   int16_t *data;
+   int32_t size;
+   int32_t capacity;
+} output_audio_buffer = {NULL, 0, 0};
+
 // Calculated swap interval is 'stable' if the same
 // value is recorded for a number of retro_run()
 // calls equal to VSYNC_SWAP_INTERVAL_FRAMES
@@ -97,6 +103,7 @@ namespace Libretro
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
+   static retro_log_printf_t log_cb;
 
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
@@ -109,6 +116,40 @@ namespace Libretro
    static double fpsTimeLast = 0.0;
    static float runSpeed = 0.0f;
    static s64 runTicksLast = 0;
+
+   static void ensure_output_audio_buffer_capacity(int32_t capacity)
+   {
+      if (capacity <= output_audio_buffer.capacity) {
+         return;
+      }
+
+      output_audio_buffer.data = (int16_t*)realloc(output_audio_buffer.data, capacity * sizeof(*output_audio_buffer.data));
+      output_audio_buffer.capacity = capacity;
+      log_cb(RETRO_LOG_DEBUG, "Output audio buffer capacity set to %d\n", capacity);
+   }
+
+   static void init_output_audio_buffer(int32_t capacity)
+   {
+      output_audio_buffer.data = NULL;
+      output_audio_buffer.size = 0;
+      output_audio_buffer.capacity = 0;
+      ensure_output_audio_buffer_capacity(capacity);
+   }
+
+   static void free_output_audio_buffer()
+   {
+      free(output_audio_buffer.data);
+      output_audio_buffer.data = NULL;
+      output_audio_buffer.size = 0;
+      output_audio_buffer.capacity = 0;
+   }
+
+   static void upload_output_audio_buffer()
+   {
+      audio_batch_cb(output_audio_buffer.data, output_audio_buffer.size / 2);
+      output_audio_buffer.size = 0;
+   }
+
 
    /**
     * Clamp a value to a given range.
@@ -1103,6 +1144,7 @@ void retro_init(void)
    struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
    {
+      log_cb = log.log;
       LogManager::Init(&g_Config.bEnableLogging);
       printfLogger = new PrintfLogger(log);
       LogManager* logman = LogManager::GetInstance();
@@ -1140,6 +1182,8 @@ void retro_init(void)
    g_Config.bDiscordPresence = false;
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
+
+   init_output_audio_buffer(2048);
 }
 
 void retro_deinit(void)
@@ -1154,6 +1198,8 @@ void retro_deinit(void)
    libretro_supports_option_categories = false;
 
    VsyncSwapIntervalReset();
+
+   free_output_audio_buffer();
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -1168,7 +1214,7 @@ void retro_get_system_info(struct retro_system_info *info)
    info->library_name     = "PPSSPP";
    info->library_version  = PPSSPP_GIT_VERSION;
    info->need_fullpath    = true;
-   info->valid_extensions = "elf|iso|cso|prx|pbp";
+   info->valid_extensions = "elf|iso|cso|prx|pbp|chd";
 }
 
 void retro_get_system_av_info(struct retro_system_av_info *info)
@@ -1500,6 +1546,7 @@ void retro_run(void)
 
    VsyncSwapIntervalDetect();
    ctx->SwapBuffers();
+   upload_output_audio_buffer();
 }
 
 unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
@@ -1695,11 +1742,7 @@ float System_GetPropertyFloat(SystemProperty prop)
    switch (prop)
    {
       case SYSPROP_DISPLAY_REFRESH_RATE:
-         // Have to lie here and report 60 Hz instead
-         // of (60.0 / 1.001), otherwise the internal
-         // stereo resampler will output at the wrong
-         // frequency...
-         return 60.0f;
+         return 60.0f / 1.001f;
       case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
       case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
       case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -1753,6 +1796,8 @@ inline int16_t Clamp16(int32_t sample) {
 void System_AudioPushSamples(const int32_t *audio, int numSamples) {
    // Convert to 16-bit audio for further processing.
    int16_t buffer[1024 * 2];
+   int origSamples = numSamples * 2;
+
    while (numSamples > 0) {
       int blockSize = std::min(1024, numSamples);
       for (int i = 0; i < blockSize; i++) {
@@ -1760,14 +1805,13 @@ void System_AudioPushSamples(const int32_t *audio, int numSamples) {
          buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
       }
 
-      int framesToWrite = blockSize;
-      uint32_t framesWritten = audio_batch_cb(buffer, framesToWrite);
-      if (framesWritten != framesToWrite) {
-         // Let's just stop, and eat any left-over samples.
-         break;
-      }
       numSamples -= blockSize;
    }
+
+   if (output_audio_buffer.capacity - output_audio_buffer.size < origSamples)
+      ensure_output_audio_buffer_capacity((output_audio_buffer.capacity + origSamples) * 1.5);
+   memcpy(output_audio_buffer.data + output_audio_buffer.size, buffer, origSamples * sizeof(*output_audio_buffer.data));
+   output_audio_buffer.size += origSamples;
 }
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
