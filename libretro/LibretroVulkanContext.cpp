@@ -41,7 +41,7 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 
 	vk = new VulkanContext();
 
-   vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);
+	vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);
 
 	// TODO: Here we'll inject the instance and all of the stuff into the VulkanContext.
 
@@ -97,17 +97,17 @@ static const VkApplicationInfo *GetApplicationInfo(void) {
 }
 
 bool LibretroVulkanContext::Init() {
-	if (!LibretroHWRenderContext::Init(false)) {
+	if (!LibretroHWRenderContext::Init(true)) {
 		return false;
 	}
 
 	static const struct retro_hw_render_context_negotiation_interface_vulkan iface = {
-      RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN,
-      RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION,
-      GetApplicationInfo,
-      create_device,  // Callback above.
-      nullptr,
-   };
+		RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN,
+		RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION,
+		GetApplicationInfo,
+		create_device, // Callback above.
+		nullptr,
+	};
 	Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE, (void *)&iface);
 
 	g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
@@ -131,6 +131,8 @@ void LibretroVulkanContext::ContextReset() {
 
 void LibretroVulkanContext::ContextDestroy() {
    INFO_LOG(G3D, "LibretroVulkanContext::ContextDestroy()");
+   vk->WaitUntilQueueIdle();
+   LibretroHWRenderContext::ContextDestroy();
 }
 
 void LibretroVulkanContext::CreateDrawContext() {
