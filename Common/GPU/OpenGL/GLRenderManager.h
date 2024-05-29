@@ -834,6 +834,7 @@ public:
 		}
 	}
 
+	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -873,6 +874,7 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
+	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
 	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.
