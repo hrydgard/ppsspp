@@ -154,9 +154,9 @@ struct VKRStep {
 			VKRRenderPassStoreAction colorStore;
 			VKRRenderPassStoreAction depthStore;
 			VKRRenderPassStoreAction stencilStore;
-			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
+			u8 clearStencil;
 			int numDraws;
 			// Downloads and textures from this pass.
 			int numReads;
@@ -173,20 +173,20 @@ struct VKRStep {
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkOffset2D dstPos;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 		} copy;
 		struct {
 			VKRFramebuffer *src;
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkRect2D dstRect;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 			VkFilter filter;
 		} blit;
 		struct {
-			int aspectMask;
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
+			VkImageAspectFlags aspectMask;
 			bool delayed;
 		} readback;
 		struct {

@@ -591,7 +591,7 @@ BEGIN
     POPUP "Game Settings",                                  ID_OPTIONS_MENU
     BEGIN
         MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
-        MENUITEM "Pause When Not Focused",                  ID_OPTIONS_PAUSE_FOCUS
+        MENUITEM "Pause when not focused",                  ID_OPTIONS_PAUSE_FOCUS
         MENUITEM "Ignore Windows Key",                      ID_OPTIONS_IGNOREWINKEY
         MENUITEM "Language...",                             ID_OPTIONS_LANGUAGE
         MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS

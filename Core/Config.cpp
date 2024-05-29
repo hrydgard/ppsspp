@@ -547,7 +547,6 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
-	INFO_LOG(SYSTEM, "Checking for VK");
 	if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
 		return false;
 	return true;

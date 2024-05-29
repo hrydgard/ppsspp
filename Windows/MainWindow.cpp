@@ -844,7 +844,7 @@ namespace MainWindow
 					g_activeWindow = WINDOW_OTHER;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
-					if (pause != Core_IsStepping()) {	// != is xor for bools
+					if (pause != Core_IsStepping()) {
 						if (disasmWindow)
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else

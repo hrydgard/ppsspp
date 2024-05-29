@@ -554,6 +554,8 @@ private:
 	void ResetDescriptorLists(int frame);
 	void FlushDescriptors(int frame);
 
+	void SanityCheckPassesOnAdd();
+
 	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];

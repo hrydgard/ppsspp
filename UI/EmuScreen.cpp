@@ -1348,7 +1348,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
 		// We do, however, start the frame in other ways.
 
-		if ((skipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+		if (skipBufferEffects && !g_Config.bSoftwareRendering) {
 			// We need to clear here already so that drawing during the frame is done on a clean slate.
 			if (Core_IsStepping() && gpuStats.numFlips != 0) {
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_BackBuffer");
@@ -1450,13 +1450,11 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
-				framebufferBound = true;
-				// Just to make sure.
-				if (PSP_IsInited()) {
-					_dbg_assert_(gpu);
+				if (!framebufferBound && PSP_IsInited()) {
+					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
 					gpu->CopyDisplayToOutput(true);
 				}
+				framebufferBound = true;
 			}
 			break;
 		}
@@ -1466,6 +1464,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
 			// So, we don't set framebufferBound here.
 			break;
+		}
+
+		if (framebufferBound && gpu) {
+			gpu->PresentedThisFrame();
 		}
 
 		PSP_EndHostFrame();
