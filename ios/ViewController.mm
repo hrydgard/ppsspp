@@ -73,6 +73,10 @@ public:
 		renderManager_->ThreadEnd();
 	}
 
+	void StartThread() {
+		renderManager_->StartThread();
+	}
+
 	void StopThread() override {
 		renderManager_->StopThread();
 	}
@@ -153,7 +157,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	SetCurrentThreadName("EmuThreadGL");
 	renderLoopRunning = true;
 
-	// graphicsContext->StartThread();
 	NativeInitGraphics(graphicsContext);
 
 	INFO_LOG(SYSTEM, "Emulation thread starting\n");
@@ -185,6 +188,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	_dbg_assert_(!renderLoopRunning);
 	_dbg_assert_(!exitRenderLoop);
 
+	graphicsContext->StartThread();
+
 	g_renderLoopThread = std::thread(GLRenderLoop, graphicsContext);
 	return true;
 }
@@ -196,6 +201,10 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
+	graphicsContext->StopThread();
+	while (graphicsContext->ThreadFrame()) {
+		continue;
+	}
 	g_renderLoopThread.join();
 	_assert_(!g_renderLoopThread.joinable());
 }
@@ -310,9 +319,14 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	self.gameController = nil;
 
 	graphicsContext->StopThread();
+	// Skipping GL calls here because the old context is lost.
+	while (graphicsContext->ThreadFrame()) {
+		continue;
+	}
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = nullptr;
+	INFO_LOG(SYSTEM, "Done shutting down GL");
 }
 
 - (void)dealloc
