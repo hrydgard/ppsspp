@@ -24,7 +24,7 @@ public:
 	void MeasureString(std::string_view str, float *w, float *h) override;
 	void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) override;
 	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT) override;
-	void DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align = ALIGN_TOPLEFT) override;
+	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align = ALIGN_TOPLEFT) override;
 	// Use for housekeeping like throwing out old strings.
 	void OncePerFrame() override;
 
@@ -36,9 +36,6 @@ protected:
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 
 	uint32_t fontHash_;
-	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
-	
 
 	// Direct2D drawing components.
 	ID2D1Factory5*        m_d2dFactory;

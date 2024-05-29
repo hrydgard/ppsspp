@@ -2,20 +2,19 @@
 
 #include "ppsspp_config.h"
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
-#if defined(USE_SDL2_TTF_FONTCONFIG)
-#include <fontconfig/fontconfig.h>
-#endif
+struct TextDrawerContext;
+// Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)
+class TextDrawerFontContext;
 
-// SDL2_ttf's TTF_Font is a typedef of _TTF_Font.
-struct _TTF_Font;
-
-class TextDrawerSDL : public TextDrawer {
+class TextDrawerCocoa : public TextDrawer {
 public:
-	TextDrawerSDL(Draw::DrawContext *draw);
-	~TextDrawerSDL();
+	TextDrawerCocoa(Draw::DrawContext *draw);
+	~TextDrawerCocoa();
 
 	uint32_t SetFont(const char *fontName, int size, int flags) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
@@ -28,19 +27,14 @@ public:
 
 protected:
 	void ClearCache() override;
-	void PrepareFallbackFonts(std::string_view locale);
-	uint32_t CheckMissingGlyph(const std::string& text);
-	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
+	void RecreateFonts();  // On DPI change
+
+	TextDrawerContext *ctx_;
+	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 
 	uint32_t fontHash_;
-	std::map<uint32_t, _TTF_Font *> fontMap_;
-
-	std::vector<_TTF_Font *> fallbackFonts_;
-	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index
-
-	std::map<int, int> glyphFallbackFontIndex_;
-
-#if defined(USE_SDL2_TTF_FONTCONFIG)
-	FcConfig *config;
-#endif
+	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
+	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
+
+#endif

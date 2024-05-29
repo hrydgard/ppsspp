@@ -182,14 +182,14 @@ protected:
 	Visibility Current(float pos) override;
 };
 
-class AnchorTranslateTween : public TweenBase<Point> {
+class AnchorTranslateTween : public TweenBase<Point2D> {
 public:
 	using TweenBase::TweenBase;
 
 protected:
 	void DoApply(View *view, float pos) override;
 
-	Point Current(float pos) override;
+	Point2D Current(float pos) override;
 };
 
 }  // namespace

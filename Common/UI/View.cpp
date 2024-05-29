@@ -168,25 +168,25 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 	}
 }
 
-Point View::GetFocusPosition(FocusDirection dir) const {
+Point2D View::GetFocusPosition(FocusDirection dir) const {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
 	switch (dir) {
-	case FOCUS_LEFT: return Point(bounds_.x + 2, bounds_.centerY());
-	case FOCUS_RIGHT: return Point(bounds_.x2() - 2, bounds_.centerY());
-	case FOCUS_UP: return Point(bounds_.centerX(), bounds_.y + 2);
-	case FOCUS_DOWN: return Point(bounds_.centerX(), bounds_.y2() - 2);
+	case FOCUS_LEFT: return Point2D(bounds_.x + 2, bounds_.centerY());
+	case FOCUS_RIGHT: return Point2D(bounds_.x2() - 2, bounds_.centerY());
+	case FOCUS_UP: return Point2D(bounds_.centerX(), bounds_.y + 2);
+	case FOCUS_DOWN: return Point2D(bounds_.centerX(), bounds_.y2() - 2);
 
 	default:
 		return bounds_.Center();
 	}
 }
 
-Point CollapsibleHeader::GetFocusPosition(FocusDirection dir) const {
+Point2D CollapsibleHeader::GetFocusPosition(FocusDirection dir) const {
 	// Bias the focus position to the left.
 	switch (dir) {
-	case FOCUS_UP: return Point(bounds_.x + 50, bounds_.y + 2);
-	case FOCUS_DOWN: return Point(bounds_.x + 50, bounds_.y2() - 2);
+	case FOCUS_UP: return Point2D(bounds_.x + 50, bounds_.y + 2);
+	case FOCUS_DOWN: return Point2D(bounds_.x + 50, bounds_.y2() - 2);
 	default:
 		return View::GetFocusPosition(dir);
 	}

@@ -312,10 +312,10 @@ void TextDrawerUWP::MeasureStringRect(std::string_view str, const Bounds &bounds
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (!str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(str, "\n", "\r\n"), "&&", "&"));
@@ -328,7 +328,7 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	}
 	if (!format) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
 	if (align & ALIGN_HCENTER)
@@ -437,6 +437,7 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	}
 
 	ctx_->mirror_bmp->Unmap();
+	return true;
 }
 
 void TextDrawerUWP::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {

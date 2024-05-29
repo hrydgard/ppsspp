@@ -370,8 +370,8 @@ public:
 	int mode_ = 0;
 };
 
-static Point ClampTo(const Point &p, const Bounds &b) {
-	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
+static Point2D ClampTo(const Point2D &p, const Bounds &b) {
+	return Point2D(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
 }
 
 bool ControlLayoutView::Touch(const TouchInput &touch) {
@@ -393,7 +393,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			//validRange.y += controlBounds.h * 0.5f;
 			//validRange.h -= controlBounds.h;
 
-			Point newPos;
+			Point2D newPos;
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
 			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
