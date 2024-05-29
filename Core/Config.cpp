@@ -81,6 +81,8 @@ static const char * const logSectionName = "LogDebug";
 static const char * const logSectionName = "Log";
 #endif
 
+static bool TryUpdateSavedPath(Path *path);
+
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
@@ -1147,6 +1149,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	iRunCount++;
 
+	// For iOS, issue #19211
+	TryUpdateSavedPath(&currentDirectory);
+
 	// This check is probably not really necessary here anyway, you can always
 	// press Home or Browse if you're in a bad directory.
 	if (!File::Exists(currentDirectory))
@@ -1550,7 +1555,7 @@ void Config::RemoveRecent(const std::string &file) {
 // Example path:
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
 // The GUID part changes on each launch.
-bool TryUpdateSavedPath(Path *path) {
+static bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
 	INFO_LOG(LOADER, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
