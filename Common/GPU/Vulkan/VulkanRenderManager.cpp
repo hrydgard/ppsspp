@@ -900,6 +900,11 @@ void VulkanRenderManager::EndCurRenderStep() {
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
@@ -1233,6 +1238,10 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag) {
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
 	_dbg_assert_msg_(srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
 	_dbg_assert_msg_(srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
@@ -1297,6 +1306,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
 	_dbg_assert_msg_(srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
 	_dbg_assert_msg_(srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
@@ -1848,4 +1861,15 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	data.flushedDescriptors_ = (int)descSets.size();
 	profile->descriptorsWritten += writeCount;
 	profile->descriptorsDeduped += dedupCount;
+}
+
+void VulkanRenderManager::SanityCheckPassesOnAdd() {
+#if _DEBUG
+	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
+	for (int i = 0; i < steps_.size(); i++) {
+		if (steps_[i]->stepType == VKRStepType::RENDER) {
+			_dbg_assert_(steps_[i]->render.framebuffer != nullptr);
+		}
+	}
+#endif
 }

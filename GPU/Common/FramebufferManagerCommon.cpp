@@ -3272,8 +3272,8 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 	} else {
-		// Should this even happen?  It could while debugging, but maybe we can just skip binding at all.
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer_Bad");
+		// This can happen (like it does in Parappa) when a frame starts with copies instead of rendering.
+		// Let's do nothing and assume it'll take care of itself.
 	}
 }
 
