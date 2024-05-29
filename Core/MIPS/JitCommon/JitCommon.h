@@ -158,10 +158,10 @@ namespace MIPSComp {
 	struct BranchInfo {
 		BranchInfo(u32 pc, MIPSOpcode op, MIPSOpcode delaySlotOp, bool andLink, bool likely);
 
+		u64 delaySlotInfo;
 		u32 compilerPC;
 		MIPSOpcode op;
 		MIPSOpcode delaySlotOp;
-		u64 delaySlotInfo;
 		bool likely;
 		bool andLink;
 		// Update manually if it's not always nice (rs/rt, rs/zero, etc.)

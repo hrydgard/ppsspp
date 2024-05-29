@@ -25,7 +25,7 @@ const GenericListViewColumn displayListStackColumns[3] = {
 };
 
 GenericListViewDef displayListStackListDef = {
-	displayListStackColumns,	ARRAY_SIZE(displayListStackColumns),	NULL,	false
+	displayListStackColumns,	NULL,	ARRAY_SIZE(displayListStackColumns),	false
 };
 
 CtrlDisplayListStack::CtrlDisplayListStack(HWND hwnd): GenericListControl(hwnd,displayListStackListDef)
@@ -77,7 +77,7 @@ const GenericListViewColumn allDisplayListsColumns[ADL_COLUMNCOUNT] = {
 };
 
 GenericListViewDef allDisplayListsListDef = {
-	allDisplayListsColumns,	ARRAY_SIZE(allDisplayListsColumns),	NULL,	false
+	allDisplayListsColumns,	NULL,	ARRAY_SIZE(allDisplayListsColumns),	false
 };
 
 CtrlAllDisplayLists::CtrlAllDisplayLists(HWND hwnd): GenericListControl(hwnd,allDisplayListsListDef)

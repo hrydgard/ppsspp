@@ -46,8 +46,8 @@ static const GenericListViewColumn stateValuesCols[] = {
 
 GenericListViewDef stateValuesListDef = {
 	stateValuesCols,
-	ARRAY_SIZE(stateValuesCols),
 	nullptr,
+	ARRAY_SIZE(stateValuesCols),
 	false,
 };
 

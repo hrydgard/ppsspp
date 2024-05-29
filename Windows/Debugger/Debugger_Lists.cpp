@@ -29,7 +29,7 @@ GenericListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 };
 
 GenericListViewDef threadListDef = {
-	threadColumns,	ARRAY_SIZE(threadColumns),	NULL,	false
+	threadColumns,	NULL,	ARRAY_SIZE(threadColumns),	false
 };
 
 GenericListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
@@ -43,7 +43,7 @@ GenericListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
 };
 
 GenericListViewDef breakpointListDef = {
-	breakpointColumns,	ARRAY_SIZE(breakpointColumns),	NULL,	true
+	breakpointColumns,	NULL,	ARRAY_SIZE(breakpointColumns),	true
 };
 
 GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
@@ -56,7 +56,7 @@ GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 };
 
 GenericListViewDef stackTraceListDef = {
-	stackTraceColumns,	ARRAY_SIZE(stackTraceColumns),	NULL,	false
+	stackTraceColumns,	NULL,	ARRAY_SIZE(stackTraceColumns),	false
 };
 
 GenericListViewColumn moduleListColumns[ML_COLUMNCOUNT] = {
@@ -67,7 +67,7 @@ GenericListViewColumn moduleListColumns[ML_COLUMNCOUNT] = {
 };
 
 GenericListViewDef moduleListDef = {
-	moduleListColumns,	ARRAY_SIZE(moduleListColumns),	NULL,	false
+	moduleListColumns,	NULL,	ARRAY_SIZE(moduleListColumns),	false
 };
 
 GenericListViewColumn watchListColumns[WL_COLUMNCOUNT] = {
@@ -77,7 +77,7 @@ GenericListViewColumn watchListColumns[WL_COLUMNCOUNT] = {
 };
 
 GenericListViewDef watchListDef = {
-	watchListColumns, ARRAY_SIZE(watchListColumns), nullptr, false,
+	watchListColumns, nullptr,	ARRAY_SIZE(watchListColumns), false,
 };
 
 //

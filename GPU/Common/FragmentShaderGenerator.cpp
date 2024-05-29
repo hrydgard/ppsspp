@@ -37,15 +37,15 @@
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
 static const SamplerDef samplersMono[3] = {
-	{ 0, "tex" },
-	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
-	{ 2, "pal" },
+	{ "tex", {}, 0 },
+	{ "fbotex", SamplerFlags::ARRAY_ON_VULKAN, 1 },
+	{ "pal", {}, 2 },
 };
 
 static const SamplerDef samplersStereo[3] = {
-	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
-	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
-	{ 2, "pal" },
+	{ "tex", SamplerFlags::ARRAY_ON_VULKAN, 0 },
+	{ "fbotex", SamplerFlags::ARRAY_ON_VULKAN, 1 },
+	{ "pal", {}, 2 },
 };
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {

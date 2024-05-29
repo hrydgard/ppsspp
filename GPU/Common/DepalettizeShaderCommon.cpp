@@ -35,8 +35,8 @@ static const InputDef vsInputs[2] = {
 
 // TODO: Deduplicate with TextureShaderCommon.cpp
 static const SamplerDef samplers[2] = {
-	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
-	{ 1, "pal" },
+	{ "tex", SamplerFlags::ARRAY_ON_VULKAN, 0 },
+	{ "pal", {}, 1 },
 };
 
 static const VaryingDef varyings[1] = {

@@ -14,7 +14,7 @@ static const VaryingDef varyings[1] = {
 };
 
 static const SamplerDef samplers[1] = {
-	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN }
+	{ "tex", SamplerFlags::ARRAY_ON_VULKAN, 0 }
 };
 
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of

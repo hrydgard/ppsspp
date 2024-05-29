@@ -155,10 +155,10 @@ struct CompileQueueEntry {
 	enum class Type {
 		GRAPHICS,
 	};
-	Type type;
+	VKRGraphicsPipeline* graphics = nullptr;
 	VkRenderPass compatibleRenderPass;
+	Type type;
 	RenderPassType renderPassType;
-	VKRGraphicsPipeline *graphics = nullptr;
 	VkSampleCountFlagBits sampleCount;
 };
 
