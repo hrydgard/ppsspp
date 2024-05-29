@@ -353,6 +353,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 {
 	INFO_LOG(SYSTEM, "shutdown VK");
 
+	g_Config.Save("shutdown vk");
+
 	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
 

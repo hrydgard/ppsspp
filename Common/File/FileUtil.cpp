@@ -340,6 +340,9 @@ std::string ResolvePath(const std::string &path) {
 	delete [] buf;
 	return output;
 
+#elif PPSSPP_PLATFORM(IOS)
+	// Resolving has wacky effects on documents paths.
+	return path;
 #else
 	std::unique_ptr<char[]> buf(new char[PATH_MAX + 32768]);
 	if (realpath(path.c_str(), buf.get()) == nullptr)
@@ -404,8 +407,8 @@ bool Exists(const Path &path) {
 	SetErrorMode(OldMode);
 #endif
 	return true;
-#else
-	struct stat file_info;
+#else  // !WIN32
+	struct stat file_info{};
 	return stat(path.c_str(), &file_info) == 0;
 #endif
 }

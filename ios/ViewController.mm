@@ -292,6 +292,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 {
 	INFO_LOG(SYSTEM, "shutdown GL");
 
+	g_Config.Save("shutdown GL");
+
 	_dbg_assert_(graphicsContext);
 	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
