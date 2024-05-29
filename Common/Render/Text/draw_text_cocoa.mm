@@ -32,6 +32,8 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
+#define APPLE_FONT "Helvetica"
+
 class TextDrawerFontContext {
 public:
 	~TextDrawerFontContext() {
@@ -40,9 +42,10 @@ public:
 
 	void Create() {
 		// Create an attributed string with string and font information
-		CGFloat fontSize = height / dpiScale;
-		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", fname.c_str(), height, fontSize);
-		CTFontRef font = CTFontCreateWithName(CFSTR("Helvetica"), fontSize, nil);
+		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
+		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
+		// CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
+		CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
 			(id)font, kCTFontAttributeName,
 			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
@@ -86,7 +89,7 @@ uint32_t TextDrawerCocoa::SetFont(const char *fontName, int size, int flags) {
 	if (fontName)
 		fname = fontName;
 	else
-		fname = "Helvetica";
+		fname = APPLE_FONT;
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
 	font->bold = false;
@@ -316,8 +319,12 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	double fWidth = CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
 
 	// On iOS 4.0 and Mac OS X v10.6 you can pass null for data
-	size_t width = (size_t)ceilf(fWidth);
-	size_t height = (size_t)ceilf(ascent + descent);
+	size_t width = (size_t)ceilf(fWidth) + 1;
+	size_t height = (size_t)ceilf(ascent + descent) + 1;
+
+	// Round width and height upwards to the closest multiple of 4.
+	width = (width + 3) & ~3;
+	height = (height + 3) & ~3;
 
 	if (!width || !height) {
 		WARN_LOG(G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
@@ -349,8 +356,8 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	entry.texture = nullptr;
 	entry.width = width;
 	entry.height = height;
-	entry.bmWidth = (width + 3) & ~3;
-	entry.bmHeight = (height + 3) & ~3;
+	entry.bmWidth = width;
+	entry.bmHeight = height;
 	entry.lastUsedFrame = frameCount_;
 
 	// data now contains the bytes in RGBA, presumably.
