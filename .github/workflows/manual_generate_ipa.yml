@@ -66,8 +66,13 @@ jobs:
         env:
           CC: clang
           CXX: clang++
+          USE_CCACHE: 1
         run: |
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+          export CCACHE_FILECLONE=true
+          export CCACHE_DEPEND=true
+          export CCACHE_COMPILERCHECK=content
           ./b.sh --ios --${{ github.event.inputs.buildVariant }}
       
       - name: Package build
