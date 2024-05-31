@@ -32,8 +32,6 @@ protected:
 	void ClearCache() override;
 
 private:
-	std::string NormalizeString(std::string str);
-
 	// JNI functions
 	jclass cls_textRenderer;
 	jmethodID method_measureText;

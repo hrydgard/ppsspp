@@ -112,6 +112,11 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	}
 }
 
+std::map<std::string, std::string> I18NCategory::Missed() const {
+	std::lock_guard<std::mutex> guard(missedKeyLock_);
+	return missedKeyLog_;
+}
+
 std::shared_ptr<I18NCategory> I18NRepo::GetCategory(I18NCat category) {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	if (category != I18NCat::NONE)

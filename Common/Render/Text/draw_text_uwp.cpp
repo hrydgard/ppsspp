@@ -213,7 +213,7 @@ void TextDrawerUWP::MeasureString(std::string_view str, float *w, float *h) {
 		}
 		if (!format) return;
 
-		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(std::string(str), "\n", "\r\n"), "&&", "&"));
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str), "\n", "\r\n"));
 
 		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 		
@@ -273,7 +273,7 @@ void TextDrawerUWP::MeasureStringRect(std::string_view str, const Bounds &bounds
 		if (iter != sizeCache_.end()) {
 			entry = iter->second.get();
 		} else {
-			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : ReplaceAll(lines[i], "&&", "&"));
+			std::wstring wstr = lines[i].empty() ? L" " : ConvertUTF8ToWString(lines[i]);
 
 			if (align & ALIGN_HCENTER)
 				format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -318,7 +318,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(str, "\n", "\r\n"), "&&", "&"));
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 	SIZE size;
 
 	IDWriteTextFormat *format = nullptr;
@@ -470,7 +470,7 @@ void TextDrawerUWP::DrawString(DrawBuffer &target, std::string_view str, float x
 		if (emoji)
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 		// because we need white. Well, we could using swizzle, but not all our backends support that.

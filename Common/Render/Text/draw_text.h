@@ -23,11 +23,13 @@ namespace Draw {
 }
 
 struct TextStringEntry {
-	Draw::Texture *texture;
-	int width;
-	int height;
-	int bmWidth;
-	int bmHeight;
+	TextStringEntry(int frameCount) : lastUsedFrame(frameCount) {}
+
+	Draw::Texture *texture = nullptr;
+	int width = 0;
+	int height = 0;
+	int bmWidth = 0;
+	int bmHeight = 0;
 	int lastUsedFrame;
 };
 

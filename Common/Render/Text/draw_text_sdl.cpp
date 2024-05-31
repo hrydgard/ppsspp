@@ -385,7 +385,7 @@ void TextDrawerSDL::DrawString(DrawBuffer &target, std::string_view str, float x
 			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		}
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
@@ -422,8 +422,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	// Replace "&&" with "&"
-	std::string processedStr = ReplaceAll(str, "&&", "&");
+	std::string processedStr(str);
 
 	// If a string includes only newlines, SDL2_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that. 

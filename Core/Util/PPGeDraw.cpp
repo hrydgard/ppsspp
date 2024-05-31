@@ -126,10 +126,13 @@ struct PPGeTextDrawerCacheKey {
 	int align;
 	float wrapWidth;
 };
+
 struct PPGeTextDrawerImage {
+	PPGeTextDrawerImage() : entry(0) {}
 	TextStringEntry entry;
 	u32 ptr;
 };
+
 static std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
 
 void PPGeSetDrawContext(Draw::DrawContext *draw) {
