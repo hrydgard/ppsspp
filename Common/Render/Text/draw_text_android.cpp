@@ -128,8 +128,7 @@ void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bo
 	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
+		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
 	}
 
 	auto env = getEnv();
