@@ -211,14 +211,13 @@ void TextDrawerWin32::MeasureStringRect(std::string_view str, const Bounds &boun
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
-	SIZE size;
 
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
@@ -234,6 +233,7 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 
 	RECT textRect = { 0 };
 	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_NOPREFIX | DT_TOP | dtAlign | DT_CALCRECT, 0);
+	SIZE size;
 	size.cx = textRect.right;
 	size.cy = textRect.bottom;
 
@@ -301,73 +301,6 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		_assert_msg_(false, "Bad TextDrawer format");
 	}
 	return true;
-}
-
-void TextDrawerWin32::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (str.empty()) {
-		return;
-	}
-
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat;
-		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
-		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		else
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-
-		entry = new TextStringEntry(frameCount_);
-
-		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
-		// because we need white. Well, we could using swizzle, but not all our backends support that.
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align)) {
-			// Nothing drawn. Store that fact in the cache.
-			cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-			return;
-		}
-
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-
-		// Okay, the texture is bound, let's draw.
-		float w = entry->width * fontScaleX_ * dpiScale_;
-		float h = entry->height * fontScaleY_ * dpiScale_;
-		float u = entry->width / (float)entry->bmWidth;
-		float v = entry->height / (float)entry->bmHeight;
-		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
-		target.Flush(true);
-	}
 }
 
 void TextDrawerWin32::RecreateFonts() {

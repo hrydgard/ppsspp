@@ -364,59 +364,9 @@ void TextDrawerSDL::MeasureStringRect(std::string_view str, const Bounds &bounds
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (str.empty())
-		return;
+bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+	_dbg_assert_(!fullColor)
 
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-		if ((draw_->GetDataFormatSupport(texFormat) & Draw::FMT_TEXTURE) == 0) {
-			// This is always supported in Vulkan. The other format is the common OpenGL one.
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		}
-
-		entry = new TextStringEntry(frameCount_);
-
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-	}
-
-	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
-	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
-		target.Flush(true);
-	}
-}
-
-bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;

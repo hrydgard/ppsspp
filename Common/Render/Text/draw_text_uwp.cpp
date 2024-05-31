@@ -312,8 +312,8 @@ void TextDrawerUWP::MeasureStringRect(std::string_view str, const Bounds &bounds
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
-	if (!str.empty()) {
+bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
@@ -401,12 +401,17 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 			uint32_t *bmpLine = (uint32_t *)&map.bits[map.pitch * y];
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t v = bmpLine[x];
-				if (swap)
-					v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
-				bitmapData32[entry.bmWidth * y + x] = v;
+				if (fullColor) {
+					if (swap)
+						v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
+					bitmapData32[entry.bmWidth * y + x] = v;
+				} else {
+					bitmapData32[entry.bmWidth * y + x] = (v << 24) | 0xFFFFFF;
+				}
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
@@ -416,6 +421,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
@@ -425,6 +431,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
@@ -438,72 +445,6 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	ctx_->mirror_bmp->Unmap();
 	return true;
-}
-
-void TextDrawerUWP::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (str.empty()) {
-		return;
-	}
-
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat;
-
-		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
-		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		else
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-
-		bool emoji = AnyEmojiInString(key.text.c_str(), key.text.size());
-		if (emoji)
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-
-		entry = new TextStringEntry(frameCount_);
-
-		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
-		// because we need white. Well, we could using swizzle, but not all our backends support that.
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-	}
-
-	// Okay, the texture is bound, let's draw.
-	float w = entry->width * fontScaleX_ * dpiScale_;
-	float h = entry->height * fontScaleY_ * dpiScale_;
-	float u = entry->width / (float)entry->bmWidth;
-	float v = entry->height / (float)entry->bmHeight;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
-		target.Flush(true);
-	}
 }
 
 void TextDrawerUWP::RecreateFonts() {
