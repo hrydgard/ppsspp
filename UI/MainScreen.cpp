@@ -513,7 +513,12 @@ GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, b
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager), token_(token) {
 	using namespace UI;
 	path_.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-	path_.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT));
+	Path memstickRoot = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+	if (memstickRoot == GetSysDirectory(DIRECTORY_PSP)) {
+		path_.SetRootAlias("ms:/PSP/", memstickRoot);
+	} else {
+		path_.SetRootAlias("ms:/", memstickRoot);
+	}
 	if (System_GetPropertyBool(SYSPROP_LIMITED_FILE_BROWSING)) {
 		path_.RestrictToRoot(GetSysDirectory(DIRECTORY_MEMSTICK_ROOT));
 	}
