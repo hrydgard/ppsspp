@@ -49,7 +49,7 @@ public:
 	virtual void SetFont(uint32_t fontHandle) = 0;  // Shortcut once you've set the font once.
 	void SetFontScale(float xscale, float yscale);
 	virtual void MeasureString(std::string_view str, float *w, float *h) = 0;
-	virtual void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) = 0;
+	virtual void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);
 
 	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
 	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);

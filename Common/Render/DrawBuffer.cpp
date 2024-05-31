@@ -549,10 +549,6 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 	if (flags & ALIGN_RIGHT) *x -= *w;
 	if (flags & ALIGN_VCENTER) *y -= *h / 2;
 	if (flags & ALIGN_BOTTOM) *y -= *h;
-	if (flags & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) {
-		std::swap(*w, *h);
-		std::swap(*x, *y);
-	}
 }
 
 // TODO: Actually use the rect properly, take bounds.
@@ -627,12 +623,8 @@ void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, 
 		DoAlign(align, &x, &y, &w, &h);
 	}
 
-	if (align & ROTATE_90DEG_LEFT) {
-		x -= atlasfont->ascend * fontscaley;
-		// y += h;
-	} else {
-		y += atlasfont->ascend * fontscaley;
-	}
+	y += atlasfont->ascend * fontscaley;
+
 	float sx = x;
 	UTF8 utf(text);
 	for (size_t i = 0; i < textLen; i++) {
@@ -658,27 +650,17 @@ void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, 
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;
-			if (align & ROTATE_90DEG_LEFT) {
-				cy1 = y - c.ox * fontscalex;
-				cx1 = x + c.oy * fontscaley;
-				cy2 = y - (c.ox + c.pw) * fontscalex;
-				cx2 = x + (c.oy + c.ph) * fontscaley;
-			} else {
-				cx1 = x + c.ox * fontscalex;
-				cy1 = y + c.oy * fontscaley;
-				cx2 = x + (c.ox + c.pw) * fontscalex;
-				cy2 = y + (c.oy + c.ph) * fontscaley;
-			}
+			cx1 = x + c.ox * fontscalex;
+			cy1 = y + c.oy * fontscaley;
+			cx2 = x + (c.ox + c.pw) * fontscalex;
+			cy2 = y + (c.oy + c.ph) * fontscaley;
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy1, color, c.ex, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy2, color, c.sx, c.ey);
-			if (align & ROTATE_90DEG_LEFT)
-				y -= c.wx * fontscalex;
-			else
-				x += c.wx * fontscalex;
+			x += c.wx * fontscalex;
 		}
 	}
 }

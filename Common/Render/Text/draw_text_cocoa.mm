@@ -47,7 +47,7 @@ public:
 		// CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
 		CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
-			(id)font, kCTFontAttributeName,
+			(__bridge id)font, kCTFontAttributeName,
 			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
 			nil];
 	}
@@ -170,61 +170,6 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	auto iter = fontMap_.find(fontHash_);
-	NSDictionary *attributes = nil;
-	if (iter != fontMap_.end()) {
-		attributes = iter->second->attributes;
-	}
-
-	std::string toMeasure = std::string(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
-	}
-
-	std::vector<std::string_view> lines;
-	SplitString(toMeasure, '\n', lines);
-	int total_w = 0;
-	int total_h = 0;
-	CacheKey key{ "", fontHash_};
-	for (size_t i = 0; i < lines.size(); i++) {
-		key.text = lines[i];
-		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(key);
-		if (iter != sizeCache_.end()) {
-			entry = iter->second.get();
-		} else {
-			std::string line = lines[i].empty() ? " " : ReplaceAll(lines[i], "&&", "&");
-			NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
-			NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
-			CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
-			CGFloat ascent, descent, leading;
-			double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
-
-			size_t width = (size_t)ceilf(fWidth);
-			size_t height = (size_t)ceilf(ascent + descent);
-	
-			entry = new TextMeasureEntry();
-			entry->width = width;
-			entry->height = height;
-			entry->leading = leading;
-			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-		}
-		entry->lastUsedFrame = frameCount_;
-
-		if (total_w < entry->width) {
-			total_w = entry->width;
-		}
-		int h = i == lines.size() - 1 ? entry->height : (entry->height + entry->leading);
-		total_h += h;
-	}
-
-	*w = total_w * fontScaleX_ * dpiScale_;
-	*h = total_h * fontScaleY_ * dpiScale_;
-}
-
 bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
@@ -241,15 +186,16 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	NSDictionary* attributes = iter->second->attributes;
 	NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
 
-	// Figure out how big an image we need
-	CTLineRef line = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
-	CGFloat ascent, descent, leading;
-	double fWidth = CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
+	// Figure out how big an image we need.
+	// We re-use MeasureString here.
+	float w, h;
+	MeasureString(str, &w, &h);
+	// Reverse the DPI scale that MeasureString baked in.
+	w /= dpiScale_;
+	h /= dpiScale_;
 
-	// On iOS 4.0 and Mac OS X v10.6 you can pass null for data
-	int width = (int)ceilf(fWidth);
-	int height = (int)ceilf(ascent + descent);
-
+	int width = (int)ceilf(w);
+	int height = (int)ceilf(h);
 	if (width <= 0 || height <= 0) {
 		WARN_LOG(G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
 		return false;
@@ -267,19 +213,30 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedLast;
 	CGContextRef ctx = CGBitmapContextCreate(bitmap, bmWidth, bmHeight, 8, bmWidth*4, space, bitmapInfo);
 	CGColorSpaceRelease(space);
-	// CGContextSetRGBFillColor(ctx, 1.0, 1.0, 1.0, 0.0); // white background
-	// CGContextFillRect(ctx, CGRectMake(0.0, 0.0, width, height));
-	// CGContextSetRGBFillColor(ctx, 1.0, 1.0, 1.0, 1.0); // white background
 	// CGContextSetRGBStrokeColor(ctx, 1.0, 1.0, 1.0, 1.0); // white background
 	CGContextSetStrokeColorWithColor(ctx, [ColorType whiteColor].CGColor);
 	CGContextSetFillColorWithColor(ctx, [ColorType whiteColor].CGColor);
 
-	// Draw the text 
-	CGFloat x = 0.0;
-	CGFloat y = descent + (bmHeight - height);  // from bottom???
-	CGContextSetTextPosition(ctx, x, y);
-	CTLineDraw(line, ctx);
-	CFRelease(line);
+	std::vector<std::string_view> lines;
+	SplitString(str, '\n', lines);
+
+	float lineY = 0.0;
+	for (std::string_view line : lines) {
+		NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
+		NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+		CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
+		CGFloat ascent, descent, leading;
+		double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
+
+		// Draw the text
+		CGFloat x = 0.0;
+		CGFloat y = bmHeight - lineY - ascent;  // from bottom???
+		CGContextSetTextPosition(ctx, x, y);
+		CTLineDraw(ctline, ctx);
+		CFRelease(ctline);
+
+		lineY += ascent + descent + leading;
+	}
 
 	entry.texture = nullptr;
 	entry.width = width;

@@ -1508,6 +1508,7 @@ void TouchTestScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 
+	// TODO: This one should use DYNAMIC_ASCII. Though doesn't matter much.
 	lastKeyEvents_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	root_->Add(theTwo);
@@ -1624,7 +1625,6 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 		extra_debug);
 
 	// On Android, also add joystick debug data.
-
 	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 }

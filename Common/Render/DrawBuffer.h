@@ -28,11 +28,6 @@ enum {
 	ALIGN_BOTTOMLEFT = ALIGN_BOTTOM | ALIGN_LEFT,
 	ALIGN_BOTTOMRIGHT = ALIGN_BOTTOM | ALIGN_RIGHT,
 
-	// Only for text drawing
-	ROTATE_90DEG_LEFT = 256,
-	ROTATE_90DEG_RIGHT = 512,
-	ROTATE_180DEG = 1024,
-
 	// For "uncachable" text like debug log.
 	// Avoids using system font drawing as it's too slow.
 	// Not actually used here but is reserved for whatever system wraps DrawBuffer.

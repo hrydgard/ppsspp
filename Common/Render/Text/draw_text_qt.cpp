@@ -73,21 +73,6 @@ void TextDrawerQt::MeasureString(std::string_view str, float *w, float *h) {
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerQt::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
-	}
-
-	QFont* font = fontMap_.find(fontHash_)->second;
-	QFontMetrics fm(*font);
-	QSize size = fm.size(0, QString::fromUtf8(toMeasure.c_str(), (int)toMeasure.size()));
-	*w = (float)size.width() * fontScaleX_ * dpiScale_;
-	*h = (float)size.height() * fontScaleY_ * dpiScale_;
-}
-
 bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	_dbg_assert_(!fullColor);
 

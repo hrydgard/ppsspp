@@ -312,58 +312,6 @@ void TextDrawerSDL::MeasureString(std::string_view str, float *w, float *h) {
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
-	}
-
-	TTF_Font *font = fontMap_.find(fontHash_)->second;
-	int ptSize = TTF_FontHeight(font) / 1.35;
-	uint32_t missingGlyph = CheckMissingGlyph(toMeasure);
-
-	if (missingGlyph) {
-		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0) {
-			font = fallbackFonts_[fallbackFont];
-		}
-	}
-
-	std::vector<std::string> lines;
-	SplitString(toMeasure, '\n', lines);
-
-	int total_w = 0;
-	int total_h = 0;
-	for (size_t i = 0; i < lines.size(); i++) {
-		CacheKey key{ lines[i], fontHash_ };
-
-		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(key);
-		if (iter != sizeCache_.end()) {
-			entry = iter->second.get();
-		} else {
-			int width = 0;
-			int height = 0;
-			TTF_SizeUTF8(font, lines[i].c_str(), &width, &height);
-			entry = new TextMeasureEntry();
-			entry->width = width;
-			entry->height = height;
-			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-		}
-
-		entry->lastUsedFrame = frameCount_;
-		if (total_w < entry->width) {
-			total_w = entry->width;
-		}
-		total_h += TTF_FontLineSkip(font);
-	}
-
-	*w = total_w * fontScaleX_ * dpiScale_;
-	*h = total_h * fontScaleY_ * dpiScale_;
-}
-
 bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	_dbg_assert_(!fullColor)
 

@@ -123,6 +123,15 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	target.Flush(true);
 }
 
+void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str);
+	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	if (wrap) {
+		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
+	}
+	MeasureString(toMeasure, w, h);
+}
+
 void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	float x = bounds.x;
 	float y = bounds.y;
@@ -140,8 +149,7 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const 
 	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toDraw, str, rotated ? bounds.h : bounds.w, wrap);
+		WrapString(toDraw, str, bounds.w, wrap);
 	}
 
 	DrawString(target, toDraw.c_str(), x, y, color, align);
@@ -151,8 +159,7 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 	std::string toDraw(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toDraw, str, rotated ? bounds.h : bounds.w, wrap);
+		WrapString(toDraw, str, bounds.w, wrap);
 	}
 	return DrawStringBitmap(bitmapData, entry, texFormat, toDraw.c_str(), align, fullColor);
 }
