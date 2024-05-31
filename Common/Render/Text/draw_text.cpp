@@ -123,6 +123,15 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	target.Flush(true);
 }
 
+void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str);
+	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	if (wrap) {
+		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
+	}
+	MeasureString(toMeasure, w, h);
+}
+
 void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	float x = bounds.x;
 	float y = bounds.y;

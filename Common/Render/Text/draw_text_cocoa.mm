@@ -170,60 +170,6 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	auto iter = fontMap_.find(fontHash_);
-	NSDictionary *attributes = nil;
-	if (iter != fontMap_.end()) {
-		attributes = iter->second->attributes;
-	}
-
-	std::string toMeasure = std::string(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
-	}
-
-	std::vector<std::string_view> lines;
-	SplitString(toMeasure, '\n', lines);
-	int total_w = 0;
-	int total_h = 0;
-	CacheKey key{ "", fontHash_};
-	for (size_t i = 0; i < lines.size(); i++) {
-		key.text = lines[i];
-		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(key);
-		if (iter != sizeCache_.end()) {
-			entry = iter->second.get();
-		} else {
-			std::string line = lines[i].empty() ? " " : ReplaceAll(lines[i], "&&", "&");
-			NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
-			NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
-			CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
-			CGFloat ascent, descent, leading;
-			double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
-
-			size_t width = (size_t)ceilf(fWidth);
-			size_t height = (size_t)ceilf(ascent + descent);
-	
-			entry = new TextMeasureEntry();
-			entry->width = width;
-			entry->height = height;
-			entry->leading = leading;
-			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-		}
-		entry->lastUsedFrame = frameCount_;
-
-		if (total_w < entry->width) {
-			total_w = entry->width;
-		}
-		int h = i == lines.size() - 1 ? entry->height : (entry->height + entry->leading);
-		total_h += h;
-	}
-
-	*w = total_w * fontScaleX_ * dpiScale_;
-	*h = total_h * fontScaleY_ * dpiScale_;
-}
-
 bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();

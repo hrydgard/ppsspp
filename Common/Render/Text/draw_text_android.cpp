@@ -111,61 +111,6 @@ void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) 
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-    if (str.empty()) {
-        *w = 0.0;
-        *h = 0.0;
-        return;
-    }
-	double scaledSize = 14;
-	auto iter = fontMap_.find(fontHash_);
-	if (iter != fontMap_.end()) {
-		scaledSize = iter->second.size;
-	} else {
-		ERROR_LOG(G3D, "Missing font");
-	}
-
-	std::string toMeasure = std::string(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
-	}
-
-	auto env = getEnv();
-	std::vector<std::string> lines;
-	SplitString(toMeasure, '\n', lines);
-	int total_w = 0;
-	int total_h = 0;
-	for (size_t i = 0; i < lines.size(); i++) {
-		CacheKey key{ lines[i], fontHash_ };
-
-		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(key);
-		if (iter != sizeCache_.end()) {
-			entry = iter->second.get();
-		} else {
-			std::string text(lines[i]);
-			jstring jstr = env->NewStringUTF(text.c_str());
-			uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
-			env->DeleteLocalRef(jstr);
-			int sizecx = size >> 16;
-			int sizecy = size & 0xFFFF;
-			entry = new TextMeasureEntry();
-			entry->width = sizecx;
-			entry->height = sizecy;
-			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-		}
-		entry->lastUsedFrame = frameCount_;
-
-		if (total_w < entry->width) {
-			total_w = entry->width;
-		}
-		total_h += entry->height;
-	}
-	*w = total_w * fontScaleX_ * dpiScale_;
-	*h = total_h * fontScaleY_ * dpiScale_;
-}
-
 bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
