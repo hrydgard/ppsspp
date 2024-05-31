@@ -283,21 +283,19 @@ void TextDrawerCocoa::DrawString(DrawBuffer &target, std::string_view str, float
 
 	if (entry->texture) {
 		draw_->BindTexture(0, entry->texture);
-	}
 
-	// Okay, the texture is bound, let's draw.
-	float w = entry->width * fontScaleX_ * dpiScale_;
-	float h = entry->height * fontScaleY_ * dpiScale_;
-	float u = entry->width / (float)entry->bmWidth;
-	float v = entry->height / (float)entry->bmHeight;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
+		// Okay, the texture is bound, let's draw.
+		float w = entry->width * fontScaleX_ * dpiScale_;
+		float h = entry->height * fontScaleY_ * dpiScale_;
+		float u = entry->width / (float)entry->bmWidth;
+		float v = entry->height / (float)entry->bmHeight;
+		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
 		target.Flush(true);
 	}
 }
 
-bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -365,15 +363,20 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	// because we need white. Well, we could using swizzle, but not all our backends support that.
 	if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM || texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint32_t));
-		// If we chose this format, emoji are involved. Pass straight through.
 		uint32_t *bitmapData32 = (uint32_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t color = bitmap[width * y + x];
-				bitmapData32[entry.bmWidth * y + x] = color;
+				if (fullColor) {
+					bitmapData32[entry.bmWidth * y + x] = color;
+				} else {
+					// Don't know why we'd end up here, but let's support it.
+					bitmapData32[entry.bmWidth * y + x] = (color << 24) | 0xFFFFFF;
+				}
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
@@ -383,6 +386,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
@@ -392,6 +396,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {

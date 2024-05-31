@@ -29,11 +29,7 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 	}
 	dpiScale_ = CalculateDPIScale();
 
-	// Pick between the two supported formats, of which at least one is supported on each platform. Prefer R8 (but only if swizzle is supported)
-	use4444Format_ = (draw->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0;
-	if ((draw->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0 && draw->GetDeviceCaps().textureSwizzleSupported)
-		use4444Format_ = false;
-	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f, use4444=%d", dpiScale_, (int)use4444Format_);
+	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -171,7 +167,7 @@ void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bo
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -242,60 +238,6 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	env->ReleaseIntArrayElements(imageData, jimage, 0);
 	env->DeleteLocalRef(imageData);
 	return true;
-}
-
-void TextDrawerAndroid::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (str.empty())
-		return;
-
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-	
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat = use4444Format_ ? Draw::DataFormat::R4G4B4A4_UNORM_PACK16 : Draw::DataFormat::R8_UNORM;
-		bool emoji = AnyEmojiInString(str.data(), str.length());
-		if (emoji) {
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-		}
-
-		entry = new TextStringEntry(frameCount_);
-
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.generateMips = false;
-		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_ALPHA : Draw::TextureSwizzle::DEFAULT,
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-	}
-
-	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
-	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
-		target.Flush(true);
-	}
 }
 
 void TextDrawerAndroid::ClearCache() {

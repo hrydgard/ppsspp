@@ -89,7 +89,9 @@ void TextDrawerQt::MeasureStringRect(std::string_view str, const Bounds &bounds,
 	*h = (float)size.height() * fontScaleY_ * dpiScale_;
 }
 
-bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align) {
+bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+	_dbg_assert_(!fullColor);
+
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -161,7 +163,7 @@ void TextDrawerQt::DrawString(DrawBuffer &target, std::string_view str, float x,
 
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
+		DrawStringBitmap(bitmapData, *entry, texFormat, str, align, false);
 		desc.initData.push_back(&bitmapData[0]);
 
 		desc.type = TextureType::LINEAR2D;
@@ -177,12 +179,10 @@ void TextDrawerQt::DrawString(DrawBuffer &target, std::string_view str, float x,
 
 	if (entry->texture) {
 		draw_->BindTexture(0, entry->texture);
-	}
 
-	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
-	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
+		float w = entry->bmWidth * fontScaleX_ * dpiScale_;
+		float h = entry->bmHeight * fontScaleY_ * dpiScale_;
+		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 		target.Flush(true);
 	}

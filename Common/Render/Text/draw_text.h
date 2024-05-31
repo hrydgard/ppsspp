@@ -51,13 +51,11 @@ public:
 	virtual void MeasureString(std::string_view str, float *w, float *h) = 0;
 	virtual void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) = 0;
 
-	// TODO: This one we should be able to make a default implementation for, calling the specialized DrawBitmap.
-	// Only problem is that we need to make sure that the texFormats are all supported by all the backends, or we explicitly limit.
-	virtual void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT) = 0;
+	virtual void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
 
 	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);
-	virtual bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align = ALIGN_TOPLEFT) = 0;
-	bool DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align);
+	virtual bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
+	bool DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
 	// Use for housekeeping like throwing out old strings.
 	virtual void OncePerFrame() = 0;
 
@@ -73,8 +71,8 @@ public:
 protected:
 	TextDrawer(Draw::DrawContext *draw);
 
-	Draw::DrawContext *draw_;
 	virtual void ClearCache() = 0;
+
 	void WrapString(std::string &out, std::string_view str, float maxWidth, int flags);
 
 	struct CacheKey {
@@ -89,11 +87,15 @@ protected:
 		uint32_t fontHash;
 	};
 
+	Draw::DrawContext *draw_;
+
 	int frameCount_ = 0;
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
 	float dpiScale_ = 1.0f;
 	bool ignoreGlobalDpi_ = false;
+
+	uint32_t fontHash_ = 0;
 
 	std::map<CacheKey, std::unique_ptr<TextStringEntry>> cache_;
 	std::map<CacheKey, std::unique_ptr<TextMeasureEntry>> sizeCache_;
