@@ -100,6 +100,7 @@ namespace Libretro
 {
    LibretroGraphicsContext *ctx;
    retro_environment_t environ_cb;
+   retro_hw_context_type renderer = RETRO_HW_CONTEXT_DUMMY;
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
@@ -1329,6 +1330,26 @@ namespace Libretro
 
 } // namespace Libretro
 
+static void retro_check_renderer(void)
+{
+   struct retro_variable var = {0};
+
+   var.key = "ppsspp_renderer";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "hardware"))
+         renderer = RETRO_HW_CONTEXT_DUMMY;
+      else if (!strcmp(var.value, "hardware_gl"))
+         renderer = RETRO_HW_CONTEXT_OPENGL;
+      else if (!strcmp(var.value, "hardware_vk"))
+         renderer = RETRO_HW_CONTEXT_VULKAN;
+      else if (!strcmp(var.value, "hardware_d3d"))
+         renderer = RETRO_HW_CONTEXT_DIRECT3D;
+      else if (!strcmp(var.value, "software"))
+         renderer = RETRO_HW_CONTEXT_NONE;
+   }
+}
+
 bool retro_load_game(const struct retro_game_info *game)
 {
    retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
@@ -1337,6 +1358,8 @@ bool retro_load_game(const struct retro_game_info *game)
       ERROR_LOG(SYSTEM, "XRGB8888 is not supported.\n");
       return false;
    }
+
+   retro_check_renderer();
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();

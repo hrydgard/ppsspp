@@ -90,6 +90,9 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred))
 		preferred = RETRO_HW_CONTEXT_DUMMY;
 
+	if (Libretro::renderer != RETRO_HW_CONTEXT_DUMMY)
+		preferred = Libretro::renderer;
+
 #ifndef USING_GLES2
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
 		ctx = new LibretroGLCoreContext();
@@ -131,7 +134,6 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 
 		ctx = new LibretroD3D9Context();
-
 		if (ctx->Init()) {
 			return ctx;
 		}
@@ -142,4 +144,62 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	ctx = new LibretroSoftwareContext();
 	ctx->Init();
 	return ctx;
+}
+
+std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
+	// If the output was small, act like everything outside was 0.
+	// This can happen depending on viewport parameters.
+	u32 safeW = std::min(stride, buffer->GetStride());
+	u32 safeH = std::min(h, buffer->GetHeight());
+
+	std::vector<u32> data;
+	data.resize(stride * h, 0);
+
+	const u32 *pixels32 = (const u32 *)buffer->GetData();
+	const u16 *pixels16 = (const u16 *)buffer->GetData();
+	int outStride = buffer->GetStride();
+#if 0
+	if (!buffer->GetFlipped()) {
+		// Bitmaps are flipped, so we have to compare backwards in this case.
+		int toLastRow = outStride * (h > buffer->GetHeight() ? buffer->GetHeight() - 1 : h - 1);
+		pixels32 += toLastRow;
+		pixels16 += toLastRow;
+		outStride = -outStride;
+	}
+#endif
+	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	u32 *dst = &data[0];
+	if (safeH < h) {
+		dst += (h - safeH) * stride;
+	}
+
+	for (u32 y = 0; y < safeH; ++y) {
+		switch (buffer->GetFormat()) {
+		case GPU_DBG_FORMAT_8888:
+			ConvertBGRA8888ToRGBA8888(&dst[y * stride], pixels32, safeW);
+			break;
+		case GPU_DBG_FORMAT_8888_BGRA:
+			memcpy(&dst[y * stride], pixels32, safeW * sizeof(u32));
+			break;
+
+		case GPU_DBG_FORMAT_565:
+			ConvertRGB565ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_5551:
+			ConvertRGBA5551ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_4444:
+			ConvertRGBA4444ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+
+		default:
+			data.resize(0);
+			return data;
+		}
+
+		pixels32 += outStride;
+		pixels16 += outStride;
+	}
+
+	return data;
 }

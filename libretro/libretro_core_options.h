@@ -288,10 +288,31 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "enabled"
    },
    {
+      "ppsspp_renderer",
+      "Renderer",
+      NULL,
+      "'Hardware (Auto)' selects the renderer depending upon the current libretro frontend video driver. Restart required.",
+      NULL,
+      "video",
+      {
+         { "hardware",    "Hardware (Auto)" },
+         { "hardware_gl", "Hardware (OpenGL)" },
+#ifndef HAVE_LIBNX
+         { "hardware_vk", "Hardware (Vulkan)" },
+#endif
+#ifdef _WIN32
+         { "hardware_d3d", "Hardware (D3D11)" },
+#endif
+         { "software",    "Software" },
+         { NULL, NULL },
+      },
+      "hardware"
+   },
+   {
       "ppsspp_internal_resolution",
-      "Internal Resolution (Restart)",
+      "Internal Resolution",
       NULL,
-      NULL,
+      "Restart required.",
       NULL,
       "video",
       {

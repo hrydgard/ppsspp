@@ -7,6 +7,9 @@
 
 #include "Core/System.h"
 #include "GPU/GPUState.h"
+#include "GPU/Software/SoftGpu.h"
+#include "headless/Compare.h"
+#include "Common/Data/Convert/ColorConv.h"
 
 class LibretroGraphicsContext : public GraphicsContext {
 public:
@@ -80,7 +83,14 @@ class LibretroSoftwareContext : public LibretroGraphicsContext {
 public:
 	LibretroSoftwareContext() {}
 	bool Init() override { return true; }
-	void SwapBuffers() override { video_cb(NULL, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0); }
+	void SwapBuffers() override {
+		GPUDebugBuffer buf;
+		u32 w = PSP_CoreParameter().pixelWidth;
+		u32 h = PSP_CoreParameter().pixelHeight;
+		gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY);
+		const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, w, h);
+		video_cb(pixels.data(), w, h, w << 2);
+    }
 	GPUCore GetGPUCore() override { return GPUCORE_SOFTWARE; }
 	const char *Ident() override { return "Software"; }
 };
@@ -88,6 +98,7 @@ public:
 namespace Libretro {
 extern LibretroGraphicsContext *ctx;
 extern retro_environment_t environ_cb;
+extern retro_hw_context_type renderer;
 
 enum class EmuThreadState {
 	DISABLED,
