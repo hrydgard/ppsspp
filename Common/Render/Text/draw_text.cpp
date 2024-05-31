@@ -68,7 +68,7 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	} else {
 		DataFormat texFormat;
 		// Pick between the supported formats, of which at least one is supported on each platform. Prefer R8 (but only if swizzle is supported)
-		bool emoji = AnyEmojiInString(str.data(), str.length());
+		bool emoji = SupportsColorEmoji() && AnyEmojiInString(str.data(), str.length());
 		if (emoji) {
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0 && draw_->GetDeviceCaps().textureSwizzleSupported) {

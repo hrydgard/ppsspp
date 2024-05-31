@@ -28,6 +28,8 @@ public:
 	void OncePerFrame() override;
 
 protected:
+	bool SupportsColorEmoji() const { return true; }
+
 	void ClearCache() override;
 
 private:

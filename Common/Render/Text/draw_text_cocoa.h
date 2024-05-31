@@ -25,6 +25,8 @@ public:
 	void OncePerFrame() override;
 
 protected:
+	bool SupportsColorEmoji() const override { return true; }
+
 	void ClearCache() override;
 	void RecreateFonts();  // On DPI change
 

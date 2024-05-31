@@ -24,6 +24,8 @@ public:
 	void OncePerFrame() override;
 
 protected:
+	bool SupportsColorEmoji() const override { return false; }
+
 	void ClearCache() override;
 
 	std::map<uint32_t, QFont *> fontMap_;
