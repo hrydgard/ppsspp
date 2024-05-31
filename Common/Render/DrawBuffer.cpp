@@ -461,13 +461,6 @@ float AtlasWordWrapper::MeasureWidth(std::string_view str) {
 	float w = 0.0f;
 	for (UTF8 utf(str); !utf.end(); ) {
 		uint32_t c = utf.next();
-		if (c == '&') {
-			// Skip ampersand prefixes ("&&" is an ampersand.)
-			if (utf.end()) {
-				break;
-			}
-			c = utf.next();
-		}
 		const AtlasChar *ch = atlasfont_.getChar(c);
 		if (!ch) {
 			ch = atlasfont_.getChar('?');

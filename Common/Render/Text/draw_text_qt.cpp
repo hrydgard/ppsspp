@@ -110,7 +110,7 @@ bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	painter.setFont(*font);
 	painter.setPen(0xFFFFFFFF);
 	// TODO: Involve ALIGN_HCENTER (bounds etc.)
-	painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str.data(), str.length()).replace("&&", "&"));
+	painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str.data(), str.length()));
 	painter.end();
 
 	entry.texture = nullptr;
@@ -157,7 +157,7 @@ void TextDrawerQt::DrawString(DrawBuffer &target, std::string_view str, float x,
 	} else {
 		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;

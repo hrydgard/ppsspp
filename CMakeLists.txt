@@ -385,9 +385,11 @@ if(NOT MSVC)
 			-Wno-deprecated-register
 			-Wno-sign-conversion
 			-Wno-shorten-64-to-32
-			# Hack around a bad check for __GNUC__ in basis_universal that makes it use old stuff on iOS
-			-Wno-deprecated-builtins
 		)
+		if(MACOSX OR IOS)
+			# Hack around a bad check for __GNUC__ in basis_universal that makes it use old stuff on iOS
+			add_definitions(-Wno-deprecated-builtins)
+		endif()
 	endif()
 
 	if(USE_ASAN)

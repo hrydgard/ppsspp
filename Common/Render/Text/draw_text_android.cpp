@@ -78,10 +78,6 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	}
 }
 
-std::string TextDrawerAndroid::NormalizeString(std::string str) {
-	return ReplaceAll(str, "&&", "&");
-}
-
 void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) {
 	if (str.empty()) {
 		*w = 0.0;
@@ -102,8 +98,9 @@ void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) 
 		} else {
 			ERROR_LOG(G3D, "Missing font");
 		}
-		std::string text(NormalizeString(std::string(str)));
+		std::string text(str);
 		auto env = getEnv();
+		// Unfortunate that we can't create a jstr from a std::string_view directly.
 		jstring jstr = env->NewStringUTF(text.c_str());
 		uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
 		env->DeleteLocalRef(jstr);
@@ -152,7 +149,7 @@ void TextDrawerAndroid::MeasureStringRect(std::string_view str, const Bounds &bo
 		if (iter != sizeCache_.end()) {
 			entry = iter->second.get();
 		} else {
-			std::string text(NormalizeString(lines[i]));
+			std::string text(lines[i]);
 			jstring jstr = env->NewStringUTF(text.c_str());
 			uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
 			env->DeleteLocalRef(jstr);
@@ -252,31 +249,27 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, std::string_view str, flo
 	if (str.empty())
 		return;
 
-	std::string text(NormalizeString(std::string(str)));
-	if (text.empty())
-		return;
-
 	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);
 
 	TextStringEntry *entry;
-
+	
 	auto iter = cache_.find(key);
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 	} else {
 		DataFormat texFormat = use4444Format_ ? Draw::DataFormat::R4G4B4A4_UNORM_PACK16 : Draw::DataFormat::R8_UNORM;
-		bool emoji = AnyEmojiInString(text.c_str(), text.size());
+		bool emoji = AnyEmojiInString(str.data(), str.length());
 		if (emoji) {
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, text, align);
+		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
 		desc.initData.push_back(&bitmapData[0]);
 
 		desc.type = TextureType::LINEAR2D;

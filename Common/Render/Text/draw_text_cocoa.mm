@@ -255,7 +255,7 @@ void TextDrawerCocoa::DrawString(DrawBuffer &target, std::string_view str, float
 		else
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		bool emoji = AnyEmojiInString(key.text.c_str(), key.text.size());
 		if (emoji)

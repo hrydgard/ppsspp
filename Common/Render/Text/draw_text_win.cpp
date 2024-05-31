@@ -134,7 +134,7 @@ void TextDrawerWin32::MeasureString(std::string_view str, float *w, float *h) {
 			SelectObject(ctx_->hDC, iter->second->hFont);
 		}
 
-		std::string toMeasure = ReplaceAll(std::string(str), "&&", "&");
+		std::string toMeasure(str);
 
 		std::vector<std::string_view> lines;
 		SplitString(toMeasure, '\n', lines);
@@ -190,7 +190,7 @@ void TextDrawerWin32::MeasureStringRect(std::string_view str, const Bounds &boun
 			entry = iter->second.get();
 		} else {
 			SIZE size;
-			std::wstring wstr = ConvertUTF8ToWString(lines[i].empty() ? " " : ReplaceAll(lines[i], "&&", "&"));
+			std::wstring wstr = lines[i].empty() ? L" " : ConvertUTF8ToWString(lines[i]);
 			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 
 			entry = new TextMeasureEntry();
@@ -233,7 +233,7 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	UINT dtAlign = (align & ALIGN_HCENTER) == 0 ? DT_LEFT : DT_CENTER;
 
 	RECT textRect = { 0 };
-	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_HIDEPREFIX | DT_TOP | dtAlign | DT_CALCRECT, 0);
+	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_NOPREFIX | DT_TOP | dtAlign | DT_CALCRECT, 0);
 	size.cx = textRect.right;
 	size.cy = textRect.bottom;
 
@@ -241,13 +241,11 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		size.cx = MAX_TEXT_WIDTH;
 	if (size.cy > MAX_TEXT_HEIGHT)
 		size.cy = MAX_TEXT_HEIGHT;
-	// Prevent zero-sized textures, which can occur. Not worth to avoid
-	// creating the texture altogether in this case. One example is a string
-	// containing only '\r\n', see issue #10764.
-	if (size.cx == 0)
-		size.cx = 1;
-	if (size.cy == 0)
-		size.cy = 1;
+
+	if (size.cx == 0 || size.cy == 0) {
+		// Don't draw zero-sized textures.
+		return false;
+	}
 
 	entry.texture = nullptr;
 	entry.width = size.cx;
@@ -260,7 +258,7 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	rc.right = entry.bmWidth;
 	rc.bottom = entry.bmHeight;
 	FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
-	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX | DT_TOP | dtAlign, 0);
+	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_NOPREFIX | DT_TOP | dtAlign, 0);
 
 	// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 	// because we need white. Well, we could using swizzle, but not all our backends support that.
@@ -332,13 +330,18 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, std::string_view str, float
 		else
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
-		entry = new TextStringEntry();
+		entry = new TextStringEntry(frameCount_);
 
 		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 		// because we need white. Well, we could using swizzle, but not all our backends support that.
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
+		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align)) {
+			// Nothing drawn. Store that fact in the cache.
+			cache_[key] = std::unique_ptr<TextStringEntry>(entry);
+			return;
+		}
+
 		desc.initData.push_back(&bitmapData[0]);
 
 		desc.type = TextureType::LINEAR2D;
@@ -354,15 +357,14 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, std::string_view str, float
 
 	if (entry->texture) {
 		draw_->BindTexture(0, entry->texture);
-	}
 
-	// Okay, the texture is bound, let's draw.
-	float w = entry->width * fontScaleX_ * dpiScale_;
-	float h = entry->height * fontScaleY_ * dpiScale_;
-	float u = entry->width / (float)entry->bmWidth;
-	float v = entry->height / (float)entry->bmHeight;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
+		// Okay, the texture is bound, let's draw.
+		float w = entry->width * fontScaleX_ * dpiScale_;
+		float h = entry->height * fontScaleY_ * dpiScale_;
+		float u = entry->width / (float)entry->bmWidth;
+		float v = entry->height / (float)entry->bmHeight;
+		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
+
 		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
 		target.Flush(true);
 	}

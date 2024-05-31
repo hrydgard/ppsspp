@@ -64,17 +64,10 @@ enum class I18NCat : uint8_t {
 };
 
 struct I18NEntry {
-	I18NEntry(const std::string &t) : text(t), readFlag(false) {}
+	I18NEntry(std::string_view t) : text(t), readFlag(false) {}
 	I18NEntry() : readFlag(false) {}
 	std::string text;
 	bool readFlag;
-};
-
-struct I18NCandidate {
-	I18NCandidate() : key(0), defVal(0) {}
-	I18NCandidate(const char *k, const char *d) : key(k), defVal(d) {}
-	const char *key;
-	const char *defVal;
 };
 
 class I18NCategory {
@@ -88,10 +81,7 @@ public:
 	// Try to avoid this. Still useful in snprintf.
 	const char *T_cstr(const char *key, const char *def = nullptr);
 
-	std::map<std::string, std::string> Missed() const {
-		std::lock_guard<std::mutex> guard(missedKeyLock_);
-		return missedKeyLog_;
-	}
+	std::map<std::string, std::string> Missed() const;
 
 	const std::map<std::string, I18NEntry, std::less<>> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }

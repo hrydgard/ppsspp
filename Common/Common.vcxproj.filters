@@ -557,6 +557,9 @@
     <ClInclude Include="..\ext\at3_standalone\mem.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_cocoa.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1199,6 +1202,9 @@
     </None>
     <None Include="..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc">
       <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="Render\Text\draw_text_cocoa.mm">
+      <Filter>Render\Text</Filter>
     </None>
   </ItemGroup>
 </Project>

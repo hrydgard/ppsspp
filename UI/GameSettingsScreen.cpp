@@ -392,7 +392,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		}
 #endif
 		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display Layout && Effects")));
+		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout & effects")));
 		displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 			screenManager()->push(new DisplayLayoutScreen(gamePath_));
 			return UI::EVENT_DONE;
