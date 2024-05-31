@@ -47,7 +47,7 @@ public:
 		// CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
 		CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
-			(id)font, kCTFontAttributeName,
+			(__bridge id)font, kCTFontAttributeName,
 			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
 			nil];
 	}
