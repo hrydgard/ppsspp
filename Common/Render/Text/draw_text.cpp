@@ -62,6 +62,9 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
+		if (!entry->texture) {
+			return;
+		}
 	} else {
 		DataFormat texFormat;
 		// Pick between the supported formats, of which at least one is supported on each platform. Prefer R8 (but only if swizzle is supported)
@@ -106,19 +109,18 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
+	_dbg_assert_(entry->texture);
+	draw_->BindTexture(0, entry->texture);
 
-		// Okay, the texture is bound, let's draw.
-		float w = entry->width * fontScaleX_ * dpiScale_;
-		float h = entry->height * fontScaleY_ * dpiScale_;
-		float u = entry->width / (float)entry->bmWidth;
-		float v = entry->height / (float)entry->bmHeight;
-		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
+	// Okay, the texture is bound, let's draw.
+	float w = entry->width * fontScaleX_ * dpiScale_;
+	float h = entry->height * fontScaleY_ * dpiScale_;
+	float u = entry->width / (float)entry->bmWidth;
+	float v = entry->height / (float)entry->bmHeight;
+	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
-		target.Flush(true);
-	}
+	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
+	target.Flush(true);
 }
 
 void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {

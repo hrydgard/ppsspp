@@ -140,10 +140,8 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 			attributes = iter->second->attributes;
 		}
 
-		std::string toMeasure = ReplaceAll(std::string(str), "&&", "&");
-
 		std::vector<std::string_view> lines;
-		SplitString(toMeasure, '\n', lines);
+		SplitString(str, '\n', lines);
 
 		int extW = 0, extH = 0;
 		for (auto &line : lines) {
@@ -171,7 +169,6 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	*w = entry->width * fontScaleX_ * dpiScale_;
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
-
 
 void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
 	auto iter = fontMap_.find(fontHash_);
@@ -228,73 +225,6 @@ void TextDrawerCocoa::MeasureStringRect(std::string_view str, const Bounds &boun
 	*h = total_h * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerCocoa::DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (str.empty()) {
-		return;
-	}
-
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat;
-		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
-		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		else
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-
-		entry = new TextStringEntry(frameCount_);
-
-		bool emoji = AnyEmojiInString(key.text.c_str(), key.text.size());
-		if (emoji)
-			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-
-		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
-		// because we need white. Well, we could using swizzle, but not all our backends support that.
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align)) {
-			return;
-		}
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-
-		// Okay, the texture is bound, let's draw.
-		float w = entry->width * fontScaleX_ * dpiScale_;
-		float h = entry->height * fontScaleY_ * dpiScale_;
-		float u = entry->width / (float)entry->bmWidth;
-		float v = entry->height / (float)entry->bmHeight;
-		DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
-		target.Flush(true);
-	}
-}
-
 bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
@@ -317,25 +247,25 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	double fWidth = CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
 
 	// On iOS 4.0 and Mac OS X v10.6 you can pass null for data
-	size_t width = (size_t)ceilf(fWidth) + 1;
-	size_t height = (size_t)ceilf(ascent + descent) + 1;
+	int width = (int)ceilf(fWidth);
+	int height = (int)ceilf(ascent + descent);
 
-	// Round width and height upwards to the closest multiple of 4.
-	width = (width + 3) & ~3;
-	height = (height + 3) & ~3;
-
-	if (!width || !height) {
+	if (width <= 0 || height <= 0) {
 		WARN_LOG(G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
 		return false;
 	}
 
-	uint32_t *bitmap = new uint32_t[width * height];
-	memset(bitmap, 0, width * height * 4);
+	// Round width and height upwards to the closest multiple of 4.
+	int bmWidth = (width + 1 + 3) & ~3;
+	int bmHeight = (height + 1 + 3) & ~3;
+
+	uint32_t *bitmap = new uint32_t[bmWidth * bmHeight];
+	memset(bitmap, 0, bmWidth * bmHeight * 4);
 
 	// Create the context and fill it with white background
 	CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
 	CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedLast;
-	CGContextRef ctx = CGBitmapContextCreate(bitmap, width, height, 8, width*4, space, bitmapInfo);
+	CGContextRef ctx = CGBitmapContextCreate(bitmap, bmWidth, bmHeight, 8, bmWidth*4, space, bitmapInfo);
 	CGColorSpaceRelease(space);
 	// CGContextSetRGBFillColor(ctx, 1.0, 1.0, 1.0, 0.0); // white background
 	// CGContextFillRect(ctx, CGRectMake(0.0, 0.0, width, height));
@@ -346,7 +276,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 
 	// Draw the text 
 	CGFloat x = 0.0;
-	CGFloat y = descent;
+	CGFloat y = descent + (bmHeight - height);  // from bottom???
 	CGContextSetTextPosition(ctx, x, y);
 	CTLineDraw(line, ctx);
 	CFRelease(line);
@@ -354,8 +284,8 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	entry.texture = nullptr;
 	entry.width = width;
 	entry.height = height;
-	entry.bmWidth = width;
-	entry.bmHeight = height;
+	entry.bmWidth = bmWidth;
+	entry.bmHeight = bmHeight;
 	entry.lastUsedFrame = frameCount_;
 
 	// data now contains the bytes in RGBA, presumably.
@@ -366,7 +296,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		uint32_t *bitmapData32 = (uint32_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint32_t color = bitmap[width * y + x];
+				uint32_t color = bitmap[bmWidth * y + x];
 				if (fullColor) {
 					bitmapData32[entry.bmWidth * y + x] = color;
 				} else {
@@ -381,7 +311,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = (uint8_t)((bitmap[width * y + x] & 0xff) >> 4);
+				uint8_t bAlpha = (uint8_t)((bitmap[bmWidth * y + x] & 0xff) >> 4);
 				bitmapData16[entry.bmWidth * y + x] = (bAlpha) | 0xfff0;
 			}
 		}
@@ -391,7 +321,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = (uint8_t)((bitmap[width * y + x] & 0xff) >> 4);
+				uint8_t bAlpha = (uint8_t)((bitmap[bmWidth * y + x] & 0xff) >> 4);
 				bitmapData16[entry.bmWidth * y + x] = (bAlpha << 12) | 0x0fff;
 			}
 		}
@@ -400,7 +330,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
 		for (int y = 0; y < entry.bmHeight; y++) {
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = bitmap[width * y + x] & 0xff;
+				uint8_t bAlpha = bitmap[bmWidth * y + x] & 0xff;
 				bitmapData[entry.bmWidth * y + x] = bAlpha;
 			}
 		}
