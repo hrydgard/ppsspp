@@ -387,6 +387,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
+	[self hideKeyboard];
+
 	[[DisplayManager shared] setupDisplayListener];
 
 	INFO_LOG(SYSTEM, "Metal viewDidLoad");
@@ -413,8 +415,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
-
-	[self hideKeyboard];
 
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
@@ -500,6 +500,7 @@ extern float g_safeInsetBottom;
 - (void)uiStateChanged
 {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
+	[self hideKeyboard];
 }
 
 - (void)bindDefaultFBO

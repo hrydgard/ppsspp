@@ -424,6 +424,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)uiStateChanged
 {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
+	[self hideKeyboard];
 }
 
 - (UIView *)getView {
