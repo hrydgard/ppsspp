@@ -56,7 +56,7 @@ public:
 	virtual bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
 	bool DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
 	// Use for housekeeping like throwing out old strings.
-	virtual void OncePerFrame() = 0;
+	void OncePerFrame();
 
 	float CalculateDPIScale();
 	void SetForcedDPIScale(float dpi) {
@@ -69,9 +69,9 @@ public:
 
 protected:
 	TextDrawer(Draw::DrawContext *draw);
+	void ClearCache();
 
 	virtual bool SupportsColorEmoji() const = 0;
-	virtual void ClearCache() = 0;
 	virtual void ClearFonts() = 0;
 
 	void WrapString(std::string &out, std::string_view str, float maxWidth, int flags);

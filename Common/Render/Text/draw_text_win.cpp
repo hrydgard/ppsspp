@@ -261,45 +261,4 @@ void TextDrawerWin32::ClearFonts() {
 	fontMap_.clear();
 }
 
-void TextDrawerWin32::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-}
-
-void TextDrawerWin32::OncePerFrame() {
-	frameCount_++;
-	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
-	float newDpiScale = CalculateDPIScale();
-	if (newDpiScale != dpiScale_) {
-		dpiScale_ = newDpiScale;
-		ClearCache();
-		ClearFonts();
-	}
-
-	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				if (iter->second->texture)
-					iter->second->texture->Release();
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
-}
-
 #endif
