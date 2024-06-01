@@ -711,15 +711,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bDisplayCropTo16x9 = true;
    }
 
-   var.key = "ppsspp_skip_gpu_readbacks";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
-      else
-         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
-   }
-
    var.key = "ppsspp_frameskip";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.iFrameSkip = atoi(var.value);
@@ -771,22 +762,31 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInflightFrames = 2;
    }
 
-   var.key = "ppsspp_gpu_hardware_transform";
+   var.key = "ppsspp_skip_buffer_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bHardwareTransform = false;
+         g_Config.bSkipBufferEffects = false;
       else
-         g_Config.bHardwareTransform = true;
+         g_Config.bSkipBufferEffects = true;
    }
 
-   var.key = "ppsspp_software_skinning";
+   var.key = "ppsspp_disable_range_culling";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bSoftwareSkinning = false;
+         g_Config.bDisableRangeCulling = false;
       else
-         g_Config.bSoftwareSkinning = true;
+         g_Config.bDisableRangeCulling = true;
+   }
+
+   var.key = "ppsspp_skip_gpu_readbacks";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
+      else
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
    }
 
    var.key = "ppsspp_lazy_texture_caching";
@@ -807,6 +807,24 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iSplineBezierQuality = 1;
       else if (!strcmp(var.value, "High"))
          g_Config.iSplineBezierQuality = 2;
+   }
+
+   var.key = "ppsspp_gpu_hardware_transform";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bHardwareTransform = false;
+      else
+         g_Config.bHardwareTransform = true;
+   }
+
+   var.key = "ppsspp_software_skinning";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bSoftwareSkinning = false;
+      else
+         g_Config.bSoftwareSkinning = true;
    }
 
    var.key = "ppsspp_hardware_tesselation";
