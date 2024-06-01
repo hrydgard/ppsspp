@@ -273,9 +273,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				g_requestManager.PostSystemFailure(requestId);
 			}
 		};
-		DarwinFileSystemServices services;
 		BrowseFileType fileType = (BrowseFileType)param3;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
+		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
@@ -287,8 +286,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				g_requestManager.PostSystemFailure(requestId);
 			}
 		};
-		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
 		return true;
 	}
 #endif
