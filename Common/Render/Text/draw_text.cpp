@@ -113,10 +113,10 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	draw_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
-	float w = entry->width * fontScaleX_ * dpiScale_;
-	float h = entry->height * fontScaleY_ * dpiScale_;
-	float u = entry->width / (float)entry->bmWidth;
-	float v = entry->height / (float)entry->bmHeight;
+	float w = (float)entry->width * (fontScaleX_ * dpiScale_);
+	float h = (float)entry->height * (fontScaleY_ * dpiScale_);
+	float u = (float)entry->width / (float)entry->bmWidth;
+	float v = (float)entry->height / (float)entry->bmHeight;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 
 	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);

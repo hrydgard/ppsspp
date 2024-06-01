@@ -184,8 +184,8 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	float w, h;
 	MeasureString(str, &w, &h);
 	// Reverse the DPI scale that MeasureString baked in.
-	w /= dpiScale_;
-	h /= dpiScale_;
+	w /= (dpiScale_ * fontScaleX_);
+	h /= (dpiScale_ * fontScaleY_);
 
 	int width = (int)ceilf(w);
 	int height = (int)ceilf(h);
