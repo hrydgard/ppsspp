@@ -1155,6 +1155,18 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { (void)cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { input_poll_cb = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
+static const struct retro_controller_description psp_controllers[] =
+{
+   { "PSP", RETRO_DEVICE_JOYPAD },
+   { NULL, 0 }
+};
+
+static const struct retro_controller_info ports[] =
+{
+   { psp_controllers, 1 },
+   { NULL, 0 }
+};
+
 void retro_init(void)
 {
    VsyncSwapIntervalReset();
@@ -1181,6 +1193,7 @@ void retro_init(void)
       { 0 },
    };
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
+   environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
