@@ -17,6 +17,9 @@
 // even be directly JIT-ed, but the gains will probably be tiny over our older direct
 // MIPS->target JITs.
 
+// Ops beginning with "OI" are specialized for IR Interpreter use. These will not be produced
+// for the IR JITs.
+
 enum class IROp : uint8_t {
 	SetConst,
 	SetConstF,
@@ -33,6 +36,7 @@ enum class IROp : uint8_t {
 	Xor,
 
 	AddConst,
+	OptAddConst,
 	SubConst,
 
 	AndConst,
@@ -173,6 +177,10 @@ enum class IROp : uint8_t {
 	Vec4Dot,
 	Vec4Neg,
 	Vec4Abs,
+
+	OptVec4Shuffle0,
+	OptVec4Blend7,
+	OptVec4Blend8,
 
 	// vx2i
 	Vec2Unpack16To31,  // Note that the result is shifted down by 1, hence 31

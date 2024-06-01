@@ -120,6 +120,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::AddConst:
 			mips->r[inst->dest] = mips->r[inst->src1] + inst->constant;
 			break;
+		case IROp::OptAddConst:  // For this one, it's worth having a "unary" variant of the above that only needs to read one register param.
+			mips->r[inst->dest] += inst->constant;
+			break;
 		case IROp::SubConst:
 			mips->r[inst->dest] = mips->r[inst->src1] - inst->constant;
 			break;
@@ -279,6 +282,46 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 		}
 
+		case IROp::OptVec4Shuffle0:
+		{
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_set1_ps(mips->f[inst->src1]));
+#elif PPSSPP_ARCH(ARM_NEON)
+			vst1q_f32(&mips->f[inst->dest], vdupq_n_f32(mips->f[inst->src1]));
+#else
+			float value = mips->f[inst->src1];
+			const int dest = inst->dest;
+			mips->f[dest + 0] = value;
+			mips->f[dest + 1] = value;
+			mips->f[dest + 2] = value;
+			mips->f[dest + 3] = value;
+#endif
+			break;
+		}
+
+		case IROp::OptVec4Blend7:
+		{
+			const int dest = inst->dest;
+			const int src2 = inst->src2;
+			mips->f[dest + 0] = mips->f[src2 + 0];
+			mips->f[dest + 1] = mips->f[src2 + 1];
+			mips->f[dest + 2] = mips->f[src2 + 2];
+			mips->f[dest + 3] = mips->f[inst->src1 + 3];
+			break;
+		}
+
+		case IROp::OptVec4Blend8:
+		{
+			// TODO: Could convert this to Blend7 by swapping arguments!
+			const int dest = inst->dest;
+			const int src1 = inst->src1;
+			mips->f[dest + 0] = mips->f[src1 + 0];
+			mips->f[dest + 1] = mips->f[src1 + 1];
+			mips->f[dest + 2] = mips->f[src1 + 2];
+			mips->f[dest + 3] = mips->f[inst->src2 + 3];
+			break;
+		}
+
 		case IROp::Vec4Mov:
 		{
 #if defined(_M_SSE)
@@ -431,6 +474,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Pack31To16:
 		{
+			// Used in Tekken 6
+
 			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
 			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
 			mips->fi[inst->dest] = val;
@@ -451,6 +496,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Pack31To8:
 		{
+			// Used in Tekken 6
+
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;

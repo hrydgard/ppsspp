@@ -2149,3 +2149,50 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	}
 	return logBlocks;
 }
+
+bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		// Specialize some instructions.
+		switch (inst.op) {
+		case IROp::Vec4Blend:
+			switch (inst.constant) {
+			case 7:
+				inst.op = IROp::OptVec4Blend7;
+				break;
+			case 8:
+				inst.op = IROp::OptVec4Blend8;
+				break;
+			default:
+				break;
+			}
+			break;
+		case IROp::Vec4Shuffle:
+			switch (inst.src2) {  // hm, should probably read this from constant, oh well.
+			case 0:  // xxxx
+				inst.op = IROp::OptVec4Shuffle0;
+				break;
+			default:
+				break;
+			}
+			break;
+		case IROp::AddConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptAddConst;
+			}
+			break;
+		default:
+			break;
+		}
+		out.Write(inst);
+	}
+
+	return logBlocks;
+}

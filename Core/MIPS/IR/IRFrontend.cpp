@@ -291,7 +291,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 		if (opts.optimizeForInterpreter) {
 			// Add special passes here.
-			// passes.push_back(&ReorderLoadStore);
+			passes.push_back(&OptimizeForInterpreter);
 		}
 		if (IRApplyPasses(passes.data(), passes.size(), ir, simplified, opts))
 			logBlocks = 1;

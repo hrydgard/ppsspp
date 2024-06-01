@@ -8,6 +8,7 @@
 //  _ = ignore
 //  G = GPR register
 //  C = 32-bit constant from array
+//  c = 8-bit constant from array
 //  I = immediate value from instruction
 //  F = FPR register, single
 //  V = FPR register, Vec4. Reg number always divisible by 4.
@@ -28,6 +29,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::And, "And", "GGG" },
 	{ IROp::Or, "Or", "GGG" },
 	{ IROp::Xor, "Xor", "GGG" },
+	{ IROp::OptAddConst, "OptAddConst", "GC" },
 	{ IROp::AddConst, "AddConst", "GGC" },
 	{ IROp::SubConst, "SubConst", "GGC" },
 	{ IROp::AndConst, "AndConst", "GGC" },
@@ -128,7 +130,10 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
-	{ IROp::Vec4Blend, "Vec4Blend", "VVVC" },
+	{ IROp::Vec4Blend, "Vec4Blend", "VVVc" },
+	{ IROp::OptVec4Blend7, "OptVec4Blend7", "VVV" },
+	{ IROp::OptVec4Blend8, "OptVec4Blend8", "VVV" },
+	{ IROp::OptVec4Shuffle0, "OptVec4Shuffle0", "VV" },
 	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
 	{ IROp::Vec4Add, "Vec4Add", "VVV" },
 	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
@@ -292,6 +297,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		break;
 	case 'C':
 		snprintf(buf, bufSize, "%08x", constant);
+		break;
+	case 'c':
+		snprintf(buf, bufSize, "%02x", constant);
 		break;
 	case 'I':
 		snprintf(buf, bufSize, "%02x", param);
