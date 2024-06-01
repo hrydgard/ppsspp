@@ -77,8 +77,7 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 
 TextDrawerWin32::~TextDrawerWin32() {
 	ClearCache();
-
-	fontMap_.clear();
+	ClearFonts();
 
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
@@ -255,11 +254,11 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	return true;
 }
 
-void TextDrawerWin32::RecreateFonts() {
+void TextDrawerWin32::ClearFonts() {
 	for (auto &iter : fontMap_) {
-		iter.second->dpiScale = dpiScale_;
-		iter.second->Create();
+		iter.second->Destroy();
 	}
+	fontMap_.clear();
 }
 
 void TextDrawerWin32::ClearCache() {
@@ -278,7 +277,7 @@ void TextDrawerWin32::OncePerFrame() {
 	if (newDpiScale != dpiScale_) {
 		dpiScale_ = newDpiScale;
 		ClearCache();
-		RecreateFonts();
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms

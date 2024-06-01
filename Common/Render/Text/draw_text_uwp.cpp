@@ -141,8 +141,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 TextDrawerUWP::~TextDrawerUWP() {
 	ClearCache();
-
-	fontMap_.clear();
+	ClearFonts();
 
 	ctx_->bitmap->Release();
 	ctx_->mirror_bmp->Release();
@@ -377,11 +376,12 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	return true;
 }
 
-void TextDrawerUWP::RecreateFonts() {
+void TextDrawerUWP::ClearFonts() {
 	for (auto &iter : fontMap_) {
 		iter.second->dpiScale = dpiScale_;
-		iter.second->Create();
+		iter.second->Destroy();
 	}
+	fontMap_.clear();
 }
 
 void TextDrawerUWP::ClearCache() {
@@ -400,7 +400,7 @@ void TextDrawerUWP::OncePerFrame() {
 	if (newDpiScale != dpiScale_) {
 		dpiScale_ = newDpiScale;
 		ClearCache();
-		RecreateFonts();
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms

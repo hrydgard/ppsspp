@@ -28,6 +28,9 @@ protected:
 	bool SupportsColorEmoji() const override { return false; }
 
 	void ClearCache() override;
+	void ClearFonts() override;
+
+private:
 	void PrepareFallbackFonts(std::string_view locale);
 	uint32_t CheckMissingGlyph(const std::string& text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);

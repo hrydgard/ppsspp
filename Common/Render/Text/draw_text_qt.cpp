@@ -20,6 +20,7 @@ TextDrawerQt::TextDrawerQt(Draw::DrawContext *draw) : TextDrawer(draw) {}
 
 TextDrawerQt::~TextDrawerQt() {
 	ClearCache();
+	ClearFonts();
 }
 
 uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
@@ -125,6 +126,15 @@ bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	return true;
 }
 
+void TextDrawerQt::ClearFonts() {
+	// Also wipe the font map.
+	for (auto iter : fontMap_) {
+		delete iter.second;
+	}
+	fontMap_.clear();
+	fontHash_ = 0;
+}
+
 void TextDrawerQt::ClearCache() {
 	for (auto &iter : cache_) {
 		if (iter.second->texture)
@@ -132,12 +142,6 @@ void TextDrawerQt::ClearCache() {
 	}
 	cache_.clear();
 	sizeCache_.clear();
-	// Also wipe the font map.
-	for (auto iter : fontMap_) {
-		delete iter.second;
-	}
-	fontMap_.clear();
-	fontHash_ = 0;
 }
 
 void TextDrawerQt::OncePerFrame() {
@@ -147,6 +151,7 @@ void TextDrawerQt::OncePerFrame() {
 	if (newDpiScale != dpiScale_) {
 		dpiScale_ = newDpiScale;
 		ClearCache();
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms

@@ -46,6 +46,8 @@ TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 
 TextDrawerSDL::~TextDrawerSDL() {
 	ClearCache();
+	ClearFonts();
+
 	TTF_Quit();
 
 #if defined(USE_SDL2_TTF_FONTCONFIG)
@@ -392,12 +394,24 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	return true;
 }
 
+void TextDrawerSDL::ClearFonts() {
+	for (auto iter : fontMap_) {
+		TTF_CloseFont(iter.second);
+	}
+	for (auto iter : fallbackFonts_) {
+		TTF_CloseFont(iter);
+	}
+	fontMap_.clear();
+	fallbackFonts_.clear();
+}
+
 void TextDrawerSDL::OncePerFrame() {
 	// Reset everything if DPI changes
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
 		dpiScale_ = newDpiScale;
 		ClearCache();
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms
@@ -430,14 +444,6 @@ void TextDrawerSDL::ClearCache() {
 	cache_.clear();
 	sizeCache_.clear();
 
-	for (auto iter : fontMap_) {
-		TTF_CloseFont(iter.second);
-	}
-	for (auto iter : fallbackFonts_) {
-		TTF_CloseFont(iter);
-	}
-	fontMap_.clear();
-	fallbackFonts_.clear();
 	fontHash_ = 0;
 }
 

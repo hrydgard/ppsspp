@@ -69,8 +69,7 @@ TextDrawerCocoa::TextDrawerCocoa(Draw::DrawContext *draw) : TextDrawer(draw) {
 
 TextDrawerCocoa::~TextDrawerCocoa() {
 	ClearCache();
-
-	fontMap_.clear();
+	ClearFonts();
 }
 
 // TODO: Share with other backends.
@@ -110,20 +109,12 @@ void TextDrawerCocoa::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerCocoa::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-}
-
-void TextDrawerCocoa::RecreateFonts() {
+void TextDrawerCocoa::ClearFonts() {
 	for (auto &iter : fontMap_) {
 		iter.second->dpiScale = dpiScale_;
-		iter.second->Create();
+		iter.second->Destroy();
 	}
+	fontMap_.clear();
 }
 
 void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
@@ -299,6 +290,15 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	return true;
 }
 
+void TextDrawerCocoa::ClearCache() {
+	for (auto &iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+	}
+	cache_.clear();
+	sizeCache_.clear();
+}
+
 void TextDrawerCocoa::OncePerFrame() {
 	frameCount_++;
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
@@ -307,7 +307,7 @@ void TextDrawerCocoa::OncePerFrame() {
 		INFO_LOG(G3D, "TextDrawerCocoa: DPI scale: %0.1f", newDpiScale);
 		dpiScale_ = newDpiScale;
 		ClearCache();
-		RecreateFonts();
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms

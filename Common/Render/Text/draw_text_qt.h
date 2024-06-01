@@ -24,6 +24,7 @@ public:
 protected:
 	bool SupportsColorEmoji() const override { return false; }
 
+	void ClearFonts() override;
 	void ClearCache() override;
 
 	std::map<uint32_t, QFont *> fontMap_;

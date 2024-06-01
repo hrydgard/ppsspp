@@ -37,6 +37,7 @@ TextDrawerAndroid::~TextDrawerAndroid() {
 	// At worst we leak one ref...
 	// env_->DeleteGlobalRef(cls_textRenderer);
 	ClearCache();
+	ClearFonts();
 }
 
 bool TextDrawerAndroid::IsReady() const {
@@ -184,6 +185,10 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	return true;
 }
 
+void TextDrawerAndroid::ClearFonts() {
+	fontMap_.clear();  // size is precomputed using dpiScale_.
+}
+
 void TextDrawerAndroid::ClearCache() {
 	for (auto &iter : cache_) {
 		if (iter.second->texture)
@@ -202,7 +207,7 @@ void TextDrawerAndroid::OncePerFrame() {
 		INFO_LOG(G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items, %d fonts)", dpiScale_, newDpiScale, (int)cache_.size(), (int)fontMap_.size());
 		dpiScale_ = newDpiScale;
 		ClearCache();
-		fontMap_.clear();  // size is precomputed using dpiScale_.
+		ClearFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms

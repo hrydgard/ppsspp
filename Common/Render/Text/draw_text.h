@@ -72,6 +72,7 @@ protected:
 
 	virtual bool SupportsColorEmoji() const = 0;
 	virtual void ClearCache() = 0;
+	virtual void ClearFonts() = 0;
 
 	void WrapString(std::string &out, std::string_view str, float maxWidth, int flags);
 

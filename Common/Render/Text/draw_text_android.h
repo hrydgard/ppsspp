@@ -30,6 +30,7 @@ protected:
 	bool SupportsColorEmoji() const override { return true; }
 
 	void ClearCache() override;
+	void ClearFonts() override;
 
 private:
 	// JNI functions

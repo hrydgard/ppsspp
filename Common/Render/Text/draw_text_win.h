@@ -30,7 +30,7 @@ protected:
 	bool SupportsColorEmoji() const override { return false; }
 
 	void ClearCache() override;
-	void RecreateFonts();  // On DPI change
+	void ClearFonts() override;
 
 	TextDrawerContext *ctx_;
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
