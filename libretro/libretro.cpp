@@ -503,6 +503,7 @@ static void check_variables(CoreParameter &coreParam)
    int iTexScalingType_prev;
    int iTexScalingLevel_prev;
    int iMultiSampleLevel_prev;
+   bool bDisplayCropTo16x9_prev;
 
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -698,6 +699,17 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iMultiSampleLevel = 3;
    }
 #endif
+
+   var.key = "ppsspp_cropto16x9";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      bDisplayCropTo16x9_prev = g_Config.bDisplayCropTo16x9;
+
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bDisplayCropTo16x9 = false;
+      else
+         g_Config.bDisplayCropTo16x9 = true;
+   }
 
    var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1066,6 +1078,8 @@ static void check_variables(CoreParameter &coreParam)
          !g_Config.bRenderDuplicateFrames;
 
    bool updateAvInfo = false;
+   bool updateGeometry = false;
+
    if (!detectVsyncSwapInterval && (vsyncSwapInterval != 1))
    {
       vsyncSwapInterval = 1;
@@ -1074,8 +1088,8 @@ static void check_variables(CoreParameter &coreParam)
 
    if (g_Config.iInternalResolution != iInternalResolution_prev && !PSP_IsInited())
    {
-      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * 480;
-      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
+      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * NATIVEWIDTH;
+      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * NATIVEHEIGHT;
 
       if (gpu)
       {
@@ -1085,6 +1099,11 @@ static void check_variables(CoreParameter &coreParam)
          updateAvInfo = false;
          gpu->NotifyDisplayResized();
       }
+   }
+
+   if (g_Config.bDisplayCropTo16x9 != bDisplayCropTo16x9_prev && PSP_IsInited())
+   {
+      updateGeometry = true;
    }
 
 #if 0 // see issue #16786
@@ -1102,6 +1121,12 @@ static void check_variables(CoreParameter &coreParam)
       retro_system_av_info avInfo;
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
+   }
+   else if (updateGeometry)
+   {
+      retro_system_av_info avInfo;
+      retro_get_system_av_info(&avInfo);
+      environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &avInfo);
    }
 
    set_variable_visibility();
@@ -1224,11 +1249,23 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->timing.fps            = (60.0 / 1.001) / (double)vsyncSwapInterval;
    info->timing.sample_rate    = SAMPLERATE;
 
-   info->geometry.base_width   = g_Config.iInternalResolution * 480;
-   info->geometry.base_height  = g_Config.iInternalResolution * 272;
-   info->geometry.max_width    = g_Config.iInternalResolution * 480;
-   info->geometry.max_height   = g_Config.iInternalResolution * 272;
-   info->geometry.aspect_ratio = 480.0 / 272.0;  // Not 16:9! But very, very close.
+   info->geometry.base_width   = g_Config.iInternalResolution * NATIVEWIDTH;
+   info->geometry.base_height  = g_Config.iInternalResolution * NATIVEHEIGHT;
+   info->geometry.max_width    = g_Config.iInternalResolution * NATIVEWIDTH;
+   info->geometry.max_height   = g_Config.iInternalResolution * NATIVEHEIGHT;
+
+   if (g_Config.bDisplayCropTo16x9)
+      info->geometry.base_height -= g_Config.iInternalResolution * 2;
+
+   info->geometry.aspect_ratio = (float)info->geometry.base_width / (float)info->geometry.base_height;
+
+   PSP_CoreParameter().pixelWidth  = info->geometry.base_width;
+   PSP_CoreParameter().pixelHeight = info->geometry.base_height;
+
+   /* Must reset context to resize render area properly while running,
+    * but not necessary with software, and not working with Vulkan.. (TODO) */
+   if (PSP_IsInited() && ctx && ctx->GetGPUCore() != GPUCORE_SOFTWARE && ctx->GetGPUCore() != GPUCORE_VULKAN)
+      ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset();
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }

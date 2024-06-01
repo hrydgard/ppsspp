@@ -349,6 +349,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
 #endif
    {
+      "ppsspp_cropto16x9",
+      "Crop to 16x9",
+      NULL,
+      "Remove one line from top and bottom to get exact 16:9. Restart required with Vulkan!",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "enabled"
+   },
+   {
       "ppsspp_skip_gpu_readbacks",
       "Skip GPU Readbacks",
       NULL,

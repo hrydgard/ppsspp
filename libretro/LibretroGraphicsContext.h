@@ -5,11 +5,15 @@
 #include "Common/GraphicsContext.h"
 #include "Common/GPU/thin3d_create.h"
 
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/SoftGpu.h"
 #include "headless/Compare.h"
 #include "Common/Data/Convert/ColorConv.h"
+
+#define NATIVEWIDTH  480
+#define NATIVEHEIGHT 272
 
 class LibretroGraphicsContext : public GraphicsContext {
 public:
@@ -54,7 +58,7 @@ public:
 	bool Init(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
-      video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
+		video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
 	}
 	virtual void ContextReset();
 	virtual void ContextDestroy();
@@ -85,11 +89,10 @@ public:
 	bool Init() override { return true; }
 	void SwapBuffers() override {
 		GPUDebugBuffer buf;
-		u32 w = PSP_CoreParameter().pixelWidth;
-		u32 h = PSP_CoreParameter().pixelHeight;
-		gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY);
-		const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, w, h);
-		video_cb(pixels.data(), w, h, w << 2);
+		gpuDebug->GetOutputFramebuffer(buf);
+		const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, NATIVEWIDTH, NATIVEHEIGHT);
+		u32 offset = g_Config.bDisplayCropTo16x9 ? NATIVEWIDTH : 0;
+		video_cb(pixels.data() + offset, NATIVEWIDTH, PSP_CoreParameter().pixelHeight, NATIVEWIDTH << 2);
     }
 	GPUCore GetGPUCore() override { return GPUCORE_SOFTWARE; }
 	const char *Ident() override { return "Software"; }
