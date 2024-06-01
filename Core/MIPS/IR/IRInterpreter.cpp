@@ -1111,11 +1111,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::Nop:
-			_assert_(false);
-			break;
 		default:
-			// Unimplemented IR op. Bad.
 			Crash();
+			break;
+			// Unimplemented IR op. Bad.
 		}
 
 #ifdef _DEBUG
