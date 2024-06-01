@@ -46,6 +46,8 @@ TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 
 TextDrawerSDL::~TextDrawerSDL() {
 	ClearCache();
+	ClearFonts();
+
 	TTF_Quit();
 
 #if defined(USE_SDL2_TTF_FONTCONFIG)
@@ -392,44 +394,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	return true;
 }
 
-void TextDrawerSDL::OncePerFrame() {
-	// Reset everything if DPI changes
-	float newDpiScale = CalculateDPIScale();
-	if (newDpiScale != dpiScale_) {
-		dpiScale_ = newDpiScale;
-		ClearCache();
-	}
-
-	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				if (iter->second->texture)
-					iter->second->texture->Release();
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
-}
-
-void TextDrawerSDL::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-
+void TextDrawerSDL::ClearFonts() {
 	for (auto iter : fontMap_) {
 		TTF_CloseFont(iter.second);
 	}
@@ -438,7 +403,6 @@ void TextDrawerSDL::ClearCache() {
 	}
 	fontMap_.clear();
 	fallbackFonts_.clear();
-	fontHash_ = 0;
 }
 
 #endif

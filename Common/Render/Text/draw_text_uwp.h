@@ -23,14 +23,10 @@ public:
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
 	void MeasureString(std::string_view str, float *w, float *h) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
-	// Use for housekeeping like throwing out old strings.
-	void OncePerFrame() override;
 
 protected:
 	bool SupportsColorEmoji() const override { return true; }
-
-	void ClearCache() override;
-	void RecreateFonts();  // On DPI change
+	void ClearFonts() override;
 
 	TextDrawerContext *ctx_;
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;

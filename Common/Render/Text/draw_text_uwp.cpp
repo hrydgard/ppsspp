@@ -141,8 +141,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 TextDrawerUWP::~TextDrawerUWP() {
 	ClearCache();
-
-	fontMap_.clear();
+	ClearFonts();
 
 	ctx_->bitmap->Release();
 	ctx_->mirror_bmp->Release();
@@ -377,52 +376,12 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	return true;
 }
 
-void TextDrawerUWP::RecreateFonts() {
+void TextDrawerUWP::ClearFonts() {
 	for (auto &iter : fontMap_) {
 		iter.second->dpiScale = dpiScale_;
-		iter.second->Create();
+		iter.second->Destroy();
 	}
-}
-
-void TextDrawerUWP::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-}
-
-void TextDrawerUWP::OncePerFrame() {
-	frameCount_++;
-	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
-	float newDpiScale = CalculateDPIScale();
-	if (newDpiScale != dpiScale_) {
-		dpiScale_ = newDpiScale;
-		ClearCache();
-		RecreateFonts();
-	}
-
-	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				if (iter->second->texture)
-					iter->second->texture->Release();
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
+	fontMap_.clear();
 }
 
 #endif

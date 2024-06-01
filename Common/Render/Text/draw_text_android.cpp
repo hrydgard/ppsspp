@@ -37,6 +37,7 @@ TextDrawerAndroid::~TextDrawerAndroid() {
 	// At worst we leak one ref...
 	// env_->DeleteGlobalRef(cls_textRenderer);
 	ClearCache();
+	ClearFonts();
 }
 
 bool TextDrawerAndroid::IsReady() const {
@@ -184,47 +185,8 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	return true;
 }
 
-void TextDrawerAndroid::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-}
-
-void TextDrawerAndroid::OncePerFrame() {
-	frameCount_++;
-	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
-	float newDpiScale = CalculateDPIScale();
-	if (newDpiScale != dpiScale_) {
-		// TODO: Don't bother if it's a no-op (cache already empty)
-		INFO_LOG(G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items, %d fonts)", dpiScale_, newDpiScale, (int)cache_.size(), (int)fontMap_.size());
-		dpiScale_ = newDpiScale;
-		ClearCache();
-		fontMap_.clear();  // size is precomputed using dpiScale_.
-	}
-
-	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				if (iter->second->texture)
-					iter->second->texture->Release();
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
+void TextDrawerAndroid::ClearFonts() {
+	fontMap_.clear();  // size is precomputed using dpiScale_.
 }
 
 #endif

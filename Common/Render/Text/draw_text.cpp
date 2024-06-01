@@ -164,6 +164,49 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 	return DrawStringBitmap(bitmapData, entry, texFormat, toDraw.c_str(), align, fullColor);
 }
 
+void TextDrawer::ClearCache() {
+	for (auto &iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+	}
+	cache_.clear();
+	sizeCache_.clear();
+	fontHash_ = 0;
+}
+
+void TextDrawer::OncePerFrame() {
+	frameCount_++;
+	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
+	float newDpiScale = CalculateDPIScale();
+	if (newDpiScale != dpiScale_) {
+		INFO_LOG(G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items)", dpiScale_, newDpiScale, (int)cache_.size());
+		dpiScale_ = newDpiScale;
+		ClearCache();
+		ClearFonts();
+	}
+
+	// Drop old strings. Use a prime number to reduce clashing with other rhythms
+	if (frameCount_ % 23 == 0) {
+		for (auto iter = cache_.begin(); iter != cache_.end();) {
+			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+				if (iter->second->texture)
+					iter->second->texture->Release();
+				cache_.erase(iter++);
+			} else {
+				iter++;
+			}
+		}
+
+		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
+			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+				sizeCache_.erase(iter++);
+			} else {
+				iter++;
+			}
+		}
+	}
+}
+
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(__LIBRETRO__)
