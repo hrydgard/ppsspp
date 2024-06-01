@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include "ppsspp_config.h"
+#include "Common/BitSet.h"
 #include "Common/BitScan.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -88,25 +89,6 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
-template <uint32_t alignment>
-u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {
-	const auto toss = [&](MemoryExceptionType t) {
-		Core_MemoryException(addr, alignment, pc, t);
-		return coreState != CORE_RUNNING ? 1 : 0;
-	};
-
-	if (!Memory::IsValidRange(addr, alignment)) {
-		MemoryExceptionType t = isWrite == 1 ? MemoryExceptionType::WRITE_WORD : MemoryExceptionType::READ_WORD;
-		if constexpr (alignment > 4)
-			t = isWrite ? MemoryExceptionType::WRITE_BLOCK : MemoryExceptionType::READ_BLOCK;
-		return toss(t);
-	}
-	if constexpr (alignment > 1)
-		if ((addr & (alignment - 1)) != 0)
-			return toss(MemoryExceptionType::ALIGNMENT);
-	return 0;
-}
-
 // We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 	while (true) {
@@ -164,31 +146,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 		case IROp::ReverseBits:
 			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
-			break;
-
-		case IROp::ValidateAddress8:
-			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-		break;
-		case IROp::ValidateAddress16:
-			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-			break;
-		case IROp::ValidateAddress32:
-			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-			break;
-		case IROp::ValidateAddress128:
-			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
 			break;
 
 		case IROp::Load8:
@@ -369,6 +326,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_div_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#elif PPSSPP_ARCH(ARM64_NEON)
+			vst1q_f32(&mips->f[inst->dest], vdivq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] / mips->f[inst->src2 + i];
@@ -380,6 +339,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
+#elif PPSSPP_ARCH(ARM_NEON)
+			vst1q_f32(&mips->f[inst->dest], vmulq_lane_f32(vld1q_f32(&mips->f[inst->src1]), vdup_n_f32(mips->f[inst->src2]), 0));
 #else
 			const float factor = mips->f[inst->src2];
 			for (int i = 0; i < 4; i++)
@@ -435,6 +396,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
 			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
+#elif PPSSPP_ARCH(ARM_NEON) && 0 // Untested
+			const uint8x8_t value = (uint8x8_t)vdup_n_u32(mips->fi[inst->src1]);
+			const uint16x8_t value16 = vmovl_u8(value);
+			const uint32x4_t value32 = vshll_n_u16(vget_low_u16(value16), 24);
+			vst1q_u32(&mips->fi[inst->dest], value32);
 #else
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
 			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] << 16) & 0xFF000000;
@@ -523,8 +489,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::FCmpVfpuBit:
 		{
-			int op = inst->dest & 0xF;
-			int bit = inst->dest >> 4;
+			const int op = inst->dest & 0xF;
+			const int bit = inst->dest >> 4;
 			int result = 0;
 			switch (op) {
 			case VC_EQ: result = mips->f[inst->src1] == mips->f[inst->src2]; break;
@@ -556,8 +522,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::FCmpVfpuAggregate:
 		{
-			u32 mask = inst->dest;
-			u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
+			const u32 mask = inst->dest;
+			const u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
 			int anyBit = (cc & mask) ? 0x10 : 0x00;
 			int allBit = (cc & mask) == mask ? 0x20 : 0x00;
 			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | anyBit | allBit;
@@ -759,13 +725,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::BSwap16:
 		{
 			u32 x = mips->r[inst->src1];
+			// Don't think we can beat this with intrinsics.
 			mips->r[inst->dest] = ((x & 0xFF00FF00) >> 8) | ((x & 0x00FF00FF) << 8);
 			break;
 		}
 		case IROp::BSwap32:
 		{
 			u32 x = mips->r[inst->src1];
-			mips->r[inst->dest] = ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8) | ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) << 24);
+			mips->r[inst->dest] = swap32(x);
 			break;
 		}
 
@@ -1078,10 +1045,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 		}
 
-		case IROp::Break:
-			Core_Break(mips->pc);
-			return mips->pc + 4;
-
 		case IROp::SetCtrlVFPU:
 			mips->vfpuCtrl[inst->dest] = inst->constant;
 			break;
@@ -1093,6 +1056,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::SetCtrlVFPUFReg:
 			memcpy(&mips->vfpuCtrl[inst->dest], &mips->f[inst->src1], 4);
 			break;
+
+		case IROp::ApplyRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::RestoreRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::UpdateRoundingMode:
+			// TODO: Implement
+			break;
+
+		case IROp::Break:
+			Core_Break(mips->pc);
+			return mips->pc + 4;
 
 		case IROp::Breakpoint:
 			if (IRRunBreakpoint(inst->constant)) {
@@ -1108,15 +1085,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::ApplyRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress8:
+			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
-		case IROp::RestoreRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress16:
+			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
-		case IROp::UpdateRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress32:
+			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
+		case IROp::ValidateAddress128:
+			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+			break;
+
 		case IROp::Nop:
 			_assert_(false);
 			break;
