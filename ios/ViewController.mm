@@ -40,6 +40,10 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 
+#if !__has_feature(objc_arc)
+#error Must be built with ARC, please revise the flags for ViewController.mm to include -fobjc-arc.
+#endif
+
 class IOSGLESContext : public GraphicsContext {
 public:
 	IOSGLESContext() {
@@ -424,6 +428,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)uiStateChanged
 {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
+	[self hideKeyboard];
 }
 
 - (UIView *)getView {

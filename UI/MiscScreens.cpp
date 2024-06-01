@@ -978,7 +978,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"",
 		"",
 		cr->T("tools", "Free tools used:"),
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
 #endif
 #if defined(USING_QT_UI)
@@ -990,6 +990,17 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"CMake",
 		"freetype2",
 		"zlib",
+		"rcheevos",
+		"SPIRV-Cross",
+		"armips",
+		"Basis Universal",
+		"cityhash",
+		"zstd",
+		"glew",
+		"libchdr",
+		"minimp3",
+		"xxhash",
+		"naett-http",
 		"PSP SDK",
 		"",
 		"",
@@ -1010,7 +1021,6 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"",
 		cr->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
-
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];

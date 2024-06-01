@@ -167,13 +167,15 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		return false;
 	}
 
-	std::string printable = ReplaceAll(str, "&&", "&");
-	NSString* string = [[NSString alloc] initWithBytes:printable.data() length:printable.length() encoding: NSUTF8StringEncoding];
-
 	auto iter = fontMap_.find(fontHash_);
 	if (iter == fontMap_.end()) {
 		return false;
 	}
+
+	// INFO_LOG(SYSTEM, "Rasterizing %.*s", (int)str.length(), str.data());
+
+	NSString* string = [[NSString alloc] initWithBytes:str.data() length:str.length() encoding: NSUTF8StringEncoding];
+
 	NSDictionary* attributes = iter->second->attributes;
 	NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
 
