@@ -1320,6 +1320,10 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
 
+#ifdef _DEBUG
+	decodedCount += count;
+#endif
+
 	// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
 	if (((uintptr_t)verts & (biggest - 1)) != 0) {
 		// Bad alignment. Not really sure what to do here... zero the verts to be safe?
@@ -1475,7 +1479,7 @@ static const char * const colnames[8] = { "", "?", "?", "?", "565", "5551", "444
 
 int VertexDecoder::ToString(char *output, bool spaces) const {
 	char *start = output;
-	
+	output += sprintf(output, "[%08x] ", fmt_);
 	output += sprintf(output, "P: %s ", posnames[pos]);
 	if (nrm)
 		output += sprintf(output, "N: %s ", nrmnames[nrm]);
@@ -1501,6 +1505,10 @@ int VertexDecoder::ToString(char *output, bool spaces) const {
 				start[i] = '_';
 		}
 	}
+
+#ifdef _DEBUG
+	output += sprintf(output, " (%llu)", (long long)decodedCount);
+#endif
 
 	return output - start;
 }
