@@ -120,14 +120,23 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::AddConst:
 			mips->r[inst->dest] = mips->r[inst->src1] + inst->constant;
 			break;
+		case IROp::OptAddConst:  // For this one, it's worth having a "unary" variant of the above that only needs to read one register param.
+			mips->r[inst->dest] += inst->constant;
+			break;
 		case IROp::SubConst:
 			mips->r[inst->dest] = mips->r[inst->src1] - inst->constant;
 			break;
 		case IROp::AndConst:
 			mips->r[inst->dest] = mips->r[inst->src1] & inst->constant;
 			break;
+		case IROp::OptAndConst:  // For this one, it's worth having a "unary" variant of the above that only needs to read one register param.
+			mips->r[inst->dest] &= inst->constant;
+			break;
 		case IROp::OrConst:
 			mips->r[inst->dest] = mips->r[inst->src1] | inst->constant;
+			break;
+		case IROp::OptOrConst:
+			mips->r[inst->dest] |= inst->constant;
 			break;
 		case IROp::XorConst:
 			mips->r[inst->dest] = mips->r[inst->src1] ^ inst->constant;
@@ -431,6 +440,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Pack31To16:
 		{
+			// Used in Tekken 6
+
 			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
 			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
 			mips->fi[inst->dest] = val;
@@ -451,6 +462,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4Pack31To8:
 		{
+			// Used in Tekken 6
+
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
