@@ -166,31 +166,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
 			break;
 
-		case IROp::ValidateAddress8:
-			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-		break;
-		case IROp::ValidateAddress16:
-			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-			break;
-		case IROp::ValidateAddress32:
-			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-			break;
-		case IROp::ValidateAddress128:
-			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
-				return mips->pc;
-			}
-			break;
-
 		case IROp::Load8:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
 			break;
@@ -1078,10 +1053,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 		}
 
-		case IROp::Break:
-			Core_Break(mips->pc);
-			return mips->pc + 4;
-
 		case IROp::SetCtrlVFPU:
 			mips->vfpuCtrl[inst->dest] = inst->constant;
 			break;
@@ -1093,6 +1064,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::SetCtrlVFPUFReg:
 			memcpy(&mips->vfpuCtrl[inst->dest], &mips->f[inst->src1], 4);
 			break;
+
+		case IROp::ApplyRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::RestoreRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::UpdateRoundingMode:
+			// TODO: Implement
+			break;
+
+		case IROp::Break:
+			Core_Break(mips->pc);
+			return mips->pc + 4;
 
 		case IROp::Breakpoint:
 			if (IRRunBreakpoint(inst->constant)) {
@@ -1108,15 +1093,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::ApplyRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress8:
+			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
-		case IROp::RestoreRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress16:
+			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
-		case IROp::UpdateRoundingMode:
-			// TODO: Implement
+		case IROp::ValidateAddress32:
+			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
+		case IROp::ValidateAddress128:
+			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+			break;
+
 		case IROp::Nop:
 			_assert_(false);
 			break;
