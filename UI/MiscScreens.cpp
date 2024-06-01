@@ -1041,15 +1041,13 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	float t = (float)(time_now_d() - startTime_) * 60.0;
 
 	float y = bounds.y2() - fmodf(t, (float)totalHeight);
-	std::string line;
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			line = credits[i];
-			dc.DrawText(line.c_str(), bounds.centerX(), y, textColor, ALIGN_HCENTER);
+			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;
