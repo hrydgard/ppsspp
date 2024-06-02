@@ -100,7 +100,7 @@ namespace Libretro
 {
    LibretroGraphicsContext *ctx;
    retro_environment_t environ_cb;
-   retro_hw_context_type renderer = RETRO_HW_CONTEXT_DUMMY;
+   retro_hw_context_type backend = RETRO_HW_CONTEXT_DUMMY;
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
@@ -108,6 +108,7 @@ namespace Libretro
 
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
+   static bool softwareRenderInitHack = false;
 
    static s64 expectedTimeUsPerRun = 0;
    static uint32_t vsyncSwapInterval = 1;
@@ -681,6 +682,26 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 9;
       else if (!strcmp(var.value, "4800x2720"))
          g_Config.iInternalResolution = 10;
+
+      // Force resolution to 1x without hardware context
+      if (backend == RETRO_HW_CONTEXT_NONE)
+         g_Config.iInternalResolution = 1;
+   }
+
+   var.key = "ppsspp_software_rendering";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!PSP_IsInited())
+      {
+         if (!strcmp(var.value, "disabled") && backend != RETRO_HW_CONTEXT_NONE)
+            g_Config.bSoftwareRendering = false;
+         else
+            g_Config.bSoftwareRendering = true;
+      }
+
+      // Force resolution to 1x with software rendering
+      if (g_Config.bSoftwareRendering)
+         g_Config.iInternalResolution = 1;
    }
 
 #if 0 // see issue #16786
@@ -1104,7 +1125,7 @@ static void check_variables(CoreParameter &coreParam)
       updateAvInfo = true;
    }
 
-   if (g_Config.iInternalResolution != iInternalResolution_prev && !PSP_IsInited())
+   if (g_Config.iInternalResolution != iInternalResolution_prev && backend != RETRO_HW_CONTEXT_NONE)
    {
       coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * NATIVEWIDTH;
       coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * NATIVEHEIGHT;
@@ -1122,6 +1143,8 @@ static void check_variables(CoreParameter &coreParam)
    if (g_Config.bDisplayCropTo16x9 != bDisplayCropTo16x9_prev && PSP_IsInited())
    {
       updateGeometry = true;
+      if (gpu)
+         gpu->NotifyDisplayResized();
    }
 
 #if 0 // see issue #16786
@@ -1290,12 +1313,12 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
    info->geometry.aspect_ratio = (float)info->geometry.base_width / (float)info->geometry.base_height;
 
-   PSP_CoreParameter().pixelWidth  = info->geometry.base_width;
-   PSP_CoreParameter().pixelHeight = info->geometry.base_height;
+   PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
+   PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
 
    /* Must reset context to resize render area properly while running,
     * but not necessary with software, and not working with Vulkan.. (TODO) */
-   if (PSP_IsInited() && ctx && ctx->GetGPUCore() != GPUCORE_SOFTWARE && ctx->GetGPUCore() != GPUCORE_VULKAN)
+   if (PSP_IsInited() && ctx && backend != RETRO_HW_CONTEXT_NONE && ctx->GetGPUCore() != GPUCORE_VULKAN)
       ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset();
 }
 
@@ -1398,23 +1421,23 @@ namespace Libretro
 
 } // namespace Libretro
 
-static void retro_check_renderer(void)
+static void retro_check_backend(void)
 {
    struct retro_variable var = {0};
 
-   var.key = "ppsspp_renderer";
+   var.key = "ppsspp_backend";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
-      if (!strcmp(var.value, "hardware"))
-         renderer = RETRO_HW_CONTEXT_DUMMY;
-      else if (!strcmp(var.value, "hardware_gl"))
-         renderer = RETRO_HW_CONTEXT_OPENGL;
-      else if (!strcmp(var.value, "hardware_vk"))
-         renderer = RETRO_HW_CONTEXT_VULKAN;
-      else if (!strcmp(var.value, "hardware_d3d"))
-         renderer = RETRO_HW_CONTEXT_DIRECT3D;
-      else if (!strcmp(var.value, "software"))
-         renderer = RETRO_HW_CONTEXT_NONE;
+      if (!strcmp(var.value, "auto"))
+         backend = RETRO_HW_CONTEXT_DUMMY;
+      else if (!strcmp(var.value, "opengl"))
+         backend = RETRO_HW_CONTEXT_OPENGL;
+      else if (!strcmp(var.value, "vulkan"))
+         backend = RETRO_HW_CONTEXT_VULKAN;
+      else if (!strcmp(var.value, "d3d11"))
+         backend = RETRO_HW_CONTEXT_DIRECT3D;
+      else if (!strcmp(var.value, "none"))
+         backend = RETRO_HW_CONTEXT_NONE;
    }
 }
 
@@ -1427,7 +1450,7 @@ bool retro_load_game(const struct retro_game_info *game)
       return false;
    }
 
-   retro_check_renderer();
+   retro_check_backend();
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
@@ -1450,6 +1473,12 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
    check_variables(coreParam);
+
+   // TODO: OpenGL goes black when inited with software rendering,
+   // therefore start without, set back after init, and reset.
+   softwareRenderInitHack    = ctx->GetGPUCore() == GPUCORE_GLES && g_Config.bSoftwareRendering;
+   if (softwareRenderInitHack)
+      g_Config.bSoftwareRendering = false;
 
    // set cpuCore from libretro setting variable
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
@@ -1606,6 +1635,14 @@ void retro_run(void)
          ERROR_LOG(BOOT, "%s", error_string.c_str());
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
+      }
+
+      if (softwareRenderInitHack)
+      {
+         log_cb(RETRO_LOG_DEBUG, "Software rendering init hack for opengl triggered.\n");
+         softwareRenderInitHack = false;
+         g_Config.bSoftwareRendering = true;
+         retro_reset();
       }
    }
 

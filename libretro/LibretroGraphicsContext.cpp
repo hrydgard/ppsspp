@@ -90,8 +90,8 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred))
 		preferred = RETRO_HW_CONTEXT_DUMMY;
 
-	if (Libretro::renderer != RETRO_HW_CONTEXT_DUMMY)
-		preferred = Libretro::renderer;
+	if (Libretro::backend != RETRO_HW_CONTEXT_DUMMY)
+		preferred = Libretro::backend;
 
 #ifndef USING_GLES2
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {

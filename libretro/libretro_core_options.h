@@ -110,8 +110,8 @@ struct retro_core_option_v2_category option_cats_us[] = {
    },
    {
       "hacks",
-      "Speed Hacks",
-      "Configure speed hacks. Can cause rendering errors!"
+      "Hacks",
+      "Configure speed and emulation hacks. Can cause rendering errors!"
    },
    {
       "network",
@@ -236,9 +236,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_language",
-      "Language",
+      "Game Language",
       NULL,
-      "Choose language, 'Automatic' will use the frontend language.",
+      "'Automatic' will use the frontend language.",
       NULL,
       "system",
       {
@@ -274,44 +274,54 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "psp_2000_3000"
    },
    {
-      "ppsspp_renderer",
-      "Renderer",
+      "ppsspp_backend",
+      "Backend",
       NULL,
-      "'Hardware (Auto)' selects the renderer depending upon the current libretro frontend video driver. Restart required.",
+      "'Automatic' will use the frontend video driver. Core restart required.",
       NULL,
       "video",
       {
-         { "hardware",    "Hardware (Auto)" },
-         { "hardware_gl", "Hardware (OpenGL)" },
+         { "auto",   "Automatic" },
+         { "opengl", "OpenGL" },
 #ifndef HAVE_LIBNX
-         { "hardware_vk", "Hardware (Vulkan)" },
+         { "vulkan", "Vulkan" },
 #endif
 #ifdef _WIN32
-         { "hardware_d3d", "Hardware (D3D11)" },
+         { "d3d11",  "D3D11" },
 #endif
-         { "software",    "Software" },
+         { "none",   "None" },
          { NULL, NULL },
       },
-      "hardware"
+      "auto"
+   },
+   {
+      "ppsspp_software_rendering",
+      "Software Rendering",
+      NULL,
+      "Slow, accurate. Core restart required.",
+      NULL,
+      "video",
+      BOOL_OPTIONS,
+      "disabled"
    },
    {
       "ppsspp_internal_resolution",
-      "Internal Resolution",
+      "Rendering Resolution",
       NULL,
-      "Restart required.",
+      "Core restart required with Vulkan.",
       NULL,
       "video",
       {
-         { "480x272",   NULL },
-         { "960x544",   NULL },
-         { "1440x816",  NULL },
-         { "1920x1088", NULL },
-         { "2400x1360", NULL },
-         { "2880x1632", NULL },
-         { "3360x1904", NULL },
-         { "3840x2176", NULL },
-         { "4320x2448", NULL },
-         { "4800x2720", NULL },
+         { "480x272",   "1x (480x272)" },
+         { "960x544",   "2x (960x544)" },
+         { "1440x816",  "3x (1440x816)" },
+         { "1920x1088", "4x (1920x1088)" },
+         { "2400x1360", "5x (2400x1360)" },
+         { "2880x1632", "6x (2880x1632)" },
+         { "3360x1904", "7x (3360x1904)" },
+         { "3840x2176", "8x (3840x2176)" },
+         { "4320x2448", "9x (4320x2448)" },
+         { "4800x2720", "10x (4800x2720)" },
          { NULL, NULL },
       },
       "480x272"
@@ -338,7 +348,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "ppsspp_cropto16x9",
       "Crop to 16x9",
       NULL,
-      "Remove one line from top and bottom to get exact 16:9. Restart required with Vulkan!",
+      "Remove one line from top and bottom to get exact 16:9. Core restart required with Vulkan.",
       NULL,
       "video",
       BOOL_OPTIONS,
@@ -411,7 +421,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_inflight_frames",
-      "Buffered Frames",
+      "Buffer Graphics Commands",
       NULL,
       "GL/Vulkan only, slower, less lag, restart.",
       NULL,
@@ -504,6 +514,22 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "High"
    },
    {
+      "ppsspp_lower_resolution_for_effects",
+      "Lower Resolution for Effects",
+      NULL,
+      "Reduces artifacts.",
+      NULL,
+      "hacks",
+      {
+         { "disabled",   NULL },
+         { "Safe",       NULL },
+         { "Balanced",   NULL },
+         { "Aggressive", NULL },
+         { NULL, NULL },
+      },
+      "disabled"
+   },
+   {
       "ppsspp_gpu_hardware_transform",
       "Hardware Transform",
       NULL,
@@ -544,24 +570,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_lower_resolution_for_effects",
-      "Lower Resolution for Effects",
-      NULL,
-      NULL,
-      NULL,
-      "video",
-      {
-         { "disabled",   NULL },
-         { "Safe",       NULL },
-         { "Balanced",   NULL },
-         { "Aggressive", NULL },
-         { NULL, NULL },
-      },
-      "disabled"
-   },
-   {
       "ppsspp_texture_scaling_type",
-      "Texture Scaling Type",
+      "Texture Upscale Type",
       NULL,
       NULL,
       NULL,
@@ -577,7 +587,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_texture_scaling_level",
-      "Texture Scaling Level",
+      "Texture Upscaling Level",
       NULL,
       "CPU heavy, some scaling may be delayed to avoid stutter.",
       NULL,

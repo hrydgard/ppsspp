@@ -125,14 +125,17 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance inst
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR_org(physicalDevice, surface, pSurfaceCapabilities);
 	if (res == VK_SUCCESS) {
-      int w = g_Config.iInternalResolution * 480;
-      int h = g_Config.iInternalResolution * 272;
+		int w = g_Config.iInternalResolution * NATIVEWIDTH;
+		int h = g_Config.iInternalResolution * NATIVEHEIGHT;
 
-      pSurfaceCapabilities->minImageExtent.width = w;
-      pSurfaceCapabilities->minImageExtent.height = h;
-      pSurfaceCapabilities->maxImageExtent.width = w;
-      pSurfaceCapabilities->maxImageExtent.height = h;
-      pSurfaceCapabilities->currentExtent.width = w;
+		if (g_Config.bDisplayCropTo16x9)
+			h -= g_Config.iInternalResolution * 2;
+
+		pSurfaceCapabilities->minImageExtent.width = w;
+		pSurfaceCapabilities->minImageExtent.height = h;
+		pSurfaceCapabilities->maxImageExtent.width = w;
+		pSurfaceCapabilities->maxImageExtent.height = h;
+		pSurfaceCapabilities->currentExtent.width = w;
 		pSurfaceCapabilities->currentExtent.height = h;
 	}
 	return res;
