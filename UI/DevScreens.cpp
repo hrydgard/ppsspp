@@ -1245,16 +1245,18 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 		int tries = 0;
 		while (!anyWanted && tries < numBlocks) {
 			currentBlock_ = rand() % numBlocks;
-			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
-			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
-			for (u32 addr = b.originalAddress; addr < b.originalAddress + mipsBytes; addr += 4) {
-				MIPSOpcode opcode = Memory::Read_Instruction(addr);
-				if (MIPSGetInfo(opcode) & flag) {
-					char temp[256];
-					MIPSDisAsm(opcode, addr, temp, sizeof(temp));
-					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
-					anyWanted = true;
-					break;
+			if (blockCache->IsValidBlock(currentBlock_)) {
+				JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
+				u32 mipsBytes = (u32)b.origDisasm.size() * 4;
+				for (u32 addr = b.originalAddress; addr < b.originalAddress + mipsBytes; addr += 4) {
+					MIPSOpcode opcode = Memory::Read_Instruction(addr);
+					if (MIPSGetInfo(opcode) & flag) {
+						char temp[256];
+						MIPSDisAsm(opcode, addr, temp, sizeof(temp));
+						// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
+						anyWanted = true;
+						break;
+					}
 				}
 			}
 			tries++;
@@ -1359,6 +1361,16 @@ void ShaderViewScreen::CreateViews() {
 
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
+
+bool ShaderViewScreen::key(const KeyInput &ki) {
+	if (ki.flags & KEY_CHAR) {
+		if (ki.unicodeChar == 'C' || ki.unicodeChar == 'c') {
+			System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
+		}
+	}
+	return UIDialogScreenWithBackground::key(ki);
+}
+
 
 const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
 

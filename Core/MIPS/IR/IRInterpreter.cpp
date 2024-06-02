@@ -260,16 +260,24 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			float temp[4];
 			for (int i = 0; i < 4; i++)
 				temp[i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
+			const int dest = inst->dest;
 			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = temp[i];
+				mips->f[dest + i] = temp[i];
 			break;
 		}
 
 		case IROp::Vec4Blend:
+		{
+			const int dest = inst->dest;
+			const int src1 = inst->src1;
+			const int src2 = inst->src2;
+			const int constant = inst->constant;
+			// 90% of calls to this is inst->constant == 7 or inst->constant == 8. Some are 1 and 4, others very rare.
 			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
 			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = ((inst->constant >> i) & 1) ? mips->f[inst->src2 + i] : mips->f[inst->src1 + i];
+				mips->f[dest + i] = ((constant >> i) & 1) ? mips->f[src2 + i] : mips->f[src1 + i];
 			break;
+		}
 
 		case IROp::Vec4Mov:
 		{
@@ -377,15 +385,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Unpack16To31:
 		{
-			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16) >> 1;
-			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000) >> 1;
+			const int dest = inst->dest;
+			const int src1 = inst->src1;
+			mips->fi[dest] = (mips->fi[src1] << 16) >> 1;
+			mips->fi[dest + 1] = (mips->fi[src1] & 0xFFFF0000) >> 1;
 			break;
 		}
 
 		case IROp::Vec2Unpack16To32:
 		{
-			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16);
-			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000);
+			const int dest = inst->dest;
+			const int src1 = inst->src1;
+			mips->fi[dest] = (mips->fi[src1] << 16);
+			mips->fi[dest + 1] = (mips->fi[src1] & 0xFFFF0000);
 			break;
 		}
 
@@ -467,9 +479,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			val = _mm_andnot_si128(mask, val);
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
 #else
+			const int src1 = inst->src1;
+			const int dest = inst->dest;
 			for (int i = 0; i < 4; i++) {
-				u32 val = mips->fi[inst->src1 + i];
-				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+				u32 val = mips->fi[src1 + i];
+				mips->fi[dest + i] = (int)val >= 0 ? val : 0;
 			}
 #endif
 			break;
@@ -477,12 +491,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec4DuplicateUpperBitsAndShift1:  // For vuc2i, the weird one.
 		{
+			const int src1 = inst->src1;
+			const int dest = inst->dest;
 			for (int i = 0; i < 4; i++) {
-				u32 val = mips->fi[inst->src1 + i];
+				u32 val = mips->fi[src1 + i];
 				val = val | (val >> 8);
 				val = val | (val >> 16);
 				val >>= 1;
-				mips->fi[inst->dest + i] = val;
+				mips->fi[dest + i] = val;
 			}
 			break;
 		}
@@ -1111,11 +1127,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::Nop:
-			_assert_(false);
-			break;
 		default:
-			// Unimplemented IR op. Bad.
 			Crash();
+			break;
+			// Unimplemented IR op. Bad.
 		}
 
 #ifdef _DEBUG

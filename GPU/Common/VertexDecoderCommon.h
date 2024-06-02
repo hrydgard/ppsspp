@@ -475,6 +475,10 @@ public:
 
 	u8 biggest;  // in practice, alignment.
 
+#ifdef _DEBUG
+	mutable u64 decodedCount = 0;
+#endif
+
 	friend class VertexDecoderJitCache;
 
 private:

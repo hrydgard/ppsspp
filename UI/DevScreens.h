@@ -205,6 +205,7 @@ public:
 		: id_(id), type_(type) {}
 
 	void CreateViews() override;
+	bool key(const KeyInput &ki) override;
 
 	const char *tag() const override { return "ShaderView"; }
 
