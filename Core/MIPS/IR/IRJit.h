@@ -126,11 +126,15 @@ public:
 			return nullptr;
 		}
 	}
+	int GetBlockNumFromOffset(int offset) const;
 	const IRInst *GetBlockInstructionPtr(const IRBlock &block) const {
 		return arena_.data() + block.GetInstructionOffset();
 	}
 	const IRInst *GetBlockInstructionPtr(int blockNum) const {
 		return arena_.data() + blocks_[blockNum].GetInstructionOffset();
+	}
+	const IRInst *GetArenaPtr() const {
+		return arena_.data();
 	}
 	bool IsValidBlock(int blockNum) const override {
 		return blockNum >= 0 && blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();

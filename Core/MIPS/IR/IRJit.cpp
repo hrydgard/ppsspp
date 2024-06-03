@@ -91,7 +91,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
-		int cookie = block->GetTargetOffset() < 0 ? block_num : block->GetTargetOffset();
+		int cookie = block->GetTargetOffset() < 0 ? block->GetInstructionOffset() : block->GetTargetOffset();
 		block->Destroy(cookie);
 	}
 }
@@ -105,7 +105,7 @@ void IRJit::Compile(u32 em_address) {
 		if (block_num != -1) {
 			IRBlock *b = blocks_.GetBlock(block_num);
 			// Okay, let's link and finalize the block now.
-			int cookie = b->GetTargetOffset() < 0 ? block_num : b->GetTargetOffset();
+			int cookie = b->GetTargetOffset() < 0 ? b->GetInstructionOffset() : b->GetTargetOffset();
 			b->Finalize(cookie);
 			if (b->IsValid()) {
 				// Success, we're done.
@@ -253,23 +253,23 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		while (mips->downcount >= 0) {
 			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
+			u32 offset = inst & 0x00FFFFFF;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 #ifdef IR_PROFILING
-				/*
 				{
 					TimeSpan span;
-					IRBlock *block = blocks_.GetBlockFromOffset(inst & 0xFFFFFF);
-					mips->pc = IRInterpret(mips, blocks_.GetBlockInstructionPtr(inst & 0xFFFFFF));
+					IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(inst & 0xFFFFFF));
+					mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
 					block->profileStats_.executions += 1;
 					block->profileStats_.totalNanos += span.ElapsedNanos();
 				}
-				*/
 #else
-				mips->pc = IRInterpret(mips, blocks_.GetBlockInstructionPtr(inst & 0xFFFFFF));
+				mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
 #endif
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
-					IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
+					int blockNum = blocks_.GetBlockNumFromOffset(offset);
+					IRBlock *block = blocks_.GetBlockUnchecked(blockNum);
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
 					break;
 				}
@@ -299,13 +299,23 @@ void IRJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 
 void IRBlockCache::Clear() {
 	for (int i = 0; i < (int)blocks_.size(); ++i) {
-		int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
+		int cookie = blocks_[i].GetTargetOffset() < 0 ? blocks_[i].GetInstructionOffset() : blocks_[i].GetTargetOffset();
 		blocks_[i].Destroy(cookie);
 	}
 	blocks_.clear();
 	byPage_.clear();
 	arena_.clear();
 	arena_.shrink_to_fit();
+}
+
+int IRBlockCache::GetBlockNumFromOffset(int offset) const {
+	// TODO: Optimize if we need to call this often.
+	for (int i = 0; i < (int)blocks_.size(); i++) {
+		if (blocks_[i].GetInstructionOffset() == offset) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 length) {
@@ -332,7 +342,7 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 
 void IRBlockCache::FinalizeBlock(int i, bool preload) {
 	if (!preload) {
-		int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
+		int cookie = blocks_[i].GetTargetOffset() < 0 ? blocks_[i].GetInstructionOffset() : blocks_[i].GetTargetOffset();
 		blocks_[i].Finalize(cookie);
 	}
 
@@ -373,9 +383,10 @@ int IRBlockCache::FindPreloadBlock(u32 em_address) {
 int IRBlockCache::FindByCookie(int cookie) {
 	if (blocks_.empty())
 		return -1;
+
 	// TODO: Maybe a flag to determine target offset mode?
 	if (blocks_[0].GetTargetOffset() < 0)
-		return cookie;
+		return GetBlockNumFromOffset(cookie);
 
 	for (int i = 0; i < GetNumBlocks(); ++i) {
 		int offset = blocks_[i].GetTargetOffset();
@@ -392,7 +403,7 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 
 	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
-		int cookie = b.GetTargetOffset() < 0 ? number : b.GetTargetOffset();
+		int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset()  : b.GetTargetOffset();
 		if (b.IsValid() && b.RestoreOriginalFirstOp(cookie)) {
 			result[number] = number;
 		} else {
