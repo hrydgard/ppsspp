@@ -808,8 +808,7 @@ void UpdateVRParams(float* projMatrix) {
 	}
 }
 
-void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-	float output[16];
+void UpdateVRProjection(float* projMatrix, float* output) {
 	for (int i = 0; i < 16; i++) {
 		if (PSP_CoreParameter().compat.vrCompat().ProjectionHack && ((i == 8) || (i == 9))) {
 			output[i] = 0;
@@ -822,8 +821,6 @@ void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 			output[i] = 0;
 		}
 	}
-	memcpy(leftEye, output, 16 * sizeof(float));
-	memcpy(rightEye, output, 16 * sizeof(float));
 }
 
 void UpdateVRView(float* leftEye, float* rightEye) {

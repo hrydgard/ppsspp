@@ -423,21 +423,18 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-			Matrix4x4 leftEyeMatrix, rightEyeMatrix;
+			Matrix4x4 vrProjection;
 			if (flatScreen || is2D) {
-				memcpy(&leftEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
-				memcpy(&rightEyeMatrix, gstate.projMatrix, 16 * sizeof(float));
+				memcpy(&vrProjection, gstate.projMatrix, 16 * sizeof(float));
 			} else {
-				UpdateVRProjection(gstate.projMatrix, leftEyeMatrix.m, rightEyeMatrix.m);
+				UpdateVRProjection(gstate.projMatrix, vrProjection.m);
 			}
 			UpdateVRParams(gstate.projMatrix);
 
-			FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
-			FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
-			ScaleProjMatrix(leftEyeMatrix, useBufferedRendering);
-			ScaleProjMatrix(rightEyeMatrix, useBufferedRendering);
+			FlipProjMatrix(vrProjection, useBufferedRendering);
+			ScaleProjMatrix(vrProjection, useBufferedRendering);
 
-			render_->SetUniformM4x4Stereo("u_proj_lens", &u_proj_lens, leftEyeMatrix.m, rightEyeMatrix.m);
+			render_->SetUniformM4x4(&u_proj_lens, vrProjection.m);
 		}
 
 		Matrix4x4 flippedMatrix;
