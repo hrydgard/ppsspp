@@ -55,10 +55,11 @@ static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
+bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
+	IRBlock *block = irBlockCache->GetBlock(block_num);
 	u32 startPC = block->GetOriginalStart();
 	bool wroteCheckedOffset = false;
 	if (jo.enableBlocklink && !jo.useBackJump) {
@@ -85,12 +86,13 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	compilingBlockNum_ = block_num;
 	lastConstPC_ = 0;
 
-	regs_.Start(block);
+	regs_.Start(irBlockCache, block_num);
 
 	std::vector<const u8 *> addresses;
 	addresses.reserve(block->GetNumInstructions());
+	const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
-		const IRInst &inst = block->GetInstructions()[i];
+		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);
 		addresses.push_back(GetCodePtr());
 
@@ -146,10 +148,11 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 			addressesLookup[addresses[i]] = i;
 
 		INFO_LOG(JIT, "=============== x86 (%08x, %d bytes) ===============", startPC, len);
+		const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addressesLookup.find(p);
 			if (it != addressesLookup.end()) {
-				const IRInst &inst = block->GetInstructions()[it->second];
+				const IRInst &inst = instructions[it->second];
 
 				char temp[512];
 				DisassembleIR(temp, sizeof(temp), inst);
@@ -316,7 +319,8 @@ void X64JitBackend::ClearAllBlocks() {
 	EraseAllLinks(-1);
 }
 
-void X64JitBackend::InvalidateBlock(IRBlock *block, int block_num) {
+void X64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {
+	IRBlock *block = irBlockCache->GetBlock(block_num);
 	int offset = block->GetTargetOffset();
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 

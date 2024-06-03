@@ -105,7 +105,7 @@ void IRImmRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt) {
 IRNativeRegCacheBase::IRNativeRegCacheBase(MIPSComp::JitOptions *jo)
 	: jo_(jo) {}
 
-void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
+void IRNativeRegCacheBase::Start(MIPSComp::IRBlockCache *irBlockCache, int blockNum) {
 	if (!initialReady_) {
 		SetupInitialRegs();
 		initialReady_ = true;
@@ -113,6 +113,8 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 
 	memcpy(nr, nrInitial_, sizeof(nr[0]) * config_.totalNativeRegs);
 	memcpy(mr, mrInitial_, sizeof(mr));
+
+	irBlock_ = irBlockCache->GetBlock(blockNum);
 
 	int numStatics;
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
@@ -124,10 +126,11 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 		mr[statics[i].mr].nReg = statics[i].nr;
 		mr[statics[i].mr].isStatic = true;
 		// Lock it until the very end.
-		mr[statics[i].mr].spillLockIRIndex = irBlock->GetNumInstructions();
+		mr[statics[i].mr].spillLockIRIndex = irBlock_->GetNumInstructions();
 	}
 
-	irBlock_ = irBlock;
+	irBlockNum_ = blockNum;
+	irBlockCache_ = irBlockCache;
 	irIndex_ = 0;
 }
 
@@ -430,7 +433,7 @@ bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, IRReg r) const {
 	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
 	// We look starting one ahead, unlike spilling.  We want to know if it clobbers later.
 	info.currentIndex = irIndex_ + 1;
-	info.instructions = irBlock_->GetInstructions();
+	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
 	info.numInstructions = irBlock_->GetNumInstructions();
 
 	// Make sure we're on the first one if this is multi-lane.
@@ -457,7 +460,7 @@ bool IRNativeRegCacheBase::IsRegRead(MIPSLoc type, IRReg first) const {
 	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
 	// We look starting one ahead, unlike spilling.
 	info.currentIndex = irIndex_ + 1;
-	info.instructions = irBlock_->GetInstructions();
+	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
 	info.numInstructions = irBlock_->GetNumInstructions();
 
 	// Note: this intentionally doesn't look at the full reg, only the lane.
@@ -474,7 +477,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 	IRSituation info;
 	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
 	info.currentIndex = irIndex_;
-	info.instructions = irBlock_->GetInstructions();
+	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
 	info.numInstructions = irBlock_->GetNumInstructions();
 
 	*clobbered = false;
@@ -1026,7 +1029,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 							IRSituation info;
 							info.lookaheadCount = 16;
 							info.currentIndex = irIndex_;
-							info.instructions = irBlock_->GetInstructions();
+							info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
 							info.numInstructions = irBlock_->GetNumInstructions();
 
 							IRReg basefpr = first - oldlane - 32;

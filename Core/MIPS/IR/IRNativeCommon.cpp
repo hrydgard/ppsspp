@@ -506,12 +506,12 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 	}
 }
 
-bool IRNativeJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
-	return backend_->CompileBlock(block, block_num, preload);
+bool IRNativeJit::CompileTargetBlock(IRBlockCache *irblockCache, int block_num, bool preload) {
+	return backend_->CompileBlock(irblockCache, block_num, preload);
 }
 
-void IRNativeJit::FinalizeTargetBlock(IRBlock *block, int block_num) {
-	backend_->FinalizeBlock(block, block_num, jo);
+void IRNativeJit::FinalizeTargetBlock(IRBlockCache *irblockCache, int block_num) {
+	backend_->FinalizeBlock(irblockCache, block_num, jo);
 }
 
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
@@ -532,7 +532,7 @@ void IRNativeJit::InvalidateCacheAt(u32 em_address, int length) {
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
-		backend_->InvalidateBlock(block, block_num);
+		backend_->InvalidateBlock(&blocks_, block_num);
 		block->Destroy(block->GetTargetOffset());
 	}
 }
@@ -645,7 +645,8 @@ int IRNativeBackend::OffsetFromCodePtr(const u8 *ptr) {
 	return (int)codeBlock.GetOffset(ptr);
 }
 
-void IRNativeBackend::FinalizeBlock(IRBlock *block, int block_num, const JitOptions &jo) {
+void IRNativeBackend::FinalizeBlock(IRBlockCache *irBlockCache, int block_num, const JitOptions &jo) {
+	IRBlock *block = irBlockCache->GetBlock(block_num);
 	if (jo.enableBlocklink) {
 		uint32_t pc = block->GetOriginalStart();
 

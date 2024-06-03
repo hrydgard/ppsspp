@@ -109,7 +109,7 @@ void IRJit::Compile(u32 em_address) {
 			b->Finalize(cookie);
 			if (b->IsValid()) {
 				// Success, we're done.
-				FinalizeTargetBlock(b, block_num);
+				FinalizeTargetBlock(&blocks_, block_num);
 				return;
 			}
 		}
@@ -139,27 +139,24 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 		return preload;
 	}
 
-	int block_num = blocks_.AllocateBlock(em_address);
+	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
 	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
 		// Out of block numbers.  Caller will handle.
 		return false;
 	}
 
 	IRBlock *b = blocks_.GetBlock(block_num);
-	b->SetInstructions(instructions);
-	b->SetOriginalAddrSize(em_address, mipsBytes);
 	if (preload) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.
 		b->UpdateHash();
 	}
-	if (!CompileTargetBlock(b, block_num, preload))
+	if (!CompileTargetBlock(&blocks_, block_num, preload))
 		return false;
 	// Overwrites the first instruction, and also updates stats.
 	blocks_.FinalizeBlock(block_num, preload);
 	if (!preload)
-		FinalizeTargetBlock(b, block_num);
-
+		FinalizeTargetBlock(&blocks_, block_num);
 	return true;
 }
 
@@ -257,20 +254,22 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
-				IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
-
 #ifdef IR_PROFILING
+				/*
 				{
 					TimeSpan span;
-					mips->pc = IRInterpret(mips, block->GetInstructions());
+					IRBlock *block = blocks_.GetBlockFromOffset(inst & 0xFFFFFF);
+					mips->pc = IRInterpret(mips, blocks_.GetBlockInstructionPtr(inst & 0xFFFFFF));
 					block->profileStats_.executions += 1;
 					block->profileStats_.totalNanos += span.ElapsedNanos();
 				}
+				*/
 #else
-				mips->pc = IRInterpret(mips, block->GetInstructions());
+				mips->pc = IRInterpret(mips, blocks_.GetBlockInstructionPtr(inst & 0xFFFFFF));
 #endif
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+					IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
 					break;
 				}
@@ -305,6 +304,8 @@ void IRBlockCache::Clear() {
 	}
 	blocks_.clear();
 	byPage_.clear();
+	arena_.clear();
+	arena_.shrink_to_fit();
 }
 
 std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 length) {
@@ -434,8 +435,9 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 	}
 
 	debugInfo.irDisasm.reserve(ir.GetNumInstructions());
+	const IRInst *instructions = GetBlockInstructionPtr(ir);
 	for (int i = 0; i < ir.GetNumInstructions(); i++) {
-		IRInst inst = ir.GetInstructions()[i];
+		IRInst inst = instructions[i];
 		char buffer[256];
 		DisassembleIR(buffer, sizeof(buffer), inst);
 		debugInfo.irDisasm.push_back(buffer);
