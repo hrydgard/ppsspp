@@ -1,5 +1,5 @@
 #include "SimpleAudioDec.h"
-
+#include "Common/LogReporting.h"
 #include "ext/at3_standalone/at3_decoders.h"
 
 inline int16_t clamp16(float f) {
@@ -20,12 +20,18 @@ public:
 		blockAlign_ = (int)blockAlign;
 		if (audioType == PSP_CODEC_AT3PLUS) {
 			at3pCtx_ = atrac3p_alloc(channels, &blockAlign_);
-			if (at3pCtx_)
+			if (at3pCtx_) {
 				codecOpen_ = true;
+			} else {
+				ERROR_LOG(ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d ed=%d)", channels, blockAlign, extraDataSize);
+			}
 		} else if (audioType_ == PSP_CODEC_AT3) {
 			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
-			if (at3Ctx_)
+			if (at3Ctx_) {
 				codecOpen_ = true;
+			} else {
+				ERROR_LOG(ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, blockAlign, extraDataSize);
+			}
 		}
 		for (int i = 0; i < 2; i++) {
 			buffers_[i] = new float[4096];
@@ -58,7 +64,12 @@ public:
 
 	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
 		if (!codecOpen_) {
-			_dbg_assert_(false);
+			WARN_LOG_N_TIMES(codecNotOpen, 5, ME, "Atrac3Audio:Decode: Codec not open, not decoding");
+			if (outSamples)
+				*outSamples = 0;
+			if (inbytesConsumed)
+				*inbytesConsumed = 0;
+			return false;
 		}
 		if (inbytes != blockAlign_ && blockAlign_ != 0) {
 			WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
