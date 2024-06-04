@@ -35,43 +35,37 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="miniupnp\miniupnpc\addr_is_reserved.h" />
-    <ClInclude Include="miniupnp\miniupnpc\connecthostport.h" />
-    <ClInclude Include="miniupnp\miniupnpc\igd_desc_parse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minisoap.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minissdpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniupnpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniwget.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minixml.h" />
-    <ClInclude Include="miniupnp\miniupnpc\portlistingparse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\receivedata.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpcommands.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpdev.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnperrors.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpreplyparse.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="miniupnp\miniupnpc\addr_is_reserved.c" />
-    <ClCompile Include="miniupnp\miniupnpc\connecthostport.c" />
-    <ClCompile Include="miniupnp\miniupnpc\igd_desc_parse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minisoap.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minissdpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniupnpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniwget.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixml.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixmlvalid.c" />
-    <ClCompile Include="miniupnp\miniupnpc\portlistingparse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\receivedata.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpcommands.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpdev.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnperrors.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpreplyparse.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="miniupnp-build\Android.mk" />
     <None Include="miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="miniupnp\miniupnpc\src\addr_is_reserved.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\connecthostport.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\igd_desc_parse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minisoap.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minissdpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniupnpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniwget.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minixml.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\portlistingparse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\receivedata.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpcommands.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpdev.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnperrors.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpreplyparse.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="miniupnp\miniupnpc\src\addr_is_reserved.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\codelength.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\connecthostport.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minisoap.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minissdpc.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniupnpc_socketdef.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniwget_private.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minixml.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\receivedata.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\win32_snprintf.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -228,6 +222,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -257,6 +252,7 @@ cd..\..\..</Command>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -288,6 +284,7 @@ cd..\..\..</Command>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -322,6 +319,7 @@ cd..\..\..</Command>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <OmitFramePointers>false</OmitFramePointers>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -351,6 +349,7 @@ cd..\..\..</Command>
       <PreprocessorDefinitions>DEBUG;_DEBUG;WIN32;_LIB;MINIUPNP_STATICLIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
@@ -369,6 +368,7 @@ cd..\..\..</Command>
       <PreprocessorDefinitions>DEBUG;_DEBUG;WIN32;_LIB;MINIUPNP_STATICLIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
@@ -392,6 +392,7 @@ cd..\..\..</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
@@ -415,6 +416,7 @@ cd..\..\..</Command>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>miniupnp/miniupnpc/include;miniupnp-build</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>iphlpapi.lib</AdditionalDependencies>
