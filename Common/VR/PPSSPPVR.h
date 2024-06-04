@@ -59,6 +59,6 @@ bool IsFlatVRScene();
 bool IsGameVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
 void UpdateVRParams(float* projMatrix);
-void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye);
+void UpdateVRProjection(float* projMatrix, float* output);
 void UpdateVRView(float* leftEye, float* rightEye);
 void UpdateVRViewMatrices();

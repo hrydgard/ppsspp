@@ -77,7 +77,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	strcpy(appInfo.engineName, name);
 	appInfo.applicationVersion = version;
 	appInfo.engineVersion = version;
-	appInfo.apiVersion = XR_CURRENT_API_VERSION;
+	appInfo.apiVersion = XR_API_VERSION_1_0;
 
 	XrInstanceCreateInfo instanceCreateInfo;
 	memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));

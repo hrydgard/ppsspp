@@ -494,11 +494,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-					WRITE(p, "layout(shared) uniform ProjectionMatrix { uniform mat4 u_proj_lens[2]; };\n");
-				} else {
-					WRITE(p, "uniform mat4 u_proj_lens;\n");
-				}
+				WRITE(p, "uniform mat4 u_proj_lens;\n");
 			}
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_PROJMATRIX;
