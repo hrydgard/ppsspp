@@ -71,7 +71,7 @@ inline u32 RGBA4444ToRGBA8888(u16 src) {
 inline u32 RGBA5551ToRGBA8888(u16 src) {
 	u32 dark = ((src & 0x1F) << 3) | ((src & 0x3E0) << 6) | ((src & 0x7C00) << 9);
 	// Replicate the top 3 upper bits into the missing lower bits.
-	u32 full = (dark | (dark >> 5) & 0x070707);
+	u32 full = (dark | ((dark >> 5) & 0x070707));
 	if (src >> 15) {
 		full |= 0xFF000000;
 	}
@@ -81,7 +81,7 @@ inline u32 RGBA5551ToRGBA8888(u16 src) {
 inline u32 RGB565ToRGBA8888(u16 src) {
 	u32 dark_rb = ((src & 0x1F) << 3) | ((src & 0xF800) << 8);
 	// Replicate the top 3 upper bits into the missing lower bits.
-	u32 full_rb = (dark_rb | (dark_rb >> 5) & 0x070007);
+	u32 full_rb = (dark_rb | ((dark_rb >> 5) & 0x070007));
 	// Add in green (6 bits instead of 5).
 	u32 dark_g = ((src & 0x7E0) << 5);
 	u32 full_g = dark_g | ((dark_g >> 6) & 0x300);
