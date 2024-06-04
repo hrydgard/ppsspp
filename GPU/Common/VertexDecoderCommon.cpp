@@ -253,7 +253,41 @@ void VertexDecoder::Step_WeightsFloat() const
 
 void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
-	for (int j = 0; j < nweights; j++) {
+	int count = nweights;
+#if PPSSPP_ARCH(SSE2)
+	__m128 skin0 = _mm_setzero_ps();
+	__m128 skin1 = _mm_setzero_ps();
+	__m128 skin2 = _mm_setzero_ps();
+	for (int j = 0; j < count; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (weights[j] != 0.0f) {
+			__m128 w = _mm_set1_ps(weights[j]);
+			skin0 = _mm_add_ps(skin0, _mm_mul_ps(_mm_loadu_ps(bone), w));
+			skin1 = _mm_add_ps(skin1, _mm_mul_ps(_mm_loadu_ps(bone + 4), w));
+			skin2 = _mm_add_ps(skin2, _mm_mul_ps(_mm_loadu_ps(bone + 8), w));
+		}
+	}
+	_mm_store_ps(skinMatrix, skin0);
+	_mm_store_ps(skinMatrix + 4, skin1);
+	_mm_store_ps(skinMatrix + 8, skin2);
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x4_t skin0 = vdupq_n_f32(0.0f);
+	float32x4_t skin1 = vdupq_n_f32(0.0f);
+	float32x4_t skin2 = vdupq_n_f32(0.0f);
+	for (int j = 0; j < count; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (weights[j] != 0.0f) {
+			float32x4_t w = vdupq_n_f32(weights[j]);
+			skin0 = vaddq_f32(skin0, vmulq_f32(vld1q_f32(bone), w));
+			skin1 = vaddq_f32(skin1, vmulq_f32(vld1q_f32(bone + 4), w));
+			skin2 = vaddq_f32(skin2, vmulq_f32(vld1q_f32(bone + 8), w));
+		}
+	}
+	vst1q_f32(skinMatrix, skin0);
+	vst1q_f32(skinMatrix + 4, skin1);
+	vst1q_f32(skinMatrix + 8, skin2);
+#else
+	for (int j = 0; j < count; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
 		if (weights[j] != 0.0f) {
 			for (int i = 0; i < 12; i++) {
@@ -261,6 +295,7 @@ void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 			}
 		}
 	}
+#endif
 }
 
 void VertexDecoder::Step_WeightsU8Skin() const {
