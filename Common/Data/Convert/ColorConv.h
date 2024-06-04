@@ -64,26 +64,28 @@ inline u32 RGBA4444ToRGBA8888(u16 src) {
 	const u32 g = (src & 0x00F0) << 4;
 	const u32 b = (src & 0x0F00) << 8;
 	const u32 a = (src & 0xF000) << 12;
-
 	const u32 c = r | g | b | a;
 	return c | (c << 4);
 }
 
 inline u32 RGBA5551ToRGBA8888(u16 src) {
-	u8 r = Convert5To8((src >> 0) & 0x1F);
-	u8 g = Convert5To8((src >> 5) & 0x1F);
-	u8 b = Convert5To8((src >> 10) & 0x1F);
-	u8 a = (src >> 15) & 0x1;
-	a = (a) ? 0xff : 0;
-	return (a << 24) | (b << 16) | (g << 8) | r;
+	u32 dark = ((src & 0x1F) << 3) | ((src & 0x3E0) << 6) | ((src & 0x7C00) << 9);
+	// Replicate the top 3 upper bits into the missing lower bits.
+	u32 full = (dark | ((dark >> 5) & 0x070707));
+	if (src >> 15) {
+		full |= 0xFF000000;
+	}
+	return full;
 }
 
 inline u32 RGB565ToRGBA8888(u16 src) {
-	u8 r = Convert5To8((src >> 0) & 0x1F);
-	u8 g = Convert6To8((src >> 5) & 0x3F);
-	u8 b = Convert5To8((src >> 11) & 0x1F);
-	u8 a = 0xFF;
-	return (a << 24) | (b << 16) | (g << 8) | r;
+	u32 dark_rb = ((src & 0x1F) << 3) | ((src & 0xF800) << 8);
+	// Replicate the top 3 upper bits into the missing lower bits.
+	u32 full_rb = (dark_rb | ((dark_rb >> 5) & 0x070007));
+	// Add in green (6 bits instead of 5).
+	u32 dark_g = ((src & 0x7E0) << 5);
+	u32 full_g = dark_g | ((dark_g >> 6) & 0x300);
+	return full_rb | full_g | 0xFF000000;
 }
 
 inline u16 RGBA8888ToRGB565(u32 value) {
