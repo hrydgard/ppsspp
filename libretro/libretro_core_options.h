@@ -104,6 +104,16 @@ struct retro_core_option_v2_category option_cats_us[] = {
       "Configure video options."
    },
    {
+      "input",
+      "Input",
+      "Configure input options."
+   },
+   {
+      "hacks",
+      "Hacks",
+      "Configure speed and emulation hacks. Can cause rendering errors!"
+   },
+   {
       "network",
       "Network",
       "Configure network options."
@@ -112,31 +122,6 @@ struct retro_core_option_v2_category option_cats_us[] = {
 };
 
 struct retro_core_option_v2_definition option_defs_us[] = {
-   {
-      "ppsspp_language",
-      "Language",
-      NULL,
-      "Choose language, 'Automatic' will use the frontend language.",
-      NULL,
-      "system",
-      {
-         { "Automatic",           NULL },
-         { "English",             NULL },
-         { "Japanese",            NULL },
-         { "French",              NULL },
-         { "Spanish",             NULL },
-         { "German",              NULL },
-         { "Italian",             NULL },
-         { "Dutch",               NULL },
-         { "Portuguese",          NULL },
-         { "Russian",             NULL },
-         { "Korean",              NULL },
-         { "Chinese Traditional", NULL },
-         { "Chinese Simplified",  NULL },
-         { NULL, NULL },
-      },
-      "Automatic"
-   },
    {
       "ppsspp_cpu_core",
       "CPU Core",
@@ -156,7 +141,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "ppsspp_fast_memory",
       "Fast Memory",
       NULL,
-      NULL,
+      "Unstable.",
       NULL,
       "system",
       BOOL_OPTIONS,
@@ -189,9 +174,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_force_lag_sync",
-      "Force Real Clock Sync (Slower, less lag)",
+      "Force Real Clock Sync",
       NULL,
-      NULL,
+      "Slower, less lag.",
       NULL,
       "system",
       BOOL_OPTIONS,
@@ -220,6 +205,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_memstick_inserted",
+      "Memory Stick Inserted",
+      NULL,
+      "Some games require ejecting/inserting the Memory Stick.",
+      NULL,
+      "system",
+      BOOL_OPTIONS,
+      "enabled"
+   },
+   {
       "ppsspp_cache_iso",
       "Cache Full ISO in RAM",
       NULL,
@@ -240,6 +235,31 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_language",
+      "Game Language",
+      NULL,
+      "'Automatic' will use the frontend language.",
+      NULL,
+      "system",
+      {
+         { "Automatic",           NULL },
+         { "English",             NULL },
+         { "Japanese",            NULL },
+         { "French",              NULL },
+         { "Spanish",             NULL },
+         { "German",              NULL },
+         { "Italian",             NULL },
+         { "Dutch",               NULL },
+         { "Portuguese",          NULL },
+         { "Russian",             NULL },
+         { "Korean",              NULL },
+         { "Chinese Traditional", NULL },
+         { "Chinese Simplified",  NULL },
+         { NULL, NULL },
+      },
+      "Automatic"
+   },
+   {
       "ppsspp_psp_model",
       "PSP Model",
       NULL,
@@ -254,57 +274,54 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "psp_2000_3000"
    },
    {
-      "ppsspp_button_preference",
-      "Confirmation Button",
+      "ppsspp_backend",
+      "Backend",
       NULL,
+      "'Automatic' will use the frontend video driver. Core restart required.",
       NULL,
-      NULL,
-      "system",
+      "video",
       {
-         { "Cross",  NULL },
-         { "Circle", NULL },
+         { "auto",   "Automatic" },
+         { "opengl", "OpenGL" },
+#ifndef HAVE_LIBNX
+         { "vulkan", "Vulkan" },
+#endif
+#ifdef _WIN32
+         { "d3d11",  "D3D11" },
+#endif
+         { "none",   "None" },
          { NULL, NULL },
       },
-      "Cross"
+      "auto"
    },
    {
-      "ppsspp_analog_is_circular",
-      "Analog Circle vs Square Gate Compensation",
+      "ppsspp_software_rendering",
+      "Software Rendering",
       NULL,
+      "Slow, accurate. Core restart required.",
       NULL,
-      NULL,
-      "system",
+      "video",
       BOOL_OPTIONS,
       "disabled"
    },
    {
-      "ppsspp_memstick_inserted",
-      "Memory Stick Inserted",
-      NULL,
-      "Some games require ejecting/inserting the Memory Stick.",
-      NULL,
-      "system",
-      BOOL_OPTIONS,
-      "enabled"
-   },
-   {
       "ppsspp_internal_resolution",
-      "Internal Resolution (Restart)",
+      "Rendering Resolution",
       NULL,
-      NULL,
+      "Core restart required with Vulkan.",
       NULL,
       "video",
       {
-         { "480x272",   NULL },
-         { "960x544",   NULL },
-         { "1440x816",  NULL },
-         { "1920x1088", NULL },
-         { "2400x1360", NULL },
-         { "2880x1632", NULL },
-         { "3360x1904", NULL },
-         { "3840x2176", NULL },
-         { "4320x2448", NULL },
-         { "4800x2720", NULL },
+         { "480x272",   "1x (480x272)" },
+         { "960x544",   "2x (960x544)" },
+         { "1440x816",  "3x (1440x816)" },
+         { "1920x1088", "4x (1920x1088)" },
+         { "2400x1360", "5x (2400x1360)" },
+         { "2880x1632", "6x (2880x1632)" },
+         { "3360x1904", "7x (3360x1904)" },
+         { "3840x2176", "8x (3840x2176)" },
+         { "4320x2448", "9x (4320x2448)" },
+         { "4800x2720", "10x (4800x2720)" },
          { NULL, NULL },
       },
       "480x272"
@@ -328,14 +345,14 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
 #endif
    {
-      "ppsspp_skip_gpu_readbacks",
-      "Skip GPU Readbacks",
+      "ppsspp_cropto16x9",
+      "Crop to 16x9",
       NULL,
-      "Some games require GPU readbacks, so be careful.",
+      "Remove one line from top and bottom to get exact 16:9. Core restart required with Vulkan.",
       NULL,
       "video",
       BOOL_OPTIONS,
-      "disabled"
+      "enabled"
    },
    {
       "ppsspp_frameskip",
@@ -384,7 +401,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_frame_duplication",
-      "Duplicate Frames in 30 Hz Games",
+      "Render Duplicate Frames to 60 Hz",
       NULL,
       "Can make framerate smoother in games that run at lower framerates.",
       NULL,
@@ -394,9 +411,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_detect_vsync_swap_interval",
-      "Detect Frame Rate Changes (Notify frontend)",
+      "Detect Frame Rate Changes",
       NULL,
-      NULL,
+      "Notify frontend.",
       NULL,
       "video",
       BOOL_OPTIONS,
@@ -404,9 +421,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_inflight_frames",
-      "Buffered Frames (GL/Vulkan only, slower, less lag, restart)",
+      "Buffer Graphics Commands",
       NULL,
-      NULL,
+      "GL/Vulkan only, slower, less lag, restart.",
       NULL,
       "video",
       {
@@ -416,6 +433,101 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { NULL, NULL },
       },
       "Up to 2"
+   },
+   {
+      "ppsspp_button_preference",
+      "Confirmation Button",
+      NULL,
+      NULL,
+      NULL,
+      "input",
+      {
+         { "Cross",  NULL },
+         { "Circle", NULL },
+         { NULL, NULL },
+      },
+      "Cross"
+   },
+   {
+      "ppsspp_analog_is_circular",
+      "Analog Circle vs Square Gate Compensation",
+      NULL,
+      NULL,
+      NULL,
+      "input",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_skip_buffer_effects",
+      "Skip Buffer Effects",
+      NULL,
+      "Faster, but nothing may draw in some games.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_disable_range_culling",
+      "Disable Culling",
+      NULL,
+      "",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_skip_gpu_readbacks",
+      "Skip GPU Readbacks",
+      NULL,
+      "Some games require GPU readbacks, so be careful.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_lazy_texture_caching",
+      "Lazy Texture Caching (Speedup)",
+      NULL,
+      "Faster, but can cause text problems in a few games.",
+      NULL,
+      "hacks",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
+      "ppsspp_spline_quality",
+      "Spline/Bezier Curves Quality",
+      NULL,
+      "Only used by some games, controls smoothness of curves.",
+      NULL,
+      "hacks",
+      {
+         { "Low",    NULL },
+         { "Medium", NULL },
+         { "High",   NULL },
+         { NULL, NULL },
+      },
+      "High"
+   },
+   {
+      "ppsspp_lower_resolution_for_effects",
+      "Lower Resolution for Effects",
+      NULL,
+      "Reduces artifacts.",
+      NULL,
+      "hacks",
+      {
+         { "disabled",   NULL },
+         { "Safe",       NULL },
+         { "Balanced",   NULL },
+         { "Aggressive", NULL },
+         { NULL, NULL },
+      },
+      "disabled"
    },
    {
       "ppsspp_gpu_hardware_transform",
@@ -438,41 +550,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "enabled"
    },
    {
-      "ppsspp_vertex_cache",
-      "Vertex Cache",
-      NULL,
-      "Faster, but may cause temporary flicker.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_lazy_texture_caching",
-      "Lazy Texture Caching (Speedup)",
-      NULL,
-      "Faster, but can cause text problems in a few games.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_spline_quality",
-      "Spline/Bezier Curves Quality",
-      NULL,
-      "Only used by some games, controls smoothness of curves.",
-      NULL,
-      "video",
-      {
-         { "Low",    NULL },
-         { "Medium", NULL },
-         { "High",   NULL },
-         { NULL, NULL },
-      },
-      "High"
-   },
-   {
       "ppsspp_hardware_tesselation",
       "Hardware Tesselation",
       NULL,
@@ -483,24 +560,18 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_lower_resolution_for_effects",
-      "Lower Resolution for Effects",
+      "ppsspp_vertex_cache",
+      "Vertex Cache",
       NULL,
-      NULL,
+      "Faster, but may cause temporary flicker.",
       NULL,
       "video",
-      {
-         { "disabled",   NULL },
-         { "Safe",       NULL },
-         { "Balanced",   NULL },
-         { "Aggressive", NULL },
-         { NULL, NULL },
-      },
+      BOOL_OPTIONS,
       "disabled"
    },
    {
       "ppsspp_texture_scaling_type",
-      "Texture Scaling Type",
+      "Texture Upscale Type",
       NULL,
       NULL,
       NULL,
@@ -516,7 +587,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_texture_scaling_level",
-      "Texture Scaling Level",
+      "Texture Upscaling Level",
       NULL,
       "CPU heavy, some scaling may be delayed to avoid stutter.",
       NULL,
@@ -543,9 +614,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_texture_shader",
-      "Texture Shader (Vulkan only, overrides 'Texture Scaling Type')",
+      "Texture Shader",
       NULL,
-      NULL,
+      "Vulkan only, overrides 'Texture Scaling Type'.",
       NULL,
       "video",
       {
