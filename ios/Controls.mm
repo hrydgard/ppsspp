@@ -358,3 +358,11 @@ void ICadeTracker::ButtonUp(iCadeState button) {
 		NativeKey(key);
 	}
 }
+
+void ProcessAccelerometerData(CMAccelerometerData *accData) {
+	CMAcceleration acc = accData.acceleration;
+	// INFO_LOG(SYSTEM, "%f %f %f", acc.x, acc.y, acc.z);
+
+	// Might need to change these for portrait or inverse landscape
+	NativeAccelerometer(-acc.x, -acc.y, -acc.z);
+}

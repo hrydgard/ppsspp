@@ -109,6 +109,8 @@ id<PPSSPPViewController> sharedViewController;
 
 //@property (nonatomic) iCadeReaderView* iCadeView;
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
+@property (strong, nonatomic) CMMotionManager *motionManager;
+@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 
 @end
 
@@ -124,6 +126,9 @@ id<PPSSPPViewController> sharedViewController;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
+	self.accelerometerQueue = [[NSOperationQueue alloc] init];
+	self.accelerometerQueue.name = @"AccelerometerQueue";
+	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 	return self;
 }
 
@@ -269,7 +274,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 	[[self view] addGestureRecognizer:mBackGestureRecognizer];
 
-	INFO_LOG(G3D, "Done with viewDidLoad. Next up, OpenGL");
+	// Initialize the motion manager for accelerometer control.
+	self.motionManager = [[CMMotionManager alloc] init];
+	INFO_LOG(G3D, "Done with viewDidLoad.");
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
@@ -291,6 +298,21 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)didBecomeActive {
 	INFO_LOG(SYSTEM, "didBecomeActive begin");
+	if (self.motionManager.accelerometerAvailable) {
+		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
+		INFO_LOG(G3D, "Starting accelerometer updates.");
+
+		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
+							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+			if (error) {
+				NSLog(@"Accelerometer error: %@", error);
+				return;
+			}
+			ProcessAccelerometerData(accelerometerData);
+		}];
+	} else {
+		INFO_LOG(G3D, "No accelerometer available, not starting updates.");
+	}
 	[self runGLRenderLoop];
 	INFO_LOG(SYSTEM, "didBecomeActive end");
 }
@@ -298,6 +320,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)willResignActive {
 	INFO_LOG(SYSTEM, "willResignActive begin");
 	[self requestExitGLRenderLoop];
+
+	// Stop accelerometer updates
+	if (self.motionManager.accelerometerActive) {
+		INFO_LOG(G3D, "Stopping accelerometer updates");
+		[self.motionManager stopAccelerometerUpdates];
+	}
 	INFO_LOG(SYSTEM, "willResignActive end");
 }
 

@@ -213,6 +213,8 @@ static std::thread g_renderLoopThread;
 }
 
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
+@property (strong, nonatomic) CMMotionManager *motionManager;
+@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 
 @end  // @interface
 
@@ -228,6 +230,9 @@ static std::thread g_renderLoopThread;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 	}
+	self.accelerometerQueue = [[NSOperationQueue alloc] init];
+	self.accelerometerQueue.name = @"AccelerometerQueue";
+	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 	return self;
 }
 
@@ -338,7 +343,21 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 // These two are forwarded from the appDelegate
 - (void)didBecomeActive {
 	INFO_LOG(G3D, "didBecomeActive GL");
+	if (self.motionManager.accelerometerAvailable) {
+		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
+		INFO_LOG(G3D, "Starting accelerometer updates.");
 
+		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
+							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+			if (error) {
+				NSLog(@"Accelerometer error: %@", error);
+				return;
+			}
+			ProcessAccelerometerData(accelerometerData);
+		}];
+	} else {
+		INFO_LOG(G3D, "No accelerometer available, not starting updates.");
+	}
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
 	[self runVulkanRenderLoop];
@@ -347,6 +366,12 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 - (void)willResignActive {
 	INFO_LOG(G3D, "willResignActive GL");
 	[self requestExitVulkanRenderLoop];
+
+	// Stop accelerometer updates
+	if (self.motionManager.accelerometerActive) {
+		INFO_LOG(G3D, "Stopping accelerometer updates");
+		[self.motionManager stopAccelerometerUpdates];
+	}
 }
 
 - (void)shutdown
@@ -419,6 +444,9 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
 	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 	[[self view] addGestureRecognizer:mBackGestureRecognizer];
+
+	// Initialize the motion manager for accelerometer control.
+	self.motionManager = [[CMMotionManager alloc] init];
 }
 
 // Allow device rotation to resize the swapchain
@@ -444,6 +472,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
+	INFO_LOG(G3D, "viewWillDisappear");
 }
 
 - (void)viewDidAppear:(BOOL)animated {
