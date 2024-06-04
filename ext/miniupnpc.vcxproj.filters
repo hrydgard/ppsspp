@@ -1,39 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="miniupnp\miniupnpc\upnpcommands.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnperrors.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpreplyparse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\igd_desc_parse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minisoap.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniupnpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\miniwget.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minixml.h" />
-    <ClInclude Include="miniupnp\miniupnpc\connecthostport.h" />
-    <ClInclude Include="miniupnp\miniupnpc\portlistingparse.h" />
-    <ClInclude Include="miniupnp\miniupnpc\receivedata.h" />
-    <ClInclude Include="miniupnp\miniupnpc\upnpdev.h" />
-    <ClInclude Include="miniupnp\miniupnpc\minissdpc.h" />
-    <ClInclude Include="miniupnp\miniupnpc\addr_is_reserved.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="miniupnp\miniupnpc\igd_desc_parse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minisoap.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniupnpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\miniwget.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixml.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minixmlvalid.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpcommands.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnperrors.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpreplyparse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\connecthostport.c" />
-    <ClCompile Include="miniupnp\miniupnpc\portlistingparse.c" />
-    <ClCompile Include="miniupnp\miniupnpc\receivedata.c" />
-    <ClCompile Include="miniupnp\miniupnpc\upnpdev.c" />
-    <ClCompile Include="miniupnp\miniupnpc\minissdpc.c" />
-    <ClCompile Include="miniupnp\miniupnpc\addr_is_reserved.c" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="scripts">
       <UniqueIdentifier>{c82edf03-bf88-478d-aaf5-2854df756cab}</UniqueIdentifier>
     </Filter>
@@ -42,6 +9,33 @@
     <None Include="miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs">
       <Filter>scripts</Filter>
     </None>
-    <None Include="miniupnp-build\Android.mk" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="miniupnp\miniupnpc\src\addr_is_reserved.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\connecthostport.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\igd_desc_parse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minisoap.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minissdpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniupnpc.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\miniwget.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\minixml.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\portlistingparse.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\receivedata.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpcommands.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpdev.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnperrors.c" />
+    <ClCompile Include="miniupnp\miniupnpc\src\upnpreplyparse.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="miniupnp\miniupnpc\src\addr_is_reserved.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\codelength.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\connecthostport.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minisoap.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minissdpc.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniupnpc_socketdef.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\miniwget_private.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\minixml.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\receivedata.h" />
+    <ClInclude Include="miniupnp\miniupnpc\src\win32_snprintf.h" />
   </ItemGroup>
 </Project>

@@ -2460,8 +2460,8 @@ if(USE_MINIUPNPC)
 		target_link_libraries(${CoreLibName} ${MINIUPNP_LIBRARY})
 		add_definitions(-DWITH_UPNP -DUSE_SYSTEM_MINIUPNPC)
 	else()
-		set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
-		set (MINIUPNPC_API_VERSION 17)
+		set (MINIUPNPC_VERSION 2.2) # used by miniupnpcstrings.h.cmake
+		set (MINIUPNPC_API_VERSION 18)
 		option(UPNPC_BUILD_STATIC "Build static library" TRUE)
 		option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
 		mark_as_advanced(NO_GETADDRINFO)
@@ -2485,25 +2485,28 @@ if(USE_MINIUPNPC)
 		add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
 		set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
 		include_directories(${CMAKE_CURRENT_BINARY_DIR})
+		include_directories(ext/miniupnp/miniupnpc/src)
+		include_directories(ext/miniupnp/miniupnpc/include)
 		configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
 		set(MINIUPNPC_SOURCES
 			# the needed bits of miniupnpc (no python module, no tests, no cli)
-			${MINIUPNP_DIR}/addr_is_reserved.c
-			${MINIUPNP_DIR}/connecthostport.c
-			${MINIUPNP_DIR}/igd_desc_parse.c
-			${MINIUPNP_DIR}/minisoap.c
-			${MINIUPNP_DIR}/minissdpc.c
-			${MINIUPNP_DIR}/miniupnpc.c
-			${MINIUPNP_DIR}/miniwget.c
-			${MINIUPNP_DIR}/minixml.c
-			${MINIUPNP_DIR}/minixmlvalid.c
-			${MINIUPNP_DIR}/portlistingparse.c
-			${MINIUPNP_DIR}/receivedata.c
+			${MINIUPNP_DIR}/src/addr_is_reserved.c
+			${MINIUPNP_DIR}/src/connecthostport.c
+			${MINIUPNP_DIR}/src/igd_desc_parse.c
+			${MINIUPNP_DIR}/src/minisoap.c
+			${MINIUPNP_DIR}/src/minissdpc.c
+			${MINIUPNP_DIR}/src/miniupnpc.c
+			#${MINIUPNP_DIR}/miniupnpcmodule.c
+			${MINIUPNP_DIR}/src/miniwget.c
+			${MINIUPNP_DIR}/src/minixml.c
+			${MINIUPNP_DIR}/src/minixmlvalid.c
+			${MINIUPNP_DIR}/src/portlistingparse.c
+			${MINIUPNP_DIR}/src/receivedata.c
 			#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
-			${MINIUPNP_DIR}/upnpcommands.c
-			${MINIUPNP_DIR}/upnpdev.c
-			${MINIUPNP_DIR}/upnperrors.c
-			${MINIUPNP_DIR}/upnpreplyparse.c
+			${MINIUPNP_DIR}/src/upnpcommands.c
+			${MINIUPNP_DIR}/src/upnpdev.c
+			${MINIUPNP_DIR}/src/upnperrors.c
+			${MINIUPNP_DIR}/src/upnpreplyparse.c
 			${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
 		)
 		if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
