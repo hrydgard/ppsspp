@@ -253,8 +253,8 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		while (mips->downcount >= 0) {
 			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
-			u32 offset = inst & 0x00FFFFFF;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
+				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
 #ifdef IR_PROFILING
 				{
 					TimeSpan span;
@@ -308,13 +308,43 @@ void IRBlockCache::Clear() {
 	arena_.shrink_to_fit();
 }
 
+IRBlockCache::IRBlockCache() {
+	// For whatever reason, this makes things go slower?? Probably just a CPU cache alignment fluke.
+	// arena_.reserve(1024 * 1024 * 2);
+}
+
 int IRBlockCache::GetBlockNumFromOffset(int offset) const {
+	// Block offsets are always in rising order (we don't go back and replace them when invalidated). So we can binary search.
+	int low = 0;
+	int high = (int)blocks_.size() - 1;
+	int found = -1;
+	while (low <= high) {
+		int mid = low + (high - low) / 2;
+		const int blockOffset = blocks_[mid].GetInstructionOffset();
+		if (blockOffset == offset) {
+			found = mid;
+			break;
+		}
+		if (blockOffset < offset) {
+			low = mid + 1;
+		} else {
+			high = mid - 1;
+		}
+	}
+
+#ifndef _DEBUG
+	// Then, in debug builds, cross check the result.
+	return found;
+#else
 	// TODO: Optimize if we need to call this often.
 	for (int i = 0; i < (int)blocks_.size(); i++) {
 		if (blocks_[i].GetInstructionOffset() == offset) {
+			_dbg_assert_(i == found);
 			return i;
 		}
 	}
+#endif
+	_dbg_assert_(found == -1);
 	return -1;
 }
 
@@ -388,12 +418,13 @@ int IRBlockCache::FindByCookie(int cookie) {
 	if (blocks_[0].GetTargetOffset() < 0)
 		return GetBlockNumFromOffset(cookie);
 
+	// TODO: Now that we are using offsets in pure IR mode too, we can probably unify
+	// the two paradigms. Or actually no, we still need two offsets..
 	for (int i = 0; i < GetNumBlocks(); ++i) {
 		int offset = blocks_[i].GetTargetOffset();
 		if (offset == cookie)
 			return i;
 	}
-
 	return -1;
 }
 

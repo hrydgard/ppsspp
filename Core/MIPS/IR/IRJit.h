@@ -106,7 +106,7 @@ private:
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
-	IRBlockCache() {}
+	IRBlockCache();
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int blockNum, bool preload = false);
