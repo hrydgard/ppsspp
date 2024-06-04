@@ -3,6 +3,8 @@
 #include <map>
 
 #import <GameController/GameController.h>
+#import <CoreMotion/CoreMotion.h>
+
 #include "iCade/iCadeState.h"
 #include "Common/Input/InputState.h"
 
@@ -38,3 +40,5 @@ private:
 	double lastSelectPress = 0.0f;
 	double lastStartPress = 0.0f;
 };
+
+void ProcessAccelerometerData(CMAccelerometerData *accData);
