@@ -1112,6 +1112,25 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 #endif
 }
 
+inline void Norm3ByMatrix43_Write4Factor(float vecOut[4], const float v[3], const float m[12], float factor) {
+#if defined(_M_SSE)
+	__m128 x = _mm_set1_ps(v[0]);
+	__m128 y = _mm_set1_ps(v[1]);
+	__m128 z = _mm_set1_ps(v[2]);
+	__m128 sum = Norm3ByMatrix43Internal(x, y, z, m);
+	_mm_storeu_ps(vecOut, _mm_mul_ps(sum, _mm_set1_ps(factor)));
+#elif PPSSPP_ARCH(ARM_NEON)
+	float32x4_t sum = Norm3ByMatrix43Internal(vld1q_f32(v), m);
+	vecOut[0] = vgetq_lane_f32(sum, 0);
+	vecOut[1] = vgetq_lane_f32(sum, 1);
+	vecOut[2] = vgetq_lane_f32(sum, 2);
+#else
+	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6];
+	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7];
+	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8];
+#endif
+}
+
 inline Vec3f MATH3D_CALL Norm3ByMatrix43(const Vec3f v, const float m[12]) {
 #if defined(_M_SSE)
 	const __m128 vv = SAFE_M128(v.vec);
