@@ -67,6 +67,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -997,6 +998,43 @@ bool TestIniFile() {
 	return true;
 }
 
+inline u32 FastRGBA5551ToRGBA8888(u16 src) {
+	u32 dark = ((src & 0x1F) << 3) | ((src & 0x3E0) << 6) | ((src & 0x7C00) << 9);
+	// Replicate the top 3 upper bits into the missing lower bits.
+	u32 full = (dark | (dark >> 5) & 0x070707);
+	if (src >> 15) {
+		full |= 0xFF000000;
+	}
+	return full;
+}
+
+inline u32 FastRGB565ToRGBA8888(u16 src) {
+	u32 dark_rb = ((src & 0x1F) << 3) | ((src & 0xF800) << 8);
+	// Replicate the top 3 upper bits into the missing lower bits.
+	u32 full_rb = (dark_rb | (dark_rb >> 5) & 0x070007);
+	// Add in green (6 bits instead of 5).
+	u32 dark_g = ((src & 0x7E0) << 5);
+	u32 full_g = dark_g | ((dark_g >> 6) & 0x300);
+	return full_rb | full_g | 0xFF000000;
+}
+
+bool TestColorConv() {
+	// Can exhaustively test the 16->32 conversions.
+	for (int i = 0; i < 65536; i++) {
+		u16 col16 = i;
+
+		u32 reference = RGBA5551ToRGBA8888(col16);
+		u32 value = FastRGBA5551ToRGBA8888(col16);
+		EXPECT_EQ_INT(reference, value);
+
+		reference = RGB565ToRGBA8888(col16);
+		value = FastRGB565ToRGBA8888(col16);
+		EXPECT_EQ_INT(reference, value);
+	}
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1056,6 +1094,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),
 	TEST_ITEM(IniFile),
+	TEST_ITEM(ColorConv),
 };
 
 int main(int argc, const char *argv[]) {

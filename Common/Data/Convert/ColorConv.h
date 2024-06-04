@@ -64,7 +64,6 @@ inline u32 RGBA4444ToRGBA8888(u16 src) {
 	const u32 g = (src & 0x00F0) << 4;
 	const u32 b = (src & 0x0F00) << 8;
 	const u32 a = (src & 0xF000) << 12;
-
 	const u32 c = r | g | b | a;
 	return c | (c << 4);
 }
