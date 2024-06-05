@@ -33,6 +33,8 @@
 #include "stddef.h"
 #endif
 
+// #define IR_PROFILING
+
 namespace MIPSComp {
 
 // TODO : Use arena allocators. For now let's just malloc.
@@ -98,6 +100,10 @@ public:
 	void Finalize(int number);
 	void Destroy(int number);
 
+#ifdef IR_PROFILING
+	JitBlockProfileStats profileStats_{};
+#endif
+
 private:
 	u64 CalculateHash() const;
 
@@ -151,6 +157,14 @@ public:
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+
+	bool SupportsProfiling() const override {
+#ifdef IR_PROFILING
+		return true;
+#else
+		return false;
+#endif
+	}
 
 private:
 	u32 AddressToPage(u32 addr) const;

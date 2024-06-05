@@ -103,13 +103,22 @@ struct JitBlockDebugInfo {
 	std::vector<std::string> targetDisasm;
 };
 
+struct JitBlockProfileStats {
+	int64_t executions;
+	int64_t totalNanos;
+};
+
 class JitBlockCacheDebugInterface {
 public:
 	virtual int GetNumBlocks() const = 0;
 	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
-	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0;
+	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0; // Expensive
+	virtual JitBlockProfileStats GetBlockProfileStats(int blockNum) const { // Cheap
+		return JitBlockProfileStats{};
+	}
 	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
 	virtual bool IsValidBlock(int blockNum) const = 0;
+	virtual bool SupportsProfiling() const { return false; }
 
 	virtual ~JitBlockCacheDebugInterface() {}
 };
