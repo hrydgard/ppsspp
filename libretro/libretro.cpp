@@ -487,9 +487,12 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
-   bool isFastForwarding;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
-       coreParam.fastForward = isFastForwarding;
+   if (g_Config.bForceLagSync)
+   {
+      bool isFastForwarding;
+      if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+          coreParam.fastForward = isFastForwarding;
+   }
 
    bool updated = false;
 
