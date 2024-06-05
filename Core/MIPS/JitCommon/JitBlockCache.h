@@ -120,9 +120,7 @@ public:
 	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
 	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0; // Expensive
 	virtual JitBlockMeta GetBlockMeta(int blockNum) const = 0;
-	virtual JitBlockProfileStats GetBlockProfileStats(int blockNum) const { // Cheap
-		return JitBlockProfileStats{};
-	}
+	virtual JitBlockProfileStats GetBlockProfileStats(int blockNum) const = 0;
 	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
 	virtual bool IsValidBlock(int blockNum) const = 0;
 	virtual bool SupportsProfiling() const { return false; }
@@ -190,6 +188,9 @@ public:
 			meta.sizeInBytes = blocks_[blockNum].originalSize;
 		}
 		return meta;
+	}
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
+		return JitBlockProfileStats{};
 	}
 
 	static int GetBlockExitSize();

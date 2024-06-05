@@ -47,12 +47,14 @@ void JitCompareScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	blockTopBar->Add(new Button("", ImageID("I_ARROW_LEFT")))->OnClick.Add([=](UI::EventParams &e) {
-		currentBlock_--;
+		if (currentBlock_ >= 1)
+			currentBlock_--;
 		UpdateDisasm();
 		return UI::EVENT_DONE;
 	});
 	blockTopBar->Add(new Button("", ImageID("I_ARROW_RIGHT")))->OnClick.Add([=](UI::EventParams &e) {
-		currentBlock_++;
+		if (currentBlock_ < blockList_.size() - 1)
+			currentBlock_++;
 		UpdateDisasm();
 		return UI::EVENT_DONE;
 	});
@@ -276,10 +278,11 @@ void JitCompareScreen::UpdateDisasm() {
 	} else {
 		blockListContainer_->Clear();
 		for (int i = 0; i < std::min(100, (int)blockList_.size()); i++) {
-			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockList_[i]);
+			int blockNum = blockList_[i];
+			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockNum);
 			char temp[512], small[512];
 			if (blockCacheDebug->SupportsProfiling()) {
-				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockList_[i]);
+				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockNum);
 				int execs = (int)stats.executions;
 				double us = (double)stats.totalNanos / 1000.0;
 				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d exec, %0.2f us)", meta.addr, meta.sizeInBytes / 4, execs, us);

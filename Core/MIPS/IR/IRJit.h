@@ -33,7 +33,7 @@
 #include "stddef.h"
 #endif
 
-#define IR_PROFILING
+// #define IR_PROFILING
 
 namespace MIPSComp {
 
@@ -162,6 +162,13 @@ public:
 			blocks_[blockNum].GetRange(meta.addr, meta.sizeInBytes);
 		}
 		return meta;
+	}
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const { // Cheap
+#ifdef IR_PROFILING
+		return blocks_[blockNum].profileStats_;
+#else
+		return JitBlockProfileStats{};
+#endif
 	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;

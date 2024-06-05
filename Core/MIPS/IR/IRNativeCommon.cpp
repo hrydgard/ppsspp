@@ -730,6 +730,10 @@ int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_addr
 	return irBlocks_.GetBlockNumberFromStartAddress(em_address, realBlocksOnly);
 }
 
+JitBlockProfileStats IRNativeBlockCacheDebugInterface::GetBlockProfileStats(int blockNum) const {
+	return irBlocks_.GetBlockProfileStats(blockNum);
+}
+
 void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
 	int blockOffset = irBlocks_.GetBlock(blockNum)->GetTargetOffset();
 	int endOffset = backend_->GetNativeBlock(blockNum)->checkedOffset;
