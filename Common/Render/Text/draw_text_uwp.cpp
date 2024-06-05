@@ -33,7 +33,9 @@ public:
 			Destroy();
 		}
 
-		if (factory == nullptr) return;
+		if (!factory) {
+			return;
+		}
 
 		HRESULT hr = factory->CreateTextFormat(
 			fname.c_str(),
@@ -45,15 +47,20 @@ public:
 			L"",
 			&textFmt
 		);
+		if (FAILED(hr)) {
+			ERROR_LOG(G3D, "Failed creating font %s", fname.c_str());
+		}
 	}
 	void Destroy() {
-		textFmt->Release();
+		if (textFmt) {
+			textFmt->Release();
+		}
 		textFmt = nullptr;
 	}
 
-	IDWriteFactory4* factory = nullptr;
-	IDWriteFontCollection1* fontCollection = nullptr;
-	IDWriteTextFormat* textFmt = nullptr;
+	IDWriteFactory4 *factory = nullptr;
+	IDWriteFontCollection1 *fontCollection = nullptr;
+	IDWriteTextFormat *textFmt = nullptr;
 	std::wstring fname;
 	int height;
 	DWRITE_FONT_WEIGHT weight;
@@ -61,8 +68,8 @@ public:
 };
 
 struct TextDrawerContext {
-	ID2D1Bitmap1* bitmap;
-	ID2D1Bitmap1* mirror_bmp;
+	ID2D1Bitmap1 *bitmap;
+	ID2D1Bitmap1 *mirror_bmp;
 };
 
 TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {

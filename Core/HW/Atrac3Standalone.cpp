@@ -23,14 +23,14 @@ public:
 			if (at3pCtx_) {
 				codecOpen_ = true;
 			} else {
-				ERROR_LOG(ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d ed=%d)", channels, blockAlign, extraDataSize);
+				ERROR_LOG(ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
 			}
 		} else if (audioType_ == PSP_CODEC_AT3) {
 			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
 			if (at3Ctx_) {
 				codecOpen_ = true;
 			} else {
-				ERROR_LOG(ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, blockAlign, extraDataSize);
+				ERROR_LOG(ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
 			}
 		}
 		for (int i = 0; i < 2; i++) {
