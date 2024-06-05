@@ -33,7 +33,15 @@
 #include "stddef.h"
 #endif
 
+// Very expensive, time-profiles every block.
+// Not to be released with this enabled.
+//
 // #define IR_PROFILING
+
+// Try to catch obvious misses of be above rule.
+#if defined(IR_PROFILING) && defined(GOLD)
+#error
+#endif
 
 namespace MIPSComp {
 
@@ -111,14 +119,7 @@ public:
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int blockNum, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
-	int AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst) {
-		int offset = (int)arena_.size();
-		for (int i = 0; i < inst.size(); i++) {
-			arena_.push_back(inst[i]);
-		}
-		blocks_.push_back(IRBlock(emAddr, origSize, offset, (u16)inst.size()));
-		return (int)blocks_.size() - 1;
-	}
+	int AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst);
 	IRBlock *GetBlock(int blockNum) {
 		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
 			return &blocks_[blockNum];

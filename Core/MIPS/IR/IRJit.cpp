@@ -46,7 +46,6 @@ namespace MIPSComp {
 
 IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState) {
 	// u32 size = 128 * 1024;
-	// blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
 	InitIR();
 
 	jo.optimizeForInterpreter = true;
@@ -141,6 +140,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
 	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
+		WARN_LOG(JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
 		// Out of block numbers.  Caller will handle.
 		return false;
 	}
@@ -311,6 +311,21 @@ void IRBlockCache::Clear() {
 IRBlockCache::IRBlockCache() {
 	// For whatever reason, this makes things go slower?? Probably just a CPU cache alignment fluke.
 	// arena_.reserve(1024 * 1024 * 2);
+}
+
+int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst) {
+	// We have 24 bits to represent offsets with.
+	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
+	int offset = (int)arena_.size();
+	if (offset >= MAX_ARENA_SIZE) {
+		WARN_LOG(JIT, "Filled JIT arena, restarting");
+		return -1;
+	}
+	for (int i = 0; i < inst.size(); i++) {
+		arena_.push_back(inst[i]);
+	}
+	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u16)inst.size()));
+	return (int)blocks_.size() - 1;
 }
 
 int IRBlockCache::GetBlockNumFromOffset(int offset) const {
@@ -492,10 +507,9 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 	double maxBloat = 0.0;
 	double minBloat = 1000000000.0;
 	for (const auto &b : blocks_) {
-		double codeSize = (double)b.GetNumInstructions() * sizeof(IRInst);
+		double codeSize = (double)b.GetNumInstructions() * 4;  // We count bloat in instructions, not bytes. sizeof(IRInst);
 		if (codeSize == 0)
 			continue;
-
 		u32 origAddr, mipsBytes;
 		b.GetRange(origAddr, mipsBytes);
 		double origSize = (double)mipsBytes;

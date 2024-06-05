@@ -184,6 +184,8 @@ static const IRMeta irMeta[] = {
 const IRMeta *metaIndex[256];
 
 void InitIR() {
+	if (metaIndex[0])
+		return;
 	for (size_t i = 0; i < ARRAY_SIZE(irMeta); i++) {
 		metaIndex[(int)irMeta[i].op] = &irMeta[i];
 	}
