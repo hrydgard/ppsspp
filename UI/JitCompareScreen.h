@@ -23,7 +23,14 @@ private:
 	UI::EventReturn OnAddressChange(UI::EventParams &e);
 	UI::EventReturn OnShowStats(UI::EventParams &e);
 
-	int currentBlock_ = -1;
+	// To switch, change the below things and call RecreateViews();
+	enum ViewMode {
+		BLOCK_LIST,
+		DISASM,
+	};
+	ViewMode viewMode_ = DISASM;
+	int currentBlock_ = -1;  // For DISASM mode
+	std::vector<int> blockList_;  // for BLOCK_LIST mode
 
 	UI::TextView *blockName_;
 	UI::TextEdit *blockAddr_;

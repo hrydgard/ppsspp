@@ -69,7 +69,7 @@ void JitCompareScreen::UpdateDisasm() {
 	}
 
 	char temp[256];
-	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
+	snprintf(temp, sizeof(temp), "%d/%d", currentBlock_, blockCacheDebug->GetNumBlocks());
 	blockName_->SetText(temp);
 
 	if (currentBlock_ < 0 || !blockCacheDebug || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
