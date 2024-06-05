@@ -234,7 +234,7 @@ void LogManager::Log(LogLevel level, LogType type, const char *file, int line, c
 			file = fileshort + 1;
 	}
 
-	GetTimeFormatted(message.timestamp);
+	GetCurrentTimeFormatted(message.timestamp);
 
 	if (hleCurrentThreadName) {
 		snprintf(message.header, sizeof(message.header), "%-12.12s %c[%s]: %s:%d",

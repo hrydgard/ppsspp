@@ -1554,6 +1554,8 @@ list(APPEND NativeAppSource
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.h
 	UI/InstallZipScreen.cpp
+	UI/JitCompareScreen.h
+	UI/JitCompareScreen.cpp
 	UI/MemStickScreen.h
 	UI/MemStickScreen.cpp
 	UI/ProfilerDraw.h

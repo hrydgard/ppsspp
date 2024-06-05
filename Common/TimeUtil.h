@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cstdint>
 
 // Seconds.
@@ -22,7 +21,7 @@ void sleep_ms(int ms);
 // Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
 void yield();
 
-void GetTimeFormatted(char formattedTime[13]);
+void GetCurrentTimeFormatted(char formattedTime[13]);
 
 // Rust-style Instant for clear and easy timing.
 class Instant {
@@ -30,10 +29,23 @@ public:
 	static Instant Now() {
 		return Instant(time_now_d());
 	}
-	double Elapsed() const {
+	double ElapsedSeconds() const {
 		return time_now_d() - instantTime_;
 	}
 private:
 	explicit Instant(double initTime) : instantTime_(initTime) {}
 	double instantTime_;
+};
+
+// Most accurate timer possible - no extra double conversions. Only for spans.
+class TimeSpan {
+public:
+	TimeSpan();
+	double ElapsedSeconds() const;
+	int64_t ElapsedNanos() const;
+private:
+	uint64_t nativeStart_;
+#ifndef _WIN32
+	int64_t nsecs_;
+#endif
 };

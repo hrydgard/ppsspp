@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "Common/TimeUtil.h"
+#include "Common/Log.h"
 
 #ifdef HAVE_LIBNX
 #include <switch.h>
@@ -31,8 +32,8 @@
 
 // TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
 
-static const double micros = 1000000.0;
-static const double nanos = 1000000000.0;
+constexpr double micros = 1000000.0;
+constexpr double nanos = 1000000000.0;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 
@@ -40,12 +41,16 @@ static LARGE_INTEGER frequency;
 static double frequencyMult;
 static LARGE_INTEGER startTime;
 
-double time_now_d() {
+static inline void InitTime() {
 	if (frequency.QuadPart == 0) {
 		QueryPerformanceFrequency(&frequency);
 		QueryPerformanceCounter(&startTime);
 		frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
 	}
+}
+
+double time_now_d() {
+	InitTime();
 	LARGE_INTEGER time;
 	QueryPerformanceCounter(&time);
 	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
@@ -84,6 +89,22 @@ double time_now_unix_utc() {
 
 void yield() {
 	YieldProcessor();
+}
+
+TimeSpan::TimeSpan() {
+	_dbg_assert_(frequencyMult != 0.0);
+	QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&nativeStart_));
+}
+
+double TimeSpan::ElapsedSeconds() const {
+	LARGE_INTEGER time;
+	QueryPerformanceCounter(&time);
+	double elapsed = static_cast<double>(time.QuadPart - nativeStart_);
+	return elapsed * frequencyMult;
+}
+
+int64_t TimeSpan::ElapsedNanos() const {
+	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
@@ -128,10 +149,34 @@ void yield() {
 #endif
 }
 
+TimeSpan::TimeSpan() {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	nativeStart_ = ts.tv_sec;
+	nsecs_ = ts.tv_nsec;
+}
+
+int64_t TimeSpan::ElapsedNanos() const {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	int64_t secs = ts.tv_sec - nativeStart_;
+	int64_t nsecs = ts.tv_nsec - nsecs_;
+	if (nsecs < 0) {
+		secs--;
+		nsecs += 1000000000;
+	}
+	return secs * 1000000000ULL + nsecs;
+}
+
+double TimeSpan::ElapsedSeconds() const {
+	return (double)ElapsedNanos() * (1.0 / nanos);
+}
+
 #else
 
+static time_t start;
+
 double time_now_d() {
-	static time_t start;
 	struct timeval tv;
 	gettimeofday(&tv, nullptr);
 	if (start == 0) {
@@ -141,7 +186,6 @@ double time_now_d() {
 }
 
 uint64_t time_now_raw() {
-	static time_t start;
 	struct timeval tv;
 	gettimeofday(&tv, nullptr);
 	if (start == 0) {
@@ -164,6 +208,30 @@ double time_now_unix_utc() {
 	return time_now_raw();
 }
 
+TimeSpan::TimeSpan() {
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
+	nativeStart_ = tv.tv_sec;
+	nsecs_ = tv.tv_usec;
+}
+
+int64_t TimeSpan::ElapsedNanos() const {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	int64_t secs = ts.tv_sec - nativeStart_;
+	int64_t usecs = ts.tv_nsec - nsecs_;
+	if (usecs < 0) {
+		secs--;
+		usecs += 1000000;
+	}
+	return secs * 1000000000 + usecs * 1000;
+}
+
+double TimeSpan::ElapsedSeconds() const {
+	return (double)ElapsedNanos() * (1.0 / 1000000000);
+}
+
 #endif
 
 void sleep_ms(int ms) {
@@ -180,7 +248,7 @@ void sleep_ms(int ms) {
 
 // Return the current time formatted as Minutes:Seconds:Milliseconds
 // in the form 00:00:000.
-void GetTimeFormatted(char formattedTime[13]) {
+void GetCurrentTimeFormatted(char formattedTime[13]) {
 	time_t sysTime;
 	time(&sysTime);
 
