@@ -362,6 +362,9 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_START_QUESTION, "¿"},
 	{NKCODE_LEFTBRACE, "{"},
 	{NKCODE_RIGHTBRACE, "}"},
+
+	{NKCODE_GUIDE, "Guide"},
+	{NKCODE_INFO, "Info"},
 };
 
 static const KeyMap_IntStrPair axis_names[] = {

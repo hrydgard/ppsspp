@@ -466,7 +466,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
-	if (!SetupController(controller)) {
+	if (!InitController(controller)) {
 		self.gameController = nil;
 	}
 }

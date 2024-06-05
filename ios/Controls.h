@@ -11,7 +11,8 @@
 // Code extracted from ViewController.mm, in order to modularize
 // and share it between multiple view controllers.
 
-bool SetupController(GCController *controller);
+bool InitController(GCController *controller);
+void ShutdownController(GCController *controller);
 
 struct TouchTracker {
 public:

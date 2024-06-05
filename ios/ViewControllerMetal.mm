@@ -595,7 +595,7 @@ extern float g_safeInsetBottom;
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
-	if (!SetupController(controller)) {
+	if (!InitController(controller)) {
 		self.gameController = nil;
 	}
 }
