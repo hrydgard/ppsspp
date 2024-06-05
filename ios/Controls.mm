@@ -23,10 +23,16 @@ static void analogTriggerPressed(InputAxis axis, float value) {
 	NativeAxis(&axisInput, 1);
 }
 
-bool SetupController(GCController *controller) {
+bool InitController(GCController *controller) {
 	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
 	if (extendedProfile == nil) {
 		return false;
+	}
+
+	if (@available(iOS 14.0, tvOS 14.0, *)) {
+		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+			element.preferredSystemGestureState = GCSystemGestureStateDisabled;
+		}
 	}
 
 	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
@@ -106,7 +112,7 @@ bool SetupController(GCController *controller) {
 #if defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
 	if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
 		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_15);
+			controllerButtonPressed(pressed, NKCODE_HOME);
 		};
 	}
 #endif
@@ -146,6 +152,14 @@ bool SetupController(GCController *controller) {
 	};
 
 	return true;
+}
+
+void ShutdownController(GCController *controller) {
+	if (@available(iOS 14.0, tvOS 14.0, *)) {
+		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+			element.preferredSystemGestureState = GCSystemGestureStateEnabled;
+		}
+	}
 }
 
 void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
