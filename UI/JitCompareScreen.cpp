@@ -15,16 +15,27 @@ void JitCompareScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT)));
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
-	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *mainView = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	LinearLayout *topBar = mainView->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	topBar->Add(new Button(dev->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
+	topBar->Add(new Button(dev->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
+	blockAddr_ = topBar->Add(new TextEdit("", dev->T("Block address"), ""));
+	blockAddr_->OnEnter.Handle(this, &JitCompareScreen::OnAddressChange);
+	blockName_ = topBar->Add(new TextView(dev->T("No block")));
+	blockStats_ = topBar->Add(new TextView(""));
+
+	LinearLayout *comparisonView = mainView->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
+
+	ScrollView *midColumnScroll = comparisonView->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 	midColumn->SetTag("JitCompareLeftDisasm");
 	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_->SetSpacing(0.0f);
 
-	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	ScrollView *rightColumnScroll = comparisonView->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	rightColumnScroll->SetTag("JitCompareRightDisasm");
 	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
@@ -32,17 +43,11 @@ void JitCompareScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(dev->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
 	leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice(dev->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
-	leftColumn->Add(new Choice(dev->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
 	leftColumn->Add(new Choice(dev->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
 	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	blockName_ = leftColumn->Add(new TextView(dev->T("No block")));
-	blockAddr_ = leftColumn->Add(new TextEdit("", dev->T("Block address"), "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
-	blockStats_ = leftColumn->Add(new TextView(""));
 
 	EventParams ignore{};
 	OnCurrentBlock(ignore);

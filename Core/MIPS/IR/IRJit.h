@@ -135,7 +135,7 @@ public:
 		}
 	}
 	bool IsValidBlock(int blockNum) const override {
-		return blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
+		return blockNum >= 0 && blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
 	}
 	IRBlock *GetBlockUnchecked(int blockNum) {
 		return &blocks_[blockNum];
