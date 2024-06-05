@@ -22,7 +22,7 @@ void sleep_ms(int ms);
 // Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
 void yield();
 
-void GetTimeFormatted(char formattedTime[13]);
+void GetCurrentTimeFormatted(char formattedTime[13]);
 
 // Rust-style Instant for clear and easy timing.
 class Instant {

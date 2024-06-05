@@ -180,7 +180,7 @@ void sleep_ms(int ms) {
 
 // Return the current time formatted as Minutes:Seconds:Milliseconds
 // in the form 00:00:000.
-void GetTimeFormatted(char formattedTime[13]) {
+void GetCurrentTimeFormatted(char formattedTime[13]) {
 	time_t sysTime;
 	time(&sysTime);
 
