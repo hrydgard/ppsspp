@@ -20,7 +20,6 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -500,6 +499,23 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 					0 /* bearing */);
 }
 
+// See PPSSPPUIApplication.mm for the other method
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesBegan(presses, event);
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
+#endif
+
 // The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
 // It's a bit limited but good enough.
 
@@ -514,18 +530,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 -(void) insertText:(NSString *)text
 {
-	std::string str = std::string([text UTF8String]);
+	std::string str([text UTF8String]);
 	INFO_LOG(SYSTEM, "Chars: %s", str.c_str());
-	UTF8 chars(str);
-	while (!chars.end()) {
-		uint32_t codePoint = chars.next();
-		INFO_LOG(SYSTEM, "Codepoint#: %d", codePoint);
-		KeyInput input{};
-		input.deviceId = DEVICE_ID_KEYBOARD;
-		input.flags = KEY_CHAR;
-		input.unicodeChar = codePoint;
-		NativeKey(input);
-	}
+	SendKeyboardChars(str);
 }
 
 -(BOOL) canBecomeFirstResponder

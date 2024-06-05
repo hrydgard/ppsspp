@@ -163,7 +163,7 @@ public:
 		}
 		return meta;
 	}
-	JitBlockProfileStats GetBlockProfileStats(int blockNum) const { // Cheap
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
 #ifdef IR_PROFILING
 		return blocks_[blockNum].profileStats_;
 #else
