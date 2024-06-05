@@ -119,7 +119,7 @@ bool TestMultithreadedScheduling() {
 
 	threads.clear();
 
-	printf("Stress test elapsed: %0.2f", start.Elapsed());
+	printf("Stress test elapsed: %0.2f", start.ElapsedSeconds());
 
 	return true;
 }

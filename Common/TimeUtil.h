@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cstdint>
 
 // Seconds.
@@ -30,10 +29,23 @@ public:
 	static Instant Now() {
 		return Instant(time_now_d());
 	}
-	double Elapsed() const {
+	double ElapsedSeconds() const {
 		return time_now_d() - instantTime_;
 	}
 private:
 	explicit Instant(double initTime) : instantTime_(initTime) {}
 	double instantTime_;
+};
+
+// Most accurate timer possible - no extra double conversions. Only for spans.
+class TimeSpan {
+public:
+	TimeSpan();
+	double ElapsedSeconds() const;
+	int64_t ElapsedNanos() const;
+private:
+	uint64_t nativeStart_;
+#ifndef _WIN32
+	int64_t nsecs_;
+#endif
 };
