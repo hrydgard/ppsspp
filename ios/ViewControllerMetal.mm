@@ -571,6 +571,9 @@ extern float g_safeInsetBottom;
 	g_iCadeTracker.ButtonUp(button);
 }
 
+// See PPSSPPUIApplication.mm for the other method
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesBegan(presses, event);
 }
@@ -582,6 +585,8 @@ extern float g_safeInsetBottom;
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
 }
+
+#endif
 
 - (void)controllerDidConnect:(NSNotification *)note
 {

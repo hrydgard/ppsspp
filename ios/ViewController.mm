@@ -499,6 +499,9 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 					0 /* bearing */);
 }
 
+// See PPSSPPUIApplication.mm for the other method
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesBegan(presses, event);
 }
@@ -510,6 +513,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
 }
+
+#endif
 
 // The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
 // It's a bit limited but good enough.
