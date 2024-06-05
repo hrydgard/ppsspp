@@ -912,6 +912,7 @@ float MATH3D_CALL vectorGetByIndex(__m128 v) {
 
 #if defined(_M_SSE)
 // x, y, and z should be broadcast.  Should only be used through Vec3f version.
+// Note that this will read an extra float from the matrix, so it better not be at the end of an allocation!
 inline __m128 MATH3D_CALL Vec3ByMatrix43Internal(__m128 x, __m128 y, __m128 z, const float m[12]) {
 	__m128 col0 = _mm_loadu_ps(m);
 	__m128 col1 = _mm_loadu_ps(m + 3);

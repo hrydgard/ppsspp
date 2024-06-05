@@ -658,9 +658,9 @@ void VertexDecoder::Step_NormalS8ToFloat() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
-	normal[0] = sv[0] * (1.0f / 128.0f);
-	normal[1] = sv[1] * (1.0f / 128.0f);
-	normal[2] = sv[2] * (1.0f / 128.0f);
+	normal[0] = (float)sv[0] * (1.0f / 128.0f);
+	normal[1] = (float)sv[1] * (1.0f / 128.0f);
+	normal[2] = (float)sv[2] * (1.0f / 128.0f);
 }
 
 void VertexDecoder::Step_NormalS16() const
