@@ -718,6 +718,10 @@ bool IRNativeBlockCacheDebugInterface::IsValidBlock(int blockNum) const {
 	return irBlocks_.IsValidBlock(blockNum);
 }
 
+JitBlockMeta IRNativeBlockCacheDebugInterface::GetBlockMeta(int blockNum) const {
+	return irBlocks_.GetBlockMeta(blockNum);
+}
+
 int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
 	return irBlocks_.GetNumBlocks();
 }

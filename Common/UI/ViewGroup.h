@@ -65,6 +65,7 @@ public:
 	bool CanBeFocused() const override { return false; }
 	bool IsViewGroup() const override { return true; }
 	bool ContainsSubview(const View *view) const override;
+	int IndexOfSubview(const View *view) const;
 
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 

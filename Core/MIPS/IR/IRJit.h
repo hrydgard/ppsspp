@@ -155,6 +155,14 @@ public:
 	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	JitBlockMeta GetBlockMeta(int blockNum) const override {
+		JitBlockMeta meta{};
+		if (IsValidBlock(blockNum)) {
+			meta.valid = true;
+			blocks_[blockNum].GetRange(meta.addr, meta.sizeInBytes);
+		}
+		return meta;
+	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
 

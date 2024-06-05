@@ -462,7 +462,7 @@ public:
 	Visibility GetVisibility() const { return visibility_; }
 
 	const std::string &Tag() const { return tag_; }
-	void SetTag(const std::string &str) { tag_ = str; }
+	void SetTag(std::string_view str) { tag_ = str; }
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
