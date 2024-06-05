@@ -87,8 +87,34 @@ void JitCompareScreen::CreateViews() {
 	blockListView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	blockListView_->SetVisibility(V_GONE);
 
+	// Should match the ListSort enum
+	static ContextMenuItem sortMenu[] = {
+		{ "Block number", "I_ARROW_UP" },
+		{ "Block length", "I_ARROW_DOWN" },
+		{ "Block length", "I_ARROW_UP" },
+		{ "Time spent", "I_ARROW_DOWN" },
+		{ "Executions", "I_ARROW_DOWN" },
+	};
+	int sortCount = ARRAY_SIZE(sortMenu);
+	if (MIPSComp::jit) {
+		JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+		if (!blockCacheDebug->SupportsProfiling()) {
+			sortCount -= 2;
+		}
+	}
+
 	LinearLayout *listTopBar = blockListView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	listTopBar->Add(new Button(dev->T("Sort...")))->OnClick.Add([this](UI::EventParams &e) {
+	Button *sortButton = new Button(dev->T("Sort..."));
+	listTopBar->Add(sortButton)->OnClick.Add([this, sortButton, sortCount](UI::EventParams &e) {
+		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
+		screenManager()->push(contextMenu);
+		contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+			if (e.a < (int)ListSort::MAX) {
+				listSort_ = (ListSort)e.a;
+				UpdateDisasm();
+			}
+			return UI::EVENT_DONE;
+		});
 		return UI::EVENT_DONE;
 	});
 
@@ -251,9 +277,15 @@ void JitCompareScreen::UpdateDisasm() {
 		blockListContainer_->Clear();
 		for (int i = 0; i < std::min(100, (int)blockList_.size()); i++) {
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockList_[i]);
-
 			char temp[512], small[512];
-			snprintf(temp, sizeof(temp), "%08x: %d instrs", meta.addr, meta.sizeInBytes / 4);
+			if (blockCacheDebug->SupportsProfiling()) {
+				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockList_[i]);
+				int execs = (int)stats.executions;
+				double us = (double)stats.totalNanos / 1000.0;
+				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d exec, %0.2f us)", meta.addr, meta.sizeInBytes / 4, execs, us);
+			} else {
+				snprintf(temp, sizeof(temp), "%08x: %d instrs", meta.addr, meta.sizeInBytes / 4);
+			}
 			snprintf(small, sizeof(small), "Small text");
 			Choice *blockChoice = blockListContainer_->Add(new Choice(temp, small));
 			blockChoice->OnClick.Handle(this, &JitCompareScreen::OnBlockClick);

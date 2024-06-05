@@ -42,6 +42,7 @@ private:
 		BLOCK_LENGTH_ASC,
 		TIME_SPENT,
 		EXECUTIONS,
+		MAX
 	};
 	ViewMode viewMode_ = ViewMode::BLOCK_LIST;
 	ListType listType_ = ListType::ALL_BLOCKS;

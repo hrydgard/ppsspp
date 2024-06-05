@@ -33,7 +33,7 @@
 #include "stddef.h"
 #endif
 
-// #define IR_PROFILING
+#define IR_PROFILING
 
 namespace MIPSComp {
 
