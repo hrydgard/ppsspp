@@ -17,7 +17,7 @@ private:
 	void FillBlockList();
 
 	UI::LinearLayout *comparisonView_;
-	UI::ScrollView *blockListView_;
+	UI::LinearLayout *blockListView_;
 	UI::LinearLayout *blockListContainer_;
 
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
@@ -39,6 +39,7 @@ private:
 	enum class ListSort {
 		BLOCK_NUM,
 		BLOCK_LENGTH_DESC,
+		BLOCK_LENGTH_ASC,
 		TIME_SPENT,
 		EXECUTIONS,
 	};

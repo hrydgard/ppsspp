@@ -39,18 +39,19 @@ void JitCompareScreen::CreateViews() {
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
 	comparisonView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	comparisonView_->SetVisibility(V_VISIBLE);
 	LinearLayout *blockTopBar = comparisonView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	blockTopBar->Add(new Button(dev->T("Back to list")))->OnClick.Add([this](UI::EventParams &e) {
+	blockTopBar->Add(new Button("", ImageID("I_ARROW_UP")))->OnClick.Add([this](UI::EventParams &e) {
 		viewMode_ = ViewMode::BLOCK_LIST;
 		Flip();
 		return UI::EVENT_DONE;
 	});
-	blockTopBar->Add(new Button(dev->T("Prev")))->OnClick.Add([=](UI::EventParams &e) {
+	blockTopBar->Add(new Button("", ImageID("I_ARROW_LEFT")))->OnClick.Add([=](UI::EventParams &e) {
 		currentBlock_--;
 		UpdateDisasm();
 		return UI::EVENT_DONE;
 	});
-	blockTopBar->Add(new Button(dev->T("Next")))->OnClick.Add([=](UI::EventParams &e) {
+	blockTopBar->Add(new Button("", ImageID("I_ARROW_RIGHT")))->OnClick.Add([=](UI::EventParams &e) {
 		currentBlock_++;
 		UpdateDisasm();
 		return UI::EVENT_DONE;
@@ -83,9 +84,16 @@ void JitCompareScreen::CreateViews() {
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
 
-	blockListView_ = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	blockListView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	blockListView_->SetVisibility(V_GONE);
-	blockListContainer_ = blockListView_->Add(new LinearLayout(ORIENT_VERTICAL));
+
+	LinearLayout *listTopBar = blockListView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	listTopBar->Add(new Button(dev->T("Sort...")))->OnClick.Add([this](UI::EventParams &e) {
+		return UI::EVENT_DONE;
+	});
+
+	ScrollView *blockScroll = blockListView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	blockListContainer_ = blockScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
 	// leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
 	leftColumn->Add(new Choice(dev->T("All")))->OnClick.Add([=](UI::EventParams &e) {
@@ -106,6 +114,7 @@ void JitCompareScreen::CreateViews() {
 		UpdateDisasm();
 		return UI::EVENT_DONE;
 	});
+
 	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	UpdateDisasm();
@@ -147,17 +156,32 @@ void JitCompareScreen::FillBlockList() {
 		// Already sorted, effectively.
 		return;
 	}
-	if (listSort_ != ListSort::BLOCK_LENGTH_DESC) {
-		return;
-	}
 
 	std::sort(blockList_.begin(), blockList_.end(), [=](const int &a_index, const int &b_index) {
-		JitBlockMeta a_meta = blockCacheDebug->GetBlockMeta(a_index);
-		JitBlockMeta b_meta = blockCacheDebug->GetBlockMeta(b_index);
-
+		// First, check metadata sorts.
 		switch (listSort_) {
 		case ListSort::BLOCK_LENGTH_DESC:
+		{
+			JitBlockMeta a_meta = blockCacheDebug->GetBlockMeta(a_index);
+			JitBlockMeta b_meta = blockCacheDebug->GetBlockMeta(b_index);
 			return a_meta.sizeInBytes > b_meta.sizeInBytes;  // reverse for descending
+		}
+		case ListSort::BLOCK_LENGTH_ASC:
+		{
+			JitBlockMeta a_meta = blockCacheDebug->GetBlockMeta(a_index);
+			JitBlockMeta b_meta = blockCacheDebug->GetBlockMeta(b_index);
+			return a_meta.sizeInBytes < b_meta.sizeInBytes;
+		}
+		default:
+			break;
+		}
+		JitBlockProfileStats a_stats = blockCacheDebug->GetBlockProfileStats(a_index);
+		JitBlockProfileStats b_stats = blockCacheDebug->GetBlockProfileStats(b_index);
+		switch (listSort_) {
+		case ListSort::EXECUTIONS:
+			return a_stats.executions > b_stats.executions;
+		case ListSort::TIME_SPENT:
+			return a_stats.totalNanos > b_stats.totalNanos;
 		default:
 			return false;
 		}
