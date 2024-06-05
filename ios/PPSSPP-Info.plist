@@ -44,6 +44,8 @@
 	<false/>
 	<key>UIRequiresFullScreen</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PPSSPP needs some local network access for network multiplayer support.</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
