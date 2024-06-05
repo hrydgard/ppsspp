@@ -1655,7 +1655,7 @@ void retro_run(void)
 
    if (useEmuThread)
    {
-      if(   emuThreadState == EmuThreadState::PAUSED ||
+      if (  emuThreadState == EmuThreadState::PAUSED ||
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          VsyncSwapIntervalDetect();
@@ -1694,9 +1694,8 @@ namespace SaveState
 
 size_t retro_serialize_size(void)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
-   }
 
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
@@ -1709,9 +1708,8 @@ size_t retro_serialize_size(void)
 
 bool retro_serialize(void *data, size_t size)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
-   }
 
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
@@ -1733,6 +1731,9 @@ bool retro_serialize(void *data, size_t size)
 
 bool retro_unserialize(const void *data, size_t size)
 {
+   if (!gpu) // The HW renderer isn't ready on first pass.
+      return false;
+
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
