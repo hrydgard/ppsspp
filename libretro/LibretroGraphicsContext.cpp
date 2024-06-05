@@ -42,6 +42,10 @@ LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_t
 void LibretroHWRenderContext::ContextReset() {
 	INFO_LOG(G3D, "Context reset");
 
+	if (gpu && Libretro::useEmuThread) {
+		Libretro::EmuThreadPause();
+	}
+
 	if (gpu) {
 		gpu->DeviceLost();
 	}
@@ -56,6 +60,10 @@ void LibretroHWRenderContext::ContextReset() {
 
 	if (gpu) {
 		gpu->DeviceRestore(draw_);
+	}
+
+	if (gpu && Libretro::useEmuThread) {
+		Libretro::EmuThreadStart();
 	}
 }
 
