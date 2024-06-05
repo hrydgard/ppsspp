@@ -718,12 +718,20 @@ bool IRNativeBlockCacheDebugInterface::IsValidBlock(int blockNum) const {
 	return irBlocks_.IsValidBlock(blockNum);
 }
 
+JitBlockMeta IRNativeBlockCacheDebugInterface::GetBlockMeta(int blockNum) const {
+	return irBlocks_.GetBlockMeta(blockNum);
+}
+
 int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
 	return irBlocks_.GetNumBlocks();
 }
 
 int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
 	return irBlocks_.GetBlockNumberFromStartAddress(em_address, realBlocksOnly);
+}
+
+JitBlockProfileStats IRNativeBlockCacheDebugInterface::GetBlockProfileStats(int blockNum) const {
+	return irBlocks_.GetBlockProfileStats(blockNum);
 }
 
 void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {

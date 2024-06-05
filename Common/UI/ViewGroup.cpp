@@ -67,6 +67,16 @@ bool ViewGroup::ContainsSubview(const View *view) const {
 	return false;
 }
 
+int ViewGroup::IndexOfSubview(const View *view) const {
+	int index = 0;
+	for (const View *subview : views_) {
+		if (subview == view)
+			return index;
+		index++;
+	}
+	return -1;
+}
+
 void ViewGroup::Clear() {
 	for (View *view : views_) {
 		delete view;

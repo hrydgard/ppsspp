@@ -103,13 +103,27 @@ struct JitBlockDebugInfo {
 	std::vector<std::string> targetDisasm;
 };
 
+struct JitBlockMeta {
+	bool valid;
+	uint32_t addr;
+	uint32_t sizeInBytes;
+};
+
+struct JitBlockProfileStats {
+	int64_t executions;
+	int64_t totalNanos;
+};
+
 class JitBlockCacheDebugInterface {
 public:
 	virtual int GetNumBlocks() const = 0;
 	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
-	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0;
+	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0; // Expensive
+	virtual JitBlockMeta GetBlockMeta(int blockNum) const = 0;
+	virtual JitBlockProfileStats GetBlockProfileStats(int blockNum) const = 0;
 	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
 	virtual bool IsValidBlock(int blockNum) const = 0;
+	virtual bool SupportsProfiling() const { return false; }
 
 	virtual ~JitBlockCacheDebugInterface() {}
 };
@@ -165,7 +179,19 @@ public:
 	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	int GetNumBlocks() const override { return num_blocks_; }
-	bool IsValidBlock(int blockNum) const override { return blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
+	bool IsValidBlock(int blockNum) const override { return blockNum >= 0 && blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
+	JitBlockMeta GetBlockMeta(int blockNum) const override {
+		JitBlockMeta meta{};
+		if (IsValidBlock(blockNum)) {
+			meta.valid = true;
+			meta.addr = blocks_[blockNum].originalAddress;
+			meta.sizeInBytes = blocks_[blockNum].originalSize;
+		}
+		return meta;
+	}
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
+		return JitBlockProfileStats{};
+	}
 
 	static int GetBlockExitSize();
 

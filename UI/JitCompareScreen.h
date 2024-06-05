@@ -4,26 +4,52 @@
 
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
+	JitCompareScreen();
 	void CreateViews() override;
 
 	const char *tag() const override { return "JitCompare"; }
 
 private:
+	void Flip();
 	void UpdateDisasm();
-	UI::EventReturn OnRandomBlock(UI::EventParams &e);
-	UI::EventReturn OnRandomFPUBlock(UI::EventParams &e);
-	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
-	void OnRandomBlock(int flag);
 
-	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
+	// Uses the current ListType
+	void FillBlockList();
+
+	UI::LinearLayout *comparisonView_;
+	UI::LinearLayout *blockListView_;
+	UI::LinearLayout *blockListContainer_;
+
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
-	UI::EventReturn OnPrevBlock(UI::EventParams &e);
-	UI::EventReturn OnNextBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
 	UI::EventReturn OnAddressChange(UI::EventParams &e);
 	UI::EventReturn OnShowStats(UI::EventParams &e);
+	UI::EventReturn OnBlockClick(UI::EventParams &e);
 
-	int currentBlock_ = -1;
+	// To switch, change the below things and call RecreateViews();
+	enum class ViewMode {
+		BLOCK_LIST,
+		DISASM,
+	};
+	enum class ListType {
+		ALL_BLOCKS,
+		FPU_BLOCKS,
+		VFPU_BLOCKS,
+	};
+	enum class ListSort {
+		BLOCK_NUM,
+		BLOCK_LENGTH_DESC,
+		BLOCK_LENGTH_ASC,
+		TIME_SPENT,
+		EXECUTIONS,
+		MAX
+	};
+	ViewMode viewMode_ = ViewMode::BLOCK_LIST;
+	ListType listType_ = ListType::ALL_BLOCKS;
+	ListSort listSort_ = ListSort::BLOCK_LENGTH_DESC;
+
+	int currentBlock_ = -1;  // For DISASM mode
+	std::vector<int> blockList_;  // for BLOCK_LIST mode
 
 	UI::TextView *blockName_;
 	UI::TextEdit *blockAddr_;

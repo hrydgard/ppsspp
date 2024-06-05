@@ -165,6 +165,8 @@ public:
 	int GetNumBlocks() const override;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	JitBlockMeta GetBlockMeta(int blockNum) const override;
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override;
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	bool IsValidBlock(int blockNum) const override;
 

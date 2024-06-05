@@ -40,6 +40,7 @@
 #include "Core/MIPS/IR/IRNativeCommon.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
+#include "Common/TimeUtil.h"
 
 namespace MIPSComp {
 
@@ -257,7 +258,17 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
+
+#ifdef IR_PROFILING
+				{
+					TimeSpan span;
+					mips->pc = IRInterpret(mips, block->GetInstructions());
+					block->profileStats_.executions += 1;
+					block->profileStats_.totalNanos += span.ElapsedNanos();
+				}
+#else
 				mips->pc = IRInterpret(mips, block->GetInstructions());
+#endif
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);

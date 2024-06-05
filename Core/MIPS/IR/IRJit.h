@@ -33,6 +33,8 @@
 #include "stddef.h"
 #endif
 
+// #define IR_PROFILING
+
 namespace MIPSComp {
 
 // TODO : Use arena allocators. For now let's just malloc.
@@ -98,6 +100,10 @@ public:
 	void Finalize(int number);
 	void Destroy(int number);
 
+#ifdef IR_PROFILING
+	JitBlockProfileStats profileStats_{};
+#endif
+
 private:
 	u64 CalculateHash() const;
 
@@ -129,7 +135,7 @@ public:
 		}
 	}
 	bool IsValidBlock(int blockNum) const override {
-		return blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
+		return blockNum >= 0 && blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
 	}
 	IRBlock *GetBlockUnchecked(int blockNum) {
 		return &blocks_[blockNum];
@@ -149,8 +155,31 @@ public:
 	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	JitBlockMeta GetBlockMeta(int blockNum) const override {
+		JitBlockMeta meta{};
+		if (IsValidBlock(blockNum)) {
+			meta.valid = true;
+			blocks_[blockNum].GetRange(meta.addr, meta.sizeInBytes);
+		}
+		return meta;
+	}
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const { // Cheap
+#ifdef IR_PROFILING
+		return blocks_[blockNum].profileStats_;
+#else
+		return JitBlockProfileStats{};
+#endif
+	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+
+	bool SupportsProfiling() const override {
+#ifdef IR_PROFILING
+		return true;
+#else
+		return false;
+#endif
+	}
 
 private:
 	u32 AddressToPage(u32 addr) const;
