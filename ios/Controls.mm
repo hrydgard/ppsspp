@@ -1,5 +1,6 @@
 #include "Controls.h"
 
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
@@ -379,4 +380,168 @@ void ProcessAccelerometerData(CMAccelerometerData *accData) {
 
 	// Might need to change these for portrait or inverse landscape
 	NativeAccelerometer(-acc.x, -acc.y, -acc.z);
+}
+
+void SendKeyboardChars(std::string_view str) {
+	UTF8 chars(str);
+	while (!chars.end()) {
+		uint32_t codePoint = chars.next();
+		KeyInput input{};
+		input.deviceId = DEVICE_ID_KEYBOARD;
+		input.flags = KEY_CHAR;
+		input.unicodeChar = codePoint;
+		NativeKey(input);
+	}
+}
+
+void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
+	for (UIPress *press in presses) {
+		if (!press.key) {
+			// I guess we could support remotes and stuff.
+			continue;
+		}
+		if (@available(iOS 13.0, *)) {
+			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
+			if (code != NKCODE_UNKNOWN) {
+				KeyInput input{};
+				input.deviceId = DEVICE_ID_KEYBOARD;
+				input.keyCode = code;
+				input.flags = KEY_DOWN;
+				NativeKey(input);
+				INFO_LOG(SYSTEM, "pressesBegan %d", code);
+			}
+		}
+		if (press.key.characters) {
+			std::string chars([press.key.characters UTF8String]);
+			SendKeyboardChars(chars);
+		}
+	}
+}
+
+void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event) {
+	for (UIPress *press in presses) {
+		if (!press.key) {
+			// I guess we could support remotes and stuff.
+			continue;
+		}
+		if (@available(iOS 13.0, *)) {
+			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
+			if (code != NKCODE_UNKNOWN) {
+				KeyInput input{};
+				input.deviceId = DEVICE_ID_KEYBOARD;
+				input.keyCode = code;
+				input.flags = KEY_UP;
+				NativeKey(input);
+				INFO_LOG(SYSTEM, "pressesEnded %d", code);
+			}
+		}
+	}
+}
+
+InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage) {
+	switch (usage) {
+	case UIKeyboardHIDUsageKeyboardA: return NKCODE_A;
+	case UIKeyboardHIDUsageKeyboardB: return NKCODE_B;
+	case UIKeyboardHIDUsageKeyboardC: return NKCODE_C;
+	case UIKeyboardHIDUsageKeyboardD: return NKCODE_D;
+	case UIKeyboardHIDUsageKeyboardE: return NKCODE_E;
+	case UIKeyboardHIDUsageKeyboardF: return NKCODE_F;
+	case UIKeyboardHIDUsageKeyboardG: return NKCODE_G;
+	case UIKeyboardHIDUsageKeyboardH: return NKCODE_H;
+	case UIKeyboardHIDUsageKeyboardI: return NKCODE_I;
+	case UIKeyboardHIDUsageKeyboardJ: return NKCODE_J;
+	case UIKeyboardHIDUsageKeyboardK: return NKCODE_K;
+	case UIKeyboardHIDUsageKeyboardL: return NKCODE_L;
+	case UIKeyboardHIDUsageKeyboardM: return NKCODE_M;
+	case UIKeyboardHIDUsageKeyboardN: return NKCODE_N;
+	case UIKeyboardHIDUsageKeyboardO: return NKCODE_O;
+	case UIKeyboardHIDUsageKeyboardP: return NKCODE_P;
+	case UIKeyboardHIDUsageKeyboardQ: return NKCODE_Q;
+	case UIKeyboardHIDUsageKeyboardR: return NKCODE_R;
+	case UIKeyboardHIDUsageKeyboardS: return NKCODE_S;
+	case UIKeyboardHIDUsageKeyboardT: return NKCODE_T;
+	case UIKeyboardHIDUsageKeyboardU: return NKCODE_U;
+	case UIKeyboardHIDUsageKeyboardV: return NKCODE_V;
+	case UIKeyboardHIDUsageKeyboardW: return NKCODE_W;
+	case UIKeyboardHIDUsageKeyboardX: return NKCODE_X;
+	case UIKeyboardHIDUsageKeyboardY: return NKCODE_Y;
+	case UIKeyboardHIDUsageKeyboardZ: return NKCODE_Z;
+	case UIKeyboardHIDUsageKeyboard1: return NKCODE_1;
+	case UIKeyboardHIDUsageKeyboard2: return NKCODE_2;
+	case UIKeyboardHIDUsageKeyboard3: return NKCODE_3;
+	case UIKeyboardHIDUsageKeyboard4: return NKCODE_4;
+	case UIKeyboardHIDUsageKeyboard5: return NKCODE_5;
+	case UIKeyboardHIDUsageKeyboard6: return NKCODE_6;
+	case UIKeyboardHIDUsageKeyboard7: return NKCODE_7;
+	case UIKeyboardHIDUsageKeyboard8: return NKCODE_8;
+	case UIKeyboardHIDUsageKeyboard9: return NKCODE_9;
+	case UIKeyboardHIDUsageKeyboard0: return NKCODE_0;
+	case UIKeyboardHIDUsageKeyboardReturnOrEnter: return NKCODE_NUMPAD_ENTER;
+	case UIKeyboardHIDUsageKeyboardEscape: return NKCODE_ESCAPE;
+	case UIKeyboardHIDUsageKeyboardDeleteOrBackspace: return NKCODE_DEL;  // really.
+	case UIKeyboardHIDUsageKeyboardTab: return NKCODE_TAB;
+	case UIKeyboardHIDUsageKeyboardSpacebar: return NKCODE_SPACE;
+	case UIKeyboardHIDUsageKeyboardHyphen: return NKCODE_MINUS;
+	case UIKeyboardHIDUsageKeyboardEqualSign: return NKCODE_EQUALS;
+	case UIKeyboardHIDUsageKeyboardOpenBracket: return NKCODE_LEFT_BRACKET;
+	case UIKeyboardHIDUsageKeyboardCloseBracket: return NKCODE_RIGHT_BRACKET;
+	case UIKeyboardHIDUsageKeyboardBackslash: return NKCODE_BACKSLASH;
+	case UIKeyboardHIDUsageKeyboardNonUSPound: return NKCODE_POUND;
+	case UIKeyboardHIDUsageKeyboardSemicolon: return NKCODE_SEMICOLON;
+	case UIKeyboardHIDUsageKeyboardQuote: return NKCODE_APOSTROPHE;
+	case UIKeyboardHIDUsageKeyboardGraveAccentAndTilde: return NKCODE_GRAVE;
+	case UIKeyboardHIDUsageKeyboardComma: return NKCODE_COMMA;
+	case UIKeyboardHIDUsageKeyboardPeriod: return NKCODE_PERIOD;
+	case UIKeyboardHIDUsageKeyboardSlash: return NKCODE_SLASH;
+	case UIKeyboardHIDUsageKeyboardCapsLock: return NKCODE_CAPS_LOCK;
+	case UIKeyboardHIDUsageKeyboardF1: return NKCODE_F1;
+	case UIKeyboardHIDUsageKeyboardF2: return NKCODE_F2;
+	case UIKeyboardHIDUsageKeyboardF3: return NKCODE_F3;
+	case UIKeyboardHIDUsageKeyboardF4: return NKCODE_F4;
+	case UIKeyboardHIDUsageKeyboardF5: return NKCODE_F5;
+	case UIKeyboardHIDUsageKeyboardF6: return NKCODE_F6;
+	case UIKeyboardHIDUsageKeyboardF7: return NKCODE_F7;
+	case UIKeyboardHIDUsageKeyboardF8: return NKCODE_F8;
+	case UIKeyboardHIDUsageKeyboardF9: return NKCODE_F9;
+	case UIKeyboardHIDUsageKeyboardF10: return NKCODE_F10;
+	case UIKeyboardHIDUsageKeyboardF11: return NKCODE_F11;
+	case UIKeyboardHIDUsageKeyboardF12: return NKCODE_F12;
+	case UIKeyboardHIDUsageKeyboardScrollLock: return NKCODE_SCROLL_LOCK;
+	case UIKeyboardHIDUsageKeyboardInsert: return NKCODE_INSERT;
+	case UIKeyboardHIDUsageKeyboardHome: return NKCODE_HOME;
+	case UIKeyboardHIDUsageKeyboardPageUp: return NKCODE_PAGE_UP;
+	case UIKeyboardHIDUsageKeyboardDeleteForward: return NKCODE_DEL;
+	case UIKeyboardHIDUsageKeyboardEnd: return NKCODE_MOVE_END;
+	case UIKeyboardHIDUsageKeyboardPageDown: return NKCODE_PAGE_DOWN;
+	case UIKeyboardHIDUsageKeyboardRightArrow: return NKCODE_DPAD_RIGHT;
+	case UIKeyboardHIDUsageKeyboardLeftArrow: return NKCODE_DPAD_LEFT;
+	case UIKeyboardHIDUsageKeyboardDownArrow: return NKCODE_DPAD_DOWN;
+	case UIKeyboardHIDUsageKeyboardUpArrow: return NKCODE_DPAD_UP;
+	case UIKeyboardHIDUsageKeypadNumLock: return NKCODE_NUM_LOCK;
+	case UIKeyboardHIDUsageKeypadSlash: return NKCODE_NUMPAD_DIVIDE;
+	case UIKeyboardHIDUsageKeypadAsterisk: return NKCODE_NUMPAD_MULTIPLY;
+	case UIKeyboardHIDUsageKeypadHyphen: return NKCODE_NUMPAD_SUBTRACT;
+	case UIKeyboardHIDUsageKeypadPlus: return NKCODE_NUMPAD_ADD;
+	case UIKeyboardHIDUsageKeypadEnter: return NKCODE_NUMPAD_ENTER;
+	case UIKeyboardHIDUsageKeypad1: return NKCODE_NUMPAD_1;
+	case UIKeyboardHIDUsageKeypad2: return NKCODE_NUMPAD_2;
+	case UIKeyboardHIDUsageKeypad3: return NKCODE_NUMPAD_3;
+	case UIKeyboardHIDUsageKeypad4: return NKCODE_NUMPAD_4;
+	case UIKeyboardHIDUsageKeypad5: return NKCODE_NUMPAD_5;
+	case UIKeyboardHIDUsageKeypad6: return NKCODE_NUMPAD_6;
+	case UIKeyboardHIDUsageKeypad7: return NKCODE_NUMPAD_7;
+	case UIKeyboardHIDUsageKeypad8: return NKCODE_NUMPAD_8;
+	case UIKeyboardHIDUsageKeypad9: return NKCODE_NUMPAD_9;
+	case UIKeyboardHIDUsageKeypad0: return NKCODE_NUMPAD_0;
+	case UIKeyboardHIDUsageKeypadPeriod: return NKCODE_NUMPAD_COMMA;
+	case UIKeyboardHIDUsageKeyboardNonUSBackslash: return NKCODE_BACKSLASH;
+	case UIKeyboardHIDUsageKeyboardApplication: return NKCODE_APP_SWITCH;
+	case UIKeyboardHIDUsageKeyboardPower: return NKCODE_POWER;
+	case UIKeyboardHIDUsageKeypadEqualSign: return NKCODE_NUMPAD_EQUALS;
+	case UIKeyboardHIDUsageKeyboardMenu: return NKCODE_MENU;
+	case UIKeyboardHIDUsageKeyboardMute: return NKCODE_MUTE;
+	case UIKeyboardHIDUsageKeyboardVolumeUp: return NKCODE_VOLUME_UP;
+	case UIKeyboardHIDUsageKeypadComma: return NKCODE_NUMPAD_COMMA;
+	default: return NKCODE_UNKNOWN;
+	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string_view>
 
 #import <GameController/GameController.h>
 #import <CoreMotion/CoreMotion.h>
@@ -43,3 +44,8 @@ private:
 };
 
 void ProcessAccelerometerData(CMAccelerometerData *accData);
+InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage);
+
+void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event);
+void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event);
+void SendKeyboardChars(std::string_view str);

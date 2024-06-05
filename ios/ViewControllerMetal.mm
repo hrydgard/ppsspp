@@ -12,7 +12,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/Data/Text/Parsers.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -572,6 +571,18 @@ extern float g_safeInsetBottom;
 	g_iCadeTracker.ButtonUp(button);
 }
 
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesBegan(presses, event);
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+	KeyboardPressesEnded(presses, event);
+}
+
 - (void)controllerDidConnect:(NSNotification *)note
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
@@ -659,17 +670,9 @@ extern float g_safeInsetBottom;
 
 -(void) insertText:(NSString *)text
 {
-	std::string str = std::string([text UTF8String]);
+	std::string str([text UTF8String]);
 	INFO_LOG(SYSTEM, "Chars: %s", str.c_str());
-	UTF8 chars(str);
-	while (!chars.end()) {
-		uint32_t codePoint = chars.next();
-		KeyInput input{};
-		input.deviceId = DEVICE_ID_KEYBOARD;
-		input.flags = KEY_CHAR;
-		input.unicodeChar = codePoint;
-		NativeKey(input);
-	}
+	SendKeyboardChars(str);
 }
 
 -(BOOL) canBecomeFirstResponder
