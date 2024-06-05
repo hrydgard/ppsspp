@@ -487,9 +487,12 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
-   bool isFastForwarding;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
-       coreParam.fastForward = isFastForwarding;
+   if (g_Config.bForceLagSync)
+   {
+      bool isFastForwarding;
+      if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+          coreParam.fastForward = isFastForwarding;
+   }
 
    bool updated = false;
 
@@ -1192,9 +1195,20 @@ static const struct retro_controller_info ports[] =
 
 void retro_init(void)
 {
-   VsyncSwapIntervalReset();
+   struct retro_log_callback log;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
+   {
+      log_cb = log.log;
+      LogManager::Init(&g_Config.bEnableLogging);
+      printfLogger = new PrintfLogger(log);
+      LogManager* logman = LogManager::GetInstance();
+      logman->RemoveListener(logman->GetConsoleListener());
+      logman->RemoveListener(logman->GetDebuggerListener());
+      logman->ChangeFileLog(nullptr);
+      logman->AddListener(printfLogger);
+   }
 
-   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+   VsyncSwapIntervalReset();
 
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left" },
@@ -1221,22 +1235,11 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
-   struct retro_log_callback log;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
-   {
-      log_cb = log.log;
-      LogManager::Init(&g_Config.bEnableLogging);
-      printfLogger = new PrintfLogger(log);
-      LogManager* logman = LogManager::GetInstance();
-      logman->RemoveListener(logman->GetConsoleListener());
-      logman->RemoveListener(logman->GetDebuggerListener());
-      logman->ChangeFileLog(nullptr);
-      logman->AddListener(printfLogger);
-      logman->SetAllLogLevels(LogLevel::LINFO);
-   }
-
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
+
+   // Log levels must be set after g_Config.Load
+   LogManager::GetInstance()->SetAllLogLevels(LogLevel::LINFO);
 
    const char* nickname = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
@@ -1263,6 +1266,8 @@ void retro_init(void)
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
 
+   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
    init_output_audio_buffer(2048);
 }
 
@@ -1270,6 +1275,7 @@ void retro_deinit(void)
 {
    g_threadManager.Teardown();
    LogManager::Shutdown();
+   log_cb = NULL;
 
    delete printfLogger;
    printfLogger = nullptr;
@@ -1652,7 +1658,7 @@ void retro_run(void)
 
    if (useEmuThread)
    {
-      if(   emuThreadState == EmuThreadState::PAUSED ||
+      if (  emuThreadState == EmuThreadState::PAUSED ||
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          VsyncSwapIntervalDetect();
@@ -1691,9 +1697,8 @@ namespace SaveState
 
 size_t retro_serialize_size(void)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
-   }
 
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
@@ -1706,9 +1711,8 @@ size_t retro_serialize_size(void)
 
 bool retro_serialize(void *data, size_t size)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
-   }
 
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
@@ -1730,6 +1734,9 @@ bool retro_serialize(void *data, size_t size)
 
 bool retro_unserialize(const void *data, size_t size)
 {
+   if (!gpu) // The HW renderer isn't ready on first pass.
+      return false;
+
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
