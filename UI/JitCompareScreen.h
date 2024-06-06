@@ -17,8 +17,14 @@ private:
 	void FillBlockList();
 
 	UI::LinearLayout *comparisonView_;
+	UI::LinearLayout *leftDisasm_;
+	UI::LinearLayout *rightDisasm_;
+
 	UI::LinearLayout *blockListView_;
 	UI::LinearLayout *blockListContainer_;
+
+	UI::LinearLayout *statsView_;
+	UI::LinearLayout *statsContainer_;
 
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
@@ -30,6 +36,7 @@ private:
 	enum class ViewMode {
 		BLOCK_LIST,
 		DISASM,
+		STATS,
 	};
 	enum class ListType {
 		ALL_BLOCKS,
@@ -56,9 +63,6 @@ private:
 	UI::TextView *blockName_;
 	UI::TextEdit *blockAddr_;
 	UI::TextView *blockStats_;
-
-	UI::LinearLayout *leftDisasm_;
-	UI::LinearLayout *rightDisasm_;
 };
 
 class AddressPromptScreen : public PopupScreen {
