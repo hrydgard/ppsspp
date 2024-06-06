@@ -49,6 +49,8 @@ private:
 	ListSort listSort_ = ListSort::BLOCK_LENGTH_DESC;
 
 	int currentBlock_ = -1;  // For DISASM mode
+	int64_t sumTotalNanos_ = 0;
+	int64_t sumExecutions_ = 0;
 	std::vector<int> blockList_;  // for BLOCK_LIST mode
 
 	UI::TextView *blockName_;

@@ -151,6 +151,9 @@ void JitCompareScreen::CreateViews() {
 void JitCompareScreen::FillBlockList() {
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 	blockList_.clear();
+	int64_t sumTotalNanos = 0;
+	int64_t sumExecutions = 0;
+	bool profiling = blockCacheDebug->SupportsProfiling();
 	for (int i = 0; i < blockCacheDebug->GetNumBlocks(); i++) {
 		if (!blockCacheDebug->IsValidBlock(i)) {
 			continue;
@@ -178,7 +181,16 @@ void JitCompareScreen::FillBlockList() {
 		default:
 			break;
 		}
+
+		if (profiling) {
+			JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(i);
+			sumTotalNanos += stats.totalNanos;
+			sumExecutions += stats.executions;
+		}
 	}
+
+	sumTotalNanos_ = sumTotalNanos;
+	sumExecutions_ = sumExecutions;
 
 	if (listSort_ == ListSort::BLOCK_NUM) {
 		// Already sorted, effectively.
@@ -277,15 +289,17 @@ void JitCompareScreen::UpdateDisasm() {
 		blockStats_->SetText(temp);
 	} else {
 		blockListContainer_->Clear();
+		bool profiling = blockCacheDebug->SupportsProfiling();
 		for (int i = 0; i < std::min(100, (int)blockList_.size()); i++) {
 			int blockNum = blockList_[i];
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockNum);
 			char temp[512], small[512];
-			if (blockCacheDebug->SupportsProfiling()) {
+			if (profiling) {
 				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockNum);
 				int execs = (int)stats.executions;
-				double us = (double)stats.totalNanos / 1000.0;
-				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d exec, %0.2f us)", meta.addr, meta.sizeInBytes / 4, execs, us);
+				double us = (double)stats.totalNanos / 1000000.0;
+				double percentage = 100.0 * (double)stats.totalNanos / (double)sumTotalNanos_;
+				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d exec, %0.2f ms, %0.2f%%)", meta.addr, meta.sizeInBytes / 4, execs, us, percentage);
 			} else {
 				snprintf(temp, sizeof(temp), "%08x: %d instrs", meta.addr, meta.sizeInBytes / 4);
 			}
