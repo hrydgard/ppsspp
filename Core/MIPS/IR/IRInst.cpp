@@ -1,6 +1,7 @@
 #include "Common/CommonFuncs.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/HLE/ReplaceTables.h"
 
 // Legend
 // ======================
@@ -13,6 +14,7 @@
 //  2 = FPR register, Vec2 (uncommon)
 //  v = Vec4Init constant, chosen by immediate
 //  s = Shuffle immediate (4 2-bit fields, choosing a xyzw shuffle)
+//  r = Replacement function (in constant field)
 
 static const IRMeta irMeta[] = {
 	{ IROp::Nop, "Nop", "" },
@@ -165,7 +167,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Break, "Break", "", IRFLAG_EXIT },
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
-	{ IROp::CallReplacement, "CallRepl", "GC", IRFLAG_BARRIER },
+	{ IROp::CallReplacement, "CallRepl", "Gr", IRFLAG_BARRIER },
 	{ IROp::Breakpoint, "Breakpoint", "_C", IRFLAG_BARRIER },
 	{ IROp::MemoryCheck, "MemoryCheck", "IGC", IRFLAG_BARRIER },
 
@@ -306,6 +308,16 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 	case 's':
 		snprintf(buf, bufSize, "%c%c%c%c", xyzw[param & 3], xyzw[(param >> 2) & 3], xyzw[(param >> 4) & 3], xyzw[(param >> 6) & 3]);
 		break;
+	case 'r':
+	{
+		const ReplacementTableEntry *entry = GetReplacementFunc(constant);
+		if (entry) {
+			snprintf(buf, bufSize, "%s", entry->name);
+		} else {
+			snprintf(buf, bufSize, "(unkn. repl %d)", constant);
+		}
+		break;
+	}
 	case '_':
 	case '\0':
 		buf[0] = 0;

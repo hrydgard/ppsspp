@@ -9,6 +9,13 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 JitCompareScreen::JitCompareScreen() : UIDialogScreenWithBackground() {
+	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	// The only defaults that make sense.
+	if (blockCacheDebug->SupportsProfiling()) {
+		listSort_ = ListSort::TIME_SPENT;
+	} else {
+		listSort_ = ListSort::BLOCK_LENGTH_DESC;
+	}
 	FillBlockList();
 }
 
@@ -166,12 +173,15 @@ void JitCompareScreen::FillBlockList() {
 		case ListType::FPU_BLOCKS:
 		case ListType::VFPU_BLOCKS:
 		{
-			const int flags = listType_ == ListType::FPU_BLOCKS ? IS_FPU : IS_VFPU;
+			const uint64_t flags = listType_ == ListType::FPU_BLOCKS ? IS_FPU : IS_VFPU;
+			// const uint64_t antiFlags = IS_SYSCALL;
+			const uint64_t antiFlags = 0;
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(i);
 			if (meta.valid) {
 				for (u32 addr = meta.addr; addr < meta.addr + meta.sizeInBytes; addr += 4) {
 					MIPSOpcode opcode = Memory::Read_Instruction(addr);
-					if (MIPSGetInfo(opcode) & flags) {
+					MIPSInfo info = MIPSGetInfo(opcode);
+					if ((info & flags) && !(info & antiFlags)) {
 						blockList_.push_back(i);
 						break;
 					}

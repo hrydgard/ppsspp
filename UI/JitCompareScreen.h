@@ -46,7 +46,7 @@ private:
 	};
 	ViewMode viewMode_ = ViewMode::BLOCK_LIST;
 	ListType listType_ = ListType::ALL_BLOCKS;
-	ListSort listSort_ = ListSort::BLOCK_LENGTH_DESC;
+	ListSort listSort_ = ListSort::TIME_SPENT;
 
 	int currentBlock_ = -1;  // For DISASM mode
 	int64_t sumTotalNanos_ = 0;
