@@ -42,7 +42,6 @@ struct BlockCacheStats {
 	u32 minBloatBlock;
 	float maxBloat;
 	u32 maxBloatBlock;
-	std::map<float, u32> bloatMap;
 };
 
 enum class DestroyType {

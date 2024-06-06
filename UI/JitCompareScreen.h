@@ -17,8 +17,14 @@ private:
 	void FillBlockList();
 
 	UI::LinearLayout *comparisonView_;
+	UI::LinearLayout *leftDisasm_;
+	UI::LinearLayout *rightDisasm_;
+
 	UI::LinearLayout *blockListView_;
 	UI::LinearLayout *blockListContainer_;
+
+	UI::LinearLayout *statsView_;
+	UI::LinearLayout *statsContainer_;
 
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
@@ -30,6 +36,7 @@ private:
 	enum class ViewMode {
 		BLOCK_LIST,
 		DISASM,
+		STATS,
 	};
 	enum class ListType {
 		ALL_BLOCKS,
@@ -46,17 +53,16 @@ private:
 	};
 	ViewMode viewMode_ = ViewMode::BLOCK_LIST;
 	ListType listType_ = ListType::ALL_BLOCKS;
-	ListSort listSort_ = ListSort::BLOCK_LENGTH_DESC;
+	ListSort listSort_ = ListSort::TIME_SPENT;
 
 	int currentBlock_ = -1;  // For DISASM mode
+	int64_t sumTotalNanos_ = 0;
+	int64_t sumExecutions_ = 0;
 	std::vector<int> blockList_;  // for BLOCK_LIST mode
 
 	UI::TextView *blockName_;
 	UI::TextEdit *blockAddr_;
 	UI::TextView *blockStats_;
-
-	UI::LinearLayout *leftDisasm_;
-	UI::LinearLayout *rightDisasm_;
 };
 
 class AddressPromptScreen : public PopupScreen {

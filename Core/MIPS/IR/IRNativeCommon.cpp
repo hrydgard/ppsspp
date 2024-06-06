@@ -801,7 +801,6 @@ void IRNativeBlockCacheDebugInterface::ComputeStats(BlockCacheStats &bcStats) co
 			bcStats.maxBloatBlock = origAddr;
 		}
 		totalBloat += bloat;
-		bcStats.bloatMap[(float)bloat] = origAddr;
 	}
 	bcStats.numBlocks = numBlocks;
 	bcStats.minBloat = (float)minBloat;

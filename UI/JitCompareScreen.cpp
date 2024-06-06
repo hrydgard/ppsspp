@@ -9,19 +9,34 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 JitCompareScreen::JitCompareScreen() : UIDialogScreenWithBackground() {
+	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	// The only defaults that make sense.
+	if (blockCacheDebug->SupportsProfiling()) {
+		listSort_ = ListSort::TIME_SPENT;
+	} else {
+		listSort_ = ListSort::BLOCK_LENGTH_DESC;
+	}
 	FillBlockList();
 }
 
 void JitCompareScreen::Flip() {
 	using namespace UI;
+	// If we add more, let's convert to a for loop.
 	switch (viewMode_) {
 	case ViewMode::DISASM:
 		comparisonView_->SetVisibility(V_VISIBLE);
 		blockListView_->SetVisibility(V_GONE);
+		statsView_->SetVisibility(V_GONE);
 		break;
 	case ViewMode::BLOCK_LIST:
 		comparisonView_->SetVisibility(V_GONE);
 		blockListView_->SetVisibility(V_VISIBLE);
+		statsView_->SetVisibility(V_GONE);
+		break;
+	case ViewMode::STATS:
+		comparisonView_->SetVisibility(V_GONE);
+		blockListView_->SetVisibility(V_GONE);
+		statsView_->SetVisibility(V_VISIBLE);
 		break;
 	}
 }
@@ -123,6 +138,13 @@ void JitCompareScreen::CreateViews() {
 	ScrollView *blockScroll = blockListView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	blockListContainer_ = blockScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
+	statsView_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	statsView_->SetVisibility(V_GONE);
+
+	LinearLayout *statsTopBar = statsView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	ScrollView *statsScroll = statsView_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	statsContainer_ = statsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
 	// leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
 	leftColumn->Add(new Choice(dev->T("All")))->OnClick.Add([=](UI::EventParams &e) {
 		listType_ = ListType::ALL_BLOCKS;
@@ -151,6 +173,9 @@ void JitCompareScreen::CreateViews() {
 void JitCompareScreen::FillBlockList() {
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 	blockList_.clear();
+	int64_t sumTotalNanos = 0;
+	int64_t sumExecutions = 0;
+	bool profiling = blockCacheDebug->SupportsProfiling();
 	for (int i = 0; i < blockCacheDebug->GetNumBlocks(); i++) {
 		if (!blockCacheDebug->IsValidBlock(i)) {
 			continue;
@@ -163,12 +188,15 @@ void JitCompareScreen::FillBlockList() {
 		case ListType::FPU_BLOCKS:
 		case ListType::VFPU_BLOCKS:
 		{
-			const int flags = listType_ == ListType::FPU_BLOCKS ? IS_FPU : IS_VFPU;
+			const uint64_t flags = listType_ == ListType::FPU_BLOCKS ? IS_FPU : IS_VFPU;
+			// const uint64_t antiFlags = IS_SYSCALL;
+			const uint64_t antiFlags = 0;
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(i);
 			if (meta.valid) {
 				for (u32 addr = meta.addr; addr < meta.addr + meta.sizeInBytes; addr += 4) {
 					MIPSOpcode opcode = Memory::Read_Instruction(addr);
-					if (MIPSGetInfo(opcode) & flags) {
+					MIPSInfo info = MIPSGetInfo(opcode);
+					if ((info & flags) && !(info & antiFlags)) {
 						blockList_.push_back(i);
 						break;
 					}
@@ -178,7 +206,16 @@ void JitCompareScreen::FillBlockList() {
 		default:
 			break;
 		}
+
+		if (profiling) {
+			JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(i);
+			sumTotalNanos += stats.totalNanos;
+			sumExecutions += stats.executions;
+		}
 	}
+
+	sumTotalNanos_ = sumTotalNanos;
+	sumExecutions_ = sumExecutions;
 
 	if (listSort_ == ListSort::BLOCK_NUM) {
 		// Already sorted, effectively.
@@ -273,19 +310,30 @@ void JitCompareScreen::UpdateDisasm() {
 
 		int numMips = leftDisasm_->GetNumSubviews();
 		int numHost = rightDisasm_->GetNumSubviews();
-		snprintf(temp, sizeof(temp), "%d to %d : %d%%", numMips, numHost, 100 * numHost / numMips);
+		double bloat = 100.0 * numHost / numMips;
+		if (blockCacheDebug->SupportsProfiling()) {
+			JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockNum);
+			int execs = (int)stats.executions;
+			double us = (double)stats.totalNanos / 1000000.0;
+			double percentage = 100.0 * (double)stats.totalNanos / (double)sumTotalNanos_;
+			snprintf(temp, sizeof(temp), "%d runs, %0.2f ms, %0.2f%%, bloat: %0.1f%%", execs, us, percentage, bloat);
+		} else {
+			snprintf(temp, sizeof(temp), "bloat: %0.1f%%", bloat);
+		}
 		blockStats_->SetText(temp);
-	} else {
+	} else if (viewMode_ == ViewMode::BLOCK_LIST) {
 		blockListContainer_->Clear();
+		bool profiling = blockCacheDebug->SupportsProfiling();
 		for (int i = 0; i < std::min(100, (int)blockList_.size()); i++) {
 			int blockNum = blockList_[i];
 			JitBlockMeta meta = blockCacheDebug->GetBlockMeta(blockNum);
 			char temp[512], small[512];
-			if (blockCacheDebug->SupportsProfiling()) {
+			if (profiling) {
 				JitBlockProfileStats stats = blockCacheDebug->GetBlockProfileStats(blockNum);
 				int execs = (int)stats.executions;
-				double us = (double)stats.totalNanos / 1000.0;
-				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d exec, %0.2f us)", meta.addr, meta.sizeInBytes / 4, execs, us);
+				double us = (double)stats.totalNanos / 1000000.0;
+				double percentage = 100.0 * (double)stats.totalNanos / (double)sumTotalNanos_;
+				snprintf(temp, sizeof(temp), "%08x: %d instrs (%d runs, %0.2f ms, %0.2f%%)", meta.addr, meta.sizeInBytes / 4, execs, us, percentage);
 			} else {
 				snprintf(temp, sizeof(temp), "%08x: %d instrs", meta.addr, meta.sizeInBytes / 4);
 			}
@@ -293,6 +341,24 @@ void JitCompareScreen::UpdateDisasm() {
 			Choice *blockChoice = blockListContainer_->Add(new Choice(temp, small));
 			blockChoice->OnClick.Handle(this, &JitCompareScreen::OnBlockClick);
 		}
+	} else {  // viewMode_ == ViewMode::STATS
+		statsContainer_->Clear();
+
+		BlockCacheStats bcStats;
+		blockCacheDebug->ComputeStats(bcStats);
+
+		char stats[1024];
+		snprintf(stats, sizeof(stats),
+			"Num blocks: %d\n"
+			"Average Bloat: %0.2f%%\n"
+			"Min Bloat: %0.2f%%  (%08x)\n"
+			"Max Bloat: %0.2f%%  (%08x)\n",
+			blockCacheDebug->GetNumBlocks(),
+			100.0 * bcStats.avgBloat,
+			100.0 * bcStats.minBloat, bcStats.minBloatBlock,
+			100.0 * bcStats.maxBloat, bcStats.maxBloatBlock);
+
+		statsContainer_->Add(new TextView(stats));
 	}
 }
 
@@ -332,26 +398,8 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
-		return UI::EVENT_DONE;
-
-	BlockCacheStats bcStats;
-	blockCache->ComputeStats(bcStats);
-	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
-	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
-	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
-	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
-
-	int ctr = 0, sz = (int)bcStats.bloatMap.size();
-	for (auto iter : bcStats.bloatMap) {
-		if (ctr < 10 || ctr > sz - 10) {
-			NOTICE_LOG(JIT, "%08x: %f", iter.second, iter.first);
-		} else if (ctr == 10) {
-			NOTICE_LOG(JIT, "...");
-		}
-		ctr++;
-	}
+	viewMode_ = ViewMode::STATS;
+	UpdateDisasm();
 	return UI::EVENT_DONE;
 }
 

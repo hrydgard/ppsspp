@@ -681,7 +681,6 @@ void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 			bcStats.maxBloatBlock = b->originalAddress;
 		}
 		totalBloat += bloat;
-		bcStats.bloatMap[(float)bloat] = b->originalAddress;
 	}
 	bcStats.numBlocks = num_blocks_;
 	bcStats.minBloat = (float)minBloat;
@@ -710,6 +709,5 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 #elif PPSSPP_ARCH(RISCV64)
 	debugInfo.targetDisasm = DisassembleRV64(block->normalEntry, block->codeSize);
 #endif
-
 	return debugInfo;
 }

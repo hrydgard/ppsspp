@@ -465,7 +465,6 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 			bcStats.maxBloatBlock = origAddr;
 		}
 		totalBloat += bloat;
-		bcStats.bloatMap[bloat] = origAddr;
 	}
 	bcStats.numBlocks = (int)blocks_.size();
 	bcStats.minBloat = minBloat;
