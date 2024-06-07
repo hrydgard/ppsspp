@@ -139,6 +139,7 @@ enum class IROp : uint8_t {
 
 	FMovFromGPR,
 	FMovToGPR,
+	OptFMovToGPRShr8,
 
 	FSat0_1,
 	FSatMinus1_1,

@@ -1000,7 +1000,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::FMovToGPR:
 			memcpy(&mips->r[inst->dest], &mips->f[inst->src1], 4);
 			break;
-
+		case IROp::OptFMovToGPRShr8:
+		{
+			u32 temp;
+			memcpy(&temp, &mips->f[inst->src1], 4);
+			mips->r[inst->dest] = temp >> 8;
+			break;
+		}
 		case IROp::ExitToConst:
 			return inst->constant;
 

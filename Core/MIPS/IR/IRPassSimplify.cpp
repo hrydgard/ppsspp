@@ -2203,6 +2203,8 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInst inst = in.GetInstructions()[i];
 
+		bool last = i == n - 1;
+
 		// Specialize some instructions.
 		switch (inst.op) {
 		case IROp::Downcount:
@@ -2232,6 +2234,19 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 				inst.op = IROp::OptOrConst;
 			}
 			out.Write(inst);
+			break;
+		case IROp::FMovToGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::ShrImm && next.src2 == 8 && next.src1 == next.dest && next.src1 == inst.dest) {
+					// Heavily used when writing display lists.
+					inst.op = IROp::OptFMovToGPRShr8;
+					i++;  // Skip the next instruction.
+				}
+				out.Write(inst);
+			} else {
+				out.Write(inst);
+			}
 			break;
 		default:
 			out.Write(inst);
