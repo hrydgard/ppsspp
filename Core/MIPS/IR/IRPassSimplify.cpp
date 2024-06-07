@@ -2150,6 +2150,45 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	return logBlocks;
 }
 
+// This optimizes away redundant loads-after-stores, which are surprisingly not that uncommon.
+bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		// Just copy the last instruction.
+		if (i == n - 1) {
+			out.Write(inst);
+			break;
+		}
+
+		out.Write(inst);
+
+		IRInst next = in.GetInstructions()[i + 1];
+		switch (inst.op) {
+		case IROp::Store32:
+			if (next.op == IROp::Load32 &&
+				next.constant == inst.constant &&
+				next.dest == inst.src3 &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant.
+				// Skip it.
+				i++;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	return logBlocks;
+}
+
 bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
 	// This tells us to skip an AND op that has been optimized out.

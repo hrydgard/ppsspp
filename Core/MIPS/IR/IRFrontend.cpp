@@ -284,6 +284,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 			&PropagateConstants,
 			&PurgeTemps,
 			&ReduceVec4Flush,
+			&OptimizeLoadsAfterStores,
 			// &ReorderLoadStore,
 			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
