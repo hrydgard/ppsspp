@@ -102,11 +102,11 @@ void IRJit::Compile(u32 em_address) {
 		// Look to see if we've preloaded this block.
 		int block_num = blocks_.FindPreloadBlock(em_address);
 		if (block_num != -1) {
-			IRBlock *b = blocks_.GetBlock(block_num);
+			IRBlock *block = blocks_.GetBlock(block_num);
 			// Okay, let's link and finalize the block now.
-			int cookie = b->GetTargetOffset() < 0 ? b->GetInstructionOffset() : b->GetTargetOffset();
-			b->Finalize(cookie);
-			if (b->IsValid()) {
+			int cookie = block->GetTargetOffset() < 0 ? block->GetInstructionOffset() : block->GetTargetOffset();
+			block->Finalize(cookie);
+			if (block->IsValid()) {
 				// Success, we're done.
 				FinalizeTargetBlock(&blocks_, block_num);
 				return;
@@ -448,7 +448,7 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 
 	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
-		int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset()  : b.GetTargetOffset();
+		int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset() : b.GetTargetOffset();
 		if (b.IsValid() && b.RestoreOriginalFirstOp(cookie)) {
 			result[number] = number;
 		} else {
