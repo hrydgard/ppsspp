@@ -103,6 +103,7 @@ private:
 	u64 CalculateHash() const;
 
 	// Offset into the block cache's Arena
+	// TODO: These should maybe be stored in a separate array.
 	u32 instOffset_ = 0;
 	u64 hash_ = 0;
 	u32 origAddr_ = 0;

@@ -256,13 +256,12 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
 #ifdef IR_PROFILING
-				{
-					TimeSpan span;
-					IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(inst & 0xFFFFFF));
-					mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
-					block->profileStats_.executions += 1;
-					block->profileStats_.totalNanos += span.ElapsedNanos();
-				}
+				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(offset));
+				TimeSpan span;
+				mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
+				int64_t elapsedNanos = span.ElapsedNanos();
+				block->profileStats_.executions += 1;
+				block->profileStats_.totalNanos += elapsedNanos;
 #else
 				mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
 #endif
