@@ -303,13 +303,13 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		}
 		break;
 	case 'C':
-		snprintf(buf, bufSize, "%08x", constant);
+		snprintf(buf, bufSize, "0x%08x", constant);
 		break;
 	case 'c':
-		snprintf(buf, bufSize, "%02x", constant);
+		snprintf(buf, bufSize, "0x%02x", constant);
 		break;
 	case 'I':
-		snprintf(buf, bufSize, "%02x", param);
+		snprintf(buf, bufSize, "0x%02x", param);
 		break;
 	case 'm':
 		snprintf(buf, bufSize, "%d", param);
