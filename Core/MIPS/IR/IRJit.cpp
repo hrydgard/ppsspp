@@ -255,15 +255,19 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
+				const IRInst *instPtr = blocks_.GetArenaPtr() + offset;
+				_dbg_assert_(instPtr->op == IROp::Downcount);
+				mips->downcount -= instPtr->constant;
+				instPtr++;
 #ifdef IR_PROFILING
 				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(offset));
 				TimeSpan span;
-				mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
+				mips->pc = IRInterpret(mips, instPtr);
 				int64_t elapsedNanos = span.ElapsedNanos();
 				block->profileStats_.executions += 1;
 				block->profileStats_.totalNanos += elapsedNanos;
 #else
-				mips->pc = IRInterpret(mips, blocks_.GetArenaPtr() + offset);
+				mips->pc = IRInterpret(mips, instPtr);
 #endif
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {

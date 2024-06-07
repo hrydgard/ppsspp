@@ -2149,3 +2149,110 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	}
 	return logBlocks;
 }
+
+// This optimizes away redundant loads-after-stores, which are surprisingly not that uncommon.
+bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		// Just copy the last instruction.
+		if (i == n - 1) {
+			out.Write(inst);
+			break;
+		}
+
+		out.Write(inst);
+
+		IRInst next = in.GetInstructions()[i + 1];
+		switch (inst.op) {
+		case IROp::Store32:
+			if (next.op == IROp::Load32 &&
+				next.constant == inst.constant &&
+				next.dest == inst.src3 &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant.
+				// Skip it.
+				i++;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	return logBlocks;
+}
+
+bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	// We also move the downcount to the top so the interpreter can assume that it's there.
+	bool foundDowncount = false;
+	out.Write(IROp::Downcount);
+
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		bool last = i == n - 1;
+
+		// Specialize some instructions.
+		switch (inst.op) {
+		case IROp::Downcount:
+			if (!foundDowncount) {
+				// Move the value into the initial Downcount.
+				foundDowncount = true;
+				out.ReplaceConstant(0, inst.constant);
+			} else {
+				// Already had a downcount. Let's just re-emit it.
+				out.Write(inst);
+			}
+			break;
+		case IROp::AddConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptAddConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::AndConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptAndConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::OrConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptOrConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::FMovToGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::ShrImm && next.src2 == 8 && next.src1 == next.dest && next.src1 == inst.dest) {
+					// Heavily used when writing display lists.
+					inst.op = IROp::OptFMovToGPRShr8;
+					i++;  // Skip the next instruction.
+				}
+				out.Write(inst);
+			} else {
+				out.Write(inst);
+			}
+			break;
+		default:
+			out.Write(inst);
+			break;
+		}
+	}
+
+	return logBlocks;
+}

@@ -1,4 +1,5 @@
 #include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -8,6 +9,7 @@
 //  _ = ignore
 //  G = GPR register
 //  C = 32-bit constant from array
+//  c = 8-bit constant from array
 //  I = immediate value from instruction
 //  F = FPR register, single
 //  V = FPR register, Vec4. Reg number always divisible by 4.
@@ -29,10 +31,13 @@ static const IRMeta irMeta[] = {
 	{ IROp::Or, "Or", "GGG" },
 	{ IROp::Xor, "Xor", "GGG" },
 	{ IROp::AddConst, "AddConst", "GGC" },
+	{ IROp::OptAddConst, "OptAddConst", "GC" },
 	{ IROp::SubConst, "SubConst", "GGC" },
 	{ IROp::AndConst, "AndConst", "GGC" },
 	{ IROp::OrConst, "OrConst", "GGC" },
 	{ IROp::XorConst, "XorConst", "GGC" },
+	{ IROp::OptAndConst, "OptAndConst", "GC" },
+	{ IROp::OptOrConst, "OptOrConst", "GC" },
 	{ IROp::Shl, "Shl", "GGG" },
 	{ IROp::Shr, "Shr", "GGG" },
 	{ IROp::Sar, "Sar", "GGG" },
@@ -115,6 +120,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
+	{ IROp::OptFMovToGPRShr8, "OptFMovToGPRShr8", "GF" },
 	{ IROp::FpCondFromReg, "FpCondFromReg", "_G" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
@@ -128,7 +134,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
-	{ IROp::Vec4Blend, "Vec4Blend", "VVVC" },
+	{ IROp::Vec4Blend, "Vec4Blend", "VVVc" },
 	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
 	{ IROp::Vec4Add, "Vec4Add", "VVV" },
 	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
@@ -218,6 +224,11 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
+void IRWriter::ReplaceConstant(size_t instNumber, u32 newConstant) {
+	_dbg_assert_(instNumber < insts_.size());
+	insts_[instNumber].constant = newConstant;
+}
+
 static std::string GetGPRName(int r) {
 	if (r < 32) {
 		return currentDebugMIPS->GetRegName(0, r);
@@ -293,10 +304,13 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		}
 		break;
 	case 'C':
-		snprintf(buf, bufSize, "%08x", constant);
+		snprintf(buf, bufSize, "0x%08x", constant);
+		break;
+	case 'c':
+		snprintf(buf, bufSize, "0x%02x", constant);
 		break;
 	case 'I':
-		snprintf(buf, bufSize, "%02x", param);
+		snprintf(buf, bufSize, "0x%02x", param);
 		break;
 	case 'm':
 		snprintf(buf, bufSize, "%d", param);

@@ -17,6 +17,9 @@
 // even be directly JIT-ed, but the gains will probably be tiny over our older direct
 // MIPS->target JITs.
 
+// Ops beginning with "OI" are specialized for IR Interpreter use. These will not be produced
+// for the IR JITs.
+
 enum class IROp : uint8_t {
 	SetConst,
 	SetConstF,
@@ -33,11 +36,14 @@ enum class IROp : uint8_t {
 	Xor,
 
 	AddConst,
+	OptAddConst,
 	SubConst,
 
 	AndConst,
 	OrConst,
 	XorConst,
+	OptAndConst,
+	OptOrConst,
 
 	Shl,
 	Shr,
@@ -133,6 +139,7 @@ enum class IROp : uint8_t {
 
 	FMovFromGPR,
 	FMovToGPR,
+	OptFMovToGPRShr8,
 
 	FSat0_1,
 	FSatMinus1_1,
@@ -391,6 +398,7 @@ public:
 	void Clear() {
 		insts_.clear();
 	}
+	void ReplaceConstant(size_t instNumber, u32 newConstant);
 
 	const std::vector<IRInst> &GetInstructions() const { return insts_; }
 
