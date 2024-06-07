@@ -592,7 +592,7 @@ void VertexDecoder::Step_Color565Morph() const
 		c[i] = clamp_u8((int)col[i]);
 	}
 	c[3] = 255;
-	// Always full alpha.
+	// Always full alpha. (Is this true??)
 }
 
 void VertexDecoder::Step_Color5551Morph() const
