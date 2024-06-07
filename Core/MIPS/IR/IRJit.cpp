@@ -469,7 +469,7 @@ void IRBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 		IRBlock &b = blocks_[number];
 		// Only if we restored it, write it back.
 		if (b.IsValid() && saved[number] != 0 && b.HasOriginalFirstOp()) {
-			int cookie = b.GetTargetOffset() < 0 ? number : b.GetTargetOffset();
+			int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset() : b.GetTargetOffset();
 			b.Finalize(cookie);
 		}
 	}
