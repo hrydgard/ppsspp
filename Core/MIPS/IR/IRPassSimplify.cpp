@@ -2200,10 +2200,20 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		case IROp::Store32:
 			if (next.op == IROp::Load32 &&
 				next.constant == inst.constant &&
-				next.dest == inst.src3 &&
+				next.dest == inst.dest &&
 				next.src1 == inst.src1) {
 				// The upcoming load is completely redundant.
 				// Skip it.
+				i++;
+			}
+			break;
+		case IROp::StoreVec4:
+			if (next.op == IROp::LoadVec4 &&
+				next.constant == inst.constant &&
+				next.dest == inst.dest &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant. These are common in Wipeout.
+				// Skip it. NOTE: It looks like vector load/stores uses different register assignments, but there's a union between dest and src3.
 				i++;
 			}
 			break;
