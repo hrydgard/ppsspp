@@ -238,7 +238,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		float32x4_t pos1_ext = vmulq_f32(vcvtq_f32_s32(pos1_32), posScale);
 
 		uint64x1_t uv8_one = vdup_n_u64(uv0);
-		uint8x8_t uv8 = vreinterpret_s8_u64(uv8_one);
+		uint8x8_t uv8 = vreinterpret_u8_u64(uv8_one);
 		uint16x4_t uv16 = vget_low_u16(vmovl_u8(uv8));
 		uint32x4_t uv32 = vmovl_u16(uv16);
 		float32x4_t uvf = vaddq_f32(vmulq_f32(vcvtq_f32_u32(uv32), uvScale), uvOffset);
