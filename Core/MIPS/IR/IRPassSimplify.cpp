@@ -229,6 +229,15 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 	CONDITIONAL_DISABLE;
 
 	bool logBlocks = false;
+
+	bool letThroughHalves = false;
+	if (opts.optimizeForInterpreter) {
+		// If we're using the interpreter, which can handle these instructions directly,
+		// don't break "half" instructions up.
+		// Of course, we still want to combine if possible.
+		letThroughHalves = true;
+	}
+
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
 		const IRInst &inst = in.GetInstructions()[i];
 
@@ -305,6 +314,11 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 		switch (inst.op) {
 		case IROp::Load32Left:
 			if (!combineOpposite(IROp::Load32Right, -3, IROp::Load32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
+
 				addCommonProlog();
 				// dest &= (0x00ffffff >> shift)
 				// Alternatively, could shift to a wall and back (but would require two shifts each way.)
@@ -339,6 +353,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Load32Right:
 			if (!combineOpposite(IROp::Load32Left, 3, IROp::Load32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE >>= shift
 				out.Write(IROp::Shr, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
@@ -382,6 +400,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Left:
 			if (!combineOpposite(IROp::Store32Right, -3, IROp::Store32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0xffffff00 << shift
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0xffffff00);
@@ -399,6 +421,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Right:
 			if (!combineOpposite(IROp::Store32Left, 3, IROp::Store32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0x00ffffff << (24 - shift)
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
