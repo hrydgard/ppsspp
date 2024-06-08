@@ -2269,10 +2269,18 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 					inst.op = IROp::OptFMovToGPRShr8;
 					i++;  // Skip the next instruction.
 				}
-				out.Write(inst);
-			} else {
-				out.Write(inst);
 			}
+			out.Write(inst);
+			break;
+		case IROp::FMovFromGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::FCvtSW && next.src1 == inst.dest && next.dest == inst.dest) {
+					inst.op = IROp::OptFCvtSWFromGPR;
+					i++;  // Skip the next
+				}
+			}
+			out.Write(inst);
 			break;
 		default:
 			out.Write(inst);
