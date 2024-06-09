@@ -229,6 +229,15 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 	CONDITIONAL_DISABLE;
 
 	bool logBlocks = false;
+
+	bool letThroughHalves = false;
+	if (opts.optimizeForInterpreter) {
+		// If we're using the interpreter, which can handle these instructions directly,
+		// don't break "half" instructions up.
+		// Of course, we still want to combine if possible.
+		letThroughHalves = true;
+	}
+
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
 		const IRInst &inst = in.GetInstructions()[i];
 
@@ -305,6 +314,11 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 		switch (inst.op) {
 		case IROp::Load32Left:
 			if (!combineOpposite(IROp::Load32Right, -3, IROp::Load32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
+
 				addCommonProlog();
 				// dest &= (0x00ffffff >> shift)
 				// Alternatively, could shift to a wall and back (but would require two shifts each way.)
@@ -339,6 +353,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Load32Right:
 			if (!combineOpposite(IROp::Load32Left, 3, IROp::Load32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE >>= shift
 				out.Write(IROp::Shr, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
@@ -382,6 +400,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Left:
 			if (!combineOpposite(IROp::Store32Right, -3, IROp::Store32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0xffffff00 << shift
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0xffffff00);
@@ -399,6 +421,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Right:
 			if (!combineOpposite(IROp::Store32Left, 3, IROp::Store32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0x00ffffff << (24 - shift)
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
@@ -2174,10 +2200,20 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		case IROp::Store32:
 			if (next.op == IROp::Load32 &&
 				next.constant == inst.constant &&
-				next.dest == inst.src3 &&
+				next.dest == inst.dest &&
 				next.src1 == inst.src1) {
 				// The upcoming load is completely redundant.
 				// Skip it.
+				i++;
+			}
+			break;
+		case IROp::StoreVec4:
+			if (next.op == IROp::LoadVec4 &&
+				next.constant == inst.constant &&
+				next.dest == inst.dest &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant. These are common in Wipeout.
+				// Skip it. NOTE: It looks like vector load/stores uses different register assignments, but there's a union between dest and src3.
 				i++;
 			}
 			break;
@@ -2243,10 +2279,18 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 					inst.op = IROp::OptFMovToGPRShr8;
 					i++;  // Skip the next instruction.
 				}
-				out.Write(inst);
-			} else {
-				out.Write(inst);
 			}
+			out.Write(inst);
+			break;
+		case IROp::FMovFromGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::FCvtSW && next.src1 == inst.dest && next.dest == inst.dest) {
+					inst.op = IROp::OptFCvtSWFromGPR;
+					i++;  // Skip the next
+				}
+			}
+			out.Write(inst);
 			break;
 		default:
 			out.Write(inst);

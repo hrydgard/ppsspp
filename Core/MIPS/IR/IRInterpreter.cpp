@@ -997,6 +997,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::FMovFromGPR:
 			memcpy(&mips->f[inst->dest], &mips->r[inst->src1], 4);
 			break;
+		case IROp::OptFCvtSWFromGPR:
+			mips->f[inst->dest] = (float)(int)mips->r[inst->src1];
+			break;
 		case IROp::FMovToGPR:
 			memcpy(&mips->r[inst->dest], &mips->f[inst->src1], 4);
 			break;
@@ -1007,6 +1010,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = temp >> 8;
 			break;
 		}
+
 		case IROp::ExitToConst:
 			return inst->constant;
 

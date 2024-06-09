@@ -248,9 +248,20 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 	{
 		u32 sourcemask = mask >> pos;
 		u32 destmask = ~(sourcemask << pos);
-		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
-		if (pos != 0) {
-			ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+
+		if (size != 32) {
+			// Need to use the sourcemask.
+			ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
+			if (pos != 0) {
+				ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+			}
+		} else {
+			// If the shl takes care of the sourcemask, don't need to and.
+			if (pos != 0) {
+				ir.Write(IROp::ShlImm, IRTEMP_0, rs, pos);
+			} else {
+				ir.Write(IROp::Mov, IRTEMP_0, rs);
+			}
 		}
 		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
 		ir.Write(IROp::Or, rt, rt, IRTEMP_0);

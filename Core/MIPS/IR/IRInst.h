@@ -138,6 +138,7 @@ enum class IROp : uint8_t {
 	FCvtScaledSW,
 
 	FMovFromGPR,
+	OptFCvtSWFromGPR,
 	FMovToGPR,
 	OptFMovToGPRShr8,
 
