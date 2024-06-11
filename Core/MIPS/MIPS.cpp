@@ -214,7 +214,7 @@ void MIPSState::Init() {
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
-		MIPSComp::jit = new MIPSComp::IRJit(this);
+		MIPSComp::jit = new MIPSComp::IRJit(this, false);
 	} else {
 		MIPSComp::jit = nullptr;
 	}
@@ -252,7 +252,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 			MIPSComp::jit = nullptr;
 			delete oldjit;
 		}
-		newjit = new MIPSComp::IRJit(this);
+		newjit = new MIPSComp::IRJit(this, false);
 		break;
 
 	case CPUCore::INTERPRETER:

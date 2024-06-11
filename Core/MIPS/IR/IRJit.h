@@ -195,7 +195,7 @@ private:
 
 class IRJit : public JitInterface {
 public:
-	IRJit(MIPSState *mipsState);
+	IRJit(MIPSState *mipsState, bool actualJit);
 	~IRJit();
 
 	void DoState(PointerWrap &p) override;
