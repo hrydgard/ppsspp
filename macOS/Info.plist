@@ -94,6 +94,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
+	<key>LSApplicationCategory</key>
+	<string>public.app-category.games</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
