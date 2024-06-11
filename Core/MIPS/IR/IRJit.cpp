@@ -44,11 +44,12 @@
 
 namespace MIPSComp {
 
-IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState) {
+IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState) {
 	// u32 size = 128 * 1024;
 	InitIR();
 
-	jo.optimizeForInterpreter = true;
+	// If this IRJit instance will be used to drive a "JIT using IR", don't optimize for interpretation.
+	jo.optimizeForInterpreter = !actualJit;
 
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;

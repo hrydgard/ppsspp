@@ -481,7 +481,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 }
 
 IRNativeJit::IRNativeJit(MIPSState *mipsState)
-	: IRJit(mipsState), debugInterface_(blocks_) {}
+	: IRJit(mipsState, true), debugInterface_(blocks_) {}
 
 void IRNativeJit::Init(IRNativeBackend &backend) {
 	backend_ = &backend;
