@@ -50,7 +50,7 @@
 	<array>
 		<string>arm64</string>
 	</array>
-	<key>LSApplicationCategory</key>
+	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.games</string>
 	<key>GCSupportsGameMode</key>
 	<true/>

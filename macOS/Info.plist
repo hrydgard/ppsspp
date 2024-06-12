@@ -94,7 +94,7 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
-	<key>LSApplicationCategory</key>
+	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.games</string>
 	<key>GCSupportsGameMode</key>
 	<true/>
