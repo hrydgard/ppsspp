@@ -298,6 +298,7 @@ void MetaFileSystem::UnmountAll() {
 }
 
 void MetaFileSystem::Unmount(const std::string &prefix) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);

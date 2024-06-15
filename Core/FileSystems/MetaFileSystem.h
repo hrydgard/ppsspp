@@ -61,7 +61,6 @@ public:
 	// Fails if there's not already a file system at prefix.
 	bool Remount(const std::string &prefix, std::shared_ptr<IFileSystem> system);
 
-	void UnmountAll();
 	void Unmount(const std::string &prefix);
 
 	// The pointer returned from these are for temporary usage only. Do not store.
@@ -148,6 +147,9 @@ public:
 			return false;
 		}
 	}
+
+private:
+	void UnmountAll();
 
 private:
 	int64_t RecursiveSize(const std::string &dirPath);
