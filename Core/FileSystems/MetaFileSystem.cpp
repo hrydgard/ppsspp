@@ -27,6 +27,11 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
+class MetaDummyFileSystem : public EmptyFileSystem
+{
+	int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override { return SCE_KERNEL_ERROR_ERROR; }
+};
+
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
 	size_t len = pathString.length();
@@ -167,7 +172,6 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 
 IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 {
-	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		if (fileSystems[i].system->OwnsHandle(handle))
@@ -175,7 +179,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	}
 
 	// Not found
-	return nullptr;
+	return dummySystem.get();
 }
 
 int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
@@ -272,6 +276,11 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 		prefix = "disc0:";
 
 	return prefix;
+}
+
+MetaFileSystem::MetaFileSystem() {
+	dummySystem = std::make_shared<MetaDummyFileSystem>();
+	Reset();
 }
 
 void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
@@ -508,77 +517,49 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 int MetaFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
-	return SCE_KERNEL_ERROR_ERROR;
+	return GetHandleOwner(handle)->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 }
 
 PSPDevType MetaFileSystem::DevType(u32 handle)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->DevType(handle);
-	return PSPDevType::INVALID;
+	return GetHandleOwner(handle)->DevType(handle);
 }
 
 void MetaFileSystem::CloseFile(u32 handle)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		sys->CloseFile(handle);
+	GetHandleOwner(handle)->CloseFile(handle);
 }
 
 size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->ReadFile(handle, pointer, size);
-	else
-		return 0;
+	return GetHandleOwner(handle)->ReadFile(handle, pointer, size);
 }
 
 size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->WriteFile(handle, pointer, size);
-	else
-		return 0;
+	return GetHandleOwner(handle)->WriteFile(handle, pointer, size);
 }
 
 size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->ReadFile(handle, pointer, size, usec);
-	else
-		return 0;
+	return GetHandleOwner(handle)->ReadFile(handle, pointer, size, usec);
 }
 
 size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->WriteFile(handle, pointer, size, usec);
-	else
-		return 0;
+	return GetHandleOwner(handle)->WriteFile(handle, pointer, size, usec);
 }
 
 size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
-	IFileSystem *sys = GetHandleOwner(handle);
-	if (sys)
-		return sys->SeekFile(handle, position, type);
-	else
-		return 0;
+	return GetHandleOwner(handle)->SeekFile(handle, position, type);
 }
 
 int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet) {

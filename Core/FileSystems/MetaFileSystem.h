@@ -38,6 +38,7 @@ private:
 
 	// The order of this vector is meaningful - lookups are always a linear search from the start.
 	std::vector<MountPoint> fileSystems;
+	std::shared_ptr<IFileSystem> dummySystem;
 
 	typedef std::map<int, std::string> currentDir_t;
 	currentDir_t currentDir;
@@ -53,9 +54,7 @@ private:
 	}
 
 public:
-	MetaFileSystem() {
-		Reset();
-	}
+	MetaFileSystem();
 
 	void Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system);
 	// Fails if there's not already a file system at prefix.
@@ -66,7 +65,6 @@ public:
 	// The pointer returned from these are for temporary usage only. Do not store.
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
-	IFileSystem *GetHandleOwner(u32 handle);
 	FileSystemFlags FlagsFromFilename(const std::string &filename) {
 		IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
@@ -149,8 +147,7 @@ public:
 	}
 
 private:
+	IFileSystem *GetHandleOwner(u32 handle);
 	void UnmountAll();
-
-private:
 	int64_t RecursiveSize(const std::string &dirPath);
 };
