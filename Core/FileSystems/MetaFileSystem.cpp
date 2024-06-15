@@ -335,6 +335,7 @@ IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) 
 }
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
 		if (it->prefix == NormalizePrefix(prefix))
 			return it->system.get();
