@@ -93,30 +93,57 @@ void IRApplyRounding(MIPSState *mips) {
 	u32 fcr1Bits = mips->fcr31 & 0x01000003;
 	// If these are 0, we just leave things as they are.
 	if (fcr1Bits) {
-#if PPSSPP_ARCH(SSE2) && 0
+		int rmode = fcr1Bits & 3;
+		bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
 		u32 csr = _mm_getcsr() & ~0x6000;
 		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
-		int rnd = fcr1Bits & 3;
-		if (rnd & 1) {
-			rnd ^= 2;
+		if (rmode & 1) {
+			rmode ^= 2;
 		}
-		csr |= rnd << 13;
+		csr |= rmode << 13;
 
-		if (fcr1Bits & 0x01000000) {
+		if (ftz) {
 			// Flush to zero
 			csr |= 0x8000;
 		}
 		_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+		// On ARM64 we need to use inline assembly for a portable solution.
+		// Note that in the JIT, for fcvts, we use specific conversions. However,
+		// fcvts also has a variant that reads the fpcr, and I think that's what our
+		// C++ code (the IR interpreter) ends up using.
+		u64 fpcr;  // not really 64-bit, just to match the regsiter size.
+		asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+
+		// Translate MIPS to ARM rounding mode
+		static const u8 lookup[4] = {0, 3, 1, 2};
+
+		fpcr &= ~(3 << 22);    // Clear bits [23:22]
+		fpcr |= (lookup[rmode] << 22);
+
+		if (ftz) {
+			fpcr |= 1 << 24;
+		}
+		// Write back the modified FPCR
+		asm volatile ("msr fpcr, %0" : : "r" (fpcr));
 #endif
 	}
 }
 
 void IRRestoreRounding() {
 #if PPSSPP_ARCH(SSE2)
-	// We should avoid this if we didn't apply rounding in the first place.
+	// TODO: We should avoid this if we didn't apply rounding in the first place.
+	// In the meantime, clear out FTZ and rounding mode bits.
 	u32 csr = _mm_getcsr();
 	csr &= ~(7 << 13);
 	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+	u64 fpcr;  // not really 64-bit, just to match the regsiter size.
+	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
+	// Write back the modified FPCR
+	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
 #endif
 }
 
@@ -989,6 +1016,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
+			// TODO: Inline assembly to use here would be better.
 			switch (IRRoundMode(mips->fcr31 & 3)) {
 			case IRRoundMode::RINT_0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;
 			case IRRoundMode::CAST_1: mips->fs[inst->dest] = (int)src; break;
@@ -1131,11 +1159,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::ApplyRoundingMode:
 			IRApplyRounding(mips);
-			// TODO: Implement
 			break;
 		case IROp::RestoreRoundingMode:
 			IRRestoreRounding();
-			// TODO: Implement
 			break;
 		case IROp::UpdateRoundingMode:
 			// TODO: Implement
