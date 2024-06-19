@@ -221,6 +221,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
+	INFO_LOG(G3D, "viewDidAppear");
 	[self hideKeyboard];
 	[self updateGesture];
 }
