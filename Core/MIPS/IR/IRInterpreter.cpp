@@ -89,6 +89,37 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
+void IRApplyRounding(MIPSState *mips) {
+	u32 fcr1Bits = mips->fcr31 & 0x01000003;
+	// If these are 0, we just leave things as they are.
+	if (fcr1Bits) {
+#if PPSSPP_ARCH(SSE2) && 0
+		u32 csr = _mm_getcsr() & ~0x6000;
+		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+		int rnd = fcr1Bits & 3;
+		if (rnd & 1) {
+			rnd ^= 2;
+		}
+		csr |= rnd << 13;
+
+		if (fcr1Bits & 0x01000000) {
+			// Flush to zero
+			csr |= 0x8000;
+		}
+		_mm_setcsr(csr);
+#endif
+	}
+}
+
+void IRRestoreRounding() {
+#if PPSSPP_ARCH(SSE2)
+	// We should avoid this if we didn't apply rounding in the first place.
+	u32 csr = _mm_getcsr();
+	csr &= ~(7 << 13);
+	_mm_setcsr(csr);
+#endif
+}
+
 // We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 	while (true) {
@@ -565,9 +596,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		// Not quickly implementable on all platforms, unfortunately.
 		case IROp::Vec4Dot:
 		{
+			// Not quickly implementable on all platforms, unfortunately.
+			// Though, this is still pretty fast compared to one split into multiple IR instructions.
+			// This might be good though: https://stackoverflow.com/a/17004629
 			float dot = mips->f[inst->src1] * mips->f[inst->src2];
 			for (int i = 1; i < 4; i++)
 				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
@@ -826,9 +859,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = vfpu_clamp(mips->f[inst->src1], -1.0f, 1.0f);
 			break;
 
-		// Bitwise trickery
 		case IROp::FSign:
 		{
+			// Bitwise trickery
 			u32 val;
 			memcpy(&val, &mips->f[inst->src1], sizeof(u32));
 			if (val == 0 || val == 0x80000000)
@@ -1097,9 +1130,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::ApplyRoundingMode:
+			IRApplyRounding(mips);
 			// TODO: Implement
 			break;
 		case IROp::RestoreRoundingMode:
+			IRRestoreRounding();
 			// TODO: Implement
 			break;
 		case IROp::UpdateRoundingMode:
