@@ -108,12 +108,12 @@ void IRApplyRounding(MIPSState *mips) {
 			csr |= 0x8000;
 		}
 		_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
 		// On ARM64 we need to use inline assembly for a portable solution.
-		// Note that in the JIT, for fcvts, we use specific conversions. However,
-		// fcvts also has a variant that reads the fpcr, and I think that's what our
-		// C++ code (the IR interpreter) ends up using.
-		u64 fpcr;  // not really 64-bit, just to match the regsiter size.
+		// Unfortunately we don't have this possibility on Windows with MSVC, so ifdeffed out above.
+		// Note that in the JIT, for fcvts, we use specific conversions. We could use the FCVTS variants
+		// directly through inline assembly.
+		u64 fpcr;  // not really 64-bit, just to match the register size.
 		asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
 
 		// Translate MIPS to ARM rounding mode
@@ -138,7 +138,7 @@ void IRRestoreRounding() {
 	u32 csr = _mm_getcsr();
 	csr &= ~(7 << 13);
 	_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(WINDOWS)
 	u64 fpcr;  // not really 64-bit, just to match the regsiter size.
 	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
 	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
