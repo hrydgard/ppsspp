@@ -334,6 +334,8 @@ void __NetDoState(PointerWrap &p) {
 
 		// Discard leftover events
 		apctlEvents.clear();
+		// Discard created resolvers for now (since i'm not sure whether the information in the struct is sufficient or not, and we don't support multi-threading yet anyway)
+		netResolvers.clear();
 	}
 }
 
