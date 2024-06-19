@@ -208,10 +208,11 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 
 		cmdBufs[numCmdBufs++] = presentCmd;
 		hasPresentCommands = false;
+	}
 
-		if (type == FrameSubmitType::FinishFrame) {
-			fenceToTrigger = fence;
-		}
+	if (type == FrameSubmitType::FinishFrame) {
+		_dbg_assert_(!fenceToTrigger);
+		fenceToTrigger = fence;
 	}
 
 	if (!numCmdBufs && fenceToTrigger == VK_NULL_HANDLE) {
