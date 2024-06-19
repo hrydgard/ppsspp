@@ -322,7 +322,7 @@ void sceKernelExitGame()
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 
-	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGame()");
+	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGame()", 0.0f, "kernelexit");
 }
 
 void sceKernelExitGameWithStatus()

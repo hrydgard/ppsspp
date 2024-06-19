@@ -66,6 +66,8 @@ bool TestsAvailable() {
 	// Hack to easily run the tests on Windows from the submodule
 	if (File::IsDirectory(Path("../pspautotests"))) {
 		testDirectory = Path("..");
+	} else if (File::IsDirectory(Path("pspautotests"))) {
+		testDirectory = Path(".");
 	}
 	return File::Exists(testDirectory / "pspautotests" / "tests");
 }
@@ -80,6 +82,8 @@ bool RunTests() {
 	// Hack to easily run the tests on Windows from the submodule
 	if (File::IsDirectory(Path("../pspautotests"))) {
 		baseDirectory = Path("..");
+	} else  if (File::IsDirectory(Path("pspautotests"))) {
+		baseDirectory = Path(".");
 	}
 #endif
 

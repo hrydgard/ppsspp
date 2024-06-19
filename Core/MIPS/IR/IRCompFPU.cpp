@@ -223,6 +223,7 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			// Set rounding mode
 			RestoreRoundingMode();
 			ir.Write(IROp::FpCtrlFromReg, 0, rt);
+			// TODO: Do the UpdateRoundingMode check at runtime?
 			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {

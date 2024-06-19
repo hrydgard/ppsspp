@@ -133,10 +133,8 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 		js.startDefaultPrefix = false;
 		cleanSlate = true;
 	}
-
 	return cleanSlate;
 }
-
 
 void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
