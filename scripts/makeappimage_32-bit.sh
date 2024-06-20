@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 if [ ! -f appimagetool-i686.AppImage ]; then
-    wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-i686.AppImage
+	APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*i686.*mage$')
+	wget -q "$APPIMAGETOOL" -O ./appimagetool-i686.AppImage
     chmod +x appimagetool-i686.AppImage
 fi
 
@@ -28,4 +29,5 @@ pushd AppDir
 ln -s usr/share/icons/hicolor/256x256/apps/ppsspp.png
 chmod +x AppRun
 popd
-./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
+ARCH=i386
+VERSION=$(./AppDir/AppRun --version) ./appimagetool-i686.AppImage --appimage-extract-and-run AppDir
