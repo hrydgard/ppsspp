@@ -217,7 +217,9 @@ static std::thread g_renderLoopThread;
 
 @end  // @interface
 
-@implementation PPSSPPViewControllerMetal 
+@implementation PPSSPPViewControllerMetal {
+	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+}
 
 - (id)init {
 	self = [super init];
@@ -440,10 +442,6 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
 
-	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
-	[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
-	[[self view] addGestureRecognizer:mBackGestureRecognizer];
-
 	// Initialize the motion manager for accelerometer control.
 	self.motionManager = [[CMMotionManager alloc] init];
 }
@@ -478,7 +476,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	[super viewDidAppear:animated];
 	INFO_LOG(G3D, "viewDidAppear");
 	[self hideKeyboard];
-	INFO_LOG(G3D, "viewDidAppearDone");
+	[self updateGesture];
+
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
@@ -529,6 +528,25 @@ extern float g_safeInsetBottom;
 {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
 	[self hideKeyboard];
+	[self updateGesture];
+}
+
+
+- (void)updateGesture {
+	INFO_LOG(SYSTEM, "Updating swipe gesture.");
+
+	if (mBackGestureRecognizer) {
+		INFO_LOG(SYSTEM, "Removing swipe gesture.");
+		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
+		mBackGestureRecognizer = nil;
+	}
+
+	if (GetUIState() != UISTATE_INGAME) {
+		INFO_LOG(SYSTEM, "Adding swipe gesture.");
+		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
+		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
+		[[self view] addGestureRecognizer:mBackGestureRecognizer];
+	}
 }
 
 - (void)bindDefaultFBO

@@ -125,6 +125,8 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
+		// INFO_LOG(SYSTEM, "Measuring %.*s", (int)str.length(), str.data());
+
 		auto iter = fontMap_.find(fontHash_);
 		NSDictionary *attributes = nil;
 		if (iter != fontMap_.end()) {
