@@ -514,6 +514,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x795d940ad0a605f8, 40, "gow_fps_hack", }, // God of War (all)
 	{ 0x4c75043b7b0c643b, 512, "gow_vortex_hack", }, // God of War: Ghost of Sparta vortex timer hack, avoids softlock #8299
 	{ 0x7624dde603717640, 288, "ZZT3_select_hack", }, // Zettai Zetsumei Toshi 3 - bypasses softlock on character select screen #4901
+	{ 0x0dc5ca84f707863c, 452, "blitz_fps_hack", }, // Blitz: Overtime
+	{ 0xf93d3cd093595a6c, 856, "brian_lara_fps_hack", }, // Brian Lara 2007: Pressure Play
 };
 
 namespace MIPSAnalyst {
