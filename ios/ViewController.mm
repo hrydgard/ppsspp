@@ -134,7 +134,8 @@ id<PPSSPPViewController> sharedViewController;
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
-    return YES;
+	// Would love to hide it, but it prevents the double-swipe protection from working.
+	return NO;
 }
 
 - (void)shareText:(NSString *)text {

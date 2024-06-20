@@ -481,7 +481,8 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
-    return YES;
+	// Would love to hide it, but it prevents the double-swipe protection from working.
+	return NO;
 }
 
 - (void)shareText:(NSString *)text {
@@ -530,7 +531,6 @@ extern float g_safeInsetBottom;
 	[self hideKeyboard];
 	[self updateGesture];
 }
-
 
 - (void)updateGesture {
 	INFO_LOG(SYSTEM, "Updating swipe gesture.");
