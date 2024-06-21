@@ -11,6 +11,22 @@ if [ ! -f linuxdeploy-i386.AppImage ]; then
     chmod +x linuxdeploy-i386.AppImage
 fi
 
+mkdir ./AppDir/
+mkdir ./AppDir/usr/
+mkdir ./AppDir/usr/bin/
+mkdir ./AppDir/usr/share/
+mkdir ./AppDir/usr/share/applications/
+mkdir ./AppDir/usr/share/icons/
+mkdir ./AppDir/usr/share/icons/hicolor/
+mkdir ./AppDir/usr/share/icons/hicolor/256x256/
+mkdir ./AppDir/usr/share/icons/hicolor/256x256/apps/
+
+cp ~/ppsspp/SDL/PPSSPPSDL.desktop ./AppDir/
+cp ~/ppsspp/SDL/PPSSPPSDL.desktop ./AppDir/usr/share/applications/
+cp ~/ppsspp/build/PPSSPPSDL ./AppDir/usr/bin/
+cp -R ~/ppsspp/build/assets ./AppDir/usr/bin/
+cp ~/ppsspp/icons/hicolor/256x256/apps/ppsspp.png ./AppDir/usr/share/icons/hicolor/256x256/apps/
+
 DESTDIR=AppDir make install
 ./linuxdeploy-i386.AppImage --appimage-extract-and-run --appdir=AppDir \
 	--exclude-library="libX*" \
