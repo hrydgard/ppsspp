@@ -519,7 +519,9 @@ GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, b
 	} else {
 		path_.SetRootAlias("ms:/", memstickRoot);
 	}
-	if (System_GetPropertyBool(SYSPROP_LIMITED_FILE_BROWSING)) {
+	if (System_GetPropertyBool(SYSPROP_LIMITED_FILE_BROWSING) &&
+		(path.Type() == PathType::NATIVE || path.Type() == PathType::CONTENT_URI)) {
+		// Note: We don't restrict if the path is HTTPS, otherwise remote disc streaming breaks!
 		path_.RestrictToRoot(GetSysDirectory(DIRECTORY_MEMSTICK_ROOT));
 	}
 	path_.SetPath(path);
