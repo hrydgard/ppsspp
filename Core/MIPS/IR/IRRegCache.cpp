@@ -911,6 +911,7 @@ void IRNativeRegCacheBase::MappingFromInst(const IRInst &inst, Mapping mapping[3
 		case '\0':
 		case '_':
 		case 'C':
+		case 'r':
 		case 'I':
 		case 'v':
 		case 's':
