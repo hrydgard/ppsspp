@@ -616,7 +616,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	// Optional features
-	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
 		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
 		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
 		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };

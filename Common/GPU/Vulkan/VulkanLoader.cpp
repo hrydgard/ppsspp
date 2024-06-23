@@ -267,10 +267,12 @@ bool g_vulkanMayBeAvailable = false;
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {INFO_LOG(G3D, "Missing (instance): %s", #x);}
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
+	if (vulkanApiVersion >= min_core && !x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #ext_x); \
     if (!x) {INFO_LOG(G3D, "Missing (instance): %s (%s)", #x, #ext_x);}
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {INFO_LOG(G3D, "Missing (device): %s", #x);}
 #define LOAD_DEVICE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)vkGetDeviceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
+	if (vulkanApiVersion >= min_core && !x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #ext_x); \
 	if (!x) {INFO_LOG(G3D, "Missing (device): %s (%s)", #x, #ext_x);}
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(G3D,"Missing (global): %s", #x);}
 
