@@ -158,6 +158,18 @@ jobs:
           args: ./b.sh --libretro_android ppsspp_libretro
           id: android-libretro
 
+#        - os: linux-32-bit-appimage
+#          extra: sdl
+#          cc: gcc
+#          cxx: g++
+#          args: ./b.sh && cd build && ~/ppsspp/scripts/makeappimage_32-bit.sh
+#          id: sdl
+#        - os: linux-64-bit-appimage
+#          extra: sdl
+#          cc: gcc
+#          cxx: g++
+#          args: ./b.sh && cd build && ~/ppsspp/scripts/makeappimage_64-bit.sh
+#          id: sdl
         - os: ubuntu-latest
           extra: qt
           cc: gcc
