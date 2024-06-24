@@ -107,19 +107,6 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
-static int GetStereoBufferIndex(const char *uniformName) {
-	if (!uniformName) return -1;
-	else if (strcmp(uniformName, "u_view") == 0) return 0;
-	else if (strcmp(uniformName, "u_proj_lens") == 0) return 1;
-	else return -1;
-}
-
-static std::string GetStereoBufferLayout(const char *uniformName) {
-	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
-	else if (strcmp(uniformName, "u_proj_lens") == 0) return "ProjectionMatrix";
-	else return "undefined";
-}
-
 void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
