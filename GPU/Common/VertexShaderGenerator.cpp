@@ -920,14 +920,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Final view and projection transforms.
 		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens%s, viewPos));\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens, viewPos));\n");
 				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			} else {
 				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			}
 		} else {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = mul(u_proj_lens%s, viewPos);\n", matrixPostfix.c_str());
+				WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
 				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
 			} else {
 				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
