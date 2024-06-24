@@ -670,11 +670,13 @@ bool StartVRRender() {
 		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			vrFlatGame = false;
-		} else {
+		} else if (appMode == VR_GAME_MODE) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
 			if (IsGameVRScene()) {
 				vrFlatGame = true;
 			}
+		} else {
+			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
 		}
 		vr3DGeometryCount /= 2;
 
@@ -709,7 +711,7 @@ int GetVRFBOIndex() {
 
 int GetVRPassesCount() {
 	bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
-    return vrStereo ? 2 : 1;
+	return vrStereo ? 2 : 1;
 }
 
 bool IsPassthroughSupported() {
