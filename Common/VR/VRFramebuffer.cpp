@@ -81,23 +81,12 @@ void GLCheckErrors(const char* file, int line) {
 
 #endif
 
-#if XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 
-static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+static bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height) {
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
-	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
-	{
-		ALOGE("OpenGL implementation does not support GL_OVR_multiview2 extension.\n");
-	}
-
-	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
-	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR glFramebufferTextureMultiviewOVR = nullptr;
-	glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
-	if (!glFramebufferTextureMultiviewOVR) {
-		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
-	}
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -106,7 +95,7 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
-	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
+	swapChainCreateInfo.arraySize = 1;
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -152,15 +141,9 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 		// Create the frame buffer.
 		GL(glGenFramebuffers(1, &frameBuffer->GLFrameBuffers[i]));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[i]));
-		if (multiview) {
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthTexture, 0, 0, 2));
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, 0, 2));
-		} else {
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
-		}
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
 		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -177,7 +160,7 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 #if XR_USE_GRAPHICS_API_VULKAN
 
 static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
-							        bool multiview, void* context) {
+							        void* context) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
@@ -191,7 +174,7 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
-	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
+	swapChainCreateInfo.arraySize = 1;
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -378,25 +361,20 @@ void ovrRenderer_Clear(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview, void* vulkanContext) {
-	renderer->Multiview = multiview;
-	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
-	for (int i = 0; i < instances; i++) {
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, void* vulkanContext) {
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
 		if (vulkanContext) {
-			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
+			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, vulkanContext);
 		} else {
-#if XR_USE_GRAPHICS_API_OPENGL_ES
-			ovrFramebuffer_CreateGLES(session, &renderer->FrameBuffer[i], width, height, multiview);
-#elif XR_USE_GRAPHICS_API_OPENGL
-			// TODO
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height);
 #endif
 		}
 	}
 }
 
 void ovrRenderer_Destroy(ovrRenderer* renderer) {
-	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
-	for (int i = 0; i < instances; i++) {
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
 		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
 	}
 }

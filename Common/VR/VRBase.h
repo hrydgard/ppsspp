@@ -78,7 +78,6 @@ typedef struct {
 } ovrFramebuffer;
 
 typedef struct {
-	bool Multiview;
 	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
 } ovrRenderer;
 

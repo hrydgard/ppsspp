@@ -186,7 +186,7 @@ void VR_Recenter(engine_t* engine) {
 	VR_SetConfigFloat(VR_CONFIG_MENU_YAW, 0.0f);
 }
 
-void VR_InitRenderer( engine_t* engine, bool multiview ) {
+void VR_InitRenderer( engine_t* engine ) {
 	if (initialized) {
 		VR_DestroyRenderer(engine);
 	}
@@ -242,7 +242,7 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
-			multiview, vulkanContext);
+			vulkanContext);
 
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		XrPassthroughCreateInfoFB ptci = {XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};
@@ -387,14 +387,11 @@ void VR_FinishFrame( engine_t* engine ) {
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
 		VR_SetConfigFloat(VR_CONFIG_MENU_YAW, hmdorientation.y);
 
-		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
+		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {;
 			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
 			XrPosef pose = invViewTransform[0];
 			if (vrMode != VR_MODE_MONO_6DOF) {
-				if (!engine->appState.Renderer.Multiview) {
-					frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
-				}
+                frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 				pose = invViewTransform[eye];
 			}
 
@@ -409,7 +406,7 @@ void VR_FinishFrame( engine_t* engine ) {
 			projection_layer_elements[eye].subImage.imageRect.offset.y = 0;
 			projection_layer_elements[eye].subImage.imageRect.extent.width = frameBuffer->ColorSwapChain.Width;
 			projection_layer_elements[eye].subImage.imageRect.extent.height = frameBuffer->ColorSwapChain.Height;
-			projection_layer_elements[eye].subImage.imageArrayIndex = imageLayer;
+			projection_layer_elements[eye].subImage.imageArrayIndex = 0;
 		}
 
 		XrCompositionLayerProjection projection_layer = {};
@@ -457,12 +454,6 @@ void VR_FinishFrame( engine_t* engine ) {
 		// Build the cylinder layer
 		if (vrMode == VR_MODE_MONO_SCREEN) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
-		} else if (engine->appState.Renderer.Multiview) {
-			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
-			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
-			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-			cylinder_layer.subImage.imageArrayIndex = 1;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 		} else {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;

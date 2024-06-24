@@ -624,7 +624,7 @@ void* BindVRFramebuffer() {
 
 bool StartVRRender() {
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
-		VR_InitRenderer(VR_GetEngine(), IsMultiviewSupported());
+		VR_InitRenderer(VR_GetEngine());
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
 
@@ -709,15 +709,7 @@ int GetVRFBOIndex() {
 
 int GetVRPassesCount() {
 	bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
-	if (!IsMultiviewSupported() && vrStereo) {
-		return 2;
-	} else {
-		return 1;
-	}
-}
-
-bool IsMultiviewSupported() {
-	return false;
+    return vrStereo ? 2 : 1;
 }
 
 bool IsPassthroughSupported() {
