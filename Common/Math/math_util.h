@@ -110,6 +110,10 @@ inline bool my_isinf(float f) {
 		f2u.u == 0xff800000;
 }
 
+inline bool my_isinf_u(uint32_t u) {
+	return u == 0x7f800000 || u == 0xff800000;
+}
+
 inline bool my_isnan(float f) {
 	FP32 f2u;
 	f2u.f = f;
