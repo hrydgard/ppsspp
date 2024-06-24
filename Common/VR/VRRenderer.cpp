@@ -186,7 +186,7 @@ void VR_Recenter(engine_t* engine) {
 	VR_SetConfigFloat(VR_CONFIG_MENU_YAW, 0.0f);
 }
 
-void VR_InitRenderer( engine_t* engine, bool multiview ) {
+void VR_InitRenderer( engine_t* engine ) {
 	if (initialized) {
 		VR_DestroyRenderer(engine);
 	}
@@ -242,12 +242,7 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
 			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
-			multiview, vulkanContext);
-#ifdef ANDROID
-	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		ovrRenderer_SetFoveation(&engine->appState.Instance, &engine->appState.Session, &engine->appState.Renderer, XR_FOVEATION_LEVEL_HIGH_FB, 0, XR_FOVEATION_DYNAMIC_LEVEL_ENABLED_FB);
-	}
-#endif
+			vulkanContext);
 
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		XrPassthroughCreateInfoFB ptci = {XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};
@@ -389,18 +384,17 @@ void VR_EndFrame( engine_t* engine ) {
 void VR_FinishFrame( engine_t* engine ) {
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
-	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
+	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_SBS_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
 		VR_SetConfigFloat(VR_CONFIG_MENU_YAW, hmdorientation.y);
 
-		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
+		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {;
 			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
 			XrPosef pose = invViewTransform[0];
 			if (vrMode != VR_MODE_MONO_6DOF) {
-				if (!engine->appState.Renderer.Multiview) {
-					frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
-				}
 				pose = invViewTransform[eye];
+			}
+			if (vrMode == VR_MODE_STEREO_6DOF) {
+				frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
@@ -414,7 +408,14 @@ void VR_FinishFrame( engine_t* engine ) {
 			projection_layer_elements[eye].subImage.imageRect.offset.y = 0;
 			projection_layer_elements[eye].subImage.imageRect.extent.width = frameBuffer->ColorSwapChain.Width;
 			projection_layer_elements[eye].subImage.imageRect.extent.height = frameBuffer->ColorSwapChain.Height;
-			projection_layer_elements[eye].subImage.imageArrayIndex = imageLayer;
+			projection_layer_elements[eye].subImage.imageArrayIndex = 0;
+
+			if (vrMode == VR_MODE_SBS_6DOF) {
+				projection_layer_elements[eye].subImage.imageRect.extent.width /= 2;
+				if (eye == 1) {
+					projection_layer_elements[eye].subImage.imageRect.offset.x += frameBuffer->ColorSwapChain.Width / 2;
+				}
+			}
 		}
 
 		XrCompositionLayerProjection projection_layer = {};
@@ -426,7 +427,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		projection_layer.views = projection_layer_elements;
 
 		engine->appState.Layers[engine->appState.LayerCount++].Projection = projection_layer;
-	} else if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
+	} else if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_SBS_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
 
 		// Flat screen pose
 		float distance = VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE) / 4.0f - 1.0f;
@@ -463,11 +464,12 @@ void VR_FinishFrame( engine_t* engine ) {
 		if (vrMode == VR_MODE_MONO_SCREEN) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
-		} else if (engine->appState.Renderer.Multiview) {
+		} else if (vrMode == VR_MODE_SBS_SCREEN) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
+			cylinder_layer.subImage.imageRect.extent.width /= 2;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-			cylinder_layer.subImage.imageArrayIndex = 1;
+			cylinder_layer.subImage.imageRect.offset.x += cylinder_layer.subImage.imageRect.extent.width;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 		} else {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;

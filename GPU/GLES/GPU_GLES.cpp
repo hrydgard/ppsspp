@@ -172,9 +172,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (IsVREnabled()) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 	}
-	if (IsMultiviewSupported()) {
-		features |= GPU_USE_SINGLE_PASS_STEREO;
-	}
 
 	if (!gl_extensions.GLES3) {
 		// Heuristic.

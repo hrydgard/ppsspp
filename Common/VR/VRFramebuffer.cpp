@@ -1,9 +1,17 @@
 #include "VRFramebuffer.h"
 
-#if XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 
+#endif
+
+#if XR_USE_GRAPHICS_API_OPENGL_ES
+#define XR_GL_IMAGE XrSwapchainImageOpenGLESKHR
+#define XR_GL_SWAPCHAIN XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR
+#else
+#define XR_GL_IMAGE XrSwapchainImageOpenGLKHR
+#define XR_GL_SWAPCHAIN XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR
 #endif
 
 #include <cstdio>
@@ -81,23 +89,12 @@ void GLCheckErrors(const char* file, int line) {
 
 #endif
 
-#if XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 
-static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBuffer, int width, int height, bool multiview) {
+static bool ovrFramebuffer_CreateGL(XrSession session, ovrFramebuffer* frameBuffer, int width, int height) {
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
 
-	if (strstr((const char*)glGetString(GL_EXTENSIONS), "GL_OVR_multiview2") == nullptr)
-	{
-		ALOGE("OpenGL implementation does not support GL_OVR_multiview2 extension.\n");
-	}
-
-	typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
-	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR glFramebufferTextureMultiviewOVR = nullptr;
-	glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVR)eglGetProcAddress ("glFramebufferTextureMultiviewOVR");
-	if (!glFramebufferTextureMultiviewOVR) {
-		ALOGE("Can not get proc address for glFramebufferTextureMultiviewOVR.\n");
-	}
 	XrSwapchainCreateInfo swapChainCreateInfo;
 	memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
 	swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -106,16 +103,7 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
-	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
-
-#ifdef ANDROID
-	XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
-	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
-		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
-		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
-	}
-#endif
+	swapChainCreateInfo.arraySize = 1;
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -127,20 +115,20 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->ColorSwapChain.Handle));
 	OXR(xrEnumerateSwapchainImages(frameBuffer->ColorSwapChain.Handle, 0, &frameBuffer->TextureSwapChainLength, NULL));
-	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->ColorSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XR_GL_IMAGE));
 
 	// Create the depth swapchain.
 	swapChainCreateInfo.format = GL_DEPTH24_STENCIL8;
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	OXR(xrCreateSwapchain(session, &swapChainCreateInfo, &frameBuffer->DepthSwapChain.Handle));
-	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XrSwapchainImageOpenGLESKHR));
+	frameBuffer->DepthSwapChainImage = malloc(frameBuffer->TextureSwapChainLength * sizeof(XR_GL_IMAGE));
 
 	// Populate the swapchain image array.
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
-		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
-		((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
+		((XR_GL_IMAGE*)frameBuffer->ColorSwapChainImage)[i].type = XR_GL_SWAPCHAIN;
+		((XR_GL_IMAGE*)frameBuffer->ColorSwapChainImage)[i].next = NULL;
+		((XR_GL_IMAGE*)frameBuffer->DepthSwapChainImage)[i].type = XR_GL_SWAPCHAIN;
+		((XR_GL_IMAGE*)frameBuffer->DepthSwapChainImage)[i].next = NULL;
 	}
 	OXR(xrEnumerateSwapchainImages(
 			frameBuffer->ColorSwapChain.Handle,
@@ -155,21 +143,15 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 
 	frameBuffer->GLFrameBuffers = (GLuint*)malloc(frameBuffer->TextureSwapChainLength * sizeof(GLuint));
 	for (uint32_t i = 0; i < frameBuffer->TextureSwapChainLength; i++) {
-		const GLuint colorTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->ColorSwapChainImage)[i].image;
-		const GLuint depthTexture = ((XrSwapchainImageOpenGLESKHR*)frameBuffer->DepthSwapChainImage)[i].image;
+		const GLuint colorTexture = ((XR_GL_IMAGE*)frameBuffer->ColorSwapChainImage)[i].image;
+		const GLuint depthTexture = ((XR_GL_IMAGE*)frameBuffer->DepthSwapChainImage)[i].image;
 
 		// Create the frame buffer.
 		GL(glGenFramebuffers(1, &frameBuffer->GLFrameBuffers[i]));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[i]));
-		if (multiview) {
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthTexture, 0, 0, 2));
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0, 0, 2));
-			GL(glFramebufferTextureMultiviewOVR(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, 0, 2));
-		} else {
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
-			GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
-		}
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0));
+		GL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0));
 		GL(GLenum renderFramebufferStatus = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 		if (renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -186,7 +168,7 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 #if XR_USE_GRAPHICS_API_VULKAN
 
 static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuffer, int width, int height,
-							        bool multiview, void* context) {
+							        void* context) {
 
 	frameBuffer->Width = width;
 	frameBuffer->Height = height;
@@ -200,16 +182,7 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 	swapChainCreateInfo.height = height;
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
-	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
-
-#ifdef ANDROID
-	XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
-	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
-		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
-		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
-	}
-#endif
+	swapChainCreateInfo.arraySize = 1;
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -396,25 +369,20 @@ void ovrRenderer_Clear(ovrRenderer* renderer) {
 	}
 }
 
-void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, bool multiview, void* vulkanContext) {
-	renderer->Multiview = multiview;
-	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
-	for (int i = 0; i < instances; i++) {
+void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, int width, int height, void* vulkanContext) {
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
 		if (vulkanContext) {
-			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, multiview, vulkanContext);
+			ovrFramebuffer_CreateVK(session, &renderer->FrameBuffer[i], width, height, vulkanContext);
 		} else {
-#if XR_USE_GRAPHICS_API_OPENGL_ES
-			ovrFramebuffer_CreateGLES(session, &renderer->FrameBuffer[i], width, height, multiview);
-#elif XR_USE_GRAPHICS_API_OPENGL
-			// TODO
+#if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
+			ovrFramebuffer_CreateGL(session, &renderer->FrameBuffer[i], width, height);
 #endif
 		}
 	}
 }
 
 void ovrRenderer_Destroy(ovrRenderer* renderer) {
-	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
-	for (int i = 0; i < instances; i++) {
+	for (int i = 0; i < ovrMaxNumEyes; i++) {
 		ovrFramebuffer_Destroy(&renderer->FrameBuffer[i]);
 	}
 }
@@ -433,47 +401,6 @@ void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy
 #endif
 	}
 }
-
-#ifdef ANDROID
-void ovrRenderer_SetFoveation(XrInstance* instance, XrSession* session, ovrRenderer* renderer, XrFoveationLevelFB level, float verticalOffset, XrFoveationDynamicFB dynamic) {
-	PFN_xrCreateFoveationProfileFB pfnCreateFoveationProfileFB;
-	OXR(xrGetInstanceProcAddr(*instance, "xrCreateFoveationProfileFB", (PFN_xrVoidFunction*)(&pfnCreateFoveationProfileFB)));
-
-	PFN_xrDestroyFoveationProfileFB pfnDestroyFoveationProfileFB;
-	OXR(xrGetInstanceProcAddr(*instance, "xrDestroyFoveationProfileFB", (PFN_xrVoidFunction*)(&pfnDestroyFoveationProfileFB)));
-
-	PFN_xrUpdateSwapchainFB pfnUpdateSwapchainFB;
-	OXR(xrGetInstanceProcAddr(*instance, "xrUpdateSwapchainFB", (PFN_xrVoidFunction*)(&pfnUpdateSwapchainFB)));
-
-	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
-	for (int eye = 0; eye < instances; eye++) {
-		XrFoveationLevelProfileCreateInfoFB levelProfileCreateInfo;
-		memset(&levelProfileCreateInfo, 0, sizeof(levelProfileCreateInfo));
-		levelProfileCreateInfo.type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB;
-		levelProfileCreateInfo.level = level;
-		levelProfileCreateInfo.verticalOffset = verticalOffset;
-		levelProfileCreateInfo.dynamic = dynamic;
-
-		XrFoveationProfileCreateInfoFB profileCreateInfo;
-		memset(&profileCreateInfo, 0, sizeof(profileCreateInfo));
-		profileCreateInfo.type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB;
-		profileCreateInfo.next = &levelProfileCreateInfo;
-
-		XrFoveationProfileFB foveationProfile;
-
-		pfnCreateFoveationProfileFB(*session, &profileCreateInfo, &foveationProfile);
-
-		XrSwapchainStateFoveationFB foveationUpdateState;
-		memset(&foveationUpdateState, 0, sizeof(foveationUpdateState));
-		foveationUpdateState.type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB;
-		foveationUpdateState.profile = foveationProfile;
-
-		pfnUpdateSwapchainFB(renderer->FrameBuffer[eye].ColorSwapChain.Handle, (XrSwapchainStateBaseHeaderFB*)(&foveationUpdateState));
-
-		pfnDestroyFoveationProfileFB(foveationProfile);
-	}
-}
-#endif
 
 /*
 ================================================================================

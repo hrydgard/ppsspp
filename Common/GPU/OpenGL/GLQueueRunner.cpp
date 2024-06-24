@@ -107,19 +107,6 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
-static int GetStereoBufferIndex(const char *uniformName) {
-	if (!uniformName) return -1;
-	else if (strcmp(uniformName, "u_view") == 0) return 0;
-	else if (strcmp(uniformName, "u_proj_lens") == 0) return 1;
-	else return -1;
-}
-
-static std::string GetStereoBufferLayout(const char *uniformName) {
-	if (strcmp(uniformName, "u_view") == 0) return "ViewMatrices";
-	else if (strcmp(uniformName, "u_proj_lens") == 0) return "ProjectionMatrix";
-	else return "undefined";
-}
-
 void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
@@ -274,25 +261,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				auto &query = program->queries_[j];
 				_dbg_assert_(query.name);
 
-				int location = -1;
-				if (IsVREnabled() && IsMultiviewSupported()) {
-					int index = GetStereoBufferIndex(query.name);
-					if (index >= 0) {
-						std::string layout = GetStereoBufferLayout(query.name);
-						glUniformBlockBinding(program->program, glGetUniformBlockIndex(program->program, layout.c_str()), index);
-
-						GLuint buffer = 0;
-						glGenBuffers(1, &buffer);
-						glBindBuffer(GL_UNIFORM_BUFFER, buffer);
-						glBufferData(GL_UNIFORM_BUFFER,2 * 16 * sizeof(float),NULL, GL_STATIC_DRAW);
-						glBindBuffer(GL_UNIFORM_BUFFER, 0);
-						location = buffer;
-					} else {
-						location = glGetUniformLocation(program->program, query.name);
-					}
-				} else {
-					location = glGetUniformLocation(program->program, query.name);
-				}
+				int location = glGetUniformLocation(program->program, query.name);
 
 				if (location < 0 && query.required) {
 					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
@@ -1119,35 +1088,21 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
 		{
 			_dbg_assert_(curProgram);
-			if (IsMultiviewSupported()) {
-				int layout = GetStereoBufferIndex(c.uniformStereoMatrix4.name);
-				if (layout >= 0) {
-					int size = 2 * 16 * sizeof(float);
-					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformStereoMatrix4.loc);
-					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformStereoMatrix4.loc);
-					void *matrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-					memcpy(matrices, c.uniformStereoMatrix4.mData, size);
-					glUnmapBuffer(GL_UNIFORM_BUFFER);
-					glBindBuffer(GL_UNIFORM_BUFFER, 0);
+			int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
+			if (c.uniformStereoMatrix4.name) {
+				loc = curProgram->GetUniformLoc(c.uniformStereoMatrix4.name);
+			}
+			if (loc >= 0) {
+				if (GetVRFBOIndex() == 0) {
+					glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData);
+				} else {
+					glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
 				}
-				delete[] c.uniformStereoMatrix4.mData;  // We only playback once.
-			} else {
-				int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
-				if (c.uniformStereoMatrix4.name) {
-					loc = curProgram->GetUniformLoc(c.uniformStereoMatrix4.name);
-				}
-				if (loc >= 0) {
-					if (GetVRFBOIndex() == 0) {
-						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData);
-					} else {
-						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
-					}
-				}
-				if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
-					// Only delete the data if we're rendering the only or the second eye.
-					// If we delete during the first eye, we get a use-after-free or double delete.
-					delete[] c.uniformStereoMatrix4.mData;
-				}
+			}
+			if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
+				// Only delete the data if we're rendering the only or the second eye.
+				// If we delete during the first eye, we get a use-after-free or double delete.
+				delete[] c.uniformStereoMatrix4.mData;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;

@@ -27,13 +27,15 @@ enum VRConfigFloat {
 
 enum VRMode {
 	VR_MODE_MONO_SCREEN,
+	VR_MODE_SBS_SCREEN,
 	VR_MODE_STEREO_SCREEN,
 	VR_MODE_MONO_6DOF,
+	VR_MODE_SBS_6DOF,
 	VR_MODE_STEREO_6DOF
 };
 
 void VR_GetResolution( engine_t* engine, int *pWidth, int *pHeight );
-void VR_InitRenderer( engine_t* engine, bool multiview );
+void VR_InitRenderer( engine_t* engine );
 void VR_DestroyRenderer( engine_t* engine );
 
 bool VR_InitFrame( engine_t* engine );
