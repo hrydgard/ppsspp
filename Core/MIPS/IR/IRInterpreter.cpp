@@ -524,11 +524,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
 			// pshufb or SSE4 instructions can be used instead.
+#if PPSSPP_ARCH(ARM_NEON) && 0
+			// Untested
+			uint32x4_t value = vld1q_u32(&mips->fi[inst->src1]);
+			value = vshlq_n_u32(value, 1);
+			uint32x2_t halved = vshrn_n_u32(value, 8);
+			uint32x2_t halvedAgain = vshrn_n_u32(vcombine_u32(halved, vdup_n_u32(0)), 8);
+			mips->fi[inst->dest] = vget_lane_u32(halvedAgain, 0);
+#else
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
 			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
 			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
 			mips->fi[inst->dest] = val;
+#endif
 			break;
 		}
 
@@ -627,7 +636,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// Not quickly implementable on all platforms, unfortunately.
 			// Though, this is still pretty fast compared to one split into multiple IR instructions.
-			// This might be good though: https://stackoverflow.com/a/17004629
+			// This might be good though: https://gist.github.com/rikusalminen/3040241
 			float dot = mips->f[inst->src1] * mips->f[inst->src2];
 			for (int i = 1; i < 4; i++)
 				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
