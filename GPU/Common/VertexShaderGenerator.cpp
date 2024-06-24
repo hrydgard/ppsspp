@@ -151,9 +151,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			extensions.push_back("#extension GL_ARB_cull_distance : enable");
 		}
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			extensions.push_back("#extension GL_OVR_multiview2 : enable\nlayout(num_views=2) in;");
-		}
 	}
 
 	bool useSimpleStereo = id.Bit(VS_BIT_SIMPLE_STEREO);
@@ -504,11 +501,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// When transforming by hardware, we need a great deal more uniforms...
 			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
 			WRITE(p, "uniform mat4 u_world;\n");
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-				WRITE(p, "layout(shared) uniform ViewMatrices { uniform mat4 u_view[2]; };\n");
-			} else {
-				WRITE(p, "uniform mat4 u_view;\n");
-			}
+			WRITE(p, "uniform mat4 u_view;\n");
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
@@ -922,12 +915,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
 		}
 
-		std::string matrixPostfix;
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY) && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			matrixPostfix = "[gl_ViewID_OVR]";
-		}
-
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view%s).xyz, 1.0);\n", matrixPostfix.c_str());
+		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
