@@ -820,8 +820,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		}
 		case IROp::BSwap32:
 		{
-			u32 x = mips->r[inst->src1];
-			mips->r[inst->dest] = swap32(x);
+			mips->r[inst->dest] = swap32(mips->r[inst->src1]);
 			break;
 		}
 
@@ -832,12 +831,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
 			break;
 		case IROp::FMul:
-			if ((mips->f[inst->src2] == 0.0f && my_isinf(mips->f[inst->src1])) || (mips->f[inst->src1] == 0.0f && my_isinf(mips->f[inst->src2]))) {
+#if 1
+		{
+			float a = mips->f[inst->src1];
+			float b = mips->f[inst->src2];
+			if ((b == 0.0f && my_isinf(a)) || (a == 0.0f && my_isinf(b))) {
 				mips->fi[inst->dest] = 0x7fc00000;
 			} else {
-				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+				mips->f[inst->dest] = a * b;
 			}
+		}
 			break;
+#else
+			// Not sure if faster since it needs to load the operands twice? But the code is simpler.
+			{
+				// Takes care of negative zero by masking away the top bit, which also makes the inf check shorter.
+				u32 a = mips->fi[inst->src1] & 0x7FFFFFFF;
+				u32 b = mips->fi[inst->src2] & 0x7FFFFFFF;
+				if ((a == 0 && b == 0x7F800000) || (b == 0 && a == 0x7F800000)) {
+					mips->fi[inst->dest] = 0x7fc00000;
+				} else {
+					mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
+				}
+				break;
+			}
+#endif
 		case IROp::FDiv:
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			break;
