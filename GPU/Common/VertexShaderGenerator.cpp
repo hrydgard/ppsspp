@@ -24,6 +24,7 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
@@ -916,6 +917,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		if (useSimpleStereo) {
+			float ipd = 0.065f;
+			float scale = 1.0f;
+			if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
+				scale = PSP_CoreParameter().compat.vrCompat().UnitsPerMeter;
+			}
+			WRITE(p, "  viewPos.x += %f * float(gl_ViewIndex * 2 - 1);\n", scale * ipd * 0.5);
+		}
 
 		// Final view and projection transforms.
 		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -1349,12 +1358,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
-	}
-
-	if (useSimpleStereo && useHWTransform) {
-		p.C("  float zFactor = 0.2 * float(gl_ViewIndex * 2 - 1);\n");
-		p.C("  float zFocus = 0.0;\n");
-		p.C("  gl_Position.x += (-gl_Position.z - zFocus) * zFactor;\n");
 	}
 
 	if (needsZWHack) {
