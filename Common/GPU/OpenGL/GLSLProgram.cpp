@@ -63,9 +63,7 @@ struct AutoCharArrayBuf {
 		buf_ = nullptr;
 	}
 	void reset(char *buf) {
-		if (buf_) {
-			delete[] buf_;
-		}
+		delete[] buf_;
 		buf_ = buf;
 	}
 	operator char *() {

@@ -219,8 +219,7 @@ public:
 	PsmfPlayer(const PsmfPlayerCreateData *data);
 	~PsmfPlayer() {
 		AbortFinish();
-		if (mediaengine) 
-			delete mediaengine;
+		delete mediaengine;
 		pspFileSystem.CloseFile(filehandle);
 	}
 	void DoState(PointerWrap &p);

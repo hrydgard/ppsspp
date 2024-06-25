@@ -61,8 +61,7 @@ public:
 	}
 
 	~JsonReader() {
-		if (buffer_)
-			free(buffer_);
+		free(buffer_);
 	}
 
 	bool ok() const { return ok_; }

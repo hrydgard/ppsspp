@@ -433,8 +433,7 @@ void __KernelReturnFromInterrupt()
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
 {
-	if(intrHandlers[intrNumber])
-		delete intrHandlers[intrNumber];
+	delete intrHandlers[intrNumber];
 	intrHandlers[intrNumber] = handler;
 }
 

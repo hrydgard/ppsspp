@@ -142,10 +142,8 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 CtrlRegisterList::~CtrlRegisterList()
 {
 	DeleteObject(font);
-	if (lastCat0Values != NULL)
-		delete [] lastCat0Values;
-	if (changedCat0Regs != NULL)
-		delete [] changedCat0Regs;
+	delete [] lastCat0Values;
+	delete [] changedCat0Regs;
 }
 
 void fillRect(HDC hdc, RECT *rect, COLORREF colour);

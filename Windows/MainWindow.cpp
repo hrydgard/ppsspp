@@ -583,25 +583,21 @@ namespace MainWindow
 
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
-		if (disasmWindow)
-			delete disasmWindow;
+		delete disasmWindow;
 		disasmWindow = nullptr;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
-		if (geDebuggerWindow)
-			delete geDebuggerWindow;
+		delete geDebuggerWindow;
 		geDebuggerWindow = nullptr;
 #endif
 
 		DialogManager::RemoveDlg(memoryWindow);
-		if (memoryWindow)
-			delete memoryWindow;
+		delete memoryWindow;
 		memoryWindow = nullptr;
 
 		DialogManager::RemoveDlg(vfpudlg);
-		if (vfpudlg)
-			delete vfpudlg;
+		delete vfpudlg;
 		vfpudlg = nullptr;
 	}
 

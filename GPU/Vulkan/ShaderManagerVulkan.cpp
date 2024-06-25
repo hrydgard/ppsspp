@@ -91,8 +91,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			if (tag)
-				delete tag;
+			delete tag;
 		}
 		return shaderModule;
 	};
