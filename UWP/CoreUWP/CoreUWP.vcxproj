@@ -303,6 +303,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSIntVFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSStackWalk.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSHooks.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\Jit.h" />
@@ -581,6 +582,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSIntVFPU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSHooks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\Asm.cpp" />
