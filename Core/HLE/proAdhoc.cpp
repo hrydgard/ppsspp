@@ -429,7 +429,11 @@ void deleteAllAdhocSockets() {
 
 			if (fd > 0) {
 				// Close Socket
-				shutdown(fd, SD_BOTH);
+				struct linger sl {};
+				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
+				sl.l_linger = 0;	// timeout interval in seconds
+				setsockopt(fd, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
+				shutdown(fd, SD_RECEIVE);
 				closesocket(fd);
 			}
 			// Free Memory
