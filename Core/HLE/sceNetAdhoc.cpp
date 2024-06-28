@@ -2212,7 +2212,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 				sl.l_onoff = 1;		// non-zero value enables linger option in kernel
 				sl.l_linger = 0;	// timeout interval in seconds
 				setsockopt(sock->data.pdp.id, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
-				shutdown(sock->data.pdp.id, SD_BOTH);
+				shutdown(sock->data.pdp.id, SD_RECEIVE);
 				closesocket(sock->data.pdp.id);
 
 				// Remove Port Forward from Router
