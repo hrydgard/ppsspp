@@ -111,6 +111,10 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #define POLLPRI POLL_PRI
 #endif
 
+#ifndef SD_RECEIVE
+#define SD_RECEIVE SHUT_RD //0x00
+#endif
+
 #ifndef SD_BOTH
 #define SD_BOTH SHUT_RDWR //0x02
 #endif
