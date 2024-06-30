@@ -117,11 +117,11 @@ ShaderManagerD3D11::~ShaderManagerD3D11() {
 }
 
 void ShaderManagerD3D11::Clear() {
-	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter) {
-		delete iter->second;
+	for (const auto &[_, fs] : fsCache_) {
+		delete fs;
 	}
-	for (auto iter = vsCache_.begin(); iter != vsCache_.end(); ++iter) {
-		delete iter->second;
+	for (const auto &[_, vs] : vsCache_) {
+		delete vs;
 	}
 	fsCache_.clear();
 	vsCache_.clear();
