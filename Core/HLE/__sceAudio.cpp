@@ -360,7 +360,7 @@ void __AudioUpdate(bool resetRecording) {
 			auto read = [&](size_t i) {
 				if (i < sz1)
 					return buf1[i];
-				if (i < sz1 + sz2)
+				if (buf2 && (i < sz1 + sz2))
 					return buf2[i - sz1];
 				if (buf2)
 					return buf2[sz2 - 1];

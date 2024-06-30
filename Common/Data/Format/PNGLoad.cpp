@@ -27,6 +27,13 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 
 	int stride = PNG_IMAGE_ROW_STRIDE(png);
 	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_SIZE(png));
+	if (!image_data_ptr)
+	{
+		WARN_LOG(IO, "pngLoad: %s (%s)", png.message, file);
+		*image_data_ptr = nullptr;
+		return 0;
+	}
+
 	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 	return 1;
 }
@@ -56,6 +63,13 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	}
 
 	*image_data_ptr = (unsigned char *)malloc(size);
+	if (!image_data_ptr)
+	{
+		ERROR_LOG(IO, "pngLoad: malloc image_data_ptr failed");
+		*image_data_ptr = nullptr;
+		return 0;
+	}
+
 	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 	return 1;
 }

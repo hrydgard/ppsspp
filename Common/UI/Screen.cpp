@@ -91,6 +91,9 @@ void ScreenManager::switchToNext() {
 	Layer temp = {nullptr, 0};
 	if (!stack_.empty()) {
 		temp = stack_.back();
+		if (!temp.screen) {
+			ERROR_LOG(SYSTEM, "switchToNext: No temp.screen!");
+		}
 		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 		stack_.pop_back();
 	}
