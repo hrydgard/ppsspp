@@ -274,8 +274,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
-	// The PSP only supports 8 mip levels, but we support 12 in the texture replacer (4k textures down to 1).
-	D3D11_SUBRESOURCE_DATA subresData[12]{};
+	// The PSP only supports 8 mip levels, but we support more in the texture replacer. 20 will never run out.
+	D3D11_SUBRESOURCE_DATA subresData[20]{};
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
