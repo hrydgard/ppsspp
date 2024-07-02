@@ -41,10 +41,8 @@ bool UnloadD3DCompiler() {
 	if (!g_D3DCompileModule)
 		return false;
 
-	if (g_D3DCompileModule) {
-		FreeLibrary(g_D3DCompileModule);
-		g_D3DCompileModule = nullptr;
-	}
+	FreeLibrary(g_D3DCompileModule);
+	g_D3DCompileModule = nullptr;
 
 	return true;
 }
