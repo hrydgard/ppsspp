@@ -1093,6 +1093,10 @@ namespace MainWindow
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
 			{
+				// Disable Alt key for menu if "Ignore Windows Key" is on (likely related)
+				if (g_Config.bIgnoreWindowsKey && wParam == SC_KEYMENU && (lParam >> 16) <= 0) {
+					return 0;
+				}
 				if (g_keepScreenBright) {
 					switch (wParam) {
 					case SC_SCREENSAVE:
