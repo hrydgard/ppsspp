@@ -20,14 +20,20 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#elif _WIN32
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
 #endif
 
+// TODO: fixme move Core/Net to Common/Net
 #include "Common/Net/Resolve.h"
+#include "Core/Net/InetCommon.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -44,6 +50,12 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
+
+#include <iostream>
+#include <shared_mutex>
+
+#include "sceNetInet.h"
+#include "sceNetResolver.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/Reporting.h"
 #include "Core/Instance.h"
@@ -54,7 +66,6 @@
 #endif
 
 bool netInited;
-bool netInetInited;
 
 u32 netDropRate = 0;
 u32 netDropDuration = 0;
@@ -131,6 +142,26 @@ void InitLocalhostIP() {
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
+static bool __PlatformNetInit() {
+#ifdef _WIN32
+	WSADATA wsaData;
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+		// TODO: log
+		return false;
+	}
+#else
+	return true;
+#endif
+}
+
+static bool __PlatformNetShutdown() {
+#ifdef _WIN32
+	return WSACleanup() == 0;
+#else
+	return true;
+#endif
+}
+
 static void __ApctlState(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	int uid = (int)(userdata & 0xFFFFFFFF);
@@ -176,7 +207,7 @@ void __NetApctlInit() {
 
 static void __ResetInitNetLib() {
 	netInited = false;
-	netInetInited = false;
+	// netInetInited = false;
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	memset(&parameter, 0, sizeof(parameter));
@@ -211,7 +242,8 @@ void __NetInit() {
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
 	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
-	
+
+	__PlatformNetInit();
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
 
@@ -233,11 +265,15 @@ void __NetShutdown() {
 	// Network Cleanup
 	Net_Term();
 
+	SceNetResolver::Shutdown();
+	SceNetInet::Shutdown();
 	__NetApctlShutdown();
 	__ResetInitNetLib();
 
 	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
 	__UPnPShutdown();
+
+	__PlatformNetShutdown();
 
 	free(dummyPeekBuf64k);
 }
@@ -268,11 +304,11 @@ void __NetDoState(PointerWrap &p) {
 		return;
 
 	auto cur_netInited = netInited;
-	auto cur_netInetInited = netInetInited;
+	// auto cur_netInetInited = netInetInited;
 	auto cur_netApctlInited = netApctlInited;
 
 	Do(p, netInited);
-	Do(p, netInetInited);
+	// Do(p, netInetInited);
 	Do(p, netApctlInited);
 	Do(p, apctlHandlers);
 	Do(p, netMallocStat);
@@ -317,11 +353,13 @@ void __NetDoState(PointerWrap &p) {
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;
-		netInetInited = cur_netInetInited;
+		// netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
 
 		// Discard leftover events
 		apctlEvents.clear();
+		// Discard created resolvers
+		SceNetResolver::Shutdown();
 	}
 }
 
@@ -794,21 +832,6 @@ static int sceNetGetMallocStat(u32 statPtr) {
 	return 0;
 }
 
-static int sceNetInetInit() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetInit()");
-	if (netInetInited) return ERROR_NET_INET_ALREADY_INITIALIZED;
-	netInetInited = true;
-
-	return 0;
-}
-
-int sceNetInetTerm() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetTerm()");
-	netInetInited = false;
-
-	return 0;
-}
-
 void NetApctl_InitInfo() {
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
 	// Set dummy/fake values, these probably not suppose to have valid info before connected to an AP, right?
@@ -822,7 +845,8 @@ void NetApctl_InitInfo() {
 	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;
 	// Get Local IP Address
 	sockaddr_in sockAddr;
-	getLocalIp(&sockAddr); // This will be valid IP, we probably not suppose to have a valid IP before connected to any AP, right?
+	socklen_t socklen = sizeof(sockaddr_in);
+	getDefaultOutboundSockaddr(sockAddr, socklen); // This will be valid IP, we probably not suppose to have a valid IP before connected to any AP, right?
 	char ipstr[INET_ADDRSTRLEN] = "127.0.0.1"; // Patapon 3 seems to try to get current IP using ApctlGetInfo() right after ApctlInit(), what kind of IP should we use as default before ApctlConnect()? it shouldn't be a valid IP, right?
 	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
 	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), ipstr);
@@ -983,7 +1007,8 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 	case PSP_NET_APCTL_INFO_USE_PROXY:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
-		Memory::WriteUnchecked_U32(netApctlInfo.useProxy, pInfoAddr);
+		// TODO: fixme
+		Memory::WriteUnchecked_U32(1, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_PROXY_URL:
@@ -1081,107 +1106,6 @@ int NetApctl_DelHandler(u32 handlerID) {
 static int sceNetApctlDelHandler(u32 handlerID) {
 	INFO_LOG(SCENET, "%s(%d)", __FUNCTION__, handlerID);
 	return NetApctl_DelHandler(handlerID);
-}
-
-static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
-	return -1;
-}
-
-int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
-	DEBUG_LOG(SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
-	int retval = -1;
-	SceNetInetPollfd *fdarray = (SceNetInetPollfd *)fds; // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
-//#ifdef _WIN32
-	//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
-	if (nfds > FD_SETSIZE) return -1;
-	fd_set readfds, writefds, exceptfds;
-	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
-	for (int i = 0; i < (s32)nfds; i++) {
-		if (fdarray[i].events & (INET_POLLRDNORM)) FD_SET(fdarray[i].fd, &readfds); // (POLLRDNORM | POLLIN)
-		if (fdarray[i].events & (INET_POLLWRNORM)) FD_SET(fdarray[i].fd, &writefds); // (POLLWRNORM | POLLOUT)
-		//if (fdarray[i].events & (ADHOC_EV_ALERT)) // (POLLRDBAND | POLLPRI) // POLLERR 
-		FD_SET(fdarray[i].fd, &exceptfds); 
-		fdarray[i].revents = 0;
-	}
-	timeval tmout;
-	tmout.tv_sec = timeout / 1000; // seconds
-	tmout.tv_usec = (timeout % 1000) * 1000; // microseconds
-	retval = select(nfds, &readfds, &writefds, &exceptfds, &tmout);
-	if (retval < 0) return -1;
-	retval = 0;
-	for (int i = 0; i < (s32)nfds; i++) {
-		if (FD_ISSET(fdarray[i].fd, &readfds)) fdarray[i].revents |= INET_POLLRDNORM; //POLLIN
-		if (FD_ISSET(fdarray[i].fd, &writefds)) fdarray[i].revents |= INET_POLLWRNORM; //POLLOUT
-		fdarray[i].revents &= fdarray[i].events;
-		if (FD_ISSET(fdarray[i].fd, &exceptfds)) fdarray[i].revents |= ADHOC_EV_ALERT; // POLLPRI; // POLLERR; // can be raised on revents regardless of events bitmask?
-		if (fdarray[i].revents) retval++;
-	}
-//#else
-	/*
-	// Doesn't work properly yet
-	pollfd *fdtmp = (pollfd *)malloc(sizeof(pollfd) * nfds);
-	// Note: sizeof(pollfd) = 16bytes in 64bit and 8bytes in 32bit, while sizeof(SceNetInetPollfd) is always 8bytes
-	for (int i = 0; i < (s32)nfds; i++) {
-		fdtmp[i].fd = fdarray[i].fd;
-		fdtmp[i].events = 0;
-		if (fdarray[i].events & INET_POLLRDNORM) fdtmp[i].events |= (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI);
-		if (fdarray[i].events & INET_POLLWRNORM) fdtmp[i].events |= (POLLOUT | POLLWRNORM | POLLWRBAND);
-		fdtmp[i].revents = 0;
-		fdarray[i].revents = 0;
-	}
-	retval = poll(fdtmp, (nfds_t)nfds, timeout); //retval = WSAPoll(fdarray, nfds, timeout);
-	for (int i = 0; i < (s32)nfds; i++) {
-		if (fdtmp[i].revents & (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI)) fdarray[i].revents |= INET_POLLRDNORM;
-		if (fdtmp[i].revents & (POLLOUT | POLLWRNORM | POLLWRBAND)) fdarray[i].revents |= INET_POLLWRNORM;
-		fdarray[i].revents &= fdarray[i].events;
-		if (fdtmp[i].revents & POLLERR) fdarray[i].revents |= POLLERR; //INET_POLLERR // can be raised on revents regardless of events bitmask?
-	}
-	free(fdtmp);
-	*/
-//#endif
-	return retval;
-}
-
-static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
-	return -1;
-}
-
-static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
-	return -1;
-}
-
-static int sceNetInetGetErrno() {
-	ERROR_LOG(SCENET, "UNTESTED sceNetInetGetErrno()");
-	int error = errno;
-	switch (error) {
-	case ETIMEDOUT:		
-		return INET_ETIMEDOUT;
-	case EISCONN:		
-		return INET_EISCONN;
-	case EINPROGRESS:	
-		return INET_EINPROGRESS;
-	//case EAGAIN:
-	//	return INET_EAGAIN;
-	}
-	return error; //-1;
-}
-
-static int sceNetInetSocket(int domain, int type, int protocol) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
-	return -1;
-}
-
-static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
-	return -1;
-}
-
-static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
-	return -1;
 }
 
 int sceNetApctlConnect(int connIndex) {
@@ -1373,12 +1297,6 @@ static int sceNetApctlGetBSSDescEntry2(int entryId, int infoId, u32 resultAddr) 
 	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
-static int sceNetResolverInit()
-{
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
-	return 0;
-}
-
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 2nd kind of handler
@@ -1433,45 +1351,38 @@ static int sceNetApctl_lib2_C20A144C(int connIndex, u32 ps3MacAddressPtr) {
 }
 
 
-static int sceNetUpnpInit(int unknown1,int unknown2)
-{
+static int sceNetUpnpInit(int unknown1,int unknown2) {
 	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);	
 	return 0;
 }
 
-static int sceNetUpnpStart()
-{
+static int sceNetUpnpStart() {
 	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStart");
 	return 0;
 }
 
-static int sceNetUpnpStop()
-{
+static int sceNetUpnpStop() {
 	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStop");
 	return 0;
 }
 
-static int sceNetUpnpTerm()
-{
+static int sceNetUpnpTerm() {
 	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpTerm");
 	return 0;
 }
 
-static int sceNetUpnpGetNatInfo()
-{
+static int sceNetUpnpGetNatInfo() {
 	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpGetNatInfo");
 	return 0;
 }
 
-static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr)
-{
+static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr) {
 	Memory::Write_U32(netDropRate, dropRateAddr);
 	Memory::Write_U32(netDropDuration, dropDurationAddr);
 	return hleLogSuccessInfoI(SCENET, 0);
 }
 
-static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
-{
+static int sceNetSetDropRate(u32 dropRate, u32 dropDuration) {
 	netDropRate = dropRate;
 	netDropDuration = dropDuration;
 	return hleLogSuccessInfoI(SCENET, 0);
@@ -1486,54 +1397,6 @@ const HLEFunction sceNet[] = {
 	{0X50647530, &WrapI_I<sceNetFreeThreadinfo>,     "sceNetFreeThreadinfo",            'i', "i"    },
 	{0XCC393E48, &WrapI_U<sceNetGetMallocStat>,      "sceNetGetMallocStat",             'i', "p"    },
 	{0XAD6844C6, &WrapI_I<sceNetThreadAbort>,        "sceNetThreadAbort",               'i', "i"    },
-};
-
-const HLEFunction sceNetResolver[] = {
-	{0X224C5F44, nullptr,                            "sceNetResolverStartNtoA",         '?', ""     },
-	{0X244172AF, nullptr,                            "sceNetResolverCreate",            '?', ""     },
-	{0X94523E09, nullptr,                            "sceNetResolverDelete",            '?', ""     },
-	{0XF3370E61, &WrapI_V<sceNetResolverInit>,       "sceNetResolverInit",              'i', ""     },
-	{0X808F6063, nullptr,                            "sceNetResolverStop",              '?', ""     },
-	{0X6138194A, nullptr,                            "sceNetResolverTerm",              '?', ""     },
-	{0X629E2FB7, nullptr,                            "sceNetResolverStartAtoN",         '?', ""     },
-	{0X14C17EF9, nullptr,                            "sceNetResolverStartNtoAAsync",    '?', ""     },
-	{0XAAC09184, nullptr,                            "sceNetResolverStartAtoNAsync",    '?', ""     },
-	{0X12748EB9, nullptr,                            "sceNetResolverWaitAsync",         '?', ""     },
-	{0X4EE99358, nullptr,                            "sceNetResolverPollAsync",         '?', ""     },
-};					 
-
-const HLEFunction sceNetInet[] = {
-	{0X17943399, &WrapI_V<sceNetInetInit>,           "sceNetInetInit",                  'i', ""     },
-	{0X4CFE4E56, nullptr,                            "sceNetInetShutdown",              '?', ""     },
-	{0XA9ED66B9, &WrapI_V<sceNetInetTerm>,           "sceNetInetTerm",                  'i', ""     },
-	{0X8B7B220F, &WrapI_III<sceNetInetSocket>,       "sceNetInetSocket",                'i', "iii"  },
-	{0X2FE71FE7, &WrapI_IIIUI<sceNetInetSetsockopt>, "sceNetInetSetsockopt",            'i', "iiixi"},
-	{0X4A114C7C, nullptr,                            "sceNetInetGetsockopt",            '?', ""     },
-	{0X410B34AA, &WrapI_IUI<sceNetInetConnect>,      "sceNetInetConnect",               'i', "ixi"  },
-	{0X805502DD, nullptr,                            "sceNetInetCloseWithRST",          '?', ""     },
-	{0XD10A1A7A, nullptr,                            "sceNetInetListen",                '?', ""     },
-	{0XDB094E1B, nullptr,                            "sceNetInetAccept",                '?', ""     },
-	{0XFAABB1DD, &WrapI_VUI<sceNetInetPoll>,         "sceNetInetPoll",                  'i', "pxi"  },
-	{0X5BE8D595, nullptr,                            "sceNetInetSelect",                '?', ""     },
-	{0X8D7284EA, nullptr,                            "sceNetInetClose",                 '?', ""     },
-	{0XCDA85C99, &WrapI_IUUU<sceNetInetRecv>,        "sceNetInetRecv",                  'i', "ixxx" },
-	{0XC91142E4, nullptr,                            "sceNetInetRecvfrom",              '?', ""     },
-	{0XEECE61D2, nullptr,                            "sceNetInetRecvmsg",               '?', ""     },
-	{0X7AA671BC, &WrapI_IUUU<sceNetInetSend>,        "sceNetInetSend",                  'i', "ixxx" },
-	{0X05038FC7, nullptr,                            "sceNetInetSendto",                '?', ""     },
-	{0X774E36F4, nullptr,                            "sceNetInetSendmsg",               '?', ""     },
-	{0XFBABE411, &WrapI_V<sceNetInetGetErrno>,       "sceNetInetGetErrno",              'i', ""     },
-	{0X1A33F9AE, nullptr,                            "sceNetInetBind",                  '?', ""     },
-	{0XB75D5B0A, nullptr,                            "sceNetInetInetAddr",              '?', ""     },
-	{0X1BDF5D13, &WrapI_CU<sceNetInetInetAton>,      "sceNetInetInetAton",              'i', "sx"   },
-	{0XD0792666, nullptr,                            "sceNetInetInetNtop",              '?', ""     },
-	{0XE30B8C19, nullptr,                            "sceNetInetInetPton",              '?', ""     },
-	{0X8CA3A97E, nullptr,                            "sceNetInetGetPspError",           '?', ""     },
-	{0XE247B6D6, nullptr,                            "sceNetInetGetpeername",           '?', ""     },
-	{0X162E6FD5, nullptr,                            "sceNetInetGetsockname",           '?', ""     },
-	{0X80A21ABD, nullptr,                            "sceNetInetSocketAbort",           '?', ""     },
-	{0X39B0C7D3, nullptr,                            "sceNetInetGetUdpcbstat",          '?', ""     },
-	{0XB3888AD4, nullptr,                            "sceNetInetGetTcpcbstat",          '?', ""     },
 };
 
 const HLEFunction sceNetApctl[] = {
@@ -1587,8 +1450,6 @@ const HLEFunction sceNetIfhandle[] = {
 
 void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
-	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
-	RegisterModule("sceNetInet", ARRAY_SIZE(sceNetInet), sceNetInet);
 	RegisterModule("sceNetApctl", ARRAY_SIZE(sceNetApctl), sceNetApctl);
 }
 
