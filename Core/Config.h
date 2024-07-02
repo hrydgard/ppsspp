@@ -455,6 +455,7 @@ public:
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
 	bool bForcedFirstConnect;
+	int iUPnPTimeout;
 	int iPortOffset;
 	int iMinTimeout;
 	int iWlanAdhocChannel;
