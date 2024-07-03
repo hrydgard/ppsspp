@@ -1084,13 +1084,12 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 	while (!Memory::IsValidAddress(memoryFontPtr + memoryFontLength - 1)) {
 		--memoryFontLength;
 	}
-	Font *f = new Font(fontData, memoryFontLength);
-	LoadedFont *font = fontLib->OpenFont(f, FONT_OPEN_USERBUFFER, *errorCode);
+	auto f = std::make_unique<Font>(fontData, memoryFontLength);
+	LoadedFont *font = fontLib->OpenFont(f.get(), FONT_OPEN_USERBUFFER, *errorCode);
 	if (font) {
 		*errorCode = 0;
 		return hleLogSuccessX(SCEFONT, font->Handle());
 	}
-	delete f;
 	return 0;
 }
 
@@ -1123,15 +1122,14 @@ static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u3
 		return hleLogError(SCEFONT, 0, "file does not exist");
 	}
 
-	Font *f = new Font(buffer);
+	auto f = std::make_unique<Font>(buffer);
 	FontOpenMode openMode = mode == 0 ? FONT_OPEN_USERFILE_HANDLERS : FONT_OPEN_USERFILE_FULL;
-	LoadedFont *font = fontLib->OpenFont(f, openMode, *errorCode);
+	LoadedFont *font = fontLib->OpenFont(f.get(), openMode, *errorCode);
 	if (font) {
 		*errorCode = 0;
 		return hleLogSuccessInfoX(SCEFONT, font->Handle());
 	}
 
-	delete f;
 	// Message was already logged.
 	return 0;
 }
