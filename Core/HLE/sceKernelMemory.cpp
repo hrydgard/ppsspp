@@ -95,9 +95,7 @@ struct FPL : public KernelObject
 {
 	FPL() : blocks(NULL), nextBlock(0) {}
 	~FPL() {
-		if (blocks != NULL) {
-			delete [] blocks;
-		}
+		delete [] blocks;
 	}
 	const char *GetName() override { return nf.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
