@@ -438,9 +438,9 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			}
 
 			// Then go right ahead and see if any of the children contain any better candidates.
-			for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-				if ((*iter)->IsViewGroup()) {
-					ViewGroup *vg = static_cast<ViewGroup *>(*iter);
+			for (auto *v : views_) {
+				if (v->IsViewGroup()) {
+					ViewGroup *vg = static_cast<ViewGroup *>(v);
 					if (vg)
 						result = vg->FindNeighbor(view, direction, result);
 				}

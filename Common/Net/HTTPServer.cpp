@@ -359,8 +359,8 @@ void Server::Handle404(const ServerRequest &request) {
 
 void Server::HandleListing(const ServerRequest &request) {
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
-	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-		request.Out()->Printf("%s\n", iter->first.c_str());
+	for (auto &handler : handlers_) {
+		request.Out()->Printf("%s\n", handler.first.c_str());
 	}
 }
 
