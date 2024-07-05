@@ -134,8 +134,16 @@ id<PPSSPPViewController> sharedViewController;
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
-	// Would love to hide it, but it prevents the double-swipe protection from working.
-	return NO;
+	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
+		return NO;
+	} else {
+		return YES;
+	}
+}
+
+- (void)appSwitchModeChanged
+{
+	[self setNeedsUpdateOfHomeIndicatorAutoHidden];
 }
 
 - (void)shareText:(NSString *)text {
