@@ -664,7 +664,7 @@ BEGIN
             MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
             MENUITEM "Auto Max Quality",                    ID_OPTIONS_AUTOMAXQUALITYFILTERING
             MENUITEM "", 0, MFT_SEPARATOR
-            MENUITEM "Smart 2D Texture Filtering",          ID_OPTIONS_SMART2DTEXTUREFILTERING
+            MENUITEM "Smart 2D texture filtering",          ID_OPTIONS_SMART2DTEXTUREFILTERING
         END
         POPUP "Screen Scaling Filter",                      ID_OPTIONS_SCREENFILTER_MENU
         BEGIN

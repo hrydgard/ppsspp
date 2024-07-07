@@ -371,7 +371,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				}
 			}
 			if (found) {
-				tvVerified_->SetText(ga->T("ISO OK according to the Redump project"));
+				tvVerified_->SetText(ga->T("ISO OK according to the ReDump project"));
 				tvVerified_->SetLevel(NoticeLevel::SUCCESS);
 				tvVerified_->SetVisibility(UI::V_VISIBLE);
 			} else {
@@ -381,7 +381,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				tvVerified_->SetVisibility(UI::V_GONE);
 			}
 		} else if (tvVerified_) {
-			// tvVerified_->SetText(ga->T("Game ID unknown - not in the Redump database"));
+			// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 			// tvVerified_->SetVisibility(UI::V_VISIBLE);
 			// tvVerified_->SetLevel(NoticeLevel::WARN);
 			tvVerified_->SetVisibility(UI::V_GONE);
