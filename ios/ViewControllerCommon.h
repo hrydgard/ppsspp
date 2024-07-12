@@ -15,6 +15,7 @@
 - (void)stopLocation;
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
+- (void)appSwitchModeChanged;
 
 // Forwarded from the AppDelegate
 - (void)didBecomeActive;
