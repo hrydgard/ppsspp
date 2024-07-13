@@ -4939,7 +4939,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 							if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 							context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
 							context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
-							context->timeout += adhocDefaultTimeout; // For internet play we need higher timeout than what the game wanted
+							context->timeout += 500000; // For internet play we need higher timeout than what the game wanted
 							context->handler = handler;
 							context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
 
@@ -5926,7 +5926,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 		DEBUG_LOG(SCENET, "AdhocMatching - Remaining Events: %zu", matchingEvents.size());
 		auto peer = findPeer(context, (SceNetEtherAddr*)Memory::GetPointer(args[2]));
 		// Discard HELLO Events when in the middle of joining, as some games (ie. Super Pocket Tennis) might tried to join again (TODO: Need to confirm whether sceNetAdhocMatchingSelectTarget supposed to be blocking the current thread or not)
-		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST))) {
+		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
 			DEBUG_LOG(SCENET, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointer(args[2])).c_str());
 		
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
@@ -5941,7 +5941,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
-	sceKernelDelayThread(delayus);
+	sceKernelDelayThreadCB(delayus);
 }
 
 const HLEFunction sceNetAdhoc[] = {
@@ -6726,7 +6726,10 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		}
 
 		// Delete Peer
-		else deletePeer(context, peer);
+		else {
+			// Instead of removing peer immediately, We should give a little time before removing the peer and let it timed out? so it can send the BYE packet when stopping AdhocMatching after Canceling it
+			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+		}
 	}
 }
 
@@ -6902,7 +6905,7 @@ void sendByePacket(SceNetAdhocMatchingContext * context)
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Peer of Interest
-		if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)
 		{
 			// Bye Opcode
 			uint8_t opcode = PSP_ADHOC_MATCHING_PACKET_BYE;
@@ -7231,7 +7234,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Kicked from Room
@@ -7264,7 +7268,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Leave Room
@@ -7274,7 +7279,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 
@@ -7290,8 +7296,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						// Spawn Deny Event
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
-						// Delete Peer from List
-						deletePeer(context, peer);
+						// FIXME: Delete Peer from List?
+						// Instead of removing the peer immediately, we should let it timedout, otherwise inviter in Crazy Taxi will wait forever without getting timedout, since handleTimeout need the peer data to exist.
+						peer->lastping = 0;
 					}
 
 					// Kicked from Room
@@ -7301,7 +7308,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Cancel Join Request
@@ -7311,7 +7319,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 			}
@@ -7459,10 +7468,11 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 	// We know this guy
 	if (peer != NULL)
 	{
-		// P2P or Child Bye
+		// P2P or Child Bye. FIXME: Should we allow BYE Event to intervene joining process of Parent-Child too just like P2P Mode? (ie. Crazy Taxi uses P2P Mode)
 		if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 			(context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
-			(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P))
+			(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && 
+				(peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_OFFER || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 		{
 			if (context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
 				// Spawn Leave / Kick Event. FIXME: DISCONNECT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
@@ -7523,7 +7533,7 @@ int matchingEventThread(int matchingId)
 			peerlock.unlock();
 
 			// Messages on Stack ready for processing
-			if (context != NULL && context->event_stack != NULL)
+			while (context != NULL && context->event_stack != NULL)
 			{
 				// Claim Stack
 				context->eventlock->lock();
@@ -7665,7 +7675,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			if (context != NULL) {
+			while (context != NULL && context->inputRunning && !Core_IsStepping()) {
 				now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 				// Hello Message Sending Context with unoccupied Slots
@@ -7684,15 +7694,23 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				}
 
 				// Ping Required
-				if (context->keepalive_int > 0)
+				if (context->keepalive_int > 0) {
 					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int))
 					{
+						// Handle Peer Timeouts
+						handleTimeout(context);
+
 						// Broadcast Ping Message
 						broadcastPingMessage(context);
 
 						// Update Ping Timer
 						lastping = now;
 					}
+				}
+				else {
+					// FIXME: Should we checks for Timeout too when the game doesn't set the keep alive interval?
+					handleTimeout(context);
+				}
 
 				// Messages on Stack ready for processing
 				if (context->input_stack != NULL)
@@ -7824,9 +7842,8 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 
 					// Ignore Incoming Trash Data
 				}
-
-				// Handle Peer Timeouts
-				handleTimeout(context);
+				else
+					break;
 			}
 			// Share CPU Time
 			sleep_ms(10); //1 //sceKernelDelayThread(10000);
