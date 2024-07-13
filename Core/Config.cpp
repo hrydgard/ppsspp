@@ -694,7 +694,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("UberShaderVertex", &g_Config.bUberShaderVertex, true, CfgFlag::DEFAULT),
 	ConfigSetting("UberShaderFragment", &g_Config.bUberShaderFragment, true, CfgFlag::DEFAULT),
 
-	ConfigSetting("DisplayRefreshRate", &g_Config.iDisplayRefreshRate, 60, CfgFlag::PER_GAME),
+	ConfigSetting("DisplayRefreshRate", &g_Config.iDisplayRefreshRate, g_Config.iDisplayRefreshRate, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting soundSettings[] = {
