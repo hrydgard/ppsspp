@@ -77,12 +77,12 @@ bool InitController(GCController *controller) {
 	};
 
 	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(SYSTEM, "ltrigger: %f %d", value, (int)pressed);
+		INFO_LOG(Log::System, "ltrigger: %f %d", value, (int)pressed);
 		analogTriggerPressed(JOYSTICK_AXIS_LTRIGGER, value);
 	};
 
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(SYSTEM, "rtrigger: %f %d", value, (int)pressed);
+		INFO_LOG(Log::System, "rtrigger: %f %d", value, (int)pressed);
 		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
 	};
 
@@ -408,7 +408,7 @@ void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
 				input.keyCode = code;
 				input.flags = KEY_DOWN;
 				NativeKey(input);
-				INFO_LOG(SYSTEM, "pressesBegan %d", code);
+				INFO_LOG(Log::System, "pressesBegan %d", code);
 			}
 		}
 		if (press.key.characters) {
@@ -432,7 +432,7 @@ void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event) {
 				input.keyCode = code;
 				input.flags = KEY_UP;
 				NativeKey(input);
-				INFO_LOG(SYSTEM, "pressesEnded %d", code);
+				INFO_LOG(Log::System, "pressesEnded %d", code);
 			}
 		}
 	}

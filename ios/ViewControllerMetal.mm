@@ -74,15 +74,15 @@ private:
 IOSVulkanContext::IOSVulkanContext() {}
 
 bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBackbufferSizeX, int desiredBackbufferSizeY) {
-	INFO_LOG(G3D, "IOSVulkanContext::InitFromRenderThread: desiredwidth=%d desiredheight=%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
+	INFO_LOG(Log::G3D, "IOSVulkanContext::InitFromRenderThread: desiredwidth=%d desiredheight=%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
 	if (!g_Vulkan) {
-		ERROR_LOG(G3D, "IOSVulkanContext::InitFromRenderThread: No Vulkan context");
+		ERROR_LOG(Log::G3D, "IOSVulkanContext::InitFromRenderThread: No Vulkan context");
 		return false;
 	}
 
 	VkResult res = g_Vulkan->InitSurface(WINDOWSYSTEM_METAL_EXT, (__bridge void *)layer, nullptr);
 	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "g_Vulkan->InitSurface failed: '%s'", VulkanResultToString(res));
+		ERROR_LOG(Log::G3D, "g_Vulkan->InitSurface failed: '%s'", VulkanResultToString(res));
 		return false;
 	}
 
@@ -105,7 +105,7 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 		success = false;
 	}
 
-	INFO_LOG(G3D, "IOSVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
 	if (!success) {
 		g_Vulkan->DestroySwapchain();
 		g_Vulkan->DestroySurface();
@@ -116,7 +116,7 @@ bool IOSVulkanContext::InitFromRenderThread(CAMetalLayer *layer, int desiredBack
 }
 
 void IOSVulkanContext::ShutdownFromRenderThread() {
-	INFO_LOG(G3D, "IOSVulkanContext::Shutdown");
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
@@ -124,20 +124,20 @@ void IOSVulkanContext::ShutdownFromRenderThread() {
 	g_Vulkan->PerformPendingDeletes();
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->DestroySurface();
-	INFO_LOG(G3D, "Done with ShutdownFromRenderThread");
+	INFO_LOG(Log::G3D, "Done with ShutdownFromRenderThread");
 }
 
 void IOSVulkanContext::Shutdown() {
-	INFO_LOG(G3D, "Calling NativeShutdownGraphics");
+	INFO_LOG(Log::G3D, "Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
 	finalize_glslang();
-	INFO_LOG(G3D, "IOSVulkanContext::Shutdown completed");
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown completed");
 }
 
 void IOSVulkanContext::Resize() {
-	INFO_LOG(G3D, "IOSVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
@@ -148,23 +148,23 @@ void IOSVulkanContext::Resize() {
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	INFO_LOG(G3D, "IOSVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
 bool IOSVulkanContext::InitAPI() {
-	INFO_LOG(G3D, "IOSVulkanContext::Init");
+	INFO_LOG(Log::G3D, "IOSVulkanContext::Init");
 	init_glslang();
 
 	g_LogOptions.breakOnError = true;
 	g_LogOptions.breakOnWarning = true;
 	g_LogOptions.msgBoxOnError = false;
 
-	INFO_LOG(G3D, "Creating Vulkan context");
+	INFO_LOG(Log::G3D, "Creating Vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
 
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
-		ERROR_LOG(G3D, "Failed to load Vulkan driver library: %s", errorStr.c_str());
+		ERROR_LOG(Log::G3D, "Failed to load Vulkan driver library: %s", errorStr.c_str());
 		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
@@ -189,7 +189,7 @@ bool IOSVulkanContext::InitAPI() {
 		return VkExtent2D {(uint32_t)g_display.pixel_xres, (uint32_t)g_display.pixel_yres};
 	});
 
-	INFO_LOG(G3D, "Vulkan device created!");
+	INFO_LOG(Log::G3D, "Vulkan device created!");
 	state_ = GraphicsContextState::INITIALIZED;
 	return true;
 }
@@ -245,17 +245,17 @@ static std::thread g_renderLoopThread;
 // Should be very similar to the Android one, probably mergeable.
 void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLayer) {
 	SetCurrentThreadName("EmuThreadVulkan");
-	INFO_LOG(G3D, "Entering EmuThreadVulkan");
+	INFO_LOG(Log::G3D, "Entering EmuThreadVulkan");
 
 	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
 		return;
 	}
 
 	if (exitRenderLoop) {
-		WARN_LOG(G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
+		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
 		renderLoopRunning = false;
 		exitRenderLoop = false;
 		return;
@@ -274,7 +274,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
 		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
-		ERROR_LOG(G3D, "Failed to initialize graphics context.");
+		ERROR_LOG(Log::G3D, "Failed to initialize graphics context.");
 		System_Toast("Failed to initialize graphics context.");
 
 		delete graphicsContext;
@@ -285,16 +285,16 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	if (!exitRenderLoop) {
 		if (!NativeInitGraphics(graphicsContext)) {
-			ERROR_LOG(G3D, "Failed to initialize graphics.");
+			ERROR_LOG(Log::G3D, "Failed to initialize graphics.");
 			// Gonna be in a weird state here..
 		}
 		graphicsContext->ThreadStart();
 		while (!exitRenderLoop) {
 			NativeFrame(graphicsContext);
 		}
-		INFO_LOG(G3D, "Leaving Vulkan main loop.");
+		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
 	} else {
-		INFO_LOG(G3D, "Not entering main loop.");
+		INFO_LOG(Log::G3D, "Not entering main loop.");
 	}
 
 	NativeShutdownGraphics();
@@ -302,24 +302,24 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
-	INFO_LOG(G3D, "Shutting down graphics context...");
+	INFO_LOG(Log::G3D, "Shutting down graphics context...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
 
-	WARN_LOG(G3D, "Render loop function exited.");
+	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
 
 - (bool)runVulkanRenderLoop {
-	INFO_LOG(G3D, "runVulkanRenderLoop");
+	INFO_LOG(Log::G3D, "runVulkanRenderLoop");
 
 	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
 	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
 		return false;
 	}
 
@@ -329,10 +329,10 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (void)requestExitVulkanRenderLoop {
-	INFO_LOG(G3D, "requestExitVulkanRenderLoop");
+	INFO_LOG(Log::G3D, "requestExitVulkanRenderLoop");
 
 	if (!renderLoopRunning) {
-		ERROR_LOG(SYSTEM, "Render loop already exited");
+		ERROR_LOG(Log::System, "Render loop already exited");
 		return;
 	}
 	_assert_(g_renderLoopThread.joinable());
@@ -343,10 +343,10 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 // These two are forwarded from the appDelegate
 - (void)didBecomeActive {
-	INFO_LOG(G3D, "didBecomeActive GL");
+	INFO_LOG(Log::G3D, "didBecomeActive GL");
 	if (self.motionManager.accelerometerAvailable) {
 		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
-		INFO_LOG(G3D, "Starting accelerometer updates.");
+		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
 
 		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
 							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
@@ -357,7 +357,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 			ProcessAccelerometerData(accelerometerData);
 		}];
 	} else {
-		INFO_LOG(G3D, "No accelerometer available, not starting updates.");
+		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
 	// Spin up the emu thread. It will in turn spin up the Vulkan render thread
 	// on its own.
@@ -365,19 +365,19 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 }
 
 - (void)willResignActive {
-	INFO_LOG(G3D, "willResignActive GL");
+	INFO_LOG(Log::G3D, "willResignActive GL");
 	[self requestExitVulkanRenderLoop];
 
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
-		INFO_LOG(G3D, "Stopping accelerometer updates");
+		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
 		[self.motionManager stopAccelerometerUpdates];
 	}
 }
 
 - (void)shutdown
 {
-	INFO_LOG(SYSTEM, "shutdown VK");
+	INFO_LOG(Log::System, "shutdown VK");
 
 	g_Config.Save("shutdown vk");
 
@@ -397,11 +397,11 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)dealloc
 {
-	INFO_LOG(SYSTEM, "dealloc VK");
+	INFO_LOG(Log::System, "dealloc VK");
 }
 
 - (void)loadView {
-	INFO_LOG(G3D, "Creating metal view");
+	INFO_LOG(Log::G3D, "Creating metal view");
 
 	CGRect screenRect = [[UIScreen mainScreen] bounds];
 	CGFloat screenWidth = screenRect.size.width;
@@ -417,7 +417,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 	[[DisplayManager shared] setupDisplayListener];
 
-	INFO_LOG(SYSTEM, "Metal viewDidLoad");
+	INFO_LOG(Log::System, "Metal viewDidLoad");
 
 	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
@@ -434,7 +434,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 		[self setupController:[[GCController controllers] firstObject]];
 	}
 
-	INFO_LOG(G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
+	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -458,23 +458,23 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
-	INFO_LOG(G3D, "viewWillAppear");
+	INFO_LOG(Log::G3D, "viewWillAppear");
 	self.view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
 	[super viewWillDisappear:animated];
-	INFO_LOG(G3D, "viewWillDisappear");
+	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
-	INFO_LOG(G3D, "viewWillDisappear");
+	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
-	INFO_LOG(G3D, "viewDidAppear");
+	INFO_LOG(Log::G3D, "viewDidAppear");
 	[self hideKeyboard];
 	[self updateGesture];
 
@@ -523,10 +523,10 @@ extern float g_safeInsetBottom;
 	if (GetUIState() == UISTATE_INGAME) {
 		// In-game, we need all the control we can get. Though, we could possibly
 		// allow the top edge?
-		INFO_LOG(SYSTEM, "Defer system gestures on all edges");
+		INFO_LOG(Log::System, "Defer system gestures on all edges");
 		return UIRectEdgeAll;
 	} else {
-		INFO_LOG(SYSTEM, "Allow system gestures on the bottom");
+		INFO_LOG(Log::System, "Allow system gestures on the bottom");
 		// Allow task switching gestures to take precedence, without causing
 		// scroll events in the UI.
 		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
@@ -541,16 +541,16 @@ extern float g_safeInsetBottom;
 }
 
 - (void)updateGesture {
-	INFO_LOG(SYSTEM, "Updating swipe gesture.");
+	INFO_LOG(Log::System, "Updating swipe gesture.");
 
 	if (mBackGestureRecognizer) {
-		INFO_LOG(SYSTEM, "Removing swipe gesture.");
+		INFO_LOG(Log::System, "Removing swipe gesture.");
 		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
 		mBackGestureRecognizer = nil;
 	}
 
 	if (GetUIState() != UISTATE_INGAME) {
-		INFO_LOG(SYSTEM, "Adding swipe gesture.");
+		INFO_LOG(Log::System, "Adding swipe gesture.");
 		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
 		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 		[[self view] addGestureRecognizer:mBackGestureRecognizer];
@@ -679,7 +679,7 @@ extern float g_safeInsetBottom;
 		key.keyCode = NKCODE_BACK;
 		key.deviceId = DEVICE_ID_TOUCH;
 		NativeKey(key);
-		INFO_LOG(SYSTEM, "Detected back swipe");
+		INFO_LOG(Log::System, "Detected back swipe");
 	}
 }
 // The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
@@ -691,7 +691,7 @@ extern float g_safeInsetBottom;
 	input.flags = KEY_DOWN | KEY_UP;
 	input.keyCode = NKCODE_DEL;
 	NativeKey(input);
-	INFO_LOG(SYSTEM, "Backspace");
+	INFO_LOG(Log::System, "Backspace");
 }
 
 -(BOOL) hasText
@@ -702,7 +702,7 @@ extern float g_safeInsetBottom;
 -(void) insertText:(NSString *)text
 {
 	std::string str([text UTF8String]);
-	INFO_LOG(SYSTEM, "Chars: %s", str.c_str());
+	INFO_LOG(Log::System, "Chars: %s", str.c_str());
 	SendKeyboardChars(str);
 }
 
