@@ -60,7 +60,7 @@ void HTTPSRequest::Join() {
 		res_ = nullptr;
 		req_ = nullptr;
 	} else {
-		ERROR_LOG(IO, "HTTPSDownload::Join not implemented");
+		ERROR_LOG(Log::IO, "HTTPSDownload::Join not implemented");
 	}
 }
 
@@ -85,33 +85,33 @@ bool HTTPSRequest::Done() {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {
 		case naettConnectionError:  // -1
-			ERROR_LOG(IO, "Connection error");
+			ERROR_LOG(Log::IO, "Connection error");
 			break;
 		case naettProtocolError:  // -2
-			ERROR_LOG(IO, "Protocol error");
+			ERROR_LOG(Log::IO, "Protocol error");
 			break;
 		case naettReadError:  // -3
-			ERROR_LOG(IO, "Read error");
+			ERROR_LOG(Log::IO, "Read error");
 			break;
 		case naettWriteError:  // -4
-			ERROR_LOG(IO, "Write error");
+			ERROR_LOG(Log::IO, "Write error");
 			break;
 		case naettGenericError:  // -5
-			ERROR_LOG(IO, "Generic error");
+			ERROR_LOG(Log::IO, "Generic error");
 			break;
 		default:
-			ERROR_LOG(IO, "Unhandled naett error %d", resultCode_);
+			ERROR_LOG(Log::IO, "Unhandled naett error %d", resultCode_);
 			break;
 		}
 		failed_ = true;
 		progress_.Update(bodyLength, bodyLength, true);
 	} else if (resultCode_ == 200) {
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-			ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
+			ERROR_LOG(Log::IO, "Failed writing download to '%s'", outfile_.c_str());
 		}
 		progress_.Update(bodyLength, bodyLength, true);
 	} else {
-		WARN_LOG(IO, "Naett request failed: %d", resultCode_);
+		WARN_LOG(Log::IO, "Naett request failed: %d", resultCode_);
 		failed_ = true;
 		progress_.Update(0, 0, true);
 	}

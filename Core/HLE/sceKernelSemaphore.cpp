@@ -143,16 +143,16 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitSemaCB: Suspending sema wait for callback");
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelWaitSemaCB: Suspending sema wait for callback");
 	else
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
 }
 
 void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer, __KernelUnlockSemaForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitSemaCB: Resuming sema wait for callback");
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelWaitSemaCB: Resuming sema wait for callback");
 }
 
 // Resume all waiting threads (for delete / cancel.)
@@ -176,11 +176,11 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	{
 		if (newCount > s->ns.maxCount)
 		{
-			DEBUG_LOG(SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x): invalid count", id, newCount, numWaitThreadsPtr);
+			DEBUG_LOG(Log::SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x): invalid count", id, newCount, numWaitThreadsPtr);
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 		}
 
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x)", id, newCount, numWaitThreadsPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x)", id, newCount, numWaitThreadsPtr);
 
 		s->ns.numWaitThreads = (int) s->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
@@ -198,7 +198,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x): invalid semaphore", id, newCount, numWaitThreadsPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelCancelSema(%i, %i, %08x): invalid semaphore", id, newCount, numWaitThreadsPtr);
 		return error;
 	}
 }
@@ -229,7 +229,7 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 			hleLogDebug(SCEKERNEL, id, "invalid options parameter size");
 	}
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
 	return hleLogSuccessX(SCEKERNEL, id);
 }
@@ -240,7 +240,7 @@ int sceKernelDeleteSema(SceUID id)
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(id, error);
 	if (s)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteSema(%i)", id);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelDeleteSema(%i)", id);
 
 		bool wokeThreads = __KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
 		if (wokeThreads)
@@ -250,7 +250,7 @@ int sceKernelDeleteSema(SceUID id)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteSema(%i): invalid semaphore", id);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelDeleteSema(%i): invalid semaphore", id);
 		return error;
 	}
 }
@@ -284,13 +284,13 @@ int sceKernelSignalSema(SceUID id, int signal)
 	{
 		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount)
 		{
-			VERBOSE_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
+			VERBOSE_LOG(Log::SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
 			return SCE_KERNEL_ERROR_SEMA_OVF;
 		}
 
 		int oldval = s->ns.currentCount;
 		s->ns.currentCount += signal;
-		DEBUG_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i) (count: %i -> %i)", id, signal, oldval, s->ns.currentCount);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelSignalSema(%i, %i) (count: %i -> %i)", id, signal, oldval, s->ns.currentCount);
 
 		if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
 			std::stable_sort(s->waitingThreads.begin(), s->waitingThreads.end(), __KernelThreadSortPriority);
@@ -314,7 +314,7 @@ retry:
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): invalid semaphore", id, signal);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelSignalSema(%i, %i): invalid semaphore", id, signal);
 		return error;
 	}
 }
@@ -396,11 +396,11 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
 	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else if (result == 0)
-		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else
-		DEBUG_LOG(SCEKERNEL, "%08x=sceKernelWaitSema(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "%08x=sceKernelWaitSema(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
 	return result;
 }
 
@@ -408,11 +408,11 @@ int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
 	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else if (result == 0)
-		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else
-		DEBUG_LOG(SCEKERNEL, "%08x=sceKernelWaitSemaCB(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
+		DEBUG_LOG(Log::SCEKERNEL, "%08x=sceKernelWaitSemaCB(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
 	return result;
 }
 
@@ -421,7 +421,7 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 {
 	if (wantedCount <= 0)
 	{
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelPollSema(%i, %i)", id, wantedCount);
+		DEBUG_LOG(Log::SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelPollSema(%i, %i)", id, wantedCount);
 		return (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	}
 
@@ -431,19 +431,19 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	{
 		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0)
 		{
-			DEBUG_LOG(SCEKERNEL, "0=sceKernelPollSema(%i, %i)", id, wantedCount);
+			DEBUG_LOG(Log::SCEKERNEL, "0=sceKernelPollSema(%i, %i)", id, wantedCount);
 			s->ns.currentCount -= wantedCount;
 			return 0;
 		}
 		else
 		{
-			DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_SEMA_ZERO=sceKernelPollSema(%i, %i)", id, wantedCount);
+			DEBUG_LOG(Log::SCEKERNEL, "SCE_KERNEL_ERROR_SEMA_ZERO=sceKernelPollSema(%i, %i)", id, wantedCount);
 			return SCE_KERNEL_ERROR_SEMA_ZERO;
 		}
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelPollSema(%i, %i): invalid semaphore", id, wantedCount);
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelPollSema(%i, %i): invalid semaphore", id, wantedCount);
 		return error;
 	}
 }
@@ -458,7 +458,7 @@ static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int
 	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
 	int temp = kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd);
 	if (temp != 0) {
-		ERROR_LOG(SCEKERNEL, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
+		ERROR_LOG(Log::SCEKERNEL, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
 	}
 	return 0;
 }

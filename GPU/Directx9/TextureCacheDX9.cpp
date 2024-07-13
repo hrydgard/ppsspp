@@ -79,7 +79,7 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 		result = device_->GetDeviceCaps(&pCaps);
 	}
 	if (FAILED(result)) {
-		WARN_LOG(G3D, "Failed to get the device caps!");
+		WARN_LOG(Log::G3D, "Failed to get the device caps!");
 		maxAnisotropyLevel = 16;
 	} else {
 		maxAnisotropyLevel = pCaps.MaxAnisotropy;
@@ -264,7 +264,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (FAILED(hr)) {
-		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
+		INFO_LOG(Log::G3D, "Failed to create D3D texture: %dx%d", tw, th);
 		ReleaseTexture(entry, true);
 		return;
 	}
@@ -284,7 +284,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 			result = ((LPDIRECT3DTEXTURE9)texture)->LockRect(dstLevel, &rect, NULL, lockFlag);
 			if (FAILED(result)) {
-				ERROR_LOG(G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
+				ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
 				return;
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
@@ -297,7 +297,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		D3DLOCKED_BOX box;
 		HRESULT result = ((LPDIRECT3DVOLUMETEXTURE9)texture)->LockBox(0, &box, nullptr, D3DLOCK_DISCARD);
 		if (FAILED(result)) {
-			ERROR_LOG(G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
+			ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
 			return;
 		}
 

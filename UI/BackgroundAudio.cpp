@@ -73,7 +73,7 @@ bool WavData::Read(RIFFReader &file_) {
 				codec = 0;
 				break;
 			default:
-				ERROR_LOG(SCEAUDIO, "Unexpected wave format %04x", format);
+				ERROR_LOG(Log::SCEAUDIO, "Unexpected wave format %04x", format);
 				return false;
 			}
 
@@ -95,9 +95,9 @@ bool WavData::Read(RIFFReader &file_) {
 				}
 			}
 			file_.Ascend();
-			// INFO_LOG(AUDIO, "got fmt data: %i", samplesPerSec);
+			// INFO_LOG(Log::AUDIO, "got fmt data: %i", samplesPerSec);
 		} else {
-			ERROR_LOG(AUDIO, "Error - no format chunk in wav");
+			ERROR_LOG(Log::AUDIO, "Error - no format chunk in wav");
 			file_.Ascend();
 			return false;
 		}
@@ -156,20 +156,20 @@ bool WavData::Read(RIFFReader &file_) {
 			if (num_channels == 1 || num_channels == 2) {
 				file_.ReadData(raw_data, numBytes);
 			} else {
-				ERROR_LOG(AUDIO, "Error - bad blockalign or channels");
+				ERROR_LOG(Log::AUDIO, "Error - bad blockalign or channels");
 				free(raw_data);
 				raw_data = nullptr;
 				return false;
 			}
 			file_.Ascend();
 		} else {
-			ERROR_LOG(AUDIO, "Error - no data chunk in wav");
+			ERROR_LOG(Log::AUDIO, "Error - no data chunk in wav");
 			file_.Ascend();
 			return false;
 		}
 		file_.Ascend();
 	} else {
-		ERROR_LOG(AUDIO, "Could not descend into RIFF file.");
+		ERROR_LOG(Log::AUDIO, "Could not descend into RIFF file.");
 		return false;
 	}
 	sample_rate = samplesPerSec;
@@ -200,7 +200,7 @@ public:
 			blockSize = wave_.raw_bytes_per_frame;
 		}
 		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels, blockSize, extraData, extraDataSize);
-		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
+		INFO_LOG(Log::AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
 	~AT3PlusReader() {
@@ -395,7 +395,7 @@ Sample *Sample::Load(const std::string &path) {
 	size_t data_size = 0;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &data_size);
 	if (!data || data_size > 100000000) {
-		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
+		WARN_LOG(Log::AUDIO, "Failed to load sample '%s'", path.c_str());
 		return nullptr;
 	}
 
@@ -412,7 +412,7 @@ Sample *Sample::Load(const std::string &path) {
 		delete[] data;
 
 		if (!wave.IsSimpleWAV()) {
-			ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
+			ERROR_LOG(Log::AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
 			return nullptr;
 		}
 
@@ -548,7 +548,7 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	}
 	Sample *sample = Sample::Load(filename);
 	if (!sample) {
-		ERROR_LOG(SYSTEM, "Failed to load the default sample for UI sound %d", (int)sound);
+		ERROR_LOG(Log::SYSTEM, "Failed to load the default sample for UI sound %d", (int)sound);
 	}
 	std::lock_guard<std::mutex> guard(mutex_);
 	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);

@@ -2167,7 +2167,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			downgrade = true;
 
 		if (downgrade) {
-			//WARN_LOG(JIT, "Vec4 downgrade by: %s", m->name);
+			//WARN_LOG(Log::JIT, "Vec4 downgrade by: %s", m->name);
 		}
 
 		if (!skip)

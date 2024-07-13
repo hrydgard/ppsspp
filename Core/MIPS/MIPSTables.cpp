@@ -887,7 +887,7 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	const MIPSInstruction *instr = &tableImmediate[op.encoding >> 26];
 	while (instr->altEncoding != Instruc) {
 		if (instr->altEncoding == Inval) {
-			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
+			//ERROR_LOG(Log::CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
 		encoding = instr->altEncoding;
@@ -909,12 +909,12 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 		if (instr->compile) {
 			(jit->*(instr->compile))(op);
 		} else {
-			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
+			ERROR_LOG_REPORT(Log::CPU,"MIPSCompileOp %08x failed",op.encoding);
 		}
 		if (info & OUT_EAT_PREFIX)
 			jit->EatPrefix();
 	} else {
-		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
+		ERROR_LOG_REPORT(Log::CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
 }
 
@@ -942,7 +942,7 @@ static inline void Interpret(const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
 		instr->interpret(op);
 	} else {
-		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
+		ERROR_LOG_REPORT(Log::CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm, sizeof(disasm));
@@ -1054,7 +1054,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks) {
 			RunUntilFast();
 
 		if (CoreTiming::GetTicks() > globalTicks) {
-			// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
+			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
 			return 1;
 		}
 	}

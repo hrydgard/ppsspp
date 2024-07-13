@@ -106,7 +106,7 @@ void AfterApctlMipsCall::DoState(PointerWrap & p) {
 
 void AfterApctlMipsCall::run(MipsCall& call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
-	DEBUG_LOG(SCENET, "AfterApctlMipsCall::run [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%d][ArgsPtr=%08x] [cbId: %u][retV0: %08x]", handlerID, oldState, newState, event, error, argsAddr, call.cbId, v0);
+	DEBUG_LOG(Log::SCENET, "AfterApctlMipsCall::run [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%d][ArgsPtr=%08x] [cbId: %u][retV0: %08x]", handlerID, oldState, newState, event, error, argsAddr, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
 
@@ -141,7 +141,7 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_NET, error);
 	if (waitID == 0 || error != 0) {
-		WARN_LOG(SCENET, "sceNetApctl State WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
+		WARN_LOG(Log::SCENET, "sceNetApctl State WaitID(%i) on Thread(%i) already woken up? (error: %08x)", uid, threadID, error);
 		return;
 	}
 
@@ -151,7 +151,7 @@ static void __ApctlState(u64 userdata, int cyclesLate) {
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
-	DEBUG_LOG(SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
+	DEBUG_LOG(Log::SCENET, "Returning (WaitID: %d, error: %08x) Result (%08x) of sceNetApctl - Event: %d, State: %d", waitID, error, (int)result, event, netApctlState);
 }
 
 // Used to change Apctl State after a delay and before executing callback mipscall (since we don't have beforeAction)
@@ -210,7 +210,7 @@ void __NetInit() {
 
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
+	INFO_LOG(Log::SCENET, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
 	__UPnPInit();
@@ -440,7 +440,7 @@ void __NetApctlCallbacks()
 		int handlerID = id - 1;
 		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
 			if (it->first == handlerID) {
-				DEBUG_LOG(SCENET, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
+				DEBUG_LOG(Log::SCENET, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
 				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
 				hleEnqueueCall(it->second.entryPoint, 3, args.data);
 			}
@@ -537,7 +537,7 @@ void __NetApctlCallbacks()
 
 		// Run mipscall. Should we skipped executing the mipscall if oldState == newState? 
 		for (std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
-			DEBUG_LOG(SCENET, "ApctlCallback [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%08x][ArgsPtr=%08x]", it->first, oldState, newState, event, error, it->second.argument);
+			DEBUG_LOG(Log::SCENET, "ApctlCallback [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%08x][ArgsPtr=%08x]", it->first, oldState, newState, event, error, it->second.argument);
 			args.data[4] = it->second.argument;
 			AfterApctlMipsCall* after = (AfterApctlMipsCall*)__KernelCreateAction(actionAfterApctlMipsCall);
 			after->SetData(it->first, oldState, newState, event, error, it->second.argument);
@@ -599,7 +599,7 @@ u32 Net_Term() {
 }
 
 static u32 sceNetTerm() {
-	WARN_LOG(SCENET, "sceNetTerm() at %08x", currentMIPS->pc);
+	WARN_LOG(Log::SCENET, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
@@ -650,7 +650,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
 	}
 
-	WARN_LOG(SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
+	WARN_LOG(Log::SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	
 	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
 	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
@@ -666,14 +666,14 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 // Free(delete) thread info / data. 
 // Normal usage: sceKernelDeleteThread followed by sceNetFreeThreadInfo with the same threadID as argument
 static int sceNetFreeThreadinfo(SceUID thid) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetFreeThreadinfo(%i)", thid);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetFreeThreadinfo(%i)", thid);
 
 	return 0;
 }
 
 // Abort a thread.
 static int sceNetThreadAbort(SceUID thid) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetThreadAbort(%i)", thid);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetThreadAbort(%i)", thid);
 
 	return 0;
 }
@@ -692,7 +692,7 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	} else {
 		// Read MAC Address from config
 		if (!ParseMacAddress(g_Config.sMACAddress, addr)) {
-			ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+			ERROR_LOG(Log::SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 			Memory::Memset(addrAddr, 0, 6);
 		}
 	}
@@ -719,7 +719,7 @@ static u32 sceWlanGetSwitchState() {
 
 // Probably a void function, but often returns a useful value.
 static void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
-	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x) at %08x", macPtr, bufferPtr, currentMIPS->pc);
+	DEBUG_LOG(Log::SCENET, "sceNetEtherNtostr(%08x, %08x) at %08x", macPtr, bufferPtr, currentMIPS->pc);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		char *buffer = (char *)Memory::GetPointerWriteUnchecked(bufferPtr);
@@ -729,7 +729,7 @@ static void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-		VERBOSE_LOG(SCENET, "sceNetEtherNtostr - [%s]", buffer);
+		VERBOSE_LOG(Log::SCENET, "sceNetEtherNtostr - [%s]", buffer);
 	}
 }
 
@@ -745,7 +745,7 @@ static int hex_to_digit(int c) {
 
 // Probably a void function, but sometimes returns a useful-ish value.
 static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
-	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
+	DEBUG_LOG(Log::SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		const char *buffer = (const char *)Memory::GetPointerUnchecked(bufferPtr);
@@ -775,7 +775,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
+		VERBOSE_LOG(Log::SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}
@@ -784,7 +784,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
 static int sceNetGetMallocStat(u32 statPtr) {
-	VERBOSE_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);
+	VERBOSE_LOG(Log::SCENET, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);
 	auto stat = PSPPointer<SceNetMallocStat>::Create(statPtr);
 	if (!stat.IsValid())
 		return hleLogError(SCENET, 0, "invalid address");
@@ -795,7 +795,7 @@ static int sceNetGetMallocStat(u32 statPtr) {
 }
 
 static int sceNetInetInit() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetInit()");
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetInit()");
 	if (netInetInited) return ERROR_NET_INET_ALREADY_INITIALIZED;
 	netInetInited = true;
 
@@ -803,7 +803,7 @@ static int sceNetInetInit() {
 }
 
 int sceNetInetTerm() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetTerm()");
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetTerm()");
 	netInetInited = false;
 
 	return 0;
@@ -836,7 +836,7 @@ void NetApctl_InitInfo() {
 }
 
 static int sceNetApctlInit(int stackSize, int initPriority) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i, %i)", __FUNCTION__, stackSize, initPriority);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%i, %i)", __FUNCTION__, stackSize, initPriority);
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
 
@@ -884,12 +884,12 @@ int NetApctl_Term() {
 }
 
 int sceNetApctlTerm() {
-	WARN_LOG(SCENET, "UNTESTED %s()", __FUNCTION__);
+	WARN_LOG(Log::SCENET, "UNTESTED %s()", __FUNCTION__);
 	return NetApctl_Term();
 }
 
 static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
 
 	if (!netApctlInited)
 		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
@@ -900,13 +900,13 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.name, APCTL_PROFILENAME_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_PROFILENAME_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - ProfileName: %s", netApctlInfo.name);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - ProfileName: %s", netApctlInfo.name);
 		break;
 	case PSP_NET_APCTL_INFO_BSSID:
 		if (!Memory::IsValidRange(pInfoAddr, ETHER_ADDR_LEN))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.bssid, ETHER_ADDR_LEN);
-		DEBUG_LOG(SCENET, "ApctlInfo - BSSID: %s", mac2str((SceNetEtherAddr*)&netApctlInfo.bssid).c_str());
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - BSSID: %s", mac2str((SceNetEtherAddr*)&netApctlInfo.bssid).c_str());
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, ETHER_ADDR_LEN, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_SSID:
@@ -914,7 +914,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.ssid, APCTL_SSID_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_SSID_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - SSID: %s", netApctlInfo.ssid);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - SSID: %s", netApctlInfo.ssid);
 		break;
 	case PSP_NET_APCTL_INFO_SSID_LENGTH:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
@@ -951,34 +951,34 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.ip, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - IP: %s", netApctlInfo.ip);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - IP: %s", netApctlInfo.ip);
 		break;
 	case PSP_NET_APCTL_INFO_SUBNETMASK:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.subNetMask, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - SubNet Mask: %s", netApctlInfo.subNetMask);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - SubNet Mask: %s", netApctlInfo.subNetMask);
 		break;
 	case PSP_NET_APCTL_INFO_GATEWAY:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.gateway, APCTL_IPADDR_MAXLEN);
-		DEBUG_LOG(SCENET, "ApctlInfo - Gateway IP: %s", netApctlInfo.gateway);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - Gateway IP: %s", netApctlInfo.gateway);
 		break;
 	case PSP_NET_APCTL_INFO_PRIMDNS:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.primaryDns, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - Primary DNS: %s", netApctlInfo.primaryDns);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - Primary DNS: %s", netApctlInfo.primaryDns);
 		break;
 	case PSP_NET_APCTL_INFO_SECDNS:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.secondaryDns, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - Secondary DNS: %s", netApctlInfo.secondaryDns);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - Secondary DNS: %s", netApctlInfo.secondaryDns);
 		break;
 	case PSP_NET_APCTL_INFO_USE_PROXY:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
@@ -991,7 +991,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 			return hleLogError(SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.proxyUrl, APCTL_URL_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_URL_MAXLEN, "NetApctlGetInfo");
-		DEBUG_LOG(SCENET, "ApctlInfo - Proxy URL: %s", netApctlInfo.proxyUrl);
+		DEBUG_LOG(Log::SCENET, "ApctlInfo - Proxy URL: %s", netApctlInfo.proxyUrl);
 		break;
 	case PSP_NET_APCTL_INFO_PROXY_PORT:
 		if (!Memory::IsValidRange(pInfoAddr, 2))
@@ -1045,15 +1045,15 @@ int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 
 	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
 		if (apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
-			ERROR_LOG(SCENET, "Failed to Add handler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			ERROR_LOG(Log::SCENET, "Failed to Add handler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
 			return retval;
 		}
 		apctlHandlers[retval] = handler;
-		WARN_LOG(SCENET, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
+		WARN_LOG(Log::SCENET, "Added Apctl handler(%x, %x): %d", handlerPtr, handlerArg, retval);
 	}
 	else {
-		ERROR_LOG(SCENET, "Existing Apctl handler(%x, %x)", handlerPtr, handlerArg);
+		ERROR_LOG(Log::SCENET, "Existing Apctl handler(%x, %x)", handlerPtr, handlerArg);
 	}
 
 	// The id to return is the number of handlers currently registered
@@ -1063,33 +1063,33 @@ int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
 // TODO: How many handlers can the PSP actually have for Apctl?
 // TODO: Should we allow the same handler to be added more than once?
 static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
-	INFO_LOG(SCENET, "%s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	INFO_LOG(Log::SCENET, "%s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	return NetApctl_AddHandler(handlerPtr, handlerArg);
 }
 
 int NetApctl_DelHandler(u32 handlerID) {
 	if (apctlHandlers.find(handlerID) != apctlHandlers.end()) {
 		apctlHandlers.erase(handlerID);
-		WARN_LOG(SCENET, "Deleted Apctl handler: %d", handlerID);
+		WARN_LOG(Log::SCENET, "Deleted Apctl handler: %d", handlerID);
 	}
 	else {
-		ERROR_LOG(SCENET, "Invalid Apctl handler: %d", handlerID);
+		ERROR_LOG(Log::SCENET, "Invalid Apctl handler: %d", handlerID);
 	}
 	return 0;
 }
 
 static int sceNetApctlDelHandler(u32 handlerID) {
-	INFO_LOG(SCENET, "%s(%d)", __FUNCTION__, handlerID);
+	INFO_LOG(Log::SCENET, "%s(%d)", __FUNCTION__, handlerID);
 	return NetApctl_DelHandler(handlerID);
 }
 
 static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
 	return -1;
 }
 
 int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
-	DEBUG_LOG(SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
+	DEBUG_LOG(Log::SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
 	int retval = -1;
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd *)fds; // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
 //#ifdef _WIN32
@@ -1144,17 +1144,17 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 }
 
 static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
 static int sceNetInetGetErrno() {
-	ERROR_LOG(SCENET, "UNTESTED sceNetInetGetErrno()");
+	ERROR_LOG(Log::SCENET, "UNTESTED sceNetInetGetErrno()");
 	int error = errno;
 	switch (error) {
 	case ETIMEDOUT:		
@@ -1170,22 +1170,22 @@ static int sceNetInetGetErrno() {
 }
 
 static int sceNetInetSocket(int domain, int type, int protocol) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
 	return -1;
 }
 
 static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
 	return -1;
 }
 
 static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
+	ERROR_LOG(Log::SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
 	return -1;
 }
 
 int sceNetApctlConnect(int connIndex) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i)", __FUNCTION__, connIndex);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%i)", __FUNCTION__, connIndex);
 	// Is this connIndex is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
 	//hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
@@ -1193,7 +1193,7 @@ int sceNetApctlConnect(int connIndex) {
 }
 
 static int sceNetApctlDisconnect() {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s()", __FUNCTION__);
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
 
@@ -1229,7 +1229,7 @@ int NetApctl_ScanUser() {
 }
 
 static int sceNetApctlScanUser() {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s()", __FUNCTION__);
 	return NetApctl_ScanUser();
 }
 
@@ -1252,7 +1252,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 				break;
 			}
 
-			DEBUG_LOG(SCENET, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
+			DEBUG_LOG(Log::SCENET, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
 
 			// Pointer to next Network structure in list
 			Memory::Write_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
@@ -1271,7 +1271,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 }
 
 static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
 	return NetApctl_GetBSSDescIDListUser(sizeAddr, bufAddr);
 }
 
@@ -1343,12 +1343,12 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 }
 
 static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
 	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
 static int sceNetApctlScanSSID2() {
-	WARN_LOG(SCENET, "UNTESTED %s() at %08x", __FUNCTION__, currentMIPS->pc);
+	WARN_LOG(Log::SCENET, "UNTESTED %s() at %08x", __FUNCTION__, currentMIPS->pc);
 	return NetApctl_ScanUser();
 }
 
@@ -1359,7 +1359,7 @@ static int sceNetApctlScanSSID2() {
 * Arg4 = input flag? (initially 0/1 ?)
 ***************/
 static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
-	WARN_LOG(SCENET, "UNTESTED %s(%08x, %08x, %08x, %08x) at %08x", __FUNCTION__, Arg1, Arg2, Arg3, Arg4, currentMIPS->pc);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%08x, %08x, %08x, %08x) at %08x", __FUNCTION__, Arg1, Arg2, Arg3, Arg4, currentMIPS->pc);
 	return NetApctl_GetBSSDescIDListUser(Arg1, Arg2);
 }
 
@@ -1369,36 +1369,36 @@ static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) 
 * Arg3 = output buffer for retrieved entry data? (max size = 32 bytes? ie. APCTL_SSID_MAXLEN ? or similar to SceNetApctlInfoInternal union ?)
 ***************/
 static int sceNetApctlGetBSSDescEntry2(int entryId, int infoId, u32 resultAddr) {
-	WARN_LOG(SCENET, "UNTESTED %s(%i, %i, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, currentMIPS->pc);
+	WARN_LOG(Log::SCENET, "UNTESTED %s(%i, %i, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, currentMIPS->pc);
 	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
 static int sceNetResolverInit()
 {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s()", __FUNCTION__);
 	return 0;
 }
 
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 2nd kind of handler
 	return NetApctl_AddHandler(handlerPtr, handlerArg);
 }
 
 static int sceNetApctlDelInternalHandler(u32 handlerID) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 2nd kind of handler
 	return NetApctl_DelHandler(handlerID);
 }
 
 static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 3rd kind of handler
 	return sceNetApctlAddHandler(handlerPtr, handlerArg);
 }
 
 static int sceNetApctl_6F5D2981(u32 handlerID) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 3rd kind of handler
 	return sceNetApctlDelHandler(handlerID);
 }
@@ -1408,58 +1408,58 @@ static int sceNetApctl_lib2_69745F0A(int handlerId) {
 }
 
 static int sceNetApctl_lib2_4C19731F(int code, u32 pInfoAddr) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
 	return sceNetApctlGetInfo(code, pInfoAddr);
 }
 
 static int sceNetApctlScan() {
-	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s()", __FUNCTION__);
 	return NetApctl_ScanUser();
 }
 
 static int sceNetApctlGetBSSDescIDList(u32 sizeAddr, u32 bufAddr) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, sizeAddr, bufAddr);
 	return sceNetApctlGetBSSDescIDListUser(sizeAddr, bufAddr);
 }
 
 static int sceNetApctlGetBSSDescEntry(int entryId, int infoId, u32 resultAddr) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
 	return sceNetApctlGetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
 static int sceNetApctl_lib2_C20A144C(int connIndex, u32 ps3MacAddressPtr) {
-	ERROR_LOG(SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, connIndex, ps3MacAddressPtr);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%i, %08x)", __FUNCTION__, connIndex, ps3MacAddressPtr);
 	return sceNetApctlConnect(connIndex);
 }
 
 
 static int sceNetUpnpInit(int unknown1,int unknown2)
 {
-	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);	
+	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, Log::SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);
 	return 0;
 }
 
 static int sceNetUpnpStart()
 {
-	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStart");
+	ERROR_LOG(Log::SCENET, "UNIMPLsceNetUpnpStart");
 	return 0;
 }
 
 static int sceNetUpnpStop()
 {
-	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStop");
+	ERROR_LOG(Log::SCENET, "UNIMPLsceNetUpnpStop");
 	return 0;
 }
 
 static int sceNetUpnpTerm()
 {
-	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpTerm");
+	ERROR_LOG(Log::SCENET, "UNIMPLsceNetUpnpTerm");
 	return 0;
 }
 
 static int sceNetUpnpGetNatInfo()
 {
-	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpGetNatInfo");
+	ERROR_LOG(Log::SCENET, "UNIMPLsceNetUpnpGetNatInfo");
 	return 0;
 }
 

@@ -12,7 +12,7 @@
 #include "Common/Math/math_util.h"
 
 #if 0 // def _DEBUG
-#define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
+#define VLOG(...) INFO_LOG(Log::G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -59,7 +59,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	renderThreadId = std::this_thread::get_id();
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
 		inflightFrames_ = newInflightFrames_;
 		newInflightFrames_ = -1;
 	}
@@ -99,7 +99,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 }
 
 void GLRenderManager::ThreadEnd() {
-	INFO_LOG(G3D, "ThreadEnd");
+	INFO_LOG(Log::G3D, "ThreadEnd");
 
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("  PULL: Quitting");
@@ -171,7 +171,7 @@ bool GLRenderManager::ThreadFrame() {
 
 void GLRenderManager::StopThread() {
 	// There's not really a lot to do here anymore.
-	INFO_LOG(G3D, "GLRenderManager::StopThread()");
+	INFO_LOG(Log::G3D, "GLRenderManager::StopThread()");
 	if (runCompileThread_) {
 		runCompileThread_ = false;
 
@@ -179,17 +179,17 @@ void GLRenderManager::StopThread() {
 		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
 		pushCondVar_.notify_one();
 	} else {
-		WARN_LOG(G3D, "GL submission thread was already paused.");
+		WARN_LOG(Log::G3D, "GL submission thread was already paused.");
 	}
 }
 
 void GLRenderManager::StartThread() {
 	// There's not really a lot to do here anymore.
-	INFO_LOG(G3D, "GLRenderManager::StartThread()");
+	INFO_LOG(Log::G3D, "GLRenderManager::StartThread()");
 	if (!runCompileThread_) {
 		runCompileThread_ = true;
 	} else {
-		INFO_LOG(G3D, "GL submission thread was already running.");
+		INFO_LOG(Log::G3D, "GL submission thread was already running.");
 	}
 }
 

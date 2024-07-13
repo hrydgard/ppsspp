@@ -179,7 +179,7 @@ void TextDrawer::OncePerFrame() {
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
-		INFO_LOG(G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items)", dpiScale_, newDpiScale, (int)cache_.size());
+		INFO_LOG(Log::G3D, "DPI Scale changed (%f to %f) - wiping font cache (%d items)", dpiScale_, newDpiScale, (int)cache_.size());
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		ClearFonts();

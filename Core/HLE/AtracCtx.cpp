@@ -231,10 +231,10 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 void Track::DebugLog() {
-	DEBUG_LOG(ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
+	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
-	DEBUG_LOG(ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
-	DEBUG_LOG(ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
+	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
+	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 }
 
 int Atrac::Analyze(u32 addr, u32 size) {
@@ -294,7 +294,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	offset += 4;
 
 	if (offset != 12) {
-		WARN_LOG_REPORT(ME, "RIFF chunk at offset: %d", offset);
+		WARN_LOG_REPORT(Log::ME, "RIFF chunk at offset: %d", offset);
 	}
 
 	// RIFF size excluding chunk header.
@@ -312,7 +312,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		u32 chunkSize = Memory::Read_U32(addr + offset + 4);
 		// Account for odd sized chunks.
 		if (chunkSize & 1) {
-			WARN_LOG_REPORT_ONCE(oddchunk, ME, "RIFF chunk had uneven size");
+			WARN_LOG_REPORT_ONCE(oddchunk, Log::ME, "RIFF chunk had uneven size");
 		}
 		chunkSize += (chunkSize & 1);
 		offset += 8;
@@ -408,7 +408,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			track->dataByteOffset = offset;
 			dataChunkSize = chunkSize;
 			if (track->fileSize < offset + chunkSize) {
-				WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
+				WARN_LOG_REPORT(Log::ME, "Atrac data chunk extends beyond riff chunk");
 				track->fileSize = offset + chunkSize;
 			}
 		}
@@ -560,7 +560,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			ERROR_LOG_REPORT(Log::ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
 		}

@@ -34,7 +34,7 @@ void UrlEncoder::AppendEscaped(const std::string &value)
 void Url::Split() {
 	size_t colonSlashSlash = url_.find("://");
 	if (colonSlashSlash == std::string::npos) {
-		ERROR_LOG(IO, "Invalid URL: %s", url_.c_str());
+		ERROR_LOG(Log::IO, "Invalid URL: %s", url_.c_str());
 		return;
 	}
 

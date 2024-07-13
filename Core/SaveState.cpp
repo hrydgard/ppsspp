@@ -211,7 +211,7 @@ namespace SaveState
 			}
 
 			double taken_s = time_now_d() - start_time;
-			DEBUG_LOG(SAVESTATE, "Rewind: Compressed save from %d bytes to %d in %0.2f ms.", (int)state.size(), (int)result.size(), taken_s * 1000.0);
+			DEBUG_LOG(Log::SAVESTATE, "Rewind: Compressed save from %d bytes to %d in %0.2f ms.", (int)state.size(), (int)result.size(), taken_s * 1000.0);
 		}
 
 		void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
@@ -285,7 +285,7 @@ namespace SaveState
 			if (diff < g_Config.iRewindSnapshotInterval)
 				return;
 
-			DEBUG_LOG(SAVESTATE, "Saving rewind state");
+			DEBUG_LOG(Log::SAVESTATE, "Saving rewind state");
 			Save();
 		}
 
@@ -588,7 +588,7 @@ namespace SaveState
 						g_Config.sStateLoadUndoGame = GenerateFullDiscId(gameFilename);
 						g_Config.Save("Saving config for savestate last load undo");
 					} else {
-						ERROR_LOG(SAVESTATE, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
+						ERROR_LOG(Log::SAVESTATE, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
 					}
 					Load(fn, slot, callback, cbUserData);
 				};
@@ -596,7 +596,7 @@ namespace SaveState
 				if (!backup.empty()) {
 					Save(backup.WithExtraExtension(".tmp"), LOAD_UNDO_SLOT, saveCallback, cbUserData);
 				} else {
-					ERROR_LOG(SAVESTATE, "Saving load undo state failed. Error in the file system.");
+					ERROR_LOG(Log::SAVESTATE, "Saving load undo state failed. Error in the file system.");
 					Load(fn, slot, callback, cbUserData);
 				}
 			} else {
@@ -837,7 +837,7 @@ namespace SaveState
 
 	bool HandleLoadFailure()
 	{
-		WARN_LOG(SAVESTATE, "HandleLoadFailure - trying a rewind state.");
+		WARN_LOG(Log::SAVESTATE, "HandleLoadFailure - trying a rewind state.");
 
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
@@ -922,7 +922,7 @@ namespace SaveState
 
 		if (!__KernelIsRunning())
 		{
-			ERROR_LOG(SAVESTATE, "Savestate failure: Unable to load without kernel, this should never happen.");
+			ERROR_LOG(Log::SAVESTATE, "Savestate failure: Unable to load without kernel, this should never happen.");
 			return;
 		}
 
@@ -948,7 +948,7 @@ namespace SaveState
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(SAVESTATE, "Loading state from '%s'", op.filename.c_str());
+				INFO_LOG(Log::SAVESTATE, "Loading state from '%s'", op.filename.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
 				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
@@ -974,7 +974,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleLoadFailure();
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
-					ERROR_LOG(SAVESTATE, "Load state failure: %s", errorString.c_str());
+					ERROR_LOG(Log::SAVESTATE, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
@@ -983,7 +983,7 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				INFO_LOG(SAVESTATE, "Saving state to %s", op.filename.c_str());
+				INFO_LOG(Log::SAVESTATE, "Saving state to %s", op.filename.c_str());
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title
@@ -1009,7 +1009,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(SAVESTATE, "Save state failure");
+					ERROR_LOG(Log::SAVESTATE, "Save state failure");
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -1021,14 +1021,14 @@ namespace SaveState
 				tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (tempResult) {
-					INFO_LOG(SAVESTATE, "Verified save state system");
+					INFO_LOG(Log::SAVESTATE, "Verified save state system");
 				} else {
-					ERROR_LOG(SAVESTATE, "Save state system verification failed");
+					ERROR_LOG(Log::SAVESTATE, "Save state system verification failed");
 				}
 				break;
 
 			case SAVESTATE_REWIND:
-				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
+				INFO_LOG(Log::SAVESTATE, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore(&errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
@@ -1059,7 +1059,7 @@ namespace SaveState
 				tempResult = TakeGameScreenshot(nullptr, op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxResMultiplier);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
-					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
+					ERROR_LOG(Log::SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 					if (screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
 						// Requeue for next frame.
 						SaveScreenshot(op.filename, op.callback, op.cbUserData);
@@ -1070,7 +1070,7 @@ namespace SaveState
 				break;
 			}
 			default:
-				ERROR_LOG(SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
+				ERROR_LOG(Log::SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
 				callbackResult = Status::FAILURE;
 				break;
 			}
@@ -1094,7 +1094,7 @@ namespace SaveState
 			PSP_Shutdown();
 			std::string resetError;
 			if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
-				ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
+				ERROR_LOG(Log::BOOT, "Error resetting: %s", resetError.c_str());
 				// TODO: This probably doesn't clean up well enough.
 				Core_Stop();
 				return;

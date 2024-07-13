@@ -211,7 +211,7 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxForma
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
 		HRESULT hr = device_->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
-			ERROR_LOG(G3D, "Failed to create vertex declaration!");
+			ERROR_LOG(Log::G3D, "Failed to create vertex declaration!");
 			pHardwareVertexDecl = nullptr;
 		}
 
@@ -322,7 +322,7 @@ void DrawEngineDX9::DoFlush() {
 
 		gpuStats.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
+		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};

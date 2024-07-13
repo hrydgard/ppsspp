@@ -69,11 +69,11 @@ const char *DNSTypeAsString(DNSType type) {
 
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
-		ERROR_LOG(IO, "Resolve: Already have a socket");
+		ERROR_LOG(Log::IO, "Resolve: Already have a socket");
 		return false;
 	}
 	if (!host || port < 1 || port > 65535) {
-		ERROR_LOG(IO, "Resolve: Invalid host or port (%d)", port);
+		ERROR_LOG(Log::IO, "Resolve: Invalid host or port (%d)", port);
 		return false;
 	}
 
@@ -85,7 +85,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 	std::string err;
 	if (!net::DNSResolve(host, port_str, &resolved_, err, type)) {
-		WARN_LOG(IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
+		WARN_LOG(Log::IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
 		return false;
@@ -108,7 +108,7 @@ static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
-		ERROR_LOG(IO, "Bad port");
+		ERROR_LOG(Log::IO, "Bad port");
 		return false;
 	}
 	sock_ = -1;
@@ -124,13 +124,13 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
-				ERROR_LOG(IO, "Bad socket");
+				ERROR_LOG(Log::IO, "Bad socket");
 				continue;
 			}
 			// Windows sockets aren't limited by socket number, just by count, so checking FD_SETSIZE there is wrong.
 #if !PPSSPP_PLATFORM(WINDOWS)
 			if (sock >= FD_SETSIZE) {
-				ERROR_LOG(IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
+				ERROR_LOG(Log::IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
 				closesocket(sock);
 				continue;
 			}
@@ -155,9 +155,9 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 					char addrStr[128]{};
 					FormatAddr(addrStr, sizeof(addrStr), possible);
 					if (!unreachable) {
-						ERROR_LOG(HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
+						ERROR_LOG(Log::HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
 					} else {
-						INFO_LOG(HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+						INFO_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
 					}
 					closesocket(sock);
 					continue;
@@ -186,7 +186,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
 			if (cancelConnect && *cancelConnect) {
-				WARN_LOG(HTTP, "connect: cancelled (1)");
+				WARN_LOG(Log::HTTP, "connect: cancelled (1)");
 				break;
 			}
 		}
@@ -210,7 +210,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		}
 
 		if (cancelConnect && *cancelConnect) {
-			WARN_LOG(HTTP, "connect: cancelled (2)");
+			WARN_LOG(Log::HTTP, "connect: cancelled (2)");
 			break;
 		}
 
@@ -396,13 +396,13 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
 		if (!ready && time_now_d() > endTimeout) {
-			ERROR_LOG(HTTP, "HTTP headers timed out");
+			ERROR_LOG(Log::HTTP, "HTTP headers timed out");
 			return -1;
 		}
 	};
 	// Let's hope all the headers are available in a single packet...
 	if (readbuf->Read(sock(), 4096) < 0) {
-		ERROR_LOG(HTTP, "Failed to read HTTP headers :(");
+		ERROR_LOG(Log::HTTP, "Failed to read HTTP headers :(");
 		return -1;
 	}
 
@@ -420,7 +420,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(HTTP, "Could not parse HTTP status code: %s", line.c_str());
+		ERROR_LOG(Log::HTTP, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
 
@@ -432,7 +432,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	}
 
 	if (responseHeaders.size() == 0) {
-		ERROR_LOG(HTTP, "No HTTP response headers");
+		ERROR_LOG(Log::HTTP, "No HTTP response headers");
 		return -1;
 	}
 
@@ -469,7 +469,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	if (contentLength < 0) {
-		WARN_LOG(HTTP, "Negative content length %d", contentLength);
+		WARN_LOG(Log::HTTP, "Negative content length %d", contentLength);
 		// Just sanity checking...
 		contentLength = 0;
 	}
@@ -481,7 +481,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	if (!output->IsVoid()) {
 		if (chunked) {
 			if (!DeChunk(readbuf, output, contentLength)) {
-				ERROR_LOG(HTTP, "Bad chunked data, couldn't read chunk size");
+				ERROR_LOG(Log::HTTP, "Bad chunked data, couldn't read chunk size");
 				progress->Update(0, 0, true);
 				return -1;
 			}
@@ -495,7 +495,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			output->TakeAll(&compressed);
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
-				ERROR_LOG(HTTP, "Error decompressing using zlib");
+				ERROR_LOG(Log::HTTP, "Error decompressing using zlib");
 				progress->Update(0, 0, true);
 				return -1;
 			}
@@ -523,7 +523,7 @@ void HTTPRequest::Start() {
 
 void HTTPRequest::Join() {
 	if (joined_) {
-		ERROR_LOG(HTTP, "Already joined thread!");
+		ERROR_LOG(Log::HTTP, "Already joined thread!");
 	}
 	thread_.join();
 	joined_ = true;
@@ -547,7 +547,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
-		ERROR_LOG(HTTP, "Failed resolving %s", url.c_str());
+		ERROR_LOG(Log::HTTP, "Failed resolving %s", url.c_str());
 		return -1;
 	}
 
@@ -556,7 +556,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ERROR_LOG(HTTP, "Failed connecting to server or cancelled.");
+		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled.");
 		return -1;
 	}
 
@@ -600,7 +600,7 @@ void HTTPRequest::Do() {
 		if (resultCode == 301 || resultCode == 302 || resultCode == 303 || resultCode == 307 || resultCode == 308) {
 			std::string redirectURL = RedirectLocation(downloadURL);
 			if (redirectURL.empty()) {
-				ERROR_LOG(HTTP, "Could not find Location header for redirect");
+				ERROR_LOG(Log::HTTP, "Could not find Location header for redirect");
 				resultCode_ = resultCode;
 			} else if (redirectURL == downloadURL || redirectURL == url_) {
 				// Simple loop detected, bail out.
@@ -609,7 +609,7 @@ void HTTPRequest::Do() {
 
 			// Perform the next GET.
 			if (resultCode_ == 0) {
-				INFO_LOG(HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+				INFO_LOG(Log::HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
 				buffer_.clear();
 				responseHeaders_.clear();
 			}
@@ -618,12 +618,12 @@ void HTTPRequest::Do() {
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(HTTP, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			INFO_LOG(Log::HTTP, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-				ERROR_LOG(HTTP, "Failed writing download to '%s'", outfile_.c_str());
+				ERROR_LOG(Log::HTTP, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(HTTP, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
+			ERROR_LOG(Log::HTTP, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}

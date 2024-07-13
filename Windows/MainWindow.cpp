@@ -292,7 +292,7 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		DEBUG_LOG(Log::SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
 			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);

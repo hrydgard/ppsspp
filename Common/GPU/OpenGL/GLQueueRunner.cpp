@@ -130,12 +130,12 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 			}
 			case GLRInitStepType::CREATE_PROGRAM:
 			{
-				WARN_LOG(G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
+				WARN_LOG(Log::G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
 				break;
 			}
 			case GLRInitStepType::CREATE_SHADER:
 			{
-				WARN_LOG(G3D, "CREATE_SHADER found with skipGLCalls, not good");
+				WARN_LOG(Log::G3D, "CREATE_SHADER found with skipGLCalls, not good");
 				break;
 			}
 			default:
@@ -237,11 +237,11 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				if (!anyFailed)
 					Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc.c_str(), fsCode, vsDesc.c_str(), vsCode);
 
-				ERROR_LOG(G3D, "Could not link program:\n %s", infoLog.c_str());
-				ERROR_LOG(G3D, "VS desc:\n%s", vsDesc.c_str());
-				ERROR_LOG(G3D, "FS desc:\n%s", fsDesc.c_str());
-				ERROR_LOG(G3D, "VS:\n%s\n", LineNumberString(vsCode).c_str());
-				ERROR_LOG(G3D, "FS:\n%s\n", LineNumberString(fsCode).c_str());
+				ERROR_LOG(Log::G3D, "Could not link program:\n %s", infoLog.c_str());
+				ERROR_LOG(Log::G3D, "VS desc:\n%s", vsDesc.c_str());
+				ERROR_LOG(Log::G3D, "FS desc:\n%s", fsDesc.c_str());
+				ERROR_LOG(Log::G3D, "VS:\n%s\n", LineNumberString(vsCode).c_str());
+				ERROR_LOG(Log::G3D, "FS:\n%s\n", LineNumberString(fsCode).c_str());
 
 #ifdef _WIN32
 				OutputDebugStringUTF8(infoLog.c_str());
@@ -264,7 +264,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				int location = glGetUniformLocation(program->program, query.name);
 
 				if (location < 0 && query.required) {
-					WARN_LOG(G3D, "Required uniform query for '%s' failed", query.name);
+					WARN_LOG(Log::G3D, "Required uniform query for '%s' failed", query.name);
 				}
 				*query.dest = location;
 			}
@@ -306,7 +306,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				std::vector<std::string_view> lines;
 				SplitString(errorString, '\n', lines);
 				for (auto line : lines) {
-					ERROR_LOG(G3D, "%.*s", (int)line.size(), line.data());
+					ERROR_LOG(Log::G3D, "%.*s", (int)line.size(), line.data());
 				}
 				if (errorCallback_) {
 					std::string desc = StringFromFormat("Shader compilation failed: %s", step.create_shader.stage == GL_VERTEX_SHADER ? "vertex" : "fragment");
@@ -431,12 +431,12 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 		// Calling glGetError() isn't great, but at the end of init, only after creating textures, shouldn't be too bad...
 		GLenum err = glGetError();
 		if (err == GL_OUT_OF_MEMORY) {
-			WARN_LOG_REPORT(G3D, "GL ran out of GPU memory; switching to low memory mode");
+			WARN_LOG_REPORT(Log::G3D, "GL ran out of GPU memory; switching to low memory mode");
 			sawOutOfMemory_ = true;
 		} else if (err != GL_NO_ERROR) {
 			// We checked the err anyway, might as well log if there is one.
 			std::string errorString = GLEnumToString(err);
-			WARN_LOG(G3D, "Got an error after init: %08x (%s)", err, errorString.c_str());
+			WARN_LOG(Log::G3D, "Got an error after init: %08x (%s)", err, errorString.c_str());
 			if (errorCallback_) {
 				errorCallback_("GL frame init error", errorString.c_str(), errorCallbackUserData_);
 			}
@@ -494,7 +494,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 retry_depth:
 	if (!fbo->z_stencil_) {
-		INFO_LOG(G3D, "Creating %d x %d FBO using no depth", fbo->width, fbo->height);
+		INFO_LOG(Log::G3D, "Creating %d x %d FBO using no depth", fbo->width, fbo->height);
 
 		fbo->z_stencil_buffer = 0;
 		fbo->stencil_buffer = 0;
@@ -507,7 +507,7 @@ retry_depth:
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
 	} else if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3)) {
-			INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+			INFO_LOG(Log::G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 			fbo->z_stencil_buffer = 0;
 			fbo->stencil_buffer = 0;
 			fbo->z_buffer = 0;
@@ -528,7 +528,7 @@ retry_depth:
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
 			}
 		} else if (gl_extensions.OES_packed_depth_stencil) {
-			INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
+			INFO_LOG(Log::G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
 			// Standard method
 			fbo->stencil_buffer = 0;
 			fbo->z_buffer = 0;
@@ -543,7 +543,7 @@ retry_depth:
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		} else {
-			INFO_LOG(G3D, "Creating %d x %d FBO using separate stencil", fbo->width, fbo->height);
+			INFO_LOG(Log::G3D, "Creating %d x %d FBO using separate stencil", fbo->width, fbo->height);
 			// TEGRA
 			fbo->z_stencil_buffer = 0;
 			// 16/24-bit Z, separate 8-bit stencil
@@ -564,7 +564,7 @@ retry_depth:
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 		}
 	} else if (gl_extensions.VersionGEThan(3, 0)) {
-		INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+		INFO_LOG(Log::G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 		fbo->z_stencil_buffer = 0;
 		fbo->stencil_buffer = 0;
 		fbo->z_buffer = 0;
@@ -600,13 +600,13 @@ retry_depth:
 
 	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE:
-		// INFO_LOG(G3D, "Framebuffer verified complete.");
+		// INFO_LOG(Log::G3D, "Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED:
-		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
+		ERROR_LOG(Log::G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
 	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+		ERROR_LOG(Log::G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
 		break;
 	default:
 		_assert_msg_(false, "Other framebuffer error: %d", status);
@@ -747,7 +747,7 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 		CHECK_GL_ERROR_IF_DEBUG();
 #endif // defined(USING_GLES2) && defined(__ANDROID__)
 	} else {
-		ERROR_LOG(G3D, "GLQueueRunner: Tried to blit without the capability");
+		ERROR_LOG(Log::G3D, "GLQueueRunner: Tried to blit without the capability");
 	}
 }
 
@@ -1694,13 +1694,13 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
 	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE_EXT:
-		// INFO_LOG(G3D, "Framebuffer verified complete.");
+		// INFO_LOG(Log::G3D, "Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-		ERROR_LOG(G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
+		ERROR_LOG(Log::G3D, "GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
 	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
-		ERROR_LOG(G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
+		ERROR_LOG(Log::G3D, "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
 		break;
 	default:
 		_assert_msg_(false, "Other framebuffer error: %d", status);

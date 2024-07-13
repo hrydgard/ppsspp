@@ -66,7 +66,7 @@ public:
 
 	bool run(PendingInterrupt& pend) override {
 		if (ge_pending_cb.empty()) {
-			ERROR_LOG_REPORT(SCEGE, "Unable to run GE interrupt: no pending interrupt");
+			ERROR_LOG_REPORT(Log::SCEGE, "Unable to run GE interrupt: no pending interrupt");
 			return false;
 		}
 
@@ -74,12 +74,12 @@ public:
 		DisplayList* dl = gpu->getList(intrdata.listid);
 
 		if (dl == NULL) {
-			WARN_LOG(SCEGE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
+			WARN_LOG(Log::SCEGE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
 			return false;
 		}
 
 		if (!dl->interruptsEnabled) {
-			ERROR_LOG_REPORT(SCEGE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG_REPORT(Log::SCEGE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
 			return false;
 		}
 
@@ -118,7 +118,7 @@ public:
 
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL) {
-			DEBUG_LOG(CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
+			DEBUG_LOG(Log::CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
 			u32 data = dl->subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
@@ -142,7 +142,7 @@ public:
 
 		// Seen in GoW.
 		if (subintr >= 0)
-			DEBUG_LOG(SCEGE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+			DEBUG_LOG(Log::SCEGE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
@@ -152,7 +152,7 @@ public:
 
 		DisplayList* dl = gpu->getList(intrdata.listid);
 		if (!dl->interruptsEnabled) {
-			ERROR_LOG_REPORT(SCEGE, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG_REPORT(Log::SCEGE, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
 			return;
 		}
 
@@ -163,9 +163,9 @@ public:
 				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
 				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
-				//	ERROR_LOG(SCEGE, "Weird DL status after signal suspend %x", dl->status);
+				//	ERROR_LOG(Log::SCEGE, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING) {
-					DEBUG_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
+					DEBUG_LOG_REPORT(Log::SCEGE, "GE Interrupt: newState might be %d", newState);
 				}
 
 				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
@@ -288,7 +288,7 @@ void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason) 
 		listWaitingThreads[waitId].push_back(__KernelGetCurThread());
 		waitType = WAITTYPE_GELISTSYNC;
 	} else {
-		ERROR_LOG_REPORT(SCEGE, "__GeWaitCurrentThread: bad wait type");
+		ERROR_LOG_REPORT(Log::SCEGE, "__GeWaitCurrentThread: bad wait type");
 		return;
 	}
 
@@ -311,13 +311,13 @@ bool __GeTriggerWait(GPUSyncType type, SceUID waitId) {
 	else if (type == GPU_SYNC_LIST || (WaitType)type == WAITTYPE_GELISTSYNC)
 		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
-		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
+		ERROR_LOG_REPORT(Log::SCEGE, "__GeTriggerWait: bad wait type");
 	return false;
 }
 
 static u32 sceGeEdramGetAddr() {
 	u32 retVal = 0x04000000;
-	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetAddr", retVal);
+	DEBUG_LOG(Log::SCEGE, "%08x = sceGeEdramGetAddr", retVal);
 	hleEatCycles(150);
 	return retVal;
 }
@@ -325,7 +325,7 @@ static u32 sceGeEdramGetAddr() {
 // TODO: Return a different value for the PS3 enhanced-emulator games?
 static u32 sceGeEdramGetSize() {
 	const u32 retVal = 0x00200000;
-	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetSize()", retVal);
+	DEBUG_LOG(Log::SCEGE, "%08x = sceGeEdramGetSize()", retVal);
 	return retVal;
 }
 
@@ -334,7 +334,7 @@ static int __GeSubIntrBase(int callbackId) {
 }
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
-	DEBUG_LOG(SCEGE,
+	DEBUG_LOG(Log::SCEGE,
 			"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
@@ -349,7 +349,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
-	DEBUG_LOG(SCEGE,
+	DEBUG_LOG(Log::SCEGE,
 			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
@@ -364,7 +364,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 }
 
 static int sceGeListDeQueue(u32 listID) {
-	WARN_LOG(SCEGE, "sceGeListDeQueue(%08x)", listID);
+	WARN_LOG(Log::SCEGE, "sceGeListDeQueue(%08x)", listID);
 	int result = gpu->DequeueList(LIST_ID_MAGIC ^ listID);
 	hleReSchedule("dlist dequeued");
 	return result;
@@ -376,13 +376,13 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 	hleEatCycles(190);
 	CoreTiming::ForceCheck();
 
-	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
+	DEBUG_LOG(Log::SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	return gpu->UpdateStall(LIST_ID_MAGIC ^ displayListID, stallAddress);
 }
 
 // 0 : wait for completion. 1:check and return
 int sceGeListSync(u32 displayListID, u32 mode) {
-	DEBUG_LOG(SCEGE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
+	DEBUG_LOG(Log::SCEGE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
 	hleEatCycles(220);  // Fudged without measuring, copying sceGeContinue.
 	return gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode);
 }
@@ -393,12 +393,12 @@ static u32 sceGeDrawSync(u32 mode) {
 		hleEatCycles(500000); //HACK(?) : Potential fix for Crash Tag Team Racing and a few Gundam games
 	else
 		hleEatCycles(1240);
-	DEBUG_LOG(SCEGE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
+	DEBUG_LOG(Log::SCEGE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
 	return gpu->DrawSync(mode);
 }
 
 int sceGeContinue() {
-	DEBUG_LOG(SCEGE, "sceGeContinue");
+	DEBUG_LOG(Log::SCEGE, "sceGeContinue");
 	int ret = gpu->Continue();
 	hleEatCycles(220);
 	hleReSchedule("ge continue");
@@ -407,19 +407,19 @@ int sceGeContinue() {
 
 static int sceGeBreak(u32 mode, u32 unknownPtr) {
 	if (mode > 1) {
-		WARN_LOG(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid mode", mode, unknownPtr);
+		WARN_LOG(Log::SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid mode", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 	// Not sure what this is supposed to be for...
 	if ((int)unknownPtr < 0 || (int)(unknownPtr + 16) < 0) {
-		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
+		WARN_LOG_REPORT(Log::SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	} else if (unknownPtr != 0) {
-		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
+		WARN_LOG_REPORT(Log::SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
 	}
 
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(SCEGE, "sceGeBreak(mode=%d, unknown=%08x)", mode, unknownPtr);
+	DEBUG_LOG(Log::SCEGE, "sceGeBreak(mode=%d, unknown=%08x)", mode, unknownPtr);
 	int result = gpu->Break(mode);
 	if (result >= 0 && mode == 0) {
 		return LIST_ID_MAGIC ^ result;
@@ -462,10 +462,10 @@ static u32 sceGeSetCallback(u32 structAddr) {
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
-	DEBUG_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x)", cbID);
+	DEBUG_LOG(Log::SCEGE, "sceGeUnsetCallback(cbid=%08x)", cbID);
 
 	if (cbID >= ARRAY_SIZE(ge_used_callbacks)) {
-		WARN_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
+		WARN_LOG(Log::SCEGE, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
@@ -475,7 +475,7 @@ static int sceGeUnsetCallback(u32 cbID) {
 		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
 		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	} else {
-		WARN_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
+		WARN_LOG(Log::SCEGE, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
 	}
 
 	ge_used_callbacks[cbID] = false;
@@ -485,10 +485,10 @@ static int sceGeUnsetCallback(u32 cbID) {
 // Points to 512 32-bit words, where we can probably layout the context however we want
 // unless some insane game pokes it and relies on it...
 u32 sceGeSaveContext(u32 ctxAddr) {
-	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
+	DEBUG_LOG(Log::SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
 
 	if (gpu->BusyDrawing()) {
-		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
+		WARN_LOG(Log::SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
 		// Real error code.
 		return -1;
 	}
@@ -504,10 +504,10 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 }
 
 u32 sceGeRestoreContext(u32 ctxAddr) {
-	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
+	DEBUG_LOG(Log::SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
 
 	if (gpu->BusyDrawing()) {
-		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
+		WARN_LOG(Log::SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
 		return SCE_KERNEL_ERROR_BUSY;
 	}
 
@@ -567,7 +567,7 @@ static u32 sceGeGetCmd(int cmd) {
 }
 
 static int sceGeGetStack(int index, u32 stackPtr) {
-	WARN_LOG_REPORT(SCEGE, "sceGeGetStack(%i, %08x)", index, stackPtr);
+	WARN_LOG_REPORT(Log::SCEGE, "sceGeGetStack(%i, %08x)", index, stackPtr);
 	return gpu->GetStack(index, stackPtr);
 }
 

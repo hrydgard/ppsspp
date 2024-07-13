@@ -333,7 +333,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		if (!data) {
-			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
 			return;
 		}
 

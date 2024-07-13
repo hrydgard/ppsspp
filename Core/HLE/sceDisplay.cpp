@@ -316,12 +316,12 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	if (waitData.threadID != threadID) {
-		WARN_LOG_REPORT(SCEDISPLAY, "sceDisplayWaitVblankCB: could not find waiting thread info.");
+		WARN_LOG_REPORT(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: could not find waiting thread info.");
 		return;
 	}
 
 	vblankPausedWaits[pauseKey] = __DisplayGetVCount() + waitData.vcountUnblock;
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
+	DEBUG_LOG(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
 }
 
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -342,7 +342,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 	// Still have to wait a bit longer.
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - __DisplayGetVCount()));
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
+	DEBUG_LOG(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
 }
 
 void __DisplaySetWasPaused() {
@@ -385,7 +385,7 @@ static void DoFrameDropLogging(float scaledTimestep) {
 
 		char stats[4096];
 		__DisplayGetDebugStats(stats, sizeof(stats));
-		NOTICE_LOG(SCEDISPLAY, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
+		NOTICE_LOG(Log::SCEDISPLAY, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
 	}
 }
 
@@ -499,7 +499,7 @@ static void DoFrameIdleTiming() {
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
-	VERBOSE_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
+	VERBOSE_LOG(Log::SCEDISPLAY, "Enter VBlank %i", vbCount);
 
 	DisplayFireVblankStart();
 
@@ -530,7 +530,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
-		DEBUG_LOG(SCEDISPLAY, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
+		DEBUG_LOG(Log::SCEDISPLAY, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
@@ -597,7 +597,7 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	if (!FrameTimingThrottled()) {
-		// NOTICE_LOG(SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
+		// NOTICE_LOG(Log::SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
 	}
 
 	const bool fbDirty = gpu->FramebufferDirty();
@@ -709,7 +709,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	flippedThisFrame = false;
-	VERBOSE_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
+	VERBOSE_LOG(Log::SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
@@ -786,7 +786,7 @@ void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
-		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
+		WARN_LOG_REPORT(Log::SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
 		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
@@ -1028,7 +1028,7 @@ static int sceDisplayGetAccumulatedHcount() {
 
 static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	VERBOSE_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	VERBOSE_LOG(Log::SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 

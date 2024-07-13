@@ -96,7 +96,7 @@ Operand2 AssumeMakeOperand2(u32 imm) {
 	_dbg_assert_msg_(result, "Could not make assumed Operand2.");
 	if (!result) {
 		// Make double sure that we get it logged.
-		ERROR_LOG(JIT, "Could not make assumed Operand2.");
+		ERROR_LOG(Log::JIT, "Could not make assumed Operand2.");
 	}
 	return op2;
 }
@@ -1506,7 +1506,7 @@ void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)
 	_assert_msg_((imm & 0xC03) == 0, "VLDR: Offset needs to be word aligned and small enough");
 
 	if (imm & 0xC03)
-		ERROR_LOG(JIT, "VLDR: Bad offset %08x", imm);
+		ERROR_LOG(Log::JIT, "VLDR: Bad offset %08x", imm);
 
 	bool single_reg = Dest < D0;
 
@@ -1534,7 +1534,7 @@ void ARMXEmitter::VSTR(ARMReg Src, ARMReg Base, s16 offset)
 	_assert_msg_((imm & 0xC03) == 0, "VSTR: Offset needs to be word aligned and small enough");
 
 	if (imm & 0xC03)
-		ERROR_LOG(JIT, "VSTR: Bad offset %08x", imm);
+		ERROR_LOG(Log::JIT, "VSTR: Bad offset %08x", imm);
 
 	bool single_reg = Src < D0;
 
@@ -1732,7 +1732,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 {
 	if (Dest == Src) {
-		WARN_LOG(JIT, "VMOV %s, %s - same register", ARMRegAsString(Src), ARMRegAsString(Dest));
+		WARN_LOG(Log::JIT, "VMOV %s, %s - same register", ARMRegAsString(Src), ARMRegAsString(Dest));
 	}
 	if (Dest > R15)
 	{
@@ -1787,7 +1787,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 
 	_assert_msg_(SrcSize == DestSize, "VMOV doesn't support moving different register sizes");
 	if (SrcSize != DestSize) {
-		ERROR_LOG(JIT, "SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
+		ERROR_LOG(Log::JIT, "SrcSize: %i (%s)  DestDize: %i (%s)", SrcSize, ARMRegAsString(Src), DestSize, ARMRegAsString(Dest));
 	}
 
 	Dest = SubBase(Dest);

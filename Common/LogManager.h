@@ -131,8 +131,8 @@ public:
 	static u32 GetMaxLevel() { return (u32)MAX_LOGLEVEL;	}
 	static int GetNumChannels() { return (int)Log::NUMBER_OF_LOGS; }
 
-	void Log(LogLevel level, Log type,
-			 const char *file, int line, const char *fmt, va_list args);
+	void LogLine(LogLevel level, Log type,
+				 const char *file, int line, const char *fmt, va_list args);
 	bool IsEnabled(LogLevel level, Log type);
 
 	LogChannel *GetLogChannel(Log type) {

@@ -292,7 +292,7 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "buffers too small");
 		}
 
-		DEBUG_LOG(ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
+		DEBUG_LOG(Log::ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
 			Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
 	} else {
 		Au->startPos = 0;
@@ -456,11 +456,11 @@ static int sceMp3Init(u32 mp3) {
 	int samplerate = __CalculateMp3SampleRates((header >> 10) & 0x3, versionBits);;
 	int channels = __CalculateMp3Channels((header >> 6) & 0x3);
 
-	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps, layerBits=%d ,versionBits=%d,HEADER: %08x", channels, samplerate, bitrate, layerBits, versionBits, header);
+	DEBUG_LOG(Log::ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps, layerBits=%d ,versionBits=%d,HEADER: %08x", channels, samplerate, bitrate, layerBits, versionBits, header);
 
 	if (layerBits != 1) {
 		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
+		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not layer 3");
 	}
 	if (bitrate == 0 || bitrate == -1) {
 		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
@@ -483,7 +483,7 @@ static int sceMp3Init(u32 mp3) {
 
 	if (versionBits != 3) {
 		// TODO: Should return 0x80671301 (unsupported version?)
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
+		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not MPEG v1");
 	}
 	if (samplerate != 44100 && sdkver < 3090500) {
 		return hleDelayResult(hleLogError(ME, ERROR_MP3_BAD_SAMPLE_RATE, "invalid data: not 44.1kHz"), "mp3 init", PARSE_DELAY_MS);
@@ -645,12 +645,12 @@ static int sceMp3ReleaseMp3Handle(u32 mp3) {
 }
 
 static u32 sceMp3EndEntry() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3EndEntry(...)");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
 static u32 sceMp3StartEntry() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3StartEntry(...)");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
@@ -725,17 +725,17 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	// sourceBytesConsumedAddr: consumed bytes decoded in source
 	// samplesAddr: output pcm buffer
 	// sampleBytesAddr: output pcm size
-	DEBUG_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	DEBUG_LOG(Log::ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(Log::ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(sourceBytesConsumedAddr) ||
 		!Memory::IsValidAddress(samplesAddr) || !Memory::IsValidAddress(sampleBytesAddr)) {
-		ERROR_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x) : invalid address in args", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+		ERROR_LOG(Log::ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x) : invalid address in args", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 		return -1;
 	}
 

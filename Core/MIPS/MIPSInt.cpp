@@ -120,12 +120,12 @@ namespace MIPSInt
 				MIPSComp::jit->InvalidateCacheAt(alignedAddr, size);
 				// Using a bool to avoid locking/etc. in case it's slow.
 				if (!reportedAlignment && (addr & 0x3F) != 0) {
-					WARN_LOG_REPORT(JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					WARN_LOG_REPORT(Log::JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 					reportedAlignment = true;
 				}
 				if (alignedAddr <= PC + 4 && alignedAddr + size >= PC - 4) {
 					// This is probably rare so we don't use a static bool.
-					WARN_LOG_REPORT_ONCE(icacheInvalidatePC, JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					WARN_LOG_REPORT_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 				}
 			}
 			break;
@@ -144,7 +144,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			DEBUG_LOG(CPU, "cache instruction affecting %08x : function %i", addr, func);
+			DEBUG_LOG(Log::CPU, "cache instruction affecting %08x : function %i", addr, func);
 		}
 
 		PC += 4;
@@ -169,7 +169,7 @@ namespace MIPSInt
 
 	void Int_Sync(MIPSOpcode op)
 	{
-		//DEBUG_LOG(CPU, "sync");
+		//DEBUG_LOG(Log::CPU, "sync");
 		PC += 4;
 	}
 
@@ -265,7 +265,7 @@ namespace MIPSInt
 	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
-			ERROR_LOG(CPU, "Jump in delay slot :(");
+			ERROR_LOG(Log::CPU, "Jump in delay slot :(");
 
 		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
@@ -292,7 +292,7 @@ namespace MIPSInt
 		if (mipsr4k.inDelaySlot)
 		{
 			// There's one of these in Star Soldier at 0881808c, which seems benign.
-			ERROR_LOG(CPU, "Jump in delay slot :(");
+			ERROR_LOG(Log::CPU, "Jump in delay slot :(");
 		}
 
 		int rs = _RS;
@@ -522,7 +522,7 @@ namespace MIPSInt
 				} else if (fs == 0) {
 					R(rt) = MIPSState::FCR0_VALUE;
 				} else {
-					WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", fs);
+					WARN_LOG_REPORT(Log::CPU, "ReadFCR: Unexpected reg %d", fs);
 					R(rt) = 0;
 				}
 				break;
@@ -544,9 +544,9 @@ namespace MIPSInt
 						MIPSComp::jit->UpdateFCR31();
 					}
 				} else {
-					WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
+					WARN_LOG_REPORT(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
 				}
-				DEBUG_LOG(CPU, "FCR%i written to, value %08x", fs, value);
+				DEBUG_LOG(Log::CPU, "FCR%i written to, value %08x", fs, value);
 				break;
 			}
 		
@@ -821,14 +821,14 @@ namespace MIPSInt
 		case 36:  // mfic
 			if (!reported) {
 				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
-				WARN_LOG(CPU,"MFIC Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU,"MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
 		case 38:  // mtic
 			if (!reported) {
 				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
-				WARN_LOG(CPU,"MTIC Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU,"MTIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
@@ -1021,7 +1021,7 @@ namespace MIPSInt
 		case 0:
 			if (!reported) {
 				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
-				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
+				WARN_LOG(Log::CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
@@ -1052,7 +1052,7 @@ namespace MIPSInt
 			}
 		} else {
 			if (!entry || !entry->replaceFunc) {
-				ERROR_LOG(CPU, "Bad replacement function index %i", index);
+				ERROR_LOG(Log::CPU, "Bad replacement function index %i", index);
 			}
 			// Interpret the original instruction under it.
 			MIPSInterpret(Memory::Read_Instruction(PC, true));

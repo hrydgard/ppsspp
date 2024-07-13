@@ -121,7 +121,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		count = g_errorCount[messageCode]++;
 	}
 	if (count == MAX_SAME_ERROR_COUNT) {
-		WARN_LOG(G3D, "Too many validation messages with message %d, stopping", messageCode);
+		WARN_LOG(Log::G3D, "Too many validation messages with message %d, stopping", messageCode);
 	}
 	if (count >= MAX_SAME_ERROR_COUNT) {
 		return false;
@@ -166,9 +166,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 #endif
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		ERROR_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		ERROR_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	} else {
-		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		WARN_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	}
 
 	// false indicates that layer should not bail-out of an

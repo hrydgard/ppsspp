@@ -54,7 +54,7 @@ void notifyNpMatching2Handlers(NpMatching2Args &args, u32 ctxId, u32 serverId, u
 
 static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityMask, int threadStackSize)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, currentMIPS->pc);
 	//if (npMatching2Inited)
 	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_ALREADY_INITIALIZED);
 
@@ -70,7 +70,7 @@ static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityM
 
 static int sceNpMatching2Term()
 {
-	ERROR_LOG(SCENET, "UNIMPL %s() at %08x", __FUNCTION__, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s() at %08x", __FUNCTION__, currentMIPS->pc);
 	npMatching2Inited = false;
 	npMatching2Handlers.clear();
 	npMatching2Events.clear();
@@ -80,7 +80,7 @@ static int sceNpMatching2Term()
 
 static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr, u32 ctxIdPtr, int unknown)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%hu], %i) at %08x", __FUNCTION__, communicationIdPtr, safe_string(Memory::GetCharPointer(communicationIdPtr)), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%hu], %i) at %08x", __FUNCTION__, communicationIdPtr, safe_string(Memory::GetCharPointer(communicationIdPtr)), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -98,14 +98,14 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 	if (retval < 0)
 		return hleLogError(SCENET, retval);
 
-	INFO_LOG(SCENET, "%s - Title ID: %s", __FUNCTION__, titleid->data);
-	INFO_LOG(SCENET, "%s - Online ID: %s", __FUNCTION__, npid.handle.data);
+	INFO_LOG(Log::SCENET, "%s - Title ID: %s", __FUNCTION__, titleid->data);
+	INFO_LOG(Log::SCENET, "%s - Online ID: %s", __FUNCTION__, npid.handle.data);
 	std::string datahex;
 	DataToHexString(npid.opt, sizeof(npid.opt), &datahex);
-	INFO_LOG(SCENET, "%s - Options?: %s", __FUNCTION__, datahex.c_str());
+	INFO_LOG(Log::SCENET, "%s - Options?: %s", __FUNCTION__, datahex.c_str());
 	datahex.clear();
 	DataToHexString(10, 0, passph->data, sizeof(passph->data), &datahex);
-	INFO_LOG(SCENET, "%s - Passphrase: \n%s", __FUNCTION__, datahex.c_str());
+	INFO_LOG(Log::SCENET, "%s - Passphrase: \n%s", __FUNCTION__, datahex.c_str());
 
 	// TODO: Allocate & zeroed a memory of 68 bytes where npId (36 bytes) is copied to offset 8, offset 44 = 0x00026808, offset 48 = 0
 
@@ -117,7 +117,7 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 
 static int sceNpMatching2ContextStart(int ctxId)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -143,7 +143,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		snprintf(requestHeaders, sizeof(requestHeaders),
 			"User-Agent: PS3Community-agent/1.0.0 libhttp/1.0.0\r\n");
 
-		DEBUG_LOG(SCENET, "GET URI: %s", url.ToString().c_str());
+		DEBUG_LOG(Log::SCENET, "GET URI: %s", url.ToString().c_str());
 		http::RequestParams req(url.Resource(), "*/*");
 		int err = client.SendRequest("GET", req, requestHeaders, &progress);
 		if (err < 0) {
@@ -162,7 +162,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		net::Buffer output;
 		int res = client.ReadResponseEntity(&readbuf, responseHeaders, &output, &progress);
 		if (res != 0) {
-			WARN_LOG(SCENET, "Unable to read HTTP response entity: %d", res);
+			WARN_LOG(Log::SCENET, "Unable to read HTTP response entity: %d", res);
 		}
 		client.Disconnect();
 
@@ -179,7 +179,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		ofs += 9;
 		size_t ofs2 = entity.find('"', ofs);
 		text = entity.substr(ofs, ofs2-ofs);
-		INFO_LOG(SCENET, "%s - Title ID: %s", __FUNCTION__, text.c_str());
+		INFO_LOG(Log::SCENET, "%s - Title ID: %s", __FUNCTION__, text.c_str());
 
 		int i = 1;
 		while (true) {
@@ -199,7 +199,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			ofs += 4;
 			ofs2 = entity.find('"', ofs);
 			text = entity.substr(ofs, ofs2 - ofs);
-			INFO_LOG(SCENET, "%s - Agent-FQDN#%d ID: %s", __FUNCTION__, i, text.c_str());
+			INFO_LOG(Log::SCENET, "%s - Agent-FQDN#%d ID: %s", __FUNCTION__, i, text.c_str());
 
 			ofs = entity.find("port=", frontPos);
 			if (ofs == std::string::npos)
@@ -208,7 +208,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			ofs += 6;
 			ofs2 = entity.find('"', ofs);
 			text = entity.substr(ofs, ofs2 - ofs);
-			INFO_LOG(SCENET, "%s - Agent-FQDN#%d Port: %s", __FUNCTION__, i, text.c_str());
+			INFO_LOG(Log::SCENET, "%s - Agent-FQDN#%d Port: %s", __FUNCTION__, i, text.c_str());
 
 			ofs = entity.find("status=", frontPos);
 			if (ofs == std::string::npos)
@@ -217,7 +217,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			ofs += 8;
 			ofs2 = entity.find('"', ofs);
 			text = entity.substr(ofs, ofs2 - ofs);
-			INFO_LOG(SCENET, "%s - Agent-FQDN#%d Status: %s", __FUNCTION__, i, text.c_str());
+			INFO_LOG(Log::SCENET, "%s - Agent-FQDN#%d Status: %s", __FUNCTION__, i, text.c_str());
 
 			ofs = entity.find('>', ++ofs2);
 			if (ofs == std::string::npos)
@@ -225,7 +225,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 
 			ofs2 = entity.find("</agent-fqdn", ++ofs);
 			text = entity.substr(ofs, ofs2 - ofs);
-			INFO_LOG(SCENET, "%s - Agent-FQDN#%d Host: %s", __FUNCTION__, i, text.c_str());
+			INFO_LOG(Log::SCENET, "%s - Agent-FQDN#%d Host: %s", __FUNCTION__, i, text.c_str());
 
 			i++;
 		}
@@ -237,7 +237,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 
 static int sceNpMatching2ContextStop(int ctxId)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -255,7 +255,7 @@ static int sceNpMatching2ContextStop(int ctxId)
 
 static int sceNpMatching2DestroyContext(int ctxId)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -266,10 +266,10 @@ static int sceNpMatching2DestroyContext(int ctxId)
 	int handlerID = ctxId - 1;
 	if (npMatching2Handlers.find(handlerID) != npMatching2Handlers.end()) {
 		npMatching2Handlers.erase(handlerID);
-		WARN_LOG(SCENET, "%s: Deleted handler %d", __FUNCTION__, handlerID);
+		WARN_LOG(Log::SCENET, "%s: Deleted handler %d", __FUNCTION__, handlerID);
 	}
 	else {
-		ERROR_LOG(SCENET, "%s: Invalid Context ID %d", __FUNCTION__, ctxId);
+		ERROR_LOG(Log::SCENET, "%s: Invalid Context ID %d", __FUNCTION__, ctxId);
 	}
 
 	return 0;
@@ -277,7 +277,7 @@ static int sceNpMatching2DestroyContext(int ctxId)
 
 static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x) at %08x", __FUNCTION__, memStatPtr, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x) at %08x", __FUNCTION__, memStatPtr, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -293,7 +293,7 @@ static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
 
 static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFunctionAddr, u32 callbackArgument)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x) at %08x", __FUNCTION__, ctxId, callbackFunctionAddr, callbackArgument, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x) at %08x", __FUNCTION__, ctxId, callbackFunctionAddr, callbackArgument, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -320,10 +320,10 @@ static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFuncti
 
 		if (!foundHandler && Memory::IsValidAddress(handler.entryPoint)) {
 			npMatching2Handlers[id] = handler;
-			WARN_LOG(SCENET, "%s - Added handler(%08x, %08x) : %d", __FUNCTION__, handler.entryPoint, handler.argument, id);
+			WARN_LOG(Log::SCENET, "%s - Added handler(%08x, %08x) : %d", __FUNCTION__, handler.entryPoint, handler.argument, id);
 		}
 		else {
-			ERROR_LOG(SCENET, "%s - Same handler(%08x, %08x) already exists", __FUNCTION__, handler.entryPoint, handler.argument);
+			ERROR_LOG(Log::SCENET, "%s - Same handler(%08x, %08x) already exists", __FUNCTION__, handler.entryPoint, handler.argument);
 		}
 
 		//u32 dataLength = 4097; 
@@ -337,7 +337,7 @@ static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFuncti
 
 static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int maxServerIds)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, ctxId, serverIdsPtr, maxServerIds, currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, ctxId, serverIdsPtr, maxServerIds, currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -354,7 +354,7 @@ static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int m
 // Unknown1 = optParam, unknown2 = assignedReqId according to https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/Cell/Modules/sceNp2.cpp ?
 static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1Ptr, u32 unknown2Ptr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x[%d], %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, serverIdPtr, Memory::Read_U16(serverIdPtr), unknown1Ptr, unknown2Ptr, Memory::Read_U32(unknown2Ptr), currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x[%d], %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, serverIdPtr, Memory::Read_U16(serverIdPtr), unknown1Ptr, unknown2Ptr, Memory::Read_U32(unknown2Ptr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -416,7 +416,7 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 
 static int sceNpMatching2LeaveRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -450,7 +450,7 @@ static int sceNpMatching2LeaveRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, 
 
 static int sceNpMatching2JoinRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 unknown1, u32 unknown2, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -493,7 +493,7 @@ static int sceNpMatching2JoinRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u
 
 static int sceNpMatching2SearchRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -517,7 +517,7 @@ static int sceNpMatching2SearchRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr,
 
 static int sceNpMatching2SendRoomChatMessage(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
+	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 

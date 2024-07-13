@@ -94,10 +94,10 @@ void IRFrontend::FlushPrefixV() {
 void IRFrontend::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckBreakpoint(GetCompilerPC() + 4);
@@ -117,7 +117,7 @@ void IRFrontend::CompileDelaySlot() {
 bool IRFrontend::CheckRounding(u32 blockAddress) {
 	bool cleanSlate = false;
 	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		WARN_LOG(Log::JIT, "Detected rounding mode usage, rebuilding jit with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
 		js.lastSetRounding = js.hasSetRounding;
 		cleanSlate = true;
@@ -125,7 +125,7 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block for %08x", blockAddress);
+		WARN_LOG_REPORT(Log::JIT, "An uneaten prefix at end of block for %08x", blockAddress);
 		logBlocks = 1;
 		js.LogPrefix();
 
@@ -141,7 +141,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
-		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		ERROR_LOG(Log::HLE, "Invalid replacement op %08x", op.encoding);
 		return;
 	}
 
@@ -178,7 +178,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			js.compiling = false;
 		}
 	} else {
-		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+		ERROR_LOG(Log::HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
 }
 
@@ -303,32 +303,32 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
-		NOTICE_LOG(JIT, "=============== mips %08x ===============", em_address);
+		NOTICE_LOG(Log::JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, sizeof(temp2), true);
-			NOTICE_LOG(JIT, "M: %08x   %s", cpc, temp2);
+			NOTICE_LOG(Log::JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(JIT, "=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
+		NOTICE_LOG(Log::JIT, "=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
 		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i]);
-			NOTICE_LOG(JIT, "%s", buf);
+			NOTICE_LOG(Log::JIT, "%s", buf);
 		}
-		NOTICE_LOG(JIT, "===============        end         =================");
+		NOTICE_LOG(Log::JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
+		NOTICE_LOG(Log::JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
 		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i]);
-			NOTICE_LOG(JIT, "%s", buf);
+			NOTICE_LOG(Log::JIT, "%s", buf);
 		}
-		NOTICE_LOG(JIT, "===============        end         =================");
+		NOTICE_LOG(Log::JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0)
@@ -339,7 +339,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void IRFrontend::CheckBreakpoint(u32 addr) {

@@ -32,12 +32,12 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, error);
 	if (!error->empty()) {
 		if (success) {
-			ERROR_LOG(G3D, "Warnings in shader compilation!");
+			ERROR_LOG(Log::G3D, "Warnings in shader compilation!");
 		} else {
-			ERROR_LOG(G3D, "Error in shader compilation!");
+			ERROR_LOG(Log::G3D, "Error in shader compilation!");
 		}
-		ERROR_LOG(G3D, "Messages: %s", error->c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
+		ERROR_LOG(Log::G3D, "Messages: %s", error->c_str());
+		ERROR_LOG(Log::G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(error->c_str());
 		OutputDebugStringUTF8(LineNumberString(code).c_str());

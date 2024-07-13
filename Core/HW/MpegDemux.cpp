@@ -270,7 +270,7 @@ bool MpegDemux::demux(int audioChannel)
 			// User data, probably same as queried by sceMpegGetUserdataAu.
 			// Not sure what exactly to do or how much to read.
 			// TODO: implement properly.
-			WARN_LOG_REPORT_ONCE(mpeguserdata, ME, "MPEG user data found");
+			WARN_LOG_REPORT_ONCE(mpeguserdata, Log::ME, "MPEG user data found");
 			looksValid = true;
 			break;
 		}

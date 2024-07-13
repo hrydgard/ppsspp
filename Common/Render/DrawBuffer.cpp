@@ -69,7 +69,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 	if (!pipeline_) {
-		ERROR_LOG(G3D, "DrawBuffer: No program set, skipping flush!");
+		ERROR_LOG(Log::G3D, "DrawBuffer: No program set, skipping flush!");
 		count_ = 0;
 		return;
 	}

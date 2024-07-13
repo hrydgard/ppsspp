@@ -40,7 +40,7 @@ LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_t
 }
 
 void LibretroHWRenderContext::ContextReset() {
-	INFO_LOG(G3D, "Context reset");
+	INFO_LOG(Log::G3D, "Context reset");
 
 	if (gpu && Libretro::useEmuThread) {
 		Libretro::EmuThreadPause();
@@ -68,7 +68,7 @@ void LibretroHWRenderContext::ContextReset() {
 }
 
 void LibretroHWRenderContext::ContextDestroy() {
-	INFO_LOG(G3D, "Context destroy");
+	INFO_LOG(Log::G3D, "Context destroy");
 
 	if (Libretro::useEmuThread) {
 		Libretro::EmuThreadStop();

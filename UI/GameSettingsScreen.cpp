@@ -1316,10 +1316,10 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
-	INFO_LOG(SYSTEM, "New display rotation: %d", g_Config.iScreenRotation);
-	INFO_LOG(SYSTEM, "Sending rotate");
+	INFO_LOG(Log::SYSTEM, "New display rotation: %d", g_Config.iScreenRotation);
+	INFO_LOG(Log::SYSTEM, "Sending rotate");
 	System_Notify(SystemNotification::ROTATE_UPDATED);
-	INFO_LOG(SYSTEM, "Got back from rotate");
+	INFO_LOG(Log::SYSTEM, "Got back from rotate");
 	return UI::EVENT_DONE;
 }
 
@@ -1550,7 +1550,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		File::Delete(Path(testWriteFile));
 
 		if (!File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile)) {
-			WARN_LOG(SYSTEM, "Failed to write memstick folder to '%s'", memstickDirFile.c_str());
+			WARN_LOG(Log::SYSTEM, "Failed to write memstick folder to '%s'", memstickDirFile.c_str());
 		} else {
 			// Save so the settings, at least, are transferred.
 			g_Config.memStickDirectory = Path(pendingMemstickFolder_);
@@ -2052,7 +2052,7 @@ UI::EventReturn DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 	for (const File::FileInfo &file : files) {
 		Path src = file.fullName;
 		Path dst = root_dir / file.name;
-		INFO_LOG(SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
+		INFO_LOG(Log::SYSTEM, "Copying file '%s' to '%s'", src.c_str(), dst.c_str());
 		File::Copy(src, dst);
 	}
 

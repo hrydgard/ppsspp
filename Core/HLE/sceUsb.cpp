@@ -148,14 +148,14 @@ void __UsbDoState(PointerWrap &p) {
 }
 
 static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
-	INFO_LOG(HLE, "sceUsbStart(%s, %i, %08x)", driverName, argsSize, argsPtr);
+	INFO_LOG(Log::HLE, "sceUsbStart(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = true;
 	UsbUpdateState();
 	return 0;
 }
 
 static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
-	INFO_LOG(HLE, "sceUsbStop(%s, %i, %08x)", driverName, argsSize, argsPtr);
+	INFO_LOG(Log::HLE, "sceUsbStop(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = false;
 	UsbUpdateState();
 	return 0;
@@ -168,19 +168,19 @@ static int sceUsbGetState() {
 	} else {
 		state = UsbCurrentState();
 	}
-	DEBUG_LOG(HLE, "sceUsbGetState: 0x%x", state);
+	DEBUG_LOG(Log::HLE, "sceUsbGetState: 0x%x", state);
 	return state;
 }
 
 static int sceUsbActivate(u32 pid) {
-	INFO_LOG(HLE, "sceUsbActivate(%i)", pid);
+	INFO_LOG(Log::HLE, "sceUsbActivate(%i)", pid);
 	usbActivated = true;
 	UsbUpdateState();
 	return 0;
 }
 
 static int sceUsbDeactivate(u32 pid) {
-	INFO_LOG(HLE, "sceUsbDeactivate(%i)", pid);
+	INFO_LOG(Log::HLE, "sceUsbDeactivate(%i)", pid);
 	usbActivated = false;
 	UsbUpdateState();
 	return 0;
@@ -208,7 +208,7 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 }
 
 static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutPtr);
+	ERROR_LOG_REPORT(Log::HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutPtr);
 	return 0;
 }
 

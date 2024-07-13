@@ -121,7 +121,7 @@ void VulkanPushPool::BeginFrame() {
 		size_t size = blocks_.back().size;
 		blocks_.back().Destroy(vulkan_);
 		blocks_.pop_back();
-		DEBUG_LOG(G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
+		DEBUG_LOG(Log::G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
 	}
 }
 
@@ -153,7 +153,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 	blocks_.back().used = allocationSize;
 	blocks_.back().lastUsed = time_now_d();
 	// curBlockIndex_ is already set correctly here.
-	DEBUG_LOG(G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
+	DEBUG_LOG(Log::G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
 }
 
 size_t VulkanPushPool::GetUsedThisFrame() const {

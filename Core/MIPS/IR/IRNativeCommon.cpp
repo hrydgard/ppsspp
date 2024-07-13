@@ -116,15 +116,15 @@ static void LogDebugStats() {
 	debugSeenPCUsage.clear();
 
 	if (worstIROp != -1)
-		WARN_LOG(JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
+		WARN_LOG(Log::JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
 	if (worstName != nullptr)
-		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
+		WARN_LOG(Log::JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
 	if (slowestPCs.counts[0] != 0) {
 		for (int i = 0; i < 4; ++i) {
 			uint32_t pc = slowestPCs.values[i].first;
 			const char *status = IRProfilerStatusToString(slowestPCs.values[i].second);
 			const std::string label = g_symbolMap ? g_symbolMap->GetDescription(pc) : "";
-			WARN_LOG(JIT, "Slowest sampled PC #%d: %08x (%s)/%s (%f%%)", i, pc, label.c_str(), status, 100.0 * (double)slowestPCs.counts[i] / (double)totalCount);
+			WARN_LOG(Log::JIT, "Slowest sampled PC #%d: %08x (%s)/%s (%f%%)", i, pc, label.c_str(), status, 100.0 * (double)slowestPCs.counts[i] / (double)totalCount);
 		}
 	}
 }

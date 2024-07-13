@@ -246,7 +246,7 @@ bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view messa
 bool IsBlockingExecution() {
 	if (g_isLoggingIn || g_isIdentifying) {
 		// Useful for debugging race conditions.
-		// INFO_LOG(ACHIEVEMENTS, "isLoggingIn: %d   isIdentifying: %d", (int)g_isLoggingIn, (int)g_isIdentifying);
+		// INFO_LOG(Log::ACHIEVEMENTS, "isLoggingIn: %d   isIdentifying: %d", (int)g_isLoggingIn, (int)g_isIdentifying);
 	}
 	return g_isLoggingIn || g_isIdentifying;
 }
@@ -275,7 +275,7 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
 		if (g_Config.bAchievementsLogBadMemReads) {
-			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", address, num_bytes, orig_address);
+			WARN_LOG(Log::G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", address, num_bytes, orig_address);
 		}
 
 		// This tells rcheevos that the access was bad, which should now be handled properly.
@@ -317,7 +317,7 @@ static void server_call_callback(const rc_api_request_t *request,
 }
 
 static void log_message_callback(const char *message, const rc_client_t *client) {
-	INFO_LOG(ACHIEVEMENTS, "RetroAchievements: %s", message);
+	INFO_LOG(Log::ACHIEVEMENTS, "RetroAchievements: %s", message);
 }
 
 // For detailed documentation, see https://github.com/RetroAchievements/rcheevos/wiki/rc_client_set_event_handler.
@@ -329,7 +329,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
 		g_OSD.ShowAchievementUnlocked(event->achievement->id);
 		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "achievement_unlocked");
-		INFO_LOG(ACHIEVEMENTS, "Achievement unlocked: '%s' (%d)", event->achievement->title, event->achievement->id);
+		INFO_LOG(Log::ACHIEVEMENTS, "Achievement unlocked: '%s' (%d)", event->achievement->title, event->achievement->id);
 		break;
 
 	case RC_CLIENT_EVENT_GAME_COMPLETED:
@@ -353,7 +353,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 
 		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "achievement_unlocked");
 
-		INFO_LOG(ACHIEVEMENTS, "%s", message.c_str());
+		INFO_LOG(Log::ACHIEVEMENTS, "%s", message.c_str());
 		break;
 	}
 	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
@@ -370,13 +370,13 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		} else {
 			title = event->leaderboard->description;
 		}
-		INFO_LOG(ACHIEVEMENTS, "Attempt %s: %s", started ? "started" : "failed", title);
+		INFO_LOG(Log::ACHIEVEMENTS, "Attempt %s: %s", started ? "started" : "failed", title);
 		g_OSD.ShowLeaderboardStartEnd(ApplySafeSubstitutions(ac->T(started ? "%1: Attempt started" : "%1: Attempt failed"), title), description, started);
 		break;
 	}
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 	{
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
+		INFO_LOG(Log::ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
 		const char *title = "";
 		// Hack around some problematic events in Burnout Legends. Hopefully this can be fixed in the backend.
 		if (strlen(event->leaderboard->title) > 0) {
@@ -389,20 +389,20 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	}
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
-		INFO_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
+		INFO_LOG(Log::ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, true);
 		g_activeChallenges.insert(event->achievement->id);
 		// A challenge achievement has become active. The handler should show a small version of the achievement icon
 		// to indicate the challenge is active.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_HIDE:
-		INFO_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
+		INFO_LOG(Log::ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, false);
 		g_activeChallenges.erase(event->achievement->id);
 		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
-		INFO_LOG(ACHIEVEMENTS, "Progress indicator show: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
+		INFO_LOG(Log::ACHIEVEMENTS, "Progress indicator show: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
 		// An achievement that tracks progress has changed the amount of progress that has been made.
 		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
 		// Only one progress indicator should be shown at a time.
@@ -410,11 +410,11 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		g_OSD.ShowAchievementProgress(event->achievement->id, true);
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_UPDATE:
-		INFO_LOG(ACHIEVEMENTS, "Progress indicator update: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
+		INFO_LOG(Log::ACHIEVEMENTS, "Progress indicator update: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
 		g_OSD.ShowAchievementProgress(event->achievement->id, true);
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_HIDE:
-		INFO_LOG(ACHIEVEMENTS, "Progress indicator hide");
+		INFO_LOG(Log::ACHIEVEMENTS, "Progress indicator hide");
 		// An achievement that tracks progress has changed the amount of progress that has been made.
 		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
 		// Only one progress indicator should be shown at a time.
@@ -422,7 +422,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		g_OSD.ShowAchievementProgress(0, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(Log::ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		// A leaderboard_tracker has become active. The handler should show the tracker text on screen.
 		// Multiple active leaderboards may share a single tracker if they have the same definition and value.
 		// As such, the leaderboard tracker IDs are unique amongst the leaderboard trackers, and have no correlation to the active leaderboard(s).
@@ -431,25 +431,25 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
 		// A leaderboard_tracker has become inactive. The handler should hide the tracker text from the screen.
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(Log::ACHIEVEMENTS, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, nullptr, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
 		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker update: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(Log::ACHIEVEMENTS, "Leaderboard tracker update: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, true);
 		break;
 	case RC_CLIENT_EVENT_RESET:
-		WARN_LOG(ACHIEVEMENTS, "Resetting game due to achievement setting change!");
+		WARN_LOG(Log::ACHIEVEMENTS, "Resetting game due to achievement setting change!");
 		// Hardcore mode was enabled, or something else that forces a game reset.
 		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 		break;
 	case RC_CLIENT_EVENT_SERVER_ERROR:
-		ERROR_LOG(ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error", "", g_RAImageID);
 		break;
 	default:
-		WARN_LOG(ACHIEVEMENTS, "Unhandled rc_client event %d, ignoring", event->type);
+		WARN_LOG(Log::ACHIEVEMENTS, "Unhandled rc_client event %d, ignoring", event->type);
 		break;
 	}
 }
@@ -459,7 +459,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	switch (result) {
 	case RC_OK:
 	{
-		INFO_LOG(ACHIEVEMENTS, "Successful login by token.");
+		INFO_LOG(Log::ACHIEVEMENTS, "Successful login by token.");
 		OnAchievementsLoginStateChange();
 		if (!isInitialAttempt) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
@@ -484,7 +484,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	case RC_INVALID_JSON:
 	default:
 	{
-		ERROR_LOG(ACHIEVEMENTS, "Callback: Failure logging in via token: %d, %s", result, error_message);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Callback: Failure logging in via token: %d, %s", result, error_message);
 		if (isInitialAttempt) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), "", g_RAImageID);
@@ -534,7 +534,7 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
 	default:
-		ERROR_LOG(ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
 		break;
 	}
 }
@@ -584,7 +584,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
 		_dbg_assert_(!g_rcClient);
-		INFO_LOG(ACHIEVEMENTS, "Achievements are disabled, not initializing.");
+		INFO_LOG(Log::ACHIEVEMENTS, "Achievements are disabled, not initializing.");
 		return;
 	}
 	_assert_msg_(!g_rcClient, "Achievements already initialized");
@@ -676,7 +676,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	case RC_EXPIRED_TOKEN:
 	default:
 	{
-		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to log in, check your username and password."), "", g_RAImageID);
 		OnAchievementsLoginStateChange();
 		break;
@@ -731,12 +731,12 @@ bool Shutdown() {
 #endif
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
-	INFO_LOG(ACHIEVEMENTS, "Achievements shut down.");
+	INFO_LOG(Log::ACHIEVEMENTS, "Achievements shut down.");
 	return true;
 }
 
 void ResetRuntime() {
-	INFO_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
+	INFO_LOG(Log::ACHIEVEMENTS, "Resetting rcheevos state...");
 	rc_client_reset(g_rcClient);
 	g_activeChallenges.clear();
 }
@@ -767,7 +767,7 @@ void Idle() {
 		// In this situation, there's a token, but we're not logged in. Probably disrupted internet connection
 		// during startup.
 		// Let's make an attempt.
-		INFO_LOG(ACHIEVEMENTS, "Retrying login..");
+		INFO_LOG(Log::ACHIEVEMENTS, "Retrying login..");
 		TryLoginByToken(false);
 	}
 }
@@ -790,7 +790,7 @@ void DoState(PointerWrap &p) {
 	if (!IsActive()) {
 		Do(p, data_size);
 		if (p.mode == PointerWrap::MODE_READ) {
-			WARN_LOG(ACHIEVEMENTS, "Save state contained achievement data, but achievements are not active. Ignore.");
+			WARN_LOG(Log::ACHIEVEMENTS, "Save state contained achievement data, but achievements are not active. Ignore.");
 		}
 		p.SkipBytes(data_size);
 		return;
@@ -811,7 +811,7 @@ void DoState(PointerWrap &p) {
 		{
 			int retval = rc_client_serialize_progress(g_rcClient, buffer);
 			if (retval != RC_OK) {
-				ERROR_LOG(ACHIEVEMENTS, "Error %d serializing achievement data. Ignoring.", retval);
+				ERROR_LOG(Log::ACHIEVEMENTS, "Error %d serializing achievement data. Ignoring.", retval);
 			}
 			break;
 		}
@@ -827,7 +827,7 @@ void DoState(PointerWrap &p) {
 			int retval = rc_client_deserialize_progress(g_rcClient, buffer);
 			if (retval != RC_OK) {
 				// TODO: What should we really do here?
-				ERROR_LOG(ACHIEVEMENTS, "Error %d deserializing achievement data. Ignoring.", retval);
+				ERROR_LOG(Log::ACHIEVEMENTS, "Error %d deserializing achievement data. Ignoring.", retval);
 			}
 			break;
 		}
@@ -853,7 +853,7 @@ bool HasAchievementsOrLeaderboards() {
 
 void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
 	if (g_iconCache.MarkPending(cache_key)) {
-		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
+		INFO_LOG(Log::ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
 		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::ProgressBarMode::NONE, [cache_key](http::Request &download) {
 			if (download.ResultCode() != 200)
 				return;
@@ -906,7 +906,7 @@ void ShowNotLoggedInMessage() {
 void identify_and_load_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	NOTICE_LOG(ACHIEVEMENTS, "Load callback: %d (%s)", result, error_message);
+	NOTICE_LOG(Log::ACHIEVEMENTS, "Load callback: %d (%s)", result, error_message);
 
 	switch (result) {
 	case RC_OK:
@@ -934,7 +934,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		break;
 	default:
 		// Other various errors.
-		ERROR_LOG(ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, ac->T("Failed to identify game. Achievements will not unlock."), "", g_RAImageID,  6.0f);
 		break;
 	}
@@ -961,14 +961,14 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	default:
 		// Other file types are not yet supported.
 		// TODO: Should we show an OSD popup here?
-		WARN_LOG(ACHIEVEMENTS, "File type of '%s' is not yet compatible with RetroAchievements", path.c_str());
+		WARN_LOG(Log::ACHIEVEMENTS, "File type of '%s' is not yet compatible with RetroAchievements", path.c_str());
 		return;
 	}
 
 	if (g_isLoggingIn) {
 		// IsReadyToStart should have been checked the same frame, so we shouldn't be here.
 		// Maybe there's a race condition possible, but don't think so.
-		ERROR_LOG(ACHIEVEMENTS, "Still logging in during SetGame - shouldn't happen");
+		ERROR_LOG(Log::ACHIEVEMENTS, "Still logging in during SetGame - shouldn't happen");
 	}
 
 	if (!g_rcClient || !IsLoggedIn()) {
@@ -993,7 +993,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
 		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
 		if (!blockDevice) {
-			ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+			ERROR_LOG(Log::ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
 			g_isIdentifying = false;
 			return;
 		}
@@ -1001,7 +1001,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		// This consumes the blockDevice.
 		s_game_hash = ComputePSPISOHash(blockDevice);
 		if (!s_game_hash.empty()) {
-			INFO_LOG(ACHIEVEMENTS, "Hash: %s", s_game_hash.c_str());
+			INFO_LOG(Log::ACHIEVEMENTS, "Hash: %s", s_game_hash.c_str());
 		}
 	}
 
@@ -1023,7 +1023,7 @@ void UnloadGame() {
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	NOTICE_LOG(ACHIEVEMENTS, "Change media callback: %d (%s)", result, error_message);
+	NOTICE_LOG(Log::ACHIEVEMENTS, "Change media callback: %d (%s)", result, error_message);
 	g_isIdentifying = false;
 
 	switch (result) {
@@ -1042,7 +1042,7 @@ void change_media_callback(int result, const char *error_message, rc_client_t *c
 		break;
 	default:
 		// Other various errors.
-		ERROR_LOG(ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
+		ERROR_LOG(Log::ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, ac->T("Failed to identify game. Achievements will not unlock."), "", g_RAImageID, 6.0f);
 		break;
 	}
@@ -1056,7 +1056,7 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 
 	BlockDevice *blockDevice = constructBlockDevice(fileLoader);
 	if (!blockDevice) {
-		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+		ERROR_LOG(Log::ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
 		return;
 	}
 
@@ -1065,7 +1065,7 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	// This consumes the blockDevice.
 	s_game_hash = ComputePSPISOHash(blockDevice);
 	if (s_game_hash.empty()) {
-		ERROR_LOG(ACHIEVEMENTS, "Failed to hash - can't identify");
+		ERROR_LOG(Log::ACHIEVEMENTS, "Failed to hash - can't identify");
 		return;
 	}
 

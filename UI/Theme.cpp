@@ -167,9 +167,9 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool requir
 	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
 	if (!load_success) {
 		if (required)
-			ERROR_LOG(G3D, "Failed to load %s - graphics will be broken", filename);
+			ERROR_LOG(Log::G3D, "Failed to load %s - graphics will be broken", filename);
 		else
-			WARN_LOG(G3D, "Failed to load %s", filename);
+			WARN_LOG(Log::G3D, "Failed to load %s", filename);
 		// Stumble along with broken visuals instead of dying...
 	}
 	delete[] atlas_data;

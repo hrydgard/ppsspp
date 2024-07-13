@@ -213,10 +213,10 @@ static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
+		DEBUG_LOG(Log::SCEIO, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
 	}
 	else
-		WARN_LOG_REPORT(SCEIO, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::SCEIO, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
 }
 
 static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -227,7 +227,7 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	u32 stat = __KernelGetWaitValue(threadID, error);
 	if (umdPausedWaits.find(pauseKey) == umdPausedWaits.end())
 	{
-		WARN_LOG_REPORT(SCEIO, "__UmdEndCallback(): UMD paused wait missing");
+		WARN_LOG_REPORT(Log::SCEIO, "__UmdEndCallback(): UMD paused wait missing");
 
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -254,23 +254,23 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 		umdWaitingThreads.push_back(threadID);
 
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Resuming lock wait for callback");
+		DEBUG_LOG(Log::SCEIO, "sceUmdWaitDriveStatCB: Resuming lock wait for callback");
 	}
 }
 
 static int sceUmdCheckMedium()
 {
 	if (UMDInserted) {
-		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
+		DEBUG_LOG(Log::SCEIO, "1=sceUmdCheckMedium()");
 		return 1; //non-zero: disc in drive
 	}
-	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
+	DEBUG_LOG(Log::SCEIO, "0=sceUmdCheckMedium()");
 	return 0;
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
 {
-	DEBUG_LOG(SCEIO, "sceUmdGetDiscInfo(%08x)", infoAddr);
+	DEBUG_LOG(Log::SCEIO, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
 	if (Memory::IsValidAddress(infoAddr)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
@@ -304,9 +304,9 @@ static int sceUmdDeactivate(u32 mode, const char *name)
 	__KernelUmdDeactivate();
 
 	if (mode == 1) {
-		DEBUG_LOG(SCEIO, "0=sceUmdDeactivate(%d, %s)", mode, name);
+		DEBUG_LOG(Log::SCEIO, "0=sceUmdDeactivate(%d, %s)", mode, name);
 	} else {
-		ERROR_LOG(SCEIO, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
+		ERROR_LOG(Log::SCEIO, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
 	}
 
 	return 0;
@@ -323,7 +323,7 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		// There's only ever one.
 		driveCBId = cbId;
 	}
-	DEBUG_LOG(SCEIO, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
+	DEBUG_LOG(Log::SCEIO, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
 	return retVal;
 }
 
@@ -341,20 +341,20 @@ static int sceUmdUnRegisterUMDCallBack(int cbId)
 		}
 		driveCBId = 0;
 	}
-	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
+	DEBUG_LOG(Log::SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
 	return retVal;
 }
 
 static u32 sceUmdGetDriveStat()
 {
 	if (!UMDInserted) {
-		WARN_LOG(SCEIO, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
+		WARN_LOG(Log::SCEIO, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
 		return PSP_UMD_NOT_PRESENT;
 	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	// This one can be very spammy.
-	VERBOSE_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
+	VERBOSE_LOG(Log::SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
 	return retVal;
 }
 
@@ -402,7 +402,7 @@ static int sceUmdWaitDriveStat(u32 stat) {
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
+		DEBUG_LOG(Log::SCEIO, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
 		return 0;
@@ -424,7 +424,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
+		DEBUG_LOG(Log::SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
@@ -450,7 +450,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	hleEatCycles(520);
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
+		DEBUG_LOG(Log::SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
 		if (timeout == 0) {
 			timeout = 8000;
 		}
@@ -467,7 +467,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 
 static u32 sceUmdCancelWaitDriveStat()
 {
-	DEBUG_LOG(SCEIO, "0=sceUmdCancelWaitDriveStat()");
+	DEBUG_LOG(Log::SCEIO, "0=sceUmdCancelWaitDriveStat()");
 
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		const SceUID threadID = umdWaitingThreads[i];
@@ -481,7 +481,7 @@ static u32 sceUmdCancelWaitDriveStat()
 
 static u32 sceUmdGetErrorStat()
 {
-	DEBUG_LOG(SCEIO,"%i=sceUmdGetErrorStat()", umdErrorStat);
+	DEBUG_LOG(Log::SCEIO,"%i=sceUmdGetErrorStat()", umdErrorStat);
 	return umdErrorStat;
 }
 
@@ -489,7 +489,7 @@ void __UmdReplace(const Path &filepath) {
 	std::string error = "";
 	FileLoader *fileLoader;
 	if (!UmdReplace(filepath, &fileLoader, error)) {
-		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
+		ERROR_LOG(Log::SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
 
@@ -512,9 +512,9 @@ bool getUMDReplacePermit() {
 
 static u32 sceUmdReplaceProhibit()
 {
-	DEBUG_LOG(SCEIO, "sceUmdReplaceProhibit()");
+	DEBUG_LOG(Log::SCEIO, "sceUmdReplaceProhibit()");
 	if (g_UMDReplacePermit) {
-		INFO_LOG(SCEIO, "sceUmdReplaceProhibit() - prohibited");
+		INFO_LOG(Log::SCEIO, "sceUmdReplaceProhibit() - prohibited");
 		g_UMDReplacePermit = false;
 		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
@@ -523,9 +523,9 @@ static u32 sceUmdReplaceProhibit()
 
 static u32 sceUmdReplacePermit()
 {
-	DEBUG_LOG(SCEIO, "sceUmdReplacePermit()");
+	DEBUG_LOG(Log::SCEIO, "sceUmdReplacePermit()");
 	if (!g_UMDReplacePermit) {
-		INFO_LOG(SCEIO, "sceUmdReplacePermit() - permitted");
+		INFO_LOG(Log::SCEIO, "sceUmdReplacePermit() - permitted");
 		g_UMDReplacePermit = true;
 		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}

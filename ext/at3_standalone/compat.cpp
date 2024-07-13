@@ -15,11 +15,11 @@ void av_log(int level, const char *fmt, ...) {
 	switch (level) {
 	case AV_LOG_DEBUG:
 	case AV_LOG_TRACE:
-	case AV_LOG_VERBOSE: DEBUG_LOG(ME, "Atrac3/3+: %s", buffer); break;
-	case AV_LOG_ERROR: ERROR_LOG(ME, "Atrac3/3+: %s", buffer); break;
-	case AV_LOG_INFO: INFO_LOG(ME, "Atrac3/3+: %s", buffer); break;
+	case AV_LOG_VERBOSE: DEBUG_LOG(Log::ME, "Atrac3/3+: %s", buffer); break;
+	case AV_LOG_ERROR: ERROR_LOG(Log::ME, "Atrac3/3+: %s", buffer); break;
+	case AV_LOG_INFO: INFO_LOG(Log::ME, "Atrac3/3+: %s", buffer); break;
 	case AV_LOG_WARNING:
 	default:
-		WARN_LOG(ME, "Atrac3/3+: %s", buffer); break;
+		WARN_LOG(Log::ME, "Atrac3/3+: %s", buffer); break;
 	}
 }

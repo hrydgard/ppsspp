@@ -175,20 +175,20 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 	// Get Audio Codec ctx
 	int audioCodecId = GetAudioCodecID(audioType);
 	if (!audioCodecId) {
-		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
+		ERROR_LOG(Log::ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
 		return;
 	}
 	// Find decoder
 	codec_ = avcodec_find_decoder((AVCodecID)audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
+		ERROR_LOG(Log::ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
 		return;
 	}
 	// Allocate codec context
 	codecCtx_ = avcodec_alloc_context3(codec_);
 	if (!codecCtx_) {
-		ERROR_LOG(ME, "Failed to allocate a codec context");
+		ERROR_LOG(Log::ME, "Failed to allocate a codec context");
 		return;
 	}
 	codecCtx_->channels = channels_;
@@ -209,7 +209,7 @@ bool FFmpegAudioDecoder::OpenCodec(int block_align) {
 	AVDictionary *opts = 0;
 	int retval = avcodec_open2(codecCtx_, codec_, &opts);
 	if (retval < 0) {
-		ERROR_LOG(ME, "Failed to open codec: retval = %i", retval);
+		ERROR_LOG(Log::ME, "Failed to open codec: retval = %i", retval);
 	}
 	av_dict_free(&opts);
 	codecOpen_ = true;
@@ -227,7 +227,7 @@ void FFmpegAudioDecoder::SetChannels(int channels) {
 #ifdef USE_FFMPEG
 
 	if (codecOpen_) {
-		ERROR_LOG(ME, "Codec already open, cannot change channels");
+		ERROR_LOG(Log::ME, "Codec already open, cannot change channels");
 	} else {
 		channels_ = channels;
 		codecCtx_->channels = channels_;
@@ -278,7 +278,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	if (inbytes != 0) {
 		int err = avcodec_send_packet(codecCtx_, &packet);
 		if (err < 0) {
-			ERROR_LOG(ME, "Error sending audio frame to decoder (%d bytes): %d (%08x)", inbytes, err, err);
+			ERROR_LOG(Log::ME, "Error sending audio frame to decoder (%d bytes): %d (%08x)", inbytes, err, err);
 			return false;
 		}
 	}
@@ -300,7 +300,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 #endif
 
 	if (len < 0) {
-		ERROR_LOG(ME, "Error decoding Audio frame (%i bytes): %i (%08x)", inbytes, len, len);
+		ERROR_LOG(Log::ME, "Error decoding Audio frame (%i bytes): %i (%08x)", inbytes, len, len);
 		return false;
 	}
 	
@@ -326,7 +326,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 				NULL);
 
 			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
-				ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
+				ERROR_LOG(Log::ME, "swr_init: Failed to initialize the resampling context");
 				avcodec_close(codecCtx_);
 				codec_ = 0;
 				return false;
@@ -339,7 +339,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 			swrRet = swr_convert(swrCtx_, (uint8_t **)&outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		}
 		if (swrRet < 0) {
-			ERROR_LOG(ME, "swr_convert: Error while converting: %d", swrRet);
+			ERROR_LOG(Log::ME, "swr_convert: Error while converting: %d", swrRet);
 			return false;
 		}
 		// output stereo samples per frame

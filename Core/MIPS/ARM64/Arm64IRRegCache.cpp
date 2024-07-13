@@ -814,7 +814,7 @@ ARM64Reg Arm64IRRegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return FromNativeReg(mr[mipsReg].nReg);
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -834,11 +834,11 @@ ARM64Reg Arm64IRRegCache::RPtr(IRReg mipsReg) {
 		if (nr[r].pointerified) {
 			return FromNativeReg64(mr[mipsReg].nReg);
 		} else {
-			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");
+			ERROR_LOG(Log::JIT, "Tried to use a non-pointer register as a pointer");
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -849,7 +849,7 @@ ARM64Reg Arm64IRRegCache::F(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return FromNativeReg(mr[mipsReg + 32].nReg);
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

@@ -229,7 +229,7 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		ARMReg armReg = mr[mipsReg].reg;
 		if (ar[armReg].mipsReg != mipsReg) {
-			ERROR_LOG_REPORT(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG_REPORT(Log::JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			// Mapping dirty means the old imm value is invalid.
@@ -292,7 +292,7 @@ allocate:
 	}
 
 	if (bestToSpill != INVALID_REG) {
-		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
+		// ERROR_LOG(Log::JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
 		// TODO: Broken somehow in Dante's Inferno, but most games work.  Bad flags in MIPSTables somewhere?
 		if (clobbered) {
 			DiscardR(ar[bestToSpill].mipsReg);
@@ -303,7 +303,7 @@ allocate:
 	}
 
 	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG_REPORT(Log::JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
 
@@ -356,7 +356,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
 		if (ar[r].isDirty) {
-			ERROR_LOG_REPORT(JIT, "Dirty but no mipsreg?");
+			ERROR_LOG_REPORT(Log::JIT, "Dirty but no mipsreg?");
 		}
 		return;
 	}
@@ -411,7 +411,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG_REPORT(Log::JIT, "FlushR: MipsReg %d had bad ArmReg", r);
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
@@ -425,7 +425,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_ARMREG_AS_PTR:
 		// Never dirty.
 		if (ar[mr[r].reg].isDirty) {
-			ERROR_LOG_REPORT(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
+			ERROR_LOG_REPORT(Log::JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		break;
@@ -435,7 +435,7 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(Log::JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	if (r == MIPS_REG_ZERO) {
@@ -544,14 +544,14 @@ void ArmRegCache::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg != MIPS_REG_INVALID) {
-			ERROR_LOG_REPORT(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG_REPORT(Log::JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
 }
 
 void ArmRegCache::SetImm(MIPSGPReg r, u32 immVal) {
 	if (r == MIPS_REG_ZERO && immVal != 0) {
-		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
 		return;
 	}
 
@@ -577,7 +577,7 @@ bool ArmRegCache::IsImm(MIPSGPReg r) const {
 u32 ArmRegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return 0;
 	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
-		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to get imm from non-imm register %i", r);
 	}
 	return mr[r].imm;
 }
@@ -595,7 +595,7 @@ int ArmRegCache::GetMipsRegOffset(MIPSGPReg r) {
 	case MIPS_REG_VFPUCC:
 		return offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]);
 	default:
-		ERROR_LOG_REPORT(JIT, "bad mips register %i", r);
+		ERROR_LOG_REPORT(Log::JIT, "bad mips register %i", r);
 		return 0;  // or what?
 	}
 }
@@ -621,7 +621,7 @@ ARMReg ArmRegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -630,7 +630,7 @@ ARMReg ArmRegCache::RPtr(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 		return (ARMReg)mr[mipsReg].reg;
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm reg as pointer. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }

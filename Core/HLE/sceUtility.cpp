@@ -156,7 +156,7 @@ static void CleanupDialogThreads(bool force = false) {
 			accessThread = nullptr;
 			accessThreadState = "cleaned up";
 		} else if (force) {
-			ERROR_LOG_REPORT(SCEUTILITY, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
+			ERROR_LOG_REPORT(Log::SCEUTILITY, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
 
 			// Try to force shutdown anyway.
 			accessThread->Terminate();
@@ -418,7 +418,7 @@ static int UtilityFinishDialog(int type) {
 static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::SAVEDATA) {
 		if (PSP_CoreParameter().compat.flags().YugiohSaveFix) {
-			WARN_LOG_REPORT(SCEUTILITY, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
+			WARN_LOG_REPORT(Log::SCEUTILITY, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
 			if (accessThread) {
 				accessThread->Terminate();
 				delete accessThread;
@@ -478,11 +478,11 @@ static u32 sceUtilityLoadAvModule(u32 module)
 {
 	if (module > 7)
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(Log::SCEUTILITY, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 	
-	INFO_LOG(SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
+	INFO_LOG(Log::SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
 	if (module == 0)
 		JpegNotifyLoadStatus(1);
 	return hleDelayResult(0, "utility av module loaded", 25000);
@@ -490,7 +490,7 @@ static u32 sceUtilityLoadAvModule(u32 module)
 
 static u32 sceUtilityUnloadAvModule(u32 module)
 {
-	INFO_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
+	INFO_LOG(Log::SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
 	if (module == 0)
 		JpegNotifyLoadStatus(-1);
 	return hleDelayResult(0, "utility av module unloaded", 800);
@@ -709,7 +709,7 @@ static int sceUtilityCheckNetParam(int id)
 {
 	bool available = (id >= 0 && id <= 24);
 	int ret = available ? 0 : 0X80110601;
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityCheckNetParam(%d)", ret, id);
+	DEBUG_LOG(Log::SCEUTILITY, "%08x=sceUtilityCheckNetParam(%d)", ret, id);
 	return ret;
 }
 
@@ -817,7 +817,7 @@ static int sceUtilityGamedataInstallAbort() {
 //TODO: should save to config file
 static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG_REPORT(SCEUTILITY, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
+	WARN_LOG_REPORT(Log::SCEUTILITY, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
@@ -827,7 +827,7 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
 		// TODO: What error code?
 		return -1;
 	}
-	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
+	DEBUG_LOG(Log::SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
 	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
@@ -866,7 +866,7 @@ static u32 sceUtilitySetSystemParamInt(u32 id, u32 value)
 
 static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
-	DEBUG_LOG(SCEUTILITY,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
+	DEBUG_LOG(Log::SCEUTILITY,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
 	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
@@ -924,13 +924,13 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 
 static u32 sceUtilityLoadNetModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityLoadNetModule(%i)", module);
+	DEBUG_LOG(Log::SCEUTILITY,"FAKE: sceUtilityLoadNetModule(%i)", module);
 	return 0;
 }
 
 static u32 sceUtilityUnloadNetModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityUnloadNetModule(%i)", module);
+	DEBUG_LOG(Log::SCEUTILITY,"FAKE: sceUtilityUnloadNetModule(%i)", module);
 	return 0;
 }
 
@@ -976,72 +976,72 @@ static int sceUtilityNpSigninGetStatus() {
 
 static void sceUtilityInstallInitStart(u32 unknown)
 {
-	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityInstallInitStart()");
+	WARN_LOG_REPORT(Log::SCEUTILITY, "UNIMPL sceUtilityInstallInitStart()");
 }
 
 static int sceUtilityStoreCheckoutShutdownStart()
 {
-	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
+	ERROR_LOG(Log::SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
 	return 0;
 }
 
 static int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
-	ERROR_LOG_REPORT(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	ERROR_LOG_REPORT(Log::SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 
 static int sceUtilityStoreCheckoutUpdate(int drawSpeed)
 {
-	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
+	ERROR_LOG(Log::SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
 	return 0;
 }
 
 static int sceUtilityStoreCheckoutGetStatus()
 {
-	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
+	ERROR_LOG(Log::SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
 	return 0;
 }
 
 static int sceUtilityGameSharingShutdownStart() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(SCEUTILITY, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
+		WARN_LOG(Log::SCEUTILITY, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
 	DeactivateDialog();
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingShutdownStart()");
+	ERROR_LOG(Log::SCEUTILITY, "UNIMPL sceUtilityGameSharingShutdownStart()");
 	return 0;
 }
 
 static int sceUtilityGameSharingInitStart(u32 paramsPtr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(SCEUTILITY, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+		WARN_LOG(Log::SCEUTILITY, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
 	ActivateDialog(UtilityDialogType::GAMESHARING);
-	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+	ERROR_LOG_REPORT(Log::SCEUTILITY, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 	return 0;
 }
 
 static int sceUtilityGameSharingUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(SCEUTILITY, "sceUtilityGameSharingUpdate(%i): wrong dialog type", animSpeed);
+		WARN_LOG(Log::SCEUTILITY, "sceUtilityGameSharingUpdate(%i): wrong dialog type", animSpeed);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
+	ERROR_LOG(Log::SCEUTILITY, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
 	return 0;
 }
 
 static int sceUtilityGameSharingGetStatus() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		DEBUG_LOG(SCEUTILITY, "sceUtilityGameSharingGetStatus(): wrong dialog type");
+		DEBUG_LOG(Log::SCEUTILITY, "sceUtilityGameSharingGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingGetStatus()");
+	ERROR_LOG(Log::SCEUTILITY, "UNIMPL sceUtilityGameSharingGetStatus()");
 	CleanupDialogThreads();
 	return 0;
 }
@@ -1050,10 +1050,10 @@ static u32 sceUtilityLoadUsbModule(u32 module)
 {
 	if (module < 1 || module > 5)
 	{
-		ERROR_LOG(SCEUTILITY, "sceUtilityLoadUsbModule(%i): invalid module id", module);
+		ERROR_LOG(Log::SCEUTILITY, "sceUtilityLoadUsbModule(%i): invalid module id", module);
 	}
 
-	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
+	ERROR_LOG_REPORT(Log::SCEUTILITY, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
 	return 0;
 }
 
@@ -1061,10 +1061,10 @@ static u32 sceUtilityUnloadUsbModule(u32 module)
 {
 	if (module < 1 || module > 5)
 	{
-		ERROR_LOG(SCEUTILITY, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
+		ERROR_LOG(Log::SCEUTILITY, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
 	}
 
-	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
+	ERROR_LOG_REPORT(Log::SCEUTILITY, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
 	return 0;
 }
 

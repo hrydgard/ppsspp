@@ -195,17 +195,17 @@ static bool __KernelClearEventFlagThreads(EventFlag *e, int reason) {
 void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitBeginCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, eventFlagWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitEventFlagCB: Suspending lock wait for callback");
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelWaitEventFlagCB: Suspending lock wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitEventFlagCB: wait not found to pause for callback");
+		ERROR_LOG_REPORT(Log::SCEKERNEL, "sceKernelWaitEventFlagCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitEventFlagCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelWaitEventFlagCB: beginning callback with bad wait id?");
 }
 
 void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitEndCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, eventFlagWaitTimer, __KernelUnlockEventFlagForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitEventFlagCB: Resuming lock wait from callback");
+		DEBUG_LOG(Log::SCEKERNEL, "sceKernelWaitEventFlagCB: Resuming lock wait from callback");
 }
 
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
@@ -233,10 +233,10 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	if (optPtr != 0) {
 		u32 size = Memory::Read_U32(optPtr);
 		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
+		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
 	return hleLogSuccessI(SCEKERNEL, id);
 }

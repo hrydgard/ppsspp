@@ -75,8 +75,7 @@ enum class LogLevel : int {
 	LVERBOSE = VERBOSE_LEVEL,
 };
 
-void GenericLog(LogLevel level, Log type,
-		const char *file, int line, const char *fmt, ...)
+void GenericLog(LogLevel level, Log type, const char *file, int line, const char *fmt, ...)
 #ifdef __GNUC__
 		__attribute__((format(printf, 5, 6)))
 #endif
@@ -104,12 +103,12 @@ bool GenericLogEnabled(LogLevel level, Log type);
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   do { GENERIC_LOG(Log::t, LogLevel::LERROR,   __VA_ARGS__) } while (false)
-#define WARN_LOG(t,...)    do { GENERIC_LOG(Log::t, LogLevel::LWARNING, __VA_ARGS__) } while (false)
-#define NOTICE_LOG(t,...)  do { GENERIC_LOG(Log::t, LogLevel::LNOTICE,  __VA_ARGS__) } while (false)
-#define INFO_LOG(t,...)    do { GENERIC_LOG(Log::t, LogLevel::LINFO,    __VA_ARGS__) } while (false)
-#define DEBUG_LOG(t,...)   do { GENERIC_LOG(Log::t, LogLevel::LDEBUG,   __VA_ARGS__) } while (false)
-#define VERBOSE_LOG(t,...) do { GENERIC_LOG(Log::t, LogLevel::LVERBOSE, __VA_ARGS__) } while (false)
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(t, LogLevel::LERROR,   __VA_ARGS__) } while (false)
+#define WARN_LOG(t,...)    do { GENERIC_LOG(t, LogLevel::LWARNING, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(t, LogLevel::LNOTICE,  __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(t, LogLevel::LINFO,    __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(t, LogLevel::LDEBUG,   __VA_ARGS__) } while (false)
+#define VERBOSE_LOG(t,...) do { GENERIC_LOG(t, LogLevel::LVERBOSE, __VA_ARGS__) } while (false)
 
 // Currently only actually shows a dialog box on Windows.
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)

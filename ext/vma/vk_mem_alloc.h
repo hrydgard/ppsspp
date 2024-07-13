@@ -13309,7 +13309,7 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
                 if(res == VK_SUCCESS)
                 {
                     // Succeeded: AllocateDedicatedMemory function already filled pMemory, nothing more to do here.
-                    VMA_DEBUG_LOG("    Allocated as DedicatedMemory");
+                    VMA_DEBUG_LOG(Log::"    Allocated as DedicatedMemory");
                     return VK_SUCCESS;
                 }
             }
@@ -13350,12 +13350,12 @@ VkResult VmaAllocator_T::AllocateMemoryOfType(
             if(res == VK_SUCCESS)
             {
                 // Succeeded: AllocateDedicatedMemory function already filled pMemory, nothing more to do here.
-                VMA_DEBUG_LOG("    Allocated as DedicatedMemory");
+                VMA_DEBUG_LOG(Log::"    Allocated as DedicatedMemory");
                 return VK_SUCCESS;
             }
         }
         // Everything failed: Return error code.
-        VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
+        VMA_DEBUG_LOG(Log::"    vkAllocateMemory FAILED");
         return res;
     }
 }
@@ -13523,7 +13523,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
     VkResult res = AllocateVulkanMemory(&allocInfo, &hMemory);
     if(res < 0)
     {
-        VMA_DEBUG_LOG("    vkAllocateMemory FAILED");
+        VMA_DEBUG_LOG(Log::"    vkAllocateMemory FAILED");
         return res;
     }
 
@@ -13539,7 +13539,7 @@ VkResult VmaAllocator_T::AllocateDedicatedMemoryPage(
             &pMappedData);
         if(res < 0)
         {
-            VMA_DEBUG_LOG("    vkMapMemory FAILED");
+            VMA_DEBUG_LOG(Log::"    vkMapMemory FAILED");
             FreeVulkanMemory(memTypeIndex, size, hMemory);
             return res;
         }
@@ -14855,7 +14855,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAllocator(
     VMA_ASSERT(pCreateInfo && pAllocator);
     VMA_ASSERT(pCreateInfo->vulkanApiVersion == 0 ||
         (VK_VERSION_MAJOR(pCreateInfo->vulkanApiVersion) == 1 && VK_VERSION_MINOR(pCreateInfo->vulkanApiVersion) <= 3));
-    VMA_DEBUG_LOG("vmaCreateAllocator");
+    VMA_DEBUG_LOG(Log::"vmaCreateAllocator");
     *pAllocator = vma_new(pCreateInfo->pAllocationCallbacks, VmaAllocator_T)(pCreateInfo);
     VkResult result = (*pAllocator)->Init(pCreateInfo);
     if(result < 0)
@@ -14871,7 +14871,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyAllocator(
 {
     if(allocator != VK_NULL_HANDLE)
     {
-        VMA_DEBUG_LOG("vmaDestroyAllocator");
+        VMA_DEBUG_LOG(Log::"vmaDestroyAllocator");
         VkAllocationCallbacks allocationCallbacks = allocator->m_AllocationCallbacks; // Have to copy the callbacks when destroying.
         vma_delete(&allocationCallbacks, allocator);
     }
@@ -15271,7 +15271,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreatePool(
 {
     VMA_ASSERT(allocator && pCreateInfo && pPool);
 
-    VMA_DEBUG_LOG("vmaCreatePool");
+    VMA_DEBUG_LOG(Log::"vmaCreatePool");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15289,7 +15289,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyPool(
         return;
     }
 
-    VMA_DEBUG_LOG("vmaDestroyPool");
+    VMA_DEBUG_LOG(Log::"vmaDestroyPool");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15326,7 +15326,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckPoolCorruption(VmaAllocator allocato
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
-    VMA_DEBUG_LOG("vmaCheckPoolCorruption");
+    VMA_DEBUG_LOG(Log::"vmaCheckPoolCorruption");
 
     return allocator->CheckPoolCorruption(pool);
 }
@@ -15338,7 +15338,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetPoolName(
 {
     VMA_ASSERT(allocator && pool && ppName);
 
-    VMA_DEBUG_LOG("vmaGetPoolName");
+    VMA_DEBUG_LOG(Log::"vmaGetPoolName");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15352,7 +15352,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetPoolName(
 {
     VMA_ASSERT(allocator && pool);
 
-    VMA_DEBUG_LOG("vmaSetPoolName");
+    VMA_DEBUG_LOG(Log::"vmaSetPoolName");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15368,7 +15368,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemory(
 {
     VMA_ASSERT(allocator && pVkMemoryRequirements && pCreateInfo && pAllocation);
 
-    VMA_DEBUG_LOG("vmaAllocateMemory");
+    VMA_DEBUG_LOG(Log::"vmaAllocateMemory");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15407,7 +15407,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryPages(
 
     VMA_ASSERT(allocator && pVkMemoryRequirements && pCreateInfo && pAllocations);
 
-    VMA_DEBUG_LOG("vmaAllocateMemoryPages");
+    VMA_DEBUG_LOG(Log::"vmaAllocateMemoryPages");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15443,7 +15443,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
 {
     VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
-    VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
+    VMA_DEBUG_LOG(Log::"vmaAllocateMemoryForBuffer");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15483,7 +15483,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForImage(
 {
     VMA_ASSERT(allocator && image != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
-    VMA_DEBUG_LOG("vmaAllocateMemoryForImage");
+    VMA_DEBUG_LOG(Log::"vmaAllocateMemoryForImage");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15524,7 +15524,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemory(
         return;
     }
 
-    VMA_DEBUG_LOG("vmaFreeMemory");
+    VMA_DEBUG_LOG(Log::"vmaFreeMemory");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15545,7 +15545,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaFreeMemoryPages(
 
     VMA_ASSERT(allocator);
 
-    VMA_DEBUG_LOG("vmaFreeMemoryPages");
+    VMA_DEBUG_LOG(Log::"vmaFreeMemoryPages");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15637,7 +15637,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocation(
 {
     VMA_ASSERT(allocator && allocation);
 
-    VMA_DEBUG_LOG("vmaFlushAllocation");
+    VMA_DEBUG_LOG(Log::"vmaFlushAllocation");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15652,7 +15652,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocation(
 {
     VMA_ASSERT(allocator && allocation);
 
-    VMA_DEBUG_LOG("vmaInvalidateAllocation");
+    VMA_DEBUG_LOG(Log::"vmaInvalidateAllocation");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15675,7 +15675,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaFlushAllocations(
 
     VMA_ASSERT(allocations);
 
-    VMA_DEBUG_LOG("vmaFlushAllocations");
+    VMA_DEBUG_LOG(Log::"vmaFlushAllocations");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15698,7 +15698,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaInvalidateAllocations(
 
     VMA_ASSERT(allocations);
 
-    VMA_DEBUG_LOG("vmaInvalidateAllocations");
+    VMA_DEBUG_LOG(Log::"vmaInvalidateAllocations");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15719,7 +15719,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCopyMemoryToAllocation(
         return VK_SUCCESS;
     }
 
-    VMA_DEBUG_LOG("vmaCopyMemoryToAllocation");
+    VMA_DEBUG_LOG(Log::"vmaCopyMemoryToAllocation");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15740,7 +15740,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCopyAllocationToMemory(
         return VK_SUCCESS;
     }
 
-    VMA_DEBUG_LOG("vmaCopyAllocationToMemory");
+    VMA_DEBUG_LOG(Log::"vmaCopyAllocationToMemory");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15753,7 +15753,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCheckCorruption(
 {
     VMA_ASSERT(allocator);
 
-    VMA_DEBUG_LOG("vmaCheckCorruption");
+    VMA_DEBUG_LOG(Log::"vmaCheckCorruption");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15767,7 +15767,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentation(
 {
     VMA_ASSERT(allocator && pInfo && pContext);
 
-    VMA_DEBUG_LOG("vmaBeginDefragmentation");
+    VMA_DEBUG_LOG(Log::"vmaBeginDefragmentation");
 
     if (pInfo->pool != VMA_NULL)
     {
@@ -15789,7 +15789,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaEndDefragmentation(
 {
     VMA_ASSERT(allocator && context);
 
-    VMA_DEBUG_LOG("vmaEndDefragmentation");
+    VMA_DEBUG_LOG(Log::"vmaEndDefragmentation");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15805,7 +15805,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBeginDefragmentationPass(
 {
     VMA_ASSERT(context && pPassInfo);
 
-    VMA_DEBUG_LOG("vmaBeginDefragmentationPass");
+    VMA_DEBUG_LOG(Log::"vmaBeginDefragmentationPass");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15819,7 +15819,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaEndDefragmentationPass(
 {
     VMA_ASSERT(context && pPassInfo);
 
-    VMA_DEBUG_LOG("vmaEndDefragmentationPass");
+    VMA_DEBUG_LOG(Log::"vmaEndDefragmentationPass");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15833,7 +15833,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory(
 {
     VMA_ASSERT(allocator && allocation && buffer);
 
-    VMA_DEBUG_LOG("vmaBindBufferMemory");
+    VMA_DEBUG_LOG(Log::"vmaBindBufferMemory");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15849,7 +15849,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindBufferMemory2(
 {
     VMA_ASSERT(allocator && allocation && buffer);
 
-    VMA_DEBUG_LOG("vmaBindBufferMemory2");
+    VMA_DEBUG_LOG(Log::"vmaBindBufferMemory2");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15863,7 +15863,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory(
 {
     VMA_ASSERT(allocator && allocation && image);
 
-    VMA_DEBUG_LOG("vmaBindImageMemory");
+    VMA_DEBUG_LOG(Log::"vmaBindImageMemory");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15879,7 +15879,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaBindImageMemory2(
 {
     VMA_ASSERT(allocator && allocation && image);
 
-    VMA_DEBUG_LOG("vmaBindImageMemory2");
+    VMA_DEBUG_LOG(Log::"vmaBindImageMemory2");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15907,7 +15907,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBuffer(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    VMA_DEBUG_LOG("vmaCreateBuffer");
+    VMA_DEBUG_LOG(Log::"vmaCreateBuffer");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -15999,7 +15999,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateBufferWithAlignment(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    VMA_DEBUG_LOG("vmaCreateBufferWithAlignment");
+    VMA_DEBUG_LOG(Log::"vmaCreateBufferWithAlignment");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -16091,7 +16091,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingBuffer2(
     VMA_ASSERT(allocator && pBufferCreateInfo && pBuffer && allocation);
     VMA_ASSERT(allocationLocalOffset + pBufferCreateInfo->size <= allocation->GetSize());
 
-    VMA_DEBUG_LOG("vmaCreateAliasingBuffer2");
+    VMA_DEBUG_LOG(Log::"vmaCreateAliasingBuffer2");
 
     *pBuffer = VK_NULL_HANDLE;
 
@@ -16139,7 +16139,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyBuffer(
         return;
     }
 
-    VMA_DEBUG_LOG("vmaDestroyBuffer");
+    VMA_DEBUG_LOG(Log::"vmaDestroyBuffer");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -16175,7 +16175,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateImage(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    VMA_DEBUG_LOG("vmaCreateImage");
+    VMA_DEBUG_LOG(Log::"vmaCreateImage");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -16268,7 +16268,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateAliasingImage2(
 
     *pImage = VK_NULL_HANDLE;
 
-    VMA_DEBUG_LOG("vmaCreateImage2");
+    VMA_DEBUG_LOG(Log::"vmaCreateImage2");
 
     if (pImageCreateInfo->extent.width == 0 ||
         pImageCreateInfo->extent.height == 0 ||
@@ -16312,7 +16312,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyImage(
         return;
     }
 
-    VMA_DEBUG_LOG("vmaDestroyImage");
+    VMA_DEBUG_LOG(Log::"vmaDestroyImage");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
@@ -16334,7 +16334,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaCreateVirtualBlock(
 {
     VMA_ASSERT(pCreateInfo && pVirtualBlock);
     VMA_ASSERT(pCreateInfo->size > 0);
-    VMA_DEBUG_LOG("vmaCreateVirtualBlock");
+    VMA_DEBUG_LOG(Log::"vmaCreateVirtualBlock");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     *pVirtualBlock = vma_new(pCreateInfo->pAllocationCallbacks, VmaVirtualBlock_T)(*pCreateInfo);
     VkResult res = (*pVirtualBlock)->Init();
@@ -16350,7 +16350,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLA
 {
     if(virtualBlock != VK_NULL_HANDLE)
     {
-        VMA_DEBUG_LOG("vmaDestroyVirtualBlock");
+        VMA_DEBUG_LOG(Log::"vmaDestroyVirtualBlock");
         VMA_DEBUG_GLOBAL_MUTEX_LOCK;
         VkAllocationCallbacks allocationCallbacks = virtualBlock->m_AllocationCallbacks; // Have to copy the callbacks when destroying.
         vma_delete(&allocationCallbacks, virtualBlock);
@@ -16360,7 +16360,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaDestroyVirtualBlock(VmaVirtualBlock VMA_NULLA
 VMA_CALL_PRE VkBool32 VMA_CALL_POST vmaIsVirtualBlockEmpty(VmaVirtualBlock VMA_NOT_NULL virtualBlock)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
-    VMA_DEBUG_LOG("vmaIsVirtualBlockEmpty");
+    VMA_DEBUG_LOG(Log::"vmaIsVirtualBlockEmpty");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     return virtualBlock->IsEmpty() ? VK_TRUE : VK_FALSE;
 }
@@ -16369,7 +16369,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualAllocationInfo(VmaVirtualBlock VMA_
     VmaVirtualAllocation VMA_NOT_NULL_NON_DISPATCHABLE allocation, VmaVirtualAllocationInfo* VMA_NOT_NULL pVirtualAllocInfo)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pVirtualAllocInfo != VMA_NULL);
-    VMA_DEBUG_LOG("vmaGetVirtualAllocationInfo");
+    VMA_DEBUG_LOG(Log::"vmaGetVirtualAllocationInfo");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     virtualBlock->GetAllocationInfo(allocation, *pVirtualAllocInfo);
 }
@@ -16379,7 +16379,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaVirtualAllocate(VmaVirtualBlock VMA_NOT_N
     VkDeviceSize* VMA_NULLABLE pOffset)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pCreateInfo != VMA_NULL && pAllocation != VMA_NULL);
-    VMA_DEBUG_LOG("vmaVirtualAllocate");
+    VMA_DEBUG_LOG(Log::"vmaVirtualAllocate");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     return virtualBlock->Allocate(*pCreateInfo, *pAllocation, pOffset);
 }
@@ -16389,7 +16389,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virt
     if(allocation != VK_NULL_HANDLE)
     {
         VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
-        VMA_DEBUG_LOG("vmaVirtualFree");
+        VMA_DEBUG_LOG(Log::"vmaVirtualFree");
         VMA_DEBUG_GLOBAL_MUTEX_LOCK;
         virtualBlock->Free(allocation);
     }
@@ -16398,7 +16398,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaVirtualFree(VmaVirtualBlock VMA_NOT_NULL virt
 VMA_CALL_PRE void VMA_CALL_POST vmaClearVirtualBlock(VmaVirtualBlock VMA_NOT_NULL virtualBlock)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
-    VMA_DEBUG_LOG("vmaClearVirtualBlock");
+    VMA_DEBUG_LOG(Log::"vmaClearVirtualBlock");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     virtualBlock->Clear();
 }
@@ -16407,7 +16407,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaSetVirtualAllocationUserData(VmaVirtualBlock 
     VmaVirtualAllocation VMA_NOT_NULL_NON_DISPATCHABLE allocation, void* VMA_NULLABLE pUserData)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE);
-    VMA_DEBUG_LOG("vmaSetVirtualAllocationUserData");
+    VMA_DEBUG_LOG(Log::"vmaSetVirtualAllocationUserData");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     virtualBlock->SetAllocationUserData(allocation, pUserData);
 }
@@ -16416,7 +16416,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetVirtualBlockStatistics(VmaVirtualBlock VMA
     VmaStatistics* VMA_NOT_NULL pStats)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStats != VMA_NULL);
-    VMA_DEBUG_LOG("vmaGetVirtualBlockStatistics");
+    VMA_DEBUG_LOG(Log::"vmaGetVirtualBlockStatistics");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     virtualBlock->GetStatistics(*pStats);
 }
@@ -16425,7 +16425,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaCalculateVirtualBlockStatistics(VmaVirtualBlo
     VmaDetailedStatistics* VMA_NOT_NULL pStats)
 {
     VMA_ASSERT(virtualBlock != VK_NULL_HANDLE && pStats != VMA_NULL);
-    VMA_DEBUG_LOG("vmaCalculateVirtualBlockStatistics");
+    VMA_DEBUG_LOG(Log::"vmaCalculateVirtualBlockStatistics");
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     virtualBlock->CalculateDetailedStatistics(*pStats);
 }

@@ -107,7 +107,7 @@ void __AtracShutdown() {
 void __AtracLoadModule(int version, u32 crc) {
 	atracLibVersion = version;
 	atracLibCrc = crc;
-	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
+	INFO_LOG(Log::ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 }
 
 void __AtracDoState(PointerWrap &p) {
@@ -268,7 +268,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		if (ret == 0 && Memory::IsValidAddress(remainAddr))
 			Memory::WriteUnchecked_U32(remains, remainAddr);
 	}
-	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
+	DEBUG_LOG(Log::ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
 			  numSamplesAddr, numSamples,
 			  finishFlagAddr, finish,
 			  remainAddr, remains);
@@ -280,7 +280,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 }
 
 static u32 sceAtracEndEntry() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracEndEntry()");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAtracEndEntry()");
 	return 0;
 }
 
@@ -372,7 +372,7 @@ static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 		// Already logged.
 		return err;
 	}
-	ERROR_LOG(ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
+	ERROR_LOG(Log::ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
 	if (Memory::IsValidAddress(errorAddr))
 		Memory::WriteUnchecked_U32(0, errorAddr);
 	return 0;
@@ -625,7 +625,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	// A large value happens in Tales of VS, and isn't handled somewhere properly as a u32.
 	// It's impossible for it to be that big anyway, so cap it.
 	if (bufferSize < 0) {
-		WARN_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): negative bufferSize", buffer, bufferSize);
+		WARN_LOG(Log::ME, "sceAtracSetDataAndGetID(%08x, %08x): negative bufferSize", buffer, bufferSize);
 		bufferSize = 0x10000000;
 	}
 
@@ -665,7 +665,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 }
 
 static u32 sceAtracStartEntry() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracStartEntry()");
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAtracStartEntry()");
 	return 0;
 }
 
@@ -687,7 +687,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		if (atracContexts[i] != nullptr) {
-			ERROR_LOG_REPORT(ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
+			ERROR_LOG_REPORT(Log::ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
 			return SCE_KERNEL_ERROR_BUSY;
 		}
 	}
@@ -698,7 +698,7 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 
 	// This seems to deinit things.  Mostly, it cause a reschedule on next deinit (but -1, -1 does not.)
 	if (at3Count == 0 && at3plusCount == 0) {
-		INFO_LOG(ME, "sceAtracReinit(%d, %d): deinit", at3Count, at3plusCount);
+		INFO_LOG(Log::ME, "sceAtracReinit(%d, %d): deinit", at3Count, at3plusCount);
 		atracInited = false;
 		return hleDelayResult(0, "atrac reinit", 200);
 	}
@@ -869,7 +869,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 static u32 _sceAtracGetContextAddress(int atracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
+		ERROR_LOG(Log::ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
 	}
 	if (!atrac->context_.IsValid()) {
@@ -879,10 +879,10 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		atrac->context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
 		if (atrac->context_.IsValid())
 			Memory::Memset(atrac->context_.ptr, 0, contextSize, "AtracContextClear");
-		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
 	}
 	else
-		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
 	atrac->WriteContextToPSPMem();
 	return atrac->context_.ptr;
 }
@@ -929,7 +929,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
+			ERROR_LOG_REPORT(Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
 			// TODO: Should we return an error code for these values?
 		}
 	}

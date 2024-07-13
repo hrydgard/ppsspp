@@ -85,7 +85,7 @@ u32 JitBreakpoint(uint32_t addr)
 		if (message.size() > 2)
 			message.resize(message.size() - 2);
 
-		NOTICE_LOG(JIT, "Top ops compiled to interpreter: %s", message.c_str());
+		NOTICE_LOG(Log::JIT, "Top ops compiled to interpreter: %s", message.c_str());
 	}
 
 	return 1;
@@ -145,7 +145,7 @@ void Jit::DoState(PointerWrap &p) {
 
 	Do(p, js.startDefaultPrefix);
 	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
-		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+		WARN_LOG(Log::CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
 	}
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
@@ -286,10 +286,10 @@ void Jit::CompileDelaySlot(int flags, RegCacheState *state) {
 void Jit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckJitBreakpoint(GetCompilerPC() + 4, 0);
@@ -323,7 +323,7 @@ void Jit::Compile(u32 em_address) {
 	bool cleanSlate = false;
 
 	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		WARN_LOG(Log::JIT, "Detected rounding mode usage, rebuilding jit with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
 		js.lastSetRounding = js.hasSetRounding;
 		cleanSlate = true;
@@ -331,7 +331,7 @@ void Jit::Compile(u32 em_address) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
+		WARN_LOG_REPORT(Log::JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
@@ -513,7 +513,7 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 
 void Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(JIT, "Comp_RunBlock");
+	ERROR_LOG(Log::JIT, "Comp_RunBlock");
 }
 
 void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
@@ -605,7 +605,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
-		ERROR_LOG_REPORT_ONCE(replFunc, HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
+		ERROR_LOG_REPORT_ONCE(replFunc, Log::HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
 		return;
 	}
 
@@ -624,7 +624,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 	// Not sure about the cause.
 	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC(), true);
 	if (origInstruction.encoding == op.encoding) {
-		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x at %08x", op.encoding, GetCompilerPC());
+		ERROR_LOG(Log::HLE, "Replacement broken (savestate problem?): %08x at %08x", op.encoding, GetCompilerPC());
 		return;
 	}
 
@@ -677,7 +677,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 			js.compiling = false;
 		}
 	} else {
-		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+		ERROR_LOG(Log::HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
 }
 
@@ -698,7 +698,7 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 		ApplyRoundingMode();
 	}
 	else
-		ERROR_LOG_REPORT(JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
 
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
@@ -721,7 +721,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	_assert_msg_(exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num. dest=%08x", destination);
 
 	if (!Memory::IsValidAddress(destination) || (destination & 3) != 0) {
-		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		ABI_CallFunctionC(&HitInvalidBranch, destination);
 		js.afterOp |= JitState::AFTER_CORE_STATE;

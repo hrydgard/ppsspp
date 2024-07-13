@@ -367,7 +367,7 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 	for (size_t i = 0; i < ARRAY_SIZE(commonCommandTable); i++) {
 		const u8 cmd = commonCommandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+			ERROR_LOG(Log::G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
@@ -381,7 +381,7 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
+			ERROR_LOG(Log::G3D, "Command missing from table: %02x (%i)", i, i);
 		}
 	}
 
@@ -519,7 +519,7 @@ void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
+			NOTICE_LOG(Log::G3D, "================ FLUSH ================");
 		}
 		drawEngineCommon_->DispatchFlush();
 	}
@@ -916,7 +916,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -977,7 +977,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		u32 indexAddr = gstate_c.indexAddr;
 		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
-			ERROR_LOG(G3D, "Bad index address %08x (%d)!", indexAddr, count);
+			ERROR_LOG(Log::G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
@@ -1263,7 +1263,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG_REPORT(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -1271,14 +1271,14 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -1335,7 +1335,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG_REPORT(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -1343,14 +1343,14 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.

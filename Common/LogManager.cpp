@@ -54,7 +54,7 @@ void GenericLog(LogLevel level, Log type, const char *file, int line, const char
 	va_start(args, fmt);
 	LogManager *instance = LogManager::GetInstance();
 	if (instance) {
-		instance->Log(level, type, file, line, fmt, args);
+		instance->LogLine(level, type, file, line, fmt, args);
 	} else {
 		// Fall back to printf or direct android logger with a small buffer if the log manager hasn't been initialized yet.
 #if PPSSPP_PLATFORM(ANDROID)
@@ -211,7 +211,7 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 	}
 }
 
-void LogManager::Log(LogLevel level, Log type, const char *file, int line, const char *format, va_list args) {
+void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, const char *format, va_list args) {
 	const LogChannel &log = log_[(size_t)type];
 	if (level > log.level || !log.enabled)
 		return;
@@ -356,7 +356,7 @@ void OutputDebugStringUTF8(const char *p) {
 #else
 
 void OutputDebugStringUTF8(const char *p) {
-	INFO_LOG(SYSTEM, "%s", p);
+	INFO_LOG(Log::SYSTEM, "%s", p);
 }
 
 #endif
