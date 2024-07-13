@@ -2208,6 +2208,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNet.h
 	Core/HLE/sceNetAdhoc.cpp
 	Core/HLE/sceNetAdhoc.h
+	Core/HLE/sceNetInet.cpp
+	Core/HLE/sceNetInet.h
+	Core/HLE/sceNetApctl.cpp
+	Core/HLE/sceNetApctl.h
+	Core/HLE/sceNetResolver.cpp
+	Core/HLE/sceNetResolver.h
 	Core/HLE/proAdhoc.h
 	Core/HLE/proAdhoc.cpp
 	Core/HLE/proAdhocServer.h
@@ -2333,6 +2339,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSVFPUFallbacks.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
+	Core/Net/InetCommon.cpp
+	Core/Net/InetCommon.h
+	Core/Net/NetResolver.cpp
+	Core/Net/NetResolver.h
+	Core/Net/InetSocket.cpp
+	Core/Net/InetSocket.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp
@@ -2421,6 +2433,11 @@ include_directories(ext/libchdr/include)
 
 target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+# Winsock
+if(WIN32)
+	target_link_libraries(${CoreLibName} ws2_32 winhttp)
+endif()
 
 if(NOT HTTPS_NOT_AVAILABLE)
 	target_link_libraries(${CoreLibName} naett)
