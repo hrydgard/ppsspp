@@ -684,7 +684,7 @@ bool StartVRRender() {
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
 		// Set customizations
-		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
+		g_Config.iDisplayRefreshRate = g_Config.bForce72Hz ? 72 : 60;
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, vrScene && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
 		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough);
 		return true;

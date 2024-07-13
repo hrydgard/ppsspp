@@ -437,7 +437,7 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 
 	char fpsbuf[256]{};
 	if (g_Config.iShowStatusFlags == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f));
+		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (g_Config.iDisplayRefreshRate / 100.0f));
 	} else {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
 			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps);
