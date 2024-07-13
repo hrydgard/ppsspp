@@ -121,7 +121,7 @@ enum class Opcode32 {
 	BRANCH = 0b1100011,
 	JALR = 0b1100111,
 	JAL = 0b1101111,
-	SYSTEM = 0b1110011,
+	System = 0b1110011,
 };
 
 enum class Opcode16 {
@@ -1853,11 +1853,11 @@ void RiscVEmitter::FENCE_TSO() {
 }
 
 void RiscVEmitter::ECALL() {
-	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::ECALL));
+	Write32(EncodeI(Opcode32::System, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::ECALL));
 }
 
 void RiscVEmitter::EBREAK() {
-	Write32(EncodeI(Opcode32::SYSTEM, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::EBREAK));
+	Write32(EncodeI(Opcode32::System, R_ZERO, Funct3::PRIV, R_ZERO, Funct12::EBREAK));
 }
 
 void RiscVEmitter::LWU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
@@ -2506,40 +2506,40 @@ void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg)
 void RiscVEmitter::CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRW, rs1, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRW, rs1, (Funct12)csr));
 }
 
 void RiscVEmitter::CSRRS(RiscVReg rd, Csr csr, RiscVReg rs1) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRS, rs1, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRS, rs1, (Funct12)csr));
 }
 
 void RiscVEmitter::CSRRC(RiscVReg rd, Csr csr, RiscVReg rs1) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRC, rs1, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRC, rs1, (Funct12)csr));
 }
 
 void RiscVEmitter::CSRRWI(RiscVReg rd, Csr csr, u8 uimm5) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only specify lowest 5 bits", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRWI, (RiscVReg)uimm5, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRWI, (RiscVReg)uimm5, (Funct12)csr));
 }
 
 void RiscVEmitter::CSRRSI(RiscVReg rd, Csr csr, u8 uimm5) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only set lowest 5 bits", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRSI, (RiscVReg)uimm5, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRSI, (RiscVReg)uimm5, (Funct12)csr));
 }
 
 void RiscVEmitter::CSRRCI(RiscVReg rd, Csr csr, u8 uimm5) {
 	_assert_msg_(SupportsZicsr(), "%s instruction not supported", __func__);
 	_assert_msg_((u32)csr <= 0x00000FFF, "%s with invalid CSR number", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s can only clear lowest 5 bits", __func__);
-	Write32(EncodeGI(Opcode32::SYSTEM, rd, Funct3::CSRRCI, (RiscVReg)uimm5, (Funct12)csr));
+	Write32(EncodeGI(Opcode32::System, rd, Funct3::CSRRCI, (RiscVReg)uimm5, (Funct12)csr));
 }
 
 void RiscVEmitter::VSETVLI(RiscVReg rd, RiscVReg rs1, VType vtype) {

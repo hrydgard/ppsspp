@@ -271,12 +271,12 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
-		// ERROR_LOG(Log::LOADER, "PBP directory resolution failed.");
+		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
 		InitMemoryForGamePBP(loadedFile);
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
-			INFO_LOG(Log::LOADER, "ELF, using full PSP-2000 memory access");
+			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
 		break;
@@ -290,7 +290,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 		break;
 	default:
 		// Can we even get here?
-		WARN_LOG(Log::LOADER, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		WARN_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		break;
 	}
 
@@ -421,11 +421,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 #if defined(_WIN32) && PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(Log::BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(Log::BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
 #else
-	NOTICE_LOG(Log::BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
@@ -704,7 +704,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
-		ERROR_LOG(Log::FILESYS, "Unknown directory type.");
+		ERROR_LOG(Log::FileSystem, "Unknown directory type.");
 		return g_Config.memStickDirectory;
 	}
 }

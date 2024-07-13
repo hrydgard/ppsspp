@@ -372,7 +372,7 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	if (cancelButton_) {
 		cancelButton_->SetVisibility(UI::V_VISIBLE);
 	}
-	INFO_LOG(Log::SYSTEM, "Triggering install of '%s'", fileUrl.c_str());
+	INFO_LOG(Log::System, "Triggering install of '%s'", fileUrl.c_str());
 	g_GameManager.DownloadAndInstall(fileUrl);
 	return UI::EVENT_DONE;
 }

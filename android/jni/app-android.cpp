@@ -256,7 +256,7 @@ void Android_AttachThreadToJNI() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 	if (status < 0) {
-		DEBUG_LOG(Log::SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
+		DEBUG_LOG(Log::System, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
 		JavaVMAttachArgs args{};
 		args.version = JNI_VERSION_1_6;
 		args.name = GetCurrentThreadName();
@@ -264,23 +264,23 @@ void Android_AttachThreadToJNI() {
 
 		if (status < 0) {
 			// bad, but what can we do other than report..
-			ERROR_LOG_REPORT_ONCE(threadAttachFail, Log::SYSTEM, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
+			ERROR_LOG_REPORT_ONCE(threadAttachFail, Log::System, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
 		}
 	} else {
-		WARN_LOG(Log::SYSTEM, "Thread %s was already attached to JNI.", GetCurrentThreadName());
+		WARN_LOG(Log::System, "Thread %s was already attached to JNI.", GetCurrentThreadName());
 	}
 }
 
 void Android_DetachThreadFromJNI() {
 	if (gJvm->DetachCurrentThread() == JNI_OK) {
-		DEBUG_LOG(Log::SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
+		DEBUG_LOG(Log::System, "Detached thread from JNI: '%s'", GetCurrentThreadName());
 	} else {
-		WARN_LOG(Log::SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
+		WARN_LOG(Log::System, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
 	}
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
-	INFO_LOG(Log::SYSTEM, "JNI_OnLoad");
+	INFO_LOG(Log::System, "JNI_OnLoad");
 	gJvm = pjvm;  // cache the JavaVM pointer
 	auto env = getEnv();
 	//replace with one of your classes in the line below
@@ -309,10 +309,10 @@ static void EmuThreadFunc() {
 	args.name = "EmuThread";
 	gJvm->AttachCurrentThread(&env, &args);
 
-	INFO_LOG(Log::SYSTEM, "Entering emu thread");
+	INFO_LOG(Log::System, "Entering emu thread");
 
 	// Wait for render loop to get started.
-	INFO_LOG(Log::SYSTEM, "Runloop: Waiting for displayInit...");
+	INFO_LOG(Log::System, "Runloop: Waiting for displayInit...");
 	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
 		sleep_ms(5);
 	}
@@ -332,7 +332,7 @@ static void EmuThreadFunc() {
 		return;
 	}
 
-	INFO_LOG(Log::SYSTEM, "Graphics initialized. Entering loop.");
+	INFO_LOG(Log::System, "Graphics initialized. Entering loop.");
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
@@ -345,7 +345,7 @@ static void EmuThreadFunc() {
 
 		std::lock_guard<std::mutex> guard(frameCommandLock);
 		if (!nativeActivity) {
-			ERROR_LOG(Log::SYSTEM, "No activity, clearing commands");
+			ERROR_LOG(Log::System, "No activity, clearing commands");
 			while (!frameCommands.empty())
 				frameCommands.pop();
 			return;
@@ -354,7 +354,7 @@ static void EmuThreadFunc() {
 		ProcessFrameCommands(env);
 	}
 
-	INFO_LOG(Log::SYSTEM, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
+	INFO_LOG(Log::System, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
@@ -363,11 +363,11 @@ static void EmuThreadFunc() {
 	graphicsContext->StopThread();
 
 	gJvm->DetachCurrentThread();
-	INFO_LOG(Log::SYSTEM, "Leaving emu thread");
+	INFO_LOG(Log::System, "Leaving emu thread");
 }
 
 static void EmuThreadStart() {
-	INFO_LOG(Log::SYSTEM, "EmuThreadStart");
+	INFO_LOG(Log::System, "EmuThreadStart");
 	emuThreadState = (int)EmuThreadState::START_REQUESTED;
 	emuThread = std::thread(&EmuThreadFunc);
 }
@@ -376,14 +376,14 @@ static void EmuThreadStart() {
 // as long as emuThreadState isn't STOPPED and/or there are still things queued up.
 // Only after that, call EmuThreadJoin.
 static void EmuThreadStop(const char *caller) {
-	INFO_LOG(Log::SYSTEM, "EmuThreadStop - stopping (%s)...", caller);
+	INFO_LOG(Log::System, "EmuThreadStop - stopping (%s)...", caller);
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 }
 
 static void EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
-	INFO_LOG(Log::SYSTEM, "EmuThreadJoin - joined");
+	INFO_LOG(Log::System, "EmuThreadJoin - joined");
 }
 
 static void PushCommand(std::string cmd, std::string param) {
@@ -816,20 +816,20 @@ retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
 		useCPUThread = true;
-		INFO_LOG(Log::SYSTEM, "NativeApp.init() -- creating OpenGL context (JavaGL)");
+		INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context (JavaGL)");
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
-		INFO_LOG(Log::SYSTEM, "NativeApp.init() - launching emu thread");
+		INFO_LOG(Log::System, "NativeApp.init() - launching emu thread");
 		EmuThreadStart();
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
-		INFO_LOG(Log::SYSTEM, "NativeApp.init() -- creating Vulkan context");
+		INFO_LOG(Log::System, "NativeApp.init() -- creating Vulkan context");
 		useCPUThread = false;
 		// The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the app main thread though.
 		AndroidVulkanContext *ctx = new AndroidVulkanContext();
 		if (!ctx->InitAPI()) {
-			INFO_LOG(Log::SYSTEM, "Failed to initialize Vulkan, switching to OpenGL");
+			INFO_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
 			goto retry;
@@ -839,7 +839,7 @@ retry:
 		break;
 	}
 	default:
-		ERROR_LOG(Log::SYSTEM, "NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
+		ERROR_LOG(Log::System, "NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		goto retry;
 	}
@@ -869,11 +869,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 		sampleRate = 44100;
 	}
 
-	INFO_LOG(Log::AUDIO, "NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
+	INFO_LOG(Log::Audio, "NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	if (!g_audioState) {
 		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
 	} else {
-		ERROR_LOG(Log::AUDIO, "Audio state already initialized");
+		ERROR_LOG(Log::Audio, "Audio state already initialized");
 	}
 }
 
@@ -882,7 +882,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass)
 		AndroidAudio_Shutdown(g_audioState);
 		g_audioState = nullptr;
 	} else {
-		ERROR_LOG(Log::AUDIO, "Audio state already shutdown!");
+		ERROR_LOG(Log::Audio, "Audio state already shutdown!");
 	}
 }
 
@@ -907,19 +907,19 @@ bool System_AudioRecordingState() {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
-	INFO_LOG(Log::SYSTEM, "NativeApp.resume() - resuming audio");
+	INFO_LOG(Log::System, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
 
 	System_PostUIMessage(UIMessage::APP_RESUMED);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
-	INFO_LOG(Log::SYSTEM, "NativeApp.pause() - pausing audio");
+	INFO_LOG(Log::System, "NativeApp.pause() - pausing audio");
 	AndroidAudio_Pause(g_audioState);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
-	INFO_LOG(Log::SYSTEM, "NativeApp.shutdown() -- begin");
+	INFO_LOG(Log::System, "NativeApp.shutdown() -- begin");
 
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
@@ -928,19 +928,19 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		// which locks renderLock already, and only gets out once we call ThreadFrame()
 		// in a loop before, to empty the queue.
 		EmuThreadStop("shutdown");
-		INFO_LOG(Log::SYSTEM, "BeginAndroidShutdown");
+		INFO_LOG(Log::System, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
 		// Now, it could be that we had some frames queued up. Get through them.
 		// We're on the render thread, so this is synchronous.
 		do {
-			INFO_LOG(Log::SYSTEM, "Executing graphicsContext->ThreadFrame to clear buffers");
+			INFO_LOG(Log::System, "Executing graphicsContext->ThreadFrame to clear buffers");
 		} while (graphicsContext->ThreadFrame());
 		graphicsContext->ThreadEnd();
-		INFO_LOG(Log::SYSTEM, "ThreadEnd called.");
+		INFO_LOG(Log::System, "ThreadEnd called.");
 		graphicsContext->ShutdownFromRenderThread();
-		INFO_LOG(Log::SYSTEM, "Graphics context now shut down from NativeApp_shutdown");
+		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
 
-		INFO_LOG(Log::SYSTEM, "Joining emuthread");
+		INFO_LOG(Log::System, "Joining emuthread");
 		EmuThreadJoin();
 	}
 
@@ -966,7 +966,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		while (frameCommands.size())
 			frameCommands.pop();
 	}
-	INFO_LOG(Log::SYSTEM, "NativeApp.shutdown() -- end");
+	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
 }
 
 // JavaEGL. This doesn't get called on the Vulkan path.
@@ -1055,7 +1055,7 @@ static void recalculateDpi() {
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
-	INFO_LOG(Log::SYSTEM, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
+	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
 	bool new_size = g_display.pixel_xres != bufw || g_display.pixel_yres != bufh;
 	int old_w = g_display.pixel_xres;
@@ -1170,7 +1170,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
-	INFO_LOG(Log::SYSTEM, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
+	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
 	if (result) {
 		g_requestManager.PostSystemSuccess(jrequestID, value.c_str());
 	} else {
@@ -1334,23 +1334,23 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	if (msg == "moga") {
 		mogaVersion = prm;
 	} else if (msg == "permission_pending") {
-		INFO_LOG(Log::SYSTEM, "STORAGE PERMISSION: PENDING");
+		INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
 		// TODO: Add support for other permissions
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
 		// Don't need to send along, nothing else is listening.
 	} else if (msg == "permission_denied") {
-		INFO_LOG(Log::SYSTEM, "STORAGE PERMISSION: DENIED");
+		INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
 		// Don't need to send along, nothing else is listening.
 	} else if (msg == "permission_granted") {
-		INFO_LOG(Log::SYSTEM, "STORAGE PERMISSION: GRANTED");
+		INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
 		// Send along.
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
-		// INFO_LOG(Log::SYSTEM, "Got insets: %s", prm.c_str());
+		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
 		int left, right, top, bottom;
 		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
@@ -1370,13 +1370,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string("Java Exception"), prm, 10.0f);
 	} else if (msg == "shortcutParam") {
 		if (prm.empty()) {
-			WARN_LOG(Log::SYSTEM, "shortcutParam empty");
+			WARN_LOG(Log::System, "shortcutParam empty");
 			return;
 		}
-		INFO_LOG(Log::SYSTEM, "shortcutParam received: %s", prm.c_str());
+		INFO_LOG(Log::System, "shortcutParam received: %s", prm.c_str());
 		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, StripQuotes(prm));
 	} else {
-		ERROR_LOG(Log::SYSTEM, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
+		ERROR_LOG(Log::System, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}
 }
 
@@ -1540,7 +1540,7 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		frameCmd = frameCommands.front();
 		frameCommands.pop();
 
-		INFO_LOG(Log::SYSTEM, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+		INFO_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 		jstring param = env->NewStringUTF(frameCmd.params.c_str());
@@ -1584,7 +1584,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv * env, jobject obj) {
 	if (!renderLoopRunning) {
-		ERROR_LOG(Log::SYSTEM, "Render loop already exited");
+		ERROR_LOG(Log::System, "Render loop already exited");
 		return;
 	}
 	_assert_(g_renderLoopThread.joinable());
@@ -1676,7 +1676,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv * env, jclass, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::SYSTEM, "No thread manager - initializing one");
+		INFO_LOG(Log::System, "No thread manager - initializing one");
 		// Need a thread manager.
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
@@ -1684,7 +1684,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 
 	Path path = Path(GetJavaString(env, jpath));
 
-	INFO_LOG(Log::SYSTEM, "queryGameName(%s)", path.c_str());
+	INFO_LOG(Log::System, "queryGameName(%s)", path.c_str());
 
 	std::string result = "";
 
@@ -1692,11 +1692,11 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
-		INFO_LOG(Log::SYSTEM, "GetInfo successful, waiting");
+		INFO_LOG(Log::System, "GetInfo successful, waiting");
 		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 			sleep_ms(1);
 		}
-		INFO_LOG(Log::SYSTEM, "Done waiting");
+		INFO_LOG(Log::System, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();
 
@@ -1706,12 +1706,12 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 				result = result.substr(strlen("The "));
 			}
 
-			INFO_LOG(Log::SYSTEM, "queryGameName: Got '%s'", result.c_str());
+			INFO_LOG(Log::System, "queryGameName: Got '%s'", result.c_str());
 		} else {
-			INFO_LOG(Log::SYSTEM, "queryGameName: Filetype unknown");
+			INFO_LOG(Log::System, "queryGameName: Filetype unknown");
 		}
 	} else {
-		INFO_LOG(Log::SYSTEM, "No info from cache");
+		INFO_LOG(Log::System, "No info from cache");
 	}
 	delete cache;
 
@@ -1728,7 +1728,7 @@ JNIEXPORT jbyteArray JNICALL
 Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz, jstring jpath) {
 	bool teardownThreadManager = false;
 	if (!g_threadManager.IsInitialized()) {
-		INFO_LOG(Log::SYSTEM, "No thread manager - initializing one");
+		INFO_LOG(Log::System, "No thread manager - initializing one");
 		// Need a thread manager.
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
@@ -1737,7 +1737,7 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
 
 	Path path = Path(GetJavaString(env, jpath));
 
-	INFO_LOG(Log::SYSTEM, "queryGameIcon(%s)", path.c_str());
+	INFO_LOG(Log::System, "queryGameIcon(%s)", path.c_str());
 
 	jbyteArray result = nullptr;
 
@@ -1745,7 +1745,7 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
 	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::ICON);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
-		INFO_LOG(Log::SYSTEM, "GetInfo successful, waiting");
+		INFO_LOG(Log::System, "GetInfo successful, waiting");
         int attempts = 1000;
         while (!info->Ready(GameInfoFlags::ICON)) {
             sleep_ms(1);
@@ -1754,18 +1754,18 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
                 break;
             }
         }
-        INFO_LOG(Log::SYSTEM, "Done waiting");
+        INFO_LOG(Log::System, "Done waiting");
         if (info->Ready(GameInfoFlags::ICON)) {
             if (!info->icon.data.empty()) {
-                INFO_LOG(Log::SYSTEM, "requestIcon: Got icon");
+                INFO_LOG(Log::System, "requestIcon: Got icon");
                 result = env->NewByteArray(info->icon.data.size());
                 env->SetByteArrayRegion(result, 0, info->icon.data.size(), (const jbyte *)info->icon.data.data());
             }
         } else {
-            INFO_LOG(Log::SYSTEM, "requestIcon: Filetype unknown");
+            INFO_LOG(Log::System, "requestIcon: Filetype unknown");
         }
     } else {
-        INFO_LOG(Log::SYSTEM, "No info from cache");
+        INFO_LOG(Log::System, "No info from cache");
     }
 
     delete cache;

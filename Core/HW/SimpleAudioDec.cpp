@@ -172,7 +172,7 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 
 	frame_ = av_frame_alloc();
 
-	// Get Audio Codec ctx
+	// Get AUDIO Codec ctx
 	int audioCodecId = GetAudioCodecID(audioType);
 	if (!audioCodecId) {
 		ERROR_LOG(Log::ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);

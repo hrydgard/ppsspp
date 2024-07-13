@@ -230,7 +230,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		std::unique_ptr<ZipFileReader> zipFileReader = std::unique_ptr<ZipFileReader>(ZipFileReader::Create(zipPath, "", true));
 		if (!zipFileReader) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver", "couldn't open zip"));
-			ERROR_LOG(Log::SYSTEM, "Failed to open file '%s' as zip", zipPath.c_str());
+			ERROR_LOG(Log::System, "Failed to open file '%s' as zip", zipPath.c_str());
 			return;
 		}
 

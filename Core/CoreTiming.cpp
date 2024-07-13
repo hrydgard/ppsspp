@@ -152,7 +152,7 @@ int RegisterEvent(const char *name, TimedCallback callback) {
 }
 
 void AntiCrashCallback(u64 userdata, int cyclesLate) {
-	ERROR_LOG(Log::SAVESTATE, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(Log::SaveState, "Savestate broken: an unregistered event was called.");
 	Core_EnableStepping(true, "savestate.crash", 0);
 }
 
@@ -499,7 +499,7 @@ void DoState(PointerWrap &p) {
 	int current = n;
 	Do(p, n);
 	if (n > current) {
-		WARN_LOG(Log::SAVESTATE, "Savestate failure: more events than current (can't ever remove an event)");
+		WARN_LOG(Log::SaveState, "Savestate failure: more events than current (can't ever remove an event)");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}

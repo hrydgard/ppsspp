@@ -441,13 +441,13 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	// 190 might (probably) be a typo for 19, but it's what the actual PSP validates against.
 	if (pllfreq < 19 || pllfreq < cpufreq || pllfreq > 333) {
-		return hleLogWarning(Log::SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid pll frequency");
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid pll frequency");
 	}
 	if (cpufreq == 0 || cpufreq > 333) {
-		return hleLogWarning(Log::SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid cpu frequency");
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid cpu frequency");
 	}
 	if (busfreq == 0 || busfreq > 166) {
-		return hleLogWarning(Log::SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid bus frequency");
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid bus frequency");
 	}
 	// TODO: More restrictions.
 	if (GetLockedCPUSpeedMhz() > 0) {
@@ -485,21 +485,21 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 
 static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 	if (cpufreq == 0 || cpufreq > 333) {
-		return hleLogWarning(Log::SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
 	}
 	if (GetLockedCPUSpeedMhz() > 0) {
-		return hleLogDebug(Log::SCEMISC, 0, "locked by user config at %i", GetLockedCPUSpeedMhz());
+		return hleLogDebug(Log::sceMisc, 0, "locked by user config at %i", GetLockedCPUSpeedMhz());
 	}
 	CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
-	return hleLogSuccessI(Log::SCEMISC, 0);
+	return hleLogSuccessI(Log::sceMisc, 0);
 }
 
 static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	if (busfreq == 0 || busfreq > 111) {
-		return hleLogWarning(Log::SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
 	}
 	if (GetLockedCPUSpeedMhz() > 0) {
-		return hleLogDebug(Log::SCEMISC, 0, "locked by user config at %i", GetLockedCPUSpeedMhz() / 2);
+		return hleLogDebug(Log::sceMisc, 0, "locked by user config at %i", GetLockedCPUSpeedMhz() / 2);
 	}
 
 	// The value passed is validated, but then doesn't seem to matter for the result.
@@ -516,47 +516,47 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	else
 		busFreq = pllFreq / 2;
 
-	return hleLogSuccessI(Log::SCEMISC, 0);
+	return hleLogSuccessI(Log::sceMisc, 0);
 }
 
 static u32 scePowerGetCpuClockFrequencyInt() {
 	int cpuFreq = CoreTiming::GetClockFrequencyHz() / 1000000;
-	return hleLogSuccessI(Log::SCEMISC, cpuFreq);
+	return hleLogSuccessI(Log::sceMisc, cpuFreq);
 }
 
 static u32 scePowerGetPllClockFrequencyInt() {
-	return hleLogSuccessInfoI(Log::SCEMISC, pllFreq / 1000000);
+	return hleLogSuccessInfoI(Log::sceMisc, pllFreq / 1000000);
 }
 
 static u32 scePowerGetBusClockFrequencyInt() {
-	return hleLogSuccessInfoI(Log::SCEMISC, busFreq / 1000000);
+	return hleLogSuccessInfoI(Log::sceMisc, busFreq / 1000000);
 }
 
 static float scePowerGetCpuClockFrequencyFloat() {
 	float cpuFreq = CoreTiming::GetClockFrequencyHz() / 1000000.0f;
-	DEBUG_LOG(Log::SCEMISC, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
+	DEBUG_LOG(Log::sceMisc, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
 	return cpuFreq;
 }
 
 static float scePowerGetPllClockFrequencyFloat() {
-	INFO_LOG(Log::SCEMISC, "%f=scePowerGetPllClockFrequencyFloat()", (float)pllFreq / 1000000.0f);
+	INFO_LOG(Log::sceMisc, "%f=scePowerGetPllClockFrequencyFloat()", (float)pllFreq / 1000000.0f);
 	return (float) pllFreq / 1000000.0f;
 }
 
 static float scePowerGetBusClockFrequencyFloat() {
-	INFO_LOG(Log::SCEMISC, "%f=scePowerGetBusClockFrequencyFloat()", (float)busFreq / 1000000.0f);
+	INFO_LOG(Log::sceMisc, "%f=scePowerGetBusClockFrequencyFloat()", (float)busFreq / 1000000.0f);
 	return (float) busFreq / 1000000.0f;
 }
 
 static int scePowerTick() {
-	DEBUG_LOG(Log::SCEMISC, "scePowerTick()");
+	DEBUG_LOG(Log::sceMisc, "scePowerTick()");
 	// Don't think we need to do anything.
 	return 0;
 }
 
 
 static u32 IsPSPNonFat() {
-	DEBUG_LOG(Log::SCEMISC, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
+	DEBUG_LOG(Log::sceMisc, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
 
 	return g_Config.iPSPModel;  
 }

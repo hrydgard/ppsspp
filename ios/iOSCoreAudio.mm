@@ -114,7 +114,7 @@ void iOSCoreAudioInit()
 	NSError *error = nil;
 	AVAudioSession *session = [AVAudioSession sharedInstance];
 	if (![session setActive:YES error:&error]) {
-		ERROR_LOG(Log::SYSTEM, "Failed to activate AVFoundation audio session");
+		ERROR_LOG(Log::System, "Failed to activate AVFoundation audio session");
 		if (error.localizedDescription) {
 			NSLog(@"%@", error.localizedDescription);
 		}

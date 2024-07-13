@@ -284,7 +284,7 @@ void PostLoadConfig() {
 static void CheckFailedGPUBackends() {
 #ifdef _DEBUG
 	// If you're in debug mode, you probably don't want a fallback. If you're in release mode, use IGNORE below.
-	NOTICE_LOG(Log::LOADER, "Not checking for failed graphics backends in debug mode");
+	NOTICE_LOG(Log::Loader, "Not checking for failed graphics backends in debug mode");
 	return;
 #endif
 
@@ -317,14 +317,14 @@ static void CheckFailedGPUBackends() {
 	if (g_Config.sFailedGPUBackends == "IGNORE")
 		return;
 	else if (!g_Config.sFailedGPUBackends.empty())
-		ERROR_LOG(Log::LOADER, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
+		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	if (lastBackend != g_Config.iGPUBackend) {
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 		System_GraphicsBackendFailedAlert(param);
-		WARN_LOG(Log::LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+		WARN_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
 	}
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
@@ -431,24 +431,24 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
-		INFO_LOG(Log::SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
+		INFO_LOG(Log::System, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
 		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
-				INFO_LOG(Log::SYSTEM, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
+				INFO_LOG(Log::System, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
 			} else {
-				ERROR_LOG(Log::SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+				ERROR_LOG(Log::System, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 					// Ask the user to configure a memstick directory.
-					INFO_LOG(Log::SYSTEM, "Asking the user.");
+					INFO_LOG(Log::System, "Asking the user.");
 					g_Config.memStickDirectory.clear();
 				}
 			}
 		}
 	} else {
-		INFO_LOG(Log::SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
+		INFO_LOG(Log::System, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
 	}
 
 	// Attempt to create directories after reading the path.
@@ -458,7 +458,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
-		INFO_LOG(Log::SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
+		INFO_LOG(Log::System, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
 		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
@@ -466,15 +466,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				g_Config.memStickDirectory = memstickPath;
 				g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 				g_Config.Reload();
-				INFO_LOG(Log::SYSTEM, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
+				INFO_LOG(Log::System, "Memstick Directory from memstick_dir.txt: '%s'", g_Config.memStickDirectory.c_str());
 			} else {
-				ERROR_LOG(Log::SYSTEM, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
+				ERROR_LOG(Log::System, "Couldn't read directory '%s' specified by memstick_dir.txt.", memstickDir.c_str());
 				g_Config.memStickDirectory.clear();
 			}
 		}
 	}
 	else {
-		INFO_LOG(Log::SYSTEM, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
+		INFO_LOG(Log::System, "No memstick directory file found (tried to open '%s')", memstickDirFile.c_str());
 	}
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
@@ -618,7 +618,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			// don't already have one.
 			if (!gotBootFilename) {
 				gotBootFilename = true;
-				INFO_LOG(Log::SYSTEM, "Boot filename found in args: '%s'", argv[i]);
+				INFO_LOG(Log::System, "Boot filename found in args: '%s'", argv[i]);
 
 				bool okToLoad = true;
 				bool okToCheck = true;
@@ -749,10 +749,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	DEBUG_LOG(Log::SYSTEM, "ScreenManager!");
+	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
-		INFO_LOG(Log::SYSTEM, "No memstick directory! Asking for one to be configured.");
+		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
@@ -800,7 +800,7 @@ void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
-	INFO_LOG(Log::SYSTEM, "NativeInitGraphics");
+	INFO_LOG(Log::System, "NativeInitGraphics");
 
 	_assert_msg_(g_screenManager, "No screenmanager, bad init order. Backend = %d", g_Config.iGPUBackend);
 
@@ -848,7 +848,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (IsWin7OrHigher()) {
 		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
-		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::AUDIO);
+		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::Audio);
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
 	}
 #endif
@@ -861,7 +861,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore(g_draw);
 	}
 
-	INFO_LOG(Log::SYSTEM, "NativeInitGraphics completed");
+	INFO_LOG(Log::System, "NativeInitGraphics completed");
 
 	return true;
 }
@@ -917,7 +917,7 @@ bool CreateGlobalPipelines() {
 }
 
 void NativeShutdownGraphics() {
-	INFO_LOG(Log::SYSTEM, "NativeShutdownGraphics");
+	INFO_LOG(Log::System, "NativeShutdownGraphics");
 
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
@@ -965,7 +965,7 @@ void NativeShutdownGraphics() {
 		texColorPipeline = nullptr;
 	}
 
-	INFO_LOG(Log::SYSTEM, "NativeShutdownGraphics done");
+	INFO_LOG(Log::System, "NativeShutdownGraphics done");
 }
 
 static void TakeScreenshot(Draw::DrawContext *draw) {
@@ -1108,7 +1108,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	for (const auto &item : toProcess) {
 		if (HandleGlobalMessage(item.message, item.value)) {
 			// TODO: Add a to-string thingy.
-			INFO_LOG(Log::SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+			INFO_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 		}
 		g_screenManager->sendMessage(item.message, item.value.c_str());
 	}
@@ -1271,16 +1271,16 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 bool NativeIsAtTopLevel() {
 	// This might need some synchronization?
 	if (!g_screenManager) {
-		ERROR_LOG(Log::SYSTEM, "No screen manager active");
+		ERROR_LOG(Log::System, "No screen manager active");
 		return false;
 	}
 	Screen *currentScreen = g_screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
-		INFO_LOG(Log::SYSTEM, "Screen toplevel: %i", (int)top);
+		INFO_LOG(Log::System, "Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
-		ERROR_LOG(Log::SYSTEM, "No current screen");
+		ERROR_LOG(Log::System, "No current screen");
 		return false;
 	}
 }
@@ -1334,7 +1334,7 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
-	// INFO_LOG(Log::SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
+	// INFO_LOG(Log::System, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
 		std::vector<int> pspKeys;
@@ -1405,7 +1405,7 @@ static void SendMouseDeltaAxis() {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mx;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = my;
 
-	//NOTICE_LOG(Log::SYSTEM, "delta: %0.2f %0.2f    mx/my: %0.2f %0.2f   dpi: %f  sens: %f ",
+	//NOTICE_LOG(Log::System, "delta: %0.2f %0.2f    mx/my: %0.2f %0.2f   dpi: %f  sens: %f ",
 	//	g_mouseDeltaX, g_mouseDeltaY, mx, my, g_display.dpi_scale_x, g_Config.fMouseSensitivity);
 
 	if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
@@ -1496,7 +1496,7 @@ void NativeShutdown() {
 
 	g_Config.Save("NativeShutdown");
 
-	INFO_LOG(Log::SYSTEM, "NativeShutdown called");
+	INFO_LOG(Log::System, "NativeShutdown called");
 
 	g_i18nrepo.LogMissingKeys();
 
@@ -1544,7 +1544,7 @@ static Path GetSecretPath(const char *nameOfSecret) {
 bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 	Path path = GetSecretPath(nameOfSecret);
 	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
-		WARN_LOG(Log::SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
+		WARN_LOG(Log::System, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
 		return false;
 	}
 	return true;

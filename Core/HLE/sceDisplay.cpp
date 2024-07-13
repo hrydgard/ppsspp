@@ -316,12 +316,12 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	if (waitData.threadID != threadID) {
-		WARN_LOG_REPORT(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: could not find waiting thread info.");
+		WARN_LOG_REPORT(Log::sceDisplay, "sceDisplayWaitVblankCB: could not find waiting thread info.");
 		return;
 	}
 
 	vblankPausedWaits[pauseKey] = __DisplayGetVCount() + waitData.vcountUnblock;
-	DEBUG_LOG(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
+	DEBUG_LOG(Log::sceDisplay, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
 }
 
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -342,7 +342,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 	// Still have to wait a bit longer.
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - __DisplayGetVCount()));
-	DEBUG_LOG(Log::SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
+	DEBUG_LOG(Log::sceDisplay, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
 }
 
 void __DisplaySetWasPaused() {
@@ -385,7 +385,7 @@ static void DoFrameDropLogging(float scaledTimestep) {
 
 		char stats[4096];
 		__DisplayGetDebugStats(stats, sizeof(stats));
-		NOTICE_LOG(Log::SCEDISPLAY, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
+		NOTICE_LOG(Log::sceDisplay, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
 	}
 }
 
@@ -499,7 +499,7 @@ static void DoFrameIdleTiming() {
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
-	VERBOSE_LOG(Log::SCEDISPLAY, "Enter VBlank %i", vbCount);
+	VERBOSE_LOG(Log::sceDisplay, "Enter VBlank %i", vbCount);
 
 	DisplayFireVblankStart();
 
@@ -530,7 +530,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
-		DEBUG_LOG(Log::SCEDISPLAY, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
+		DEBUG_LOG(Log::sceDisplay, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
@@ -597,7 +597,7 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	if (!FrameTimingThrottled()) {
-		// NOTICE_LOG(Log::SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
+		// NOTICE_LOG(Log::System, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
 	}
 
 	const bool fbDirty = gpu->FramebufferDirty();
@@ -709,7 +709,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	flippedThisFrame = false;
-	VERBOSE_LOG(Log::SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
+	VERBOSE_LOG(Log::sceDisplay,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
@@ -761,7 +761,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 }
 
 static u32 sceDisplayIsVblank() {
-	return hleLogSuccessI(Log::SCEDISPLAY, DisplayIsVblank());
+	return hleLogSuccessI(Log::sceDisplay, DisplayIsVblank());
 }
 
 static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
@@ -777,7 +777,7 @@ static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
 
-	return hleLogSuccessVerboseI(Log::SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
+	return hleLogSuccessVerboseI(Log::sceDisplay, 0, "waiting for %d vblanks", vblanks);
 }
 
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
@@ -786,13 +786,13 @@ void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
-		WARN_LOG_REPORT(Log::SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
+		WARN_LOG_REPORT(Log::sceDisplay, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
 	}
 	if (displayWidth != 480 || displayHeight != 272) {
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 
 	hasSetMode = true;
@@ -800,7 +800,7 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	width = displayWidth;
 	height = displayHeight;
 
-	hleLogSuccessI(Log::SCEDISPLAY, 0);
+	hleLogSuccessI(Log::sceDisplay, 0);
 	// On success, this implicitly waits for a vblank start.
 	return DisplayWaitForVblanks("display mode", 1);
 }
@@ -841,24 +841,24 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	if (sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
 	}
 	if (topaddr != 0 && !Memory::IsRAMAddress(topaddr) && !Memory::IsVRAMAddress(topaddr)) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
 	}
 	if ((topaddr & 0xF) != 0) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
 	}
 	if ((linesize & 0x3F) != 0 || (linesize == 0 && topaddr != 0)) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
 	}
 	if (pixelformat < 0 || pixelformat > GE_FORMAT_8888) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
 	}
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
-			return hleReportError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
+			return hleReportError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
 		}
 	}
 
@@ -905,12 +905,12 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
 		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
 		// So, instead, we delay this HLE thread only (a small deviation from correct behavior.)
-		return hleDelayResult(hleLogSuccessI(Log::SCEDISPLAY, 0, "delaying frame thread"), "set framebuf", cyclesToUs(delayCycles));
+		return hleDelayResult(hleLogSuccessI(Log::sceDisplay, 0, "delaying frame thread"), "set framebuf", cyclesToUs(delayCycles));
 	} else {
 		if (topaddr == 0) {
-			return hleLogSuccessI(Log::SCEDISPLAY, 0, "disabling display");
+			return hleLogSuccessI(Log::sceDisplay, 0, "disabling display");
 		} else {
-			return hleLogSuccessI(Log::SCEDISPLAY, 0);
+			return hleLogSuccessI(Log::sceDisplay, 0);
 		}
 	}
 }
@@ -937,7 +937,7 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 	if (Memory::IsValidAddress(pixelFormatPtr))
 		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
 
-	return hleLogSuccessI(Log::SCEDISPLAY, 0);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
@@ -954,18 +954,18 @@ static u32 sceDisplayWaitVblank() {
 	} else {
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
-		return hleLogSuccessI(Log::SCEDISPLAY, 1, "not waiting since in vblank");
+		return hleLogSuccessI(Log::sceDisplay, 1, "not waiting since in vblank");
 	}
 }
 
 static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (vblanks <= 0) {
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
 	if (!__KernelIsDispatchEnabled())
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
 	return DisplayWaitForVblanks("vblank start multi waited", vblanks);
 }
@@ -976,7 +976,7 @@ static u32 sceDisplayWaitVblankCB() {
 	} else {
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
-		return hleLogSuccessI(Log::SCEDISPLAY, 1, "not waiting since in vblank");
+		return hleLogSuccessI(Log::sceDisplay, 1, "not waiting since in vblank");
 	}
 }
 
@@ -986,12 +986,12 @@ static u32 sceDisplayWaitVblankStartCB() {
 
 static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (vblanks <= 0) {
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
 	if (!__KernelIsDispatchEnabled())
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return hleLogWarning(Log::SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
 	return DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
 }
@@ -999,17 +999,17 @@ static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 static u32 sceDisplayGetVcount() {
 	hleEatCycles(150);
 	hleReSchedule("get vcount");
-	return hleLogSuccessVerboseI(Log::SCEDISPLAY, __DisplayGetVCount());
+	return hleLogSuccessVerboseI(Log::sceDisplay, __DisplayGetVCount());
 }
 
 static u32 sceDisplayGetCurrentHcount() {
 	hleEatCycles(275);
-	return hleLogSuccessI(Log::SCEDISPLAY, __DisplayGetCurrentHcount());
+	return hleLogSuccessI(Log::sceDisplay, __DisplayGetCurrentHcount());
 }
 
 static int sceDisplayAdjustAccumulatedHcount(int value) {
 	if (value < 0) {
-		return hleLogError(Log::SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
 	}
 
 	// Since it includes the current hCount, find the difference to apply to the base.
@@ -1017,24 +1017,24 @@ static int sceDisplayAdjustAccumulatedHcount(int value) {
 	int diff = value - accumHCount;
 	DisplayAdjustAccumulatedHcount(diff);
 
-	return hleLogSuccessI(Log::SCEDISPLAY, 0);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static int sceDisplayGetAccumulatedHcount() {
 	u32 accumHCount = __DisplayGetAccumulatedHcount();
 	hleEatCycles(235);
-	return hleLogSuccessI(Log::SCEDISPLAY, accumHCount);
+	return hleLogSuccessI(Log::sceDisplay, accumHCount);
 }
 
 static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	VERBOSE_LOG(Log::SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	VERBOSE_LOG(Log::sceDisplay,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 
 static u32 sceDisplayIsForeground() {
 	int result = hasSetMode && framebuf.topaddr != 0 ? 1 : 0;
-	return hleLogSuccessI(Log::SCEDISPLAY, result);
+	return hleLogSuccessI(Log::sceDisplay, result);
 }
 
 static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
@@ -1044,7 +1044,7 @@ static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 		Memory::Write_U32(width, widthAddr);
 	if (Memory::IsValidAddress(heightAddr))
 		Memory::Write_U32(height, heightAddr);
-	return hleLogSuccessI(Log::SCEDISPLAY, 0);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayIsVsync() {
@@ -1052,19 +1052,19 @@ static u32 sceDisplayIsVsync() {
 	u64 start = DisplayFrameStartTicks() + msToCycles(vsyncStartMs);
 	u64 end = DisplayFrameStartTicks() + msToCycles(vsyncEndMs);
 
-	return hleLogSuccessI(Log::SCEDISPLAY, now >= start && now <= end ? 1 : 0);
+	return hleLogSuccessI(Log::sceDisplay, now >= start && now <= end ? 1 : 0);
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
 	if (Memory::IsValidAddress(resumeModeAddr))
 		Memory::Write_U32(resumeMode, resumeModeAddr);
-	return hleLogSuccessI(Log::SCEDISPLAY, 0);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplaySetResumeMode(u32 rMode) {
 	// Not sure what this does, seems to do nothing in tests and accept all values.
 	resumeMode = rMode;
-	return hleReportError(Log::SCEDISPLAY, 0, "unsupported");
+	return hleReportError(Log::sceDisplay, 0, "unsupported");
 }
 
 static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
@@ -1077,19 +1077,19 @@ static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
 	if (Memory::IsValidAddress(otherAddr)) {
 		Memory::Write_U32(0, otherAddr);
 	}
-	return hleLogWarning(Log::SCEDISPLAY, 0);
+	return hleLogWarning(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplaySetBrightness(int level, int other) {
 	// Note: Only usable in kernel mode.
 	brightnessLevel = level;
-	return hleLogWarning(Log::SCEDISPLAY, 0);
+	return hleLogWarning(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplaySetHoldMode(u32 hMode) {
 	// Not sure what this does, seems to do nothing in tests and accept all values.
 	holdMode = hMode;
-	return hleReportError(Log::SCEDISPLAY, 0, "unsupported");
+	return hleReportError(Log::sceDisplay, 0, "unsupported");
 }
 
 const HLEFunction sceDisplay[] = {

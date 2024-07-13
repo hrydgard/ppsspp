@@ -1329,7 +1329,7 @@ skip:
 
 		FILE *file = File::OpenCFile(filename, "wt");
 		if (!file) {
-			WARN_LOG(Log::LOADER, "Could not store hash map: %s", filename.c_str());
+			WARN_LOG(Log::Loader, "Could not store hash map: %s", filename.c_str());
 			return;
 		}
 
@@ -1337,7 +1337,7 @@ skip:
 			const HashMapFunc &mf = *it;
 			if (!mf.hardcoded) {
 				if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
-					WARN_LOG(Log::LOADER, "Could not store hash map: %s", filename.c_str());
+					WARN_LOG(Log::Loader, "Could not store hash map: %s", filename.c_str());
 					break;
 				}
 			}
@@ -1386,7 +1386,7 @@ skip:
 	void LoadHashMap(const Path &filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
-			WARN_LOG(Log::LOADER, "Could not load hash map: %s", filename.c_str());
+			WARN_LOG(Log::Loader, "Could not load hash map: %s", filename.c_str());
 			return;
 		}
 		hashmapFileName = filename;
@@ -1397,7 +1397,7 @@ skip:
 			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
 				char temp[1024];
 				if (!fgets(temp, 1024, file)) {
-					WARN_LOG(Log::LOADER, "Could not read from hash map: %s", filename.c_str());
+					WARN_LOG(Log::Loader, "Could not read from hash map: %s", filename.c_str());
 				}
 				continue;
 			}

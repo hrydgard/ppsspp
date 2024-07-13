@@ -107,7 +107,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	listing->clear();
 
-	// INFO_LOG(Log::SYSTEM, "Zip: Listing '%s'", orig_path);
+	// INFO_LOG(Log::System, "Zip: Listing '%s'", orig_path);
 
 	listing->reserve(directories.size() + files.size());
 	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
@@ -120,7 +120,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
-		// INFO_LOG(Log::SYSTEM, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::System, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -139,7 +139,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 				continue;
 			}
 		}
-		// INFO_LOG(Log::SYSTEM, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::System, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 

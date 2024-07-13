@@ -254,7 +254,7 @@ void EmuScreen::bootGame(const Path &filename) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
 				errorMessage_ = error_string;
-				ERROR_LOG(Log::BOOT, "isIniting bootGame error: %s", errorMessage_.c_str());
+				ERROR_LOG(Log::Boot, "isIniting bootGame error: %s", errorMessage_.c_str());
 				return;
 			}
 			bootComplete();
@@ -283,7 +283,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		if (!File::Exists(filename / INDEX_FILENAME)) {
 			g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
 		} else {
-			INFO_LOG(Log::LOADER, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
+			INFO_LOG(Log::Loader, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
 		}
 	}
 
@@ -348,7 +348,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		bootPending_ = false;
 		invalid_ = true;
 		errorMessage_ = error_string;
-		ERROR_LOG(Log::BOOT, "InitStart bootGame error: %s", errorMessage_.c_str());
+		ERROR_LOG(Log::Boot, "InitStart bootGame error: %s", errorMessage_.c_str());
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects) {
@@ -381,7 +381,7 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::BOOT_DONE);
 	System_Notify(SystemNotification::DISASSEMBLY);
 
-	NOTICE_LOG(Log::BOOT, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
+	NOTICE_LOG(Log::Boot, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
 	if (!Achievements::HardcoreModeActive()) {
 		// Don't auto-load savestates in hardcore mode.
 		autoLoad();
@@ -531,7 +531,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
-			ERROR_LOG(Log::LOADER, "Error resetting: %s", resetError.c_str());
+			ERROR_LOG(Log::Loader, "Error resetting: %s", resetError.c_str());
 			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			return;
@@ -539,7 +539,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
 		// TODO: Ignore or not if it's the same game that's already running?
 		if (gamePath_ == Path(value)) {
-			WARN_LOG(Log::LOADER, "Game already running, ignoring");
+			WARN_LOG(Log::Loader, "Game already running, ignoring");
 			return;
 		}
 		const char *ext = strrchr(value, '.');
@@ -1275,7 +1275,7 @@ bool EmuScreen::checkPowerDown() {
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
 		}
-		INFO_LOG(Log::SYSTEM, "SELF-POWERDOWN!");
+		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
 		invalid_ = true;
@@ -1414,7 +1414,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	} else if (PSP_CoreParameter().frozen) {
 		std::string errorString;
 		if (CChunkFileReader::ERROR_NONE != SaveState::LoadFromRam(freezeState_, &errorString)) {
-			ERROR_LOG(Log::SAVESTATE, "Failed to load freeze state (%s). Unfreezing.", errorString.c_str());
+			ERROR_LOG(Log::SaveState, "Failed to load freeze state (%s). Unfreezing.", errorString.c_str());
 			PSP_CoreParameter().frozen = false;
 		}
 	}

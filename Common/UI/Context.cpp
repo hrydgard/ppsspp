@@ -59,7 +59,7 @@ void UIContext::BeginFrame() {
 				// Load the smaller ascii font only, like on Android. For debug ui etc.
 				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
 				if (!fontTexture_) {
-					WARN_LOG(Log::SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+					WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
 				}
 			}
 		}

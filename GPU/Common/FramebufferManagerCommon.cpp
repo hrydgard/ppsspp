@@ -446,7 +446,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		// These are prioritized over normal VFBs matches, to ensure things work even if the higher-address one
 		// is created first. Only enabled under compat flag.
 		vfb = large_offset_vfb;
-		WARN_LOG_REPORT_ONCE(tokimeki, Log::FRAMEBUF, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
+		WARN_LOG_REPORT_ONCE(tokimeki, Log::FrameBuf, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
 		gstate_c.SetCurRTOffset(0, y_offset);
 		vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
 		drawing_height += y_offset;
@@ -552,7 +552,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		CopyToColorFromOverlappingFramebuffers(vfb);
 		SetColorUpdated(vfb, skipDrawReason);
 
-		INFO_LOG(Log::FRAMEBUF, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
+		INFO_LOG(Log::FrameBuf, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
 
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -572,7 +572,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
-		DEBUG_LOG(Log::FRAMEBUF, "Switching render target to FBO for %08x: %d x %d x %d ", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
+		DEBUG_LOG(Log::FrameBuf, "Switching render target to FBO for %08x: %d x %d x %d ", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
 		vfb->usageFlags |= FB_USAGE_RENDER_COLOR;
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -1174,7 +1174,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 				DrawPixels(vfb, 0, 0, Memory::GetPointerUnchecked(addr), fmt, vfb->fb_stride, vfb->width, vfb->height, RASTER_COLOR, "UpdateFromMemory_DrawPixels");
 				SetColorUpdated(vfb, gstate_c.skipDrawReason);
 			} else {
-				INFO_LOG(Log::FRAMEBUF, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
+				INFO_LOG(Log::FrameBuf, "Invalidating FBO for %08x (%dx%d %s)", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1554,9 +1554,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	if (displayFramebufPtr_ == 0) {
 		if (GetUIState() != UISTATE_PAUSEMENU) {
 			if (Core_IsStepping())
-				VERBOSE_LOG(Log::FRAMEBUF, "Display disabled, displaying only black");
+				VERBOSE_LOG(Log::FrameBuf, "Display disabled, displaying only black");
 			else
-				DEBUG_LOG(Log::FRAMEBUF, "Display disabled, displaying only black");
+				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
 		}
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
@@ -1609,7 +1609,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			INFO_LOG_REPORT_ONCE(displayoffset, Log::FRAMEBUF, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			INFO_LOG_REPORT_ONCE(displayoffset, Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
 		}
 	}
 
@@ -1624,7 +1624,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
 			return;
 		} else {
-			DEBUG_LOG(Log::FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
+			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
 			// No framebuffer to display! Clear to black.
 			if (useBufferedRendering_) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
@@ -1651,9 +1651,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	if (vfb->fbo) {
 		if (GetUIState() != UISTATE_PAUSEMENU) {
 			if (Core_IsStepping())
-				VERBOSE_LOG(Log::FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+				VERBOSE_LOG(Log::FrameBuf, "Displaying FBO %08x", vfb->fb_address);
 			else
-				DEBUG_LOG(Log::FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+				DEBUG_LOG(Log::FrameBuf, "Displaying FBO %08x", vfb->fb_address);
 		}
 
 		float u0 = offsetX / (float)vfb->bufferWidth;
@@ -1694,7 +1694,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 	} else if (useBufferedRendering_) {
-		WARN_LOG(Log::FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
+		WARN_LOG(Log::FrameBuf, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
 
 	// This may get called mid-draw if the game uses an immediate flip.
@@ -1727,7 +1727,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
-				INFO_LOG(Log::FRAMEBUF, "Decimating FBO for %08x (%ix%i %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
+				INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%ix%i %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1749,7 +1749,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(Log::FRAMEBUF, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
+			INFO_LOG(Log::FrameBuf, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
@@ -1824,9 +1824,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	bool creating = old.bufferWidth == 0;
 	if (creating) {
-		WARN_LOG(Log::FRAMEBUF, "Creating %s FBO at %08x/%08x stride=%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+		WARN_LOG(Log::FrameBuf, "Creating %s FBO at %08x/%08x stride=%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
 	} else {
-		WARN_LOG(Log::FRAMEBUF, "Resizing %s FBO at %08x/%08x stride=%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
+		WARN_LOG(Log::FrameBuf, "Resizing %s FBO at %08x/%08x stride=%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
 	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
@@ -1861,7 +1861,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->z_address, vfb->z_stride * vfb->height * sizeof(uint16_t), buf, len);
 	}
 	if (old.fbo) {
-		INFO_LOG(Log::FRAMEBUF, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->fb_format));
+		INFO_LOG(Log::FrameBuf, "Resizing FBO for %08x : %dx%dx%s", vfb->fb_address, w, h, GeBufferFormatToString(vfb->fb_format));
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			if (!skipCopy) {
@@ -1880,7 +1880,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	currentRenderVfb_ = vfb;
 
 	if (!vfb->fbo) {
-		ERROR_LOG(Log::FRAMEBUF, "Error creating FBO during resize! %dx%d", vfb->renderWidth, vfb->renderHeight);
+		ERROR_LOG(Log::FrameBuf, "Error creating FBO during resize! %dx%d", vfb->renderWidth, vfb->renderHeight);
 		vfb->last_frame_failed = gpuStats.numFlips;
 	}
 }
@@ -2453,7 +2453,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		// We always create a color-only framebuffer here - readbacks of depth convert to color while translating the values.
 		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, false, name });
 		if (!nvfb->fbo) {
-			ERROR_LOG(Log::FRAMEBUF, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
+			ERROR_LOG(Log::FrameBuf, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			delete nvfb;
 			return nullptr;
 		}
@@ -2847,7 +2847,7 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	prevPrevDisplayFramebuf_ = nullptr;
 
 	for (VirtualFramebuffer *vfb : vfbs_) {
-		INFO_LOG(Log::FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
+		INFO_LOG(Log::FrameBuf, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();

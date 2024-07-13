@@ -653,7 +653,7 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 		fclose(fp);
 		return true;
 	} else {
-		ERROR_LOG(Log::SYSTEM, "Texture PNG encode failed.");
+		ERROR_LOG(Log::System, "Texture PNG encode failed.");
 		fclose(fp);
 		remove(filename.c_str());
 		return false;

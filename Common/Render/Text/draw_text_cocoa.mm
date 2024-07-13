@@ -125,7 +125,7 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
-		// INFO_LOG(Log::SYSTEM, "Measuring %.*s", (int)str.length(), str.data());
+		// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
 
 		auto iter = fontMap_.find(fontHash_);
 		NSDictionary *attributes = nil;
@@ -174,7 +174,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		return false;
 	}
 
-	// INFO_LOG(Log::SYSTEM, "Rasterizing %.*s", (int)str.length(), str.data());
+	// INFO_LOG(Log::System, "Rasterizing %.*s", (int)str.length(), str.data());
 
 	NSString* string = [[NSString alloc] initWithBytes:str.data() length:str.length() encoding: NSUTF8StringEncoding];
 

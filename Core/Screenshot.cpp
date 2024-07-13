@@ -92,7 +92,7 @@ static bool WriteScreenshotToJPEG(const Path &filename, int width, int height, i
 	}
 
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(Log::SYSTEM, "Screenshot file write failed.");
+		ERROR_LOG(Log::System, "Screenshot file write failed.");
 	}
 
 	dst_image.deinit();
@@ -337,7 +337,7 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
 		if (!gpuDebug) {
-			ERROR_LOG(Log::SYSTEM, "Can't take screenshots when GPU not running");
+			ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
 			return false;
 		}
 		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);

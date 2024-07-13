@@ -19,7 +19,7 @@ bool WaveFileWriter::Start(const Path &filename, unsigned int HLESampleRate)
 {
 	// Check if the file is already open
 	if (file) {
-		ERROR_LOG(Log::SYSTEM, "The file %s was already open, the file header will not be written.", filename.c_str());
+		ERROR_LOG(Log::System, "The file %s was already open, the file header will not be written.", filename.c_str());
 		return false;
 	}
 

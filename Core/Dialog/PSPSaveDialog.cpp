@@ -95,7 +95,7 @@ int PSPSaveDialog::Init(int paramAddr)
 {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "A save request is already running, not starting a new one");
+		ERROR_LOG_REPORT(Log::sceUtility, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -107,7 +107,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different save request format
 	if (size != SAVEDATA_DIALOG_SIZE_V1 && size != SAVEDATA_DIALOG_SIZE_V2 && size != SAVEDATA_DIALOG_SIZE_V3) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "sceUtilitySavedataInitStart: invalid size %d", size);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: invalid size %d", size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	Memory::Memcpy(&request, requestAddr, size);
@@ -119,8 +119,8 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	const u32 mode = (u32)param.GetPspParam()->mode;
 	const char *modeName = mode < ARRAY_SIZE(utilitySavedataTypeNames) ? utilitySavedataTypeNames[mode] : "UNKNOWN";
-	INFO_LOG(Log::SCEUTILITY,"sceUtilitySavedataInitStart(%08x) - %s (%d)", paramAddr, modeName, mode);
-	INFO_LOG(Log::SCEUTILITY,"sceUtilitySavedataInitStart(%08x) : Game key (hex): %s", paramAddr, param.GetKey(param.GetPspParam()).c_str());
+	INFO_LOG(Log::sceUtility,"sceUtilitySavedataInitStart(%08x) - %s (%d)", paramAddr, modeName, mode);
+	INFO_LOG(Log::sceUtility,"sceUtilitySavedataInitStart(%08x) : Game key (hex): %s", paramAddr, param.GetKey(param.GetPspParam()).c_str());
 
 	yesnoChoice = 1;
 	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
@@ -153,7 +153,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		currentSelectedSave = param.GetLastEmptySave();
 		break;
 	default:
-		WARN_LOG(Log::SCEUTILITY, "Unknown save list focus option: %d", param.GetPspParam()->focus);
+		WARN_LOG(Log::sceUtility, "Unknown save list focus option: %d", param.GetPspParam()->focus);
 		currentSelectedSave = 0;
 		break;
 	}
@@ -164,7 +164,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
-			DEBUG_LOG(Log::SCEUTILITY, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if (param.GetFileInfo(0).size != 0) {
 				if (param.GetFileInfo(0).broken) {
 					param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
@@ -176,20 +176,20 @@ int PSPSaveDialog::Init(int paramAddr)
 				display = DS_LOAD_NODATA;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-			DEBUG_LOG(Log::SCEUTILITY, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			// Is this necessary?
 			// currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
-			DEBUG_LOG(Log::SCEUTILITY, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_LOAD_NODATA;
 			else
 				display = DS_LOAD_LIST_CHOICE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
-			DEBUG_LOG(Log::SCEUTILITY, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if (param.GetFileInfo(0).size != 0)
 			{
 				yesnoChoice = 0;
@@ -199,17 +199,17 @@ int PSPSaveDialog::Init(int paramAddr)
 				display = DS_SAVE_CONFIRM;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-			DEBUG_LOG(Log::SCEUTILITY, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			// Is this necessary?
 			// currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
-			DEBUG_LOG(Log::SCEUTILITY, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_SAVE_LIST_CHOICE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE:
-			DEBUG_LOG(Log::SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
 			else
@@ -232,7 +232,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
-			DEBUG_LOG(Log::SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if (param.GetFileInfo(0).size != 0) {
 				yesnoChoice = 0;
 				display = DS_DELETE_CONFIRM;
@@ -241,12 +241,12 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
-			DEBUG_LOG(Log::SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			break;
 
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE: 
-			DEBUG_LOG(Log::SCEUTILITY, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			DEBUG_LOG(Log::sceUtility, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if (param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
 			else
@@ -254,7 +254,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 		default:
 		{
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG_REPORT(Log::sceUtility, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->common.result = 0;
 			ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 			display = DS_NONE;
@@ -274,37 +274,37 @@ int PSPSaveDialog::Init(int paramAddr)
 	UpdateButtons();
 	StartFade(true);
 
-	/*INFO_LOG(Log::SCEUTILITY,"Dump Param :");
-	INFO_LOG(Log::SCEUTILITY,"size : %d",param.GetPspParam()->common.size);
-	INFO_LOG(Log::SCEUTILITY,"language : %d",param.GetPspParam()->common.language);
-	INFO_LOG(Log::SCEUTILITY,"buttonSwap : %d",param.GetPspParam()->common.buttonSwap);
-	INFO_LOG(Log::SCEUTILITY,"result : %d",param.GetPspParam()->common.result);
-	INFO_LOG(Log::SCEUTILITY,"mode : %d",param.GetPspParam()->mode);
-	INFO_LOG(Log::SCEUTILITY,"bind : %d",param.GetPspParam()->bind);
-	INFO_LOG(Log::SCEUTILITY,"overwriteMode : %d",param.GetPspParam()->overwriteMode);
-	INFO_LOG(Log::SCEUTILITY,"gameName : %s",param.GetGameName(param.GetPspParam()).c_str());
-	INFO_LOG(Log::SCEUTILITY,"saveName : %s",param.GetPspParam()->saveName);
-	INFO_LOG(Log::SCEUTILITY,"saveNameList : %08x",*((unsigned int*)&param.GetPspParam()->saveNameList));
-	INFO_LOG(Log::SCEUTILITY,"fileName : %s",param.GetPspParam()->fileName);
-	INFO_LOG(Log::SCEUTILITY,"dataBuf : %08x",*((unsigned int*)&param.GetPspParam()->dataBuf));
-	INFO_LOG(Log::SCEUTILITY,"dataBufSize : %u",param.GetPspParam()->dataBufSize);
-	INFO_LOG(Log::SCEUTILITY,"dataSize : %u",param.GetPspParam()->dataSize);
+	/*INFO_LOG(Log::sceUtility,"Dump Param :");
+	INFO_LOG(Log::sceUtility,"size : %d",param.GetPspParam()->common.size);
+	INFO_LOG(Log::sceUtility,"language : %d",param.GetPspParam()->common.language);
+	INFO_LOG(Log::sceUtility,"buttonSwap : %d",param.GetPspParam()->common.buttonSwap);
+	INFO_LOG(Log::sceUtility,"result : %d",param.GetPspParam()->common.result);
+	INFO_LOG(Log::sceUtility,"mode : %d",param.GetPspParam()->mode);
+	INFO_LOG(Log::sceUtility,"bind : %d",param.GetPspParam()->bind);
+	INFO_LOG(Log::sceUtility,"overwriteMode : %d",param.GetPspParam()->overwriteMode);
+	INFO_LOG(Log::sceUtility,"gameName : %s",param.GetGameName(param.GetPspParam()).c_str());
+	INFO_LOG(Log::sceUtility,"saveName : %s",param.GetPspParam()->saveName);
+	INFO_LOG(Log::sceUtility,"saveNameList : %08x",*((unsigned int*)&param.GetPspParam()->saveNameList));
+	INFO_LOG(Log::sceUtility,"fileName : %s",param.GetPspParam()->fileName);
+	INFO_LOG(Log::sceUtility,"dataBuf : %08x",*((unsigned int*)&param.GetPspParam()->dataBuf));
+	INFO_LOG(Log::sceUtility,"dataBufSize : %u",param.GetPspParam()->dataBufSize);
+	INFO_LOG(Log::sceUtility,"dataSize : %u",param.GetPspParam()->dataSize);
 
-	INFO_LOG(Log::SCEUTILITY,"sfo title : %s",param.GetPspParam()->sfoParam.title);
-	INFO_LOG(Log::SCEUTILITY,"sfo savedataTitle : %s",param.GetPspParam()->sfoParam.savedataTitle);
-	INFO_LOG(Log::SCEUTILITY,"sfo detail : %s",param.GetPspParam()->sfoParam.detail);
+	INFO_LOG(Log::sceUtility,"sfo title : %s",param.GetPspParam()->sfoParam.title);
+	INFO_LOG(Log::sceUtility,"sfo savedataTitle : %s",param.GetPspParam()->sfoParam.savedataTitle);
+	INFO_LOG(Log::sceUtility,"sfo detail : %s",param.GetPspParam()->sfoParam.detail);
 
-	INFO_LOG(Log::SCEUTILITY,"icon0 data : %08x",*((unsigned int*)&param.GetPspParam()->icon0FileData.buf));
-	INFO_LOG(Log::SCEUTILITY,"icon0 size : %u",param.GetPspParam()->icon0FileData.bufSize);
+	INFO_LOG(Log::sceUtility,"icon0 data : %08x",*((unsigned int*)&param.GetPspParam()->icon0FileData.buf));
+	INFO_LOG(Log::sceUtility,"icon0 size : %u",param.GetPspParam()->icon0FileData.bufSize);
 
-	INFO_LOG(Log::SCEUTILITY,"icon1 data : %08x",*((unsigned int*)&param.GetPspParam()->icon1FileData.buf));
-	INFO_LOG(Log::SCEUTILITY,"icon1 size : %u",param.GetPspParam()->icon1FileData.bufSize);
+	INFO_LOG(Log::sceUtility,"icon1 data : %08x",*((unsigned int*)&param.GetPspParam()->icon1FileData.buf));
+	INFO_LOG(Log::sceUtility,"icon1 size : %u",param.GetPspParam()->icon1FileData.bufSize);
 
-	INFO_LOG(Log::SCEUTILITY,"pic1 data : %08x",*((unsigned int*)&param.GetPspParam()->pic1FileData.buf));
-	INFO_LOG(Log::SCEUTILITY,"pic1 size : %u",param.GetPspParam()->pic1FileData.bufSize);
+	INFO_LOG(Log::sceUtility,"pic1 data : %08x",*((unsigned int*)&param.GetPspParam()->pic1FileData.buf));
+	INFO_LOG(Log::sceUtility,"pic1 size : %u",param.GetPspParam()->pic1FileData.bufSize);
 
-	INFO_LOG(Log::SCEUTILITY,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
-	INFO_LOG(Log::SCEUTILITY,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
+	INFO_LOG(Log::sceUtility,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
+	INFO_LOG(Log::sceUtility,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
 	return retval;
 }
 
@@ -1145,7 +1145,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-		DEBUG_LOG(Log::SCEUTILITY, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
+		DEBUG_LOG(Log::sceUtility, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
 		if (param.Delete(param.GetPspParam(), param.GetSelectedSave())) {
 			result = 0;
 		} else {
@@ -1210,7 +1210,7 @@ static void DoExecuteIOAction(PSPSaveDialog *dialog) {
 
 void PSPSaveDialog::StartIOThread() {
 	if (ioThread) {
-		WARN_LOG_REPORT(Log::SCEUTILITY, "Starting a save io thread when one already pending, uh oh.");
+		WARN_LOG_REPORT(Log::sceUtility, "Starting a save io thread when one already pending, uh oh.");
 		JoinIOThread();
 	}
 

@@ -108,7 +108,7 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 	case CoreLifecycle::STOPPING:
 	case CoreLifecycle::MEMORY_REINITING:
 		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::SYSTEM, "Waiting for debugger to complete on shutdown");
+			DEBUG_LOG(Log::System, "Waiting for debugger to complete on shutdown");
 		}
 		lifecycleLock.lock();
 		break;
@@ -118,7 +118,7 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 	case CoreLifecycle::MEMORY_REINITED:
 		lifecycleLock.unlock();
 		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::SYSTEM, "Debugger ready for shutdown");
+			DEBUG_LOG(Log::System, "Debugger ready for shutdown");
 		}
 		break;
 	}

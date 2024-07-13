@@ -219,8 +219,8 @@ static u32 sceAacInit(u32 id)
 	}
 
 	AuCtx *aac = new AuCtx();
-	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
-	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
+	aac->startPos = Memory::Read_U64(id);				// AUDIO stream start position.
+	aac->endPos = Memory::Read_U32(id + 8);				// AUDIO stream end position.
 	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
 	aac->AuBufSize = Memory::Read_U32(id + 20);         // Input AAC data buffer size.
 	aac->PCMBuf = Memory::Read_U32(id + 24);            // Output PCM data buffer.

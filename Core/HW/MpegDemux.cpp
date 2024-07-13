@@ -237,7 +237,7 @@ bool MpegDemux::demux(int audioChannel)
 			break;
 		}
 		case PRIVATE_STREAM_1: {
-			// Audio stream
+			// AUDIO stream
 			int length = read16();
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;

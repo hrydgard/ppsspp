@@ -356,7 +356,7 @@ void OutputDebugStringUTF8(const char *p) {
 #else
 
 void OutputDebugStringUTF8(const char *p) {
-	INFO_LOG(Log::SYSTEM, "%s", p);
+	INFO_LOG(Log::System, "%s", p);
 }
 
 #endif

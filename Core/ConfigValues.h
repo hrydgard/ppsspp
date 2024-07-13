@@ -170,7 +170,7 @@ enum class DebugOverlay : int {
 	FRAME_PROFILE,
 #endif
 	CONTROL,
-	AUDIO,
+	Audio,
 	GPU_PROFILE,
 	GPU_ALLOCATOR,
 	FRAMEBUFFER_LIST,

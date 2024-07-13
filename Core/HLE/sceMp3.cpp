@@ -272,8 +272,8 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 
 	AuCtx *Au = new AuCtx;
 	if (mp3Addr) {
-		Au->startPos = Memory::Read_U64(mp3Addr); // Audio stream start position.
-		Au->endPos = Memory::Read_U64(mp3Addr + 8); // Audio stream end position.
+		Au->startPos = Memory::Read_U64(mp3Addr); // AUDIO stream start position.
+		Au->endPos = Memory::Read_U64(mp3Addr + 8); // AUDIO stream end position.
 		Au->AuBuf = Memory::Read_U32(mp3Addr + 16); // Input Au data buffer.
 		Au->AuBufSize = Memory::Read_U32(mp3Addr + 20); // Input Au data buffer size.
 		Au->PCMBuf = Memory::Read_U32(mp3Addr + 24); // Output PCM data buffer.

@@ -53,7 +53,7 @@
 #include <signal.h>
 #include <string.h>
 
-// Audio
+// AUDIO
 #define AUDIO_FREQ 44100
 #define AUDIO_CHANNELS 2
 #define AUDIO_SAMPLES 2048
@@ -517,9 +517,9 @@ MainUI::MainUI(QWidget *parent)
 }
 
 MainUI::~MainUI() {
-	INFO_LOG(Log::SYSTEM, "MainUI::Destructor");
+	INFO_LOG(Log::System, "MainUI::Destructor");
 	if (emuThreadState != (int)EmuThreadState::DISABLED) {
-		INFO_LOG(Log::SYSTEM, "EmuThreadStop");
+		INFO_LOG(Log::System, "EmuThreadStop");
 		EmuThreadStop();
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
@@ -684,7 +684,7 @@ bool MainUI::event(QEvent *e) {
 
 void MainUI::initializeGL() {
 	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL) {
-		INFO_LOG(Log::SYSTEM, "Only GL supported under Qt - switching.");
+		INFO_LOG(Log::System, "Only GL supported under Qt - switching.");
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 	}
 
@@ -706,12 +706,12 @@ void MainUI::initializeGL() {
 #endif
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
-		INFO_LOG(Log::SYSTEM, "Initializing GL graphics context");
+		INFO_LOG(Log::System, "Initializing GL graphics context");
 		graphicsContext = new QtGLGraphicsContext();
-		INFO_LOG(Log::SYSTEM, "Using thread, starting emu thread");
+		INFO_LOG(Log::System, "Using thread, starting emu thread");
 		EmuThreadStart();
 	} else {
-		INFO_LOG(Log::SYSTEM, "Not using thread, backend=%d", (int)g_Config.iGPUBackend);
+		INFO_LOG(Log::System, "Not using thread, backend=%d", (int)g_Config.iGPUBackend);
 	}
 	graphicsContext->ThreadStart();
 }
@@ -864,7 +864,7 @@ int main(int argc, char *argv[])
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 
 	int ret = mainInternal(a);
-	INFO_LOG(Log::SYSTEM, "Left mainInternal here.");
+	INFO_LOG(Log::System, "Left mainInternal here.");
 
 #ifdef SDL
 	if (audioDev > 0) {

@@ -331,13 +331,13 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 
 	// Sanity check, preventing full delete of savedata/ in MGS PW demo (!)
 	if (!strlen(param->gameName) && param->mode != SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
-		ERROR_LOG(Log::SCEUTILITY, "Bad param with gameName empty - cannot delete save directory");
+		ERROR_LOG(Log::sceUtility, "Bad param with gameName empty - cannot delete save directory");
 		return false;
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(saveId));
 	if (dirPath.size() == 0) {
-		ERROR_LOG(Log::SCEUTILITY, "GetSaveFilePath returned empty - cannot delete save directory");
+		ERROR_LOG(Log::sceUtility, "GetSaveFilePath returned empty - cannot delete save directory");
 		return false;
 	}
 
@@ -377,7 +377,7 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	}
 
 	if (!subFolder.size()) {
-		ERROR_LOG(Log::SCEUTILITY, "Bad subfolder, ignoring delete of %s", filePath.c_str());
+		ERROR_LOG(Log::sceUtility, "Bad subfolder, ignoring delete of %s", filePath.c_str());
 		return 0;
 	}
 
@@ -425,12 +425,12 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
 	if (param->dataSize > param->dataBufSize) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	auto validateSize = [](const PspUtilitySavedataFileData &data) {
 		if (data.buf.IsValid() && data.bufSize < data.size) {
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
+			ERROR_LOG_REPORT(Log::sceUtility, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
 			return false;
 		}
 		return true;
@@ -440,14 +440,14 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	}
 
 	if (param->secureVersion > 3) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 	} else if (param->secureVersion != 0) {
 		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
+			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG(Log::SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		WARN_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -485,7 +485,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (hasKey ? param->key : 0)) != 0) {
 			auto err = GetI18NCategory(I18NCat::ERRORS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
-			ERROR_LOG(Log::SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
+			ERROR_LOG(Log::sceUtility,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
 			cryptedData = 0;
 		}
@@ -575,14 +575,14 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			saveSize = cryptedSize;
 		}
 
-		INFO_LOG(Log::SCEUTILITY,"Saving file with size %u in %s",saveSize,filePath.c_str());
+		INFO_LOG(Log::sceUtility,"Saving file with size %u in %s",saveSize,filePath.c_str());
 
 		// copy back save name in request
 		strncpy(param->saveName, saveDirName.c_str(), 20);
 
 		if (!fileName.empty()) {
 			if (!WritePSPFile(filePath, data_, saveSize)) {
-				ERROR_LOG(Log::SCEUTILITY, "Error writing file %s", filePath.c_str());
+				ERROR_LOG(Log::sceUtility, "Error writing file %s", filePath.c_str());
 				delete[] cryptedData;
 				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 			}
@@ -668,14 +668,14 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 
 int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string &dirPath, bool secureMode) {
 	if (param->secureVersion > 3) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (param->secureVersion != 0) {
 		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "Savedata version with missing key: %d", param->secureVersion);
+			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 		}
-		WARN_LOG_REPORT(Log::SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
+		WARN_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 	}
 
 	std::string filename = GetFileName(param);
@@ -685,11 +685,11 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 		return 0;
 
 	s64 readSize;
-	INFO_LOG(Log::SCEUTILITY, "Loading file with size %u in %s", param->dataBufSize, filePath.c_str());
+	INFO_LOG(Log::sceUtility, "Loading file with size %u in %s", param->dataBufSize, filePath.c_str());
 	u8 *saveData = nullptr;
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
-		ERROR_LOG(Log::SCEUTILITY,"Error reading file %s",filePath.c_str());
+		ERROR_LOG(Log::sceUtility,"Error reading file %s",filePath.c_str());
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 	saveSize = (int)readSize;
@@ -769,7 +769,7 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 	if (decryptMode != prevCryptMode) {
 		if (prevCryptMode == 1 && param->key[0] == 0) {
 			// Backwards compat for a bug we used to have.
-			WARN_LOG(Log::SCEUTILITY, "Savedata loading with hashmode %d instead of detected %d", prevCryptMode, decryptMode);
+			WARN_LOG(Log::sceUtility, "Savedata loading with hashmode %d instead of detected %d", prevCryptMode, decryptMode);
 			decryptMode = prevCryptMode;
 
 			// Don't notify the user if we're not going to upgrade the save.
@@ -780,9 +780,9 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 			}
 		} else {
 			if (decryptMode == 5 && prevCryptMode == 3) {
-				WARN_LOG(Log::SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+				WARN_LOG(Log::sceUtility, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 			} else {
-				WARN_LOG_REPORT(Log::SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+				WARN_LOG_REPORT(Log::sceUtility, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 			}
 			if (g_Config.bSavedataUpgrade) {
 				decryptMode = prevCryptMode;
@@ -802,7 +802,7 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 	}
 	// TODO: Should return an error, but let's just try with a bad hash.
 	if (err != 0 && expectedHash != nullptr) {
-		WARN_LOG(Log::SCEUTILITY, "Incorrect hash on save data, likely corrupt");
+		WARN_LOG(Log::sceUtility, "Incorrect hash on save data, likely corrupt");
 		resetData(decryptMode);
 		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
 	}
@@ -1265,23 +1265,23 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	}
 
 	if (!param->fileList.IsValid()) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
+		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
 		// Should crash.
 		return -1;
 	}
 
 	auto &fileList = param->fileList;
 	if (fileList->secureEntries.IsValid() && fileList->maxSecureEntries > 99) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
+		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	if (fileList->normalEntries.IsValid() && fileList->maxNormalEntries > 8192) {
-		ERROR_LOG_REPORT(Log::SCEUTILITY, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
+		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	if (sceKernelGetCompiledSdkVersion() >= 0x02060000) {
 		if (fileList->systemEntries.IsValid() && fileList->maxSystemEntries > 5) {
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
+			ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
 			return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 		}
 	}
@@ -1290,7 +1290,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	bool dirPathExists = false;
 	auto files = pspFileSystem.GetDirListing(dirPath, &dirPathExists);
 	if (!dirPathExists) {
-		DEBUG_LOG(Log::SCEUTILITY, "SavedataParam::GetFilesList(): directory %s does not exist", dirPath.c_str());
+		DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): directory %s does not exist", dirPath.c_str());
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 	}
 
@@ -1324,7 +1324,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		}
 		// TODO: What are the exact rules?  It definitely skips lowercase, and allows FILE or FILE.EXT.
 		if (file->name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file->name.npos) {
-			DEBUG_LOG(Log::SCEUTILITY, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file->name.c_str());
+			DEBUG_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file->name.c_str());
 			continue;
 		}
 
@@ -1538,7 +1538,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 							std::string fileDataPath = savePath + it->name;
 							if (it->exists) {
 								SetFileInfo(realCount, *it, saveName);
-								DEBUG_LOG(Log::SCEUTILITY, "%s Exist", fileDataPath.c_str());
+								DEBUG_LOG(Log::sceUtility, "%s Exist", fileDataPath.c_str());
 								++realCount;
 							} else {
 								if (listEmptyFile) {
@@ -1558,15 +1558,15 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				PSPFileInfo info = GetSaveInfo(fileDataDir);
 				if (info.exists) {
 					SetFileInfo(realCount, info, thisSaveName);
-					DEBUG_LOG(Log::SCEUTILITY, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
+					DEBUG_LOG(Log::sceUtility, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 					realCount++;
 				} else {
 					if (listEmptyFile) {
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
-						DEBUG_LOG(Log::SCEUTILITY, "Listing missing save data: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
+						DEBUG_LOG(Log::sceUtility, "Listing missing save data: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 						realCount++;
 					} else {
-						DEBUG_LOG(Log::SCEUTILITY, "Save data not found: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
+						DEBUG_LOG(Log::sceUtility, "Save data not found: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 					}
 				}
 			}
@@ -1586,14 +1586,14 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = GetSaveInfo(fileDataDir);
 		if (info.exists) {
 			SetFileInfo(0, info, GetSaveName(param));
-			DEBUG_LOG(Log::SCEUTILITY, "Save data exists: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
+			DEBUG_LOG(Log::sceUtility, "Save data exists: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			saveNameListDataCount = 1;
 		} else {
 			if (listEmptyFile) {
 				ClearFileInfo(saveDataList[0], GetSaveName(param));
-				DEBUG_LOG(Log::SCEUTILITY, "Listing missing save data: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
+				DEBUG_LOG(Log::sceUtility, "Listing missing save data: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			} else {
-				DEBUG_LOG(Log::SCEUTILITY, "Save data not found: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
+				DEBUG_LOG(Log::sceUtility, "Save data not found: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			}
 			saveNameListDataCount = 0;
 			return 0;
@@ -1958,7 +1958,7 @@ int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const 
 			return 5;
 		default:
 			// Well, it's not zero, so yes.
-			ERROR_LOG_REPORT(Log::SCEUTILITY, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
+			ERROR_LOG_REPORT(Log::sceUtility, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
 			return 1;
 		}
 	}

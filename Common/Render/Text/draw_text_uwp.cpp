@@ -106,9 +106,9 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 	// Load the Roboto font
 	hr = m_dwriteFactory->CreateFontFileReference(L"Content/Roboto-Condensed.ttf", nullptr, &m_fontFile);
-	if (FAILED(hr)) ERROR_LOG(Log::SYSTEM, "CreateFontFileReference failed");
+	if (FAILED(hr)) ERROR_LOG(Log::System, "CreateFontFileReference failed");
 	hr = m_dwriteFactory->CreateFontSetBuilder(&m_fontSetBuilder);
-	if (FAILED(hr)) ERROR_LOG(Log::SYSTEM, "CreateFontSetBuilder failed");
+	if (FAILED(hr)) ERROR_LOG(Log::System, "CreateFontSetBuilder failed");
 	hr = m_fontSetBuilder->AddFontFile(m_fontFile);
 	hr = m_fontSetBuilder->CreateFontSet(&m_fontSet);
 	hr = m_dwriteFactory->CreateFontCollectionFromFontSet(m_fontSet, &m_fontCollection);

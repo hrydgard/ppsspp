@@ -481,7 +481,7 @@ int Config::NextValidBackend() {
 	}
 
 	if (failed.count((GPUBackend)iGPUBackend)) {
-		ERROR_LOG(Log::LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
+		ERROR_LOG(Log::Loader, "Graphics backend failed for %d, trying another", iGPUBackend);
 
 #if !PPSSPP_PLATFORM(UWP)
 		if (!failed.count(GPUBackend::VULKAN) && VulkanMayBeAvailable()) {
@@ -506,7 +506,7 @@ int Config::NextValidBackend() {
 
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		sFailedGPUBackends += ",ALL";
-		ERROR_LOG(Log::LOADER, "All graphics backends failed");
+		ERROR_LOG(Log::Loader, "All graphics backends failed");
 #if PPSSPP_PLATFORM(ANDROID)
 		return (int)GPUBackend::OPENGL;
 #else
@@ -1096,7 +1096,7 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 bool Config::LoadAppendedConfig() {
 	IniFile iniFile;
 	if (!iniFile.Load(appendedConfigFileName_)) {
-		ERROR_LOG(Log::LOADER, "Failed to read appended config '%s'.", appendedConfigFileName_.c_str());
+		ERROR_LOG(Log::Loader, "Failed to read appended config '%s'.", appendedConfigFileName_.c_str());
 		return false;
 	}
 
@@ -1105,7 +1105,7 @@ bool Config::LoadAppendedConfig() {
 			setting.Get(section);
 	});
 
-	INFO_LOG(Log::LOADER, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
+	INFO_LOG(Log::Loader, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
 
 	Save("Loaded appended config"); // Let's prevent reset
 	return true;
@@ -1137,12 +1137,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	UpdateIniLocation(iniFileName, controllerIniFilename);
 
-	INFO_LOG(Log::LOADER, "Loading config: %s", iniFilename_.c_str());
+	INFO_LOG(Log::Loader, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
-		ERROR_LOG(Log::LOADER, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
+		ERROR_LOG(Log::Loader, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
 
@@ -1179,7 +1179,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Fix JIT setting if no longer available.
 	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
 		if (iCpuCore == (int)CPUCore::JIT || iCpuCore == (int)CPUCore::JIT_IR) {
-			WARN_LOG(Log::LOADER, "Forcing JIT off due to unavailablility");
+			WARN_LOG(Log::Loader, "Forcing JIT off due to unavailablility");
 			iCpuCore = (int)CPUCore::IR_INTERPRETER;
 		}
 	}
@@ -1275,7 +1275,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::ProgressBarMode::NONE, &DownloadCompletedCallback, "version", acceptMime);
 	}
 
-	INFO_LOG(Log::LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
+	INFO_LOG(Log::Loader, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
 	LoadStandardControllerIni();
@@ -1291,7 +1291,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	PostLoadCleanup(false);
 
-	INFO_LOG(Log::LOADER, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
+	INFO_LOG(Log::Loader, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
 
 bool Config::Save(const char *saveReason) {
@@ -1299,7 +1299,7 @@ bool Config::Save(const char *saveReason) {
 	if (!IsFirstInstance()) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
-		WARN_LOG(Log::LOADER, "Not saving config - secondary instances don't.");
+		WARN_LOG(Log::Loader, "Not saving config - secondary instances don't.");
 
 		// Don't want to retry or something.
 		return true;
@@ -1313,7 +1313,7 @@ bool Config::Save(const char *saveReason) {
 		CleanRecent();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
-			WARN_LOG(Log::LOADER, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
+			WARN_LOG(Log::Loader, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
 		}
 
 		// Need to do this somewhere...
@@ -1375,28 +1375,28 @@ bool Config::Save(const char *saveReason) {
 		playTimeTracker_.Save(playTime);
 
 		if (!iniFile.Save(iniFilename_)) {
-			ERROR_LOG(Log::LOADER, "Error saving config (%s) - can't write ini '%s'", saveReason, iniFilename_.c_str());
+			ERROR_LOG(Log::Loader, "Error saving config (%s) - can't write ini '%s'", saveReason, iniFilename_.c_str());
 			return false;
 		}
-		INFO_LOG(Log::LOADER, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
+		INFO_LOG(Log::Loader, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
 		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
 		{
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_)) {
-				ERROR_LOG(Log::LOADER, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
+				ERROR_LOG(Log::Loader, "Error saving controller config - can't read ini first '%s'", controllerIniFilename_.c_str());
 			}
 			KeyMap::SaveToIni(controllerIniFile);
 			if (!controllerIniFile.Save(controllerIniFilename_)) {
-				ERROR_LOG(Log::LOADER, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
+				ERROR_LOG(Log::Loader, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
 				return false;
 			}
-			INFO_LOG(Log::LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());
+			INFO_LOG(Log::Loader, "Controller config saved: %s", controllerIniFilename_.c_str());
 		}
 
 		PostSaveCleanup(false);
 	} else {
-		INFO_LOG(Log::LOADER, "Not saving config");
+		INFO_LOG(Log::Loader, "Not saving config");
 	}
 
 	return true;
@@ -1468,20 +1468,20 @@ void Config::NotifyUpdatedCpuCore() {
 
 void Config::DownloadCompletedCallback(http::Request &download) {
 	if (download.ResultCode() != 200) {
-		ERROR_LOG(Log::LOADER, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
+		ERROR_LOG(Log::Loader, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
 		return;
 	}
 	std::string data;
 	download.buffer().TakeAll(&data);
 	if (data.empty()) {
-		ERROR_LOG(Log::LOADER, "Version check: Empty data from server!");
+		ERROR_LOG(Log::Loader, "Version check: Empty data from server!");
 		return;
 	}
 
 	json::JsonReader reader(data.c_str(), data.size());
 	const json::JsonGet root = reader.root();
 	if (!root) {
-		ERROR_LOG(Log::LOADER, "Failed to parse json");
+		ERROR_LOG(Log::Loader, "Failed to parse json");
 		return;
 	}
 
@@ -1494,16 +1494,16 @@ void Config::DownloadCompletedCallback(http::Request &download) {
 	Version dismissed(g_Config.dismissedVersion);
 
 	if (!installed.IsValid()) {
-		ERROR_LOG(Log::LOADER, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
+		ERROR_LOG(Log::Loader, "Version check: Local version string invalid. Build problems? %s", PPSSPP_GIT_VERSION);
 		return;
 	}
 	if (!upgrade.IsValid()) {
-		ERROR_LOG(Log::LOADER, "Version check: Invalid server version: %s", version.c_str());
+		ERROR_LOG(Log::Loader, "Version check: Invalid server version: %s", version.c_str());
 		return;
 	}
 
 	if (installed >= upgrade) {
-		INFO_LOG(Log::LOADER, "Version check: Already up to date, erasing any upgrade message");
+		INFO_LOG(Log::Loader, "Version check: Already up to date, erasing any upgrade message");
 		g_Config.upgradeMessage.clear();
 		g_Config.upgradeVersion = upgrade.ToString();
 		g_Config.dismissedVersion.clear();
@@ -1560,7 +1560,7 @@ void Config::RemoveRecent(const std::string &file) {
 // The GUID part changes on each launch.
 static bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
-	INFO_LOG(Log::LOADER, "Original path: %s", path->c_str());
+	INFO_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
 
 	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";
@@ -1593,7 +1593,7 @@ void Config::CleanRecent() {
 		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		std::vector<std::string> cleanedRecent;
 		if (recentIsos.empty()) {
-			INFO_LOG(Log::LOADER, "No recents list found.");
+			INFO_LOG(Log::Loader, "No recents list found.");
 		}
 
 		for (size_t i = 0; i < recentIsos.size(); i++) {
@@ -1606,7 +1606,7 @@ void Config::CleanRecent() {
 				if (!exists) {
 					if (TryUpdateSavedPath(&path)) {
 						exists = File::Exists(path);
-						INFO_LOG(Log::LOADER, "Exists=%d when checking updated path: %s", exists, path.c_str());
+						INFO_LOG(Log::Loader, "Exists=%d when checking updated path: %s", exists, path.c_str());
 					}
 				}
 				break;
@@ -1625,13 +1625,13 @@ void Config::CleanRecent() {
 					cleanedRecent.push_back(pathStr);
 				}
 			} else {
-				DEBUG_LOG(Log::LOADER, "Removed %s from recent. errno=%d", path.c_str(), errno);
+				DEBUG_LOG(Log::Loader, "Removed %s from recent. errno=%d", path.c_str(), errno);
 			}
 		}
 
 		double recentTime = time_now_d() - startTime;
 		if (recentTime > 0.1) {
-			INFO_LOG(Log::SYSTEM, "CleanRecent took %0.2f", recentTime);
+			INFO_LOG(Log::System, "CleanRecent took %0.2f", recentTime);
 		}
 		recentIsos = cleanedRecent;
 	});
@@ -1790,7 +1790,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	Path iniFileNameFull = getGameConfigFile(pGameId);
 
 	if (!hasGameConfig(pGameId)) {
-		DEBUG_LOG(Log::LOADER, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
+		DEBUG_LOG(Log::Loader, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
 
@@ -1805,7 +1805,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 		if (sscanf(it.second.c_str(), "%f", &value)) {
 			mPostShaderSetting[it.first] = value;
 		} else {
-			WARN_LOG(Log::LOADER, "Invalid float value string for param %s: '%s'", it.first.c_str(), it.second.c_str());
+			WARN_LOG(Log::Loader, "Invalid float value string for param %s: '%s'", it.first.c_str(), it.second.c_str());
 		}
 	}
 
@@ -1870,7 +1870,7 @@ void Config::unloadGameConfig() {
 void Config::LoadStandardControllerIni() {
 	IniFile controllerIniFile;
 	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(Log::LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
+		ERROR_LOG(Log::Loader, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
 		KeyMap::RestoreDefault();
 	} else {
 		// Continue anyway to initialize the config. It will just restore the defaults.
@@ -1934,7 +1934,7 @@ void PlayTimeTracker::Start(const std::string &gameId) {
 	if (gameId.empty()) {
 		return;
 	}
-	INFO_LOG(Log::SYSTEM, "GameTimeTracker::Start(%s)", gameId.c_str());
+	INFO_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
@@ -1957,7 +1957,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 		return;
 	}
 
-	INFO_LOG(Log::SYSTEM, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	INFO_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
@@ -1970,7 +1970,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 	}
 
 	// Shouldn't happen, ignore this case.
-	WARN_LOG(Log::SYSTEM, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+	WARN_LOG(Log::System, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
 }
 
 void PlayTimeTracker::Load(const Section *section) {

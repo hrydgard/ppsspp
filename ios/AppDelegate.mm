@@ -27,14 +27,14 @@
 
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
-			INFO_LOG(Log::SYSTEM, "ios audio session interruption beginning");
+			INFO_LOG(Log::System, "ios audio session interruption beginning");
 			if (g_Config.bEnableSound) {
 				iOSCoreAudioShutdown();
 			}
 			break;
 
 		case AVAudioSessionInterruptionTypeEnded:
-			INFO_LOG(Log::SYSTEM, "ios audio session interruption ending");
+			INFO_LOG(Log::System, "ios audio session interruption ending");
 			if (g_Config.bEnableSound) {
 				/*
 				 * Only try to reinit audio if in the foreground, otherwise
@@ -56,7 +56,7 @@
 // Registered in application:didFinishLaunchingWithOptions:
 // for AVAudioSessionMediaServicesWereResetNotification
 -(void) handleMediaServicesWereReset:(NSNotification *)notification {
-	INFO_LOG(Log::SYSTEM, "ios media services were reset - reinitializing audio");
+	INFO_LOG(Log::System, "ios media services were reset - reinitializing audio");
 
 	/*
 	 When media services were reset, Apple recommends:
