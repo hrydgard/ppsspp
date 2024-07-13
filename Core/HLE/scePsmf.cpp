@@ -758,22 +758,22 @@ static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
 static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 	if (!Memory::IsValidAddress(psmfStruct) || !Memory::IsValidAddress(psmfData)) {
 		// Crashes on a PSP.
-		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
+		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
 	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
 	if (psmf->magic != PSMF_MAGIC) {
 		delete psmf;
-		return hleLogError(ME, ERROR_PSMF_INVALID_PSMF, "invalid psmf data");
+		return hleLogError(Log::ME, ERROR_PSMF_INVALID_PSMF, "invalid psmf data");
 	}
 	// Note: devkit 00000000 supports only '0012'(0F), '0013'(1F), and '0014'(2F).  03000310+ supports '0015'(3F.)
 	if (psmf->version == 0) {
 		delete psmf;
-		return hleLogError(ME, ERROR_PSMF_BAD_VERSION, "invalid psmf version");
+		return hleLogError(Log::ME, ERROR_PSMF_BAD_VERSION, "invalid psmf version");
 	}
 	if (psmf->streamOffset == 0) {
 		delete psmf;
-		return hleLogError(ME, ERROR_PSMF_INVALID_VALUE, "invalid psmf version");
+		return hleLogError(Log::ME, ERROR_PSMF_INVALID_VALUE, "invalid psmf version");
 	}
 
 	// Note: this structure changes between versions.
@@ -794,21 +794,21 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 		delete iter->second;
 	psmfMap[data->headerOffset] = psmf;
 
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetNumberOfStreams(u32 psmfStruct) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	return hleLogSuccessI(ME, psmf->numStreams);
+	return hleLogSuccessI(Log::ME, psmf->numStreams);
 }
 
 static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 
 	int streamNum = 0;
@@ -818,103 +818,103 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 		}
 	}
 
-	return hleLogSuccessI(ME, streamNum);
+	return hleLogSuccessI(Log::ME, streamNum);
 }
 
 static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 	if (!psmf->setStreamWithType(psmfStruct, streamType, channel)) {
 		// An invalid type seems to make the stream number invalid, but retain the old type/channel.
 		psmf->setStreamNum(psmfStruct, ERROR_PSMF_INVALID_ID, false);
 		// Also, returns 0 even when no stream found.
-		return hleLogWarning(ME, 0, "no stream found");
+		return hleLogWarning(Log::ME, 0, "no stream found");
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 	if (!psmf->setStreamWithTypeNumber(psmfStruct, streamType, typeNum)) {
 		// Don't update stream, just bail out.
-		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "no stream found");
+		return hleLogWarning(Log::ME, ERROR_PSMF_INVALID_ID, "no stream found");
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 	if (!psmf->setStreamNum(psmfStruct, streamNum)) {
 		psmf->setStreamNum(psmfStruct, ERROR_PSMF_NOT_INITIALIZED);
-		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "bad stream id");
+		return hleLogWarning(Log::ME, ERROR_PSMF_INVALID_ID, "bad stream id");
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	} else if (!psmf->isValidCurrentStreamNumber()) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid stream selected");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid stream selected");
 	} else if (!Memory::IsValidRange(videoInfoAddr, 8)) {
 		// Would crash.
-		return hleLogError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
 	auto info = psmf->streamMap[psmf->currentStreamNum];
 	if (info->videoWidth_ == PsmfStream::INVALID) {
-		return hleLogError(ME, ERROR_PSMF_INVALID_ID, "not a video stream");
+		return hleLogError(Log::ME, ERROR_PSMF_INVALID_ID, "not a video stream");
 	}
 	Memory::Write_U32(info->videoWidth_ == PsmfStream::USE_PSMF ? psmf->videoWidth : info->videoWidth_, videoInfoAddr);
 	Memory::Write_U32(info->videoHeight_ == PsmfStream::USE_PSMF ? psmf->videoHeight : info->videoHeight_, videoInfoAddr + 4);
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	} else if (!psmf->isValidCurrentStreamNumber()) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid stream selected");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid stream selected");
 	} else if (!Memory::IsValidRange(audioInfoAddr, 8)) {
 		// Would crash.
-		return hleLogError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
 	auto info = psmf->streamMap[psmf->currentStreamNum];
 	if (info->audioChannels_ == PsmfStream::INVALID) {
-		return hleLogError(ME, ERROR_PSMF_INVALID_ID, "not an audio stream");
+		return hleLogError(Log::ME, ERROR_PSMF_INVALID_ID, "not an audio stream");
 	}
 	Memory::Write_U32(info->audioChannels_ == PsmfStream::USE_PSMF ? psmf->audioChannels : info->audioChannels_, audioInfoAddr);
 	Memory::Write_U32(info->audioFrequency_ == PsmfStream::USE_PSMF ? psmf->audioFrequency : info->audioFrequency_, audioInfoAddr + 4);
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 	if (psmf->currentStreamNum == (int)ERROR_PSMF_NOT_INITIALIZED) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "no stream set");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "no stream set");
 	}
 	if (!Memory::IsValidAddress(typeAddr) || !Memory::IsValidAddress(channelAddr)) {
-		return hleLogError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
 	}
 	if (psmf->currentStreamType != -1) {
 		Memory::Write_U32(psmf->currentStreamType, typeAddr);
 		Memory::Write_U32(psmf->currentStreamChannel, channelAddr);
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
@@ -1035,12 +1035,12 @@ static u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 	if (psmf->currentStreamNum < 0) {
-		return hleLogError(ME, psmf->currentStreamNum, "invalid stream");
+		return hleLogError(Log::ME, psmf->currentStreamNum, "invalid stream");
 	}
-	return hleLogSuccessI(ME, psmf->currentStreamNum);
+	return hleLogSuccessI(Log::ME, psmf->currentStreamNum);
 }
 
 static u32 scePsmfCheckEPMap(u32 psmfStruct)
@@ -1059,11 +1059,11 @@ static u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
-		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid id");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "invalid id");
 	}
 
 	auto entry = PSPPointer<PsmfEntry>::Create(entryAddr);
@@ -1071,23 +1071,23 @@ static u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 		*entry = psmf->EPMap[epid];
 		entry.NotifyWrite("PsmfGetEPWithId");
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
 
 	if (ts < psmf->presentationStartTime) {
-		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid timestamp");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "invalid timestamp");
 	}
 
 	int epid = psmf->FindEPWithTimestamp(ts);
 	if (epid < 0 || epid >= (int)psmf->EPMap.size()) {
-		return hleLogError(ME, ERROR_PSMF_NOT_FOUND, "invalid id");
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "invalid id");
 	}
 
 	auto entry = PSPPointer<PsmfEntry>::Create(entryAddr);
@@ -1095,7 +1095,7 @@ static u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 		*entry = psmf->EPMap[epid];
 		entry.NotifyWrite("PsmfGetEPWithTimestamp");
 	}
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
@@ -1132,24 +1132,24 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	if (!player.IsValid() || !data.IsValid()) {
 		// Crashes on a PSP.
-		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
+		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
 	}
 	if (!data->buffer.IsValid()) {
 		// Also crashes on a PSP.
 		*player = 0;
-		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address %08x", data->buffer.ptr);
+		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address %08x", data->buffer.ptr);
 	}
 	if (data->bufferSize < 0x00285800) {
 		*player = 0;
-		return hleReportError(ME, ERROR_PSMFPLAYER_BUFFER_SIZE, "buffer too small %08x", data->bufferSize);
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_BUFFER_SIZE, "buffer too small %08x", data->bufferSize);
 	}
 	if (data->threadPriority < 0x10 || data->threadPriority >= 0x6E) {
 		*player = 0;
-		return hleReportError(ME, ERROR_PSMFPLAYER_INVALID_PARAM, "bad thread priority %02x", data->threadPriority);
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_PARAM, "bad thread priority %02x", data->threadPriority);
 	}
 	if (!psmfPlayerMap.empty()) {
 		*player = 0;
-		return hleReportError(ME, ERROR_MPEG_ALREADY_INIT, "already have an active player");
+		return hleReportError(Log::ME, ERROR_MPEG_ALREADY_INIT, "already have an active player");
 	}
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1176,27 +1176,27 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 static int scePsmfPlayerStop(u32 psmfPlayer) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		return hleLogError(ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player");
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player");
 	}
 	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
-		return hleLogError(ME, ERROR_PSMFPLAYER_INVALID_STATUS, "not yet playing");
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "not yet playing");
 	}
 	psmfplayer->AbortFinish();
 
 	int delayUs = 3000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleLogSuccessInfoI(ME, hleDelayResult(0, "psmfplayer stop", delayUs));
+	return hleLogSuccessInfoI(Log::ME, hleDelayResult(0, "psmfplayer stop", delayUs));
 }
 
 static int scePsmfPlayerBreak(u32 psmfPlayer) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		return hleLogError(ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player", psmfPlayer);
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player", psmfPlayer);
 	}
 
 	psmfplayer->AbortFinish();
 
-	return hleLogWarning(ME, 0);
+	return hleLogWarning(Log::ME, 0);
 }
 
 static int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
@@ -1235,17 +1235,17 @@ static int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, bool docallback) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer || psmfplayer->status != PSMF_PLAYER_STATUS_INIT) {
-		return hleReportError(ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player or status");
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player or status");
 	}
 	if (!filename) {
-		return hleLogError(ME, ERROR_PSMFPLAYER_INVALID_PARAM, "invalid filename");
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_PARAM, "invalid filename");
 	}
 
 	int delayUs = 1100;
 
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	if (psmfplayer->filehandle < 0) {
-		return hleLogError(ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "invalid file data or does not exist");
+		return hleLogError(Log::ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "invalid file data or does not exist");
 	}
 
 	if (offset != 0)
@@ -1259,13 +1259,13 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	if (magic != PSMF_MAGIC) {
 		// TODO: Let's keep trying as we were before.
 		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic (%08x), bad data", magic);
-		//return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "incorrect PSMF magic (%08x), bad data", magic);
+		//return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "incorrect PSMF magic (%08x), bad data", magic);
 	}
 
 	// TODO: Merge better with Psmf.
 	u16 numStreams = *(u16_be *)(buf + 0x80);
 	if (numStreams > 128) {
-		return hleReportError(ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "too many streams in PSMF video, bogus data");
+		return hleReportError(Log::ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "too many streams in PSMF video, bogus data");
 	}
 
 	psmfplayer->totalVideoStreams = 0;
@@ -1309,7 +1309,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleLogSuccessInfoI(ME, hleDelayResult(0, "psmfplayer set", delayUs));
+	return hleLogSuccessInfoI(Log::ME, hleDelayResult(0, "psmfplayer set", delayUs));
 }
 
 static int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) {
@@ -1333,9 +1333,9 @@ static int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, in
 static int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		return hleLogError(ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player");
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "invalid psmf player");
 	}
-	return hleLogWarning(ME, audioSamplesBytes);
+	return hleLogWarning(Log::ME, audioSamplesBytes);
 }
 
 static bool __PsmfPlayerContinueSeek(PsmfPlayer *psmfplayer, int tries = 50) {

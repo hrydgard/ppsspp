@@ -564,7 +564,7 @@ static u32 sceCtrlPeekLatch(u32 latchDataPtr) {
 	if (userLatch.IsValid()) {
 		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
 	}
-	return hleLogSuccessI(SCECTRL, ctrlLatchBufs);
+	return hleLogSuccessI(Log::SCECTRL, ctrlLatchBufs);
 }
 
 static u32 sceCtrlReadLatch(u32 latchDataPtr) {
@@ -572,7 +572,7 @@ static u32 sceCtrlReadLatch(u32 latchDataPtr) {
 	if (userLatch.IsValid()) {
 		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
 	}
-	return hleLogSuccessI(SCECTRL, __CtrlResetLatch());
+	return hleLogSuccessI(Log::SCECTRL, __CtrlResetLatch());
 }
 
 static const HLEFunction sceCtrl[] =

@@ -623,11 +623,11 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 		Net_Term(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
 
 	if (poolSize == 0) {
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
 	} else if (calloutPri < 0x08 || calloutPri > 0x77) {
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid callout thread priority");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid callout thread priority");
 	} else if (netinitPri < 0x08 || netinitPri > 0x77) {
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid init thread priority");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid init thread priority");
 	}
 
 	// TODO: Should also start the threads, probably?  For now, let's just allocate.
@@ -635,19 +635,19 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	u32 stackSize = 4096;
 	netThread1Addr = AllocUser(stackSize, true, "netstack1");
 	if (netThread1Addr == 0) {
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
 	}
 	netThread2Addr = AllocUser(stackSize, true, "netstack2");
 	if (netThread2Addr == 0) {
 		FreeUser(netThread1Addr);
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
 	}
 
 	netPoolAddr = AllocUser(poolSize, false, "netpool");
 	if (netPoolAddr == 0) {
 		FreeUser(netThread1Addr);
 		FreeUser(netThread2Addr);
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
 	}
 
 	WARN_LOG(Log::SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
@@ -660,7 +660,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
 
 	netInited = true;
-	return hleLogSuccessI(SCENET, 0);
+	return hleLogSuccessI(Log::SCENET, 0);
 }
 
 // Free(delete) thread info / data. 
@@ -681,7 +681,7 @@ static int sceNetThreadAbort(SceUID thid) {
 static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	if (!Memory::IsValidRange(addrAddr, 6)) {
 		// More correctly, it should crash.
-		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
+		return hleLogError(Log::SCENET, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
 	}
 
 	u8 *addr = Memory::GetPointerWriteUnchecked(addrAddr);
@@ -698,23 +698,23 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
-	return hleLogSuccessI(SCENET, hleDelayResult(0, "get ether mac", 200));
+	return hleLogSuccessI(Log::SCENET, hleDelayResult(0, "get ether mac", 200));
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 	// FIXME: Return 0x80410180 (pspnet[_core] error code?) before successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
 	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
-		return hleLogDebug(SCENET, 0x80410180, "address not available?");
+		return hleLogDebug(Log::SCENET, 0x80410180, "address not available?");
 
 	return sceWlanGetEtherAddr(addrAddr);
 }
 
 static u32 sceWlanDevIsPowerOn() {
-	return hleLogSuccessVerboseI(SCENET, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogSuccessVerboseI(Log::SCENET, g_Config.bEnableWlan ? 1 : 0);
 }
 
 static u32 sceWlanGetSwitchState() {
-	return hleLogSuccessVerboseI(SCENET, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogSuccessVerboseI(Log::SCENET, g_Config.bEnableWlan ? 1 : 0);
 }
 
 // Probably a void function, but often returns a useful value.
@@ -787,7 +787,7 @@ static int sceNetGetMallocStat(u32 statPtr) {
 	VERBOSE_LOG(Log::SCENET, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);
 	auto stat = PSPPointer<SceNetMallocStat>::Create(statPtr);
 	if (!stat.IsValid())
-		return hleLogError(SCENET, 0, "invalid address");
+		return hleLogError(Log::SCENET, 0, "invalid address");
 
 	*stat = netMallocStat;
 	stat.NotifyWrite("sceNetGetMallocStat");
@@ -892,136 +892,136 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 	WARN_LOG(Log::SCENET, "UNTESTED %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
 
 	if (!netApctlInited)
-		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
+		return hleLogError(Log::SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
 
 	switch (code) {
 	case PSP_NET_APCTL_INFO_PROFILE_NAME:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_PROFILENAME_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.name, APCTL_PROFILENAME_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_PROFILENAME_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - ProfileName: %s", netApctlInfo.name);
 		break;
 	case PSP_NET_APCTL_INFO_BSSID:
 		if (!Memory::IsValidRange(pInfoAddr, ETHER_ADDR_LEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.bssid, ETHER_ADDR_LEN);
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - BSSID: %s", mac2str((SceNetEtherAddr*)&netApctlInfo.bssid).c_str());
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, ETHER_ADDR_LEN, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_SSID:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_SSID_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.ssid, APCTL_SSID_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_SSID_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - SSID: %s", netApctlInfo.ssid);
 		break;
 	case PSP_NET_APCTL_INFO_SSID_LENGTH:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.ssidLength, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_SECURITY_TYPE:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.securityType, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_STRENGTH:
 		if (!Memory::IsValidRange(pInfoAddr, 1))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U8(netApctlInfo.strength, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 1, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_CHANNEL:
 		if (!Memory::IsValidRange(pInfoAddr, 1))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U8(netApctlInfo.channel, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 1, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_POWER_SAVE:
 		if (!Memory::IsValidRange(pInfoAddr, 1))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U8(netApctlInfo.powerSave, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 1, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_IP:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.ip, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - IP: %s", netApctlInfo.ip);
 		break;
 	case PSP_NET_APCTL_INFO_SUBNETMASK:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.subNetMask, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - SubNet Mask: %s", netApctlInfo.subNetMask);
 		break;
 	case PSP_NET_APCTL_INFO_GATEWAY:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.gateway, APCTL_IPADDR_MAXLEN);
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - Gateway IP: %s", netApctlInfo.gateway);
 		break;
 	case PSP_NET_APCTL_INFO_PRIMDNS:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.primaryDns, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - Primary DNS: %s", netApctlInfo.primaryDns);
 		break;
 	case PSP_NET_APCTL_INFO_SECDNS:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_IPADDR_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.secondaryDns, APCTL_IPADDR_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_IPADDR_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - Secondary DNS: %s", netApctlInfo.secondaryDns);
 		break;
 	case PSP_NET_APCTL_INFO_USE_PROXY:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.useProxy, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_PROXY_URL:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_URL_MAXLEN))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::MemcpyUnchecked(pInfoAddr, netApctlInfo.proxyUrl, APCTL_URL_MAXLEN);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, APCTL_URL_MAXLEN, "NetApctlGetInfo");
 		DEBUG_LOG(Log::SCENET, "ApctlInfo - Proxy URL: %s", netApctlInfo.proxyUrl);
 		break;
 	case PSP_NET_APCTL_INFO_PROXY_PORT:
 		if (!Memory::IsValidRange(pInfoAddr, 2))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U16(netApctlInfo.proxyPort, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 2, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_8021_EAP_TYPE:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.eapType, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_START_BROWSER:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.startBrowser, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	case PSP_NET_APCTL_INFO_WIFISP:
 		if (!Memory::IsValidRange(pInfoAddr, 4))
-			return hleLogError(SCENET, -1, "apctl invalid arg");
+			return hleLogError(Log::SCENET, -1, "apctl invalid arg");
 		Memory::WriteUnchecked_U32(netApctlInfo.wifisp, pInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, pInfoAddr, 4, "NetApctlGetInfo");
 		break;
 	default:
-		return hleLogError(SCENET, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
+		return hleLogError(Log::SCENET, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
 	}
 
-	return hleLogSuccessI(SCENET, 0);
+	return hleLogSuccessI(Log::SCENET, 0);
 }
 
 int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
@@ -1206,23 +1206,23 @@ int NetApctl_GetState() {
 }
 
 static int sceNetApctlGetState(u32 pStateAddr) {
-	//if (!netApctlInited) return hleLogError(SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
+	//if (!netApctlInited) return hleLogError(Log::SCENET, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
 		// Return Thread Status
 		Memory::Write_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
-		return hleLogSuccessI(SCENET, 0);
+		return hleLogSuccessI(Log::SCENET, 0);
 	}
 
-	return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
+	return hleLogError(Log::SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 }
 
 int NetApctl_ScanUser() {
 	// Scan probably only works when not in connected state, right?
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
-		return hleLogError(SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+		return hleLogError(Log::SCENET, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
 
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return 0;
@@ -1238,7 +1238,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
 	int entries = 4;
 	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
-		return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
+		return hleLogError(Log::SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	int size = Memory::Read_U32(sizeAddr);
 	// Return size required
@@ -1277,7 +1277,7 @@ static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 
 int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	if (!Memory::IsValidAddress(resultAddr))
-		return hleLogError(SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
+		return hleLogError(Log::SCENET, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	// Generate an SSID name
 	char dummySSID[APCTL_SSID_MAXLEN] = "WifiAP0";
@@ -1336,7 +1336,7 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
-		return hleLogError(SCENET, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
+		return hleLogError(Log::SCENET, ERROR_NET_APCTL_INVALID_CODE, "unknown info id");
 	}
 
 	return 0;
@@ -1404,7 +1404,7 @@ static int sceNetApctl_6F5D2981(u32 handlerID) {
 }
 
 static int sceNetApctl_lib2_69745F0A(int handlerId) {
-	return hleLogError(SCENET, 0, "unimplemented");
+	return hleLogError(Log::SCENET, 0, "unimplemented");
 }
 
 static int sceNetApctl_lib2_4C19731F(int code, u32 pInfoAddr) {
@@ -1467,14 +1467,14 @@ static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr)
 {
 	Memory::Write_U32(netDropRate, dropRateAddr);
 	Memory::Write_U32(netDropDuration, dropDurationAddr);
-	return hleLogSuccessInfoI(SCENET, 0);
+	return hleLogSuccessInfoI(Log::SCENET, 0);
 }
 
 static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
 {
 	netDropRate = dropRate;
 	netDropDuration = dropDuration;
-	return hleLogSuccessInfoI(SCENET, 0);
+	return hleLogSuccessInfoI(Log::SCENET, 0);
 }
 
 const HLEFunction sceNet[] = {

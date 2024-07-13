@@ -190,12 +190,12 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 	hleEatCycles(10000);
 
 	if (waitMode >= 2)
-		return hleLogError(HLE, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode");
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode");
 	if (state == 0)
-		return hleLogError(HLE, SCE_KERNEL_ERROR_EVF_ILPAT, "bad state");
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_EVF_ILPAT, "bad state");
 
 	if (UsbMatchState(state, waitMode)) {
-		return hleLogSuccessX(HLE, UsbCurrentState());
+		return hleLogSuccessX(Log::HLE, UsbCurrentState());
 	}
 
 	// We'll have to wait as long as it takes.  Cleanup first, just in case.
@@ -204,7 +204,7 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 
 	UsbSetTimeout(PSPPointer<int>::Create(timeoutPtr));
 	__KernelWaitCurThread(WAITTYPE_USB, state, waitMode, timeoutPtr, false, "usb state waited");
-	return hleLogSuccessI(HLE, 0, "waiting");
+	return hleLogSuccessI(Log::HLE, 0, "waiting");
 }
 
 static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
@@ -213,7 +213,7 @@ static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
 }
 
 static int sceUsbstorBootSetCapacity(u32 capacity) {
-	return hleReportError(HLE, 0, "unimplemented");
+	return hleReportError(Log::HLE, 0, "unimplemented");
 }
 
 const HLEFunction sceUsb[] =

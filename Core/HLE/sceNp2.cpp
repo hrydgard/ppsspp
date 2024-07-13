@@ -56,7 +56,7 @@ static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityM
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, currentMIPS->pc);
 	//if (npMatching2Inited)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_ALREADY_INITIALIZED);
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_ALREADY_INITIALIZED);
 
 	npMatching2MemStat.npMemSize = poolSize - 0x20;
 	npMatching2MemStat.npMaxMemSize = 0x4050; // Dummy maximum foot print
@@ -82,10 +82,10 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%hu], %i) at %08x", __FUNCTION__, communicationIdPtr, safe_string(Memory::GetCharPointer(communicationIdPtr)), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(communicationIdPtr) || !Memory::IsValidAddress(passPhrasePtr) || !Memory::IsValidAddress(ctxIdPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX);
 
 	// FIXME: It seems Context are mapped to TitleID? may return 0x80550C05 or 0x80550C06 when finding an existing context
 	SceNpCommunicationId* titleid = (SceNpCommunicationId*)Memory::GetCharPointer(communicationIdPtr);
@@ -96,7 +96,7 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 	SceNpId npid{};
 	int retval = NpGetNpId(&npid);
 	if (retval < 0)
-		return hleLogError(SCENET, retval);
+		return hleLogError(Log::SCENET, retval);
 
 	INFO_LOG(Log::SCENET, "%s - Title ID: %s", __FUNCTION__, titleid->data);
 	INFO_LOG(Log::SCENET, "%s - Online ID: %s", __FUNCTION__, npid.handle.data);
@@ -119,13 +119,13 @@ static int sceNpMatching2ContextStart(int ctxId)
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	//if (!npMatching2Ctx)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
 
 	//if (npMatching2Ctx.started)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_ALREADY_STARTED);
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_ALREADY_STARTED);
 
 	// TODO: use sceNpGetUserProfile and check server availability using sceNpService_76867C01
 	//npMatching2Ctx.started = true;
@@ -134,7 +134,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 	bool cancelled = false;
 	net::RequestProgress progress(&cancelled);
 	if (!client.Resolve(url.Host().c_str(), url.Port())) {
-		return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP failed to resolve %s", url.Resource().c_str());
+		return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP failed to resolve %s", url.Resource().c_str());
 	}
 
 	client.SetDataTimeout(20.0);
@@ -148,7 +148,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		int err = client.SendRequest("GET", req, requestHeaders, &progress);
 		if (err < 0) {
 			client.Disconnect();
-			return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP GET Error = %d", err);
+			return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP GET Error = %d", err);
 		}
 
 		net::Buffer readbuf;
@@ -156,7 +156,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		int code = client.ReadResponseHeaders(&readbuf, responseHeaders, &progress);
 		if (code != 200) {
 			client.Disconnect();
-			return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP Error Code = %d", code);
+			return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "HTTP Error Code = %d", code);
 		}
 
 		net::Buffer output;
@@ -174,7 +174,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 		std::string text;
 		size_t ofs = entity.find("titleid=");
 		if (ofs == std::string::npos) 
-			return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "titleid not found");
+			return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "titleid not found");
 
 		ofs += 9;
 		size_t ofs2 = entity.find('"', ofs);
@@ -186,7 +186,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			ofs = entity.find("<agent-fqdn", ++ofs2);
 			if (ofs == std::string::npos) {
 				if (i == 1)
-					return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent-fqdn not found");
+					return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent-fqdn not found");
 				else
 					break;
 			}
@@ -194,7 +194,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 			size_t frontPos = ++ofs;
 			ofs = entity.find("id=", frontPos);
 			if (ofs == std::string::npos)
-				return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent id not found");
+				return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent id not found");
 
 			ofs += 4;
 			ofs2 = entity.find('"', ofs);
@@ -203,7 +203,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 
 			ofs = entity.find("port=", frontPos);
 			if (ofs == std::string::npos)
-				return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent port not found");
+				return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent port not found");
 
 			ofs += 6;
 			ofs2 = entity.find('"', ofs);
@@ -212,7 +212,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 
 			ofs = entity.find("status=", frontPos);
 			if (ofs == std::string::npos)
-				return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent status not found");
+				return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent status not found");
 
 			ofs += 8;
 			ofs2 = entity.find('"', ofs);
@@ -221,7 +221,7 @@ static int sceNpMatching2ContextStart(int ctxId)
 
 			ofs = entity.find('>', ++ofs2);
 			if (ofs == std::string::npos)
-				return hleLogError(SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent host not found");
+				return hleLogError(Log::SCENET, SCE_NP_COMMUNITY_SERVER_ERROR_NO_SUCH_TITLE, "agent host not found");
 
 			ofs2 = entity.find("</agent-fqdn", ++ofs);
 			text = entity.substr(ofs, ofs2 - ofs);
@@ -239,13 +239,13 @@ static int sceNpMatching2ContextStop(int ctxId)
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	//if (!npMatching2Ctx)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
 
 	//if (!npMatching2Ctx.started)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_STARTED);
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_STARTED);
 
 	//TODO: Stop any in-progress HTTPClient communication used on sceNpMatching2ContextStart
 	//npMatching2Ctx.started = false;
@@ -257,10 +257,10 @@ static int sceNpMatching2DestroyContext(int ctxId)
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	//if (!npMatching2Ctx)
-	//	return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
+	//	return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_NOT_FOUND); //SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID
 
 	// Remove callback handler
 	int handlerID = ctxId - 1;
@@ -279,11 +279,11 @@ static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%08x) at %08x", __FUNCTION__, memStatPtr, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	auto memStat = PSPPointer<SceNpAuthMemoryStat>::Create(memStatPtr);
 	if (!memStat.IsValid())
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
 	*memStat = npMatching2MemStat;
 	memStat.NotifyWrite("NpMatching2GetMemoryStat");
@@ -295,10 +295,10 @@ static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFuncti
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x) at %08x", __FUNCTION__, ctxId, callbackFunctionAddr, callbackArgument, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (ctxId <= 0)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_INVALID_CONTEXT_ID);
 
 	int id = ctxId - 1;
 	if (callbackFunctionAddr != 0) {
@@ -339,10 +339,10 @@ static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int m
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, ctxId, serverIdsPtr, maxServerIds, currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(serverIdsPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
 	// Returning dummy Id, a 16-bit variable according to JPCSP
 	for (int i = 0; i < maxServerIds; i++)
@@ -356,16 +356,16 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x[%d], %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, serverIdPtr, Memory::Read_U16(serverIdPtr), unknown1Ptr, unknown2Ptr, Memory::Read_U32(unknown2Ptr), currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(serverIdPtr) || !Memory::IsValidAddress(unknown2Ptr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP
 	int serverId = Memory::Read_U16(serverIdPtr);
 
 	if (serverId == 0)
-		return hleLogError(SCENET, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
+		return hleLogError(Log::SCENET, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
 
 	// Output to unknown1(infoBuffer)? and unknown2(infoLength or flags)?
 	// Patapon 3 is using serverId at 09FFF2F4, unknown1 at 09FFF2E4, unknown2 at 09FFF2E0, which mean unknown1's can only fit upto 16-bytes
@@ -418,10 +418,10 @@ static int sceNpMatching2LeaveRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, 
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	u32 cbFunc = Memory::Read_U32(reqParamPtr);
 	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
@@ -452,16 +452,16 @@ static int sceNpMatching2JoinRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP
 	int serverId = Memory::Read_U16(reqParamPtr + 0x06);
 
 	if (serverId == 0)
-		return hleLogError(SCENET, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
+		return hleLogError(Log::SCENET, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
 
 	u32 cbFunc = Memory::Read_U32(reqParamPtr);
 	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
@@ -495,10 +495,10 @@ static int sceNpMatching2SearchRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr,
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	u32 cbFunc = Memory::Read_U32(reqParamPtr);
 	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
@@ -519,10 +519,10 @@ static int sceNpMatching2SendRoomChatMessage(int ctxId, u32 reqParamPtr, u32 opt
 {
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
 	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
-		return hleLogError(SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
+		return hleLogError(Log::SCENET, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	u32 cbFunc = Memory::Read_U32(reqParamPtr);
 	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);

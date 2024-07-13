@@ -938,7 +938,7 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 
 static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	if (!Memory::IsValidAddress(dest) || !Memory::IsValidAddress(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::SCEKERNEL, 0, "invalid address");
 	}
 
 	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
@@ -958,12 +958,12 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = 0;
 	}
 
-	return hleLogSuccessX(SCEKERNEL, dest);
+	return hleLogSuccessX(Log::SCEKERNEL, dest);
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
 	if (!Memory::IsValidNullTerminatedString(strPtr)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::SCEKERNEL, 0, "invalid address");
 	}
 	const char* str = Memory::GetCharPointer(strPtr);
 	char* end = nullptr;
@@ -975,7 +975,7 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 
 static u32 sysclib_strchr(u32 src, int c) {
 	if (!Memory::IsValidNullTerminatedString(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.find(str, c);
@@ -987,7 +987,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 
 static u32 sysclib_strrchr(u32 src, int c) {
 	if (!Memory::IsValidNullTerminatedString(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::SCEKERNEL, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.rfind(str, c);

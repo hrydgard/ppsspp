@@ -211,12 +211,12 @@ void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId) {
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
 int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr) {
 	if (!name) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
 
 	// These attributes aren't valid.
 	if ((flag_attr & 0x100) != 0 || flag_attr >= 0x300) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", flag_attr);
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", flag_attr);
 	}
 
 	EventFlag *e = new EventFlag();
@@ -238,7 +238,7 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
-	return hleLogSuccessI(SCEKERNEL, id);
+	return hleLogSuccessI(Log::SCEKERNEL, id);
 }
 
 u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr) {
@@ -255,9 +255,9 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr) {
 			hleReSchedule("event flag canceled");
 
 		hleEatCycles(580);
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
@@ -268,9 +268,9 @@ u32 sceKernelClearEventFlag(SceUID id, u32 bits) {
 		e->nef.currentPattern &= bits;
 		// Note that it's not possible for threads to get woken up by this action.
 		hleEatCycles(430);
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
@@ -282,9 +282,9 @@ u32 sceKernelDeleteEventFlag(SceUID uid) {
 		if (wokeThreads)
 			hleReSchedule("event flag deleted");
 
-		return hleLogSuccessI(SCEKERNEL, kernelObjects.Destroy<EventFlag>(uid));
+		return hleLogSuccessI(Log::SCEKERNEL, kernelObjects.Destroy<EventFlag>(uid));
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
@@ -309,9 +309,9 @@ u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet) {
 			hleReSchedule("event flag set");
 
 		hleEatCycles(430);
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
@@ -361,15 +361,15 @@ static void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr) {
 
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr) {
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
 	}
 	// Can't wait on 0, that's guaranteed to wait forever.
 	if (bits == 0) {
-		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
+		return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
 	}
 
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 
 	u32 error;
@@ -387,10 +387,10 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 
 			// Do we allow more than one thread to wait?
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
-				return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
+				return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
-			(void)hleLogSuccessI(SCEKERNEL, 0, "waiting");
+			(void)hleLogSuccessI(Log::SCEKERNEL, 0, "waiting");
 
 			// No match - must wait.
 			th.threadID = __KernelGetCurThread();
@@ -403,27 +403,27 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false, "event flag waited");
 		} else {
-			(void)hleLogSuccessI(SCEKERNEL, 0);
+			(void)hleLogSuccessI(Log::SCEKERNEL, 0);
 		}
 
 		hleEatCycles(500);
 		return 0;
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
 int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr) {
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
 	}
 	// Can't wait on 0, that's guaranteed to wait forever.
 	if (bits == 0) {
-		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
+		return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
 	}
 
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 
 	u32 error;
@@ -450,10 +450,10 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 
 			// Do we allow more than one thread to wait?
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
-				return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
+				return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
-			(void)hleLogSuccessI(SCEKERNEL, 0, "waiting");
+			(void)hleLogSuccessI(Log::SCEKERNEL, 0, "waiting");
 
 			// No match - must wait.
 			th.threadID = __KernelGetCurThread();
@@ -469,7 +469,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			else
 				__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true, "event flag waited");
 		} else {
-			(void)hleLogSuccessI(SCEKERNEL, 0);
+			(void)hleLogSuccessI(Log::SCEKERNEL, 0);
 			__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr);
 			hleCheckCurrentCallbacks();
 		}
@@ -477,21 +477,21 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 		hleEatCycles(500);
 		return 0;
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
 int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr) {
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
 	}
 	// Poll seems to also fail when CLEAR and CLEARALL are used together, but not wait.
 	if ((wait & PSP_EVENT_WAITCLEAR) != 0 && (wait & PSP_EVENT_WAITCLEARALL) != 0) {
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
+		return hleReportWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
 	}
 	// Can't wait on 0, it never matches.
 	if (bits == 0) {
-		return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
+		return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_ILPAT, "bad pattern");
 	}
 
 	hleEatCycles(360);
@@ -504,16 +504,16 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr) {
 				Memory::Write_U32(e->nef.currentPattern, outBitsPtr);
 
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
-				return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
+				return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
 			// No match - return that, this is polling, not waiting.
-			return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_COND);
+			return hleLogDebug(Log::SCEKERNEL, SCE_KERNEL_ERROR_EVF_COND);
 		} else {
-			return hleLogSuccessI(SCEKERNEL, 0);
+			return hleLogSuccessI(Log::SCEKERNEL, 0);
 		}
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }
 
@@ -524,7 +524,7 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr) {
 	if (e) {
 		auto status = PSPPointer<NativeEventFlag>::Create(statusPtr);
 		if (!status.IsValid())
-			return hleLogWarning(SCEKERNEL, -1, "invalid ptr");
+			return hleLogWarning(Log::SCEKERNEL, -1, "invalid ptr");
 
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_EVENTFLAG, id, e->waitingThreads);
 
@@ -533,8 +533,8 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr) {
 			*status = e->nef;
 			status.NotifyWrite("EventFlagStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogDebug(SCEKERNEL, error, "invalid event flag");
+		return hleLogDebug(Log::SCEKERNEL, error, "invalid event flag");
 	}
 }

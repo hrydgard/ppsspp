@@ -2058,7 +2058,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	if (!name) {
-		return hleLogError(LOADER, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
+		return hleLogError(Log::LOADER, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(lieAboutSuccessModules); i++) {
@@ -2084,17 +2084,17 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 
 			// TODO: It would be more ideal to allocate memory for this module.
 
-			return hleLogSuccessInfoI(LOADER, module->GetUID(), "created fake module");
+			return hleLogSuccessInfoI(Log::LOADER, module->GetUID(), "created fake module");
 		}
 	}
 
 	std::vector<uint8_t> fileData;
 	if (pspFileSystem.ReadEntireFile(name, fileData) < 0) {
-		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+		const u32 error = hleLogError(Log::LOADER, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
 		return hleDelayResult(error, "module loaded", 500);
 	}
 	if (fileData.empty()) {
-		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
+		const u32 error = hleLogError(Log::LOADER, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
 		return hleDelayResult(error, "module loaded", 500);
 	}
 
@@ -2146,7 +2146,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			}
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		} else {
-			hleLogError(LOADER, error, "failed to load");
+			hleLogError(Log::LOADER, error, "failed to load");
 			return hleDelayResult(error, "module loaded", 500);
 		}
 	}

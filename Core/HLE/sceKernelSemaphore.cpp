@@ -205,9 +205,9 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 
 int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr) {
 	if (!name)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (attr >= 0x200)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter %08x", attr);
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter %08x", attr);
 
 	PSPSemaphore *s = new PSPSemaphore();
 	SceUID id = kernelObjects.Create(s);
@@ -224,14 +224,14 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	// Many games pass garbage into optionPtr, it doesn't have any options.
 	if (optionPtr != 0) {
 		if (!Memory::IsValidRange(optionPtr, 4))
-			hleLogWarning(SCEKERNEL, id, "invalid options parameter");
+			hleLogWarning(Log::SCEKERNEL, id, "invalid options parameter");
 		else if (Memory::Read_U32(optionPtr) > 4)
-			hleLogDebug(SCEKERNEL, id, "invalid options parameter size");
+			hleLogDebug(Log::SCEKERNEL, id, "invalid options parameter size");
 	}
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
 		WARN_LOG_REPORT(Log::SCEKERNEL, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
-	return hleLogSuccessX(SCEKERNEL, id);
+	return hleLogSuccessX(Log::SCEKERNEL, id);
 }
 
 int sceKernelDeleteSema(SceUID id)
@@ -261,7 +261,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr) {
 	if (s) {
 		auto info = PSPPointer<NativeSemaphore>::Create(infoPtr);
 		if (!info.IsValid())
-			return hleLogWarning(SCEKERNEL, -1, "invalid pointer");
+			return hleLogWarning(Log::SCEKERNEL, -1, "invalid pointer");
 
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_SEMA, id, s->waitingThreads);
 
@@ -270,9 +270,9 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr) {
 			*info = s->ns;
 			info.NotifyWrite("SemaStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error);
+		return hleLogError(Log::SCEKERNEL, error);
 	}
 }
 

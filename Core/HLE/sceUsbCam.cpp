@@ -119,7 +119,7 @@ static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
 		config->micParam = *param;
 		param.NotifyRead("UsbCamSetupMic");
 	}
-	return hleLogSuccessInfoI(SCEMISC, 0);
+	return hleLogSuccessInfoI(Log::SCEMISC, 0);
 }
 
 static int sceUsbCamStartMic() {

@@ -345,7 +345,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 
 	hleEatCycles(490);
 	CoreTiming::ForceCheck();
-	return hleLogSuccessX(SCEGE, listID);
+	return hleLogSuccessX(Log::SCEGE, listID);
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
@@ -360,7 +360,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 
 	hleEatCycles(480);
 	CoreTiming::ForceCheck();
-	return hleLogSuccessX(SCEGE, listID);
+	return hleLogSuccessX(Log::SCEGE, listID);
 }
 
 static int sceGeListDeQueue(u32 listID) {
@@ -437,7 +437,7 @@ static u32 sceGeSetCallback(u32 structAddr) {
 	}
 
 	if (cbID == -1) {
-		return hleLogWarning(SCEGE, SCE_KERNEL_ERROR_OUT_OF_MEMORY, "out of callback ids");
+		return hleLogWarning(Log::SCEGE, SCE_KERNEL_ERROR_OUT_OF_MEMORY, "out of callback ids");
 	}
 
 	ge_used_callbacks[cbID] = true;
@@ -458,7 +458,7 @@ static u32 sceGeSetCallback(u32 structAddr) {
 		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
-	return hleLogSuccessI(SCEGE, cbID);
+	return hleLogSuccessI(Log::SCEGE, cbID);
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
@@ -522,16 +522,16 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 static int sceGeGetMtx(int type, u32 matrixPtr) {
 	int size = type == GE_MTX_PROJECTION ? 16 : 12;
 	if (!Memory::IsValidRange(matrixPtr, size * sizeof(float))) {
-		return hleLogError(SCEGE, -1, "bad matrix ptr");
+		return hleLogError(Log::SCEGE, -1, "bad matrix ptr");
 	}
 
 	u32_le *dest = (u32_le *)Memory::GetPointerWriteUnchecked(matrixPtr);
 	// Note: this reads the CPU-visible matrix values, which may differ from the actual used values.
 	// They only differ when more DATA commands are sent than are valid for a matrix.
 	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
-		return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
+		return hleLogError(Log::SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
-	return hleLogSuccessInfoI(SCEGE, 0);
+	return hleLogSuccessInfoI(Log::SCEGE, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -561,9 +561,9 @@ static u32 sceGeGetCmd(int cmd) {
 		default:
 			break;
 		}
-		return hleLogSuccessInfoX(SCEGE, val);
+		return hleLogSuccessInfoX(Log::SCEGE, val);
 	}
-	return hleLogError(SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX);
+	return hleLogError(Log::SCEGE, SCE_KERNEL_ERROR_INVALID_INDEX);
 }
 
 static int sceGeGetStack(int index, u32 stackPtr) {
@@ -575,13 +575,13 @@ static u32 sceGeEdramSetAddrTranslation(u32 new_size) {
 	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
 	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
 	if (outsideRange || notPowerOfTwo) {
-		return hleLogWarning(SCEGE, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
+		return hleLogWarning(Log::SCEGE, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
 	}
 	if (!gpu) {
-		return hleLogError(SCEGE, -1, "GPUInterface not available");
+		return hleLogError(Log::SCEGE, -1, "GPUInterface not available");
 	}
 
-	return hleReportDebug(SCEGE, gpu->SetAddrTranslation(new_size));
+	return hleReportDebug(Log::SCEGE, gpu->SetAddrTranslation(new_size));
 }
 
 const HLEFunction sceGe_user[] = {

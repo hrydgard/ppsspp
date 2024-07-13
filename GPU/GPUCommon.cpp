@@ -369,7 +369,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 	// If args->size is below 16, it's the old struct without stack info.
 	if (args.IsValid() && args->size >= 16 && args->numStacks >= 256) {
-		return hleLogError(G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
+		return hleLogError(Log::G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
 	}
 
 	int id = -1;

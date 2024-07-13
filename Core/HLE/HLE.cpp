@@ -639,9 +639,9 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 	}
 
 	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled()) {
-		RETURN(hleLogDebug(HLE, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch suspended"));
+		RETURN(hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch suspended"));
 	} else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt()) {
-		RETURN(hleLogDebug(HLE, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt"));
+		RETURN(hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt"));
 	} else {
 		info->func();
 	}

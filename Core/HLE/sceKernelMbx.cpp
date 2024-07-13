@@ -556,13 +556,13 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m) {
-		return hleLogError(SCEKERNEL, error, "invalid mbx id");
+		return hleLogError(Log::SCEKERNEL, error, "invalid mbx id");
 	}
 
 	// Should we crash the thread somehow?
 	auto info = PSPPointer<NativeMbx>::Create(infoAddr);
 	if (!info.IsValid())
-		return hleLogError(SCEKERNEL, -1, "invalid pointer");
+		return hleLogError(Log::SCEKERNEL, -1, "invalid pointer");
 
 	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
 		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);

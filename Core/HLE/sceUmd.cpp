@@ -285,14 +285,14 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr)
 
 static int sceUmdActivate(u32 mode, const char *name) {
 	if (mode < 1 || mode > 2)
-		return hleLogWarning(SCEIO, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogWarning(Log::SCEIO, PSP_ERROR_UMD_INVALID_PARAM);
 
 	__KernelUmdActivate();
 
 	if (mode != 1) {
-		return hleLogError(SCEIO, 0, "UNTESTED");
+		return hleLogError(Log::SCEIO, 0, "UNTESTED");
 	}
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static int sceUmdDeactivate(u32 mode, const char *name)
@@ -391,13 +391,13 @@ static void __UmdWaitStat(u32 timeout)
 */
 static int sceUmdWaitDriveStat(u32 stat) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
@@ -408,18 +408,18 @@ static int sceUmdWaitDriveStat(u32 stat) {
 		return 0;
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
@@ -433,18 +433,18 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 		hleReSchedule("umd stat checked");
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
@@ -462,7 +462,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 		hleReSchedule("umd stat waited");
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static u32 sceUmdCancelWaitDriveStat()

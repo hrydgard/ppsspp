@@ -79,11 +79,11 @@ static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 }
 
 static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 trackAddr, u32 writableSamplesAddr, u32 writableBytesAddr) {
-	return hleLogError(ME, 0, "unimplemented");
+	return hleLogError(Log::ME, 0, "unimplemented");
 }
 
 static u32 sceMp4Delete(u32 mp4) {
-	return hleLogError(ME, 0, "unimplemented");
+	return hleLogError(Log::ME, 0, "unimplemented");
 }
 
 static u32 sceMp4AacDecodeInitResource(int unknown)

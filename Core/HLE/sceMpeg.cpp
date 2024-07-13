@@ -1729,7 +1729,7 @@ static u32 sceMpegFinish()
 }
 
 static u32 sceMpegQueryMemSize() {
-	return hleLogSuccessX(ME, MpegRequiredMem());
+	return hleLogSuccessX(Log::ME, MpegRequiredMem());
 }
 
 static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
@@ -2190,7 +2190,7 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 	u8 *Cr = Cb + sizeCb;
 
 	if (!Y)
-		return hleLogError(ME, 0, "Bad output buffer pointer for yuv conv: %08x", bufferOutputAddr);
+		return hleLogError(Log::ME, 0, "Bad output buffer pointer for yuv conv: %08x", bufferOutputAddr);
 
 	for (int y = 0; y < height; y += 2) {
 		for (int x = 0; x < width; x += 2) {
@@ -2218,14 +2218,14 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 
 static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 bufferAddr, int unknown2) {
 	if (!Memory::IsValidAddress(bufferOutputAddr))
-		return hleLogError(ME, ERROR_MPEG_INVALID_VALUE, "invalid addresses");
+		return hleLogError(Log::ME, ERROR_MPEG_INVALID_VALUE, "invalid addresses");
 
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx)
-		return hleLogWarning(ME, -1, "bad mpeg handle");
+		return hleLogWarning(Log::ME, -1, "bad mpeg handle");
 
 	if (ctx->mediaengine->m_buffer == 0)
-		return hleLogWarning(ME, ERROR_MPEG_AVC_INVALID_VALUE, "m_buffer is zero");
+		return hleLogWarning(Log::ME, ERROR_MPEG_AVC_INVALID_VALUE, "m_buffer is zero");
 
 	const u8 *data = ctx->mediaengine->getFrameImage();
 	int width = ctx->mediaengine->m_desWidth;
@@ -2234,7 +2234,7 @@ static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 bufferA
 	if (data) {
 		__MpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
 	}
-	return hleLogSuccessX(ME, (width << 16) | height);
+	return hleLogSuccessX(Log::ME, (width << 16) | height);
 }
 
 static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)

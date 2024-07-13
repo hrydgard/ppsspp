@@ -841,7 +841,7 @@ static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, i
 	if (!Memory::IsValidNullTerminatedString(alias_addr) ||
 		!Memory::IsValidNullTerminatedString(physical_addr) ||
 		!Memory::IsValidNullTerminatedString(filesystem_addr)) {
-		return hleLogError(SCEIO, -1, "Bad parameters");
+		return hleLogError(Log::SCEIO, -1, "Bad parameters");
 	}
 
 	std::string alias = Memory::GetCharPointer(alias_addr);
@@ -982,7 +982,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	auto iostat = PSPPointer<SceIoStat>::Create(iostatptr);
 	if (!iostat.IsValid())
-		return hleReportError(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
+		return hleReportError(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
 	ERROR_LOG_REPORT(Log::SCEIO, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
@@ -1166,7 +1166,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 
 		auto &params = asyncParams[id];
@@ -1174,9 +1174,9 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		params.std.addr = data_addr;
 		params.std.size = size;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1303,7 +1303,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 
 		auto &params = asyncParams[id];
@@ -1311,9 +1311,9 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 		params.std.addr = data_addr;
 		params.std.size = size;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1347,9 +1347,9 @@ static u32 sceIoCancel(int id)
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		// It seems like this is unsupported for UMDs and memory sticks, based on tests.
-		return hleReportError(SCEIO, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
+		return hleReportError(Log::SCEIO, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
 	} else {
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -1438,7 +1438,7 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		return hleLogError(SCEIO, result, "bad file descriptor");
+		return hleLogError(Log::SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1451,7 +1451,7 @@ static u32 sceIoLseek32(int id, int offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		return hleLogError(SCEIO, result, "bad file descriptor");
+		return hleLogError(Log::SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1460,10 +1460,10 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 
 		auto &params = asyncParams[id];
@@ -1471,9 +1471,9 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 		params.seek.pos = offset;
 		params.seek.whence = whence;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1483,10 +1483,10 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 
 		auto &params = asyncParams[id];
@@ -1494,9 +1494,9 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 		params.seek.pos = offset;
 		params.seek.whence = whence;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1564,12 +1564,12 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 
 	if (!filename) {
 		// Not tested on the PSP.
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
 	}
 
 	if (!__KernelIsDispatchEnabled()) {
 		hleEatCycles(48000);
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 
 	int error;
@@ -1578,36 +1578,36 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		_assert_(error != 0);
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD) {
 			// TODO: Timing is not accurate.
-			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
+			return hleLogError(Log::SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
 		} else if (error == (int)SCE_KERNEL_ERROR_NODEV) {
-			return hleLogError(SCEIO, error, "device not found");
+			return hleLogError(Log::SCEIO, error, "device not found");
 		} else if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
 			// UMD: Varies between 5-10ms, could take longer if disc spins up.
 			//      TODO: Bad filename at root (disc0:/no.exist) should take ~200us.
 			// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 			// TODO: If a UMD and spun down, this can easily take 1s+.
 			int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 6000 : 10000;
-			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", delay), "file not found");
+			return hleLogWarning(Log::SCEIO, hleDelayResult(error, "file opened", delay), "file not found");
 		} else {
-			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000));
+			return hleLogError(Log::SCEIO, hleDelayResult(error, "file opened", 10000));
 		}
 	}
 
 	int id = __IoAllocFd(f);
 	if (id < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 1000), "out of fds");
+		return hleLogError(Log::SCEIO, hleDelayResult(id, "file opened", 1000), "out of fds");
 	} else {
 		asyncParams[id].priority = asyncDefaultPriority;
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
 		if (sys && !f->isTTY && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
 			// These are fast to open, no delay or even rescheduling happens.
-			return hleLogSuccessI(SCEIO, id);
+			return hleLogSuccessI(Log::SCEIO, id);
 		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
-		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", delay));
+		return hleLogSuccessI(Log::SCEIO, hleDelayResult(id, "file opened", delay));
 	}
 }
 
@@ -2138,18 +2138,18 @@ static u32 sceIoChdir(const char *dirname) {
 static int sceIoChangeAsyncPriority(int id, int priority) {
 	// priority = -1 is valid,means the current thread'priority
 	if (priority != -1 && (priority < 0x08 || priority > 0x77)) {
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
 	}
 
 	if (id == -1) {
 		asyncDefaultPriority = priority;
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	}
 
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (!f) {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 
 	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
@@ -2160,17 +2160,17 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	}
 
 	asyncParams[id].priority = priority;
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static int sceIoCloseAsync(int id) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (!f) {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 	if (f->asyncBusy()) {
-		return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+		return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 	}
 
 	f->closePending = true;
@@ -2178,7 +2178,7 @@ static int sceIoCloseAsync(int id) {
 	auto &params = asyncParams[id];
 	params.op = IoAsyncOp::CLOSE;
 	IoStartAsyncThread(id, f);
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::SCEIO, 0);
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
@@ -2203,7 +2203,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 	if (!filename) {
 		// Not tested on the PSP.
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
 	}
 
 	// TODO: Use an internal method so as not to pollute the log?
@@ -2218,7 +2218,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	if (f == nullptr) {
 		_assert_(error != 0);
 		if (error == SCE_KERNEL_ERROR_NODEV)
-			return hleLogError(SCEIO, error, "device not found");
+			return hleLogError(Log::SCEIO, error, "device not found");
 
 		f = new FileNode();
 		kernelObjects.Create(f);
@@ -2231,7 +2231,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	int fd = __IoAllocFd(f);
 	if (fd < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, hleDelayResult(fd, "file opened", 1000), "out of fds");
+		return hleLogError(Log::SCEIO, hleDelayResult(fd, "file opened", 1000), "out of fds");
 	}
 
 	auto &params = asyncParams[fd];
@@ -2244,11 +2244,11 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 
 	if (error != 0) {
 		f->asyncResult = (s64)error;
-		return hleLogError(SCEIO, fd, "file not found");
+		return hleLogError(Log::SCEIO, fd, "file not found");
 	}
 
 	f->asyncResult = fd;
-	return hleLogSuccessI(SCEIO, fd);
+	return hleLogSuccessI(Log::SCEIO, fd);
 }
 
 static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
@@ -2304,18 +2304,18 @@ static int sceIoWaitAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+			return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 		if (f->pendingAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+				return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
-			return hleLogSuccessI(SCEIO, 0, "waiting");
+			return hleLogSuccessI(Log::SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+				return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -2324,13 +2324,13 @@ static int sceIoWaitAsync(int id, u32 address) {
 				__IoFreeFd(id, error);
 			}
 
-			return hleLogSuccessI(SCEIO, 0, "complete");
+			return hleLogSuccessI(Log::SCEIO, 0, "complete");
 		} else {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 		return 0; //completed
 	} else {
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2340,7 +2340,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+			return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 
 		hleCheckCurrentCallbacks();
@@ -2348,7 +2348,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
-			return hleLogSuccessI(SCEIO, 0, "waiting");
+			return hleLogSuccessI(Log::SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -2357,12 +2357,12 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 				__IoFreeFd(id, error);
 			}
 
-			return hleLogSuccessI(SCEIO, 0, "complete");
+			return hleLogSuccessI(Log::SCEIO, 0, "complete");
 		} else {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 	} else {
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2371,7 +2371,7 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->pendingAsyncResult) {
-			return hleLogSuccessVerboseI(SCEIO, 1, "not ready");
+			return hleLogSuccessVerboseI(Log::SCEIO, 1, "not ready");
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -2379,12 +2379,12 @@ static u32 sceIoPollAsync(int id, u32 address) {
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
-			return hleLogSuccessI(SCEIO, 0);
+			return hleLogSuccessI(Log::SCEIO, 0);
 		} else {
-			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
+			return hleLogDebug(Log::SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 	} else {
-		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
+		return hleLogError(Log::SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2829,7 +2829,7 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+			return hleLogWarning(Log::SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 
 		auto &params = asyncParams[id];
@@ -2840,9 +2840,9 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 		params.ioctl.outAddr = outdataPtr;
 		params.ioctl.outSize = outlen;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(SCEIO, 0);
+		return hleLogSuccessI(Log::SCEIO, 0);
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -2986,7 +2986,7 @@ static int IoAsyncFinish(int id) {
 		params.op = IoAsyncOp::NONE;
 		return 0;
 	} else {
-		return hleLogError(SCEIO, error, "bad file descriptor");
+		return hleLogError(Log::SCEIO, error, "bad file descriptor");
 	}
 }
 

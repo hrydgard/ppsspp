@@ -672,16 +672,16 @@ void __KernelMsgPipeDoState(PointerWrap &p)
 
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr) {
 	if (!name)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", partition);
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", partition);
 
 	if ((attr & ~SCE_KERNEL_MPA_KNOWN) >= 0x100)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+		return hleLogWarning(Log::SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 
 	u32 memBlockPtr = 0;
 	if (size != 0) {
@@ -689,7 +689,7 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 		u32 allocSize = size;
 		memBlockPtr = allocator->Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, StringFromFormat("MsgPipe/%s", name).c_str());
 		if (memBlockPtr == (u32)-1)
-			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes for buffer", size);
+			return hleLogError(Log::SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes for buffer", size);
 	}
 
 	MsgPipe *m = new MsgPipe();
@@ -1000,7 +1000,7 @@ int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr) {
 	if (m) {
 		auto status = PSPPointer<NativeMsgPipe>::Create(statusPtr);
 		if (!status.IsValid()) {
-			return hleLogError(SCEKERNEL, -1, "invalid address");
+			return hleLogError(Log::SCEKERNEL, -1, "invalid address");
 		}
 
 		// Clean up any that have timed out.
@@ -1013,8 +1013,8 @@ int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr) {
 			*status = m->nmp;
 			status.NotifyWrite("MsgPipeStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::SCEKERNEL, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "bad message pipe");
+		return hleLogError(Log::SCEKERNEL, error, "bad message pipe");
 	}
 }

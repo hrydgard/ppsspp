@@ -125,7 +125,7 @@ static int sceNpGetContentRatingFlag(u32 parentalControlAddr, u32 userAgeAddr)
 	WARN_LOG(Log::SCENET, "UNTESTED %s(%08x, %08x)", __FUNCTION__, parentalControlAddr, userAgeAddr);
 
 	if (!Memory::IsValidAddress(parentalControlAddr) || !Memory::IsValidAddress(userAgeAddr))
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	INFO_LOG(Log::SCENET, "%s - Parental Control: %d", __FUNCTION__, npParentalControl);
 	INFO_LOG(Log::SCENET, "%s - User Age: %d", __FUNCTION__, npUserAge);
@@ -141,7 +141,7 @@ static int sceNpGetChatRestrictionFlag(u32 flagAddr)
 	WARN_LOG(Log::SCENET, "UNTESTED %s(%08x)", __FUNCTION__, flagAddr);
 
 	if (!Memory::IsValidAddress(flagAddr))
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	INFO_LOG(Log::SCENET, "%s - Chat Restriction: %d", __FUNCTION__, npChatRestriction);
 
@@ -156,7 +156,7 @@ static int sceNpGetOnlineId(u32 idPtr)
 
 	auto id = PSPPointer<SceNpOnlineId>::Create(idPtr);
 	if (!id.IsValid())
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	memset((SceNpOnlineId *)id, 0, sizeof(SceNpOnlineId));
 	truncate_cpy(id->data, sizeof(id->data), npOnlineId.c_str());
@@ -179,13 +179,13 @@ static int sceNpGetNpId(u32 idPtr)
 
 	auto id = PSPPointer<SceNpId>::Create(idPtr);
 	if (!id.IsValid())
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	SceNpId dummyNpId{};
 	memset((SceNpId *)id, 0, sizeof(SceNpId));
 	int retval = NpGetNpId(id);
 	if (retval < 0)
-		return hleLogError(SCENET, retval);
+		return hleLogError(Log::SCENET, retval);
 
 	INFO_LOG(Log::SCENET, "%s - Online ID: %s", __FUNCTION__, id->handle.data);
 	std::string datahex;
@@ -203,7 +203,7 @@ static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
 	auto countryCode = PSPPointer<SceNpCountryCode>::Create(countryCodePtr);
 	auto regionCode = PSPPointer<SceNpCountryCode>::Create(regionCodePtr);
 	if (!countryCode.IsValid() || !regionCode.IsValid())
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	memset((SceNpCountryCode *)countryCode, 0, sizeof(SceNpCountryCode));
 	memcpy(countryCode->data, npCountryCode, sizeof(countryCode->data));
@@ -225,7 +225,7 @@ static int sceNpGetMyLanguages(u32 langListPtr)
 
 	auto langList = PSPPointer<SceNpMyLanguages>::Create(langListPtr);
 	if (!langList.IsValid())
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	INFO_LOG(Log::SCENET, "%s - Language1 Code: %d", __FUNCTION__, npMyLangList.language1);
 	INFO_LOG(Log::SCENET, "%s - Language2 Code: %d", __FUNCTION__, npMyLangList.language2);
@@ -243,7 +243,7 @@ static int sceNpGetUserProfile(u32 profilePtr)
 
 	auto profile = PSPPointer<SceNpUserInformation>::Create(profilePtr);
 	if (!Memory::IsValidAddress(profilePtr))
-		return hleLogError(SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	memset((SceNpUserInformation *)profile, 0, sizeof(SceNpUserInformation));
 	truncate_cpy(profile->userId.handle.data, sizeof(profile->userId.handle.data), npOnlineId.c_str());
@@ -303,7 +303,7 @@ int sceNpAuthGetMemoryStat(u32 memStatAddr)
 
 	auto memStat = PSPPointer<SceNpAuthMemoryStat>::Create(memStatAddr);
 	if (!memStat.IsValid())
-		return hleLogError(SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	*memStat = npAuthMemStat;
 	memStat.NotifyWrite("NpAuthGetMemoryStat");
@@ -328,7 +328,7 @@ int sceNpAuthCreateStartRequest(u32 paramAddr)
 	WARN_LOG(Log::SCENET, "UNTESTED %s(%08x) at %08x", __FUNCTION__, paramAddr, currentMIPS->pc);
 
 	if (!Memory::IsValidAddress(paramAddr))
-		return hleLogError(SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	SceNpAuthRequestParameter params = {};
 	int size = Memory::Read_U32(paramAddr);
@@ -391,7 +391,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 	ERROR_LOG(Log::SCENET, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, requestId, bufferAddr, length, currentMIPS->pc);
 
 	if (!Memory::IsValidAddress(bufferAddr))
-		return hleLogError(SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+		return hleLogError(Log::SCENET, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	int result = length;
 	Memory::Memset(bufferAddr, 0, length, "NpAuthGetTicket");

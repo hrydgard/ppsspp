@@ -77,9 +77,9 @@ static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
 	if (language != g_Config.GetPSPLanguage()) {
-		return hleLogWarning(SCEUTILITY, 0, "ignoring requested language");
+		return hleLogWarning(Log::SCEUTILITY, 0, "ignoring requested language");
 	}
-	return hleLogSuccessI(SCEUTILITY, 0);
+	return hleLogSuccessI(Log::SCEUTILITY, 0);
 }
 
 static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
