@@ -131,6 +131,9 @@ void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight) {
 		*pWidth = width;
 		*pHeight = height;
 	}
+
+	*pWidth *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
+	*pHeight *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
 }
 
 void VR_Recenter(engine_t* engine) {
@@ -239,10 +242,7 @@ void VR_InitRenderer( engine_t* engine ) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
 		vulkanContext = &engine->graphicsBindingVulkan;
 	}
-	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer,
-			engine->appState.ViewConfigurationView[0].recommendedImageRectWidth,
-			engine->appState.ViewConfigurationView[0].recommendedImageRectHeight,
-			vulkanContext);
+	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer, eyeW, eyeH, vulkanContext);
 
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		XrPassthroughCreateInfoFB ptci = {XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};

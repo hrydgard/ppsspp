@@ -160,10 +160,12 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING, 1.0f);
 	} else {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PASSTHROUGH, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+		VR_SetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING, 1.3f);
 	}
 	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
 
@@ -432,6 +434,8 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		float speed = (cx + cy) / 2;
 		float x = cx - tan(ToRadians(angles.y - VR_GetConfigFloat(VR_CONFIG_MENU_YAW))) * speed;
 		float y = cy - tan(ToRadians(angles.x)) * speed * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		x *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
+		y *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
 
 		//set renderer
 		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
