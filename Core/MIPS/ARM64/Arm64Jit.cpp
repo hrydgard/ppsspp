@@ -207,10 +207,10 @@ void Arm64Jit::InvalidateCacheAt(u32 em_address, int length) {
 void Arm64Jit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckJitBreakpoint(GetCompilerPC() + 4, 0);
@@ -562,7 +562,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
-		ERROR_LOG_REPORT_ONCE(replFunc, HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
+		ERROR_LOG_REPORT_ONCE(replFunc, Log::HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
 		// TODO: What should we do here? We're way off in the weeds probably.
 		return;
 	}
