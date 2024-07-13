@@ -1697,7 +1697,7 @@ void ARMXEmitter::VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane)
 
 void ARMXEmitter::VMOV(ARMReg Vd, ARMReg Rt, ARMReg Rt2)
 {
-	_assert_msg_(cpu_info.bVFP | cpu_info.bNEON, "VMOV_neon requires VFP or NEON");
+	_assert_msg_(cpu_info.bVFP || cpu_info.bNEON, "VMOV_neon requires VFP or NEON");
 
 	if (Vd < S0 && Rt < S0 && Rt2 >= D0)
 	{

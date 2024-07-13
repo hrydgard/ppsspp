@@ -826,9 +826,9 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogLe
 	}
 
 	if (filename != NULL) {
-		GENERIC_LOG(LogType::FILESYS, level, "%s: %s", filename, msg);
+		GENERIC_LOG(Log::FILESYS, level, "%s: %s", filename, msg);
 	} else {
-		GENERIC_LOG(LogType::FILESYS, level, "%s", msg);
+		GENERIC_LOG(Log::FILESYS, level, "%s", msg);
 	}
 }
 

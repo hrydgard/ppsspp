@@ -431,8 +431,8 @@ int main(int argc, const char* argv[])
 
 	PrintfLogger *printfLogger = new PrintfLogger();
 
-	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; i++) {
-		LogType type = (LogType)i;
+	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
+		Log type = (Log)i;
 		logman->SetEnabled(type, fullLog);
 		logman->SetLogLevel(type, LogLevel::LDEBUG);
 	}
