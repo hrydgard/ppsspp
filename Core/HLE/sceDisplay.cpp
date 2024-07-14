@@ -152,7 +152,7 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __DisplayFlip(int cyclesLate);
-static void __DisplaySetFramerate(int value);
+static void __DisplaySetFramerate(void);
 
 static bool UseLagSync() {
 	return g_Config.bForceLagSync && !g_Config.bAutoFrameSkip;
@@ -563,8 +563,7 @@ static void NotifyUserIfSlow() {
 }
 
 void __DisplayFlip(int cyclesLate) {
-	if (g_Config.iDisplayRefreshRate != framerate)
-		__DisplaySetFramerate(g_Config.iDisplayRefreshRate);
+	__DisplaySetFramerate();
 
 	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
@@ -1130,8 +1129,12 @@ void Register_sceDisplay_driver() {
 	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }
 
-static void __DisplaySetFramerate(int value) {
-	framerate = value;
+static void __DisplaySetFramerate(void) {
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR)
+		framerate = g_Config.bForce72Hz ? 72 : 60;
+	else
+		framerate = g_Config.iDisplayRefreshRate;
+
 	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;
 }
