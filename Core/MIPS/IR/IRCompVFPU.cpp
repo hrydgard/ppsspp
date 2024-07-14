@@ -177,7 +177,7 @@ namespace MIPSComp {
 			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
-			ERROR_LOG(CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
+			ERROR_LOG(Log::CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
 			break;
 		}
 	}

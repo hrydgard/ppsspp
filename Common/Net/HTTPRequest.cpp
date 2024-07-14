@@ -10,7 +10,7 @@
 namespace http {
 
 Request::Request(RequestMethod method, const std::string &url, std::string_view name, bool *cancelled, ProgressBarMode mode) : method_(method), url_(url), name_(name), progress_(cancelled), progressBarMode_(mode) {
-	INFO_LOG(HTTP, "HTTP %s request: %s (%.*s)", RequestMethodToString(method), url.c_str(), (int)name.size(), name.data());
+	INFO_LOG(Log::HTTP, "HTTP %s request: %s (%.*s)", RequestMethodToString(method), url.c_str(), (int)name.size(), name.data());
 
 	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
 		std::string message;

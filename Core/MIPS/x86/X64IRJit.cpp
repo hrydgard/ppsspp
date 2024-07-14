@@ -147,7 +147,7 @@ bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool
 		for (int i = 0; i < (int)addresses.size(); ++i)
 			addressesLookup[addresses[i]] = i;
 
-		INFO_LOG(JIT, "=============== x86 (%08x, %d bytes) ===============", startPC, len);
+		INFO_LOG(Log::JIT, "=============== x86 (%08x, %d bytes) ===============", startPC, len);
 		const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addressesLookup.find(p);
@@ -156,7 +156,7 @@ bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool
 
 				char temp[512];
 				DisassembleIR(temp, sizeof(temp), inst);
-				INFO_LOG(JIT, "IR: #%d %s", it->second, temp);
+				INFO_LOG(Log::JIT, "IR: #%d %s", it->second, temp);
 			}
 
 			auto next = std::next(it);
@@ -164,7 +164,7 @@ bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool
 
 			auto lines = DisassembleX86(p, (int)(nextp - p));
 			for (const auto &line : lines)
-				INFO_LOG(JIT, " X: %s", line.c_str());
+				INFO_LOG(Log::JIT, " X: %s", line.c_str());
 			p = nextp;
 		}
 	}

@@ -165,7 +165,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		type = (SymbolType) typeInt;
 		if (!hasModules) {
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		} else {
@@ -173,7 +173,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			moduleIndex = vaddress;
 			vaddress = GetModuleAbsoluteAddr(address, moduleIndex);
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		}

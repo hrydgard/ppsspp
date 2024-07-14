@@ -1377,7 +1377,7 @@ static int Hook_starocean_clear_framebuf_after() {
 		int y = (s16)Memory::Read_U16(y_address);
 		int h = (s16)Memory::Read_U16(h_address);
 
-		DEBUG_LOG(HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
+		DEBUG_LOG(Log::HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
 		// TODO: This is always clearing to 0, actually, which could be faster than an upload.
 		gpu->PerformWriteColorFromMemory(framebuf + 512 * y * 4, 512 * h * 4);
 	}
@@ -1655,13 +1655,13 @@ static bool WriteReplaceInstruction(u32 address, int index) {
 		if (prevIndex == index) {
 			return false;
 		}
-		WARN_LOG(HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
+		WARN_LOG(Log::HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
 		// Make sure we don't save the old replacement.
 		prevInstr = replacedInstructions[address];
 	}
 
 	if (MIPS_IS_RUNBLOCK(Memory::Read_U32(address))) {
-		WARN_LOG(HLE, "Replacing jitted func address %08x", address);
+		WARN_LOG(Log::HLE, "Replacing jitted func address %08x", address);
 	}
 	replacedInstructions[address] = prevInstr;
 	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
@@ -1694,7 +1694,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 		}
 
 		if (didReplace) {
-			INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+			INFO_LOG(Log::HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
 		}
 	}
 }
@@ -1703,9 +1703,9 @@ void RestoreReplacedInstruction(u32 address) {
 	const u32 curInstr = Memory::Read_U32(address);
 	if (MIPS_IS_REPLACEMENT(curInstr)) {
 		Memory::Write_U32(replacedInstructions[address], address);
-		NOTICE_LOG(HLE, "Restored replaced func at %08x", address);
+		NOTICE_LOG(Log::HLE, "Restored replaced func at %08x", address);
 	} else {
-		NOTICE_LOG(HLE, "Replaced func changed at %08x", address);
+		NOTICE_LOG(Log::HLE, "Replaced func changed at %08x", address);
 	}
 	replacedInstructions.erase(address);
 }
@@ -1727,7 +1727,7 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 			++restored;
 		}
 	}
-	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
+	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
 	replacedInstructions.erase(start, end);
 }
 
@@ -1788,7 +1788,7 @@ bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSiz
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 	*entry = GetReplacementFunc(index);
 	if (!*entry) {
-		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
+		ERROR_LOG(Log::HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
 		return false;
 	}
 

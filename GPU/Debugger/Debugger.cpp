@@ -141,10 +141,10 @@ bool NotifyCommand(u32 pc) {
 
 		auto info = gpuDebug->DissassembleOp(pc);
 		if (lastStepTime >= 0.0) {
-			NOTICE_LOG(G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
+			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
 			lastStepTime = -1.0;
 		} else {
-			NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
+			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 		}
 		GPUStepping::EnterStepping();
 	}
@@ -157,10 +157,10 @@ void NotifyDraw() {
 		return;
 	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
 		if (lastStepTime >= 0.0) {
-			NOTICE_LOG(G3D, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
+			NOTICE_LOG(Log::G3D, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
 			lastStepTime = -1.0;
 		} else {
-			NOTICE_LOG(G3D, "Waiting at a draw");
+			NOTICE_LOG(Log::G3D, "Waiting at a draw");
 		}
 		GPUStepping::EnterStepping();
 	}

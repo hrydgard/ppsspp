@@ -244,7 +244,7 @@ HRESULT ReaderCallback::OnReadSample(
 			delete videoBuffer;
 			break;
 		}
-		case CAPTUREDEVIDE_TYPE::AUDIO: {
+		case CAPTUREDEVIDE_TYPE::Audio: {
 			BYTE *sampleBuf = nullptr;
 			DWORD length = 0;
 			u32 sizeAfterResample = 0;
@@ -473,7 +473,7 @@ WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
 	case CAPTUREDEVIDE_TYPE::VIDEO:
 		targetMediaParam = defaultVideoParam;
 		break;
-	case CAPTUREDEVIDE_TYPE::AUDIO:
+	case CAPTUREDEVIDE_TYPE::Audio:
 		targetMediaParam = defaultAudioParam;
 		break;
 	}
@@ -489,7 +489,7 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 		av_freep(&imageRGB);
 		av_freep(&imageJpeg);
 		break;
-	case CAPTUREDEVIDE_TYPE::AUDIO:
+	case CAPTUREDEVIDE_TYPE::Audio:
 		av_freep(&resampleBuf);
 		break;
 	}
@@ -637,7 +637,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 				break;
 			}
 
-			case CAPTUREDEVIDE_TYPE::AUDIO: {
+			case CAPTUREDEVIDE_TYPE::Audio: {
 				if (startParam) {
 					std::vector<u32> *micParam = static_cast<std::vector<u32>*>(startParam);
 					targetMediaParam.sampleRate = micParam->at(0);
@@ -823,7 +823,7 @@ HRESULT WindowsCaptureDevice::setDeviceParam(IMFMediaType *pType) {
 			hr = GetDefaultStride(pType, &deviceParam.default_stride);
 
 		break;
-	case CAPTUREDEVIDE_TYPE::AUDIO:
+	case CAPTUREDEVIDE_TYPE::Audio:
 		hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
 		if (FAILED(hr))
 			break;
@@ -912,7 +912,7 @@ void WindowsCaptureDevice::messageHandler() {
 
 	if (type == CAPTUREDEVIDE_TYPE::VIDEO) {
 		SetCurrentThreadName("Camera");
-	} else if (type == CAPTUREDEVIDE_TYPE::AUDIO) {
+	} else if (type == CAPTUREDEVIDE_TYPE::Audio) {
 		SetCurrentThreadName("Microphone");
 	}
 
@@ -969,7 +969,7 @@ HRESULT WindowsCaptureDevice::enumDevices() {
 			);
 
 			break;
-		case CAPTUREDEVIDE_TYPE::AUDIO:
+		case CAPTUREDEVIDE_TYPE::Audio:
 			hr = pAttributes->SetGUID(
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID

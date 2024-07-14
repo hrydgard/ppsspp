@@ -230,7 +230,7 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 	case DebugOverlay::FRAME_TIMING:
 		DrawFrameTiming(ctx, ctx->GetLayoutBounds());
 		break;
-	case DebugOverlay::AUDIO:
+	case DebugOverlay::Audio:
 		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
 		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
@@ -325,7 +325,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	ctx->PushScissor(Bounds(x, y, columnWidth, height));
 
-	// INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+	// INFO_LOG(Log::System, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
 
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 %s (%s)

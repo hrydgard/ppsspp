@@ -46,7 +46,7 @@ void DarwinFileSystemServices::ClearDelegate() {
 	else
 		self.panelCallback(false, Path());
 
-	INFO_LOG(SYSTEM, "Callback processed, pre-emptively hide keyboard");
+	INFO_LOG(Log::System, "Callback processed, pre-emptively hide keyboard");
 	[sharedViewController hideKeyboard];
 	DarwinFileSystemServices::ClearDelegate();
 }
@@ -54,7 +54,7 @@ void DarwinFileSystemServices::ClearDelegate() {
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
 	self.panelCallback(false, Path());
 
-	INFO_LOG(SYSTEM, "Picker cancelled, pre-emptively hide keyboard");
+	INFO_LOG(Log::System, "Picker cancelled, pre-emptively hide keyboard");
 	[sharedViewController hideKeyboard];
 }
 
@@ -97,13 +97,13 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
 		NSModalResponse modalResponse = [panel runModal];
 		if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
-			INFO_LOG(SYSTEM, "Mac: Received OK response from modal");
+			INFO_LOG(Log::System, "Mac: Received OK response from modal");
 			panelCallback(true, Path(panel.URLs.firstObject.path.UTF8String));
 		} else if (modalResponse == NSModalResponseCancel) {
-			INFO_LOG(SYSTEM, "Mac: Received Cancel response from modal");
+			INFO_LOG(Log::System, "Mac: Received Cancel response from modal");
 			panelCallback(false, Path());
 		} else {
-			WARN_LOG(SYSTEM, "Mac: Received unknown responsde from modal");
+			WARN_LOG(Log::System, "Mac: Received unknown responsde from modal");
 			panelCallback(false, Path());
 		}
 #elif PPSSPP_PLATFORM(IOS)

@@ -298,32 +298,32 @@ static bool IsKeyboardShiftValid(s32 inputType, OskKeyboardLanguage lang, OskKey
 int PSPOskDialog::Init(u32 oskPtr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid status");
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	// Seems like this should crash?
 	if (!Memory::IsValidAddress(oskPtr)) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
 
 	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
 	if (!oskParams->fields.IsValid())
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
 	if (oskParams->unk_60 != 0)
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
 	if (oskParams->fieldCount != 1)
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
 
 	ChangeStatusInit(OSK_INIT_DELAY_US);
 	selectedChar = 0;
@@ -923,7 +923,7 @@ int PSPOskDialog::NativeKeyboard() {
 
 		u32 maxLength = FieldMaxLength();
 		if (inputChars.length() > maxLength) {
-			ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
+			ERROR_LOG(Log::sceUtility, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
 			inputChars.erase(maxLength, std::string::npos);
 		}
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);

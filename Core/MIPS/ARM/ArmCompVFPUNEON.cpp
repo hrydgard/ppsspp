@@ -55,7 +55,7 @@
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-#define DISABLE_UNKNOWN_PREFIX { WARN_LOG(JIT, "DISABLE: Unknown Prefix in %s", __FUNCTION__); fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+#define DISABLE_UNKNOWN_PREFIX { WARN_LOG(Log::JIT, "DISABLE: Unknown Prefix in %s", __FUNCTION__); fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
@@ -182,7 +182,7 @@ void ArmJit::CompNEON_SV(MIPSOpcode op) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
-				INFO_LOG(HLE, "LV.S fastmode!");
+				INFO_LOG(Log::HLE, "LV.S fastmode!");
 				// TODO: Also look forward and combine multiple loads.
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_NOINIT | MAP_DIRTY);
@@ -194,7 +194,7 @@ void ArmJit::CompNEON_SV(MIPSOpcode op) {
 				}
 				break;
 			}
-			INFO_LOG(HLE, "LV.S slowmode!");
+			INFO_LOG(Log::HLE, "LV.S slowmode!");
 
 			// CC might be set by slow path below, so load regs first.
 			ARMReg ar = fpr.QMapReg(vt, V_Single, MAP_DIRTY | MAP_NOINIT);
@@ -226,7 +226,7 @@ void ArmJit::CompNEON_SV(MIPSOpcode op) {
 	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
-				INFO_LOG(HLE, "SV.S fastmode!");
+				INFO_LOG(Log::HLE, "SV.S fastmode!");
 				// TODO: Also look forward and combine multiple stores.
 				gpr.MapRegAsPointer(rs);
 				ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
@@ -239,7 +239,7 @@ void ArmJit::CompNEON_SV(MIPSOpcode op) {
 				break;
 			}
 
-			INFO_LOG(HLE, "SV.S slowmode!");
+			INFO_LOG(Log::HLE, "SV.S slowmode!");
 			// CC might be set by slow path below, so load regs first.
 			ARMReg ar = fpr.QMapReg(vt, V_Single, 0);
 			if (gpr.IsImm(rs)) {
@@ -303,7 +303,7 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 					// Detected four consecutive ones!
 					// gpr.MapRegAsPointer(rs);
 					// fpr.QLoad4x4(vts[4], rs, offset);
-					INFO_LOG(JIT, "Matrix load detected! TODO: optimize");
+					INFO_LOG(Log::JIT, "Matrix load detected! TODO: optimize");
 					// break;
 				}
 			}
@@ -368,7 +368,7 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 					// Detected four consecutive ones!
 					// gpr.MapRegAsPointer(rs);
 					// fpr.QLoad4x4(vts[4], rs, offset);
-					INFO_LOG(JIT, "Matrix store detected! TODO: optimize");
+					INFO_LOG(Log::JIT, "Matrix store detected! TODO: optimize");
 					// break;
 				}
 			}
@@ -690,7 +690,7 @@ void ArmJit::CompNEON_Mftv(MIPSOpcode op) {
 				}
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
-				ERROR_LOG(CPU, "mfv - invalid register %i", imm);
+				ERROR_LOG(Log::CPU, "mfv - invalid register %i", imm);
 			}
 		}
 		break;
@@ -869,7 +869,7 @@ void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
 	bool overlap = GetMatrixOverlap(_VD, _VS, msz) || GetMatrixOverlap(_VD, _VT, msz);
 	if (overlap) {
 		// Later. Fortunately, the VFPU also seems to prohibit overlap for matrix mul.
-		INFO_LOG(JIT, "Matrix overlap, ignoring.");
+		INFO_LOG(Log::JIT, "Matrix overlap, ignoring.");
 		DISABLE;
 	}
 
@@ -1036,7 +1036,7 @@ void ArmJit::CompNEON_Vh2f(MIPSOpcode op) {
 		outsize = V_Quad;
 		break;
 	default:
-		ERROR_LOG(JIT, "Vh2f: Must be pair or quad");
+		ERROR_LOG(Log::JIT, "Vh2f: Must be pair or quad");
 		break;
 	}
 

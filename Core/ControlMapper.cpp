@@ -57,7 +57,7 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
 					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
-					// INFO_LOG(SYSTEM, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
+					// INFO_LOG(Log::System, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
 			}
@@ -309,7 +309,7 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 			if (direction == -1) {
 				ranged = 1.0f - ranged;
 			}
-			// NOTICE_LOG(SYSTEM, "rawValue: %f other: %f signed: %f ranged: %f", iter->second, valueOther, signedValue, ranged);
+			// NOTICE_LOG(Log::System, "rawValue: %f other: %f signed: %f ranged: %f", iter->second, valueOther, signedValue, ranged);
 			return ranged;
 		} else {
 			return value;
@@ -506,13 +506,13 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		bool bValue = value >= threshold;
 
 		if (virtKeys_[i] != value) {
-			// INFO_LOG(G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
+			// INFO_LOG(Log::G3D, "vkeyanalog %s : %f", KeyMap::GetVirtKeyName(vkId), value);
 			onVKeyAnalog(changedMapping.deviceId, vkId, value);
 			virtKeys_[i] = value;
 		}
 
 		if (!bPrevValue && bValue) {
-			// INFO_LOG(G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
+			// INFO_LOG(Log::G3D, "vkeyon %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, true);
 			virtKeyOn_[vkId - VIRTKEY_FIRST] = true;
 
@@ -520,7 +520,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 				updateAnalogSticks = true;
 			}
 		} else if (bPrevValue && !bValue) {
-			// INFO_LOG(G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
+			// INFO_LOG(Log::G3D, "vkeyoff %s", KeyMap::GetVirtKeyName(vkId));
 			onVKey(vkId, false);
 			virtKeyOn_[vkId - VIRTKEY_FIRST] = false;
 
@@ -563,7 +563,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	// TODO: See if this can be simplified further somehow.
 	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
-		DEBUG_LOG(SYSTEM, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
+		DEBUG_LOG(Log::System, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 		if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
 			*pauseTrigger = true;
 			return true;
@@ -682,7 +682,7 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 			onVKeyAnalog(deviceId, pspKeyCode, 0.0f);
 		}
 	} else {
-		// INFO_LOG(SYSTEM, "pspKey %d %d", pspKeyCode, flags);
+		// INFO_LOG(Log::System, "pspKey %d %d", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
 			updatePSPButtons_(pspKeyCode, 0);
 		if (flags & KEY_UP)
@@ -715,7 +715,7 @@ void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
 		float oppVal = virtKeys_[oppositeVKey - VIRTKEY_FIRST];
 		if (oppVal != 0.0f) {
 			value -= oppVal;
-			// NOTICE_LOG(SCECTRL, "Reducing %f by %f (from %08x : %s)", value, oppVal, oppositeVKey, KeyMap::GetPspButtonName(oppositeVKey).c_str());
+			// NOTICE_LOG(Log::sceCtrl, "Reducing %f by %f (from %08x : %s)", value, oppVal, oppositeVKey, KeyMap::GetPspButtonName(oppositeVKey).c_str());
 		}
 	}
 	SetPSPAxis(deviceId, stick, axis, sign * value);

@@ -75,7 +75,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	// No need to flush before the tex scale/offset commands if we are baking
@@ -105,18 +105,18 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 					gstate_c.useFlagsChanged = false;
 
 					if (shaderManagerGL_->LoadCache(f))
-						NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
+						NOTICE_LOG(Log::G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
 				}
 			}
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		}
 	}
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation if device is unsupported.
 		if (!drawEngine_.SupportsHWTessellation()) {
-			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 		}
@@ -131,7 +131,7 @@ GPU_GLES::~GPU_GLES() {
 		if (g_Config.bShaderCache) {
 			shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		}
 	}
 	fragmentTestCache_.Clear();
@@ -221,7 +221,7 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	INFO_LOG(G3D, "GPU_GLES: DeviceLost");
+	INFO_LOG(Log::G3D, "GPU_GLES: DeviceLost");
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
@@ -260,7 +260,7 @@ void GPU_GLES::BeginHostFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;

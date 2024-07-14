@@ -83,7 +83,7 @@ void IRJit::UpdateFCR31() {
 }
 
 void IRJit::ClearCache() {
-	INFO_LOG(JIT, "IRJit: Clearing the cache!");
+	INFO_LOG(Log::JIT, "IRJit: Clearing the cache!");
 	blocks_.Clear();
 }
 
@@ -119,7 +119,7 @@ void IRJit::Compile(u32 em_address) {
 	u32 mipsBytes;
 	if (!CompileBlock(em_address, instructions, mipsBytes, false)) {
 		// Ran out of block numbers - need to reset.
-		ERROR_LOG(JIT, "Ran out of block numbers, clearing cache");
+		ERROR_LOG(Log::JIT, "Ran out of block numbers, clearing cache");
 		ClearCache();
 		CompileBlock(em_address, instructions, mipsBytes, false);
 	}
@@ -141,7 +141,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
 	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
-		WARN_LOG(JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
+		WARN_LOG(Log::JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
 		// Out of block numbers.  Caller will handle.
 		return false;
 	}
@@ -188,7 +188,7 @@ void IRJit::CompileFunction(u32 start_address, u32 length) {
 		if (!CompileBlock(em_address, instructions, mipsBytes, true)) {
 			// Ran out of block numbers - let's hope there's no more code it needs to run.
 			// Will flush when actually compiling.
-			ERROR_LOG(JIT, "Ran out of block numbers while compiling function");
+			ERROR_LOG(Log::JIT, "Ran out of block numbers while compiling function");
 			return;
 		}
 
@@ -322,7 +322,7 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
 	int offset = (int)arena_.size();
 	if (offset >= MAX_ARENA_SIZE) {
-		WARN_LOG(JIT, "Filled JIT arena, restarting");
+		WARN_LOG(Log::JIT, "Filled JIT arena, restarting");
 		return -1;
 	}
 	for (int i = 0; i < inst.size(); i++) {
@@ -466,7 +466,7 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 
 void IRBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 	if ((int)blocks_.size() != (int)saved.size()) {
-		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
+		ERROR_LOG(Log::JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
 		return;
 	}
 

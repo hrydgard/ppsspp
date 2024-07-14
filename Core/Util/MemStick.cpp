@@ -47,7 +47,7 @@ bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 
 		std::string str = newMemstickFolder.ToString();
 		if (!File::WriteDataToFile(true, str.c_str(), str.size(), memStickDirFile)) {
-			ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
+			ERROR_LOG(Log::System, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
 			// Not sure what to do if this file can't be written.  Disk full?
 		}
 
@@ -85,7 +85,7 @@ static bool ListFileSuffixesRecursively(const Path &root, const Path &folder, st
 					progressReporter.SetProgress(file.name, fileSuffixes.size(), (size_t)-1);
 				}
 			} else {
-				ERROR_LOG_REPORT(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
+				ERROR_LOG_REPORT(Log::System, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
 			}
 		} else {
 			std::string fileSuffix;
@@ -112,7 +112,7 @@ bool MoveChildrenFast(const Path &moveSrc, const Path &moveDest, MoveProgressRep
 		Path fileSrc = file.fullName;
 		Path fileDest = moveDest / file.name;
 		progressReporter.SetProgress(file.name, i, files.size());
-		INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", fileSrc.c_str(), fileDest.c_str());
+		INFO_LOG(Log::System, "About to move PSP data from '%s' to '%s'", fileSrc.c_str(), fileDest.c_str());
 		bool result = File::MoveIfFast(fileSrc, fileDest);
 		if (!result) {
 			// TODO: Should we try to move back anything that succeeded before this one?
@@ -147,12 +147,12 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		File::CreateDir(moveDest);
 	}
 
-	INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
+	INFO_LOG(Log::System, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
 
 	// First, we try the cheapest and safest way to move: Can we move files directly within the same device?
 	// We loop through the files/dirs in the source directory and just try to move them, it should work.
 	if (MoveChildrenFast(moveSrc, moveDest, progressReporter)) {
-		INFO_LOG(SYSTEM, "Quick-move succeeded");
+		INFO_LOG(Log::System, "Quick-move succeeded");
 		progressReporter.SetProgress(ms->T("Done!"));
 		return new MoveResult{
 			true, ""
@@ -171,7 +171,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove, progressReporter)) {
 		// TODO: Handle failure listing files.
 		std::string error = "Failed to read old directory";
-		INFO_LOG(SYSTEM, "%s", error.c_str());
+		INFO_LOG(Log::System, "%s", error.c_str());
 		progressReporter.SetProgress(ms->T(error.c_str()));
 		return new MoveResult{ false, error };
 	}
@@ -196,9 +196,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		const auto &dirSuffix = directorySuffixesToCreate[i];
 		Path dir = moveDest / dirSuffix;
 		if (dryRun) {
-			INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
+			INFO_LOG(Log::System, "dry run: Would have created dir '%s'", dir.c_str());
 		} else {
-			INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
+			INFO_LOG(Log::System, "Creating dir '%s'", dir.c_str());
 			progressReporter.SetProgress(dirSuffix);
 			// Just ignore already-exists errors.
 			File::CreateDir(dir);
@@ -214,16 +214,16 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		Path to = moveDest / fileSuffix.suffix;
 
 		if (dryRun) {
-			INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
+			INFO_LOG(Log::System, "dry run: Would have moved '%s' to '%s' (%d bytes)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
 		} else {
 			// Remove the "from" prefix from the path.
 			// We have to drop down to string operations for this.
 			if (!File::Copy(from, to)) {
-				ERROR_LOG(SYSTEM, "Failed to copy file '%s' to '%s'", from.c_str(), to.c_str());
+				ERROR_LOG(Log::System, "Failed to copy file '%s' to '%s'", from.c_str(), to.c_str());
 				failedFiles++;
 				// Should probably just bail?
 			} else {
-				INFO_LOG(SYSTEM, "Copied file '%s' to '%s'", from.c_str(), to.c_str());
+				INFO_LOG(Log::System, "Copied file '%s' to '%s'", from.c_str(), to.c_str());
 			}
 		}
 	}
@@ -248,7 +248,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		}
 
 		if (fileSuffix.fileSize != info.size) {
-			ERROR_LOG(SYSTEM, "Mismatched size in target file %s. Verification failed.", fileSuffix.suffix.c_str());
+			ERROR_LOG(Log::System, "Mismatched size in target file %s. Verification failed.", fileSuffix.suffix.c_str());
 			ok = false;
 			failedFiles++;
 			break;
@@ -259,7 +259,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		return new MoveResult{ false, "", failedFiles };
 	}
 
-	INFO_LOG(SYSTEM, "Verification complete");
+	INFO_LOG(Log::System, "Verification complete");
 
 	// Delete all the old, now hopefully empty, directories.
 	// Hopefully DeleteDir actually fails if it contains a file...
@@ -267,9 +267,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		const auto &dirSuffix = directorySuffixesToCreate[i];
 		Path dir = moveSrc / dirSuffix;
 		if (dryRun) {
-			INFO_LOG(SYSTEM, "dry run: Would have deleted dir '%s'", dir.c_str());
+			INFO_LOG(Log::System, "dry run: Would have deleted dir '%s'", dir.c_str());
 		} else {
-			INFO_LOG(SYSTEM, "Deleting dir '%s'", dir.c_str());
+			INFO_LOG(Log::System, "Deleting dir '%s'", dir.c_str());
 			progressReporter.SetProgress(dirSuffix, i, directorySuffixesToCreate.size());
 			if (File::Exists(dir)) {
 				File::DeleteDir(dir);

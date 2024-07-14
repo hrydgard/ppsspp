@@ -26,13 +26,13 @@
 #include "Core/Config.h"
 
 static int kuKernelLoadModule(const char *path, uint32_t flags, uint32_t lmOptionAddr) {
-	INFO_LOG(SCEKERNEL, "kuKernelLoadModule - forwarding to sceKernelLoadModule");
+	INFO_LOG(Log::sceKernel, "kuKernelLoadModule - forwarding to sceKernelLoadModule");
 	// Simply forward the call, like JPSCP does.
 	return sceKernelLoadModule(path, flags, lmOptionAddr);
 }
 
 static int kuKernelGetModel() {
-	INFO_LOG(SCEKERNEL, "kuKernelGetModel()");
+	INFO_LOG(Log::sceKernel, "kuKernelGetModel()");
 	return g_Config.iPSPModel;
 }
 

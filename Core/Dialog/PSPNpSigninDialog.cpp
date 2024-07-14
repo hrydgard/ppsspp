@@ -61,7 +61,7 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size);
 	
-	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, SCENET, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
+	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
 
 	ChangeStatusInit(NP_INIT_DELAY_US);
 

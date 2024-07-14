@@ -237,7 +237,7 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		// Create declaration
 		HRESULT hr = device_->CreateInputLayout(VertexElements, VertexElement - VertexElements, vshader->bytecode().data(), vshader->bytecode().size(), &inputLayout);
 		if (FAILED(hr)) {
-			ERROR_LOG(G3D, "Failed to create input layout!");
+			ERROR_LOG(Log::G3D, "Failed to create input layout!");
 			inputLayout = nullptr;
 		}
 
@@ -370,7 +370,7 @@ void DrawEngineD3D11::DoFlush() {
 
 		gpuStats.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
+		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};

@@ -77,9 +77,9 @@ extern volatile CoreState coreState;
 void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
+		ERROR_LOG(Log::JIT, "ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
 	} else {
-		ERROR_LOG(JIT, "Universe corrupt?");
+		ERROR_LOG(Log::JIT, "Universe corrupt?");
 	}
 	//if (count > 2000)
 	//	exit(0);
@@ -314,7 +314,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	if (enableDisasm) {
 		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto s : lines) {
-			INFO_LOG(JIT, "%s", s.c_str());
+			INFO_LOG(Log::JIT, "%s", s.c_str());
 		}
 	}
 

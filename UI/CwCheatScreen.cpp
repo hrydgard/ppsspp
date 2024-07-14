@@ -217,7 +217,7 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
 	System_BrowseForFile(GetRequesterToken(), "Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
 		Path path(value);
-		INFO_LOG(SYSTEM, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
+		INFO_LOG(Log::System, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
 		if (ImportCheats(path)) {
 			g_Config.bReloadCheats = true;
 		} else {
@@ -242,7 +242,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 
 bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 	if (gameID_.length() != 9 || !engine_) {
-		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
+		WARN_LOG(Log::Common, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
 		return false;
 	}
 
@@ -250,7 +250,7 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 
 	FILE *in = File::OpenCFile(cheatFile, "rt");
 	if (!in) {
-		WARN_LOG(COMMON, "Unable to open %s\n", cheatFile.c_str());
+		WARN_LOG(Log::Common, "Unable to open %s\n", cheatFile.c_str());
 		return false;
 	}
 
@@ -315,7 +315,7 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 		}
 	}
 
-	NOTICE_LOG(COMMON, "Imported %u lines from %s.\n", (int)newList.size(), cheatFile.c_str());
+	NOTICE_LOG(Log::Common, "Imported %u lines from %s.\n", (int)newList.size(), cheatFile.c_str());
 	if (newList.size() != 0) {
 		fputc('\n', append);
 	}

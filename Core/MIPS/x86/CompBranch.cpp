@@ -108,7 +108,7 @@ static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 {
 	char temp[256];
 	MIPSDisAsm(op, pc, temp, sizeof(temp), true);
-	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
+	ERROR_LOG(Log::JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
 	Core_EnableStepping(true, "jit.branchdebug", pc);
 }
 
@@ -155,7 +155,7 @@ CCFlags Jit::FlipCCFlag(CCFlags flag)
 	case CC_LE: return CC_NLE;
 	case CC_NLE: return CC_LE;
 	}
-	ERROR_LOG_REPORT(JIT, "FlipCCFlag: Unexpected CC flag: %d", flag);
+	ERROR_LOG_REPORT(Log::JIT, "FlipCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 
@@ -181,7 +181,7 @@ CCFlags Jit::SwapCCFlag(CCFlags flag)
 	case CC_LE: return CC_GE;
 	case CC_NLE: return CC_NGE;
 	}
-	ERROR_LOG_REPORT(JIT, "SwapCCFlag: Unexpected CC flag: %d", flag);
+	ERROR_LOG_REPORT(Log::JIT, "SwapCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 
@@ -340,7 +340,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -419,7 +419,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -539,7 +539,7 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -582,7 +582,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (js.inDelaySlot) {
 		// I think we can safely just warn-log this without reporting, it's pretty clear that this type
 		// of branch is ignored.
-		WARN_LOG(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		WARN_LOG(Log::JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -631,7 +631,7 @@ static void HitInvalidJump(uint32_t dest) {
 void Jit::Comp_Jump(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	u32 off = TARGET26;
@@ -640,7 +640,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr) || (targetAddr & 3) != 0) {
 		if (js.nextExit == 0) {
-			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x PC %08x LR %08x", targetAddr, GetCompilerPC(), currentMIPS->r[MIPS_REG_RA]);
+			ERROR_LOG_REPORT(Log::JIT, "Jump to invalid address: %08x PC %08x LR %08x", targetAddr, GetCompilerPC(), currentMIPS->r[MIPS_REG_RA]);
 		} else {
 			js.compiling = false;
 		}
@@ -707,7 +707,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	MIPSGPReg rs = _RS;
@@ -798,7 +798,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
 	if (op.encoding == 0x03FFFFcc) {
-		WARN_LOG(JIT, "Encountered bad syscall instruction at %08x (%08x)", js.compilerPC, op.encoding);
+		WARN_LOG(Log::JIT, "Encountered bad syscall instruction at %08x (%08x)", js.compilerPC, op.encoding);
 	}
 
 	if (!g_Config.bSkipDeadbeefFilling)

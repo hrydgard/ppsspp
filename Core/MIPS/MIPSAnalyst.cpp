@@ -737,7 +737,7 @@ namespace MIPSAnalyst {
 		}
 		totalUsedRegs += numUsedRegs;
 		numAnalyzings++;
-		VERBOSE_LOG(CPU, "[ %08x ] Used regs: %i Average: %f", address, numUsedRegs, (float)totalUsedRegs / (float)numAnalyzings);
+		VERBOSE_LOG(Log::CPU, "[ %08x ] Used regs: %i Average: %f", address, numUsedRegs, (float)totalUsedRegs / (float)numAnalyzings);
 
 		return results;
 	}
@@ -930,7 +930,7 @@ skip:
 		}
 		double et = time_now_d();
 
-		NOTICE_LOG(JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
+		NOTICE_LOG(Log::JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
 	}
 
 	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
@@ -1219,7 +1219,7 @@ skip:
 					hashMap.insert(hfun);
 					return;
 				} else if (!iter->hasHash || size == 0) {
-					ERROR_LOG(HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, iter->hasHash);
+					ERROR_LOG(Log::HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, iter->hasHash);
 				}
 			}
 		}
@@ -1329,7 +1329,7 @@ skip:
 
 		FILE *file = File::OpenCFile(filename, "wt");
 		if (!file) {
-			WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+			WARN_LOG(Log::Loader, "Could not store hash map: %s", filename.c_str());
 			return;
 		}
 
@@ -1337,7 +1337,7 @@ skip:
 			const HashMapFunc &mf = *it;
 			if (!mf.hardcoded) {
 				if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
-					WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+					WARN_LOG(Log::Loader, "Could not store hash map: %s", filename.c_str());
 					break;
 				}
 			}
@@ -1386,7 +1386,7 @@ skip:
 	void LoadHashMap(const Path &filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
-			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
+			WARN_LOG(Log::Loader, "Could not load hash map: %s", filename.c_str());
 			return;
 		}
 		hashmapFileName = filename;
@@ -1397,7 +1397,7 @@ skip:
 			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
 				char temp[1024];
 				if (!fgets(temp, 1024, file)) {
-					WARN_LOG(LOADER, "Could not read from hash map: %s", filename.c_str());
+					WARN_LOG(Log::Loader, "Could not read from hash map: %s", filename.c_str());
 				}
 				continue;
 			}

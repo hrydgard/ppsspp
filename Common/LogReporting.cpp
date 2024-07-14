@@ -59,7 +59,7 @@ void SetupCallbacks(AllowedCallback allowed, MessageCallback message) {
 
 void ReportMessage(const char *message, ...) {
 	if (!allowedCallback || !messageCallback) {
-		ERROR_LOG(SYSTEM, "Reporting not initialized, skipping: %s", message);
+		ERROR_LOG(Log::System, "Reporting not initialized, skipping: %s", message);
 		return;
 	}
 
@@ -80,7 +80,7 @@ void ReportMessage(const char *message, ...) {
 
 void ReportMessageFormatted(const char *message, const char *formatted) {
 	if (!allowedCallback || !messageCallback) {
-		ERROR_LOG(SYSTEM, "Reporting not initialized, skipping: %s", message);
+		ERROR_LOG(Log::System, "Reporting not initialized, skipping: %s", message);
 		return;
 	}
 

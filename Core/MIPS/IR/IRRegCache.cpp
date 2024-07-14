@@ -238,7 +238,7 @@ uint64_t IRNativeRegCacheBase::GetGPR2Imm(IRReg base) {
 void IRNativeRegCacheBase::SetGPRImm(IRReg gpr, uint32_t immVal) {
 	_dbg_assert_(IsValidGPR(gpr));
 	if (gpr == MIPS_REG_ZERO && immVal != 0) {
-		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0", immVal);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to set immediate %08x to r0", immVal);
 		return;
 	}
 
@@ -387,7 +387,7 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type, MIPSMap flags) {
 	}
 
 	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers in block PC %08x, index %d", irBlock_->GetOriginalStart(), irIndex_);
+	ERROR_LOG_REPORT(Log::JIT, "Out of spillable registers in block PC %08x, index %d", irBlock_->GetOriginalStart(), irIndex_);
 	_assert_(bestToSpill != -1);
 	return -1;
 }
@@ -586,7 +586,7 @@ void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 	}
 	_dbg_assert_(!mr[nr[nreg].mipsReg].isStatic);
 	if (mr[nr[nreg].mipsReg].isStatic) {
-		ERROR_LOG(JIT, "Cannot FlushNativeReg a statically mapped register");
+		ERROR_LOG(Log::JIT, "Cannot FlushNativeReg a statically mapped register");
 		return;
 	}
 
@@ -708,7 +708,7 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 			} else if (mr[i].loc == MIPSLoc::REG_IMM) {
 				// The register already contains the immediate.
 				if (nr[nreg].pointerified) {
-					ERROR_LOG(JIT, "RVREG_IMM but pointerified. Wrong.");
+					ERROR_LOG(Log::JIT, "RVREG_IMM but pointerified. Wrong.");
 					nr[nreg].pointerified = false;
 				}
 				mr[i].loc = MIPSLoc::REG;
@@ -746,7 +746,7 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Sanity check
 	for (int i = 0; i < config_.totalNativeRegs; i++) {
 		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
-			ERROR_LOG_REPORT(JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
+			ERROR_LOG_REPORT(Log::JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
 		}
 	}
 }
@@ -1217,7 +1217,7 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 			nr[nreg].pointerified = true;
 		}
 	} else {
-		ERROR_LOG(JIT, "MapNativeRegAsPointer: MapNativeReg failed to allocate a register?");
+		ERROR_LOG(Log::JIT, "MapNativeRegAsPointer: MapNativeReg failed to allocate a register?");
 	}
 	return nreg;
 }

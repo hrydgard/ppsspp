@@ -68,7 +68,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 			if (Microphone::isHaveDevice()) {
 				if (Microphone::getReadMicDataLength() >= waitingThread.needSize) {
 					u32 ret = __KernelGetWaitValue(threadID, error);
-					DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
+					DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 					__KernelResumeThreadFromWait(threadID, ret);
 					waitingThreads.erase(waitingThreads.begin() + count);
 				} else {
@@ -82,7 +82,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 					}
 				}
 				u32 ret = __KernelGetWaitValue(threadID, error);
-				DEBUG_LOG(HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
+				DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
 				__KernelResumeThreadFromWait(threadID, ret);
 				waitingThreads.erase(waitingThreads.begin() + count);
 				readMicDataLength += waitingThread.needSize;
@@ -260,17 +260,17 @@ u32 QueueBuf::getStartPos() {
 }
 
 static int sceUsbMicPollInputEnd() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicPollInputEnd");
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicPollInputEnd");
 	return 0;
 }
 
 static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE, "sceUsbMicInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		ERROR_LOG(Log::HLE, "sceUsbMicInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	INFO_LOG(Log::HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
 		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
 	}
@@ -283,17 +283,17 @@ static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 }
 
 static int sceUsbMicInputInitEx(u32 paramAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicInputInitEx: %08x", paramAddr);
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicInputInitEx: %08x", paramAddr);
 	return 0;
 }
 
 static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE, "sceUsbMicInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
+		ERROR_LOG(Log::HLE, "sceUsbMicInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
 		return -1;
 	}
 
-	ERROR_LOG(HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	ERROR_LOG(Log::HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
 		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
 	}
@@ -306,17 +306,17 @@ static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 }
 static int sceUsbMicGetInputLength() {
 	int ret = Microphone::getReadMicDataLength() / 2;
-	ERROR_LOG(HLE, "UNTEST sceUsbMicGetInputLength(ret: %d)", ret);
+	ERROR_LOG(Log::HLE, "UNTEST sceUsbMicGetInputLength(ret: %d)", ret);
 	return ret;
 }
 
 static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicInputInit(unknown1: %d, inputVolume: %d, unknown2: %d)", unknown1, inputVolume, unknown2);
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicInputInit(unknown1: %d, inputVolume: %d, unknown2: %d)", unknown1, inputVolume, unknown2);
 	return 0;
 }
 
 static int sceUsbMicWaitInputEnd() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbMicWaitInputEnd");
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
 	return 0;
 }
 
@@ -328,7 +328,7 @@ int Microphone::startMic(void *param) {
 	std::vector<u32> *micParam = static_cast<std::vector<u32>*>(param);
 	int sampleRate = micParam->at(0);
 	int channels = micParam->at(1);
-	INFO_LOG(HLE, "microphone_command : sr = %d", sampleRate);
+	INFO_LOG(Log::HLE, "microphone_command : sr = %d", sampleRate);
 	System_MicrophoneCommand("startRecording:" + std::to_string(sampleRate));
 #endif
 	micState = 1;
@@ -456,7 +456,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);
-	DEBUG_LOG(HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
+	DEBUG_LOG(Log::HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
 	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
 
 	return type == CAMERAMIC ? size : maxSamples;

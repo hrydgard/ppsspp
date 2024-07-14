@@ -372,7 +372,7 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	if (cancelButton_) {
 		cancelButton_->SetVisibility(UI::V_VISIBLE);
 	}
-	INFO_LOG(SYSTEM, "Triggering install of '%s'", fileUrl.c_str());
+	INFO_LOG(Log::System, "Triggering install of '%s'", fileUrl.c_str());
 	g_GameManager.DownloadAndInstall(fileUrl);
 	return UI::EVENT_DONE;
 }
@@ -430,7 +430,7 @@ void StoreScreen::update() {
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
-			ERROR_LOG(IO, "Download failed : error code %d", resultCode_);
+			ERROR_LOG(Log::IO, "Download failed : error code %d", resultCode_);
 			connectionError_ = true;
 			loading_ = false;
 			RecreateViews();
@@ -445,7 +445,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
-		ERROR_LOG(IO, "Error parsing JSON from store");
+		ERROR_LOG(Log::IO, "Error parsing JSON from store");
 		connectionError_ = true;
 		RecreateViews();
 		return;

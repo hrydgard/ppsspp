@@ -68,7 +68,7 @@
 
 #define SAMPLERATE 44100
 
-/* Audio output buffer */
+/* AUDIO output buffer */
 static struct {
    int16_t *data;
    int32_t size;
@@ -1452,7 +1452,7 @@ bool retro_load_game(const struct retro_game_info *game)
    retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
    {
-      ERROR_LOG(SYSTEM, "XRGB8888 is not supported.\n");
+      ERROR_LOG(Log::System, "XRGB8888 is not supported.\n");
       return false;
    }
 
@@ -1460,7 +1460,7 @@ bool retro_load_game(const struct retro_game_info *game)
 
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
-   INFO_LOG(SYSTEM, "Using %s backend", ctx->Ident());
+   INFO_LOG(Log::System, "Using %s backend", ctx->Ident());
 
    Core_SetGraphicsContext(ctx);
    SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
@@ -1492,7 +1492,7 @@ bool retro_load_game(const struct retro_game_info *game)
    std::string error_string;
    if (!PSP_InitStart(coreParam, &error_string))
    {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
+      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       return false;
    }
 
@@ -1539,7 +1539,7 @@ void retro_reset(void)
 
    if (!PSP_Init(PSP_CoreParameter(), &error_string))
    {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
+      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
    }
 }
@@ -1638,7 +1638,7 @@ void retro_run(void)
 
       if (!PSP_IsInited())
       {
-         ERROR_LOG(BOOT, "%s", error_string.c_str());
+         ERROR_LOG(Log::Boot, "%s", error_string.c_str());
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
       }

@@ -139,7 +139,7 @@ public:
 			const uint8_t *end = GetCodePtr();
 			size_t sz = end - writeStart_;
 			if (sz > writeEstimated_)
-				WARN_LOG(JIT, "EndWrite(): Estimated %d bytes, wrote %d", (int)writeEstimated_, (int)sz);
+				WARN_LOG(Log::JIT, "EndWrite(): Estimated %d bytes, wrote %d", (int)writeEstimated_, (int)sz);
 			// If we protected and wrote less, we may need to unprotect.
 			// Especially if we're linking blocks or similar.
 			if (sz < writeEstimated_)

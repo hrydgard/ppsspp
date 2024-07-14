@@ -32,7 +32,7 @@
 int sceSircsSend(u32 dataAddr, int count) {
 	auto data = PSPPointer<SircsData>::Create(dataAddr);
 	if (data.IsValid()) {
-		INFO_LOG(HLE, "%s (version=0x%x, command=0x%x, address=0x%x, count=%d)",
+		INFO_LOG(Log::HLE, "%s (version=0x%x, command=0x%x, address=0x%x, count=%d)",
 			__FUNCTION__, data->version, data->command, data->address, count);
 		#if PPSSPP_PLATFORM(ANDROID)
 			char command[40] = {0};

@@ -109,10 +109,10 @@ void FakeJit::InvalidateCacheAt(u32 em_address, int length) {
 void FakeJit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	js.numInstructions++;
@@ -150,7 +150,7 @@ bool FakeJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 void FakeJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void FakeJit::Comp_ReplacementFunc(MIPSOpcode op)

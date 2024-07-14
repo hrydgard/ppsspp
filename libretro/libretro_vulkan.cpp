@@ -378,7 +378,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 
 	PFN_vkVoidFunction fptr = vkGetInstanceProcAddr_org(instance, pName);
    if (!fptr) {
-      ERROR_LOG(G3D, "Failed to load VK instance function: %s", pName);
+      ERROR_LOG(Log::G3D, "Failed to load VK instance function: %s", pName);
       return fptr;
    }
 

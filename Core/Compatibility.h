@@ -22,7 +22,7 @@
 #include <set>
 
 // Compatibility flags are controlled by assets/compat.ini.
-// Alternatively, if PSP/SYSTEM/compat.ini exists, it is merged on top, to enable editing
+// Alternatively, if PSP/System/compat.ini exists, it is merged on top, to enable editing
 // the file on Android for tests.
 //
 // This file is not meant to be user-editable, although is kept as a separate ini

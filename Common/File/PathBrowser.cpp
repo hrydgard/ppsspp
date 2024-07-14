@@ -74,7 +74,7 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 		// Try to extract from an automatic webserver directory listing...
 		GetQuotedStrings(listing, items);
 	} else {
-		ERROR_LOG(IO, "Unsupported Content-Type: %s", contentType.c_str());
+		ERROR_LOG(Log::IO, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
 	}
 	Path basePath(baseURL.ToString());
@@ -129,7 +129,7 @@ void PathBrowser::SetPath(const Path &path) {
 }
 
 void PathBrowser::RestrictToRoot(const Path &root) {
-	INFO_LOG(SYSTEM, "Restricting to root: %s", root.c_str());
+	INFO_LOG(Log::System, "Restricting to root: %s", root.c_str());
 	restrictedRoot_ = root;
 }
 
@@ -181,7 +181,7 @@ void PathBrowser::HandlePath() {
 				results.clear();
 				success_ = File::GetFilesInDir(lastPath, &results, nullptr);
 				if (!success_) {
-					WARN_LOG(IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
+					WARN_LOG(Log::IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
 				}
 				guard.lock();
 			}
@@ -248,7 +248,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 
 void PathBrowser::ApplyRestriction() {
 	if (!path_.StartsWith(restrictedRoot_) && !startsWith(path_.ToString(), "!")) {
-		WARN_LOG(SYSTEM, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
+		WARN_LOG(Log::System, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
 		path_ = restrictedRoot_;
 	}
 }

@@ -154,7 +154,7 @@ MIPSState::MIPSState() {
 
 	for (int i = 0; i < (int)ARRAY_SIZE(firstThirtyTwo); i++) {
 		if (voffset[firstThirtyTwo[i]] != i) {
-			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
+			ERROR_LOG(Log::CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
 		}
 	}
 }
@@ -236,7 +236,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
-		INFO_LOG(CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
+		INFO_LOG(Log::CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
@@ -246,7 +246,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 
 	case CPUCore::IR_INTERPRETER:
-		INFO_LOG(CPU, "Switching to IR interpreter");
+		INFO_LOG(Log::CPU, "Switching to IR interpreter");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
@@ -256,7 +256,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 
 	case CPUCore::INTERPRETER:
-		INFO_LOG(CPU, "Switching to interpreter");
+		INFO_LOG(Log::CPU, "Switching to interpreter");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;

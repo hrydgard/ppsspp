@@ -32,7 +32,7 @@ static std::string getlocale() {
 
 TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 	if (TTF_Init() < 0) {
-		ERROR_LOG(G3D, "Unable to initialize SDL2_ttf");
+		ERROR_LOG(Log::G3D, "Unable to initialize SDL2_ttf");
 	}
 
 	dpiScale_ = CalculateDPIScale();
@@ -275,7 +275,7 @@ void TextDrawerSDL::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
+		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 

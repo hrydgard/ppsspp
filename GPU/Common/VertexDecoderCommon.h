@@ -254,7 +254,7 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
+			ERROR_LOG_REPORT_ONCE(fmtw0, Log::G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
 			memset(weights, 0, sizeof(float) * 8);
 			break;
 		}

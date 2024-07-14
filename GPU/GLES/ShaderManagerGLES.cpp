@@ -749,7 +749,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	std::string errorString;
 	FragmentShaderFlags flags;
 	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(G3D, "FS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", FSID.d[0], FSID.d[1]);
+		ERROR_LOG_REPORT(Log::G3D, "FS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", FSID.d[0], FSID.d[1]);
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
@@ -767,7 +767,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	std::string errorString;
 	VertexShaderFlags flags;
 	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(G3D, "VS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", VSID.d[0], VSID.d[1]);
+		ERROR_LOG_REPORT(Log::G3D, "VS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", VSID.d[0], VSID.d[1]);
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
@@ -801,7 +801,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	// Vertex shader not in cache. Let's compile it.
 	vs = CompileVertexShader(*VSID);
 	if (!vs) {
-		ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
+		ERROR_LOG(Log::G3D, "Vertex shader generation failed, falling back to software transform");
 		if (!g_Config.bHideSlowWarnings) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
@@ -852,7 +852,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 		// Could fail to generate, in which case we're kinda screwed.
 		fs = CompileFragmentShader(FSID);
 		if (!fs) {
-			ERROR_LOG(G3D, "Failed to generate fragment shader with ID %08x:%08x", FSID.d[0], FSID.d[1]);
+			ERROR_LOG(Log::G3D, "Failed to generate fragment shader with ID %08x:%08x", FSID.d[0], FSID.d[1]);
 			// Still insert it so we don't end up spamming generation.
 		}
 		fsCache_.Insert(FSID, fs);
@@ -1043,7 +1043,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 
 	// Sanity check the file contents
 	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
-		ERROR_LOG(G3D, "Corrupt shader cache file header, aborting.");
+		ERROR_LOG(Log::G3D, "Corrupt shader cache file header, aborting.");
 		return false;
 	}
 
@@ -1053,7 +1053,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	expectedSize += header.numFragmentShaders * sizeof(FShaderID);
 	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
 	if (sz != expectedSize) {
-		ERROR_LOG(G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
+		ERROR_LOG(Log::G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
 		return false;
 	}
 
@@ -1096,7 +1096,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		if (!vsCache_.ContainsKey(id)) {
 			if (id.Bit(VS_BIT_IS_THROUGH) && id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
 				// Clearly corrupt, bailing.
-				ERROR_LOG_REPORT(G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
+				ERROR_LOG_REPORT(Log::G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
 				pending.Clear();
 				return false;
 			}
@@ -1105,13 +1105,13 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 			if (!vs) {
 				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
 				// without trying to deduce the vertType from the VSID.
-				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
+				ERROR_LOG(Log::G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
 				pending.Clear();
 				return false;
 			}
 			vsCache_.Insert(id, vs);
 		} else {
-			WARN_LOG(G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
+			WARN_LOG(Log::G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
 		}
 	}
 
@@ -1122,13 +1122,13 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 			if (!fs) {
 				// Give up on using the cache - something went wrong.
 				// We'll still keep the shaders we generated so far around.
-				ERROR_LOG(G3D, "Failed to compile a fragment shader loading from cache. Skipping rest of shader cache.");
+				ERROR_LOG(Log::G3D, "Failed to compile a fragment shader loading from cache. Skipping rest of shader cache.");
 				pending.Clear();
 				return false;
 			}
 			fsCache_.Insert(id, fs);
 		} else {
-			WARN_LOG(G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
+			WARN_LOG(Log::G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
 		}
 	}
 
@@ -1150,7 +1150,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	// Okay, finally done.  Time to report status.
 	double finish = time_now_d();
 
-	NOTICE_LOG(G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
+	NOTICE_LOG(Log::G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
 	pending.Clear();
 
 	return true;
@@ -1160,7 +1160,7 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 	if (linkedShaderCache_.empty()) {
 		return;
 	}
-	INFO_LOG(G3D, "Saving the shader cache to '%s'", filename.c_str());
+	INFO_LOG(Log::G3D, "Saving the shader cache to '%s'", filename.c_str());
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f) {
 		// Can't save, give up for now.

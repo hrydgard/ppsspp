@@ -75,7 +75,7 @@ void DoLinkedList(PointerWrap &p, LinkedListItem<T> *&list_start, LinkedListItem
 			}
 		} else {
 			if (shouldExist != 0) {
-				WARN_LOG(SAVESTATE, "Savestate failure: incorrect item marker %d", shouldExist);
+				WARN_LOG(Log::SaveState, "Savestate failure: incorrect item marker %d", shouldExist);
 				p.SetError(p.ERROR_FAILURE);
 			}
 			if (p.mode == PointerWrap::MODE_READ) {

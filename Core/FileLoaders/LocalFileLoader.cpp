@@ -60,7 +60,7 @@ void LocalFileLoader::DetectSizeFd() {
 LocalFileLoader::LocalFileLoader(const Path &filename)
 	: filesize_(0), filename_(filename) {
 	if (filename.empty()) {
-		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
+		ERROR_LOG(Log::FileSystem, "LocalFileLoader can't load empty filenames");
 		return;
 	}
 
@@ -76,9 +76,9 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 #if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
-		VERBOSE_LOG(SYSTEM, "LocalFileLoader Fd %d for content URI: '%s'", fd, filename.c_str());
+		VERBOSE_LOG(Log::System, "LocalFileLoader Fd %d for content URI: '%s'", fd, filename.c_str());
 		if (fd < 0) {
-			ERROR_LOG(FILESYS, "LocalFileLoader failed to open content URI: '%s'", filename.c_str());
+			ERROR_LOG(Log::FileSystem, "LocalFileLoader failed to open content URI: '%s'", filename.c_str());
 			return;
 		}
 		fd_ = fd;
@@ -180,7 +180,7 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 		return 0;
 
 	if (filesize_ == 0) {
-		ERROR_LOG(FILESYS, "ReadAt from 0-sized file: %s", filename_.c_str());
+		ERROR_LOG(Log::FileSystem, "ReadAt from 0-sized file: %s", filename_.c_str());
 		return 0;
 	}
 

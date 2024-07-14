@@ -73,7 +73,7 @@ StereoResampler::StereoResampler()
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
 		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
-		INFO_LOG(AUDIO, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
+		INFO_LOG(Log::Audio, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
 		m_input_sample_rate = input_sample_rate;
 	}
 

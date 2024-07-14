@@ -76,7 +76,7 @@ bool GameInfo::Delete() {
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			Path fileToRemove = filePath_;
-			INFO_LOG(SYSTEM, "Deleting file %s", fileToRemove.c_str());
+			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
 			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
@@ -86,9 +86,9 @@ bool GameInfo::Delete() {
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 			Path directoryToRemove = ResolvePBPDirectory(filePath_);
-			INFO_LOG(SYSTEM, "Deleting directory %s", directoryToRemove.c_str());
+			INFO_LOG(Log::System, "Deleting directory %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
-				ERROR_LOG(SYSTEM, "Failed to delete file");
+				ERROR_LOG(Log::System, "Failed to delete file");
 				return false;
 			}
 			g_Config.CleanRecent();
@@ -104,7 +104,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
 			const Path &fileToRemove = filePath_;
-			INFO_LOG(SYSTEM, "Deleting file %s", fileToRemove.c_str());
+			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
 			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
@@ -113,7 +113,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
 			const Path &ppstPath = filePath_;
-			INFO_LOG(SYSTEM, "Deleting file %s", ppstPath.c_str());
+			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
 			File::Delete(ppstPath);
 			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
@@ -123,7 +123,7 @@ bool GameInfo::Delete() {
 		}
 
 	default:
-		INFO_LOG(SYSTEM, "Don't know how to delete this type of file: %s", filePath_.c_str());
+		INFO_LOG(Log::System, "Don't know how to delete this type of file: %s", filePath_.c_str());
 		return false;
 	}
 }
@@ -358,7 +358,7 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
-		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
+		ERROR_LOG(Log::G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
 	}
 }
 
@@ -456,7 +456,7 @@ public:
 			// Mark everything requested as done, so 
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
-			ERROR_LOG(LOADER, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
+			ERROR_LOG(Log::Loader, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
 			return;
 		}
 
@@ -483,7 +483,7 @@ public:
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
+					ERROR_LOG(Log::Loader, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
 					return;
 				}
 
@@ -576,7 +576,7 @@ handleELF:
 					ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 				} else {
 					// Read standard icon
-					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
+					VERBOSE_LOG(Log::Loader, "Loading unknown.png because there was an ELF");
 					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 				}
 				info_->icon.dataLoaded = true;
@@ -623,7 +623,7 @@ handleELF:
 				if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				} else {
-					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
+					ERROR_LOG(Log::G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 				}
 			}
 			break;
@@ -725,7 +725,7 @@ handleELF:
 						else if (File::Exists(screenshot_jpg))
 							info_->icon.dataLoaded = ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 						else {
-							DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
+							DEBUG_LOG(Log::Loader, "Loading unknown.png because no icon was found");
 							info_->icon.dataLoaded = ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 						}
 					} else {
@@ -779,7 +779,7 @@ handleELF:
 		// Time to update the flags.
 		std::unique_lock<std::mutex> lock(info_->lock);
 		info_->MarkReadyNoLock(flags_);
-		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
+		// INFO_LOG(Log::System, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
 private:
@@ -866,7 +866,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 				}
 				// TODO: Find a better way to wait here.
 				if (info->pendingFlags != (GameInfoFlags)0) {
-					INFO_LOG(LOADER, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)info->pendingFlags);
+					INFO_LOG(Log::Loader, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)info->pendingFlags);
 					retry = true;
 					break;
 				}

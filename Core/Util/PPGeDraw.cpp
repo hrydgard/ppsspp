@@ -252,7 +252,7 @@ void __PPGeInit() {
 
 	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
 	if (!skipZIM && !loadedZIM) {
-		ERROR_LOG(SCEGE, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
+		ERROR_LOG(Log::sceGe, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
 	}
 
 	if (loadedZIM) {
@@ -309,7 +309,7 @@ void __PPGeInit() {
 
 	atlasRequiresReset = false;
 
-	INFO_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
+	INFO_LOG(Log::sceGe, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
@@ -470,7 +470,7 @@ void PPGeEnd()
 		gpu->EnableInterrupts(false);
 		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
 		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
-		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
+		DEBUG_LOG(Log::sceGe, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 	}
 }
@@ -1373,7 +1373,7 @@ bool PPGeImage::Load() {
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
-			WARN_LOG(SCEGE, "PPGeImage cannot load file %s", filename_.c_str());
+			WARN_LOG(Log::sceGe, "PPGeImage cannot load file %s", filename_.c_str());
 			loadFailed_ = true;
 			return false;
 		}
@@ -1381,7 +1381,7 @@ bool PPGeImage::Load() {
 		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData);
 	}
 	if (!success) {
-		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
+		WARN_LOG(Log::sceGe, "Bad PPGeImage - not a valid png");
 		loadFailed_ = true;
 		return false;
 	}
@@ -1391,7 +1391,7 @@ bool PPGeImage::Load() {
 	texture_ = __PPGeDoAlloc(texSize, true, "Savedata Icon");
 	if (texture_ == 0) {
 		free(textureData);
-		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
+		WARN_LOG(Log::sceGe, "Bad PPGeImage - unable to allocate space for texture");
 		// Don't set loadFailed_ here, we'll try again if there's more memory later.
 		return false;
 	}

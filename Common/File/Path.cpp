@@ -51,7 +51,7 @@ void Path::Init(std::string_view str) {
 		// and flip it to a NATIVE url and hope for the best.
 		AndroidContentURI uri(str);
 		if (startsWith(uri.FilePath(), "raw:/")) {
-			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			INFO_LOG(Log::System, "Raw path detected: %s", uri.FilePath().c_str());
 			path_ = uri.FilePath().substr(4);
 			type_ = PathType::NATIVE;
 		} else {

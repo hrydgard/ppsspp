@@ -405,7 +405,7 @@ RiscVReg RiscVRegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return (RiscVReg)mr[mipsReg].nReg;
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -421,11 +421,11 @@ RiscVReg RiscVRegCache::RPtr(IRReg mipsReg) {
 		if (nr[rv].pointerified) {
 			return (RiscVReg)mr[mipsReg].nReg;
 		} else {
-			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");
+			ERROR_LOG(Log::JIT, "Tried to use a non-pointer register as a pointer");
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -436,7 +436,7 @@ RiscVReg RiscVRegCache::F(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return (RiscVReg)mr[mipsReg + 32].nReg;
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

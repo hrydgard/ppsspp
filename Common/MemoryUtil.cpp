@@ -146,7 +146,7 @@ void *AllocateExecutableMemory(size_t size) {
 		if (ptr) {
 			ptr = VirtualAlloc(ptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		} else {
-			WARN_LOG(COMMON, "Unable to find nearby executable memory for jit. Proceeding with far memory.");
+			WARN_LOG(Log::Common, "Unable to find nearby executable memory for jit. Proceeding with far memory.");
 			// Can still run, thanks to "RipAccessible".
 			ptr = VirtualAlloc(nullptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		}
@@ -161,7 +161,7 @@ void *AllocateExecutableMemory(size_t size) {
 #endif
 	}
 	if (!ptr) {
-		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d)", (int)size);
+		ERROR_LOG(Log::MemMap, "Failed to allocate executable memory (%d)", (int)size);
 	}
 	return ptr;
 }
@@ -193,7 +193,7 @@ void *AllocateExecutableMemory(size_t size) {
 
 	if (ptr == MAP_FAILED) {
 		ptr = nullptr;
-		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
+		ERROR_LOG(Log::MemMap, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
 	}
 
 #if PPSSPP_ARCH(AMD64)
@@ -227,7 +227,7 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
 #endif
 	if (!ptr) {
-		ERROR_LOG(MEMMAP, "Failed to allocate raw memory pages");
+		ERROR_LOG(Log::MemMap, "Failed to allocate raw memory pages");
 		return nullptr;
 	}
 #else
@@ -235,7 +235,7 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	void *ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
 	if (ptr == MAP_FAILED) {
-		ERROR_LOG(MEMMAP, "Failed to allocate raw memory pages: errno=%d", errno);
+		ERROR_LOG(Log::MemMap, "Failed to allocate raw memory pages: errno=%d", errno);
 		return nullptr;
 	}
 #endif
@@ -271,7 +271,7 @@ void FreeMemoryPages(void *ptr, size_t size) {
 	size = (size + page_size - 1) & (~(page_size - 1));
 #ifdef _WIN32
 	if (!VirtualFree(ptr, 0, MEM_RELEASE)) {
-		ERROR_LOG(MEMMAP, "FreeMemoryPages failed!\n%s", GetLastErrorMsg().c_str());
+		ERROR_LOG(Log::MemMap, "FreeMemoryPages failed!\n%s", GetLastErrorMsg().c_str());
 	}
 #else
 	munmap(ptr, size);
@@ -306,7 +306,7 @@ bool PlatformIsWXExclusive() {
 }
 
 bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
-	VERBOSE_LOG(JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size,
+	VERBOSE_LOG(Log::JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size,
 			(memProtFlags & MEM_PROT_READ) != 0, (memProtFlags & MEM_PROT_WRITE) != 0, (memProtFlags & MEM_PROT_EXEC) != 0);
 
 	if (PlatformIsWXExclusive()) {
@@ -322,13 +322,13 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 #if PPSSPP_PLATFORM(UWP)
 	DWORD oldValue;
 	if (!VirtualProtectFromApp((void *)ptr, size, protect, &oldValue)) {
-		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
+		ERROR_LOG(Log::MemMap, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 		return false;
 	}
 #else
 	DWORD oldValue;
 	if (!VirtualProtect((void *)ptr, size, protect, &oldValue)) {
-		ERROR_LOG(MEMMAP, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
+		ERROR_LOG(Log::MemMap, "WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 		return false;
 	}
 #endif
@@ -343,7 +343,7 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	end = (end + page_size - 1) & ~(page_size - 1);
 	int retval = mprotect((void *)start, end - start, protect);
 	if (retval != 0) {
-		ERROR_LOG(MEMMAP, "mprotect failed (%p)! errno=%d (%s)", (void *)start, errno, strerror(errno));
+		ERROR_LOG(Log::MemMap, "mprotect failed (%p)! errno=%d (%s)", (void *)start, errno, strerror(errno));
 		return false;
 	}
 	return true;

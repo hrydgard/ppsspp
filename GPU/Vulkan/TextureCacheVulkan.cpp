@@ -486,7 +486,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (uploadCS_ != VK_NULL_HANDLE) {
 			computeUpload = true;
 		} else {
-			WARN_LOG(G3D, "Falling back to software scaling, hardware shader didn't compile");
+			WARN_LOG(Log::G3D, "Falling back to software scaling, hardware shader didn't compile");
 		}
 	}
 
@@ -496,7 +496,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
-		INFO_LOG(G3D, "About to save texture");
+		INFO_LOG(Log::G3D, "About to save texture");
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 
@@ -517,7 +517,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	bool allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, &barrier, mapping);
 	barrier.Flush(cmdInit);
 	if (!allocSuccess && !lowMemoryMode_) {
-		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+		WARN_LOG_REPORT(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
 		Decimate(entry, true);
@@ -545,7 +545,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (!allocSuccess) {
-		ERROR_LOG(G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
+		ERROR_LOG(Log::G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
 		delete entry->vkTex;
 		entry->vkTex = nullptr;
 	}
@@ -617,7 +617,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
 			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride)) {  // If plan.doReplace, this shouldn't fail.
-				WARN_LOG(G3D, "Failed to copy replaced texture level");
+				WARN_LOG(Log::G3D, "Failed to copy replaced texture level");
 				// TODO: Fill with some pattern?
 			}
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
@@ -652,7 +652,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
 			if (plan.saveTexture && !lowMemoryMode_) {
-				INFO_LOG(G3D, "Calling NotifyTextureDecoded %08x", entry->addr);
+				INFO_LOG(Log::G3D, "Calling NotifyTextureDecoded %08x", entry->addr);
 
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;

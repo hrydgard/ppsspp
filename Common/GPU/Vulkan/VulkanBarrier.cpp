@@ -8,7 +8,7 @@
 VulkanBarrierBatch::~VulkanBarrierBatch() {
 	// _dbg_assert_(imageBarriers_.empty());
 	if (!imageBarriers_.empty()) {
-		ERROR_LOG(G3D, "~VulkanBarrierBatch: %d barriers remaining", (int)imageBarriers_.size());
+		ERROR_LOG(Log::G3D, "~VulkanBarrierBatch: %d barriers remaining", (int)imageBarriers_.size());
 	}
 }
 

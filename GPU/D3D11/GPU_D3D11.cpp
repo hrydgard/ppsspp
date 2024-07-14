@@ -71,7 +71,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	// No need to flush before the tex scale/offset commands if we are baking
@@ -141,7 +141,7 @@ void GPU_D3D11::BeginHostFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		drawEngine_.ClearInputLayoutMap();

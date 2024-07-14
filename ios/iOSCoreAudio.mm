@@ -34,14 +34,14 @@ static bool g_displayConnected = false;
 void iOSCoreAudioUpdateSession() {
 	NSError *error = nil;
 	if (g_displayConnected) {
-		INFO_LOG(AUDIO, "Display connected, setting Playback mode");
+		INFO_LOG(Log::Audio, "Display connected, setting Playback mode");
 		// Special handling when a display is connected. Always exclusive.
 		// Let's revisit this later.
 		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
 		return;
 	}
 
-	INFO_LOG(AUDIO, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
+	INFO_LOG(Log::Audio, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
 
 	// Hacky hack to force iOS to re-evaluate.
 	// Switching from CatogoryPlayback to CategoryPlayback with an option otherwise does nothing.
@@ -114,7 +114,7 @@ void iOSCoreAudioInit()
 	NSError *error = nil;
 	AVAudioSession *session = [AVAudioSession sharedInstance];
 	if (![session setActive:YES error:&error]) {
-		ERROR_LOG(SYSTEM, "Failed to activate AVFoundation audio session");
+		ERROR_LOG(Log::System, "Failed to activate AVFoundation audio session");
 		if (error.localizedDescription) {
 			NSLog(@"%@", error.localizedDescription);
 		}

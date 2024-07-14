@@ -162,20 +162,20 @@ namespace MIPSComp {
 	private:
 		void LogSTPrefix(const char *name, int p, int pflag) {
 			if ((prefixSFlag & PREFIX_KNOWN) == 0) {
-				ERROR_LOG(JIT, "%s: unknown  (%08x %i)", name, p, pflag);
+				ERROR_LOG(Log::JIT, "%s: unknown  (%08x %i)", name, p, pflag);
 			} else if (prefixS != 0xE4) {
-				ERROR_LOG(JIT, "%s: %08x flag: %i", name, p, pflag);
+				ERROR_LOG(Log::JIT, "%s: %08x flag: %i", name, p, pflag);
 			} else {
-				WARN_LOG(JIT, "%s: %08x flag: %i", name, p, pflag);
+				WARN_LOG(Log::JIT, "%s: %08x flag: %i", name, p, pflag);
 			}
 		}
 		void LogDPrefix() {
 			if ((prefixDFlag & PREFIX_KNOWN) == 0) {
-				ERROR_LOG(JIT, "D: unknown (%08x %i)", prefixD, prefixDFlag);
+				ERROR_LOG(Log::JIT, "D: unknown (%08x %i)", prefixD, prefixDFlag);
 			} else if (prefixD != 0) {
-				ERROR_LOG(JIT, "D: (%08x %i)", prefixD, prefixDFlag);
+				ERROR_LOG(Log::JIT, "D: (%08x %i)", prefixD, prefixDFlag);
 			} else {
-				WARN_LOG(JIT, "D: %08x flag: %i", prefixD, prefixDFlag);
+				WARN_LOG(Log::JIT, "D: %08x flag: %i", prefixD, prefixDFlag);
 			}
 		}
 	};

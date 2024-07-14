@@ -70,8 +70,8 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	}
 
 	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "%s", formatted);
-	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
+	ERROR_LOG(Log::System, "%s", formatted);
+	// Also do a simple printf for good measure, in case logging of System is disabled (should we disallow that?)
 	fprintf(stderr, "%s\n", formatted);
 
 	hitAnyAsserts = true;

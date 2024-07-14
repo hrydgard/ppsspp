@@ -97,7 +97,7 @@ std::string ParamSFOData::GetDiscID() {
 	const std::string discID = GetValueString("DISC_ID");
 	if (discID.empty()) {
 		std::string fakeID = GenerateFakeID(Path());
-		WARN_LOG(LOADER, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
+		WARN_LOG(Log::Loader, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
 		ValueData data;
 		data.type = VT_UTF8;
 		data.s_value = fakeID;
@@ -115,7 +115,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	if (header->magic != 0x46535000)
 		return false;
 	if (header->version != 0x00000101)
-		WARN_LOG(LOADER, "Unexpected SFO header version: %08x", header->version);
+		WARN_LOG(Log::Loader, "Unexpected SFO header version: %08x", header->version);
 
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
@@ -165,7 +165,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 				// Unsigned int
 				const u32_le *data = (const u32_le *)(paramsfo + data_offset);
 				SetValue(key, *data, indexTables[i].param_max_len);
-				VERBOSE_LOG(LOADER, "%s %08x", key.c_str(), *data);
+				VERBOSE_LOG(Log::Loader, "%s %08x", key.c_str(), *data);
 			}
 			break;
 		case 0x0004:
@@ -174,7 +174,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 				if (data_offset + indexTables[i].param_len > size)
 					continue;
 				const u8 *utfdata = (const u8 *)(paramsfo + data_offset);
-				VERBOSE_LOG(LOADER, "%s %s", key.c_str(), utfdata);
+				VERBOSE_LOG(Log::Loader, "%s %s", key.c_str(), utfdata);
 				SetValue(key, utfdata, indexTables[i].param_len, indexTables[i].param_max_len);
 			}
 			break;
@@ -183,7 +183,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 			{
 				// TODO: Likely should use param_len here, but there's gotta be a reason we avoided it before.
 				std::string str = readStringCapped(data_offset, indexTables[i].param_max_len);
-				VERBOSE_LOG(LOADER, "%s %s", key.c_str(), str.c_str());
+				VERBOSE_LOG(Log::Loader, "%s %s", key.c_str(), str.c_str());
 				SetValue(key, str, indexTables[i].param_max_len);
 			}
 			break;
@@ -200,7 +200,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const char *dataName) {
 	if (header->magic != 0x46535000)
 		return -1;
 	if (header->version != 0x00000101)
-		WARN_LOG(LOADER, "Unexpected SFO header version: %08x", header->version);
+		WARN_LOG(Log::Loader, "Unexpected SFO header version: %08x", header->version);
 
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 

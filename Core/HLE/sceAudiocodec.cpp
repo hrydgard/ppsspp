@@ -81,23 +81,23 @@ static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (IsValidCodec(audioType)) {
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
-			WARN_LOG_REPORT(HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
+			WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
 		}
 		AudioDecoder *decoder = CreateAudioDecoder(audioType);
 		decoder->SetCtxPtr(ctxPtr);
 		audioList[ctxPtr] = decoder;
-		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
-		DEBUG_LOG(ME, "Number of playing sceAudioCodec audios : %d", (int)audioList.size());
+		INFO_LOG(Log::ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
+		DEBUG_LOG(Log::ME, "Number of playing sceAudioCodec audios : %d", (int)audioList.size());
 		return 0;
 	}
-	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
+	ERROR_LOG_REPORT(Log::ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
 	return 0;
 }
 
 static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	PSPAudioType audioType = (PSPAudioType)codec;
 	if (!ctxPtr){
-		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(audioType));
+		ERROR_LOG_REPORT(Log::ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(audioType));
 		return -1;
 	}
 
@@ -121,34 +121,34 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			int outSamples = 0;
 			decoder->Decode(Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &inDataConsumed, 2, (int16_t *)Memory::GetPointerWrite(ctx->outDataPtr), &outSamples);
 		}
-		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		DEBUG_LOG(Log::ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
 	}
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAudiocodecDecode(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
 static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
 static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
-	WARN_LOG(ME, "UNIMPL sceAudiocodecCheckNeedMem(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	WARN_LOG(Log::ME, "UNIMPL sceAudiocodecCheckNeedMem(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
 static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
-	WARN_LOG(ME, "UNIMPL sceAudiocodecGetEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+	WARN_LOG(Log::ME, "UNIMPL sceAudiocodecGetEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
 static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	if (removeDecoder(ctxPtr)){
-		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
+		INFO_LOG(Log::ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;
 	}
-	WARN_LOG(ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
+	WARN_LOG(Log::ME, "UNIMPL sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 	return 0;
 }
 

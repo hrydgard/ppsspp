@@ -178,16 +178,16 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	NativeInitGraphics(graphicsContext);
 
-	INFO_LOG(SYSTEM, "Emulation thread starting\n");
+	INFO_LOG(Log::System, "Emulation thread starting\n");
 	while (!exitRenderLoop) {
 		NativeFrame(graphicsContext);
 	}
 
-	INFO_LOG(SYSTEM, "Emulation thread shutting down\n");
+	INFO_LOG(Log::System, "Emulation thread shutting down\n");
 	NativeShutdownGraphics();
 
 	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-	INFO_LOG(SYSTEM, "Emulation thread stopping\n");
+	INFO_LOG(Log::System, "Emulation thread stopping\n");
 
 	exitRenderLoop = false;
 	renderLoopRunning = false;
@@ -195,12 +195,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (bool)runGLRenderLoop {
 	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
 	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
 		return false;
 	}
 
@@ -215,7 +215,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)requestExitGLRenderLoop {
 	if (!renderLoopRunning) {
-		ERROR_LOG(SYSTEM, "Render loop already exited");
+		ERROR_LOG(Log::System, "Render loop already exited");
 		return;
 	}
 	_assert_(g_renderLoopThread.joinable());
@@ -230,7 +230,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
-	INFO_LOG(G3D, "viewDidAppear");
+	INFO_LOG(Log::G3D, "viewDidAppear");
 	[self hideKeyboard];
 	[self updateGesture];
 }
@@ -284,7 +284,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	// Initialize the motion manager for accelerometer control.
 	self.motionManager = [[CMMotionManager alloc] init];
-	INFO_LOG(G3D, "Done with viewDidLoad.");
+	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer
@@ -295,7 +295,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		key.keyCode = NKCODE_BACK;
 		key.deviceId = DEVICE_ID_TOUCH;
 		NativeKey(key);
-		INFO_LOG(SYSTEM, "Detected back swipe");
+		INFO_LOG(Log::System, "Detected back swipe");
 	}
 }
 
@@ -305,10 +305,10 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 }
 
 - (void)didBecomeActive {
-	INFO_LOG(SYSTEM, "didBecomeActive begin");
+	INFO_LOG(Log::System, "didBecomeActive begin");
 	if (self.motionManager.accelerometerAvailable) {
 		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
-		INFO_LOG(G3D, "Starting accelerometer updates.");
+		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
 
 		[self.motionManager startAccelerometerUpdatesToQueue:self.accelerometerQueue
 							withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
@@ -319,27 +319,27 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 			ProcessAccelerometerData(accelerometerData);
 		}];
 	} else {
-		INFO_LOG(G3D, "No accelerometer available, not starting updates.");
+		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
 	[self runGLRenderLoop];
-	INFO_LOG(SYSTEM, "didBecomeActive end");
+	INFO_LOG(Log::System, "didBecomeActive end");
 }
 
 - (void)willResignActive {
-	INFO_LOG(SYSTEM, "willResignActive begin");
+	INFO_LOG(Log::System, "willResignActive begin");
 	[self requestExitGLRenderLoop];
 
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
-		INFO_LOG(G3D, "Stopping accelerometer updates");
+		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
 		[self.motionManager stopAccelerometerUpdates];
 	}
-	INFO_LOG(SYSTEM, "willResignActive end");
+	INFO_LOG(Log::System, "willResignActive end");
 }
 
 - (void)shutdown
 {
-	INFO_LOG(SYSTEM, "shutdown GL");
+	INFO_LOG(Log::System, "shutdown GL");
 
 	g_Config.Save("shutdown GL");
 
@@ -366,12 +366,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = nullptr;
-	INFO_LOG(SYSTEM, "Done shutting down GL");
+	INFO_LOG(Log::System, "Done shutting down GL");
 }
 
 - (void)dealloc
 {
-	INFO_LOG(SYSTEM, "dealloc GL");
+	INFO_LOG(Log::System, "dealloc GL");
 }
 
 - (NSUInteger)supportedInterfaceOrientations
@@ -382,7 +382,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
 	if (!renderLoopRunning) {
-		INFO_LOG(G3D, "Ignoring drawInRect");
+		INFO_LOG(Log::G3D, "Ignoring drawInRect");
 		return;
 	}
 	if (sharedViewController) {
@@ -451,10 +451,10 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	if (GetUIState() == UISTATE_INGAME) {
 		// In-game, we need all the control we can get. Though, we could possibly
 		// allow the top edge?
-		INFO_LOG(SYSTEM, "Defer system gestures on all edges");
+		INFO_LOG(Log::System, "Defer system gestures on all edges");
 		return UIRectEdgeAll;
 	} else {
-		INFO_LOG(SYSTEM, "Allow system gestures on the bottom");
+		INFO_LOG(Log::System, "Allow system gestures on the bottom");
 		// Allow task switching gestures to take precedence, without causing
 		// scroll events in the UI. Otherwise, we get "ghost" scrolls when switching tasks.
 		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
@@ -469,16 +469,16 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 }
 
 - (void)updateGesture {
-	INFO_LOG(SYSTEM, "Updating swipe gesture.");
+	INFO_LOG(Log::System, "Updating swipe gesture.");
 
 	if (mBackGestureRecognizer) {
-		INFO_LOG(SYSTEM, "Removing swipe gesture.");
+		INFO_LOG(Log::System, "Removing swipe gesture.");
 		[[self view] removeGestureRecognizer:mBackGestureRecognizer];
 		mBackGestureRecognizer = nil;
 	}
 
 	if (GetUIState() != UISTATE_INGAME) {
-		INFO_LOG(SYSTEM, "Adding swipe gesture.");
+		INFO_LOG(Log::System, "Adding swipe gesture.");
 		mBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeFrom:) ];
 		[mBackGestureRecognizer setEdges:UIRectEdgeLeft];
 		[[self view] addGestureRecognizer:mBackGestureRecognizer];
@@ -552,13 +552,13 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	input.flags = KEY_DOWN | KEY_UP;
 	input.keyCode = NKCODE_DEL;
 	NativeKey(input);
-	INFO_LOG(SYSTEM, "Backspace");
+	INFO_LOG(Log::System, "Backspace");
 }
 
 -(void) insertText:(NSString *)text
 {
 	std::string str([text UTF8String]);
-	INFO_LOG(SYSTEM, "Chars: %s", str.c_str());
+	INFO_LOG(Log::System, "Chars: %s", str.c_str());
 	SendKeyboardChars(str);
 }
 
@@ -574,14 +574,14 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 -(void) showKeyboard {
 	dispatch_async(dispatch_get_main_queue(), ^{
-		INFO_LOG(SYSTEM, "becomeFirstResponder");
+		INFO_LOG(Log::System, "becomeFirstResponder");
 		[self becomeFirstResponder];
 	});
 }
 
 -(void) hideKeyboard {
 	dispatch_async(dispatch_get_main_queue(), ^{
-		INFO_LOG(SYSTEM, "resignFirstResponder");
+		INFO_LOG(Log::System, "resignFirstResponder");
 		[self resignFirstResponder];
 	});
 }

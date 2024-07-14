@@ -231,10 +231,10 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 void Track::DebugLog() {
-	DEBUG_LOG(ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
+	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
-	DEBUG_LOG(ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
-	DEBUG_LOG(ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
+	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
+	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 }
 
 int Atrac::Analyze(u32 addr, u32 size) {
@@ -247,17 +247,17 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
-		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
+		return hleReportError(Log::ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
 	}
 
 	// TODO: Check the range (addr, size) instead.
 	if (!Memory::IsValidAddress(addr)) {
-		return hleReportWarning(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
+		return hleReportWarning(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
 	}
 
 	// TODO: Validate stuff.
 	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
+		return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
 
 	int retval = AnalyzeAtracTrack(addr, size, &track_);
@@ -284,17 +284,17 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		// Round the chunk size up to the nearest 2.
 		offset += chunk + (chunk & 1);
 		if (offset + 12 > size) {
-			return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small for WAVE chunk at %d", offset);
+			return hleReportError(Log::ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small for WAVE chunk at %d", offset);
 		}
 		if (Memory::Read_U32(addr + offset) != RIFF_CHUNK_MAGIC) {
-			return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "RIFF chunk did not contain WAVE");
+			return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "RIFF chunk did not contain WAVE");
 		}
 		offset += 8;
 	}
 	offset += 4;
 
 	if (offset != 12) {
-		WARN_LOG_REPORT(ME, "RIFF chunk at offset: %d", offset);
+		WARN_LOG_REPORT(Log::ME, "RIFF chunk at offset: %d", offset);
 	}
 
 	// RIFF size excluding chunk header.
@@ -312,7 +312,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		u32 chunkSize = Memory::Read_U32(addr + offset + 4);
 		// Account for odd sized chunks.
 		if (chunkSize & 1) {
-			WARN_LOG_REPORT_ONCE(oddchunk, ME, "RIFF chunk had uneven size");
+			WARN_LOG_REPORT_ONCE(oddchunk, Log::ME, "RIFF chunk had uneven size");
 		}
 		chunkSize += (chunkSize & 1);
 		offset += 8;
@@ -322,12 +322,12 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		case FMT_CHUNK_MAGIC:
 		{
 			if (track->codecType != 0) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
 			}
 
 			auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(addr + offset);
 			if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
 			}
 
 			if (at3fmt->fmtTag == AT3_MAGIC)
@@ -335,19 +335,19 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
 				track->codecType = PSP_MODE_AT_3_PLUS;
 			else {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
 			}
 			track->channels = at3fmt->channels;
 			if (track->channels != 1 && track->channels != 2) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", track->channels);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", track->channels);
 			}
 			if (at3fmt->samplerate != 44100) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
 			}
 			track->bitrate = at3fmt->avgBytesPerSec * 8;
 			track->bytesPerFrame = at3fmt->blockAlign;
 			if (track->bytesPerFrame == 0) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", track->bytesPerFrame);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", track->bytesPerFrame);
 			}
 
 			// TODO: There are some format specific bytes here which seem to have fixed values?
@@ -374,14 +374,14 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		case SMPL_CHUNK_MAGIC:
 		{
 			if (chunkSize < 32) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
 			}
 			int checkNumLoops = Memory::Read_U32(addr + offset + 28);
 			if (checkNumLoops != 0 && chunkSize < 36 + 20) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
 			}
 			if (checkNumLoops < 0) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad checkNumLoops (%d)", checkNumLoops);
+				return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad checkNumLoops (%d)", checkNumLoops);
 			}
 
 			track->loopinfo.resize(checkNumLoops);
@@ -397,7 +397,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				track->loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
 				if (track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
-					return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
+					return hleReportError(Log::ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
 				}
 			}
 		}
@@ -408,7 +408,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			track->dataByteOffset = offset;
 			dataChunkSize = chunkSize;
 			if (track->fileSize < offset + chunkSize) {
-				WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
+				WARN_LOG_REPORT(Log::ME, "Atrac data chunk extends beyond riff chunk");
 				track->fileSize = offset + chunkSize;
 			}
 		}
@@ -418,11 +418,11 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	}
 
 	if (track->codecType == 0) {
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "could not detect codec");
+		return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "could not detect codec");
 	}
 
 	if (!bfoundData) {
-		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "no data chunk");
+		return hleReportError(Log::ME, ATRAC_ERROR_SIZE_TOO_SMALL, "no data chunk");
 	}
 
 	// set the loopStartSample_ and loopEndSample_ by loopinfo_
@@ -442,7 +442,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	track->endSample -= 1;
 
 	if (track->loopEndSample != -1 && track->loopEndSample > track->endSample + track->FirstSampleOffsetFull()) {
-		return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
+		return hleReportError(Log::ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
 	return 0;
@@ -460,25 +460,25 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
 
 int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	if (size < 10) {
-		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "buffer too small");
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "buffer too small");
 	}
 	// TODO: Make sure this validation is correct, more testing.
 
 	const u8 *buffer = Memory::GetPointer(addr);
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
-		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid ea3 magic bytes");
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid ea3 magic bytes");
 	}
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
 	if (size < tagSize + 36) {
-		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "truncated before id3 end");
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "truncated before id3 end");
 	}
 
 	// EA3 header starts at id3 header (10) + tagSize.
 	buffer = Memory::GetPointer(addr + 10 + tagSize);
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
-		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid EA3 magic bytes");
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid EA3 magic bytes");
 	}
 	
 	track->fileSize = fileSize;
@@ -504,9 +504,9 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	case 3:
 	case 4:
 	case 5:
-		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "unsupported codec type %d", buffer[32]);
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_INVALID_DATA, "unsupported codec type %d", buffer[32]);
 	default:
-		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid codec type %d", buffer[32]);
+		return hleReportError(Log::ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid codec type %d", buffer[32]);
 	}
 
 	track->dataByteOffset = 10 + tagSize + 96;
@@ -560,7 +560,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			ERROR_LOG_REPORT(Log::ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
 		}
@@ -668,7 +668,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unexpected codec type in set data");
+		return hleReportError(Log::ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unexpected codec type in set data");
 	}
 
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED || bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
@@ -696,7 +696,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder();
-	return hleLogSuccessInfoI(ME, successCode, "%s %s audio", codecName, channelName);
+	return hleLogSuccessInfoI(Log::ME, successCode, "%s %s audio", codecName, channelName);
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
@@ -705,16 +705,16 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 
 	// 3 seems to be the number of frames required to handle a loop.
 	if (secondBufferSize < desiredSize && secondBufferSize < (u32)track_.BytesPerFrame() * 3) {
-		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small");
+		return hleReportError(Log::ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small");
 	}
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+		return hleReportError(Log::ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
 	}
 
 	second_.addr = secondBuffer;
 	second_.size = secondBufferSize;
 	second_.fileoffset = secondFileOffset;
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
@@ -722,12 +722,12 @@ int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
 		*desiredSize = 0;
-		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+		return hleLogWarning(Log::ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
 	}
 
 	*fileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	*desiredSize = track_.fileSize - *fileOffset;
-	return hleLogSuccessI(ME, 0);
+	return hleLogSuccessI(Log::ME, 0);
 }
 
 void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {
@@ -764,7 +764,7 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 	u32 readOffset;
 	CalculateStreamInfo(&readOffset);
 	if (bytesToAdd > first_.writableBytes)
-		return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
+		return hleLogWarning(Log::ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
 
 	if (bytesToAdd > 0) {
 		first_.fileoffset = readOffset;
@@ -1064,10 +1064,10 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	GetResetBufferInfo(&bufferInfo, sample);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
+		return hleLogError(Log::ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
 	}
 	if ((u32)bytesWrittenSecondBuf < bufferInfo.second.minWriteBytes || (u32)bytesWrittenSecondBuf > bufferInfo.second.writableBytes) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
+		return hleLogError(Log::ME, ATRAC_ERROR_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
 	}
 
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
@@ -1090,7 +1090,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		}
 	} else {
 		if (bufferInfo.first.filePos > track_.fileSize) {
-			return hleDelayResult(hleLogError(ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
+			return hleDelayResult(hleLogError(Log::ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
 		}
 
 		// Move the offset to the specified position.

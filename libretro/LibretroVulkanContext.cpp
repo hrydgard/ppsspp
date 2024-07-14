@@ -35,7 +35,7 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	if (!VulkanLoad(&errorStr)) {
 		// TODO: In the context of RetroArch, someone has already loaded the functions.
 		// But grabbing the pointers for ourselves can't really be a bad thing.
-		ERROR_LOG(G3D, "RetroArch called the Vulkan entry point without Vulkan available??? %s", errorStr.c_str());
+		ERROR_LOG(Log::G3D, "RetroArch called the Vulkan entry point without Vulkan available??? %s", errorStr.c_str());
 		return false;
 	}
 
@@ -117,11 +117,11 @@ bool LibretroVulkanContext::Init() {
 void LibretroVulkanContext::ContextReset() {
    retro_hw_render_interface *vulkan;
    if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&vulkan) || !vulkan) {
-      ERROR_LOG(G3D, "Failed to get HW rendering interface!\n");
+      ERROR_LOG(Log::G3D, "Failed to get HW rendering interface!\n");
       return;
    }
    if (vulkan->interface_version != RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION) {
-      ERROR_LOG(G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, vulkan->interface_version);
+      ERROR_LOG(Log::G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, vulkan->interface_version);
       return;
    }
    vk_libretro_set_hwrender_interface(vulkan);
@@ -130,7 +130,7 @@ void LibretroVulkanContext::ContextReset() {
 }
 
 void LibretroVulkanContext::ContextDestroy() {
-   INFO_LOG(G3D, "LibretroVulkanContext::ContextDestroy()");
+   INFO_LOG(Log::G3D, "LibretroVulkanContext::ContextDestroy()");
    vk->WaitUntilQueueIdle();
    LibretroHWRenderContext::ContextDestroy();
 }

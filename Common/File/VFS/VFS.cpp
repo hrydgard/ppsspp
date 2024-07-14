@@ -11,9 +11,9 @@ VFS g_VFS;
 void VFS::Register(const char *prefix, VFSBackend *reader) {
 	if (reader) {
 		entries_.push_back(VFSEntry{ prefix, reader });
-		DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+		DEBUG_LOG(Log::IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
 	} else {
-		ERROR_LOG(IO, "Trying to register null VFS backend for prefix %s", prefix);
+		ERROR_LOG(Log::IO, "Trying to register null VFS backend for prefix %s", prefix);
 	}
 }
 
@@ -40,7 +40,7 @@ static bool IsLocalAbsolutePath(std::string_view path) {
 uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 	if (IsLocalAbsolutePath(filename)) {
 		// Local path, not VFS.
-		// INFO_LOG(IO, "Not a VFS path: %s . Reading local file.", filename);
+		// INFO_LOG(Log::IO, "Not a VFS path: %s . Reading local file.", filename);
 		return File::ReadLocalFile(Path(filename), size);
 	}
 
@@ -51,7 +51,7 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entry.prefix, prefix_len)) {
 			fileSystemFound = true;
-			// INFO_LOG(IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			// INFO_LOG(Log::IO, "Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entry.reader->ReadFile(filename + prefix_len, size);
 			if (data)
 				return data;
@@ -61,7 +61,7 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 		}
 	}
 	if (!fileSystemFound) {
-		ERROR_LOG(IO, "Missing filesystem for '%s'", filename);
+		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", filename);
 	}  // Otherwise, the file was just missing. No need to log.
 	return nullptr;
 }
@@ -69,7 +69,7 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 bool VFS::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) {
 	if (IsLocalAbsolutePath(path)) {
 		// Local path, not VFS.
-		// INFO_LOG(IO, "Not a VFS path: %s . Reading local directory.", path);
+		// INFO_LOG(Log::IO, "Not a VFS path: %s . Reading local directory.", path);
 		File::GetFilesInDir(Path(std::string(path)), listing, filter);
 		return true;
 	}
@@ -88,7 +88,7 @@ bool VFS::GetFileListing(const char *path, std::vector<File::FileInfo> *listing,
 	}
 
 	if (!fileSystemFound) {
-		ERROR_LOG(IO, "Missing filesystem for %s", path);
+		ERROR_LOG(Log::IO, "Missing filesystem for %s", path);
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
@@ -96,7 +96,7 @@ bool VFS::GetFileListing(const char *path, std::vector<File::FileInfo> *listing,
 bool VFS::GetFileInfo(const char *path, File::FileInfo *info) {
 	if (IsLocalAbsolutePath(path)) {
 		// Local path, not VFS.
-		// INFO_LOG(IO, "Not a VFS path: %s . Getting local file info.", path);
+		// INFO_LOG(Log::IO, "Not a VFS path: %s . Getting local file info.", path);
 		return File::GetFileInfo(Path(std::string(path)), info);
 	}
 
@@ -114,7 +114,7 @@ bool VFS::GetFileInfo(const char *path, File::FileInfo *info) {
 		}
 	}
 	if (!fileSystemFound) {
-		ERROR_LOG(IO, "Missing filesystem for '%s'", path);
+		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", path);
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }

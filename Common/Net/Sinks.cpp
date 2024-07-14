@@ -200,7 +200,7 @@ void InputSink::AccountFill(int bytes) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;
 #endif
-		ERROR_LOG(IO, "Error reading from socket");
+		ERROR_LOG(Log::IO, "Error reading from socket");
 		return;
 	}
 
@@ -321,10 +321,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	// Okay, did we actually write?
 	if (result >= (int)avail) {
 		// This means the result string was too big for the buffer.
-		ERROR_LOG(IO, "Not enough space to format output.");
+		ERROR_LOG(Log::IO, "Not enough space to format output.");
 		return false;
 	} else if (result < 0) {
-		ERROR_LOG(IO, "vsnprintf failed.");
+		ERROR_LOG(Log::IO, "vsnprintf failed.");
 		return false;
 	}
 
@@ -407,7 +407,7 @@ void OutputSink::AccountDrain(int bytes) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;
 #endif
-		ERROR_LOG(IO, "Error writing to socket");
+		ERROR_LOG(Log::IO, "Error writing to socket");
 		return;
 	}
 

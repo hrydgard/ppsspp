@@ -573,7 +573,7 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	INFO_LOG(G3D, "Resetting touch control layout");
+	INFO_LOG(Log::G3D, "Resetting touch control layout");
 	g_Config.ResetControlLayout();
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);

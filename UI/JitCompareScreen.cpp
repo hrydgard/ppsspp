@@ -456,7 +456,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 					if (MIPSGetInfo(opcode) & flag) {
 						char temp[256];
 						MIPSDisAsm(opcode, addr, temp, sizeof(temp));
-						// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
+						// INFO_LOG(Log::HLE, "Stopping at random instruction: %08x %s", addr, temp);
 						anyWanted = true;
 						break;
 					}

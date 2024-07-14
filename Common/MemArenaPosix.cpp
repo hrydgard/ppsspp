@@ -63,11 +63,11 @@ bool MemArena::GrabMemSpace(size_t size) {
 		// This opens atomically, so will fail if another process is starting.
 		fd = shm_open(ram_temp_filename, O_RDWR | O_CREAT | O_EXCL, mode);
 		if (fd >= 0) {
-			INFO_LOG(MEMMAP, "Got shm file: %s", ram_temp_filename);
+			INFO_LOG(Log::MemMap, "Got shm file: %s", ram_temp_filename);
 			is_shm = true;
 			// Our handle persists per POSIX, so no need to keep it around.
 			if (shm_unlink(ram_temp_filename) != 0) {
-				WARN_LOG(MEMMAP, "Failed to shm_unlink %s", ram_temp_file.c_str());
+				WARN_LOG(Log::MemMap, "Failed to shm_unlink %s", ram_temp_file.c_str());
 			}
 			break;
 		}
@@ -79,24 +79,24 @@ bool MemArena::GrabMemSpace(size_t size) {
 		if (fd >= 0) {
 			// Great, this definitely shouldn't flush to disk.
 			ram_temp_file = tmpfs_ram_temp_file;
-			INFO_LOG(MEMMAP, "Got tmpfs ram file: %s", tmpfs_ram_temp_file.c_str());
+			INFO_LOG(Log::MemMap, "Got tmpfs ram file: %s", tmpfs_ram_temp_file.c_str());
 		}
 	}
 
 	if (fd < 0) {
-		INFO_LOG(MEMMAP, "Trying '%s' as ram temp file", ram_temp_file.c_str());
+		INFO_LOG(Log::MemMap, "Trying '%s' as ram temp file", ram_temp_file.c_str());
 		fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
 	}
 	if (fd < 0) {
-		ERROR_LOG(MEMMAP, "Failed to grab memory space as a file: %s of size: %08x. Error: %s", ram_temp_file.c_str(), (int)size, strerror(errno));
+		ERROR_LOG(Log::MemMap, "Failed to grab memory space as a file: %s of size: %08x. Error: %s", ram_temp_file.c_str(), (int)size, strerror(errno));
 		return false;
 	}
 	// delete immediately, we keep the fd so it still lives
 	if (!is_shm && unlink(ram_temp_file.c_str()) != 0) {
-		WARN_LOG(MEMMAP, "Failed to unlink %s", ram_temp_file.c_str());
+		WARN_LOG(Log::MemMap, "Failed to unlink %s", ram_temp_file.c_str());
 	}
 	if (ftruncate(fd, size) != 0) {
-		ERROR_LOG(MEMMAP, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
+		ERROR_LOG(Log::MemMap, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
 		// Should this be a failure?
 	}
 #endif
@@ -122,7 +122,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 		((base == 0) ? 0 : MAP_FIXED), fd, offset);
 
 	if (retval == MAP_FAILED) {
-		NOTICE_LOG(MEMMAP, "mmap on %s (fd: %d) failed: %s", ram_temp_file.c_str(), (int)fd, strerror(errno));
+		NOTICE_LOG(Log::MemMap, "mmap on %s (fd: %d) failed: %s", ram_temp_file.c_str(), (int)fd, strerror(errno));
 		return 0;
 	}
 	return retval;
@@ -145,14 +145,14 @@ u8* MemArena::Find4GBBase() {
 	const uint64_t EIGHT_GIGS = 0x200000000ULL;
 	void *base = mmap(0, EIGHT_GIGS, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
 	if (base && base != MAP_FAILED) {
-		INFO_LOG(MEMMAP, "base: %p", base);
+		INFO_LOG(Log::MemMap, "base: %p", base);
 		uint64_t aligned_base = ((uint64_t)base + 0xFFFFFFFF) & ~0xFFFFFFFFULL;
-		INFO_LOG(MEMMAP, "aligned_base: %p", (void *)aligned_base);
+		INFO_LOG(Log::MemMap, "aligned_base: %p", (void *)aligned_base);
 		munmap(base, EIGHT_GIGS);
 		return reinterpret_cast<u8 *>(aligned_base);
 	} else {
 		u8 *hardcoded_ptr = reinterpret_cast<u8*>(0x2300000000ULL);
-		INFO_LOG(MEMMAP, "Failed to anonymously map 8GB (%s). Fall back to the hardcoded pointer %p.", strerror(errno), hardcoded_ptr);
+		INFO_LOG(Log::MemMap, "Failed to anonymously map 8GB (%s). Fall back to the hardcoded pointer %p.", strerror(errno), hardcoded_ptr);
 		// Just grab some random 4GB...
 		// This has been known to fail lately though, see issue #12249.
 		return hardcoded_ptr;

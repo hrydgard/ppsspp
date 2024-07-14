@@ -353,7 +353,7 @@ static void HandleFallback(const http::ServerRequest &request) {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		std::string resource = request.resource();
 		Path localPath = LocalFromRemotePath(resource);
-		INFO_LOG(LOADER, "Serving %s from %s", resource.c_str(), localPath.c_str());
+		INFO_LOG(Log::Loader, "Serving %s from %s", resource.c_str(), localPath.c_str());
 		if (!localPath.empty()) {
 			if (File::IsDirectory(localPath)) {
 				HandleListing(request);
@@ -415,7 +415,7 @@ static void ExecuteWebServer() {
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
-			ERROR_LOG(FILESYS, "Unable to listen on any port");
+			ERROR_LOG(Log::FileSystem, "Unable to listen on any port");
 			UpdateStatus(ServerStatus::FINISHED);
 			return;
 		}

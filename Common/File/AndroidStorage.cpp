@@ -154,7 +154,7 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	std::vector<std::string> parts;
 	SplitString(line, '|', parts);
 	if (parts.size() != 4) {
-		ERROR_LOG(FILESYS, "Bad format: %s", line.c_str());
+		ERROR_LOG(Log::FileSystem, "Bad format: %s", line.c_str());
 		return false;
 	}
 	fileInfo->name = std::string(parts[2]);
@@ -247,7 +247,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool
 	double elapsed = time_now_d() - start;
 	double threshold = 0.1;
 	if (elapsed >= threshold) {
-		INFO_LOG(FILESYS, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", path.c_str(), elapsed, (int)items.size(), threshold);
+		INFO_LOG(Log::FileSystem, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", path.c_str(), elapsed, (int)items.size(), threshold);
 	}
 	return items;
 }
@@ -284,7 +284,7 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 	int64_t size = env->CallLongMethod(g_nativeActivity, computeRecursiveDirectorySize, param);
 	double elapsed = time_now_d() - start;
 
-	INFO_LOG(IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
+	INFO_LOG(Log::IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
 	return size;
 }
 

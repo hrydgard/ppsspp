@@ -50,80 +50,80 @@ void __AACDoState(PointerWrap &p) {
 
 static u32 sceMp4Init()
 {
-	INFO_LOG(ME, "sceMp4Init()");
+	INFO_LOG(Log::ME, "sceMp4Init()");
 	return 0;
 }
 
 static u32 sceMp4Finish()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4Finish()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4Finish()");
 	return 0;
 }
 
 static u32 sceMp4Create(u32 mp4, u32 callbacks, u32 readBufferAddr, u32 readBufferSize)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create(mp4 %i,callbacks %08x,readBufferAddr %08x,readBufferSize %i)", mp4, callbacks, readBufferAddr, readBufferSize);
+	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp4Create(mp4 %i,callbacks %08x,readBufferAddr %08x,readBufferSize %i)", mp4, callbacks, readBufferAddr, readBufferSize);
 	return 0;
 }
 
 static u32 sceMp4GetNumberOfSpecificTrack()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
 	return 1;
 }
 
 static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
 	return 0;
 }
 
 static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 trackAddr, u32 writableSamplesAddr, u32 writableBytesAddr) {
-	return hleLogError(ME, 0, "unimplemented");
+	return hleLogError(Log::ME, 0, "unimplemented");
 }
 
 static u32 sceMp4Delete(u32 mp4) {
-	return hleLogError(ME, 0, "unimplemented");
+	return hleLogError(Log::ME, 0, "unimplemented");
 }
 
 static u32 sceMp4AacDecodeInitResource(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
 	return 0;
 }
 
 static u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr)
 {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
-	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
 	return 0;
 }
 
 static u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
-	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
 	return 0;
 }
 
 
 static u32 sceMp4GetAvcTrackInfoData()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetAvcTrackInfoData()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetAvcTrackInfoData()");
 	return 0;
 }
 
 static u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
 {
 	// unknown4 == value returned by sceMp4_BCA9389C
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
 	return 0;
 }
 
 static u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
 {
 	u32 value = std::max(unknown2 * unknown3, unknown4 << 1) + (unknown2 << 6) + unknown5 + 256;
-	ERROR_LOG(ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
+	ERROR_LOG(Log::ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
 	return value;
 }
 
@@ -132,7 +132,7 @@ static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 fr
 	// Decode audio:
 	// - init: 1 at first call, 0 afterwards
 	// - frequency: 44100
-	ERROR_LOG(ME, "sceMp4AacDecode(mp4 %i,auAddr %08x,bufferAddr %08x,init %i,frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
+	ERROR_LOG(Log::ME, "sceMp4AacDecode(mp4 %i,auAddr %08x,bufferAddr %08x,init %i,frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
 	return 0;
 	//This is hack
 	//return -1;
@@ -141,55 +141,55 @@ static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 fr
 static u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 {
 	// unknown4: pointer to a 40-bytes structure
-	ERROR_LOG(ME, "sceMp4GetAacAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %i ", mp4, unknown2, auAddr, unknown4);
+	ERROR_LOG(Log::ME, "sceMp4GetAacAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %i ", mp4, unknown2, auAddr, unknown4);
 	return 0;
 }
 
 static u32 sceMp4GetSampleInfo()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleInfo()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetSampleInfo()");
 	return 0;
 }
 
 static u32 sceMp4GetSampleNumWithTimeStamp()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
 	return 0;
 }
 
 static u32 sceMp4TrackSampleBufFlush()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufFlush()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4TrackSampleBufFlush()");
 	return 0;
 }
 
 static u32 sceMp4AacDecodeInit(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
 	return 0;
 }
 
 static u32 sceMp4GetAacTrackInfoData()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetAacTrackInfoData()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetAacTrackInfoData()");
 	return 0;
 }
 
 static u32 sceMp4GetNumberOfMetaData()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetNumberOfMetaData()");
 	return 0;
 }
 
 static u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
 	return 0;
 }
 
 static u32 sceMp4SearchSyncSampleNum()
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4SearchSyncSampleNum()");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp4SearchSyncSampleNum()");
 	return 0;
 }
 
@@ -198,13 +198,13 @@ static u32 sceMp4SearchSyncSampleNum()
 
 static u32 sceAacExit(u32 id)
 {
-	INFO_LOG(ME, "sceAacExit(id %i)", id);
+	INFO_LOG(Log::ME, "sceAacExit(id %i)", id);
 	if (aacMap.find(id) != aacMap.end()) {
 		delete aacMap[id];
 		aacMap.erase(id);
 	}
 	else{
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 	return 0;
@@ -212,42 +212,42 @@ static u32 sceAacExit(u32 id)
 
 static u32 sceAacInit(u32 id)
 {
-	INFO_LOG(ME, "UNIMPL sceAacInit(%08x)", id);
+	INFO_LOG(Log::ME, "UNIMPL sceAacInit(%08x)", id);
 	if (!Memory::IsValidAddress(id)){
-		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
+		ERROR_LOG(Log::ME, "sceAacInit() AAC Invalid id address %08x", id);
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 
 	AuCtx *aac = new AuCtx();
-	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
-	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
+	aac->startPos = Memory::Read_U64(id);				// AUDIO stream start position.
+	aac->endPos = Memory::Read_U32(id + 8);				// AUDIO stream end position.
 	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
 	aac->AuBufSize = Memory::Read_U32(id + 20);         // Input AAC data buffer size.
 	aac->PCMBuf = Memory::Read_U32(id + 24);            // Output PCM data buffer.
 	aac->PCMBufSize = Memory::Read_U32(id + 28);        // Output PCM data buffer size.
 	aac->freq = Memory::Read_U32(id + 32);              // Frequency.
 	if (aac->AuBuf == 0 || aac->PCMBuf == 0) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
+		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
 		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 	if (aac->startPos > aac->endPos) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
+		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
+		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
 		delete aac; 
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->freq != 24000 && aac->freq != 32000 && aac->freq != 44100 && aac->freq != 48000) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID freq %i", aac->freq);
+		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID freq %i", aac->freq);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	DEBUG_LOG(ME, "startPos %llx endPos %llx AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d",
+	DEBUG_LOG(Log::ME, "startPos %llx endPos %llx AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d",
 		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;
@@ -270,23 +270,23 @@ static u32 sceAacInit(u32 id)
 static u32 sceAacInitResource(u32 numberIds)
 {
 	// Do nothing here
-	INFO_LOG_REPORT(ME, "sceAacInitResource(%i)", numberIds);
+	INFO_LOG_REPORT(Log::ME, "sceAacInitResource(%i)", numberIds);
 	return 0;
 }
 
 static u32 sceAacTermResource()
 {
-	ERROR_LOG(ME, "UNIMPL sceAacTermResource()");
+	ERROR_LOG(Log::ME, "UNIMPL sceAacTermResource()");
 	return 0;
 }
 
 static u32 sceAacDecode(u32 id, u32 pcmAddr)
 {
 	// return the size of output pcm, <0 error
-	DEBUG_LOG(ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
+	DEBUG_LOG(Log::ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -295,10 +295,10 @@ static u32 sceAacDecode(u32 id, u32 pcmAddr)
 
 static u32 sceAacGetLoopNum(u32 id)
 {
-	INFO_LOG(ME, "sceAacGetLoopNum(id %i)", id);
+	INFO_LOG(Log::ME, "sceAacGetLoopNum(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 	return ctx->LoopNum;
@@ -306,10 +306,10 @@ static u32 sceAacGetLoopNum(u32 id)
 
 static u32 sceAacSetLoopNum(u32 id, int loop)
 {
-	INFO_LOG(ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
+	INFO_LOG(Log::ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -320,11 +320,11 @@ static u32 sceAacSetLoopNum(u32 id, int loop)
 static int sceAacCheckStreamDataNeeded(u32 id)
 {
 	// return 1 to read more data stream, 0 don't read, <0 error
-	DEBUG_LOG(ME, "sceAacCheckStreamDataNeeded(%i)", id);
+	DEBUG_LOG(Log::ME, "sceAacCheckStreamDataNeeded(%i)", id);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -334,11 +334,11 @@ static int sceAacCheckStreamDataNeeded(u32 id)
 static u32 sceAacNotifyAddStreamData(u32 id, int size)
 {
 	// check how many bytes we have read from source file
-	DEBUG_LOG(ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
+	DEBUG_LOG(Log::ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -348,11 +348,11 @@ static u32 sceAacNotifyAddStreamData(u32 id, int size)
 static u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 {
 	// read from stream position srcPos of size bytes into buff
-	DEBUG_LOG(ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
+	DEBUG_LOG(Log::ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
 
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac handle %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac handle %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -361,10 +361,10 @@ static u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 
 static u32 sceAacGetMaxOutputSample(u32 id)
 {
-	DEBUG_LOG(ME, "sceAacGetMaxOutputSample(id %i)", id);
+	DEBUG_LOG(Log::ME, "sceAacGetMaxOutputSample(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -373,10 +373,10 @@ static u32 sceAacGetMaxOutputSample(u32 id)
 
 static u32 sceAacGetSumDecodedSample(u32 id)
 {
-	DEBUG_LOG(ME, "sceAacGetSumDecodedSample(id %i)", id);
+	DEBUG_LOG(Log::ME, "sceAacGetSumDecodedSample(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -385,10 +385,10 @@ static u32 sceAacGetSumDecodedSample(u32 id)
 
 static u32 sceAacResetPlayPosition(u32 id)
 {
-	INFO_LOG(ME, "sceAacResetPlayPosition(id %i)", id);
+	INFO_LOG(Log::ME, "sceAacResetPlayPosition(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
 
@@ -396,12 +396,12 @@ static u32 sceAacResetPlayPosition(u32 id)
 }
 
 static u32 mp4msv_3C2183C7(u32 unknown1, u32 unknown2) {
-	ERROR_LOG(ME, "UNIMPL mp4msv_3C2183C7(%d, %x)", unknown1, unknown2);
+	ERROR_LOG(Log::ME, "UNIMPL mp4msv_3C2183C7(%d, %x)", unknown1, unknown2);
 	return 0;
 }
 
 static u32 mp4msv_9CA13D1A(u32 unknown1, u32 unknown2) {
-	ERROR_LOG(ME, "UNIMPL mp4msv_9CA13D1A(%d, %x)", unknown1, unknown2);
+	ERROR_LOG(Log::ME, "UNIMPL mp4msv_9CA13D1A(%d, %x)", unknown1, unknown2);
 	return 0;
 }
 

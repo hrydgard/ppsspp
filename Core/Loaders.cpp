@@ -215,7 +215,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		}
 		return IdentifiedFileType::PSP_PBP;
 	} else if (extension == ".pbp") {
-		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
+		ERROR_LOG(Log::Loader, "A PBP with the wrong magic number?");
 		return IdentifiedFileType::PSP_PBP;
 	} else if (extension == ".bin") {
 		return IdentifiedFileType::UNKNOWN_BIN;
@@ -271,7 +271,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		{
 			fileLoader = ResolveFileLoaderTarget(fileLoader);
 			if (fileLoader->Exists()) {
-				INFO_LOG(LOADER, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
+				INFO_LOG(Log::Loader, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
 				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
 					InitMemoryForGameISO(fileLoader);
@@ -309,7 +309,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_ELF:
 		{
-			INFO_LOG(LOADER, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
+			INFO_LOG(Log::Loader, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
 			return Load_PSP_ELF_PBP(fileLoader, error_string);
 		}
 
@@ -352,7 +352,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 
 	case IdentifiedFileType::NORMAL_DIRECTORY:
-		ERROR_LOG(LOADER, "Just a directory.");
+		ERROR_LOG(Log::Loader, "Just a directory.");
 		*error_string = "Just a directory.";
 		break;
 
@@ -371,18 +371,18 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN_ISO:
 	case IdentifiedFileType::UNKNOWN:
-		ERROR_LOG(LOADER, "Unknown file type: %s (%s)", fileLoader->GetPath().c_str(), error_string->c_str());
+		ERROR_LOG(Log::Loader, "Unknown file type: %s (%s)", fileLoader->GetPath().c_str(), error_string->c_str());
 		*error_string = "Unknown file type: " + fileLoader->GetPath().ToString();
 		break;
 
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 		*error_string = *error_string + ": " + (fileLoader ? fileLoader->LatestError() : "");
-		ERROR_LOG(LOADER, "Error while identifying file: %s", error_string->c_str());
+		ERROR_LOG(Log::Loader, "Error while identifying file: %s", error_string->c_str());
 		break;
 
 	default:
 		*error_string = StringFromFormat("Unhandled identified file type %d", (int)type);
-		ERROR_LOG(LOADER, "%s", error_string->c_str());
+		ERROR_LOG(Log::Loader, "%s", error_string->c_str());
 		break;
 	}
 

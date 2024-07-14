@@ -47,11 +47,11 @@ void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+			NOTICE_LOG(Log::MemMap, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
 			std::string formatted;
 			CBreakPoints::EvaluateLogFormat(currentDebugMIPS, logFormat, formatted);
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
+			NOTICE_LOG(Log::MemMap, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
 		}
 	}
 }
@@ -323,11 +323,11 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 
 		if (info.result & BREAK_ACTION_LOG) {
 			if (info.logFormat.empty()) {
-				NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+				NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
 			} else {
 				std::string formatted;
 				CBreakPoints::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
-				NOTICE_LOG(JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
+				NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
 			}
 		}
 		if ((info.result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {

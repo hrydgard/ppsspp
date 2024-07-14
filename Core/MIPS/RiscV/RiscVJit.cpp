@@ -143,7 +143,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bo
 		for (int i = 0; i < (int)addresses.size(); ++i)
 			addressesLookup[addresses[i]] = i;
 
-		INFO_LOG(JIT, "=============== RISCV (%08x, %d bytes) ===============", startPC, len);
+		INFO_LOG(Log::JIT, "=============== RISCV (%08x, %d bytes) ===============", startPC, len);
 		const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addressesLookup.find(p);
@@ -152,7 +152,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bo
 
 				char temp[512];
 				DisassembleIR(temp, sizeof(temp), inst);
-				INFO_LOG(JIT, "IR: #%d %s", it->second, temp);
+				INFO_LOG(Log::JIT, "IR: #%d %s", it->second, temp);
 			}
 
 			auto next = std::next(it);
@@ -161,7 +161,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bo
 #if PPSSPP_ARCH(RISCV64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
 			auto lines = DisassembleRV64(p, (int)(nextp - p));
 			for (const auto &line : lines)
-				INFO_LOG(JIT, "RV: %s", line.c_str());
+				INFO_LOG(Log::JIT, "RV: %s", line.c_str());
 #endif
 			p = nextp;
 		}

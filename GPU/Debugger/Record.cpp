@@ -197,7 +197,7 @@ static Path WriteRecording() {
 
 	const Path filename = GenRecordingFilename();
 
-	NOTICE_LOG(G3D, "Recording filename: %s", filename.c_str());
+	NOTICE_LOG(Log::G3D, "Recording filename: %s", filename.c_str());
 
 	FILE *fp = File::OpenCFile(filename, "wb");
 	Header header{};
@@ -624,7 +624,7 @@ static void FinishRecording() {
 	pushbuf.clear();
 	lastVRAM.clear();
 
-	NOTICE_LOG(SYSTEM, "Recording finished");
+	NOTICE_LOG(Log::System, "Recording finished");
 	active = false;
 	flipLastAction = gpuStats.numFlips;
 	flipFinishAt = -1;
@@ -784,7 +784,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 		writePending = true;
 	}
 	if (!active && nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
-		NOTICE_LOG(SYSTEM, "Recording starting on display...");
+		NOTICE_LOG(Log::System, "Recording starting on display...");
 		BeginRecording();
 	}
 	if (!active) {
@@ -808,7 +808,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	commands.push_back({ CommandType::DISPLAY, sz, ptr });
 
 	if (writePending) {
-		NOTICE_LOG(SYSTEM, "Recording complete on display");
+		NOTICE_LOG(Log::System, "Recording complete on display");
 		FinishRecording();
 	}
 }
@@ -817,7 +817,7 @@ void NotifyBeginFrame() {
 	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
 	// We do this only to catch things that don't call NotifyDisplay.
 	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.numFlips == flipFinishAt)) {
-		NOTICE_LOG(SYSTEM, "Recording complete on frame");
+		NOTICE_LOG(Log::System, "Recording complete on frame");
 
 		CheckEdramTrans();
 		struct DisplayBufData {
@@ -839,7 +839,7 @@ void NotifyBeginFrame() {
 		FinishRecording();
 	}
 	if (!active && nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0 && noDisplayAction) {
-		NOTICE_LOG(SYSTEM, "Recording starting on frame...");
+		NOTICE_LOG(Log::System, "Recording starting on frame...");
 		BeginRecording();
 		// If we began on a BeginFrame, end on a BeginFrame.
 		flipFinishAt = gpuStats.numFlips + 1;

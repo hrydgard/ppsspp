@@ -117,11 +117,11 @@ bool RunTests() {
 		coreParam.fileToStart = baseDirectory / "pspautotests" / "tests" / (testName + ".prx");
 		Path expectedFile = baseDirectory / "pspautotests" / "tests" / (testName + ".expected");
 
-		INFO_LOG(SYSTEM, "Preparing to execute '%s'", testName.c_str());
+		INFO_LOG(Log::System, "Preparing to execute '%s'", testName.c_str());
 		std::string error_string;
 		output.clear();
 		if (!PSP_Init(coreParam, &error_string)) {
-			ERROR_LOG(SYSTEM, "Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
+			ERROR_LOG(Log::System, "Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
 			PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 			PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 			return false;
@@ -130,7 +130,7 @@ bool RunTests() {
 		PSP_BeginHostFrame();
 
 		// Run the emu until the test exits
-		INFO_LOG(SYSTEM, "Test: Entering runloop.");
+		INFO_LOG(Log::System, "Test: Entering runloop.");
 		while (true) {
 			int blockTicks = (int)usToCycles(1000000 / 10);
 			while (coreState == CORE_RUNNING) {
@@ -141,7 +141,7 @@ bool RunTests() {
 				// set back to running for the next frame
 				coreState = CORE_RUNNING;
 			} else if (coreState == CORE_POWERDOWN)	{
-				INFO_LOG(SYSTEM, "Finished running test %s", testName.c_str());
+				INFO_LOG(Log::System, "Finished running test %s", testName.c_str());
 				break;
 			}
 		}
@@ -149,7 +149,7 @@ bool RunTests() {
 
 		std::string expect_results;
 		if (!File::ReadTextFileToString(expectedFile, &expect_results)) {
-			ERROR_LOG(SYSTEM, "Error opening expectedFile %s", expectedFile.c_str());
+			ERROR_LOG(Log::System, "Error opening expectedFile %s", expectedFile.c_str());
 			break;
 		}
 
@@ -166,9 +166,9 @@ bool RunTests() {
 			e = TrimNewlines(e);
 			o = TrimNewlines(o);
 			if (e != o) {
-				ERROR_LOG(SYSTEM, "DIFF on line %i!", line);
-				ERROR_LOG(SYSTEM, "O: %s", o.c_str());
-				ERROR_LOG(SYSTEM, "E: %s", e.c_str());
+				ERROR_LOG(Log::System, "DIFF on line %i!", line);
+				ERROR_LOG(Log::System, "O: %s", o.c_str());
+				ERROR_LOG(Log::System, "E: %s", e.c_str());
 			}
 			if (expected.eof()) {
 				break;

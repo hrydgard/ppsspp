@@ -76,7 +76,7 @@ void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mapping
 		if (!mapping.empty()) {
 			mappings->push_back(mapping.mappings[0]);
 		} else {
-			WARN_LOG(COMMON, "Encountered empty mapping in multi-mapping for button %d", btn);
+			WARN_LOG(Log::Common, "Encountered empty mapping in multi-mapping for button %d", btn);
 		}
 	}
 }
@@ -855,7 +855,7 @@ void AutoConfForPad(const std::string &name) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 
-	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
+	INFO_LOG(Log::System, "Autoconfiguring pad for '%s'", name.c_str());
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (name.find("Xbox") != std::string::npos) {

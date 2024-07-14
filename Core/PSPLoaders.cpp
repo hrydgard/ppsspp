@@ -65,10 +65,10 @@ static void UseLargeMem(int memsize) {
 	}
 
 	if (Memory::g_PSPModel != PSP_MODEL_FAT) {
-		INFO_LOG(LOADER, "Game requested full PSP-2000 memory access");
+		INFO_LOG(Log::Loader, "Game requested full PSP-2000 memory access");
 		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 	} else {
-		WARN_LOG(LOADER, "Game requested full PSP-2000 memory access, ignoring in PSP-1000 mode");
+		WARN_LOG(Log::Loader, "Game requested full PSP-2000 memory access, ignoring in PSP-1000 mode");
 	}
 }
 
@@ -139,7 +139,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		break;
 	}
 	if (g_RemasterMode) {
-		INFO_LOG(LOADER, "HDRemaster found, using increased memory");
+		INFO_LOG(Log::Loader, "HDRemaster found, using increased memory");
 	}
 }
 
@@ -247,7 +247,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
 			std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-			INFO_LOG(LOADER, "%s", title.c_str());
+			INFO_LOG(Log::Loader, "%s", title.c_str());
 			System_SetWindowTitle(title);
 		}
 	}
@@ -282,7 +282,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.CloseFile(fd);
 	}
 	if (!hasEncrypted) {
-		// try unencrypted BOOT.BIN
+		// try unencrypted Boot.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
 
@@ -307,7 +307,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	//in case we didn't go through EmuScreen::boot
 	g_Config.loadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
-	INFO_LOG(LOADER, "Loading %s...", bootpath.c_str());
+	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 
 	PSPLoaders_Shutdown();
 	// Note: this thread reads the game binary, loads caches, and links HLE while UI spins.
@@ -452,7 +452,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
 	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
-	INFO_LOG(LOADER, "%s", title.c_str());
+	INFO_LOG(Log::Loader, "%s", title.c_str());
 	System_SetWindowTitle(title);
 
 	// Migrate old save states from old versions of fake game IDs.

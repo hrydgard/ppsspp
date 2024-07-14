@@ -51,7 +51,7 @@ void __SslDoState(PointerWrap &p)
 
 static int sceSslInit(int heapSize)
 {
-	DEBUG_LOG(HLE, "sceSslInit %d", heapSize);
+	DEBUG_LOG(Log::HLE, "sceSslInit %d", heapSize);
 	if (isSslInit) 
 	{
 		return ERROR_SSL_ALREADY_INIT;
@@ -69,7 +69,7 @@ static int sceSslInit(int heapSize)
 
 static int sceSslEnd()
 {
-	DEBUG_LOG(HLE, "sceSslEnd");
+	DEBUG_LOG(Log::HLE, "sceSslEnd");
 	if (!isSslInit) 
 	{
 		return ERROR_SSL_NOT_INIT;
@@ -80,7 +80,7 @@ static int sceSslEnd()
 
 static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 {
-	DEBUG_LOG(HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
+	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
 	if (!isSslInit) 
 	{
 		return ERROR_SSL_NOT_INIT;
@@ -95,7 +95,7 @@ static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 
 static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
 {
-	DEBUG_LOG(HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
+	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
 	if (!isSslInit) 
 	{
 		return ERROR_SSL_NOT_INIT;

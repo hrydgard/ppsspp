@@ -19,7 +19,7 @@ void Screen::focusChanged(ScreenFocusChange focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP: eventName = "FOCUS_LOST_TOP"; break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
 	}
-	DEBUG_LOG(SYSTEM, "Screen %s got %s", this->tag(), eventName);
+	DEBUG_LOG(Log::System, "Screen %s got %s", this->tag(), eventName);
 }
 
 int Screen::GetRequesterToken() {
@@ -45,7 +45,7 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// TODO: inputLock_ ?
 
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
-		ERROR_LOG(SYSTEM, "Already switching to this screen");
+		ERROR_LOG(Log::System, "Already switching to this screen");
 		return;
 	}
 	// Note that if a dialog is found, this will be a silent background switch that
@@ -53,12 +53,12 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// until that switch.
 	// TODO: is this still true?
 	if (!nextStack_.empty()) {
-		ERROR_LOG(SYSTEM, "Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
+		ERROR_LOG(Log::System, "Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
 		delete screen;
 		return;
 	}
 	if (screen == nullptr) {
-		WARN_LOG(SYSTEM, "Switching to a zero screen, this can't be good");
+		WARN_LOG(Log::System, "Switching to a zero screen, this can't be good");
 	}
 	if (stack_.empty() || screen != stack_.back().screen) {
 		screen->setScreenManager(this);
@@ -85,7 +85,7 @@ void ScreenManager::update() {
 void ScreenManager::switchToNext() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextStack_.empty()) {
-		ERROR_LOG(SYSTEM, "switchToNext: No nextStack_!");
+		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
 	}
 
 	Layer temp = {nullptr, 0};
@@ -161,7 +161,7 @@ void ScreenManager::deviceRestored() {
 }
 
 void ScreenManager::resized() {
-	INFO_LOG(SYSTEM, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
+	INFO_LOG(Log::System, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
@@ -238,7 +238,7 @@ ScreenRenderFlags ScreenManager::render() {
 			postRenderCb_(getUIContext(), postRenderUserdata_);
 		}
 	} else {
-		ERROR_LOG(SYSTEM, "No current screen!");
+		ERROR_LOG(Log::System, "No current screen!");
 	}
 
 	processFinishDialog();
@@ -333,7 +333,7 @@ void ScreenManager::pop() {
 			stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 		}
 	} else {
-		ERROR_LOG(SYSTEM, "Can't pop when stack empty");
+		ERROR_LOG(Log::System, "Can't pop when stack empty");
 	}
 }
 
@@ -346,11 +346,11 @@ void ScreenManager::RecreateAllViews() {
 
 void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	if (stack_.empty()) {
-		ERROR_LOG(SYSTEM, "Must be in a dialog to finishDialog");
+		ERROR_LOG(Log::System, "Must be in a dialog to finishDialog");
 		return;
 	}
 	if (dialog != stack_.back().screen) {
-		ERROR_LOG(SYSTEM, "Wrong dialog being finished!");
+		ERROR_LOG(Log::System, "Wrong dialog being finished!");
 		return;
 	}
 	dialog->onFinish(result);
@@ -389,10 +389,10 @@ void ScreenManager::processFinishDialog() {
 			}
 
 			if (!caller) {
-				ERROR_LOG(SYSTEM, "ERROR: no top screen when finishing dialog");
+				ERROR_LOG(Log::System, "ERROR: no top screen when finishing dialog");
 			} else if (caller != topScreen()) {
 				// The caller may get confused if we call dialogFinished() now.
-				WARN_LOG(SYSTEM, "Skipping non-top dialog when finishing dialog.");
+				WARN_LOG(Log::System, "Skipping non-top dialog when finishing dialog.");
 			} else {
 				caller->dialogFinished(dialogFinished_, dialogResult_);
 			}

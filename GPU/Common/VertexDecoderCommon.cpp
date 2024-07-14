@@ -138,13 +138,13 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	} else if (idx == GE_VTYPE_IDX_32BIT) {
 		int lowerBound = 0x7FFFFFFF;
 		int upperBound = 0;
-		WARN_LOG_REPORT_ONCE(indexBounds32, G3D, "GetIndexBounds: Decoding 32-bit indexes");
+		WARN_LOG_REPORT_ONCE(indexBounds32, Log::G3D, "GetIndexBounds: Decoding 32-bit indexes");
 		const u32_le *ind32 = (const u32_le *)inds;
 		for (int i = 0; i < count; i++) {
 			u16 value = (u16)ind32[i];
 			// These aren't documented and should be rare.  Let's bounds check each one.
 			if (ind32[i] != value) {
-				ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, G3D, "GetIndexBounds: Index outside 16-bit range");
+				ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
 			}
 			if (value > upperBound)
 				upperBound = value;
@@ -1132,9 +1132,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	memset(&decFmt, 0, sizeof(decFmt));
 
 	if (morphcount > 1) {
-		DEBUG_LOG_REPORT_ONCE(vtypeM, G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
+		DEBUG_LOG_REPORT_ONCE(vtypeM, Log::G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	} else {
-		DEBUG_LOG(G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
+		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
 	skinInDecode = weighttype != 0 && options.applySkinInDecode;
@@ -1307,12 +1307,12 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	size = align(size, biggest);
 	onesize_ = size;
 	size *= morphcount;
-	DEBUG_LOG(G3D, "SVT : size = %i, aligned to biggest %i", size, biggest);
+	DEBUG_LOG(Log::G3D, "SVT : size = %i, aligned to biggest %i", size, biggest);
 
 	if (reportNoPos) {
 		char temp[256]{};
 		ToString(temp, true);
-		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
+		ERROR_LOG_REPORT(Log::G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
 	}
 
 	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
@@ -1338,7 +1338,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	if (jitCache) {
 		jitted_ = jitCache->Compile(*this, &jittedSize_);
 		if (!jitted_) {
-			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
+			WARN_LOG(Log::G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
 		}
 	}
 }
@@ -1403,7 +1403,7 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 		vtx2.ReadNrm(vec2.AsArray());
 		float diff = LargestAbsDiff(vec1, vec2, 3);
 		if (diff >= 1.0 / 512.0f) {
-			WARN_LOG(G3D, "Normal diff %f", diff);
+			WARN_LOG(Log::G3D, "Normal diff %f", diff);
 			return false;
 		}
 	}
@@ -1412,7 +1412,7 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 		vtx2.ReadUV(vec2.AsArray());
 		float diff = LargestAbsDiff(vec1, vec2, 2);
 		if (diff >= 1.0 / 512.0f) {
-			WARN_LOG(G3D, "UV diff %f", diff);
+			WARN_LOG(Log::G3D, "UV diff %f", diff);
 			return false;
 		}
 	}
@@ -1421,7 +1421,7 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 		vtx2.ReadColor0(vec2.AsArray());
 		float diff = LargestAbsDiff(vec1, vec2, 4);
 		if (diff >= 1.0 / 255.0f) {
-			WARN_LOG(G3D, "Color0 diff %f", diff);
+			WARN_LOG(Log::G3D, "Color0 diff %f", diff);
 			return false;
 		}
 	}
@@ -1430,7 +1430,7 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 		vtx2.ReadColor1(vec2.AsArray());
 		float diff = LargestAbsDiff(vec1, vec2, 4);
 		if (diff >= 1.0 / 255.0f) {
-			WARN_LOG(G3D, "Color1 diff %f", diff);
+			WARN_LOG(Log::G3D, "Color1 diff %f", diff);
 			return false;
 		}
 	}
@@ -1438,7 +1438,7 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 	vtx2.ReadPos(vec2.AsArray());
 	float diff = LargestAbsDiff(vec1, vec2, 3);
 	if (diff >= 1.0 / 512.0f) {
-		WARN_LOG(G3D, "Pos diff %f", diff);
+		WARN_LOG(Log::G3D, "Pos diff %f", diff);
 		return false;
 	}
 
@@ -1458,7 +1458,7 @@ void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, 
 		if (!DecodedVertsAreSimilar(controlReader, jittedReader)) {
 			char name[512]{};
 			ToString(name, true);
-			ERROR_LOG(G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
+			ERROR_LOG(Log::G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
 			if (morphcount > 1) {
 				printf("Morph:\n");
 				for (int j = 0; j < morphcount; ++j) {

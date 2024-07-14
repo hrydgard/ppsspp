@@ -77,7 +77,7 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 		if (System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 			choice_ = CHOICE_BROWSE_FOLDER;
 		} else {
-			WARN_LOG_REPORT(SYSTEM, "Scoped storage not enabled - shouldn't be in MemStickScreen at initial setup");
+			WARN_LOG_REPORT(Log::System, "Scoped storage not enabled - shouldn't be in MemStickScreen at initial setup");
 			choice_ = CHOICE_STORAGE_ROOT;
 			// Shouldn't really be here in initial setup.
 		}
@@ -268,7 +268,7 @@ void MemStickScreen::CreateViews() {
 		rightColumnItems->Add(new UI::Choice(iz->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 	}
 
-	INFO_LOG(SYSTEM, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
+	INFO_LOG(Log::System, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
 
 UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
@@ -342,10 +342,10 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 			std::string oldNewPath = newPath;
 			FixPathCase(Path(""), newPath, FixPathCaseBehavior::FPC_FILE_MUST_EXIST);
 			if (oldNewPath != newPath) {
-				NOTICE_LOG(IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
+				NOTICE_LOG(Log::IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
 				pendingMemStickFolder = Path(newPath);
 			} else {
-				NOTICE_LOG(IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
+				NOTICE_LOG(Log::IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
 			}
 		}
 
@@ -380,7 +380,7 @@ UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
 			TriggerFinish(DialogResult::DR_OK);
 		} else {
 			// This can't really happen?? Not worth making an error message.
-			ERROR_LOG_REPORT(SYSTEM, "Could not switch memstick path in setup (internal)");
+			ERROR_LOG_REPORT(Log::System, "Could not switch memstick path in setup (internal)");
 		}
 		// Don't have a confirmation dialog that would otherwise do it for us, need to just switch directly to the main screen.
 		screenManager()->switchScreen(new MainScreen());
@@ -404,7 +404,7 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 			TriggerFinish(DialogResult::DR_OK);
 		} else {
 			// This can't really happen?? Not worth making an error message.
-			ERROR_LOG_REPORT(SYSTEM, "Could not switch memstick path in setup");
+			ERROR_LOG_REPORT(Log::System, "Could not switch memstick path in setup");
 		}
 	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
@@ -420,7 +420,7 @@ UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [=](const std::string &value, int) {
 		Path pendingMemStickFolder = Path(value);
-		INFO_LOG(SYSTEM, "Got folder: '%s'", pendingMemStickFolder.c_str());
+		INFO_LOG(Log::System, "Got folder: '%s'", pendingMemStickFolder.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
 		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {
 			auto iz = GetI18NCategory(I18NCat::MEMSTICK);
@@ -439,7 +439,7 @@ UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 
 void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DialogResult::DR_OK) {
-		INFO_LOG(SYSTEM, "Confirmation screen done - moving on.");
+		INFO_LOG(Log::System, "Confirmation screen done - moving on.");
 		// There's a screen manager bug if we call TriggerFinish directly.
 		// Can't be bothered right now, so we pick this up in update().
 		done_ = true;
@@ -465,7 +465,7 @@ ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, boo
 
 ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 	if (moveDataTask_) {
-		INFO_LOG(SYSTEM, "Move Data task still running, blocking on it");
+		INFO_LOG(Log::System, "Move Data task still running, blocking on it");
 		moveDataTask_->BlockUntilReady();
 		delete moveDataTask_;
 	}
@@ -553,12 +553,12 @@ void ConfirmMemstickMoveScreen::update() {
 		if (result) {
 			if (result->success) {
 				progressReporter_.SetProgress(iz->T("Done!"));
-				INFO_LOG(SYSTEM, "Move data task finished successfully!");
+				INFO_LOG(Log::System, "Move data task finished successfully!");
 				// Succeeded!
 				FinishFolderMove();
 			} else {
 				progressReporter_.SetProgress(iz->T("Failed to move some files!"));
-				INFO_LOG(SYSTEM, "Move data task failed!");
+				INFO_LOG(Log::System, "Move data task failed!");
 				// What do we do here? We might be in the middle of a move... Bad.
 				RecreateViews();
 			}

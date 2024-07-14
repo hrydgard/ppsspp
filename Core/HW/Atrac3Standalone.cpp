@@ -23,14 +23,14 @@ public:
 			if (at3pCtx_) {
 				codecOpen_ = true;
 			} else {
-				ERROR_LOG(ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
+				ERROR_LOG(Log::ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
 			}
 		} else if (audioType_ == PSP_CODEC_AT3) {
 			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
 			if (at3Ctx_) {
 				codecOpen_ = true;
 			} else {
-				ERROR_LOG(ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
+				ERROR_LOG(Log::ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
 			}
 		}
 		for (int i = 0; i < 2; i++) {
@@ -64,7 +64,7 @@ public:
 
 	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
 		if (!codecOpen_) {
-			WARN_LOG_N_TIMES(codecNotOpen, 5, ME, "Atrac3Audio:Decode: Codec not open, not decoding");
+			WARN_LOG_N_TIMES(codecNotOpen, 5, Log::ME, "Atrac3Audio:Decode: Codec not open, not decoding");
 			if (outSamples)
 				*outSamples = 0;
 			if (inbytesConsumed)
@@ -72,7 +72,7 @@ public:
 			return false;
 		}
 		if (inbytes != blockAlign_ && blockAlign_ != 0) {
-			WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
+			WARN_LOG(Log::ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
 		}
 		blockAlign_ = inbytes;
 		// We just call the decode function directly without going through the whole packet machinery.

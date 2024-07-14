@@ -49,7 +49,7 @@ void WindowsGLContext::Poll() {
 		resumeRequested = true;
 		DWORD result = WaitForSingleObject(resumeEvent, INFINITE);
 		if (result == WAIT_TIMEOUT) {
-			ERROR_LOG(G3D, "Wait for resume timed out. Resuming rendering");
+			ERROR_LOG(Log::G3D, "Wait for resume timed out. Resuming rendering");
 		}
 		pauseRequested = false;
 	}
@@ -66,7 +66,7 @@ void WindowsGLContext::Pause() {
 	pauseRequested = true;
 	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
 	if (result == WAIT_TIMEOUT) {
-		ERROR_LOG(G3D, "Wait for pause timed out");
+		ERROR_LOG(Log::G3D, "Wait for pause timed out");
 	}
 	// OK, we now know the rendering thread is paused.
 }
@@ -80,7 +80,7 @@ void WindowsGLContext::Resume() {
 	}
 
 	if (!resumeRequested) {
-		ERROR_LOG(G3D, "Not waiting to get resumed");
+		ERROR_LOG(Log::G3D, "Not waiting to get resumed");
 	} else {
 		SetEvent(resumeEvent);
 	}
@@ -156,18 +156,18 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	case GL_DEBUG_TYPE_ERROR_ARB:
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
-		ERROR_LOG(G3D, "GL: %s", finalMessage);
+		ERROR_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 
 	case GL_DEBUG_TYPE_PORTABILITY_ARB:
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		NOTICE_LOG(G3D, "GL: %s", finalMessage);
+		NOTICE_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
 		// These are just performance warnings.
-		VERBOSE_LOG(G3D, "GL: %s", finalMessage);
+		VERBOSE_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 	}
 }
@@ -383,21 +383,21 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 			glGetError();
 			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to register a debug log callback");
+				ERROR_LOG(Log::G3D, "Failed to register a debug log callback");
 			}
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+				ERROR_LOG(Log::G3D, "Failed to enable synchronous debug output");
 			}
 		} else if (glewIsSupported("GL_ARB_debug_output")) {
 			glGetError();
 			glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to register a debug log callback");
+				ERROR_LOG(Log::G3D, "Failed to register a debug log callback");
 			}
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+				ERROR_LOG(Log::G3D, "Failed to enable synchronous debug output");
 			}
 
 			// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):

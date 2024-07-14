@@ -363,13 +363,13 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	// Check alignment
 	// TODO Check the context and stack alignement too
 	if (((listpc | stall) & 3) != 0 || !Memory::IsValidAddress(listpc)) {
-		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid address %08x", listpc);
+		ERROR_LOG_REPORT(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
 	// If args->size is below 16, it's the old struct without stack info.
 	if (args.IsValid() && args->size >= 16 && args->numStacks >= 256) {
-		return hleLogError(G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
+		return hleLogError(Log::G3D, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stack depth %d", args->numStacks);
 	}
 
 	int id = -1;
@@ -384,10 +384,10 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 				// Logically, if the CPU has not interrupted yet, it hasn't seen the latest pc either.
 				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
 				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
-					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
 					return 0x80000021;
 				} else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
-					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
+					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
 					return 0x80000021;
 				}
 			}
@@ -411,10 +411,10 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		}
 	}
 	if (id < 0) {
-		ERROR_LOG_REPORT(G3D, "No DL ID available to enqueue");
+		ERROR_LOG_REPORT(Log::G3D, "No DL ID available to enqueue");
 		for (auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
 			DisplayList &dl = dls[*it];
-			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
+			DEBUG_LOG(Log::G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
 		}
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
@@ -583,7 +583,7 @@ u32 GPUCommon::Break(int mode) {
 		{
 			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 			{
-				ERROR_LOG_REPORT(G3D, "sceGeBreak: can't break signal-pausing list");
+				ERROR_LOG_REPORT(Log::G3D, "sceGeBreak: can't break signal-pausing list");
 			}
 			else
 				return SCE_KERNEL_ERROR_ALREADY;
@@ -620,7 +620,7 @@ void GPUCommon::NotifySteppingEnter() {
 void GPUCommon::NotifySteppingExit() {
 	if (coreCollectDebugStats) {
 		if (timeSteppingStarted_ <= 0.0) {
-			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
+			ERROR_LOG(Log::G3D, "Mismatched stepping enter/exit.");
 		}
 		double total = time_now_d() - timeSteppingStarted_;
 		_dbg_assert_msg_(total >= 0.0, "Time spent stepping became negative");
@@ -648,7 +648,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	gstate_c.offsetAddr = list.offsetAddr;
 
 	if (!Memory::IsValidAddress(list.pc)) {
-		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
+		ERROR_LOG_REPORT(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
 		return true;
 	}
 
@@ -712,7 +712,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 void GPUCommon::PSPFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		NOTICE_LOG(Log::G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
 		dumpNextFrame_ = false;
 	} else if (dumpThisFrame_) {
@@ -746,7 +746,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list) {
 					prev = 0;
 				}
 				GeDisassembleOp(list.pc, op, prev, temp, 256);
-				NOTICE_LOG(G3D, "%08x: %s", op, temp);
+				NOTICE_LOG(Log::G3D, "%08x: %s", op, temp);
 			}
 			gstate.cmdmem[cmd] = op;
 
@@ -839,13 +839,13 @@ void GPUCommon::ProcessDLQueue() {
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
-		DEBUG_LOG(G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
+		DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
 		//return;
 	}
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(G3D, "Starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x", l.pc, l.stall);
 		if (!InterpretList(l)) {
 			return;
 		} else {
@@ -889,7 +889,7 @@ void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(Log::G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -906,7 +906,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 			UpdatePC(currentList->pc, target - 4);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		} else {
-			ERROR_LOG(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+			ERROR_LOG(Log::G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 			UpdateState(GPUSTATE_ERROR);
 		}
 	}
@@ -917,7 +917,7 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		ERROR_LOG(Log::G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
@@ -941,7 +941,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	}
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-		ERROR_LOG(G3D, "CALL: Stack full!");
+		ERROR_LOG(Log::G3D, "CALL: Stack full!");
 		// TODO: UpdateState(GPUSTATE_ERROR) ?
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
@@ -955,7 +955,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 	if (currentList->stackptr == 0) {
-		DEBUG_LOG(G3D, "RET: Stack empty!");
+		DEBUG_LOG(Log::G3D, "RET: Stack empty!");
 	} else {
 		auto &stackEntry = currentList->stack[--currentList->stackptr];
 		gstate_c.offsetAddr = stackEntry.offsetAddr;
@@ -965,7 +965,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 		currentList->pc = target - 4;
 #ifdef _DEBUG
 		if (!Memory::IsValidAddress(currentList->pc)) {
-			ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
+			ERROR_LOG_REPORT(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
 			UpdateState(GPUSTATE_ERROR);
 		}
 #endif
@@ -998,12 +998,12 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
 					currentList->state = PSP_GE_DL_STATE_PAUSED;
 				currentList->signal = behaviour;
-				DEBUG_LOG(G3D, "Signal with wait. signal/end: %04x %04x", signal, enddata);
+				DEBUG_LOG(Log::G3D, "Signal with wait. signal/end: %04x %04x", signal, enddata);
 				break;
 			case PSP_GE_SIGNAL_HANDLER_CONTINUE:
 				// Resume the list right away, then call the handler.
 				currentList->signal = behaviour;
-				DEBUG_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
+				DEBUG_LOG(Log::G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 				break;
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
 				// Pause the list instead of ending at the next FINISH.
@@ -1012,7 +1012,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				// But right now, signal is always reset by interrupts, so that causes pause to not work.
 				trigger = false;
 				currentList->signal = behaviour;
-				DEBUG_LOG(G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
+				DEBUG_LOG(Log::G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
 				break;
 			case PSP_GE_SIGNAL_SYNC:
 				// Acts as a memory barrier, never calls any user code.
@@ -1021,7 +1021,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				// However, this is likely a bug in how GE signal interrupts are handled.
 				trigger = false;
 				currentList->signal = behaviour;
-				DEBUG_LOG(G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
+				DEBUG_LOG(Log::G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
 				break;
 			case PSP_GE_SIGNAL_JUMP:
 			case PSP_GE_SIGNAL_RJUMP:
@@ -1041,12 +1041,12 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG_REPORT(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						UpdatePC(currentList->pc, target);
 						currentList->pc = target;
-						DEBUG_LOG(G3D, "Signal with Jump (%s). signal/end: %04x %04x", targetType, signal, enddata);
+						DEBUG_LOG(Log::G3D, "Signal with Jump (%s). signal/end: %04x %04x", targetType, signal, enddata);
 					}
 				}
 				break;
@@ -1068,9 +1068,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-						ERROR_LOG_REPORT(G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						// TODO: This might save/restore other state...
@@ -1080,7 +1080,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 						stackEntry.baseAddr = gstate.base;
 						UpdatePC(currentList->pc, target);
 						currentList->pc = target;
-						DEBUG_LOG(G3D, "Signal with Call (%s). signal/end: %04x %04x", targetType, signal, enddata);
+						DEBUG_LOG(Log::G3D, "Signal with Call (%s). signal/end: %04x %04x", targetType, signal, enddata);
 					}
 				}
 				break;
@@ -1089,7 +1089,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					if (currentList->stackptr == 0) {
-						ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						ERROR_LOG_REPORT(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[--currentList->stackptr];
@@ -1097,12 +1097,12 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 						gstate.base = stackEntry.baseAddr;
 						UpdatePC(currentList->pc, stackEntry.pc);
 						currentList->pc = stackEntry.pc;
-						DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
+						DEBUG_LOG(Log::G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
 					}
 				}
 				break;
 			default:
-				ERROR_LOG_REPORT(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+				ERROR_LOG_REPORT(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 				break;
 			}
 			// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
@@ -1155,7 +1155,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		}
 		break;
 	default:
-		DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
+		DEBUG_LOG(Log::G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
 		break;
 	}
 }
@@ -1178,7 +1178,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
 		const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 		if (!control_points) {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
+			ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Invalid verts in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
@@ -1188,7 +1188,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 			int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
 			inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
-				ERROR_LOG_REPORT_ONCE(boundingboxInds, G3D, "Invalid inds in bounding box check");
+				ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
 				currentList->bboxResult = true;
 				return;
 			}
@@ -1208,7 +1208,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		}
 		AdvanceVerts(gstate.vertType, count, bytesRead);
 	} else {
-		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", count);
+		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Bad bounding box data: %06x", count);
 		// Data seems invalid. Let's assume the box test passed.
 		currentList->bboxResult = true;
 	}
@@ -1223,7 +1223,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
 		// Only print once for each overrun.
 		if (immCount_ == MAX_IMMBUFFER_SIZE) {
-			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
+			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, Log::G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
 		}
 		if (immCount_ < 0x7fffffff)  // Paranoia :)
 			immCount_++;
@@ -1270,7 +1270,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		if (immCount_ == flushPrimCount[immPrim_ & 7])
 			FlushImm();
 	} else {
-		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
+		ERROR_LOG_REPORT_ONCE(imm_draw_prim, Log::G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 
@@ -1307,7 +1307,7 @@ void GPUCommon::FlushImm() {
 	bool prevDither = gstate.isDitherEnabled();
 
 	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
-		WARN_LOG_REPORT_ONCE(geimmclipvalue, G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
+		WARN_LOG_REPORT_ONCE(geimmclipvalue, Log::G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
 	}
 
 	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
@@ -1341,7 +1341,7 @@ void GPUCommon::FlushImm() {
 
 void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 	if ((op & 0xFFFFFF) != 0)
-		WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		WARN_LOG_REPORT_ONCE(unknowncmd, Log::G3D, "Unknown GE command : %08x ", op);
 }
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
@@ -1666,7 +1666,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 	int bpp = gstate.getTransferBpp();
 
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+	DEBUG_LOG(Log::G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 	gpuStats.numBlockTransfers++;
 
 	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
@@ -1843,7 +1843,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		} else {
 			// This seems to cause the GE to require a break/reset on a PSP.
 			// TODO: Handle that and figure out which bytes are still copied?
-			ERROR_LOG_REPORT_ONCE(invalidtransfer, G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+			ERROR_LOG_REPORT_ONCE(invalidtransfer, Log::G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 		}
 
 		if (framebufferManager_) {

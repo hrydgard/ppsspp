@@ -406,7 +406,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 					// tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
 					// tvVerified_->SetVisibility(UI::V_VISIBLE);
 					// tvVerified_->SetLevel(NoticeLevel::ERROR);
-					// INFO_LOG(LOADER, "File size %d not matching game DB", (int)info->gameSizeUncompressed);
+					// INFO_LOG(Log::Loader, "File size %d not matching game DB", (int)info->gameSizeUncompressed);
 				} else {
 					tvVerified_->SetText(ga->T("Click \"Calculate CRC\" to verify ISO"));
 					tvVerified_->SetVisibility(UI::V_VISIBLE);

@@ -43,7 +43,7 @@ void AsyncIOManager::ScheduleOperation(const AsyncIOEvent &ev) {
 	{
 		std::lock_guard<std::mutex> guard(resultsLock_);
 		if (!resultsPending_.insert(ev.handle).second) {
-			ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+			ERROR_LOG_REPORT(Log::sceIo, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
 		}
 	}
 	ScheduleEvent(ev);
@@ -127,7 +127,7 @@ void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(SCEIO, "Unsupported IO event type");
+		ERROR_LOG_REPORT(Log::sceIo, "Unsupported IO event type");
 	}
 }
 
@@ -146,7 +146,7 @@ void AsyncIOManager::Write(u32 handle, const u8 *buf, size_t bytes) {
 void AsyncIOManager::EventResult(u32 handle, const AsyncIOResult &result) {
 	std::lock_guard<std::mutex> guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
-		ERROR_LOG_REPORT(SCEIO, "Overwriting previous result for file action on handle %d", handle);
+		ERROR_LOG_REPORT(Log::sceIo, "Overwriting previous result for file action on handle %d", handle);
 	}
 	results_[handle] = result;
 	resultsWait_.notify_one();

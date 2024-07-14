@@ -121,13 +121,13 @@ void ActivateTextEditInput(bool byFocus) {
 		
 		if (!isInputPaneVisible() && (isDPadActive() || !IsXBox())) {
 			if (ShowInputPane()) {
-				DEBUG_LOG(COMMON, "Input pane: TryShow accepted");
+				DEBUG_LOG(Log::Common, "Input pane: TryShow accepted");
 			}
 			else {
-				DEBUG_LOG(COMMON, "Input pane: (TryShow is not accepted or not supported)");
+				DEBUG_LOG(Log::Common, "Input pane: (TryShow is not accepted or not supported)");
 			}
 		}
-		DEBUG_LOG(COMMON, "Text edit active");
+		DEBUG_LOG(Log::Common, "Text edit active");
 		textEditActive = true;
 	}));
 }
@@ -140,14 +140,14 @@ void DeactivateTextEditInput(bool byFocus) {
 	{
 		if (isInputPaneVisible()) {
 			if (HideInputPane()) {
-				DEBUG_LOG(COMMON, "Input pane: TryHide accepted");
+				DEBUG_LOG(Log::Common, "Input pane: TryHide accepted");
 			}
 			else {
-				DEBUG_LOG(COMMON, "Input pane: TryHide is not accepted, or not supported");
+				DEBUG_LOG(Log::Common, "Input pane: TryHide is not accepted, or not supported");
 			}
 		}
 		if (isTextEditActive()) {
-			DEBUG_LOG(COMMON, "Text edit inactive");
+			DEBUG_LOG(Log::Common, "Text edit inactive");
 			textEditActive = false;
 		}
 	}));

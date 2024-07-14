@@ -181,7 +181,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	// instead of creating a new block.
 	int num = GetBlockNumberFromStartAddress(startAddress, false);
 	if (num != -1) {
-		DEBUG_LOG(HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
+		DEBUG_LOG(Log::HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
 		if (!blocks_[num].proxyFor) {
 			blocks_[num].proxyFor = new std::vector<u32>();
 		}
@@ -334,7 +334,7 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
 	if (baseoff < codeBlock_->GetBasePtr() || baseoff >= codeBlock_->GetCodePtr()) {
 		if (!ignoreBad) {
-			ERROR_LOG(JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
+			ERROR_LOG(Log::JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
 		}
 		return -1;
 	}
@@ -451,7 +451,7 @@ void JitBlockCache::LinkBlock(int i) {
 	if (ppp.first == ppp.second)
 		return;
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
-		// INFO_LOG(JIT, "Linking block %i to block %i", iter->second, i);
+		// INFO_LOG(Log::JIT, "Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
@@ -464,7 +464,7 @@ void JitBlockCache::UnlinkBlock(int i) {
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		if ((size_t)iter->second >= num_blocks_) {
 			// Something probably went very wrong. Try to stumble along nevertheless.
-			ERROR_LOG(JIT, "UnlinkBlock: Invalid block number %d", iter->second);
+			ERROR_LOG(Log::JIT, "UnlinkBlock: Invalid block number %d", iter->second);
 			continue;
 		}
 		JitBlock &sourceBlock = blocks_[iter->second];
@@ -499,7 +499,7 @@ std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps() {
 
 void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 	if (num_blocks_ != (int)saved.size()) {
-		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
+		ERROR_LOG(Log::JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
 		return;
 	}
 
@@ -516,7 +516,7 @@ void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 
 void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (block_num < 0 || block_num >= num_blocks_) {
-		ERROR_LOG_REPORT(JIT, "DestroyBlock: Invalid block number %d", block_num);
+		ERROR_LOG_REPORT(Log::JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
 	JitBlock *b = &blocks_[block_num];
@@ -554,7 +554,7 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 
 	if (b->invalid) {
 		if (type == DestroyType::INVALIDATE)
-			ERROR_LOG(JIT, "Invalidating invalid block %d", block_num);
+			ERROR_LOG(Log::JIT, "Invalidating invalid block %d", block_num);
 		return;
 	}
 
@@ -581,7 +581,7 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 			MIPSComp::jit->UnlinkBlock(writableEntry, b->originalAddress);
 		}
 	} else {
-		ERROR_LOG(JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
+		ERROR_LOG(Log::JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
 	}
 }
 
@@ -591,7 +591,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	const u32 pEnd = pAddr + length;
 
 	if (pEnd < pAddr) {
-		ERROR_LOG(JIT, "Bad InvalidateICache: %08x with len=%d", address, length);
+		ERROR_LOG(Log::JIT, "Bad InvalidateICache: %08x with len=%d", address, length);
 		return;
 	}
 
@@ -637,7 +637,7 @@ void JitBlockCache::InvalidateChangedBlocks() {
 		}
 
 		if (changed) {
-			DEBUG_LOG(JIT, "Invalidating changed block at %08x", b.originalAddress);
+			DEBUG_LOG(Log::JIT, "Invalidating changed block at %08x", b.originalAddress);
 			DestroyBlock(block_num, DestroyType::INVALIDATE);
 		}
 	}

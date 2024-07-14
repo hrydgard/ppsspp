@@ -70,7 +70,7 @@ PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "A game install request is already running, not starting a new one");
+		ERROR_LOG_REPORT(Log::sceUtility, "A game install request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -89,14 +89,14 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	if (allFilesSize == 0) {
-		ERROR_LOG_REPORT(SCEUTILITY, "Game install with no files / data");
+		ERROR_LOG_REPORT(Log::sceUtility, "Game install with no files / data");
 		// TODO: What happens here?
 		return -1;
 	}
 
 	int size = Memory::Read_U32(paramAddr);
 	if (size != 1424 && size != 1432) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceGamedataInstallInitStart: invalid param size %d", size);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceGamedataInstallInitStart: invalid param size %d", size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 
@@ -117,7 +117,7 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		param->common.result = ERROR_UTILITY_GAMEDATA_INVALID_MODE;
 		param.NotifyWrite("DialogResult");
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
 		return 0;
 	}
 
@@ -158,7 +158,7 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentInputFile = pspFileSystem.OpenFile(inputFileName, FILEACCESS_READ);
 	if (currentInputFile < 0) {
 		// TODO: Generate an error code?
-		ERROR_LOG_REPORT(SCEUTILITY, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
+		ERROR_LOG_REPORT(Log::sceUtility, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
 		++readFiles;
 		currentInputFile = 0;
 		return;
@@ -166,7 +166,7 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentOutputFile = pspFileSystem.OpenFile(outputFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 	if (currentOutputFile < 0) {
 		// TODO: Generate an error code?
-		ERROR_LOG(SCEUTILITY, "Unable to write to install file: %s", inFileNames[readFiles].c_str());
+		ERROR_LOG(Log::sceUtility, "Unable to write to install file: %s", inFileNames[readFiles].c_str());
 		pspFileSystem.CloseFile(currentInputFile);
 		currentInputFile = 0;
 		currentOutputFile = 0;

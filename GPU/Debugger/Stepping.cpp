@@ -128,7 +128,7 @@ static void RunPauseAction() {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unsupported pause action, forgot to add it to the switch.");
+		ERROR_LOG(Log::G3D, "Unsupported pause action, forgot to add it to the switch.");
 	}
 
 	actionComplete = true;

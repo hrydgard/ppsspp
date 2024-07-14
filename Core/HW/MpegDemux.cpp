@@ -237,7 +237,7 @@ bool MpegDemux::demux(int audioChannel)
 			break;
 		}
 		case PRIVATE_STREAM_1: {
-			// Audio stream
+			// AUDIO stream
 			int length = read16();
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
@@ -270,7 +270,7 @@ bool MpegDemux::demux(int audioChannel)
 			// User data, probably same as queried by sceMpegGetUserdataAu.
 			// Not sure what exactly to do or how much to read.
 			// TODO: implement properly.
-			WARN_LOG_REPORT_ONCE(mpeguserdata, ME, "MPEG user data found");
+			WARN_LOG_REPORT_ONCE(mpeguserdata, Log::ME, "MPEG user data found");
 			looksValid = true;
 			break;
 		}

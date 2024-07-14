@@ -119,7 +119,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 		std::lock_guard<std::mutex> guard(statusLock_);
 		statusMessage_ = formatted;
-		INFO_LOG(SYSTEM, "Remote: %s", formatted.c_str());
+		INFO_LOG(Log::System, "Remote: %s", formatted.c_str());
 	};
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
@@ -177,7 +177,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 			resultHost = host;
 			resultPort = port;
 			SetStatus("Connected to [URL]", host, port);
-			NOTICE_LOG(SYSTEM, "RemoteISO found: %s : %d", host.c_str(), port);
+			NOTICE_LOG(Log::System, "RemoteISO found: %s : %d", host.c_str(), port);
 			return true;
 		}
 

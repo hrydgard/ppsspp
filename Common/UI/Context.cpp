@@ -59,7 +59,7 @@ void UIContext::BeginFrame() {
 				// Load the smaller ascii font only, like on Android. For debug ui etc.
 				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
 				if (!fontTexture_) {
-					WARN_LOG(SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+					WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
 				}
 			}
 		}
@@ -171,7 +171,7 @@ void UIContext::ActivateTopScissor() {
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
-			DEBUG_LOG(G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
+			DEBUG_LOG(Log::G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
 			if (x < 0) { w += x; x = 0; }
 			if (y < 0) { h += y; y = 0; }
 			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }

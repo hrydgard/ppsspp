@@ -144,7 +144,7 @@ static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
-		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
+		WARN_LOG(Log::sceCtrl, "Failed to load XInput! DLL missing");
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {

@@ -375,7 +375,7 @@ void DrawEngineGLES::DoFlush() {
 		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
 			constexpr int vertexCountLimit = 0x10000 / 3;
 			if (vertexCount > vertexCountLimit) {
-				WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+				WARN_LOG_REPORT_ONCE(manyVerts, Log::G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
 				vertexCount = vertexCountLimit;
 			}
 		}

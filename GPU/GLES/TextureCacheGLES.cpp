@@ -321,7 +321,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
 
 			if (!data) {
-				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+				ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
 				return;
 			}
 
@@ -409,7 +409,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 		buffer.Allocate(w, h, GE_FORMAT_8888, false);
 		renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w, "GetCurrentTextureDebug");
 	} else {
-		ERROR_LOG(G3D, "Failed to get debug texture: texture is null");
+		ERROR_LOG(Log::G3D, "Failed to get debug texture: texture is null");
 	}
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");

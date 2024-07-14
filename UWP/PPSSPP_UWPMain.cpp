@@ -520,7 +520,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned
 			break;
 		default:
-			ERROR_LOG(FILESYS, "Unexpected BrowseFileType: %d", param3);
+			ERROR_LOG(Log::FileSystem, "Unexpected BrowseFileType: %d", param3);
 			return false;
 		}
 
@@ -652,7 +652,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		INFO_LOG(SYSTEM, "%s", what);
+		INFO_LOG(Log::System, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -674,7 +674,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			INFO_LOG(SYSTEM, "%s", what);
+			INFO_LOG(Log::System, "%s", what);
 		}
 	}
 

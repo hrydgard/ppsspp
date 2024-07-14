@@ -152,24 +152,24 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	if (!startDevice.empty()) {
 		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
-			WARN_LOG(AUDIO, "Failed to open audio device: %s", startDevice.c_str());
+			WARN_LOG(Log::Audio, "Failed to open audio device: %s", startDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
-		INFO_LOG(AUDIO, "SDL: Trying a different audio device");
+		INFO_LOG(Log::Audio, "SDL: Trying a different audio device");
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
-		ERROR_LOG(AUDIO, "Failed to open audio device: %s", SDL_GetError());
+		ERROR_LOG(Log::Audio, "Failed to open audio device: %s", SDL_GetError());
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
-			ERROR_LOG(AUDIO, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
+			ERROR_LOG(Log::Audio, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
 		if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
-			ERROR_LOG(AUDIO, "Sound buffer format does not match requested format.");
-			ERROR_LOG(AUDIO, "Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
-			ERROR_LOG(AUDIO, "Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
-			ERROR_LOG(AUDIO, "Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
-			ERROR_LOG(AUDIO, "Provided output format does not match requirement, turning audio off");
+			ERROR_LOG(Log::Audio, "Sound buffer format does not match requested format.");
+			ERROR_LOG(Log::Audio, "Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
+			ERROR_LOG(Log::Audio, "Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
+			ERROR_LOG(Log::Audio, "Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
+			ERROR_LOG(Log::Audio, "Provided output format does not match requirement, turning audio off");
 			SDL_CloseAudioDevice(audioDev);
 		}
 		SDL_PauseAudioDevice(audioDev, 0);
@@ -365,7 +365,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		webWifiCreate(&conf, NULL, url, uuid, 0);
 		webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
-		INFO_LOG(SYSTEM, "Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
+		INFO_LOG(Log::System, "Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #elif defined(_WIN32)
 		std::wstring wurl = ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -375,7 +375,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::string command = std::string("xdg-open ") + url;
 		int err = system(command.c_str());
 		if (err) {
-			INFO_LOG(SYSTEM, "Would have gone to %s but xdg-utils seems not to be installed", url);
+			INFO_LOG(Log::System, "Would have gone to %s but xdg-utils seems not to be installed", url);
 		}
 #endif
 		break;
@@ -383,7 +383,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	case LaunchUrlType::EMAIL_ADDRESS:
 	{
 #if defined(MOBILE_DEVICE)
-		INFO_LOG(SYSTEM, "Would have opened your email client for %s but LaunchEmail is not implemented on this platform", url);
+		INFO_LOG(Log::System, "Would have opened your email client for %s but LaunchEmail is not implemented on this platform", url);
 #elif defined(_WIN32)
 		std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -394,7 +394,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::string command = std::string("xdg-email ") + url;
 		int err = system(command.c_str());
 		if (err) {
-			INFO_LOG(SYSTEM, "Would have gone to %s but xdg-utils seems not to be installed", url);
+			INFO_LOG(Log::System, "Would have gone to %s but xdg-utils seems not to be installed", url);
 		}
 #endif
 		break;
@@ -1478,7 +1478,7 @@ int main(int argc, char *argv[]) {
 			EmuThreadStop("shutdown");
 			// Skipping GL calls, the old context is gone.
 			while (graphicsContext->ThreadFrame()) {
-				INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
+				INFO_LOG(Log::System, "graphicsContext->ThreadFrame executed to clear buffers");
 			}
 			EmuThreadJoin();
 			graphicsContext->ThreadEnd();

@@ -67,16 +67,16 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	options->Get("version", &info.version, 0);
 	options->Get("memory", &info.memory, 0);
 	if (info.memory > 93) {
-		ERROR_LOG(SYSTEM, "Plugin memory too high, using 93 MB");
+		ERROR_LOG(Log::System, "Plugin memory too high, using 93 MB");
 		info.memory = 93;
 	}
 
 	if (info.version == 0) {
-		ERROR_LOG(SYSTEM, "Plugin without version ignored: %s", subdir.c_str());
+		ERROR_LOG(Log::System, "Plugin without version ignored: %s", subdir.c_str());
 		info.type = PluginType::INVALID;
 		info.memory = 0;
 	} else if (info.type == PluginType::INVALID && !info.filename.empty()) {
-		ERROR_LOG(SYSTEM, "Plugin without valid type: %s", subdir.c_str());
+		ERROR_LOG(Log::System, "Plugin without valid type: %s", subdir.c_str());
 	}
 
 	return info;
@@ -94,7 +94,7 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 
 		IniFile ini;
 		if (!ini.Load(subdirFullName / "plugin.ini")) {
-			ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/plugin.ini", subdirFullName.c_str());
+			ERROR_LOG(Log::System, "Failed to load plugin ini: %s/plugin.ini", subdirFullName.c_str());
 			continue;
 		}
 
@@ -127,7 +127,7 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 		std::set<std::string> langMatches;
 		for (const std::string &subini : matches) {
 			if (!ini.Load(subdirFullName / subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
+				ERROR_LOG(Log::System, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 
@@ -142,7 +142,7 @@ std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string
 
 		for (const std::string &subini : langMatches) {
 			if (!ini.Load(subdirFullName / subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
+				ERROR_LOG(Log::System, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 
@@ -179,27 +179,27 @@ bool Load() {
 
 	for (const std::string &filename : prxPlugins) {
 		if (!g_Config.bEnablePlugins) {
-			WARN_LOG(SYSTEM, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
+			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
 			continue;
 		}
 
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty() || module < 0) {
-			ERROR_LOG(SYSTEM, "Unable to load plugin %s (module %d): '%s'", filename.c_str(), module, error_string.c_str());
+			ERROR_LOG(Log::System, "Unable to load plugin %s (module %d): '%s'", filename.c_str(), module, error_string.c_str());
 			continue;
 		}
 
 		int ret = KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
-			ERROR_LOG(SYSTEM, "Unable to start plugin %s: %08x", filename.c_str(), ret);
+			ERROR_LOG(Log::System, "Unable to start plugin %s: %08x", filename.c_str(), ret);
 		} else {
 			std::string shortName = Path(filename).GetFilename();
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName), 6.0f);
 			started = true;
 		}
 
-		INFO_LOG(SYSTEM, "Loaded plugin: %s", filename.c_str());
+		INFO_LOG(Log::System, "Loaded plugin: %s", filename.c_str());
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);

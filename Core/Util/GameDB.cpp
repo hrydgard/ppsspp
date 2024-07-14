@@ -97,7 +97,7 @@ void GameDB::LoadIfNeeded() {
 		SplitCSVLine(lineString, items);
 		if (items.size() != columns_.size()) {
 			// Bad line
-			ERROR_LOG(SYSTEM, "Bad line in CSV file: %s", std::string(lineString).c_str());
+			ERROR_LOG(Log::System, "Bad line in CSV file: %s", std::string(lineString).c_str());
 			continue;
 		}
 

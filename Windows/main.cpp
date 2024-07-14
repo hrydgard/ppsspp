@@ -654,7 +654,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			icoPath = iconFolder / (info->id + ".ico");
 			if (!File::Exists(icoPath)) {
 				if (!W32Util::CreateICOFromPNGData((const uint8_t *)info->icon.data.data(), info->icon.data.size(), icoPath)) {
-					ERROR_LOG(SYSTEM, "ICO creation failed");
+					ERROR_LOG(Log::System, "ICO creation failed");
 					icoPath.clear();
 				}
 			}
@@ -740,7 +740,7 @@ static bool DetectVulkanInExternalProcess() {
 	if (W32Util::ExecuteAndGetReturnCode(moduleFilename.c_str(), cmdline, workingDirectory.c_str(), &exitCode)) {
 		return exitCode == EXIT_CODE_VULKAN_WORKS;
 	} else {
-		ERROR_LOG(G3D, "Failed to detect Vulkan in external process somehow");
+		ERROR_LOG(Log::G3D, "Failed to detect Vulkan in external process somehow");
 		return false;
 	}
 }
@@ -808,7 +808,7 @@ static void InitMemstickDirectory() {
 	if (!File::Exists(g_Config.memStickDirectory)) {
 		if (!File::CreateDir(g_Config.memStickDirectory))
 			g_Config.memStickDirectory = myDocsPath;
-		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
+		INFO_LOG(Log::Common, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
 
 	Path testFile = g_Config.memStickDirectory / "_writable_test.$$$";

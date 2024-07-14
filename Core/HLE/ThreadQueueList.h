@@ -187,7 +187,7 @@ struct ThreadQueueList {
 		Do(p, numQueues);
 		if (numQueues != NUM_QUEUES) {
 			p.SetError(p.ERROR_FAILURE);
-			ERROR_LOG(SCEKERNEL, "Savestate loading error: invalid data");
+			ERROR_LOG(Log::sceKernel, "Savestate loading error: invalid data");
 			return;
 		}
 

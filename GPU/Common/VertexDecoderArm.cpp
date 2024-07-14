@@ -258,7 +258,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			ResetCodePtr(GetOffset(start));
 			char temp[1024] = {0};
 			dec.ToString(temp, true);
-			INFO_LOG(G3D, "Could not compile vertex decoder: %s", temp);
+			INFO_LOG(Log::G3D, "Could not compile vertex decoder: %s", temp);
 			return 0;
 		}
 	}
@@ -286,7 +286,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	DisassembleArm(start, GetCodePtr() - start);
 	char temp[1024] = {0};
 	dec.ToString(temp, true);
-	INFO_LOG(G3D, "%s", temp);
+	INFO_LOG(Log::G3D, "%s", temp);
 	*/
 
 	*jittedSize = GetCodePtr() - start;

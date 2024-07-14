@@ -17,7 +17,7 @@ JsonReader::JsonReader(const std::string &filename) {
 		if (buffer_) {
 			parse();
 		} else {
-			ERROR_LOG(IO, "Failed to read json file '%s'", filename.c_str());
+			ERROR_LOG(Log::IO, "Failed to read json file '%s'", filename.c_str());
 		}
 	}
 }
@@ -26,7 +26,7 @@ bool JsonReader::parse() {
 	char *error_pos;
 	int status = jsonParse(buffer_, &error_pos, &root_, alloc_);
 	if (status != JSON_OK) {
-		ERROR_LOG(IO, "Error at (%i): %s\n%s\n\n", (int)(error_pos - buffer_), jsonStrError(status), error_pos);
+		ERROR_LOG(Log::IO, "Error at (%i): %s\n%s\n\n", (int)(error_pos - buffer_), jsonStrError(status), error_pos);
 		return false;
 	}
 	ok_ = true;
@@ -46,7 +46,7 @@ int JsonGet::numChildren() const {
 
 const JsonNode *JsonGet::get(const char *child_name) const {
 	if (!child_name) {
-		ERROR_LOG(IO, "JSON: Cannot get from null child name");
+		ERROR_LOG(Log::IO, "JSON: Cannot get from null child name");
 		return nullptr;
 	}
 	if (value_.getTag() != JSON_OBJECT) {
@@ -71,7 +71,7 @@ const char *JsonGet::getStringOrNull(const char *child_name) const {
 	const JsonNode *val = get(child_name, JSON_STRING);
 	if (val)
 		return val->value.toString();
-	ERROR_LOG(IO, "String '%s' missing from node", child_name);
+	ERROR_LOG(Log::IO, "String '%s' missing from node", child_name);
 	return nullptr;
 }
 

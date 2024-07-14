@@ -66,7 +66,7 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 
 	if (!buf) {
 		auto err = GetLastError();
-		ERROR_LOG(SCENET, "Could not map view of file %s, %08x %s", ID_SHM_NAME, (uint32_t)err, GetStringErrorMsg(err).c_str());
+		ERROR_LOG(Log::sceNet, "Could not map view of file %s, %08x %s", ID_SHM_NAME, (uint32_t)err, GetStringErrorMsg(err).c_str());
 		return false;
 	}
 
@@ -91,7 +91,7 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 
 	InstanceInfo *buf = (InstanceInfo *)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
 	if (buf == MAP_FAILED) {
-		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
+		ERROR_LOG(Log::sceNet, "mmap(%s) failure.", ID_SHM_NAME);
 		return false;
 	}
 
@@ -138,7 +138,7 @@ void InitInstanceCounter() {
 
 	DWORD lasterr = GetLastError();
 	if (!hIDMapFile) {
-		ERROR_LOG(SCENET, "Could not create %s file mapping object, %08x %s", ID_SHM_NAME, (uint32_t)lasterr, GetStringErrorMsg(lasterr).c_str());
+		ERROR_LOG(Log::sceNet, "Could not create %s file mapping object, %08x %s", ID_SHM_NAME, (uint32_t)lasterr, GetStringErrorMsg(lasterr).c_str());
 		PPSSPP_ID = 1;
 		return;
 	}
@@ -150,7 +150,7 @@ void InitInstanceCounter() {
 	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
 
 	if (hIDMapFile < 0 || (ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size
-		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
+		ERROR_LOG(Log::sceNet, "ftruncate(%s) failure.", ID_SHM_NAME);
 		PPSSPP_ID = 1;
 		return;
 	}

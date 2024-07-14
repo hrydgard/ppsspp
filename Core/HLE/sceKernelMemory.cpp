@@ -346,15 +346,15 @@ struct SceKernelVplHeader {
 		while (b.ptr < lastBlock.ptr) {
 			bool isFree = b->next.ptr != SentinelPtr();
 			if (nextFreeBlock_ == b && isFree) {
-				NOTICE_LOG(SCEKERNEL, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(Log::sceKernel, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
 			} else if (isFree) {
-				NOTICE_LOG(SCEKERNEL, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(Log::sceKernel, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
 			} else {
-				NOTICE_LOG(SCEKERNEL, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(Log::sceKernel, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
 			}
 			b += b->sizeInBlocks;
 		}
-		NOTICE_LOG(SCEKERNEL, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
+		NOTICE_LOG(Log::sceKernel, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
 	}
 
 	PSPPointer<SceKernelVplBlock> MergeBlocks(PSPPointer<SceKernelVplBlock> first, PSPPointer<SceKernelVplBlock> second) {
@@ -437,7 +437,7 @@ void __KernelMemoryInit()
 	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
 	ParallelMemset(&g_threadManager, Memory::GetPointerWrite(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), TaskPriority::HIGH);
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
-	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
+	INFO_LOG(Log::sceKernel, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
 	fplWaitTimer = CoreTiming::RegisterEvent("FplTimeout", __KernelFplTimeout);
@@ -487,17 +487,17 @@ void __KernelMemoryDoState(PointerWrap &p)
 void __KernelMemoryShutdown()
 {
 #ifdef _DEBUG
-	INFO_LOG(SCEKERNEL, "Shutting down volatile memory pool: ");
+	INFO_LOG(Log::sceKernel, "Shutting down volatile memory pool: ");
 	volatileMemory.ListBlocks();
 #endif
 	volatileMemory.Shutdown();
 #ifdef _DEBUG
-	INFO_LOG(SCEKERNEL,"Shutting down user memory pool: ");
+	INFO_LOG(Log::sceKernel,"Shutting down user memory pool: ");
 	userMemory.ListBlocks();
 #endif
 	userMemory.Shutdown();
 #ifdef _DEBUG
-	INFO_LOG(SCEKERNEL,"Shutting down \"kernel\" memory pool: ");
+	INFO_LOG(Log::sceKernel,"Shutting down \"kernel\" memory pool: ");
 	kernelMemory.ListBlocks();
 #endif
 	kernelMemory.Shutdown();
@@ -600,18 +600,18 @@ void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: wait not found to pause for callback");
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocateFplCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
 }
 
 void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer, __KernelUnlockFplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Resuming mbx wait from callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB: Resuming mbx wait from callback");
 }
 
 static bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
@@ -642,15 +642,15 @@ static void __KernelSortFplThreads(FPL *fpl)
 
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
 	if (!name)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if (mpid < 1 || mpid > 9 || mpid == 7)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
 	if (allocator == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", mpid);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", mpid);
 	if (((attr & ~PSP_FPL_ATTR_KNOWN) & ~0xFF) != 0)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 
 	// There's probably a simpler way to get this same basic formula...
 	// This is based on results from a PSP.
@@ -660,7 +660,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	if (!illegalMemSize && (u64) numBlocks >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
 		illegalMemSize = true;
 	if (illegalMemSize)
-		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
+		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int alignment = 4;
 	if (Memory::IsValidRange(optPtr, 4)) {
@@ -669,7 +669,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 			alignment = Memory::Read_U32(optPtr + 4);
 		// Must be a power of 2 to be valid.
 		if ((alignment & (alignment - 1)) != 0)
-			return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid alignment %d", alignment);
+			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid alignment %d", alignment);
 	}
 
 	if (alignment < 4)
@@ -680,7 +680,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
 	if (address == (u32)-1) {
-		DEBUG_LOG(SCEKERNEL, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
+		DEBUG_LOG(Log::sceKernel, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
 			name, mpid, attr, blockSize, numBlocks);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
@@ -702,7 +702,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	fpl->address = address;
 	fpl->alignedSize = alignedSize;
 
-	DEBUG_LOG(SCEKERNEL, "%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i)", 
+	DEBUG_LOG(Log::sceKernel, "%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i)", 
 		id, name, mpid, attr, blockSize, numBlocks);
 
 	return id;
@@ -715,7 +715,7 @@ int sceKernelDeleteFpl(SceUID uid)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteFpl(%i)", uid);
+		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteFpl(%i)", uid);
 
 		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
 		if (wokeThreads)
@@ -729,7 +729,7 @@ int sceKernelDeleteFpl(SceUID uid)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteFpl(%i): invalid fpl", uid);
+		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteFpl(%i): invalid fpl", uid);
 		return error;
 	}
 }
@@ -766,7 +766,7 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFpl(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFpl(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
@@ -787,7 +787,7 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFpl(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFpl(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
 		return error;
 	}
 }
@@ -798,7 +798,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
@@ -819,7 +819,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
 		return error;
 	}
 }
@@ -830,7 +830,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelTryAllocateFpl(%i, %08x)", uid, blockPtrAddr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelTryAllocateFpl(%i, %08x)", uid, blockPtrAddr);
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
@@ -844,7 +844,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelTryAllocateFpl(%i, %08x): invalid fpl", uid, blockPtrAddr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelTryAllocateFpl(%i, %08x): invalid fpl", uid, blockPtrAddr);
 		return error;
 	}
 }
@@ -852,7 +852,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr)
 int sceKernelFreeFpl(SceUID uid, u32 blockPtr)
 {
 	if (blockPtr > PSP_GetUserMemoryEnd()) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelFreeFpl(%i, %08x): invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, blockPtr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelFreeFpl(%i, %08x): invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, blockPtr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 
@@ -861,14 +861,14 @@ int sceKernelFreeFpl(SceUID uid, u32 blockPtr)
 	if (fpl) {
 		int blockNum = (blockPtr - fpl->address) / fpl->alignedSize;
 		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
-			DEBUG_LOG(SCEKERNEL, "sceKernelFreeFpl(%i, %08x): bad block ptr", uid, blockPtr);
+			DEBUG_LOG(Log::sceKernel, "sceKernelFreeFpl(%i, %08x): bad block ptr", uid, blockPtr);
 			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 		} else {
 			if (fpl->freeBlock(blockNum)) {
 				u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 				NotifyMemInfo(MemBlockFlags::SUB_FREE, blockPtr, fpl->alignedSize, "FplFree");
 
-				DEBUG_LOG(SCEKERNEL, "sceKernelFreeFpl(%i, %08x)", uid, blockPtr);
+				DEBUG_LOG(Log::sceKernel, "sceKernelFreeFpl(%i, %08x)", uid, blockPtr);
 				__KernelSortFplThreads(fpl);
 
 				bool wokeThreads = false;
@@ -886,14 +886,14 @@ retry:
 					hleReSchedule("fpl freed");
 				return 0;
 			} else {
-				DEBUG_LOG(SCEKERNEL, "sceKernelFreeFpl(%i, %08x): already free", uid, blockPtr);
+				DEBUG_LOG(Log::sceKernel, "sceKernelFreeFpl(%i, %08x): already free", uid, blockPtr);
 				return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 			}
 		}
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelFreeFpl(%i, %08x): invalid fpl", uid, blockPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelFreeFpl(%i, %08x): invalid fpl", uid, blockPtr);
 		return error;
 	}
 }
@@ -906,7 +906,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelFpl(%i, %08x)", uid, numWaitThreadsPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelCancelFpl(%i, %08x)", uid, numWaitThreadsPtr);
 		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(fpl->nf.numWaitThreads, numWaitThreadsPtr);
@@ -918,7 +918,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelFpl(%i, %08x): invalid fpl", uid, numWaitThreadsPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelCancelFpl(%i, %08x): invalid fpl", uid, numWaitThreadsPtr);
 		return error;
 	}
 }
@@ -940,9 +940,9 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr) {
 			*status = fpl->nf;
 			status.NotifyWrite("FplStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::sceKernel, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "invalid fpl");
+		return hleLogError(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -1022,46 +1022,46 @@ public:
 static u32 sceKernelMaxFreeMemSize()
 {
 	u32 retVal = userMemory.GetLargestFreeBlockSize();
-	DEBUG_LOG(SCEKERNEL, "%08x (dec %i)=sceKernelMaxFreeMemSize()", retVal, retVal);
+	DEBUG_LOG(Log::sceKernel, "%08x (dec %i)=sceKernelMaxFreeMemSize()", retVal, retVal);
 	return retVal;
 }
 
 static u32 sceKernelTotalFreeMemSize()
 {
 	u32 retVal = userMemory.GetTotalFreeBytes();
-	DEBUG_LOG(SCEKERNEL, "%08x (dec %i)=sceKernelTotalFreeMemSize()", retVal, retVal);
+	DEBUG_LOG(Log::sceKernel, "%08x (dec %i)=sceKernelTotalFreeMemSize()", retVal, retVal);
 	return retVal;
 }
 
 int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr) {
 	if (type < PSP_SMEM_Low || type > PSP_SMEM_HighAligned)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "invalid type %x", type);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "invalid type %x", type);
 	// Alignment is only allowed for powers of 2.
 	if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) {
 		if ((addr & (addr - 1)) != 0 || addr == 0)
-			return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
+			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
 	}
 	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "invalid partition %x", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "invalid partition %x", partition);
 
 	if (name == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (size == 0)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "invalid size %x", size);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "invalid size %x", size);
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(allocator, name, size, (MemblockType)type, addr);
 	if (!block->IsValid()) {
 		delete block;
-		ERROR_LOG(SCEKERNEL, "sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x): allocation failed", partition, name, type, size, addr);
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x): allocation failed", partition, name, type, size, addr);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);
 
-	DEBUG_LOG(SCEKERNEL,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
+	DEBUG_LOG(Log::sceKernel,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
 		uid, partition, name, type, size, addr);
 
 	return uid;
@@ -1069,7 +1069,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 
 int sceKernelFreePartitionMemory(SceUID id)
 {
-	DEBUG_LOG(SCEKERNEL,"sceKernelFreePartitionMemory(%d)",id);
+	DEBUG_LOG(Log::sceKernel,"sceKernelFreePartitionMemory(%d)",id);
 
 	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
@@ -1080,12 +1080,12 @@ u32 sceKernelGetBlockHeadAddr(SceUID id)
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
 	if (block)
 	{
-		DEBUG_LOG(SCEKERNEL,"%08x = sceKernelGetBlockHeadAddr(%i)", block->address, id);
+		DEBUG_LOG(Log::sceKernel,"%08x = sceKernelGetBlockHeadAddr(%i)", block->address, id);
 		return block->address;
 	}
 	else
 	{
-		ERROR_LOG(SCEKERNEL,"sceKernelGetBlockHeadAddr failed(%i)", id);
+		ERROR_LOG(Log::sceKernel,"sceKernelGetBlockHeadAddr failed(%i)", id);
 		return 0;
 	}
 }
@@ -1211,9 +1211,9 @@ static int sceKernelPrintf(const char *formatString)
 		result.resize(result.size() - 1);
 
 	if (supported)
-		INFO_LOG(PRINTF, "sceKernelPrintf: %s", result.c_str());
+		INFO_LOG(Log::Printf, "sceKernelPrintf: %s", result.c_str());
 	else
-		ERROR_LOG(PRINTF, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
+		ERROR_LOG(Log::Printf, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 	return 0;
 }
 
@@ -1242,10 +1242,10 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	}
 
 	if (!validSDK) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1254,10 +1254,10 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03070000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion370(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion370(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1266,12 +1266,12 @@ static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03080000 && sdkMainVersion != 0x03090000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion380_390(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1284,10 +1284,10 @@ static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 			&& sdkMainVersion != 0x04000500
 			&& sdkMainVersion != 0x03090500
 			&& sdkMainVersion != 0x03090600) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion395(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion395(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1298,10 +1298,10 @@ static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 	if (sdkMainVersion != 0x06010000
 			&& sdkMainVersion != 0x06000000
 			&& sdkMainVersion != 0x06020000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion600_602(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1312,10 +1312,10 @@ static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05000000
 			&& sdkMainVersion != 0x05050000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion500_505(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1325,10 +1325,10 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x04010000
 			&& sdkMainVersion != 0x04020000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion401_402(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1337,10 +1337,10 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05070000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion507(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion507(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1351,10 +1351,10 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 	if (sdkMainVersion != 0x06040000
 			&& sdkMainVersion != 0x06030000
 			&& sdkMainVersion != 0x06050000) {
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion603_605(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1363,10 +1363,10 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06060000) {
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompiledSdkVersion606(%08x)", sdkVersion);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion606(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	return 0;
@@ -1379,7 +1379,7 @@ int sceKernelGetCompiledSdkVersion() {
 }
 
 static int sceKernelSetCompilerVersion(int version) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompilerVersion(%08x)", version);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompilerVersion(%08x)", version);
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
 	return 0;
@@ -1456,18 +1456,18 @@ void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: wait not found to pause for callback");
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocateVplCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
 }
 
 void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer, __KernelUnlockVplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Resuming mbx wait from callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateVplCB: Resuming mbx wait from callback");
 }
 
 static bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
@@ -1498,21 +1498,21 @@ static void __KernelSortVplThreads(VPL *vpl)
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
 	if (!name)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %d", partition);
 
 	if (((attr & ~PSP_VPL_ATTR_KNOWN) & ~0xFF) != 0)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	if (vplSize == 0)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid size");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid size");
 	// Block Allocator seems to A-OK this, let's stop it here.
 	if (vplSize >= 0x80000000)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "way too big size");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "way too big size");
 
 	// Can't have that little space in a Vpl, sorry.
 	if (vplSize <= 0x30)
@@ -1523,7 +1523,7 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 	u32 allocSize = vplSize;
 	u32 memBlockPtr = allocator->Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, StringFromFormat("VPL/%s", name).c_str());
 	if (memBlockPtr == (u32)-1)
-		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes of pool data", vplSize);
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes of pool data", vplSize);
 
 	VPL *vpl = new VPL;
 	SceUID id = kernelObjects.Create(vpl);
@@ -1543,14 +1543,14 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 	vpl->header = PSPPointer<SceKernelVplHeader>::Create(memBlockPtr);
 	vpl->header->Init(memBlockPtr, vplSize);
 
-	DEBUG_LOG(SCEKERNEL, "%x=sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
+	DEBUG_LOG(Log::sceKernel, "%x=sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
 		id, name, partition, vpl->nv.attr, vpl->nv.poolSize);
 
 	if (optPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optPtr);
 		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
+			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
 	}
 
 	return id;
@@ -1558,7 +1558,7 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 
 int sceKernelDeleteVpl(SceUID uid)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelDeleteVpl(%i)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteVpl(%i)", uid);
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
@@ -1584,12 +1584,12 @@ static bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, b
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
 		if (size == 0 || size > (u32) vpl->nv.poolSize) {
-			WARN_LOG(SCEKERNEL, "%s(vpl=%i, size=%i, ptrout=%08x): invalid size", funcname, uid, size, addrPtr);
+			WARN_LOG(Log::sceKernel, "%s(vpl=%i, size=%i, ptrout=%08x): invalid size", funcname, uid, size, addrPtr);
 			error = SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 			return false;
 		}
 
-		VERBOSE_LOG(SCEKERNEL, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
+		VERBOSE_LOG(Log::sceKernel, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
 
 		// For some reason, try doesn't follow the same rules...
 		if (!trying && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO)
@@ -1733,11 +1733,11 @@ int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
 
 int sceKernelFreeVpl(SceUID uid, u32 addr) {
 	if (addr && !Memory::IsValidAddress(addr)) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelFreeVpl(%i, %08x): Invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, addr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelFreeVpl(%i, %08x): Invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, addr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 
-	VERBOSE_LOG(SCEKERNEL, "sceKernelFreeVpl(%i, %08x)", uid, addr);
+	VERBOSE_LOG(Log::sceKernel, "sceKernelFreeVpl(%i, %08x)", uid, addr);
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
@@ -1770,7 +1770,7 @@ retry:
 
 			return 0;
 		} else {
-			WARN_LOG(SCEKERNEL, "%08x=sceKernelFreeVpl(%i, %08x): Unable to free", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK, uid, addr);
+			WARN_LOG(Log::sceKernel, "%08x=sceKernelFreeVpl(%i, %08x): Unable to free", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK, uid, addr);
 			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 		}
 	} else {
@@ -1784,7 +1784,7 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
@@ -1797,7 +1797,7 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelCancelVpl(%i, %08x): invalid vpl", uid, numWaitThreadsPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelCancelVpl(%i, %08x): invalid vpl", uid, numWaitThreadsPtr);
 		return error;
 	}
 }
@@ -1818,27 +1818,27 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 			*info = vpl->nv;
 			info.NotifyWrite("VplStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::sceKernel, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "invalid vpl");
+		return hleLogError(Log::sceKernel, error, "invalid vpl");
 	}
 }
 
 static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
-		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
+		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
-		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): unsupported type %d", pname, type);
+		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported type %d", pname, type);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
 	if (size == 0) {
-		WARN_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): invalid size %x", pname, size);
+		WARN_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): invalid size %x", pname, size);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	if (pname == NULL) {
-		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(): NULL name");
+		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(): NULL name");
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 
@@ -1846,17 +1846,17 @@ static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAdd
 	if (!block->IsValid())
 	{
 		delete block;
-		ERROR_LOG(SCEKERNEL, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed", pname, type, size, paramsAddr);
+		ERROR_LOG(Log::sceKernel, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed", pname, type, size, paramsAddr);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);
 
-	INFO_LOG(SCEKERNEL,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", uid, pname, type, size, paramsAddr);
+	INFO_LOG(Log::sceKernel,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", uid, pname, type, size, paramsAddr);
 	return uid;
 }
 
 static u32 FreeMemoryBlock(u32 uid) {
-	INFO_LOG(SCEKERNEL, "FreeMemoryBlock(%08x)", uid);
+	INFO_LOG(Log::sceKernel, "FreeMemoryBlock(%08x)", uid);
 	return kernelObjects.Destroy<PartitionMemoryBlock>(uid);
 }
 
@@ -1865,31 +1865,31 @@ static u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
 	if (block)
 	{
-		INFO_LOG(SCEKERNEL, "GetMemoryBlockPtr(%08x, %08x) = %08x", uid, addr, block->address);
+		INFO_LOG(Log::sceKernel, "GetMemoryBlockPtr(%08x, %08x) = %08x", uid, addr, block->address);
 		Memory::Write_U32(block->address, addr);
 		return 0;
 	}
 	else
 	{
-		ERROR_LOG(SCEKERNEL, "GetMemoryBlockPtr(%08x, %08x) failed", uid, addr);
+		ERROR_LOG(Log::sceKernel, "GetMemoryBlockPtr(%08x, %08x) failed", uid, addr);
 		return 0;
 	}
 }
 
 static u32 SysMemUserForUser_D8DE5C1E() {
 	// Called by Evangelion Jo and return 0 here to go in-game.
-	ERROR_LOG(SCEKERNEL,"UNIMPL SysMemUserForUser_D8DE5C1E()");
+	ERROR_LOG(Log::sceKernel,"UNIMPL SysMemUserForUser_D8DE5C1E()");
 	return 0; 
 }
 
 static u32 SysMemUserForUser_ACBD88CA() {
-	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, SCEKERNEL, "UNIMPL SysMemUserForUser_ACBD88CA()");
+	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, Log::sceKernel, "UNIMPL SysMemUserForUser_ACBD88CA()");
 	return 0; 
 }
 
 static u32 SysMemUserForUser_945E45DA() {
 	// Called by Evangelion Jo and expected return 0 here.
-	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, SCEKERNEL, "UNIMPL SysMemUserForUser_945E45DA()");
+	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, Log::sceKernel, "UNIMPL SysMemUserForUser_945E45DA()");
 	return 0; 
 }
 
@@ -2074,15 +2074,15 @@ void __KernelTlsplThreadEnd(SceUID threadID)
 
 SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr) {
 	if (!name)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %x", partition);
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PERM, "invalid partition %x", partition);
 
 	// There's probably a simpler way to get this same basic formula...
 	// This is based on results from a PSP.
@@ -2092,7 +2092,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	if (!illegalMemSize && (u64) count >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
 		illegalMemSize = true;
 	if (illegalMemSize)
-		return hleLogWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int index = -1;
 	for (int i = 0; i < TLSPL_NUM_INDEXES; ++i) {
@@ -2103,7 +2103,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	}
 
 	if (index == -1)
-		return hleLogWarning(SCEKERNEL, PSP_ERROR_TOO_MANY_TLSPL, "ran out of indexes for TLS pools");
+		return hleLogWarning(Log::sceKernel, PSP_ERROR_TOO_MANY_TLSPL, "ran out of indexes for TLS pools");
 
 	// Unless otherwise specified, we align to 4 bytes (a mips word.)
 	u32 alignment = 4;
@@ -2114,7 +2114,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 		// Note that 0 intentionally is allowed.
 		if ((alignment & (alignment - 1)) != 0)
-			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "alignment is not a power of 2: %d", alignment);
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "alignment is not a power of 2: %d", alignment);
 		// This goes for 0, 1, and 2.  Can't have less than 4 byte alignment.
 		if (alignment < 4)
 			alignment = 4;
@@ -2130,7 +2130,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 #endif
 
 	if (blockPtr == (u32)-1)
-		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate memory");
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate memory");
 
 	TLSPL *tls = new TLSPL();
 	SceUID id = kernelObjects.Create(tls);
@@ -2149,7 +2149,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	tls->alignment = alignment;
 	tls->usage.resize(count, 0);
 
-	return hleLogSuccessInfoI(SCEKERNEL, id);
+	return hleLogSuccessInfoI(Log::sceKernel, id);
 }
 
 int sceKernelDeleteTlspl(SceUID uid)
@@ -2167,11 +2167,11 @@ int sceKernelDeleteTlspl(SceUID uid)
 		if (inUse)
 		{
 			error = PSP_ERROR_TLSPL_IN_USE;
-			WARN_LOG(SCEKERNEL, "%08x=sceKernelDeleteTlspl(%08x): in use", error, uid);
+			WARN_LOG(Log::sceKernel, "%08x=sceKernelDeleteTlspl(%08x): in use", error, uid);
 			return error;
 		}
 
-		WARN_LOG(SCEKERNEL, "sceKernelDeleteTlspl(%08x)", uid);
+		WARN_LOG(Log::sceKernel, "sceKernelDeleteTlspl(%08x)", uid);
 
 		for (SceUID threadID : tls->waitingThreads)
 			HLEKernel::ResumeFromWait(threadID, WAITTYPE_TLSPL, uid, 0);
@@ -2185,7 +2185,7 @@ int sceKernelDeleteTlspl(SceUID uid)
 		kernelObjects.Destroy<TLSPL>(uid);
 	}
 	else
-		ERROR_LOG(SCEKERNEL, "%08x=sceKernelDeleteTlspl(%08x): bad tlspl", error, uid);
+		ERROR_LOG(Log::sceKernel, "%08x=sceKernelDeleteTlspl(%08x): bad tlspl", error, uid);
 	return error;
 }
 
@@ -2204,23 +2204,23 @@ static bool FindTLSByIndex(TLSPL *possible, FindTLSByIndexArg *state) {
 
 int sceKernelGetTlsAddr(SceUID uid) {
 	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
-		return hleLogWarning(SCEKERNEL, 0, "dispatch disabled");
+		return hleLogWarning(Log::sceKernel, 0, "dispatch disabled");
 
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
 	if (!tls) {
 		if (uid < 0)
-			return hleLogError(SCEKERNEL, 0, "tlspl not found");
+			return hleLogError(Log::sceKernel, 0, "tlspl not found");
 
 		// There's this weird behavior where it looks up by index.  Maybe we shouldn't use uids...
 		if (!tlsplUsedIndexes[(uid >> 3) & 15])
-			return hleLogError(SCEKERNEL, 0, "tlspl not found");
+			return hleLogError(Log::sceKernel, 0, "tlspl not found");
 
 		FindTLSByIndexArg state;
 		state.index = (uid >> 3) & 15;
 		kernelObjects.Iterate<TLSPL>(&FindTLSByIndex, &state);
 		if (!state.result)
-			return hleLogError(SCEKERNEL, 0, "tlspl not found");
+			return hleLogError(Log::sceKernel, 0, "tlspl not found");
 
 		tls = state.result;
 	}
@@ -2259,7 +2259,7 @@ int sceKernelGetTlsAddr(SceUID uid) {
 	{
 		tls->waitingThreads.push_back(threadID);
 		__KernelWaitCurThread(WAITTYPE_TLSPL, uid, 1, 0, false, "allocate tls");
-		return hleLogDebug(SCEKERNEL, 0, "waiting for tls alloc");
+		return hleLogDebug(Log::sceKernel, 0, "waiting for tls alloc");
 	}
 
 	u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
@@ -2271,13 +2271,13 @@ int sceKernelGetTlsAddr(SceUID uid) {
 		Memory::Memset(allocAddress, 0, tls->ntls.blockSize, "TlsAddr");
 	}
 
-	return hleLogDebug(SCEKERNEL, allocAddress);
+	return hleLogDebug(Log::sceKernel, allocAddress);
 }
 
 // Parameters are an educated guess.
 int sceKernelFreeTlspl(SceUID uid)
 {
-	WARN_LOG(SCEKERNEL, "UNIMPL sceKernelFreeTlspl(%08x)", uid);
+	WARN_LOG(Log::sceKernel, "UNIMPL sceKernelFreeTlspl(%08x)", uid);
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
 	if (tls)
@@ -2302,9 +2302,9 @@ int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr) {
 			*info = tls->ntls;
 			info.NotifyWrite("TlsplStatus");
 		}
-		return hleLogSuccessI(SCEKERNEL, 0);
+		return hleLogSuccessI(Log::sceKernel, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "invalid tlspl");
+		return hleLogError(Log::sceKernel, error, "invalid tlspl");
 	}
 }
 

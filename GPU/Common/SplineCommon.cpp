@@ -514,13 +514,13 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
 	if (!simplified_control_points) {
-		ERROR_LOG(G3D, "Failed to allocate space for simplified control points, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for simplified control points, skipping curve draw");
 		return;
 	}
 
 	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
 	if (!temp_buffer) {
-		ERROR_LOG(G3D, "Failed to allocate space for temp buffer, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for temp buffer, skipping curve draw");
 		return;
 	}
 
@@ -531,13 +531,13 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	int vertexSize = vdecoder->VertexSize();
 	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %d vs %d", vertexSize, (int)sizeof(SimpleVertex));
+		ERROR_LOG(Log::G3D, "Something went really wrong, vertex size: %d vs %d", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
 	if (!points) {
-		ERROR_LOG(G3D, "Failed to allocate space for control point pointers, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for control point pointers, skipping curve draw");
 		return;
 	}
 	for (int idx = 0; idx < num_points; idx++)
@@ -559,7 +559,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		if (cpoints.IsValid())
 			SoftwareTessellation(output, surface, origVertType, cpoints);
 		else
-			ERROR_LOG(G3D, "Failed to allocate space for control point values, skipping curve draw");
+			ERROR_LOG(Log::G3D, "Failed to allocate space for control point values, skipping curve draw");
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;

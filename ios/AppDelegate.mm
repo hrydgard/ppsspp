@@ -27,14 +27,14 @@
 
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
-			INFO_LOG(SYSTEM, "ios audio session interruption beginning");
+			INFO_LOG(Log::System, "ios audio session interruption beginning");
 			if (g_Config.bEnableSound) {
 				iOSCoreAudioShutdown();
 			}
 			break;
 
 		case AVAudioSessionInterruptionTypeEnded:
-			INFO_LOG(SYSTEM, "ios audio session interruption ending");
+			INFO_LOG(Log::System, "ios audio session interruption ending");
 			if (g_Config.bEnableSound) {
 				/*
 				 * Only try to reinit audio if in the foreground, otherwise
@@ -56,7 +56,7 @@
 // Registered in application:didFinishLaunchingWithOptions:
 // for AVAudioSessionMediaServicesWereResetNotification
 -(void) handleMediaServicesWereReset:(NSNotification *)notification {
-	INFO_LOG(SYSTEM, "ios media services were reset - reinitializing audio");
+	INFO_LOG(Log::System, "ios media services were reset - reinitializing audio");
 
 	/*
 	 When media services were reset, Apple recommends:
@@ -124,14 +124,14 @@
 }
 
 - (void)restart:(const char*)restartArgs {
-	INFO_LOG(G3D, "Restart requested: %s", restartArgs);
+	INFO_LOG(Log::G3D, "Restart requested: %s", restartArgs);
 	[self.viewController willResignActive];
 	[self.viewController shutdown];
 	self.window.rootViewController = nil;
 	self.viewController = nil;
 
 	// App was requested to restart, probably.
-	INFO_LOG(G3D, "viewController nilled");
+	INFO_LOG(Log::G3D, "viewController nilled");
 
 	NativeShutdown();
 
@@ -142,7 +142,7 @@
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {
-	INFO_LOG(G3D, "willResignActive");
+	INFO_LOG(Log::G3D, "willResignActive");
 
 	[self.viewController willResignActive];
 
@@ -154,7 +154,7 @@
 }
 
 - (void)applicationDidBecomeActive:(UIApplication *)application {
-	INFO_LOG(G3D, "didBecomeActive");
+	INFO_LOG(Log::G3D, "didBecomeActive");
 	if (g_Config.bEnableSound) {
 		iOSCoreAudioInit();
 	}

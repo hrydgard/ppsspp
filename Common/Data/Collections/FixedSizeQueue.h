@@ -150,7 +150,7 @@ public:
 		Do(p, size);
 		if (size != N)
 		{
-			ERROR_LOG(COMMON, "Savestate failure: Incompatible queue size.");
+			ERROR_LOG(Log::Common, "Savestate failure: Incompatible queue size.");
 			return;
 		}
 		// TODO: This is quite wasteful, could just store the actual data. Would be slightly more complex though.

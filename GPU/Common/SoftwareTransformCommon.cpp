@@ -354,7 +354,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 							source.Normalize();
 						}
 						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
 						}
 						break;
 
@@ -371,7 +371,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 								source = -source;
 						}
 						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
 						}
 						break;
 					}
@@ -409,7 +409,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 			default:
 				// Illegal
-				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
+				ERROR_LOG_REPORT(Log::G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
 

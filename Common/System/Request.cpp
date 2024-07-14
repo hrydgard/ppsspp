@@ -48,7 +48,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 		callbackMap_[requestId] = { callback, failedCallback, token };
 	}
 
-	VERBOSE_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
+	VERBOSE_LOG(Log::System, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
 	std::string p1(param1);
 	std::string p2(param2);
 	// TODO: Convert to string_view
@@ -65,7 +65,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
 	for (auto &iter : callbackMap_) {
 		if (iter.second.token == token) {
-			INFO_LOG(SYSTEM, "Forgetting about requester with token %d", token);
+			INFO_LOG(Log::System, "Forgetting about requester with token %d", token);
 			iter.second.callback = nullptr;
 			iter.second.failedCallback = nullptr;
 		}
@@ -76,7 +76,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(SYSTEM, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
+		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
 		return;
 	}
 
@@ -86,7 +86,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	response.responseString = responseString;
 	response.responseValue = responseValue;
 	pendingSuccesses_.push_back(response);
-	DEBUG_LOG(SYSTEM, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
+	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
 	callbackMap_.erase(iter);
 }
 
@@ -94,11 +94,11 @@ void RequestManager::PostSystemFailure(int requestId) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(SYSTEM, "PostSystemFailure: Unexpected request ID %d", requestId);
+		ERROR_LOG(Log::System, "PostSystemFailure: Unexpected request ID %d", requestId);
 		return;
 	}
 
-	WARN_LOG(SYSTEM, "PostSystemFailure: Request %d failed", requestId);
+	WARN_LOG(Log::System, "PostSystemFailure: Request %d failed", requestId);
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 	PendingFailure response;

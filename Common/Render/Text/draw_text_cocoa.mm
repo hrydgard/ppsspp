@@ -43,7 +43,7 @@ public:
 	void Create() {
 		// Create an attributed string with string and font information
 		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
-		INFO_LOG(G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
+		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
 		// CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
 		CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
@@ -125,7 +125,7 @@ void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
-		// INFO_LOG(SYSTEM, "Measuring %.*s", (int)str.length(), str.data());
+		// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
 
 		auto iter = fontMap_.find(fontHash_);
 		NSDictionary *attributes = nil;
@@ -174,7 +174,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		return false;
 	}
 
-	// INFO_LOG(SYSTEM, "Rasterizing %.*s", (int)str.length(), str.data());
+	// INFO_LOG(Log::System, "Rasterizing %.*s", (int)str.length(), str.data());
 
 	NSString* string = [[NSString alloc] initWithBytes:str.data() length:str.length() encoding: NSUTF8StringEncoding];
 
@@ -192,7 +192,7 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	int width = (int)ceilf(w);
 	int height = (int)ceilf(h);
 	if (width <= 0 || height <= 0) {
-		WARN_LOG(G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
+		WARN_LOG(Log::G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
 		return false;
 	}
 

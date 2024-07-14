@@ -40,12 +40,12 @@ static bool IsDepthStencilFormat(VkFormat format) {
 
 bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, VulkanBarrierBatch *barrierBatch, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
-		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
+		ERROR_LOG(Log::G3D, "Can't create a zero-size VulkanTexture");
 		return false;
 	}
 	int maxDim = vulkan_->GetPhysicalDeviceProperties(0).properties.limits.maxImageDimension2D;
 	if (w > maxDim || h > maxDim) {
-		ERROR_LOG(G3D, "Can't create a texture this large");
+		ERROR_LOG(Log::G3D, "Can't create a texture this large");
 		return false;
 	}
 
@@ -137,7 +137,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view_);
 	if (res != VK_SUCCESS) {
-		ERROR_LOG(G3D, "vkCreateImageView failed: %s. Destroying image.", VulkanResultToString(res));
+		ERROR_LOG(Log::G3D, "vkCreateImageView failed: %s. Destroying image.", VulkanResultToString(res));
 		_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
 		vmaDestroyImage(vulkan_->Allocator(), image_, allocation_);
 		view_ = VK_NULL_HANDLE;

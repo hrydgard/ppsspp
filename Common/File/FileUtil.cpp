@@ -110,7 +110,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 	case PathType::CONTENT_URI:
 		// We're gonna need some error codes..
 		if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
-			INFO_LOG(COMMON, "Opening content file for read: '%s'", path.c_str());
+			INFO_LOG(Log::Common, "Opening content file for read: '%s'", path.c_str());
 			// Read, let's support this - easy one.
 			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
 			if (descriptor < 0) {
@@ -121,20 +121,20 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			// Need to be able to create the file here if it doesn't exist.
 			// Not exactly sure which abstractions are best, let's start simple.
 			if (!File::Exists(path)) {
-				INFO_LOG(COMMON, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
+				INFO_LOG(Log::Common, "OpenCFile(%s): Opening content file for write. Doesn't exist, creating empty and reopening.", path.c_str());
 				std::string name = path.GetFilename();
 				if (path.CanNavigateUp()) {
 					Path parent = path.NavigateUp();
 					if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
-						WARN_LOG(COMMON, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+						WARN_LOG(Log::Common, "Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 						return nullptr;
 					}
 				} else {
-					INFO_LOG_REPORT_ONCE(openCFileFailedNavigateUp, COMMON, "Failed to navigate up to create file: %s", path.c_str());
+					INFO_LOG_REPORT_ONCE(openCFileFailedNavigateUp, Log::Common, "Failed to navigate up to create file: %s", path.c_str());
 					return nullptr;
 				}
 			} else {
-				INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
+				INFO_LOG(Log::Common, "OpenCFile(%s): Opening existing content file for write (truncating). Requested mode: '%s'", path.c_str(), mode);
 			}
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
@@ -146,7 +146,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			}
 			int descriptor = Android_OpenContentUriFd(path.ToString(), openMode);
 			if (descriptor < 0) {
-				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
+				INFO_LOG(Log::Common, "Opening '%s' for write failed", path.ToString().c_str());
 				return nullptr;
 			}
 			FILE *f = fdopen(descriptor, fmode);
@@ -156,12 +156,12 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			}
 			return f;
 		} else {
-			ERROR_LOG(COMMON, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
+			ERROR_LOG(Log::Common, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
 			return nullptr;
 		}
 		break;
 	default:
-		ERROR_LOG(COMMON, "OpenCFile(%s): PathType not yet supported", path.c_str());
+		ERROR_LOG(Log::Common, "OpenCFile(%s): PathType not yet supported", path.c_str());
 		return nullptr;
 	}
 
@@ -206,27 +206,27 @@ int OpenFD(const Path &path, OpenFlag flags) {
 	case PathType::CONTENT_URI:
 		break;
 	default:
-		ERROR_LOG(COMMON, "OpenFD: Only supports Content URI paths. Not '%s' (%s)!", path.c_str(), OpenFlagToString(flags).c_str());
+		ERROR_LOG(Log::Common, "OpenFD: Only supports Content URI paths. Not '%s' (%s)!", path.c_str(), OpenFlagToString(flags).c_str());
 		// Not yet supported - use other paths.
 		return -1;
 	}
 
 	if (flags & OPEN_CREATE) {
 		if (!File::Exists(path)) {
-			INFO_LOG(COMMON, "OpenFD(%s): Creating file.", path.c_str());
+			INFO_LOG(Log::Common, "OpenFD(%s): Creating file.", path.c_str());
 			std::string name = path.GetFilename();
 			if (path.CanNavigateUp()) {
 				Path parent = path.NavigateUp();
 				if (Android_CreateFile(parent.ToString(), name) != StorageError::SUCCESS) {
-					WARN_LOG(COMMON, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
+					WARN_LOG(Log::Common, "OpenFD: Failed to create file '%s' in '%s'", name.c_str(), parent.c_str());
 					return -1;
 				}
 			} else {
-				INFO_LOG(COMMON, "Failed to navigate up to create file: %s", path.c_str());
+				INFO_LOG(Log::Common, "Failed to navigate up to create file: %s", path.c_str());
 				return -1;
 			}
 		} else {
-			INFO_LOG(COMMON, "OpenCFile(%s): Opening existing content file ('%s')", path.c_str(), OpenFlagToString(flags).c_str());
+			INFO_LOG(Log::Common, "OpenCFile(%s): Opening existing content file ('%s')", path.c_str(), OpenFlagToString(flags).c_str());
 		}
 	}
 
@@ -242,14 +242,14 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		// TODO: Maybe better checking of additional flags here.
 	} else {
 		// TODO: Add support for more modes if possible.
-		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, COMMON, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
+		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, Log::Common, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
 		return -1;
 	}
 
-	INFO_LOG(COMMON, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
+	INFO_LOG(Log::Common, "Android_OpenContentUriFd: %s (%s)", path.c_str(), OpenFlagToString(flags).c_str());
 	int descriptor = Android_OpenContentUriFd(path.ToString(), mode);
 	if (descriptor < 0) {
-		ERROR_LOG(COMMON, "Android_OpenContentUriFd failed: '%s'", path.c_str());
+		ERROR_LOG(Log::Common, "Android_OpenContentUriFd failed: '%s'", path.c_str());
 	}
 
 	if (flags & OPEN_APPEND) {
@@ -439,7 +439,7 @@ bool IsDirectory(const Path &filename) {
 #endif
 		auto err = GetLastError();
 		if (err != ERROR_FILE_NOT_FOUND) {
-			WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+			WARN_LOG(Log::Common, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
 		}
 		return false;
 	}
@@ -450,7 +450,7 @@ bool IsDirectory(const Path &filename) {
 	struct stat file_info;
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
-		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
+		WARN_LOG(Log::Common, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	return S_ISDIR(file_info.st_mode);
@@ -469,36 +469,36 @@ bool Delete(const Path &filename) {
 		return false;
 	}
 
-	INFO_LOG(COMMON, "Delete: file %s", filename.c_str());
+	INFO_LOG(Log::Common, "Delete: file %s", filename.c_str());
 
 	// Return true because we care about the file no 
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
-		WARN_LOG(COMMON, "Delete: '%s' already does not exist", filename.c_str());
+		WARN_LOG(Log::Common, "Delete: '%s' already does not exist", filename.c_str());
 		return true;
 	}
 
 	// We can't delete a directory
 	if (IsDirectory(filename)) {
-		WARN_LOG(COMMON, "Delete failed: '%s' is a directory", filename.c_str());
+		WARN_LOG(Log::Common, "Delete failed: '%s' is a directory", filename.c_str());
 		return false;
 	}
 
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (!DeleteFileFromAppW(filename.ToWString().c_str())) {
-		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+		WARN_LOG(Log::Common, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 #else
 	if (!DeleteFile(filename.ToWString().c_str())) {
-		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
+		WARN_LOG(Log::Common, "Delete: DeleteFile failed on %s: %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 #endif
 #else
 	if (unlink(filename.c_str()) == -1) {
-		WARN_LOG(COMMON, "Delete: unlink failed on %s: %s", 
+		WARN_LOG(Log::Common, "Delete: unlink failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -525,11 +525,11 @@ bool CreateDir(const Path &path) {
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
-			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			INFO_LOG(Log::Common, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
 			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
 			// Bad path - can't create this directory.
-			WARN_LOG(COMMON, "CreateDir failed: '%s'", path.c_str());
+			WARN_LOG(Log::Common, "CreateDir failed: '%s'", path.c_str());
 			return false;
 		}
 		break;
@@ -538,7 +538,7 @@ bool CreateDir(const Path &path) {
 		return false;
 	}
 
-	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
+	DEBUG_LOG(Log::Common, "CreateDir('%s')", path.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (CreateDirectoryFromAppW(path.ToWString().c_str(), NULL))
@@ -550,10 +550,10 @@ bool CreateDir(const Path &path) {
 	
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
-		WARN_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		WARN_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
-	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
+	ERROR_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
 	return false;
 #else
 	if (mkdir(path.ToString().c_str(), 0755) == 0) {
@@ -562,11 +562,11 @@ bool CreateDir(const Path &path) {
 
 	int err = errno;
 	if (err == EEXIST) {
-		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		WARN_LOG(Log::Common, "CreateDir: mkdir failed on %s: already exists", path.c_str());
 		return true;
 	}
 
-	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	ERROR_LOG(Log::Common, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
 	return false;
 #endif
 }
@@ -574,7 +574,7 @@ bool CreateDir(const Path &path) {
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
 	if (File::Exists(path)) {
-		DEBUG_LOG(COMMON, "CreateFullPath: path exists %s", path.c_str());
+		DEBUG_LOG(Log::Common, "CreateFullPath: path exists %s", path.c_str());
 		return true;
 	}
 
@@ -583,7 +583,7 @@ bool CreateFullPath(const Path &path) {
 	case PathType::CONTENT_URI:
 		break; // OK
 	default:
-		ERROR_LOG(COMMON, "CreateFullPath(%s): Not yet supported", path.c_str());
+		ERROR_LOG(Log::Common, "CreateFullPath(%s): Not yet supported", path.c_str());
 		return false;
 	}
 
@@ -601,7 +601,7 @@ bool CreateFullPath(const Path &path) {
 
 	// Probably not necessary sanity check, ported from the old code.
 	if (parts.size() > 100) {
-		ERROR_LOG(COMMON, "CreateFullPath: directory structure too deep");
+		ERROR_LOG(Log::Common, "CreateFullPath: directory structure too deep");
 		return false;
 	}
 
@@ -633,16 +633,16 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		// Content URI: Can only rename if in the same folder.
 		// TODO: Fallback to move + rename? Or do we even care about that use case? We have MoveIfFast for such tricks.
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
-			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
+			INFO_LOG(Log::Common, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
 		}
-		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+		INFO_LOG(Log::Common, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
 	}
 
-	INFO_LOG(COMMON, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+	INFO_LOG(Log::Common, "Rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 
 #if defined(_WIN32) && defined(UNICODE)
 #if PPSSPP_PLATFORM(UWP)
@@ -659,7 +659,7 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		return true;
 #endif
 
-	ERROR_LOG(COMMON, "Rename: failed %s --> %s: %s", 
+	ERROR_LOG(Log::Common, "Rename: failed %s --> %s: %s", 
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 }
@@ -683,7 +683,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		return false;
 	}
 
-	INFO_LOG(COMMON, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+	INFO_LOG(Log::Common, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (CopyFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
@@ -692,7 +692,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
 #endif
-	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
+	ERROR_LOG(Log::Common, "Copy: failed %s --> %s: %s", 
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 #else
@@ -705,7 +705,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	// Open input file
 	FILE *input = OpenCFile(srcFilename, "rb");
 	if (!input) {
-		ERROR_LOG(COMMON, "Copy: input failed %s --> %s: %s", 
+		ERROR_LOG(Log::Common, "Copy: input failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -714,7 +714,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	FILE *output = OpenCFile(destFilename, "wb");
 	if (!output) {
 		fclose(input);
-		ERROR_LOG(COMMON, "Copy: output failed %s --> %s: %s", 
+		ERROR_LOG(Log::Common, "Copy: output failed %s --> %s: %s", 
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -725,7 +725,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		int rnum = fread(buffer, sizeof(char), BSIZE, input);
 		if (rnum != BSIZE) {
 			if (ferror(input) != 0) {
-				ERROR_LOG(COMMON, 
+				ERROR_LOG(Log::Common, 
 						"Copy: failed reading from source, %s --> %s: %s", 
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 				fclose(input);
@@ -737,7 +737,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		// write output
 		int wnum = fwrite(buffer, sizeof(char), rnum, output);
 		if (wnum != rnum) {
-			ERROR_LOG(COMMON, 
+			ERROR_LOG(Log::Common, 
 					"Copy: failed writing to output, %s --> %s: %s", 
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 			fclose(input);
@@ -829,14 +829,14 @@ uint64_t GetFileSize(const Path &filename) {
 	int result = stat64(filename.c_str(), &file_info);
 #endif
 	if (result != 0) {
-		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.ToVisualString().c_str());
+		WARN_LOG(Log::Common, "GetSize: failed %s: No such file", filename.ToVisualString().c_str());
 		return 0;
 	}
 	if (S_ISDIR(file_info.st_mode)) {
-		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.ToVisualString().c_str());
+		WARN_LOG(Log::Common, "GetSize: failed %s: is a directory", filename.ToVisualString().c_str());
 		return 0;
 	}
-	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.ToVisualString().c_str(), (long long)file_info.st_size);
+	DEBUG_LOG(Log::Common, "GetSize: %s: %lld", filename.ToVisualString().c_str(), (long long)file_info.st_size);
 	return file_info.st_size;
 #endif
 }
@@ -885,10 +885,10 @@ uint64_t GetFileSize(FILE *f) {
 
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename) {
-	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
+	INFO_LOG(Log::Common, "CreateEmptyFile: %s", filename.c_str()); 
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
-		ERROR_LOG(COMMON, "CreateEmptyFile: failed to create '%s': %s", filename.c_str(), GetLastErrorMsg().c_str());
+		ERROR_LOG(Log::Common, "CreateEmptyFile: failed to create '%s': %s", filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
 	fclose(pFile);
@@ -906,11 +906,11 @@ bool DeleteDir(const Path &path) {
 	default:
 		return false;
 	}
-	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
+	INFO_LOG(Log::Common, "DeleteDir: directory %s", path.c_str());
 
 	// check if a directory
 	if (!File::IsDirectory(path)) {
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
+		ERROR_LOG(Log::Common, "DeleteDir: Not a directory %s", path.c_str());
 		return false;
 	}
 
@@ -926,7 +926,7 @@ bool DeleteDir(const Path &path) {
 	if (rmdir(path.c_str()) == 0)
 		return true;
 #endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
+	ERROR_LOG(Log::Common, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
 
 	return false;
 }
@@ -940,7 +940,7 @@ bool DeleteDirRecursively(const Path &path) {
 		// We make use of the dangerous auto-recursive property of Android_RemoveFile.
 		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
-		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
+		ERROR_LOG(Log::Common, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
 
@@ -961,7 +961,7 @@ bool OpenFileInEditor(const Path &fileName) {
 	case PathType::NATIVE:
 		break;  // OK
 	default:
-		ERROR_LOG(COMMON, "OpenFileInEditor(%s): Path type not supported", fileName.c_str());
+		ERROR_LOG(Log::Common, "OpenFileInEditor(%s): Path type not supported", fileName.c_str());
 		return false;
 	}
 
@@ -979,10 +979,10 @@ bool OpenFileInEditor(const Path &fileName) {
 	iniFile = "xdg-open ";
 #endif
 	iniFile.append(fileName.ToString());
-	NOTICE_LOG(BOOT, "Launching %s", iniFile.c_str());
+	NOTICE_LOG(Log::Boot, "Launching %s", iniFile.c_str());
 	int retval = system(iniFile.c_str());
 	if (retval != 0) {
-		ERROR_LOG(COMMON, "Failed to launch ini file");
+		ERROR_LOG(Log::Common, "Failed to launch ini file");
 	}
 #endif
 	return true;

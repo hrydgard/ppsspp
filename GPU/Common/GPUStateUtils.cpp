@@ -920,7 +920,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			return true;
 		case GE_LOGIC_AND:
 		case GE_LOGIC_AND_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, Log::G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_COPY:
 			// This is the same as off.
@@ -933,13 +933,13 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 		case GE_LOGIC_NAND:
 		case GE_LOGIC_EQUIV:
 			// Handled in the shader.
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, Log::G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_INVERTED:
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::SUBTRACT;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, Log::G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
 			return true;
 		case GE_LOGIC_NOOP:
 			srcBlend = BlendFactor::ZERO;
@@ -947,7 +947,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			blendEq = BlendEq::ADD;
 			return true;
 		case GE_LOGIC_XOR:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, Log::G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_OR:
 		case GE_LOGIC_OR_INVERTED:
@@ -955,16 +955,16 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::ADD;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, Log::G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
 			return true;
 		case GE_LOGIC_OR_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, Log::G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_SET:
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::ADD;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, Log::G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 			return true;
 		}
 	} else {
@@ -1284,7 +1284,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 				glBlendFuncB = BlendFactor::CONSTANT_COLOR;
 				blendState.setBlendColor(fixA, constantAlpha);
 			} else {
-				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", fixA, fixB, blendFuncA, blendFuncB);
+				DEBUG_LOG(Log::G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", fixA, fixB, blendFuncA, blendFuncB);
 				// Let's approximate, at least.  Close is better than totally off.
 				const bool nearZeroA = blendColorSimilar(fixA, 0, 64);
 				const bool nearZeroB = blendColorSimilar(fixB, 0, 64);
@@ -1642,11 +1642,11 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 }
 
 void GenericMaskState::Log() {
-	WARN_LOG(G3D, "Mask: %08x %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
+	WARN_LOG(Log::G3D, "Mask: %08x %01X readfb=%d", uniformMask, channelMask, applyFramebufferRead);
 }
 
 void GenericBlendState::Log() {
-	WARN_LOG(G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d",
+	WARN_LOG(Log::G3D, "Blend: hwenable=%d readfb=%d replblend=%d replalpha=%d",
 		blendEnabled, applyFramebufferRead, replaceBlend, (int)replaceAlphaWithStencil);
 }
 

@@ -479,7 +479,7 @@ bool TestMatrixTranspose() {
 }
 
 void TestGetMatrix(int matrix, MatrixSize sz) {
-	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
+	INFO_LOG(Log::System, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
 	u8 fullMatrix[16];
 
 	u8 cols[4];
@@ -497,8 +497,8 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 		// int rowName = GetRowName(matrix, sz, i, 0);
 		int colName = cols[i];
 		int rowName = rows[i];
-		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz).c_str());
-		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz).c_str());
+		INFO_LOG(Log::System, "Column %i: %s", i, GetVectorNotation(colName, vsz).c_str());
+		INFO_LOG(Log::System, "Row %i: %s", i, GetVectorNotation(rowName, vsz).c_str());
 
 		u8 colRegs[4];
 		u8 rowRegs[4];
@@ -519,12 +519,12 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 			c << (int)fullMatrix[j * 4 + i] << " ";
 			d << (int)rowRegs[j] << " ";
 		}
-		INFO_LOG(SYSTEM, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		INFO_LOG(Log::System, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
 		if (a.str() != b.str())
-			INFO_LOG(SYSTEM, "WRONG!");
-		INFO_LOG(SYSTEM, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
+			INFO_LOG(Log::System, "WRONG!");
+		INFO_LOG(Log::System, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
 		if (c.str() != d.str())
-			INFO_LOG(SYSTEM, "WRONG!");
+			INFO_LOG(Log::System, "WRONG!");
 	}
 }
 

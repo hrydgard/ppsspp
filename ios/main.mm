@@ -503,7 +503,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 */
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
         dispatch_async(dispatch_get_main_queue(), ^{
-            INFO_LOG(SYSTEM, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
+            INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
             [[UIApplication sharedApplication] setIdleTimerDisabled: (param3 ? YES : NO)];
         });
 		return true;
@@ -587,17 +587,17 @@ int main(int argc, char *argv[])
 	// see https://github.com/hrydgard/ppsspp/issues/11905
 
 	if (jb_spawn_ptrace_child(argc, argv)) {
-		INFO_LOG(SYSTEM, "JIT: ptrace() child spawn trick\n");
+		INFO_LOG(Log::System, "JIT: ptrace() child spawn trick\n");
 	} else if (jb_has_jit_entitlement()) {
-		INFO_LOG(SYSTEM, "JIT: found entitlement\n");
+		INFO_LOG(Log::System, "JIT: found entitlement\n");
 	} else if (jb_has_cs_disabled()) {
-		INFO_LOG(SYSTEM, "JIT: CS_KILL disabled\n");
+		INFO_LOG(Log::System, "JIT: CS_KILL disabled\n");
 	} else if (jb_has_cs_execseg_allow_unsigned()) {
-		INFO_LOG(SYSTEM, "JIT: CS_EXECSEG_ALLOW_UNSIGNED set\n");
+		INFO_LOG(Log::System, "JIT: CS_EXECSEG_ALLOW_UNSIGNED set\n");
 	} else if (jb_enable_ptrace_hack()) {
-		INFO_LOG(SYSTEM, "JIT: ptrace() hack supported\n");
+		INFO_LOG(Log::System, "JIT: ptrace() hack supported\n");
 	} else {
-		INFO_LOG(SYSTEM, "JIT: ptrace() hack failed\n");
+		INFO_LOG(Log::System, "JIT: ptrace() hack failed\n");
 		g_jitAvailable = false;
 	}
 

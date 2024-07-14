@@ -269,9 +269,9 @@ public:
 			failureReason->clear();
 			error = LoadPtr(ptr, _class, failureReason);
 			delete [] ptr;
-			INFO_LOG(SAVESTATE, "ChunkReader: Done loading '%s'", filename.c_str());
+			INFO_LOG(Log::SaveState, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
-			WARN_LOG(SAVESTATE, "ChunkReader: Error found during load of '%s'", filename.c_str());
+			WARN_LOG(Log::SaveState, "ChunkReader: Error found during load of '%s'", filename.c_str());
 		}
 		return error;
 	}

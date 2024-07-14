@@ -150,7 +150,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
 		GPURecord::RecordNextFrame([](const Path &dumpPath) {
-			NOTICE_LOG(SYSTEM, "Frame dump created at '%s'", dumpPath.c_str());
+			NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
 			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 				System_ShowFileInFolder(dumpPath);
 			} else {
@@ -285,7 +285,7 @@ UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 
 	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
 
-	NOTICE_LOG(SYSTEM, "Submitted: %s", cmd.c_str());
+	NOTICE_LOG(Log::System, "Submitted: %s", cmd.c_str());
 
 	UpdateLog();
 	cmdLine_->SetText("");
@@ -324,7 +324,7 @@ void LogConfigScreen::CreateViews() {
 	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogType type = (LogType)i;
+		Log type = (Log)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
@@ -337,7 +337,7 @@ void LogConfigScreen::CreateViews() {
 UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogType)i);
+		LogChannel *chan = logMan->GetLogChannel((Log)i);
 		chan->enabled = !chan->enabled;
 	}
 	return UI::EVENT_DONE;
@@ -346,7 +346,7 @@ UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogType)i);
+		LogChannel *chan = logMan->GetLogChannel((Log)i);
 		chan->enabled = true;
 	}
 	return UI::EVENT_DONE;
@@ -355,7 +355,7 @@ UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogType)i);
+		LogChannel *chan = logMan->GetLogChannel((Log)i);
 		chan->enabled = false;
 	}
 	return UI::EVENT_DONE;
@@ -393,7 +393,7 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	LogManager *logMan = LogManager::GetInstance();
 	
 	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
-		LogType type = (LogType)i;
+		Log type = (Log)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
 		if (chan->enabled)
 			chan->level = (LogLevel)(selected + 1);
@@ -1054,7 +1054,7 @@ void FrameDumpTestScreen::CreateViews() {
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
 	std::string url = params.v->Tag();
-	INFO_LOG(COMMON, "Trying to launch '%s'", url.c_str());
+	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
 	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
 	// except for some reason the game ID.
 	// TODO: Fix that since it can be important for compat settings.
@@ -1086,7 +1086,7 @@ void FrameDumpTestScreen::update() {
 					if (offset != std::string::npos) {
 						trimmed = trimmed.substr(0, offset);
 						if (endsWith(trimmed, ".ppdmp")) {
-							INFO_LOG(COMMON, "Found ppdmp: '%s'", trimmed.c_str());
+							INFO_LOG(Log::Common, "Found ppdmp: '%s'", trimmed.c_str());
 							files_.push_back(trimmed);
 						}
 					}
@@ -1106,7 +1106,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 		bool found = false;
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			if (touches_[i].id == touch.id) {
-				WARN_LOG(SYSTEM, "Double touch");
+				WARN_LOG(Log::System, "Double touch");
 				touches_[i].x = touch.x;
 				touches_[i].y = touch.y;
 				found = true;
@@ -1133,7 +1133,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 		if (!found) {
-			WARN_LOG(SYSTEM, "Move without touch down: %d", touch.id);
+			WARN_LOG(Log::System, "Move without touch down: %d", touch.id);
 		}
 	}
 	if (touch.flags & TOUCH_UP) {
@@ -1146,7 +1146,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			}
 		}
 		if (!found) {
-			WARN_LOG(SYSTEM, "Touch release without touch down");
+			WARN_LOG(Log::System, "Touch release without touch down");
 		}
 	}
 }
@@ -1284,9 +1284,9 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 void RecreateActivity() {
 	const int SYSTEM_JELLYBEAN = 16;
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
-		INFO_LOG(SYSTEM, "Sending recreate");
+		INFO_LOG(Log::System, "Sending recreate");
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
-		INFO_LOG(SYSTEM, "Got back from recreate");
+		INFO_LOG(Log::System, "Got back from recreate");
 	} else {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		System_Toast(gr->T_cstr("Must Restart", "You must restart PPSSPP for this change to take effect"));

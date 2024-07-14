@@ -25,11 +25,11 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
 		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
 	} else {
-		ERROR_LOG(G3D, "Failed to find class: '%s'", textRendererClassName);
+		ERROR_LOG(Log::G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
 	dpiScale_ = CalculateDPIScale();
 
-	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
+	INFO_LOG(Log::G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -71,7 +71,7 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
+		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 
@@ -93,7 +93,7 @@ void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) 
 		if (iter != fontMap_.end()) {
 			scaledSize = iter->second.size;
 		} else {
-			ERROR_LOG(G3D, "Missing font");
+			ERROR_LOG(Log::G3D, "Missing font");
 		}
 		std::string text(str);
 		auto env = getEnv();
@@ -123,7 +123,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	if (iter != fontMap_.end()) {
 		size = iter->second.size;
 	} else {
-		ERROR_LOG(G3D, "Missing font");
+		ERROR_LOG(Log::G3D, "Missing font");
 	}
 
 	auto env = getEnv();

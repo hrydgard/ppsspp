@@ -114,7 +114,7 @@ private:
 	LogManager(const LogManager &) = delete;
 	void operator=(const LogManager &) = delete;
 
-	LogChannel log_[(size_t)LogType::NUMBER_OF_LOGS];
+	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_ = nullptr;
 	ConsoleListener *consoleLog_ = nullptr;
 	OutputDebugStringLogListener *debuggerLog_ = nullptr;
@@ -129,31 +129,31 @@ public:
 	void RemoveListener(LogListener *listener);
 
 	static u32 GetMaxLevel() { return (u32)MAX_LOGLEVEL;	}
-	static int GetNumChannels() { return (int)LogType::NUMBER_OF_LOGS; }
+	static int GetNumChannels() { return (int)Log::NUMBER_OF_LOGS; }
 
-	void Log(LogLevel level, LogType type,
-			 const char *file, int line, const char *fmt, va_list args);
-	bool IsEnabled(LogLevel level, LogType type);
+	void LogLine(LogLevel level, Log type,
+				 const char *file, int line, const char *fmt, va_list args);
+	bool IsEnabled(LogLevel level, Log type);
 
-	LogChannel *GetLogChannel(LogType type) {
+	LogChannel *GetLogChannel(Log type) {
 		return &log_[(size_t)type];
 	}
 
-	void SetLogLevel(LogType type, LogLevel level) {
+	void SetLogLevel(Log type, LogLevel level) {
 		log_[(size_t)type].level = level;
 	}
 
 	void SetAllLogLevels(LogLevel level) {
-		for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; ++i) {
+		for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
 			log_[i].level = level;
 		}
 	}
 
-	void SetEnabled(LogType type, bool enable) {
+	void SetEnabled(Log type, bool enable) {
 		log_[(size_t)type].enabled = enable;
 	}
 
-	LogLevel GetLogLevel(LogType type) {
+	LogLevel GetLogLevel(Log type) {
 		return log_[(size_t)type].level;
 	}
 

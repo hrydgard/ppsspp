@@ -99,7 +99,7 @@ void ThreadManager::Teardown() {
 	global_->threads_.clear();
 
 	if (global_->compute_queue_size > 0 || global_->io_queue_size > 0) {
-		WARN_LOG(SYSTEM, "ThreadManager::Teardown() with tasks still enqueued");
+		WARN_LOG(Log::System, "ThreadManager::Teardown() with tasks still enqueued");
 	}
 }
 
@@ -222,7 +222,7 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	int numThreads = numComputeThreads_ + std::max(MIN_IO_BLOCKING_THREADS, numComputeThreads_);
 	numThreads_ = numThreads;
 
-	INFO_LOG(SYSTEM, "ThreadManager::Init(compute threads: %d, all: %d)", numComputeThreads_, numThreads_);
+	INFO_LOG(Log::System, "ThreadManager::Init(compute threads: %d, all: %d)", numComputeThreads_, numThreads_);
 
 	for (int i = 0; i < numThreads; i++) {
 		TaskThreadContext *thread = new TaskThreadContext();

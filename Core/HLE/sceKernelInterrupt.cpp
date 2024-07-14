@@ -79,7 +79,7 @@ static SceUID threadBeforeInterrupt;
 
 static int sceKernelCpuSuspendIntr()
 {
-	VERBOSE_LOG(SCEINTC, "sceKernelCpuSuspendIntr");
+	VERBOSE_LOG(Log::sceIntc, "sceKernelCpuSuspendIntr");
 	int returnValue;
 	if (__InterruptsEnabled())
 	{
@@ -96,7 +96,7 @@ static int sceKernelCpuSuspendIntr()
 
 static void sceKernelCpuResumeIntr(u32 enable)
 {
-	VERBOSE_LOG(SCEINTC, "sceKernelCpuResumeIntr(%i)", enable);
+	VERBOSE_LOG(Log::sceIntc, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
 	{
 		__EnableInterrupts();
@@ -113,14 +113,14 @@ static void sceKernelCpuResumeIntr(u32 enable)
 static int sceKernelIsCpuIntrEnable()
 {
 	u32 retVal = __InterruptsEnabled(); 
-	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrEnable()", retVal);
+	DEBUG_LOG(Log::sceIntc, "%i=sceKernelIsCpuIntrEnable()", retVal);
 	return retVal;
 }
 
 static int sceKernelIsCpuIntrSuspended(int flag)
 {
 	int retVal = flag == 0 ? 1 : 0;
-	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
+	DEBUG_LOG(Log::sceIntc, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
 	return retVal;
 }
 
@@ -134,7 +134,7 @@ bool IntrHandler::run(PendingInterrupt& pend)
 	SubIntrHandler *handler = get(pend.subintr);
 	if (handler == NULL)
 	{
-		WARN_LOG(SCEINTC, "Ignoring interrupt, already been released.");
+		WARN_LOG(Log::sceIntc, "Ignoring interrupt, already been released.");
 		return false;
 	}
 
@@ -146,7 +146,7 @@ bool IntrHandler::run(PendingInterrupt& pend)
 void IntrHandler::copyArgsToCPU(PendingInterrupt& pend)
 {
 	SubIntrHandler* handler = get(pend.subintr);
-	DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
+	DEBUG_LOG(Log::CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 	currentMIPS->pc = handler->handlerAddress;
 	currentMIPS->r[MIPS_REG_A0] = handler->subIntrNumber;
 	currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
@@ -248,7 +248,7 @@ void __InterruptsDoState(PointerWrap &p)
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
 		p.SetError(p.ERROR_FAILURE);
-		ERROR_LOG(SCEINTC, "Savestate failure: wrong number of interrupts, can't load.");
+		ERROR_LOG(Log::sceIntc, "Savestate failure: wrong number of interrupts, can't load.");
 		return;
 	}
 
@@ -339,7 +339,7 @@ retry:
 
 		IntrHandler* handler = intrHandlers[pend.intr];
 		if (handler == NULL) {
-			WARN_LOG(SCEINTC, "Ignoring interrupt");
+			WARN_LOG(Log::sceIntc, "Ignoring interrupt");
 			pendingInterrupts.pop_front();
 			goto retry;
 		}
@@ -366,7 +366,7 @@ retry:
 	} else {
 		if (needsThreadReturn)
 			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
-		// DEBUG_LOG(SCEINTC, "No more interrupts!");
+		// DEBUG_LOG(Log::sceIntc, "No more interrupts!");
 		return false;
 	}
 }
@@ -398,14 +398,14 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno]->queueUp(subintr);
-		VERBOSE_LOG(SCEINTC, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
+		VERBOSE_LOG(Log::sceIntc, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }
 
 void __KernelReturnFromInterrupt()
 {
-	VERBOSE_LOG(SCEINTC, "Left interrupt handler at %08x", currentMIPS->pc);
+	VERBOSE_LOG(Log::sceIntc, "Left interrupt handler at %08x", currentMIPS->pc);
 
 	hleSkipDeadbeef();
 
@@ -493,11 +493,11 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid interrupt", intrNumber, subIntrNumber, handler, handlerArg);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid interrupt", intrNumber, subIntrNumber, handler, handlerArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid subinterrupt", intrNumber, subIntrNumber, handler, handlerArg);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid subinterrupt", intrNumber, subIntrNumber, handler, handlerArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 
@@ -505,46 +505,46 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, handler, handlerArg, error);
 	if (subIntrHandler) {
 		if (handler == 0) {
-			WARN_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+			WARN_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
 		} else {
-			DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
+			DEBUG_LOG(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
 	} else {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
 	}
 	return error;
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 
 	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
 	if (error != SCE_KERNEL_ERROR_OK) {
-		ERROR_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber, error);
+		ERROR_LOG(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber, error);
 	}
 	return error;
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 
-	DEBUG_LOG(SCEINTC, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	u32 error;
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
 		// Enableing a handler before registering it works fine.
@@ -557,15 +557,15 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 
 static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
 
-	DEBUG_LOG(SCEINTC, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
 		// Disabling when not registered is not an error.
@@ -598,14 +598,14 @@ struct PspIntrHandlerOptionParam {
 
 static int QueryIntrHandlerInfo()
 {
-	ERROR_LOG_REPORT(SCEINTC, "QueryIntrHandlerInfo()");
+	ERROR_LOG_REPORT(Log::sceIntc, "QueryIntrHandlerInfo()");
 	return 0;
 }
 
 static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
 	u8 c = fillc & 0xff;
-	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
+	DEBUG_LOG(Log::sceIntc, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	bool skip = false;
 	if (n != 0) {
 		if (Memory::IsVRAMAddress(addr)) {
@@ -621,7 +621,7 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 
 static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	DEBUG_LOG(Log::sceKernel, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 
 	// Some games copy from executable code.  We need to flush emuhack ops.
 	if (size != 0)
@@ -696,7 +696,7 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 }
 
 static u32 sysclib_strcat(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
@@ -704,7 +704,7 @@ static u32 sysclib_strcat(u32 dst, u32 src) {
 }
 
 static int sysclib_strcmp(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
 		return strcmp((const char *)Memory::GetPointerUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	} else {
@@ -714,7 +714,7 @@ static int sysclib_strcmp(u32 dst, u32 src) {
 }
 
 static u32 sysclib_strcpy(u32 dst, u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidNullTerminatedString(src)) {
 		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
 	}
@@ -722,7 +722,7 @@ static u32 sysclib_strcpy(u32 dst, u32 src) {
 }
 
 static u32 sysclib_strlen(u32 src) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_strlen(src=%08x)", src);
 	if (Memory::IsValidNullTerminatedString(src)) {  // TODO: This computes the length, could reuse it maybe.
 		return (u32)strlen(Memory::GetCharPointerUnchecked(src));
 	} else {
@@ -732,7 +732,7 @@ static u32 sysclib_strlen(u32 src) {
 }
 
 static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		return memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
 	} else {
@@ -742,15 +742,15 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
+	ERROR_LOG(Log::sceKernel, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 
 	if (!Memory::IsValidNullTerminatedString(fmt)) {
-		ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad fmt");
+		ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad fmt");
 		return 0;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
-	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
 	currentMIPS->r[MIPS_REG_A0],
 	currentMIPS->r[MIPS_REG_A1],
 	currentMIPS->r[MIPS_REG_A2],
@@ -800,16 +800,16 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
 					if (!Memory::IsValidAddress(stack_cur)) {
-						ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+						ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 						return 0;
 					}
 					val = Memory::Read_U32(stack_cur);
-					DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
+					DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
 				}
 				arg_idx++;
 
 				if (!Memory::IsValidNullTerminatedString(val)) {
-					ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference at %08x", val);
+					ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad string reference at %08x", val);
 					return 0;
 				}
 				result.append(Memory::GetCharPointerUnchecked(val));
@@ -847,11 +847,11 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
 						if (!Memory::IsValidAddress(stack_cur)) {
-							ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad stack pointer %08x", stack_cur);
+							ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 							return 0;
 						}
 						val_from_arg = Memory::Read_U32(stack_cur);
-						DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
+						DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
 					}
 					arg_idx++;
 
@@ -882,10 +882,10 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		}
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf result string has length %d, content:", (int)result.length());
-	DEBUG_LOG(SCEKERNEL, "%s", result.c_str());
+	DEBUG_LOG(Log::sceKernel, "sysclib_sprintf result string has length %d, content:", (int)result.length());
+	DEBUG_LOG(Log::sceKernel, "%s", result.c_str());
 	if (!Memory::IsValidRange(dst, (u32)result.length() + 1)) {
-		ERROR_LOG(SCEKERNEL, "sysclib_sprintf result string is too long or dst is invalid");
+		ERROR_LOG(Log::sceKernel, "sysclib_sprintf result string is too long or dst is invalid");
 		return 0;
 	}
 	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
@@ -893,7 +893,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
-	DEBUG_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidRange(destAddr, size)) {
 		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
@@ -902,7 +902,7 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 }
 
 static int sysclib_strstr(u32 s1, u32 s2) {
-	DEBUG_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
 	if (Memory::IsValidNullTerminatedString(s1) && Memory::IsValidNullTerminatedString(s2)) {
 		std::string str1 = Memory::GetCharPointerUnchecked(s1);
 		std::string str2 = Memory::GetCharPointerUnchecked(s2);
@@ -916,7 +916,7 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 }
 
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
-	DEBUG_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
 	if (Memory::IsValidRange(s1, size) && Memory::IsValidRange(s2, size)) {
 		const char * str1 = Memory::GetCharPointerUnchecked(s1);
 		const char * str2 = Memory::GetCharPointerUnchecked(s2);
@@ -926,7 +926,7 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 }
 
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	DEBUG_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
+	DEBUG_LOG(Log::sceKernel, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
@@ -938,7 +938,7 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 
 static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 	if (!Memory::IsValidAddress(dest) || !Memory::IsValidAddress(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 
 	// This is just regular strncpy, but being explicit to avoid warnings/safety fixes on missing null.
@@ -958,12 +958,12 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = 0;
 	}
 
-	return hleLogSuccessX(SCEKERNEL, dest);
+	return hleLogSuccessX(Log::sceKernel, dest);
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	
 	if (!Memory::IsValidNullTerminatedString(strPtr)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 	const char* str = Memory::GetCharPointer(strPtr);
 	char* end = nullptr;
@@ -975,7 +975,7 @@ static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {
 
 static u32 sysclib_strchr(u32 src, int c) {
 	if (!Memory::IsValidNullTerminatedString(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.find(str, c);
@@ -987,7 +987,7 @@ static u32 sysclib_strchr(u32 src, int c) {
 
 static u32 sysclib_strrchr(u32 src, int c) {
 	if (!Memory::IsValidNullTerminatedString(src)) {
-		return hleLogError(SCEKERNEL, 0, "invalid address");
+		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
 	size_t cpos = str.rfind(str, c);

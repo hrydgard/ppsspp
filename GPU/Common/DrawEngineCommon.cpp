@@ -170,10 +170,10 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	// TODO: Handle fog and secondary color somehow?
 
 	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmfog, G3D, "Imm vertex used fog");
+		WARN_LOG_REPORT_ONCE(geimmfog, Log::G3D, "Imm vertex used fog");
 	}
 	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, G3D, "Imm vertex used secondary color");
+		WARN_LOG_REPORT_ONCE(geimmcolor1, Log::G3D, "Imm vertex used secondary color");
 	}
 
 	bool prevThrough = gstate.isModeThrough();
@@ -595,11 +595,11 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
 					// These aren't documented and should be rare.  Let's bounds check each one.
 					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
 					}
 					indices[i] = (u16)inds32[i];
 				}

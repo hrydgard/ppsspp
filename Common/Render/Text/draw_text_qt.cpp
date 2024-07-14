@@ -47,7 +47,7 @@ void TextDrawerQt::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
+		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 

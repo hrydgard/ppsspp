@@ -28,10 +28,10 @@
 
 static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
 	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(data + datalen - 1)) {
-		ERROR_LOG(SCEMISC, "sceAdler32(adler=%08x, data=%08x, datalen=%08x) - bad address(es)", adler, data, datalen);
+		ERROR_LOG(Log::sceMisc, "sceAdler32(adler=%08x, data=%08x, datalen=%08x) - bad address(es)", adler, data, datalen);
 		return -1;
 	}
-	INFO_LOG(SCEMISC, "sceAdler32(adler=%08x, data=%08x, datalen=%08x)", adler, data, datalen);
+	INFO_LOG(Log::sceMisc, "sceAdler32(adler=%08x, data=%08x, datalen=%08x)", adler, data, datalen);
 
 	u8 *buf = Memory::GetPointerWriteUnchecked(data);
 	u32 ret = adler32(adler, buf, datalen);

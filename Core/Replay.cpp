@@ -138,11 +138,11 @@ static bool diskFailed = false;
 
 bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
 	if (version < REPLAY_VERSION_MIN || version > REPLAY_VERSION_CURRENT) {
-		ERROR_LOG(SYSTEM, "Bad replay data version: %d", version);
+		ERROR_LOG(Log::System, "Bad replay data version: %d", version);
 		return false;
 	}
 	if (data.size() == 0) {
-		ERROR_LOG(SYSTEM, "Empty replay data");
+		ERROR_LOG(Log::System, "Empty replay data");
 		return false;
 	}
 
@@ -152,7 +152,7 @@ bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
 	replayItems.reserve(data.size() / sizeof(ReplayItemHeader));
 	for (size_t i = 0, sz = data.size(); i < sz; ) {
 		if (i + sizeof(ReplayItemHeader) > sz) {
-			ERROR_LOG(SYSTEM, "Truncated replay data at %lld during item header", (long long)i);
+			ERROR_LOG(Log::System, "Truncated replay data at %lld during item header", (long long)i);
 			break;
 		}
 		ReplayItemHeader *info = (ReplayItemHeader *)&data[i];
@@ -161,7 +161,7 @@ bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
 
 		if ((int)item.info.action & (int)ReplayAction::MASK_SIDEDATA) {
 			if (i + item.info.size > sz) {
-				ERROR_LOG(SYSTEM, "Truncated replay data at %lld during side data", (long long)i);
+				ERROR_LOG(Log::System, "Truncated replay data at %lld during side data", (long long)i);
 				break;
 			}
 			if (item.info.size != 0) {
@@ -175,7 +175,7 @@ bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
 	}
 
 	replayState = ReplayState::EXECUTE;
-	INFO_LOG(SYSTEM, "Executing replay with %lld items", (long long)replayItems.size());
+	INFO_LOG(Log::System, "Executing replay with %lld items", (long long)replayItems.size());
 	return true;
 }
 
@@ -184,7 +184,7 @@ bool ReplayExecuteFile(const Path &filename) {
 
 	FILE *fp = File::OpenCFile(filename, "rb");
 	if (!fp) {
-		DEBUG_LOG(SYSTEM, "Failed to open replay file: %s", filename.c_str());
+		DEBUG_LOG(Log::System, "Failed to open replay file: %s", filename.c_str());
 		return false;
 	}
 
@@ -194,27 +194,27 @@ bool ReplayExecuteFile(const Path &filename) {
 		// TODO: Maybe stream instead.
 		size_t sz = File::GetFileSize(fp);
 		if (sz <= sizeof(ReplayFileHeader)) {
-			ERROR_LOG(SYSTEM, "Empty replay data");
+			ERROR_LOG(Log::System, "Empty replay data");
 			return false;
 		}
 
 		ReplayFileHeader fh;
 		if (fread(&fh, sizeof(fh), 1, fp) != 1) {
-			ERROR_LOG(SYSTEM, "Could not read replay file header");
+			ERROR_LOG(Log::System, "Could not read replay file header");
 			return false;
 		}
 		sz -= sizeof(fh);
 
 		if (memcmp(fh.magic, REPLAY_MAGIC, sizeof(fh.magic)) != 0) {
-			ERROR_LOG(SYSTEM, "Replay header corrupt");
+			ERROR_LOG(Log::System, "Replay header corrupt");
 			return false;
 		}
 
 		if (fh.version < REPLAY_VERSION_MIN) {
-			ERROR_LOG(SYSTEM, "Replay version %d unsupported", fh.version);
+			ERROR_LOG(Log::System, "Replay version %d unsupported", fh.version);
 			return false;
 		} else if (fh.version > REPLAY_VERSION_CURRENT) {
-			WARN_LOG(SYSTEM, "Replay version %d scary and futuristic, trying anyway", fh.version);
+			WARN_LOG(Log::System, "Replay version %d scary and futuristic, trying anyway", fh.version);
 		}
 
 		RtcSetBaseTime((int32_t)fh.rtcBaseSeconds, 0);
@@ -223,7 +223,7 @@ bool ReplayExecuteFile(const Path &filename) {
 		data.resize(sz);
 
 		if (fread(&data[0], sz, 1, fp) != 1) {
-			ERROR_LOG(SYSTEM, "Could not read replay data");
+			ERROR_LOG(Log::System, "Could not read replay data");
 			return false;
 		}
 
@@ -286,7 +286,7 @@ void ReplayFlushBlob(std::vector<uint8_t> *data) {
 bool ReplayFlushFile(const Path &filename) {
 	FILE *fp = File::OpenCFile(filename, replaySaveWroteHeader ? "ab" : "wb");
 	if (!fp) {
-		ERROR_LOG(SYSTEM, "Failed to open replay file: %s", filename.c_str());
+		ERROR_LOG(Log::System, "Failed to open replay file: %s", filename.c_str());
 		return false;
 	}
 
@@ -311,9 +311,9 @@ bool ReplayFlushFile(const Path &filename) {
 	fclose(fp);
 
 	if (success) {
-		DEBUG_LOG(SYSTEM, "Flushed %lld replay items", (long long)c);
+		DEBUG_LOG(Log::System, "Flushed %lld replay items", (long long)c);
 	} else {
-		ERROR_LOG(SYSTEM, "Could not write %lld replay items (disk full?)", (long long)c);
+		ERROR_LOG(Log::System, "Could not write %lld replay items (disk full?)", (long long)c);
 	}
 	return success;
 }

@@ -142,7 +142,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	IniFile ini;
 	Path iniPath;
 
-//	INFO_LOG(SYSTEM, "Loading lang ini %s", iniPath.c_str());
+//	INFO_LOG(Log::System, "Loading lang ini %s", iniPath.c_str());
 	if (!overridePath.empty()) {
 		iniPath = overridePath / (languageID + ".ini");
 	} else {
@@ -174,7 +174,7 @@ void I18NRepo::LogMissingKeys() const {
 	for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
 		auto &cat = cats_[i];
 		for (auto &key : cat->Missed()) {
-			INFO_LOG(SYSTEM, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
+			INFO_LOG(Log::System, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
 		}
 	}
 }

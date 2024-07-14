@@ -432,7 +432,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 	});
 
 	renderManager_->SetSwapIntervalFunction([&](int interval) {
-		INFO_LOG(G3D, "SDL SwapInterval: %d", interval);
+		INFO_LOG(Log::G3D, "SDL SwapInterval: %d", interval);
 		SDL_GL_SetSwapInterval(interval);
 	});
 	window_ = window;
