@@ -106,10 +106,10 @@ static int height;
 static bool wasPaused;
 static bool flippedThisFrame;
 
-static int framerate = g_Config.iDisplayRefreshRate;
+static int framerate;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static double timePerVblank = 1.001 / framerate;
+static double timePerVblank;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -131,7 +131,7 @@ const double vblankMs = 0.7315;
 // These are guesses based on tests.
 const double vsyncStartMs = 0.5925;
 const double vsyncEndMs = 0.7265;
-double frameMs = 1001.0 / (double)framerate;
+double frameMs;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -172,6 +172,7 @@ static void ScheduleLagSync(int over = 0) {
 }
 
 void __DisplayInit() {
+	__DisplaySetFramerate();
 	DisplayHWInit();
 	hasSetMode = false;
 	mode = 0;
