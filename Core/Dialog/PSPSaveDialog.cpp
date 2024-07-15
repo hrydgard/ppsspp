@@ -305,6 +305,7 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	INFO_LOG(Log::sceUtility,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
 	INFO_LOG(Log::sceUtility,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
+	INFO_LOG(Log::sceUtility, "Return value: %d", retval);
 	return retval;
 }
 

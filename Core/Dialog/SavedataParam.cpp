@@ -646,6 +646,7 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 
 	// Load sfo
 	if (!LoadSFO(param, dirPath)) {
+		WARN_LOG(Log::sceUtility, "Load: Failed to load SFO from %s", dirPath.c_str());
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN : SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN;
 	}
 
@@ -702,9 +703,9 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	bool saveDone = false;
 	u32 loadedSize = 0;
 	if (isCrypted) {
-		if (DetermineCryptMode(param) > 1 && !HasKey(param))
+		if (DetermineCryptMode(param) > 1 && !HasKey(param)) {
 			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
-
+		}
 		u8 hash[16];
 		bool hasExpectedHash = GetExpectedHash(dirPath, filename, hash);
 		loadedSize = LoadCryptedSave(param, param->dataBuf, saveData, saveSize, prevCryptMode, hasExpectedHash ? hash : nullptr, saveDone);
@@ -907,6 +908,9 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 		fileData->size = readSize;
 		const std::string tag = "SavedataLoad/" + filePath;
 		NotifyMemInfo(MemBlockFlags::WRITE, fileData->buf.ptr, fileData->size, tag.c_str(), tag.size());
+		INFO_LOG(Log::sceUtility, "Loaded subfile %s (size: %d bytes) into %08x", filePath.c_str(), fileData->size, fileData->buf.ptr);
+	} else {
+		WARN_LOG(Log::sceUtility, "Failed to load subfile %s into %08x", filePath.c_str(), fileData->buf.ptr);
 	}
 }
 
@@ -1105,6 +1109,10 @@ std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 	return std::string(text);
 }
 
+inline std::string FmtPspTime(const ScePspDateTime &dt) {
+	return StringFromFormat("%04d-%02d-%02d %02d:%02d:%02d.%06d", dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond);
+}
+
 int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 {
 	if (!param) {
@@ -1192,9 +1200,13 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 		// TODO: Maybe these are rounded to the nearest 32KB?  Or something?
 		param->utilityData->usedSpace32KB = total_size / 0x400;
-		spaceTxt = SavedataParam::GetSpaceText(total_size, true);
+		std::string spaceTxt32 = SavedataParam::GetSpaceText(total_size, true);
 		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
-		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
+		strncpy(param->utilityData->usedSpace32Str, spaceTxt32.c_str(), sizeof(param->utilityData->usedSpace32Str));
+
+		INFO_LOG(Log::sceUtility, "GetSize: usedSpaceKB: %d (str: %s) (clusters: %d)", param->utilityData->usedSpaceKB, spaceTxt.c_str(), param->utilityData->usedClusters);
+		INFO_LOG(Log::sceUtility, "GetSize: usedSpace32KB: %d (str32: %s)", param->utilityData->usedSpace32KB, spaceTxt32.c_str());
+
 		NotifyMemInfo(MemBlockFlags::WRITE, param->utilityData.ptr, sizeof(SceUtilitySavedataUsedDataInfo), "SavedataGetSizes");
 	}
 	return ret;
@@ -1208,18 +1220,16 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 	if (param->idList.IsValid())
 	{
-		u32 maxFile = param->idList->maxCount;
+		u32 maxFileCount = param->idList->maxCount;
 
 		std::vector<PSPFileInfo> validDir;
 		std::vector<PSPFileInfo> sfoFiles;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
 		std::string searchString = GetGameName(param) + GetSaveName(param);
-		for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
-		{
+		for (size_t i = 0; i < allDir.size() && validDir.size() < maxFileCount; i++) {
 			std::string dirName = allDir[i].name;
-			if (PSPMatch(dirName, searchString))
-			{
+			if (PSPMatch(dirName, searchString)) {
 				validDir.push_back(allDir[i]);
 			}
 		}
@@ -1252,7 +1262,14 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		}
 		// Save num of folder found
 		param->idList->resultCount = (u32)validDir.size();
-
+		// Log out the listing.
+		if (GenericLogEnabled(LogLevel::LINFO, Log::sceUtility)) {
+			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
+			for (int i = 0; i < validDir.size(); i++) {
+				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+					entries[i].name, entries[i].st_mode, FmtPspTime(entries[i].st_ctime).c_str(), FmtPspTime(entries[i].st_atime).c_str(), FmtPspTime(entries[i].st_mtime).c_str());
+			}
+		}
 		NotifyMemInfo(MemBlockFlags::WRITE, param->idList.ptr, sizeof(SceUtilitySavedataIdListInfo), "SavedataGetList");
 		NotifyMemInfo(MemBlockFlags::WRITE, param->idList->entries.ptr, (uint32_t)validDir.size() * sizeof(SceUtilitySavedataIdListEntry), "SavedataGetList");
 	}
@@ -1366,6 +1383,15 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		entry->name[15] = '\0';
 	}
 
+	if (GenericLogEnabled(LogLevel::LINFO, Log::sceUtility)) {
+		INFO_LOG(Log::sceUtility, "FILES: %d files listed", fileList->resultNumNormalEntries);
+		for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {
+			const SceUtilitySavedataFileListEntry &info = fileList->systemEntries[i];
+			INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+				info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
+		}
+	}
+
 	NotifyMemInfo(MemBlockFlags::WRITE, fileList.ptr, sizeof(SceUtilitySavedataFileListInfo), "SavedataGetFilesList");
 	if (fileList->resultNumSystemEntries != 0)
 		NotifyMemInfo(MemBlockFlags::WRITE, fileList->systemEntries.ptr, fileList->resultNumSystemEntries * sizeof(SceUtilitySavedataFileListEntry), "SavedataGetFilesList");
@@ -1377,18 +1403,15 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	return 0;
 }
 
-bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
-{
-	if (!param)
-	{
+bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
+	if (!param) {
 		return false;
 	}
 
 	const std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
 	bool exists = false;
 
-	if (param->sizeInfo.IsValid())
-	{
+	if (param->sizeInfo.IsValid()) {
 		auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 		const u64 freeBytes = MemoryStick_FreeSpace();
 
@@ -1420,26 +1443,29 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 			param->sizeInfo->overwriteKB = 0;
 
 			spaceTxt = GetSpaceText(0, true);
-			truncate_cpy(param->sizeInfo->neededString, spaceTxt.c_str());
-			truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+			truncate_cpy(param->sizeInfo->neededString, spaceTxt);
+			truncate_cpy(param->sizeInfo->overwriteString, spaceTxt);
 		} else {
 			// Bytes needed to save additional data.
 			s64 neededBytes = writeBytes - freeBytes;
 			param->sizeInfo->neededKB = (neededBytes + 1023) / 1024;
 			spaceTxt = GetSpaceText(neededBytes, true);
-			truncate_cpy(param->sizeInfo->neededString, spaceTxt.c_str());
+			truncate_cpy(param->sizeInfo->neededString, spaceTxt);
 
 			if (writeBytes - overwriteBytes < (s64)freeBytes) {
 				param->sizeInfo->overwriteKB = 0;
 				spaceTxt = GetSpaceText(0, true);
-				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt);
 			} else {
 				s64 neededOverwriteBytes = writeBytes - freeBytes - overwriteBytes;
 				param->sizeInfo->overwriteKB = (neededOverwriteBytes + 1023) / 1024;
 				spaceTxt = GetSpaceText(neededOverwriteBytes, true);
-				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt);
 			}
 		}
+
+		INFO_LOG(Log::sceUtility, "SectorSize: %d FreeSectors: %d FreeKB: %d neededKb: %d overwriteKb: %d",
+			param->sizeInfo->sectorSize, param->sizeInfo->freeSectors, param->sizeInfo->freeKB, param->sizeInfo->neededKB, param->sizeInfo->overwriteKB);
 
 		NotifyMemInfo(MemBlockFlags::WRITE, param->sizeInfo.ptr, sizeof(PspUtilitySavedataSizeInfo), "SavedataGetSize");
 	}
@@ -1638,7 +1664,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, const
 		SetStringFromSFO(*sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
 	} else {
 		saveInfo.broken = true;
-		truncate_cpy(saveInfo.title, saveDir.c_str());
+		truncate_cpy(saveInfo.title, saveDir);
 	}
 }
 

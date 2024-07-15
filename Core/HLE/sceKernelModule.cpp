@@ -2529,8 +2529,7 @@ static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 
 static u32 sceKernelGetModuleId()
 {
-	INFO_LOG(Log::sceModule,"sceKernelGetModuleId()");
-	return __KernelGetCurThreadModuleId();
+	return hleLogSuccessI(Log::sceModule, __KernelGetCurThreadModuleId());
 }
 
 u32 sceKernelFindModuleByUID(u32 uid)
@@ -2541,8 +2540,7 @@ u32 sceKernelFindModuleByUID(u32 uid)
 		ERROR_LOG(Log::sceModule, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
 		return 0;
 	}
-	INFO_LOG(Log::sceModule, "%d = sceKernelFindModuleByUID(%d)", module->modulePtr.ptr, uid);
-	return module->modulePtr.ptr;
+	return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
 }
 
 u32 sceKernelFindModuleByName(const char *name)
