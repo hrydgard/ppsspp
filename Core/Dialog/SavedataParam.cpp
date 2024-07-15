@@ -467,13 +467,20 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (param->dataBuf.IsValid() && g_Config.bEncryptSave && secureMode)
 	{
 		cryptedSize = param->dataSize;
-		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
+		if (cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize) {
+			ERROR_LOG(Log::sceUtility, "Bad cryptedSize %d", cryptedSize);
 			cryptedSize = param->dataBufSize; // fallback, should never use this
+		}
 		u8 *data_ = param->dataBuf;
 
 		int aligned_len = align16(cryptedSize);
-		cryptedData = new u8[aligned_len + 0x10]{};
+		if (aligned_len != cryptedSize) {
+			ERROR_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d)", cryptedSize, cryptedSize & 15);
+		}
+
+		cryptedData = new u8[aligned_len + 0x10];
 		memcpy(cryptedData, data_, cryptedSize);
+		memset(cryptedData + cryptedSize, 0, 0x10 + (aligned_len - cryptedSize));
 
 		int decryptMode = DetermineCryptMode(param);
 		bool hasKey = decryptMode > 1;
@@ -795,17 +802,17 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 		hasKey = decryptMode > 1;
 	}
 
-	int err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
+	int err = DecryptData(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	// Perhaps the file had the wrong mode....
 	if (err != 0 && detectedMode != decryptMode) {
 		resetData(detectedMode);
-		err = DecryptSave(detectedMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
+		err = DecryptData(detectedMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	}
 	// TODO: Should return an error, but let's just try with a bad hash.
 	if (err != 0 && expectedHash != nullptr) {
 		WARN_LOG(Log::sceUtility, "Incorrect hash on save data, likely corrupt");
 		resetData(decryptMode);
-		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
+		err = DecryptData(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
 	}
 
 	u32 sz = 0;
@@ -914,6 +921,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 	}
 }
 
+// Note: The work is done in-place, hence the memmove etc.
 int SavedataParam::EncryptData(unsigned int mode,
 		 unsigned char *data,
 		 int *dataLen,
@@ -921,16 +929,16 @@ int SavedataParam::EncryptData(unsigned int mode,
 		 unsigned char *hash,
 		 unsigned char *cryptkey)
 {
-	pspChnnlsvContext1 ctx1;
-	pspChnnlsvContext2 ctx2;
+	pspChnnlsvContext1 ctx1{};
+	pspChnnlsvContext2 ctx2{};
 
 	/* Make room for the IV in front of the data. */
 	memmove(data + 0x10, data, *alignedLen);
 
 	/* Set up buffers */
-	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
-	memset(&ctx2, 0, sizeof(pspChnnlsvContext2));
 	memset(hash, 0, 0x10);
+
+	// Zero out the IV before we begin.
 	memset(data, 0, 0x10);
 
 	/* Build the 0x10-byte IV and setup encryption */
@@ -966,19 +974,16 @@ int SavedataParam::EncryptData(unsigned int mode,
 	return 0;
 }
 
-int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
-	pspChnnlsvContext1 ctx1;
-	pspChnnlsvContext2 ctx2;
+// Note: The work is done in-place, hence the memmove etc.
+int SavedataParam::DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
+	pspChnnlsvContext1 ctx1{};
+	pspChnnlsvContext2 ctx2{};
 
 	/* Need a 16-byte IV plus some data */
 	if (*alignedLen <= 0x10)
 		return -1;
 	*dataLen -= 0x10;
 	*alignedLen -= 0x10;
-
-	/* Set up buffers */
-	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
-	memset(&ctx2, 0, sizeof(pspChnnlsvContext2));
 
 	/* Perform the magic */
 	if (sceSdSetIndex_(ctx1, mode) < 0)
@@ -1013,7 +1018,7 @@ int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *data
 int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
 {
 	int alignedLen = align16(sfoSize);
-	memset(sfoData+sfoDataParamsOffset, 0, 128);
+	memset(sfoData + sfoDataParamsOffset, 0, 128);
 	u8 filehash[16];
 	int ret = 0;
 
@@ -1032,8 +1037,8 @@ int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset,
 	}
 
 	// Copy 11D0 hash to param.sfo and set flag indicating it's there
-	memcpy(sfoData+sfoDataParamsOffset + 0x20, filehash, 0x10);
-	*(sfoData+sfoDataParamsOffset) |= 0x01;
+	memcpy(sfoData + sfoDataParamsOffset + 0x20, filehash, 0x10);
+	*(sfoData + sfoDataParamsOffset) |= 0x01;
 
 	// If new encryption mode, compute and insert the 1220 hash.
 	if (encryptmode & 6)
