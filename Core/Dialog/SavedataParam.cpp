@@ -475,12 +475,13 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 		int aligned_len = align16(cryptedSize);
 		if (aligned_len != cryptedSize) {
-			ERROR_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d)", cryptedSize, cryptedSize & 15);
+			WARN_LOG(Log::sceUtility, "cryptedSize unaligned: %d (%d)", cryptedSize, cryptedSize & 15);
 		}
 
-		cryptedData = new u8[aligned_len + 0x10];
+		cryptedData = new u8[aligned_len + 0x10]();
 		memcpy(cryptedData, data_, cryptedSize);
-		memset(cryptedData + cryptedSize, 0, 0x10 + (aligned_len - cryptedSize));
+		// EncryptData will do a memmove to make room for the key in front.
+		// Technically we could just copy it into place here to avoid that.
 
 		int decryptMode = DetermineCryptMode(param);
 		bool hasKey = decryptMode > 1;
@@ -931,6 +932,8 @@ int SavedataParam::EncryptData(unsigned int mode,
 {
 	pspChnnlsvContext1 ctx1{};
 	pspChnnlsvContext2 ctx2{};
+
+	INFO_LOG(Log::sceUtility, "EncryptData(mode=%d, *dataLen=%d, *alignedLen=%d)", mode, *dataLen, *alignedLen);
 
 	/* Make room for the IV in front of the data. */
 	memmove(data + 0x10, data, *alignedLen);

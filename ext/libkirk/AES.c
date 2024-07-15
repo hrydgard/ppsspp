@@ -52,8 +52,8 @@ Te0[x] = S [x].[02, 01, 01, 03];
 Te1[x] = S [x].[03, 02, 01, 01];
 Te2[x] = S [x].[01, 03, 02, 01];
 Te3[x] = S [x].[01, 01, 03, 02];
-Te4[x] = S [x].[01, 01, 01, 01];
 
+Te4[x] = S [x].[01, 01, 01, 01];
 Td0[x] = Si[x].[0e, 09, 0d, 0b];
 Td1[x] = Si[x].[0b, 0e, 09, 0d];
 Td2[x] = Si[x].[0d, 0b, 0e, 09];
@@ -1313,7 +1313,7 @@ void AES_cbc_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size)
 	{
 		//step 1: copy block to dst
 		memcpy(dst, src, 16);
-		//step 2: XOR with previous block
+		//step 2: XOR with previous block (if not the first block)
 		if(i) xor_128(dst, block_buff, dst);
 		//step 3: encrypt the block -> it land in block buffer
 		AES_encrypt(ctx, dst, block_buff);
