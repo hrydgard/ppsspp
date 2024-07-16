@@ -225,6 +225,19 @@ void __CtrlSetAnalogXY(int stick, float x, float y)
 	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
 }
 
+// not making XY to use these due to mutex guard usage
+void __CtrlSetAnalogX(int stick, float x) {
+	u8 scaledX = clamp_u8((int)ceilf(x * 127.5f + 127.5f));
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = scaledX;
+}
+
+void __CtrlSetAnalogY(int stick, float y) {
+	u8 scaledY = clamp_u8((int)ceilf(-y * 127.5f + 127.5f));
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
+}
+
 void __CtrlSetRapidFire(bool state, int interval)
 {
 	emuRapidFire = state;
