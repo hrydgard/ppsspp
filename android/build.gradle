@@ -1,5 +1,5 @@
 plugins {
-	id 'com.gladed.androidgitversion' version '0.4.5'
+	id 'com.gladed.androidgitversion' version '0.4.14'
 }
 apply plugin: 'com.android.application'
 
