@@ -357,7 +357,7 @@ public:
 
 	bool WouldHaveMultiSaveName(const SceUtilitySavedataParam *param);
 
-	void ClearCaches();
+	void ClearSFOCache();
 
 	void DoState(PointerWrap &p);
 

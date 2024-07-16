@@ -114,7 +114,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 
 	param.SetIgnoreTextures(IsNotVisibleAction((SceUtilitySavedataType)(u32)request.mode));
-	param.ClearCaches();
+	param.ClearSFOCache();
 	int retval = param.SetPspParam(&request);
 
 	const u32 mode = (u32)param.GetPspParam()->mode;
@@ -269,7 +269,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 	}
 
-	param.ClearCaches();
+	param.ClearSFOCache();
 	InitCommon();
 	UpdateButtons();
 	StartFade(true);
@@ -651,7 +651,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		param.SetPspParam(&request);
 	}
 
-	param.ClearCaches();
+	param.ClearSFOCache();
 	UpdateButtons();
 	UpdateFade(animSpeed);
 
@@ -1060,13 +1060,13 @@ int PSPSaveDialog::Update(int animSpeed)
 
 	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size, "SaveDialogParam");
-	param.ClearCaches();
+	param.ClearSFOCache();
 	
 	return 0;
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
-	param.ClearCaches();
+	param.ClearSFOCache();
 	auto &result = param.GetPspParam()->common.result;
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
@@ -1105,11 +1105,11 @@ void PSPSaveDialog::ExecuteIOAction() {
 	}
 
 	ioThreadStatus = SAVEIO_DONE;
-	param.ClearCaches();
+	param.ClearSFOCache();
 }
 
 void PSPSaveDialog::ExecuteNotVisibleIOAction() {
-	param.ClearCaches();
+	param.ClearSFOCache();
 	auto &result = param.GetPspParam()->common.result;
 
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode) {
@@ -1191,7 +1191,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	}
 
-	param.ClearCaches();
+	param.ClearSFOCache();
 }
 
 void PSPSaveDialog::JoinIOThread() {
@@ -1231,7 +1231,7 @@ int PSPSaveDialog::Shutdown(bool force) {
 		ChangeStatusShutdown(SAVEDATA_SHUTDOWN_DELAY_US);
 	}
 	param.SetPspParam(0);
-	param.ClearCaches();
+	param.ClearSFOCache();
 
 	return 0;
 }

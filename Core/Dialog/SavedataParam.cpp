@@ -345,7 +345,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 		return false;
 	}
 
-	ClearCaches();
+	ClearSFOCache();
 	pspFileSystem.RmDir(dirPath);
 	return true;
 }
@@ -381,7 +381,7 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 		return 0;
 	}
 
-	ClearCaches();
+	ClearSFOCache();
 	pspFileSystem.RemoveFile(filePath);
 
 	// Update PARAM.SFO to remove the file, if it was in the list.
@@ -411,7 +411,7 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 			size_t sfoSize;
 			sfoFile->WriteSFO(&sfoData, &sfoSize);
 
-			ClearCaches();
+			ClearSFOCache();
 			WritePSPFile(sfoPath, sfoData, (SceSize)sfoSize);
 			delete[] sfoData;
 		}
@@ -558,7 +558,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}
 
-	ClearCaches();
+	ClearSFOCache();
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
 	sfoData = nullptr;
@@ -1942,7 +1942,7 @@ void SavedataParam::DoState(PointerWrap &p) {
 	}
 }
 
-void SavedataParam::ClearCaches() {
+void SavedataParam::ClearSFOCache() {
 	std::lock_guard<std::mutex> guard(cacheLock_);
 	sfoCache_.clear();
 }
@@ -1951,7 +1951,7 @@ std::shared_ptr<ParamSFOData> SavedataParam::LoadCachedSFO(const std::string &pa
 	std::lock_guard<std::mutex> guard(cacheLock_);
 	if (sfoCache_.find(path) == sfoCache_.end()) {
 		std::vector<u8> data;
-		if (pspFileSystem.ReadEntireFile(path, data) < 0) {
+		if (pspFileSystem.ReadEntireFile(path, data, true) < 0) {
 			// Mark as not existing for later.
 			sfoCache_[path].reset();
 		} else {
