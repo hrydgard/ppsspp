@@ -866,7 +866,6 @@ static u32 sceUtilitySetSystemParamInt(u32 id, u32 value)
 
 static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
-	DEBUG_LOG(Log::sceUtility,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
 	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
@@ -917,8 +916,8 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
 	}
 
+	INFO_LOG(Log::sceUtility, "sceUtilityGetSystemParamInt(%i, %08x <- %08x)", id, destaddr, param);
 	Memory::Write_U32(param, destaddr);
-
 	return 0;
 }
 
