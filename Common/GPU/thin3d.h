@@ -612,7 +612,7 @@ struct DeviceCaps {
 	bool setMaxFrameLatencySupported;
 	bool textureSwizzleSupported;
 	bool requiresHalfPixelOffset;
-
+	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
 
 	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.

@@ -26,7 +26,7 @@ class TextureCacheCommon;
 
 enum SoftwareTransformAction {
 	SW_NOT_READY,
-	SW_DRAW_PRIMITIVES,
+	SW_DRAW_INDEXED,
 	SW_CLEAR,
 };
 
@@ -44,8 +44,6 @@ struct SoftwareTransformResult {
 
 	TransformedVertex *drawBuffer;
 	int drawNumTrans;
-	bool drawIndexed;
-
 	bool pixelMapped;
 };
 
@@ -57,10 +55,14 @@ struct SoftwareTransformParams {
 	TextureCacheCommon *texCache;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
-	bool provokeFlatFirst;
 	bool flippedY;
 	bool usesHalfZ;
 };
+
+// Converts an index buffer to make the provoking vertex the last.
+// In-place. So, better not be doing this on GPU memory!
+// TODO: We could do this already during index decode.
+void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
 class SoftwareTransform {
 public:

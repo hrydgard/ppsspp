@@ -86,13 +86,13 @@ void IndexGenerator::AddList(int numVerts, int indexOffset, bool clockwise) {
 
 alignas(16) static const u16 offsets_clockwise[24] = {
 	0, (u16)(0 + 1), (u16)(0 + 2),
-	1, (u16)(1 + 2), (u16)(1 + 1),
+	(u16)(1 + 1), 1, (u16)(1 + 2),
 	2, (u16)(2 + 1), (u16)(2 + 2),
-	3, (u16)(3 + 2), (u16)(3 + 1),
+	(u16)(3 + 1), 3, (u16)(3 + 2),
 	4, (u16)(4 + 1), (u16)(4 + 2),
-	5, (u16)(5 + 2), (u16)(5 + 1),
+	(u16)(5 + 1), 5, (u16)(5 + 2),
 	6, (u16)(6 + 1), (u16)(6 + 2),
-	7, (u16)(7 + 2), (u16)(7 + 1),
+	(u16)(7 + 1), 7, (u16)(7 + 2),
 };
 
 alignas(16) static const uint16_t offsets_counter_clockwise[24] = {

@@ -786,6 +786,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.presentMaxInterval = 1;
 	caps_.presentModesSupported = PresentMode::FIFO;
 
+	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately (and no way to change it).
+
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
 	}

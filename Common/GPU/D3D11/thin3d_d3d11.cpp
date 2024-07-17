@@ -281,6 +281,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
 
+	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).
+
 	caps_.presentInstantModeChange = true;
 	caps_.presentMaxInterval = 4;
 	caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
