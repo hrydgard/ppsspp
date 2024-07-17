@@ -1313,7 +1313,7 @@ void AES_cbc_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst, int size)
 	{
 		//step 1: copy block to dst
 		memcpy(dst, src, 16);
-		//step 2: XOR with previous block
+		//step 2: XOR with previous block (if not the first block)
 		if(i) xor_128(dst, block_buff, dst);
 		//step 3: encrypt the block -> it land in block buffer
 		AES_encrypt(ctx, dst, block_buff);

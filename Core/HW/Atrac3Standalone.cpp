@@ -72,7 +72,7 @@ public:
 			return false;
 		}
 		if (inbytes != blockAlign_ && blockAlign_ != 0) {
-			WARN_LOG(Log::ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
+			WARN_LOG(Log::ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d). %s", inbytes, blockAlign_, at3pCtx_ ? "Atrac3+" : "Atrac3");
 		}
 		blockAlign_ = inbytes;
 		// We just call the decode function directly without going through the whole packet machinery.
