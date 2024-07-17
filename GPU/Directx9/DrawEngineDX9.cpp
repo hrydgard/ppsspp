@@ -334,7 +334,7 @@ void DrawEngineDX9::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
-		params.provokeFlatFirst = true;
+		params.provokingVertexLast = false;
 		params.flippedY = false;
 		params.usesHalfZ = true;
 

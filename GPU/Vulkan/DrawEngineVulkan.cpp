@@ -407,9 +407,9 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowSeparateAlphaClear = false;
 		if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
 			// We can get the OpenGL behavior, no need for workarounds.
-			params.provokeFlatFirst = false;
+			params.provokingVertexLast = true;
 		} else {
-			params.provokeFlatFirst = true;
+			params.provokingVertexLast = false;
 		}
 		params.flippedY = true;
 		params.usesHalfZ = true;

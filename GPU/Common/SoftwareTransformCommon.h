@@ -57,9 +57,9 @@ struct SoftwareTransformParams {
 	TextureCacheCommon *texCache;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
-	bool provokeFlatFirst;
 	bool flippedY;
 	bool usesHalfZ;
+	bool provokingVertexLast;
 };
 
 class SoftwareTransform {

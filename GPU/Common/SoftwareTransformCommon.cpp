@@ -203,7 +203,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	}
 
 	int provokeIndOffset = 0;
-	if (params_.provokeFlatFirst) {
+	if (!params_.provokingVertexLast) {
 		provokeIndOffset = ColorIndexOffset(prim, gstate.getShadeMode(), gstate.isModeClear());
 	}
 

@@ -382,7 +382,7 @@ void DrawEngineD3D11::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
-		params.provokeFlatFirst = true;
+		params.provokingVertexLast = false;
 		params.flippedY = false;
 		params.usesHalfZ = true;
 

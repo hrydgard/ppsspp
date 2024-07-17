@@ -356,7 +356,7 @@ void DrawEngineGLES::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
-		params.provokeFlatFirst = false;
+		params.provokingVertexLast = true;
 		params.flippedY = framebufferManager_->UseBufferedRendering();
 		params.usesHalfZ = false;
 
