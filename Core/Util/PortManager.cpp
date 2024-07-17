@@ -161,9 +161,21 @@ bool PortManager::Initialize(const unsigned int timeout) {
 
 		// Get LAN IP address that connects to the router
 		char lanaddr[64] = "unset";
-		int status = UPNP_GetValidIGD(devlist, urls, datas, lanaddr, sizeof(lanaddr), nullptr, 0); //possible "status" values, 0 = NO IGD found, 1 = A valid connected IGD has been found, 2 = A valid IGD has been found but it reported as not connected, 3 = an UPnP device has been found but was not recognized as an IGD
+
+		// possible "status" values:
+		// -1 = Internal error
+		//  0 = NO IGD found
+		//  1 = A valid connected IGD has been found
+		//  2 = A valid connected IGD has been found but its IP address is reserved (non routable)
+		//  3 = A valid IGD has been found but it reported as not connected
+		//  4 = an UPnP device has been found but was not recognized as an IGD
+#if (MINIUPNPC_API_VERSION >= 18)
+		int status = UPNP_GetValidIGD(devlist, urls, datas, lanaddr, sizeof(lanaddr), nullptr, 0);
+#else
+		int status = UPNP_GetValidIGD(devlist, urls, datas, lanaddr, sizeof(lanaddr));
+#endif
 		m_lanip = std::string(lanaddr);
-		INFO_LOG(Log::sceNet, "PortManager - Detected LAN IP: %s", m_lanip.c_str());
+		INFO_LOG(Log::sceNet, "PortManager - Detected LAN IP: %s (status=%d)", m_lanip.c_str(), status);
 
 		// Additional Info
 		char connectionType[64] = "";
