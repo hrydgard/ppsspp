@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Net/URL.h"
 #include "Common/Log.h"
@@ -132,21 +133,112 @@ void ConfigSetting::Set(Section *section) const {
 	}
 }
 
-void ConfigSetting::RestoreToDefault() const {
+bool ConfigSetting::RestoreToDefault(bool log) const {
 	switch (type_) {
-	case TYPE_BOOL:   *ptr_.b = cb_.b ? cb_.b() : default_.b; break;
-	case TYPE_INT:    *ptr_.i = cb_.i ? cb_.i() : default_.i; break;
-	case TYPE_UINT32: *ptr_.u = cb_.u ? cb_.u() : default_.u; break;
-	case TYPE_UINT64: *ptr_.lu = cb_.lu ? cb_.lu() : default_.lu; break;
-	case TYPE_FLOAT:  *ptr_.f = cb_.f ? cb_.f() : default_.f; break;
-	case TYPE_STRING: *ptr_.s = cb_.s ? cb_.s() : default_.s; break;
-	case TYPE_STRING_VECTOR: *ptr_.v = *default_.v; break;
-	case TYPE_TOUCH_POS: *ptr_.touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos; break;
-	case TYPE_PATH: *ptr_.p = Path(cb_.p ? cb_.p() : default_.p); break;
-	case TYPE_CUSTOM_BUTTON: *ptr_.customButton = cb_.customButton ? cb_.customButton() : default_.customButton; break;
+	case TYPE_BOOL:
+	{
+		const bool origValue = *ptr_.b;
+		*ptr_.b = cb_.b ? cb_.b() : default_.b;
+		if (*ptr_.b != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from %s to default %s", iniKey_,
+					origValue ? "true" : "false",
+					*ptr_.b ? "true" : "false");
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_INT:
+	{
+		const int origValue = *ptr_.i;
+		*ptr_.i = cb_.i ? cb_.i() : default_.i;
+		if (*ptr_.i != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from %d to default %d", iniKey_,
+					origValue, *ptr_.i);
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_UINT32:
+	{
+		const u32 origValue = *ptr_.u;
+		*ptr_.u = cb_.u ? cb_.u() : default_.u;
+		if (*ptr_.u != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from %u to default %u", iniKey_,
+					origValue, *ptr_.u);
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_UINT64:
+	{
+		const u64 origValue = *ptr_.lu;
+		*ptr_.lu = cb_.lu ? cb_.lu() : default_.lu;
+		if (*ptr_.lu != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from %llu to default %llu", iniKey_,
+					(unsigned long long)origValue, (unsigned long long)(*ptr_.lu));
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_FLOAT:
+	{
+		const float origValue = *ptr_.f;
+		*ptr_.f = cb_.f ? cb_.f() : default_.f;
+		if (*ptr_.f != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from %f to default %f", iniKey_,
+					origValue, *ptr_.f);
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_STRING:
+	{
+		const std::string origValue = *ptr_.s;
+		*ptr_.s = cb_.s ? cb_.s() : default_.s;
+		if (*ptr_.s != origValue) {
+			if (log) {
+				INFO_LOG(Log::System, "Restored %s from \"%s\" to default \"%s\"", iniKey_,
+					origValue.c_str(), ptr_.s->c_str());
+			}
+			return true;
+		}
+		break;
+	}
+	case TYPE_STRING_VECTOR:
+	{
+		*ptr_.v = *default_.v;
+		break;
+	}
+	case TYPE_TOUCH_POS:
+	{
+		*ptr_.touchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
+		break;
+	}
+	case TYPE_PATH:
+	{
+		*ptr_.p = Path(cb_.p ? cb_.p() : default_.p);
+		break;
+	}
+	case TYPE_CUSTOM_BUTTON:
+	{
+		*ptr_.customButton = cb_.customButton ? cb_.customButton() : default_.customButton;
+		break;
+	}
 	default:
 		_dbg_assert_msg_(false, "RestoreToDefault(%s): Unexpected ini setting type: %d", iniKey_, (int)type_);
+		break;
 	}
+	return false;
 }
 
 void ConfigSetting::ReportSetting(UrlEncoder &data, const std::string &prefix) const {

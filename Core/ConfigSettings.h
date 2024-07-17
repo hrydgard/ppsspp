@@ -220,7 +220,8 @@ struct ConfigSetting {
 	// Should actually be called WriteToIni or something.
 	void Set(Section *section) const;
 
-	void RestoreToDefault() const;
+	// If log is true, logs if the setting changed.
+	bool RestoreToDefault(bool log) const;
 
 	void ReportSetting(UrlEncoder &data, const std::string &prefix) const;
 

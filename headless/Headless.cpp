@@ -4,6 +4,7 @@
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 // Example command line to run a test in the VS debugger (useful to debug failures):
 // > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
+// NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
 #include "ppsspp_config.h"
 #include <cstdio>
@@ -200,8 +201,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
 	std::string error_string;
-	while (PSP_InitUpdate(&error_string) == BootState::Booting)
+	while (PSP_InitUpdate(&error_string) == BootState::Booting) {
 		sleep_ms(1, "auto-test");
+	}
 
 	if (!PSP_IsInited()) {
 		TeamCityPrint("%s", error_string.c_str());
@@ -490,7 +492,7 @@ int main(int argc, const char* argv[])
 	bool glWorking = headlessHost->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = cpuCore;
+	coreParameter.cpuCore = cpuCore;  // apprently this gets overwritten somehow by g_Config below.
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
@@ -505,6 +507,14 @@ int main(int argc, const char* argv[])
 	coreParameter.pixelHeight = 272;
 	coreParameter.fastForward = true;
 
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS, true);
+
+	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
+	// we actually set the cpu core in CoreParameter above. Probably because we end up using the JIT vs non-JIT
+	// vertex decoder.
+	g_Config.iCpuCore = 0;
+
+	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
@@ -545,6 +555,7 @@ int main(int argc, const char* argv[])
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
+
 	// g_Config.bUseOldAtrac = true;
 
 	Path exePath = File::GetExeDirectory();
