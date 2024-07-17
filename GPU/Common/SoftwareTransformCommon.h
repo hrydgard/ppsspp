@@ -26,7 +26,7 @@ class TextureCacheCommon;
 
 enum SoftwareTransformAction {
 	SW_NOT_READY,
-	SW_DRAW_PRIMITIVES,
+	SW_DRAW_INDEXED,
 	SW_CLEAR,
 };
 
@@ -44,8 +44,6 @@ struct SoftwareTransformResult {
 
 	TransformedVertex *drawBuffer;
 	int drawNumTrans;
-	bool drawIndexed;
-
 	bool pixelMapped;
 };
 

@@ -497,13 +497,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 	if (prim == GE_PRIM_RECTANGLES) {
 		if (!ExpandRectangles(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			result->pixelMapped = false;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
 		// Might want to reconsider the order of things later...
@@ -521,25 +519,20 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	} else if (prim == GE_PRIM_POINTS) {
 		result->pixelMapped = false;
 		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
 		result->pixelMapped = false;
 		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
-		result->drawIndexed = true;
 		result->pixelMapped = false;
 
 		// If we don't support custom cull in the shader, process it here.
@@ -635,7 +628,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		gpuStats.numClears++;
 	}
 
-	result->action = SW_DRAW_PRIMITIVES;
+	result->action = SW_DRAW_INDEXED;
 	result->drawNumTrans = numTrans;
 }
 
