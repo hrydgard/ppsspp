@@ -149,8 +149,13 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_THUMBL;
 	case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
 		return NKCODE_BUTTON_THUMBR;
+
+	// Found these limits by checking out the SDL2 branch of the SDL repo, doing git blame, then `git tag --contains (commit)` etc.
+#if SDL_VERSION_ATLEAST(2, 0, 16)
 	case SDL_CONTROLLER_BUTTON_MISC1:
 		return NKCODE_BUTTON_11;
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 28)
 	case SDL_CONTROLLER_BUTTON_PADDLE1:
 		return NKCODE_BUTTON_12;
 	case SDL_CONTROLLER_BUTTON_PADDLE2:
@@ -159,8 +164,11 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_14;
 	case SDL_CONTROLLER_BUTTON_PADDLE4:
 		return NKCODE_BUTTON_15;
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 14)
 	case SDL_CONTROLLER_BUTTON_TOUCHPAD:
 		return NKCODE_BUTTON_16;
+#endif
 	case SDL_CONTROLLER_BUTTON_INVALID:
 	default:
 		return NKCODE_UNKNOWN;
