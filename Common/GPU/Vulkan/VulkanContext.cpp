@@ -559,7 +559,33 @@ int VulkanContext::GetBestPhysicalDevice() {
 	return best;
 }
 
-void VulkanContext::ChooseDevice(int physical_device) {
+bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
+	for (auto &iter : device_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			device_extensions_enabled_.push_back(extension);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
+	for (auto &iter : instance_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			instance_extensions_enabled_.push_back(extension);
+			return true;
+		}
+	}
+	return false;
+}
+
+VkResult VulkanContext::CreateDevice(int physical_device) {
 	physical_device_ = physical_device;
 	INFO_LOG(Log::G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
 
@@ -617,7 +643,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 
 	// Optional features
 	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
-		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
+		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
 		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
 		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
@@ -641,35 +667,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-}
 
-bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
-		return true;
-	}
-	for (auto &iter : device_extension_properties_) {
-		if (!strcmp(iter.extensionName, extension)) {
-			device_extensions_enabled_.push_back(extension);
-			return true;
-		}
-	}
-	return false;
-}
-
-bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
-		return true;
-	}
-	for (auto &iter : instance_extension_properties_) {
-		if (!strcmp(iter.extensionName, extension)) {
-			instance_extensions_enabled_.push_back(extension);
-			return true;
-		}
-	}
-	return false;
-}
-
-VkResult VulkanContext::CreateDevice() {
 	if (!init_error_.empty() || physical_device_ < 0) {
 		ERROR_LOG(Log::G3D, "Vulkan init failed: %s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
@@ -871,10 +869,8 @@ bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
 		return false;
 	}
 
-	ChooseDevice(physicalDevice);
-
 	INFO_LOG(Log::G3D, "Creating Vulkan device (flags: %08x)", info.flags);
-	if (CreateDevice() != VK_SUCCESS) {
+	if (CreateDevice(physicalDevice) != VK_SUCCESS) {
 		INFO_LOG(Log::G3D, "Failed to create vulkan device: %s", InitError().c_str());
 		DestroyInstance();
 		return false;

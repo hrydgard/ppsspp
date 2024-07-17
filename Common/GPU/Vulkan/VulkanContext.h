@@ -181,7 +181,6 @@ public:
 
 	int GetBestPhysicalDevice();
 	int GetPhysicalDeviceByName(const std::string &name);
-	void ChooseDevice(int physical_device);
 
 	// Convenience method to avoid code duplication.
 	// If it returns false, delete the context.
@@ -191,7 +190,8 @@ public:
 	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
 	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
 
-	VkResult CreateDevice();
+	// Was previously two functions, ChooseDevice and CreateDevice.
+	VkResult CreateDevice(int physical_device);
 
 	const std::string &InitError() const { return init_error_; }
 

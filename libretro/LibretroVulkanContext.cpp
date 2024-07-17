@@ -56,8 +56,7 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 		physical_device = vk->GetBestPhysicalDevice();
 	}
 
-	vk->ChooseDevice(physical_device);
-	vk->CreateDevice();
+	vk->CreateDevice(physical_device);
 #ifdef _WIN32
 	vk->InitSurface(WINDOWSYSTEM_WIN32, nullptr, nullptr);
 #elif defined(__ANDROID__)
