@@ -438,11 +438,18 @@ Sample *Sample::Load(const std::string &path) {
 	mp3dec_t mp3d;
 	mp3dec_init(&mp3d);
 	mp3dec_file_info_t mp3_info;
-	int samples = mp3dec_load_buf(&mp3d, data, data_size, &mp3_info, nullptr, nullptr);
+	int retval = mp3dec_load_buf(&mp3d, data, data_size, &mp3_info, nullptr, nullptr);
+
+	if (retval < 0 || mp3_info.samples == 0) {
+		ERROR_LOG(Log::Audio, "Couldn't load MP3 for sound effect from %s", path.c_str());
+		return nullptr;
+	}
+
 	// mp3_info contains the decoded data.
 	int16_t *sample_data = new int16_t[mp3_info.samples];
 	memcpy(sample_data, mp3_info.buffer, mp3_info.samples * sizeof(int16_t));
-	Sample *sample = new Sample(sample_data, mp3_info.channels, (int)mp3_info.samples, mp3_info.hz);
+
+	Sample *sample = new Sample(sample_data, mp3_info.channels, (int)mp3_info.samples / mp3_info.channels, mp3_info.hz);
 	free(mp3_info.buffer);
 	delete[] data;
 	return sample;
