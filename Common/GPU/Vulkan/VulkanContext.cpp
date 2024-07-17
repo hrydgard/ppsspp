@@ -641,29 +641,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
-	// Optional features
-	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
-		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
-		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
-		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
-		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
-		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
-
-		features2.pNext = &multiViewFeatures;
-		multiViewFeatures.pNext = &presentWaitFeatures;
-		presentWaitFeatures.pNext = &presentIdFeatures;
-		presentIdFeatures.pNext = nullptr;
-
-		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
-		deviceFeatures_.available.standard = features2.features;
-		deviceFeatures_.available.multiview = multiViewFeatures;
-		deviceFeatures_.available.presentWait = presentWaitFeatures;
-		deviceFeatures_.available.presentId = presentIdFeatures;
-	} else {
-		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
-		deviceFeatures_.available.multiview = {};
-	}
-
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -712,6 +689,29 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (!extensionsLookup_.GOOGLE_display_timing) {
 		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME, 0);
 		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
+	}
+
+	// Optional features
+	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
+		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
+		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
+		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
+		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+
+		features2.pNext = &multiViewFeatures;
+		multiViewFeatures.pNext = &presentWaitFeatures;
+		presentWaitFeatures.pNext = &presentIdFeatures;
+		presentIdFeatures.pNext = nullptr;
+
+		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
+		deviceFeatures_.available.standard = features2.features;
+		deviceFeatures_.available.multiview = multiViewFeatures;
+		deviceFeatures_.available.presentWait = presentWaitFeatures;
+		deviceFeatures_.available.presentId = presentIdFeatures;
+	} else {
+		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
+		deviceFeatures_.available.multiview = {};
 	}
 
 	deviceFeatures_.enabled = {};
