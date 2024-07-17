@@ -132,8 +132,8 @@ void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight) {
 		*pHeight = height;
 	}
 
-	*pWidth *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
-	*pHeight *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING);
+	*pWidth = (int)(*pWidth * VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING));
+	*pHeight = (int)(*pHeight * VR_GetConfigFloat(VR_CONFIG_VIEWPORT_SUPERSAMPLING));
 }
 
 void VR_Recenter(engine_t* engine) {

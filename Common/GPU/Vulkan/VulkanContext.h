@@ -279,6 +279,7 @@ public:
 		VkPhysicalDeviceMultiviewFeatures multiview;
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
 		VkPhysicalDevicePresentIdFeaturesKHR presentId;
+		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {

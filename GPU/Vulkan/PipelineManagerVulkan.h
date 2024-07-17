@@ -75,6 +75,7 @@ struct VulkanPipeline {
 	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
 	bool UsesGeometryShader() const { return (pipelineFlags & PipelineFlags::USES_GEOMETRY_SHADER) != 0; }
 	bool UsesDiscard() const { return (pipelineFlags & PipelineFlags::USES_DISCARD) != 0; }
+	bool UsesFlatShading() const { return (pipelineFlags & PipelineFlags::USES_FLAT_SHADING) != 0; }
 
 	u32 GetVariantsBitmask() const;
 };

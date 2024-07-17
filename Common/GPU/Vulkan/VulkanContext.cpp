@@ -691,6 +691,8 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
 	}
 
+	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+
 	// Optional features
 	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
 		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
@@ -698,17 +700,23 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
 		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 
 		features2.pNext = &multiViewFeatures;
 		multiViewFeatures.pNext = &presentWaitFeatures;
 		presentWaitFeatures.pNext = &presentIdFeatures;
-		presentIdFeatures.pNext = nullptr;
-
+		if (extensionsLookup_.EXT_provoking_vertex) {
+			presentIdFeatures.pNext = &provokingVertexFeatures;
+			provokingVertexFeatures.pNext = nullptr;
+		} else {
+			presentIdFeatures.pNext = nullptr;
+		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
 		deviceFeatures_.available.presentWait = presentWaitFeatures;
 		deviceFeatures_.available.presentId = presentIdFeatures;
+		deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
 		deviceFeatures_.available.multiview = {};
@@ -744,6 +752,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (extensionsLookup_.KHR_present_wait) {
 		deviceFeatures_.enabled.presentWait.presentWait = deviceFeatures_.available.presentWait.presentWait;
 	}
+	deviceFeatures_.enabled.provokingVertex = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
+	if (extensionsLookup_.EXT_provoking_vertex) {
+		deviceFeatures_.enabled.provokingVertex.provokingVertexLast = true;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -762,7 +775,13 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		features2.pNext = &deviceFeatures_.enabled.multiview;
 		deviceFeatures_.enabled.multiview.pNext = &deviceFeatures_.enabled.presentWait;
 		deviceFeatures_.enabled.presentWait.pNext = &deviceFeatures_.enabled.presentId;
-		deviceFeatures_.enabled.presentId.pNext = nullptr;
+		if (extensionsLookup_.EXT_provoking_vertex) {
+			// TODO: Write some proper chaining thing.
+			deviceFeatures_.enabled.presentId.pNext = &deviceFeatures_.enabled.provokingVertex;
+			deviceFeatures_.enabled.provokingVertex.pNext = nullptr;
+		} else {
+			deviceFeatures_.enabled.presentId.pNext = nullptr;
+		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
 	}

@@ -50,6 +50,7 @@ enum class PipelineFlags : u8 {
 	USES_GEOMETRY_SHADER = (1 << 3),
 	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
 	USES_DISCARD = (1 << 5),
+	USES_FLAT_SHADING = (1 << 6),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 

@@ -90,6 +90,7 @@ public:
 	VkDynamicState dynamicStates[6]{};
 	VkPipelineDynamicStateCreateInfo ds{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
+	VkPipelineRasterizationProvokingVertexStateCreateInfoEXT rs_provoking{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT };
 
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
