@@ -50,6 +50,9 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+bool HalfSkipDownloadFramebufferOnSwitch = false;
+bool HalfSkipShouldDownloadFramebufferDepth = false;
+
 static size_t FormatFramebufferName(const VirtualFramebuffer *vfb, char *tag, size_t len) {
 	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
 }
@@ -1047,11 +1050,14 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Saving each frame would be slow.
 
 		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
-		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
-			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
-			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
-			vfb->safeWidth = 0;
-			vfb->safeHeight = 0;
+		HalfSkipDownloadFramebufferOnSwitch = !HalfSkipDownloadFramebufferOnSwitch;
+		if (!PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+			if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && HalfSkipDownloadFramebufferOnSwitch) {
+				ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+				vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
+				vfb->safeWidth = 0;
+				vfb->safeHeight = 0;
+			}
 		}
 	}
 }
@@ -1063,7 +1069,8 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
 	// Download depth buffer for Syphon Filter lens flares
-	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP) {
+	HalfSkipShouldDownloadFramebufferDepth = !HalfSkipShouldDownloadFramebufferDepth;
+	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::COPY_TO_TEXTURE || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && HalfSkipShouldDownloadFramebufferDepth) {
 		return false;
 	}
 	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
