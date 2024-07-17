@@ -268,6 +268,7 @@ struct VulkanExtensions {
 	bool KHR_present_id;  // Should probably check the feature flags instead.
 	bool KHR_present_wait;  // Same
 	bool GOOGLE_display_timing;
+	bool EXT_provoking_vertex;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 

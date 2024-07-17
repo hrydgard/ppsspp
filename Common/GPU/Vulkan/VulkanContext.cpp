@@ -559,7 +559,33 @@ int VulkanContext::GetBestPhysicalDevice() {
 	return best;
 }
 
-void VulkanContext::ChooseDevice(int physical_device) {
+bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
+	for (auto &iter : device_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			device_extensions_enabled_.push_back(extension);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
+	for (auto &iter : instance_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			instance_extensions_enabled_.push_back(extension);
+			return true;
+		}
+	}
+	return false;
+}
+
+VkResult VulkanContext::CreateDevice(int physical_device) {
 	physical_device_ = physical_device;
 	INFO_LOG(Log::G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
 
@@ -615,61 +641,10 @@ void VulkanContext::ChooseDevice(int physical_device) {
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
-	// Optional features
-	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
-		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
-		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
-		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
-		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
-		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
-
-		features2.pNext = &multiViewFeatures;
-		multiViewFeatures.pNext = &presentWaitFeatures;
-		presentWaitFeatures.pNext = &presentIdFeatures;
-		presentIdFeatures.pNext = nullptr;
-
-		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
-		deviceFeatures_.available.standard = features2.features;
-		deviceFeatures_.available.multiview = multiViewFeatures;
-		deviceFeatures_.available.presentWait = presentWaitFeatures;
-		deviceFeatures_.available.presentId = presentIdFeatures;
-	} else {
-		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
-		deviceFeatures_.available.multiview = {};
-	}
-
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-}
 
-bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
-		return true;
-	}
-	for (auto &iter : device_extension_properties_) {
-		if (!strcmp(iter.extensionName, extension)) {
-			device_extensions_enabled_.push_back(extension);
-			return true;
-		}
-	}
-	return false;
-}
-
-bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
-		return true;
-	}
-	for (auto &iter : instance_extension_properties_) {
-		if (!strcmp(iter.extensionName, extension)) {
-			instance_extensions_enabled_.push_back(extension);
-			return true;
-		}
-	}
-	return false;
-}
-
-VkResult VulkanContext::CreateDevice() {
 	if (!init_error_.empty() || physical_device_ < 0) {
 		ERROR_LOG(Log::G3D, "Vulkan init failed: %s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
@@ -716,6 +691,37 @@ VkResult VulkanContext::CreateDevice() {
 		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
 	}
 
+	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+
+	// Optional features
+	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
+		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
+		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
+		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
+		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
+
+		features2.pNext = &multiViewFeatures;
+		multiViewFeatures.pNext = &presentWaitFeatures;
+		presentWaitFeatures.pNext = &presentIdFeatures;
+		if (extensionsLookup_.EXT_provoking_vertex) {
+			presentIdFeatures.pNext = &provokingVertexFeatures;
+			provokingVertexFeatures.pNext = nullptr;
+		} else {
+			presentIdFeatures.pNext = nullptr;
+		}
+		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
+		deviceFeatures_.available.standard = features2.features;
+		deviceFeatures_.available.multiview = multiViewFeatures;
+		deviceFeatures_.available.presentWait = presentWaitFeatures;
+		deviceFeatures_.available.presentId = presentIdFeatures;
+		deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
+	} else {
+		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
+		deviceFeatures_.available.multiview = {};
+	}
+
 	deviceFeatures_.enabled = {};
 	// Enable a few safe ones if they are available.
 	deviceFeatures_.enabled.standard.dualSrcBlend = deviceFeatures_.available.standard.dualSrcBlend;
@@ -746,6 +752,11 @@ VkResult VulkanContext::CreateDevice() {
 	if (extensionsLookup_.KHR_present_wait) {
 		deviceFeatures_.enabled.presentWait.presentWait = deviceFeatures_.available.presentWait.presentWait;
 	}
+	deviceFeatures_.enabled.provokingVertex = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
+	if (extensionsLookup_.EXT_provoking_vertex) {
+		deviceFeatures_.enabled.provokingVertex.provokingVertexLast = true;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -764,7 +775,13 @@ VkResult VulkanContext::CreateDevice() {
 		features2.pNext = &deviceFeatures_.enabled.multiview;
 		deviceFeatures_.enabled.multiview.pNext = &deviceFeatures_.enabled.presentWait;
 		deviceFeatures_.enabled.presentWait.pNext = &deviceFeatures_.enabled.presentId;
-		deviceFeatures_.enabled.presentId.pNext = nullptr;
+		if (extensionsLookup_.EXT_provoking_vertex) {
+			// TODO: Write some proper chaining thing.
+			deviceFeatures_.enabled.presentId.pNext = &deviceFeatures_.enabled.provokingVertex;
+			deviceFeatures_.enabled.provokingVertex.pNext = nullptr;
+		} else {
+			deviceFeatures_.enabled.presentId.pNext = nullptr;
+		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
 	}
@@ -871,10 +888,8 @@ bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
 		return false;
 	}
 
-	ChooseDevice(physicalDevice);
-
 	INFO_LOG(Log::G3D, "Creating Vulkan device (flags: %08x)", info.flags);
-	if (CreateDevice() != VK_SUCCESS) {
+	if (CreateDevice(physicalDevice) != VK_SUCCESS) {
 		INFO_LOG(Log::G3D, "Failed to create vulkan device: %s", InitError().c_str());
 		DestroyInstance();
 		return false;

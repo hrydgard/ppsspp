@@ -124,6 +124,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
+	if (doFlatShading) {
+		*fragmentShaderFlags |= FragmentShaderFlags::USES_FLAT_SHADING;
+	}
+
 	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;

@@ -285,6 +285,11 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
 
+	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+		rs.pNext = &desc->rs_provoking;
+		desc->rs_provoking.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
+	}
+
 	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	if (gs) {
@@ -375,6 +380,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (fs->Flags() & FragmentShaderFlags::USES_DISCARD) {
 		pipelineFlags |= PipelineFlags::USES_DISCARD;
+	}
+	if (fs->Flags() & FragmentShaderFlags::USES_FLAT_SHADING) {
+		pipelineFlags |= PipelineFlags::USES_FLAT_SHADING;
 	}
 	if (vs->Flags() & VertexShaderFlags::MULTI_VIEW) {
 		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;

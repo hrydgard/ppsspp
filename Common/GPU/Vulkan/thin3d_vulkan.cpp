@@ -1221,8 +1221,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	gDesc.dss = depth->info;
 
-	raster->ToVulkan(&gDesc.rs);
-
 	// Copy bindings from input layout.
 	gDesc.topology = primToVK[(int)desc.prim];
 
@@ -1243,6 +1241,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&gDesc.rs);
+
+	if (renderManager_.GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+		gDesc.rs.pNext = &gDesc.rs_provoking;
+		gDesc.rs_provoking.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
+	}
 
 	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
 
@@ -1564,6 +1567,7 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);
 	AddFeature(features, "presentId", vulkan_->GetDeviceFeatures().available.presentId.presentId, vulkan_->GetDeviceFeatures().enabled.presentId.presentId);
 	AddFeature(features, "presentWait", vulkan_->GetDeviceFeatures().available.presentWait.presentWait, vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait);
+	AddFeature(features, "provokingVertexLast", vulkan_->GetDeviceFeatures().available.provokingVertex.provokingVertexLast, vulkan_->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast);
 
 	features.emplace_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));
 

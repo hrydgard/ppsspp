@@ -229,12 +229,17 @@ void DrawEngineVulkan::DoFlush() {
 
 	GEPrimitiveType prim = prevPrim_;
 
-	// Always use software for flat shading to fix the provoking index.
-	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	// Always use software for flat shading to fix the provoking index
+	// if the provoking vertex extension is not available.
+	bool provokingVertexOk = (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+		provokingVertexOk = true;
+	}
+	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
 
 	uint32_t ibOffset;
 	uint32_t vbOffset;
-	
+
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
 	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
@@ -399,6 +404,10 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
+		if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+			// We can get the OpenGL behavior, no need for workarounds.
+			params.provokeFlatFirst = false;
+		}
 		params.flippedY = true;
 		params.usesHalfZ = true;
 
