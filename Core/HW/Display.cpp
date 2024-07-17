@@ -78,7 +78,7 @@ static void CalculateFPS() {
 		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = (float)(60.0 * (double)(gpuStats.numFlips - lastNumFlips) / frames);
+		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;

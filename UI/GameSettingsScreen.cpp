@@ -1888,6 +1888,9 @@ void DeveloperToolsScreen::CreateViews() {
 	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });
 	ffMode->HideChoice(1);  // not used
 
+	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
+	displayRefreshRate->SetFormat(dev->T("%d Hz"));
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));

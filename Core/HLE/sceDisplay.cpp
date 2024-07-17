@@ -106,10 +106,10 @@ static int height;
 static bool wasPaused;
 static bool flippedThisFrame;
 
-static int framerate = 60;
+static int framerate;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static double timePerVblank = 1.001 / framerate;
+static double timePerVblank;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -131,7 +131,7 @@ const double vblankMs = 0.7315;
 // These are guesses based on tests.
 const double vsyncStartMs = 0.5925;
 const double vsyncEndMs = 0.7265;
-double frameMs = 1001.0 / (double)framerate;
+double frameMs;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -152,6 +152,7 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __DisplayFlip(int cyclesLate);
+static void __DisplaySetFramerate(void);
 
 static bool UseLagSync() {
 	return g_Config.bForceLagSync && !g_Config.bAutoFrameSkip;
@@ -171,6 +172,7 @@ static void ScheduleLagSync(int over = 0) {
 }
 
 void __DisplayInit() {
+	__DisplaySetFramerate();
 	DisplayHWInit();
 	hasSetMode = false;
 	mode = 0;
@@ -562,6 +564,8 @@ static void NotifyUserIfSlow() {
 }
 
 void __DisplayFlip(int cyclesLate) {
+	__DisplaySetFramerate();
+
 	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
@@ -1126,8 +1130,12 @@ void Register_sceDisplay_driver() {
 	RegisterModule("sceDisplay_driver", ARRAY_SIZE(sceDisplay), sceDisplay);
 }
 
-void __DisplaySetFramerate(int value) {
-	framerate = value;
+static void __DisplaySetFramerate(void) {
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR)
+		framerate = g_Config.bForce72Hz ? 72 : 60;
+	else
+		framerate = g_Config.iDisplayRefreshRate;
+
 	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;
 }

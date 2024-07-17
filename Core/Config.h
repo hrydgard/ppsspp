@@ -160,6 +160,7 @@ public:
 	std::string sMicDevice;
 	bool bCameraMirrorHorizontal;
 	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
+	int iDisplayRefreshRate = 60;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
