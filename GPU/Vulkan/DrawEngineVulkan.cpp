@@ -391,6 +391,8 @@ void DrawEngineVulkan::DoFlush() {
 		gpuStats.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
+		// At this point, the output is always an index triangle/line/point list, no strips/fans.
+
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
@@ -403,10 +405,11 @@ void DrawEngineVulkan::DoFlush() {
 		// do not respect scissor rects.
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
-		params.provokeFlatFirst = true;
 		if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
 			// We can get the OpenGL behavior, no need for workarounds.
 			params.provokeFlatFirst = false;
+		} else {
+			params.provokeFlatFirst = true;
 		}
 		params.flippedY = true;
 		params.usesHalfZ = true;
