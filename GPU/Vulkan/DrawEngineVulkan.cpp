@@ -405,11 +405,13 @@ void DrawEngineVulkan::DoFlush() {
 		// do not respect scissor rects.
 		params.allowClear = framebufferManager_->UseBufferedRendering();
 		params.allowSeparateAlphaClear = false;
-		if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
-			// We can get the OpenGL behavior, no need for workarounds.
-			params.provokingVertexLast = true;
-		} else {
-			params.provokingVertexLast = false;
+
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			if (!renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+				// If we can't have the hardware do it, we need to rotate the index buffer to simulate a different provoking vertex.
+				// We do this before line expansion etc.
+				IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+			}
 		}
 		params.flippedY = true;
 		params.usesHalfZ = true;

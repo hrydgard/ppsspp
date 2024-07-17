@@ -57,8 +57,12 @@ struct SoftwareTransformParams {
 	bool allowSeparateAlphaClear;
 	bool flippedY;
 	bool usesHalfZ;
-	bool provokingVertexLast;
 };
+
+// Converts an index buffer to make the provoking vertex the last.
+// In-place. So, better not be doing this on GPU memory!
+// TODO: We could do this already during index decode.
+void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
 class SoftwareTransform {
 public:

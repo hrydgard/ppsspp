@@ -334,9 +334,15 @@ void DrawEngineDX9::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
-		params.provokingVertexLast = false;
 		params.flippedY = false;
 		params.usesHalfZ = true;
+
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// We need to rotate the index buffer to simulate a different provoking vertex.
+			// We do this before line expansion etc.
+			int indexCount = RemainingIndices(inds);
+			IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+		}
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {

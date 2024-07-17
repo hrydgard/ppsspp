@@ -36,7 +36,9 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 				if (trimmed.find("pow(f, e) will not work for negative f") != std::string::npos) {
 					continue;
 				}
-				WARN_LOG(Log::G3D, "%.*s", (int)trimmed.length(), trimmed.data());
+				if (trimmed.size() > 1) {  // ignore single nulls, not sure how they appear.
+					WARN_LOG(Log::G3D, "%.*s", (int)trimmed.length(), trimmed.data());
+				}
 			}
 		} else {
 			ERROR_LOG(Log::G3D, "%s: %s\n\n%s", "errors", errors.c_str(), numberedCode.c_str());
