@@ -61,7 +61,7 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 #elif PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
 	opts.unalignedLoadStoreVec4 = true;
-	opts.preferVec4 = cpu_info.bASIMD || cpu_info.bNEON;
+	opts.preferVec4 = true;
 #else
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
 	// TODO: Could allow on x86 pretty easily...
