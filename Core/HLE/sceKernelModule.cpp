@@ -28,6 +28,8 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -900,9 +902,26 @@ static void SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, co
 	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
 	const Path fullPath = dumpDirectory / filenameToDumpTo;
 
+	auto s = GetI18NCategory(I18NCat::SYSTEM);
+
 	// If the file already exists, don't dump it again.
 	if (File::Exists(fullPath)) {
 		INFO_LOG(Log::sceModule, "Decrypted EBOOT.BIN already exists for this game, skipping dump.");
+
+		char *path = new char[strlen(fullPath.c_str()) + 1];
+		strcpy(path, fullPath.c_str());
+
+		g_OSD.Show(OSDType::MESSAGE_INFO, s->T("Dump Decrypted Eboot"), fullPath.ToVisualString(), 5.0f, "decr");
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
+				char *path = (char *)userdata;
+				if (clicked) {
+					System_ShowFileInFolder(Path(path));
+				} else {
+					delete[] path;
+				}
+			}, path);
+		}
 		return;
 	}
 
@@ -925,6 +944,22 @@ static void SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, co
 	fwrite(decryptedEbootDataPtr, sizeof(u8), lengthToWrite, decryptedEbootFile);
 	fclose(decryptedEbootFile);
 	INFO_LOG(Log::sceModule, "Successfully wrote decrypted EBOOT to %s", fullPath.c_str());
+
+	char *path = new char[strlen(fullPath.c_str()) + 1];
+	strcpy(path, fullPath.c_str());
+
+	// Re-suing the translation string here.
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, s->T("Dump Decrypted Eboot"), fullPath.ToVisualString(), 5.0f, "decr");
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
+			char *path = (char *)userdata;
+			if (clicked) {
+				System_ShowFileInFolder(Path(path));
+			} else {
+				delete[] path;
+			}
+		}, path);
+	}
 }
 
 static bool IsHLEVersionedModule(const char *name) {
