@@ -697,15 +697,15 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 
 	if (x.type != FILETYPE_DIRECTORY) {
 		x.size = info.size;
-		x.access = info.access;
-		time_t atime = info.atime;
-		time_t ctime = info.ctime;
-		time_t mtime = info.mtime;
-
-		localtime_r((time_t*)&atime, &x.atime);
-		localtime_r((time_t*)&ctime, &x.ctime);
-		localtime_r((time_t*)&mtime, &x.mtime);
 	}
+	x.access = info.access;
+	time_t atime = info.atime;
+	time_t ctime = info.ctime;
+	time_t mtime = info.mtime;
+
+	localtime_r((time_t*)&atime, &x.atime);
+	localtime_r((time_t*)&ctime, &x.ctime);
+	localtime_r((time_t*)&mtime, &x.mtime);
 
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
