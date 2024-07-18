@@ -377,14 +377,28 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 	{
 		INFO_LOG(Log::Achievements, "Leaderboard result submitted: %s", event->leaderboard->title);
-		const char *title = "";
+		// Actually showing the result when we get the scoreboard message and have the new rank.
+		break;
+	}
+	case RC_CLIENT_EVENT_LEADERBOARD_SCOREBOARD:
+	{
+		const char *title = event->leaderboard->title;
 		// Hack around some problematic events in Burnout Legends. Hopefully this can be fixed in the backend.
-		if (strlen(event->leaderboard->title) > 0) {
-			title = event->leaderboard->title;
+		std::string msg;
+		const rc_client_leaderboard_scoreboard_t *scoreboard = event->leaderboard_scoreboard;
+		if (event->leaderboard_scoreboard) {
+			msg = ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(scoreboard->submitted_score), title);
+			if (!strcmp(scoreboard->best_score, scoreboard->submitted_score)) {
+				msg += ": ";
+				msg += ApplySafeSubstitutions(ac->T("Rank: %1"), scoreboard->new_rank);
+			} else {
+				msg += ": ";
+				msg += ApplySafeSubstitutions(ac->T("Best: %1"), scoreboard->best_score);
+			}
 		} else {
-			title = event->leaderboard->description;
+			msg = ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), title);
 		}
-		g_OSD.ShowLeaderboardSubmitted(ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), title), "");
+		g_OSD.ShowLeaderboardSubmitted(msg, "");
 		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "leaderboard_submitted");
 		break;
 	}
