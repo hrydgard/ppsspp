@@ -703,16 +703,24 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 
 		ChainStruct(features2, &multiViewFeatures);
-		ChainStruct(features2, &presentWaitFeatures);
-		ChainStruct(features2, &presentIdFeatures);
+		if (extensionsLookup_.KHR_present_wait) {
+			ChainStruct(features2, &presentWaitFeatures);
+		}
+		if (extensionsLookup_.KHR_present_id) {
+			ChainStruct(features2, &presentIdFeatures);
+		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &provokingVertexFeatures);
 		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
-		deviceFeatures_.available.presentWait = presentWaitFeatures;
-		deviceFeatures_.available.presentId = presentIdFeatures;
+		if (extensionsLookup_.KHR_present_wait) {
+			deviceFeatures_.available.presentWait = presentWaitFeatures;
+		}
+		if (extensionsLookup_.KHR_present_id) {
+			deviceFeatures_.available.presentId = presentIdFeatures;
+		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
 		}
