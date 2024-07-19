@@ -286,7 +286,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	rs.depthClampEnable = key.depthClampEnable;
 
 	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
-		rs.pNext = &desc->rs_provoking;
+		ChainStruct(rs, &desc->rs_provoking);
 		desc->rs_provoking.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
 	}
 

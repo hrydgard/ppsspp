@@ -505,7 +505,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		VkAttachmentReference2KHR depthResolveReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
 		VkSubpassDescriptionDepthStencilResolveKHR depthStencilResolve{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR };
 		if (hasDepth && multisample) {
-			subpass2.pNext = &depthStencilResolve;
+			ChainStruct(subpass2, &depthStencilResolve);
 			depthResolveReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 			depthResolveReference2.attachment = 1;
 			depthResolveReference2.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

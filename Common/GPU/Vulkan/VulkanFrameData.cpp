@@ -132,13 +132,13 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 
 	if (shared.measurePresentTime) {
 		if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
+			ChainStruct(present, &presentID);
 			presentID.pPresentIds = &frameId;
 			presentID.swapchainCount = 1;
-			present.pNext = &presentID;
 		} else if (vulkan->Extensions().GOOGLE_display_timing) {
+			ChainStruct(present, &presentGOOGLE);
 			presentGOOGLE.pTimes = &presentTimeGOOGLE;
 			presentGOOGLE.swapchainCount = 1;
-			present.pNext = &presentGOOGLE;
 		}
 	}
 
