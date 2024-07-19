@@ -835,20 +835,21 @@ namespace SaveState
 		return copy;
 	}
 
-	bool HandleLoadFailure()
+	bool HandleLoadFailure(bool wasRewinding)
 	{
-		WARN_LOG(Log::SaveState, "HandleLoadFailure - trying a rewind state.");
+		if (wasRewinding) {
+			WARN_LOG(Log::SaveState, "HandleLoadFailure - trying a rewind state.");
+			// Okay, first, let's give the next rewind state a shot - maybe we can at least not reset entirely.
+			// Actually, this seems like a bad thing - some systems can end up in bad states, like sceFont :(
+			CChunkFileReader::Error result;
+			do {
+				std::string errorString;
+				result = rewindStates.Restore(&errorString);
+			} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
-		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
-		// Even if this was a rewind, maybe we can still load a previous one.
-		CChunkFileReader::Error result;
-		do {
-			std::string errorString;
-			result = rewindStates.Restore(&errorString);
-		} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
-
-		if (result == CChunkFileReader::ERROR_NONE) {
-			return true;
+			if (result == CChunkFileReader::ERROR_NONE) {
+				return true;
+			}
 		}
 
 		// We tried, our only remaining option is to reset the game.
@@ -972,7 +973,7 @@ namespace SaveState
 					}
 #endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleLoadFailure();
+					HandleLoadFailure(false);
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 					ERROR_LOG(Log::SaveState, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
@@ -1037,7 +1038,7 @@ namespace SaveState
 					Core_ResetException();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					if (HandleLoadFailure()) {
+					if (HandleLoadFailure(true)) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
