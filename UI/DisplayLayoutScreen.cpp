@@ -274,6 +274,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
+		rotation->SetHideTitle(true);
 		rightColumn->Add(rotation);
 
 		Choice *center = new Choice(di->T("Reset"));

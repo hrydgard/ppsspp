@@ -44,6 +44,11 @@ VK_DEFINE_HANDLE(VmaAllocation);
 
 std::string VulkanVendorString(uint32_t vendorId);
 
+template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
+	newStruct->pNext = root.pNext;
+	root.pNext = newStruct;
+}
+
 // Not all will be usable on all platforms, of course...
 enum WindowSystem {
 #ifdef _WIN32

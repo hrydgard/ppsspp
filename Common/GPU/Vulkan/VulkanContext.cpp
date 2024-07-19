@@ -278,12 +278,12 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
 			VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolveProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES};
-
-			props2.pNext = &pushProps;
-			pushProps.pNext = &extHostMemProps;
-			extHostMemProps.pNext = &depthStencilResolveProps;
+			ChainStruct(props2, &pushProps);
+			ChainStruct(props2, &extHostMemProps);
+			ChainStruct(props2, &depthStencilResolveProps);
 			vkGetPhysicalDeviceProperties2(physical_devices_[i], &props2);
-			// Don't want bad pointers sitting around.
+
+			// Don't want bad pointers sitting around. Probably not really necessary.
 			props2.pNext = nullptr;
 			pushProps.pNext = nullptr;
 			extHostMemProps.pNext = nullptr;
@@ -702,21 +702,28 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 
-		features2.pNext = &multiViewFeatures;
-		multiViewFeatures.pNext = &presentWaitFeatures;
-		presentWaitFeatures.pNext = &presentIdFeatures;
+		ChainStruct(features2, &multiViewFeatures);
+		if (extensionsLookup_.KHR_present_wait) {
+			ChainStruct(features2, &presentWaitFeatures);
+		}
+		if (extensionsLookup_.KHR_present_id) {
+			ChainStruct(features2, &presentIdFeatures);
+		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
-			presentIdFeatures.pNext = &provokingVertexFeatures;
-			provokingVertexFeatures.pNext = nullptr;
-		} else {
-			presentIdFeatures.pNext = nullptr;
+			ChainStruct(features2, &provokingVertexFeatures);
 		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
-		deviceFeatures_.available.presentWait = presentWaitFeatures;
-		deviceFeatures_.available.presentId = presentIdFeatures;
-		deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
+		if (extensionsLookup_.KHR_present_wait) {
+			deviceFeatures_.available.presentWait = presentWaitFeatures;
+		}
+		if (extensionsLookup_.KHR_present_id) {
+			deviceFeatures_.available.presentId = presentIdFeatures;
+		}
+		if (extensionsLookup_.EXT_provoking_vertex) {
+			deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
+		}
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
 		deviceFeatures_.available.multiview = {};
@@ -772,15 +779,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (extensionsLookup_.KHR_get_physical_device_properties2) {
 		device_info.pNext = &features2;
 		features2.features = deviceFeatures_.enabled.standard;
-		features2.pNext = &deviceFeatures_.enabled.multiview;
-		deviceFeatures_.enabled.multiview.pNext = &deviceFeatures_.enabled.presentWait;
-		deviceFeatures_.enabled.presentWait.pNext = &deviceFeatures_.enabled.presentId;
+		ChainStruct(features2, &deviceFeatures_.enabled.multiview);
+		ChainStruct(features2, &deviceFeatures_.enabled.presentWait);
+		ChainStruct(features2, &deviceFeatures_.enabled.presentId);
 		if (extensionsLookup_.EXT_provoking_vertex) {
-			// TODO: Write some proper chaining thing.
-			deviceFeatures_.enabled.presentId.pNext = &deviceFeatures_.enabled.provokingVertex;
-			deviceFeatures_.enabled.provokingVertex.pNext = nullptr;
-		} else {
-			deviceFeatures_.enabled.presentId.pNext = nullptr;
+			ChainStruct(features2, &deviceFeatures_.enabled.provokingVertex);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
@@ -1833,7 +1836,7 @@ void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequiremen
 
 		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
 		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
-		memReq2.pNext = &memDedicatedReq;
+		ChainStruct(memReq2, &memDedicatedReq);
 
 		vkGetImageMemoryRequirements2(GetDevice(), &memReqInfo2, &memReq2);
 

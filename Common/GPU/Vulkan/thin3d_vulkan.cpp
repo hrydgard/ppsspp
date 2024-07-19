@@ -1246,7 +1246,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	raster->ToVulkan(&gDesc.rs);
 
 	if (renderManager_.GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
-		gDesc.rs.pNext = &gDesc.rs_provoking;
+		ChainStruct(gDesc.rs, &gDesc.rs_provoking);
 		gDesc.rs_provoking.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
 	}
 

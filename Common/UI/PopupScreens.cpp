@@ -635,7 +635,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 
-	if (!text_.empty()) {
+	if (!text_.empty() && !hideTitle_) {
 		float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
 		float scale = CalculateValueScale(dc, valueText, availWidth);
 
