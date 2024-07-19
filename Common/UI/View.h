@@ -732,6 +732,10 @@ public:
 		rightIconFlipH_ = flipH;
 		rightIconImage_ = iconImage;
 	}
+	// Only useful for things that extend Choice.
+	void SetHideTitle(bool hide) {
+		hideTitle_ = hide;
+	}
 
 protected:
 	// hackery
@@ -751,6 +755,7 @@ protected:
 	float imgRot_ = 0.0f;
 	bool imgFlipH_ = false;
 	u32 drawTextFlags_ = 0;
+	bool hideTitle_ = false;
 
 private:
 	bool selected_ = false;
@@ -822,7 +827,6 @@ public:
 	void SetPasswordDisplay() {
 		passwordDisplay_ = true;
 	}
-
 protected:
 	virtual std::string ValueText() const = 0;
 
