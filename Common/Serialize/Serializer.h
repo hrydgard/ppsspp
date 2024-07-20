@@ -121,6 +121,10 @@ public:
 		}
 	}
 
+	bool Failed() const {
+		return error == ERROR_FAILURE;
+	}
+
 	void RewindForWrite(u8 *writePtr);
 	bool CheckAfterWrite();
 

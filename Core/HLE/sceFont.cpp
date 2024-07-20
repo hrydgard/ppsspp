@@ -127,7 +127,7 @@ static std::vector<Font *> internalFonts;
 // However, these we must save - but we could take a shortcut
 // for LoadedFonts that point to internal fonts.
 static std::map<u32, LoadedFont *> fontMap;
-static std::map<u32, u32> fontLibMap;
+static std::map<u32, int> fontLibMap;
 // We keep this list to avoid ptr references, even before alloc is called.
 static std::vector<FontLib *> fontLibList;
 
@@ -152,7 +152,7 @@ enum FontOpenMode {
 class Font {
 public:
 	// For savestates only.
-	Font() {
+	Font() : valid_(false) {
 	}
 
 	Font(const u8 *data, size_t dataSize) {
@@ -273,8 +273,7 @@ private:
 class LoadedFont {
 public:
 	// For savestates only.
-	LoadedFont() : font_(nullptr), fontLibID_(-1) {
-	}
+	LoadedFont() {}
 
 	LoadedFont(Font *font, FontOpenMode mode, u32 fontLibID, u32 handle)
 		: fontLibID_(fontLibID), font_(font), handle_(handle), mode_(mode), open_(true) {}
@@ -297,14 +296,17 @@ public:
 	const Font *GetFont() const { return font_; }
 	const PGF *GetPGF() const { return font_->GetPGF(); }
 	const FontLib *GetFontLib() const {
-		_dbg_assert_(fontLibID_ >= 0 && fontLibID_ < fontLibList.size());
+		_dbg_assert_(IsValid());
 		return fontLibList[fontLibID_];
 	}
 	FontLib *GetFontLib() {
-		_dbg_assert_(fontLibID_ >= 0 && fontLibID_ < fontLibList.size());
+		_dbg_assert_(IsValid());
 		return fontLibList[fontLibID_];
 	}
 	u32 Handle() const { return handle_; }
+	bool IsValid() const {
+		return fontLibID_ >= 0 && fontLibID_ < (int)fontLibList.size();
+	}
 
 	bool GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType = FONT_PGF_CHARGLYPH) const;
 	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int glyphType) const;
@@ -357,11 +359,12 @@ public:
 	}
 
 private:
-	int fontLibID_;
-	Font *font_;
-	u32 handle_;
-	FontOpenMode mode_;
-	bool open_;
+	int fontLibID_ = -1;
+	Font *font_ = nullptr;
+	u32 handle_ = 0;
+	FontOpenMode mode_ = FONT_OPEN_INTERNAL_STINGY;
+	bool open_ = false;
+
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
 
@@ -385,8 +388,10 @@ public:
 	void SetFontLib(u32 fontLibID, u32 errorCodePtr) { fontLibID_ = fontLibID; errorCodePtr_ = errorCodePtr; }
 
 private:
-	u32 fontLibID_;
-	u32 errorCodePtr_;
+	int fontLibID_ = -1;
+	u32 errorCodePtr_ = 0;
+
+	DISALLOW_COPY_AND_ASSIGN(PostAllocCallback);
 };
 
 class PostOpenCallback : public PSPAction {
@@ -404,7 +409,9 @@ public:
 	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	int fontLibID_;
+	int fontLibID_ = -1;
+
+	DISALLOW_COPY_AND_ASSIGN(PostOpenCallback);
 };
 
 class PostOpenAllocCallback : public PSPAction {
@@ -425,9 +432,11 @@ public:
 	void SetFont(u32 handle, int index) { fontHandle_ = handle; fontIndex_ = index; }
 
 private:
-	int fontLibID_;
-	u32 fontHandle_;
-	int fontIndex_;
+	int fontLibID_ = -1;
+	u32 fontHandle_ = 0;
+	int fontIndex_ = -1;
+
+	DISALLOW_COPY_AND_ASSIGN(PostOpenAllocCallback);
 };
 
 class PostCharInfoAllocCallback : public PSPAction {
@@ -445,7 +454,9 @@ public:
 	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	int fontLibID_;
+	int fontLibID_ = -1;
+
+	DISALLOW_COPY_AND_ASSIGN(PostCharInfoAllocCallback);
 };
 
 class PostCharInfoFreeCallback : public PSPAction {
@@ -465,14 +476,15 @@ public:
 	void SetCharInfo(PSPPointer<PGFCharInfo> charInfo) { charInfo_ = charInfo; }
 
 private:
-	int fontLibID_;
+	int fontLibID_ = -1;
 	PSPPointer<PGFCharInfo> charInfo_;
-};
 
+	DISALLOW_COPY_AND_ASSIGN(PostCharInfoFreeCallback);
+};
 
 struct NativeFontLib {
 	FontNewLibParams params;
-	// TODO
+	// TODO (what?)
 	u32_le fontInfo1;
 	u32_le fontInfo2;
 	u16_le unk1;
@@ -491,7 +503,7 @@ struct FontImageRect {
 };
 
 // A "fontLib" is a container of loaded fonts.
-// One can open either "internal" fonts or custom fonts into a fontlib.
+// One can open either "internal" fonts or load custom fonts into a fontlib.
 class FontLib {
 public:
 	FontLib() {
@@ -776,7 +788,6 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };
 
-
 void PostAllocCallback::run(MipsCall &call) {
 	INFO_LOG(Log::sceFont, "Entering PostAllocCallback::run");
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
@@ -786,6 +797,7 @@ void PostAllocCallback::run(MipsCall &call) {
 			Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
 		call.setReturnValue(0);
 	} else {
+		_dbg_assert_(fontLibID_ >= 0);
 		FontLib *fontLib = fontLibList[fontLibID_];
 		fontLib->AllocDone(v0);
 		fontLibMap[fontLib->handle()] = fontLibID_;
@@ -796,18 +808,21 @@ void PostAllocCallback::run(MipsCall &call) {
 }
 
 void PostOpenCallback::run(MipsCall &call) {
+	_dbg_assert_(fontLibID_ >= 0);
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	fontLib->SetFileFontHandle(v0);
 }
 
 void PostOpenAllocCallback::run(MipsCall &call) {
+	_dbg_assert_(fontLibID_ >= 0);
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	fontLib->SetOpenAllocatedAddress(fontIndex_, v0);
 }
 
 void PostCharInfoAllocCallback::run(MipsCall &call) {
+	_dbg_assert_(fontLibID_ >= 0);
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (v0 == 0) {
@@ -830,20 +845,23 @@ void PostCharInfoFreeCallback::run(MipsCall &call) {
 }
 
 inline bool LoadedFont::GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType) const {
+	_dbg_assert_(IsValid());
 	auto fontLib = GetFontLib();
 	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	return GetPGF()->GetCharInfo(charCode, charInfo, altCharCode, glyphType);
 }
 
 inline void LoadedFont::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int glyphType) const {
+	_dbg_assert_(IsValid());
 	auto fontLib = GetFontLib();
 	int altCharCode = fontLib == NULL ? -1 : fontLib->GetAltCharCode();
 	GetPGF()->DrawCharacter(image, clipX, clipY, clipWidth, clipHeight, charCode, altCharCode, glyphType);
 }
 
 static FontLib *GetFontLib(u32 handle) {
-	if (fontLibMap.find(handle) != fontLibMap.end()) {
-		return fontLibList[fontLibMap[handle]];
+	auto iter = fontLibMap.find(handle);
+	if (iter != fontLibMap.end()) {
+		return fontLibList[iter->second];
 	}
 	return nullptr;
 }
@@ -941,9 +959,14 @@ void __FontInit() {
 
 void __FontShutdown() {
 	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
-		FontLib *fontLib = iter->second->GetFontLib();
-		if (fontLib)
-			fontLib->CloseFont(iter->second, true);
+		if (iter->second->IsValid()) {
+			FontLib *fontLib = iter->second->GetFontLib();
+			if (fontLib) {
+				fontLib->CloseFont(iter->second, true);
+			}
+		} else {
+			ERROR_LOG(Log::HLE, "__FontShutdown: Bad entry in fontMap");
+		}
 		delete iter->second;
 	}
 	fontMap.clear();
@@ -1483,9 +1506,9 @@ static int sceFontFlush(u32 fontHandle) {
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 
-	if (font->GetFontLib())
+	if (font->GetFontLib()) {
 		font->GetFontLib()->flushFont();
-
+	}
 	return 0;
 }
 
