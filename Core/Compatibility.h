@@ -108,6 +108,7 @@ struct CompatFlags {
 	bool TacticsOgreEliminateDebugReadback;
 	bool FramebufferAllowLargeVerticalOffset;
 	bool DisableMemcpySlicing;
+	bool ForceEnableGPUReadback;
 };
 
 struct VRCompat {

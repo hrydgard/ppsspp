@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
@@ -547,6 +548,8 @@ protected:
 	inline int GetBindSeqCount() {
 		return fbBindSeqCount_++;
 	}
+
+	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
 	PresentationCommon *presentation_ = nullptr;
 
