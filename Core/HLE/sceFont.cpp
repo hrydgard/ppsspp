@@ -273,7 +273,7 @@ private:
 class LoadedFont {
 public:
 	// For savestates only.
-	LoadedFont() : font_(NULL) {
+	LoadedFont() : font_(nullptr), fontLibID_(-1) {
 	}
 
 	LoadedFont(Font *font, FontOpenMode mode, u32 fontLibID, u32 handle)
@@ -296,8 +296,14 @@ public:
 
 	const Font *GetFont() const { return font_; }
 	const PGF *GetPGF() const { return font_->GetPGF(); }
-	const FontLib *GetFontLib() const { return fontLibList[fontLibID_]; }
-	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
+	const FontLib *GetFontLib() const {
+		_dbg_assert_(fontLibID_ >= 0 && fontLibID_ < fontLibList.size());
+		return fontLibList[fontLibID_];
+	}
+	FontLib *GetFontLib() {
+		_dbg_assert_(fontLibID_ >= 0 && fontLibID_ < fontLibList.size());
+		return fontLibList[fontLibID_];
+	}
 	u32 Handle() const { return handle_; }
 
 	bool GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType = FONT_PGF_CHARGLYPH) const;
@@ -319,7 +325,7 @@ public:
 		Do(p, numInternalFonts);
 		// It's okay if numInternalFonts was zero and we've now loaded them.
 		if (numInternalFonts != (int)internalFonts.size() && numInternalFonts != 0) {
-			ERROR_LOG(Log::sceFont, "Unable to load state: different internal font count.");
+			ERROR_LOG(Log::sceFont, "Unable to load state: different internal font count (%d in save, %d in memory)", numInternalFonts, (int)internalFonts.size());
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
@@ -351,7 +357,7 @@ public:
 	}
 
 private:
-	u32 fontLibID_;
+	int fontLibID_;
 	Font *font_;
 	u32 handle_;
 	FontOpenMode mode_;
@@ -395,10 +401,10 @@ public:
 		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
-	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	u32 fontLibID_;
+	int fontLibID_;
 };
 
 class PostOpenAllocCallback : public PSPAction {
@@ -415,11 +421,11 @@ public:
 		Do(p, fontIndex_);
 	}
 	void run(MipsCall &call) override;
-	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 	void SetFont(u32 handle, int index) { fontHandle_ = handle; fontIndex_ = index; }
 
 private:
-	u32 fontLibID_;
+	int fontLibID_;
 	u32 fontHandle_;
 	int fontIndex_;
 };
@@ -436,10 +442,10 @@ public:
 		Do(p, fontLibID_);
 	}
 	void run(MipsCall &call) override;
-	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	u32 fontLibID_;
+	int fontLibID_;
 };
 
 class PostCharInfoFreeCallback : public PSPAction {
@@ -455,11 +461,11 @@ public:
 		Do(p, charInfo_);
 	}
 	void run(MipsCall &call) override;
-	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+	void SetFontLib(int fontLibID) { fontLibID_ = fontLibID; }
 	void SetCharInfo(PSPPointer<PGFCharInfo> charInfo) { charInfo_ = charInfo; }
 
 private:
-	u32 fontLibID_;
+	int fontLibID_;
 	PSPPointer<PGFCharInfo> charInfo_;
 };
 
@@ -507,8 +513,8 @@ public:
 		hleEnqueueCall(allocFuncAddr(), 2, args, action);
 	}
 
-	u32 GetListID() {
-		return (u32)(std::find(fontLibList.begin(), fontLibList.end(), this) - fontLibList.begin());
+	int GetListID() {
+		return (int)(std::find(fontLibList.begin(), fontLibList.end(), this) - fontLibList.begin());
 	}
 
 	void Done() {
@@ -623,7 +629,7 @@ public:
 				// Before replacing it and forgetting about it, let's free it.
 				delete prevFont->second;
 			}
-			fontMap[loadedFont->Handle()] = loadedFont;
+			fontMap.insert_or_assign(loadedFont->Handle(), loadedFont);
 		} else {
 			loadedFont = fontMap[fonts_[foundFontIndex]];
 		}
@@ -963,7 +969,7 @@ void __FontDoState(PointerWrap &p) {
 		needInternalFonts = !internalFonts.empty();
 		Do(p, needInternalFonts);
 	}
-	if (needInternalFonts)
+	if (needInternalFonts && p.mode == PointerWrap::MODE_READ)
 		__LoadInternalFonts();
 
 	Do(p, fontLibList);
