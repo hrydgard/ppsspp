@@ -60,6 +60,8 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	char marker[16] = {0};
 	int foundVersion = ver;
 
+	curTitle_ = title;
+
 	// This is strncpy because we rely on its weird non-null-terminating zero-filling truncation behaviour.
 	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
@@ -122,6 +124,8 @@ void PointerWrap::SetError(Error error_) {
 		// For the rest of this run, do nothing, to avoid running off the end of memory or something,
 		// and also not logspam like MEASURE will do in an error case.
 		mode = PointerWrap::MODE_NOOP;
+		// Also, remember the bad section.
+		firstBadSectionTitle_ = curTitle_;
 	}
 }
 

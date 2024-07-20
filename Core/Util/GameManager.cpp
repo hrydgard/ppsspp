@@ -540,7 +540,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 		return true;
 	} else {
 		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, iz->T("Installation failed"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, iz->T("Installation failed"), outFilename.ToVisualString());
 		ERROR_LOG(Log::HLE, "Failed to open file for writing: %s", outFilename.c_str());
 		return false;
 	}
@@ -600,6 +600,8 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		}
 		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, info.numFiles, (i + 1) * 0.1f, 0.1f);
 	}
+
+	INFO_LOG(Log::HLE, "Created %d directories", (int)createdDirs.size());
 
 	// Now, loop through again in a second pass, writing files.
 	std::vector<Path> createdFiles;

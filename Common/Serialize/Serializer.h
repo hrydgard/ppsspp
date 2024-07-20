@@ -121,6 +121,10 @@ public:
 		}
 	}
 
+	bool Failed() const {
+		return error == ERROR_FAILURE;
+	}
+
 	void RewindForWrite(u8 *writePtr);
 	bool CheckAfterWrite();
 
@@ -156,6 +160,7 @@ public:
 
 private:
 	const char *firstBadSectionTitle_ = nullptr;
+	const char *curTitle_;
 	u8 *ptrStart_;
 	std::vector<SerializeCheckpoint> checkpoints_;
 	size_t curCheckpoint_ = 0;

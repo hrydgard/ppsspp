@@ -599,7 +599,7 @@ void AuCtx::DoState(PointerWrap &p) {
 	Do(p, Channels);
 	Do(p, MaxOutputSample);
 	Do(p, readPos);
-	int audioType = (int)decoder->GetAudioType();
+	int audioType = decoder ? (int)decoder->GetAudioType() : 0;
 	Do(p, audioType);
 	Do(p, BitRate);
 	Do(p, SamplingRate);

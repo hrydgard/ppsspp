@@ -632,7 +632,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		return;
 	}
 
-	mipsr4k.RunLoopUntil(globalticks);
+	if (coreState != CORE_NEXTFRAME) {  // Can be set by SaveState as well as by sceDisplay
+		mipsr4k.RunLoopUntil(globalticks);
+	}
 }
 
 void PSP_RunLoopFor(int cycles) {
