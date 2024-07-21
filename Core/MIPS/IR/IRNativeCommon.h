@@ -185,7 +185,6 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void ClearCache() override;
-	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	bool CodeInRange(const u8 *ptr) const override;
