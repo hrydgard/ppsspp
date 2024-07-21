@@ -89,9 +89,9 @@ bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bool
 	regs_.Start(irBlockCache, block_num);
 
 	std::vector<const u8 *> addresses;
-	addresses.reserve(block->GetNumInstructions());
+	addresses.reserve(block->GetNumIRInstructions());
 	const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
-	for (int i = 0; i < block->GetNumInstructions(); ++i) {
+	for (int i = 0; i < block->GetNumIRInstructions(); ++i) {
 		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);
 		addresses.push_back(GetCodePtr());

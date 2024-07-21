@@ -121,7 +121,7 @@ void IRJit::Compile(u32 em_address) {
 			block->Finalize(cookie);
 			if (block->IsValid()) {
 				// Success, we're done.
-				FinalizeTargetBlock(&blocks_, block_num);
+				FinalizeNativeBlock(&blocks_, block_num);
 				return;
 			}
 		}
@@ -165,12 +165,12 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 		// TODO: Should we always hash?  Then we can reuse blocks.
 		b->UpdateHash();
 	}
-	if (!CompileTargetBlock(&blocks_, block_num, preload))
+	if (!CompileNativeBlock(&blocks_, block_num, preload))
 		return false;
 	// Overwrites the first instruction, and also updates stats.
 	blocks_.FinalizeBlock(block_num, preload);
 	if (!preload)
-		FinalizeTargetBlock(&blocks_, block_num);
+		FinalizeNativeBlock(&blocks_, block_num);
 	return true;
 }
 
@@ -303,7 +303,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 }
 
 bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	// Used in target disassembly viewer.
+	// Used in native disassembly viewer.
 	return false;
 }
 
@@ -445,7 +445,7 @@ void IRBlockCache::RemoveBlock(int blockIndex) {
 
 	// Additionally, we zap the block in the IR arena.
 	IRInst bad{ IROp::Bad };
-	for (int off = block.GetIRArenaOffset(); off < block.GetIRArenaOffset() + block.GetNumInstructions(); off++) {
+	for (int off = block.GetIRArenaOffset(); off < block.GetIRArenaOffset() + block.GetNumIRInstructions(); off++) {
 		arena_[off] = bad;
 	}
 }
@@ -477,7 +477,7 @@ int IRBlockCache::FindByCookie(int cookie) {
 	if (blocks_.empty())
 		return -1;
 
-	// TODO: Maybe a flag to determine target offset mode?
+	// TODO: Maybe a flag to determine native offset mode?
 	if (!compileToNative_) {
 		return GetBlockNumFromIRArenaOffset(cookie);
 	}
@@ -539,9 +539,9 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 		debugInfo.origDisasm.push_back(mipsDis);
 	}
 
-	debugInfo.irDisasm.reserve(ir.GetNumInstructions());
+	debugInfo.irDisasm.reserve(ir.GetNumIRInstructions());
 	const IRInst *instructions = GetBlockInstructionPtr(ir);
-	for (int i = 0; i < ir.GetNumInstructions(); i++) {
+	for (int i = 0; i < ir.GetNumIRInstructions(); i++) {
 		IRInst inst = instructions[i];
 		char buffer[256];
 		DisassembleIR(buffer, sizeof(buffer), inst);
@@ -555,7 +555,7 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 	double maxBloat = 0.0;
 	double minBloat = 1000000000.0;
 	for (const auto &b : blocks_) {
-		double codeSize = (double)b.GetNumInstructions() * 4;  // We count bloat in instructions, not bytes. sizeof(IRInst);
+		double codeSize = (double)b.GetNumIRInstructions() * 4;  // We count bloat in instructions, not bytes. sizeof(IRInst);
 		if (codeSize == 0)
 			continue;
 		u32 origAddr, mipsBytes;

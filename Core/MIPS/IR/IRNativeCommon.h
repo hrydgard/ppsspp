@@ -198,8 +198,8 @@ public:
 
 protected:
 	void Init(IRNativeBackend &backend);
-	bool CompileTargetBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
-	void FinalizeTargetBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
+	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;

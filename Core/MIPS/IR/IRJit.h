@@ -50,7 +50,7 @@ class IRBlock {
 public:
 	IRBlock() {}
 	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
-		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numInstructions_(numInstructions) {}
+		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
 	IRBlock(IRBlock &&b) {
 		arenaOffset_ = b.arenaOffset_;
 		hash_ = b.hash_;
@@ -58,14 +58,14 @@ public:
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 		nativeOffset_ = b.nativeOffset_;
-		numInstructions_ = b.numInstructions_;
+		numIRInstructions_ = b.numIRInstructions_;
 		b.arenaOffset_ = 0xFFFFFFFF;
 	}
 
 	~IRBlock() {}
 
 	u32 GetIRArenaOffset() const { return arenaOffset_; }
-	int GetNumInstructions() const { return numInstructions_; }
+	int GetNumIRInstructions() const { return numIRInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
@@ -110,7 +110,7 @@ private:
 	u32 origAddr_ = 0;
 	u32 origSize_ = 0;
 	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
-	u32 numInstructions_ = 0;
+	u32 numIRInstructions_ = 0;
 };
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
@@ -236,8 +236,8 @@ public:
 
 protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
-	virtual bool CompileTargetBlock(IRBlockCache *irBlockCache, int block_num, bool preload) { return true; }
-	virtual void FinalizeTargetBlock(IRBlockCache *irBlockCache, int block_num) {}
+	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) { return true; }
+	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
 
 	bool compileToNative_;
 
