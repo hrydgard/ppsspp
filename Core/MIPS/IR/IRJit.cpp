@@ -134,6 +134,7 @@ void IRJit::Compile(u32 em_address) {
 	}
 }
 
+// WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
 bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
 	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
 	if (instructions.empty()) {
@@ -320,7 +321,7 @@ IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNat
 	// arena_.reserve(1024 * 1024 * 2);
 }
 
-int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst) {
+int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
 	// We have 24 bits to represent offsets with.
 	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
 	int offset = (int)arena_.size();
@@ -328,11 +329,13 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 		WARN_LOG(Log::JIT, "Filled JIT arena, restarting");
 		return -1;
 	}
-	for (int i = 0; i < inst.size(); i++) {
-		arena_.push_back(inst[i]);
+	// TODO: Use memcpy.
+	for (int i = 0; i < insts.size(); i++) {
+		arena_.push_back(insts[i]);
 	}
-	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u16)inst.size()));
-	return (int)blocks_.size() - 1;
+	int newBlockIndex = (int)blocks_.size();
+	blocks_.push_back(IRBlock(emAddr, origSize, offset, insts.size()));
+	return newBlockIndex;
 }
 
 int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
@@ -370,9 +373,9 @@ int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
 	return -1;
 }
 
-std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 length) {
+std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 lengthInBytes) {
 	u32 startPage = AddressToPage(address);
-	u32 endPage = AddressToPage(address + length);
+	u32 endPage = AddressToPage(address + lengthInBytes);
 
 	std::vector<int> found;
 	for (u32 page = startPage; page <= endPage; ++page) {
@@ -382,8 +385,8 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 
 		const std::vector<int> &blocksInPage = iter->second;
 		for (int i : blocksInPage) {
-			if (blocks_[i].OverlapsRange(address, length)) {
-				// Not removing from the page, hopefully doesn't build up with small recompiles.
+			if (blocks_[i].OverlapsRange(address, lengthInBytes)) {
+				// We now try to remove these during invalidation.
 				found.push_back(i);
 			}
 		}
@@ -583,9 +586,14 @@ void IRBlock::Finalize(int cookie) {
 void IRBlock::Destroy(int cookie) {
 	if (origAddr_) {
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
-		if (Memory::ReadUnchecked_U32(origAddr_) == opcode.encoding)
+		u32 memOp = Memory::ReadUnchecked_U32(origAddr_);
+		if (memOp == opcode.encoding) {
 			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
-
+		} else {
+			// NOTE: This is not an error. Just interesting to log.
+			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Block at %08x was overwritten - expected %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_);
+		}
+		// TODO: Also wipe the block in the IR opcode arena.
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}
@@ -593,7 +601,8 @@ void IRBlock::Destroy(int cookie) {
 
 u64 IRBlock::CalculateHash() const {
 	if (origAddr_) {
-		// This is unfortunate.  In case of emuhacks, we have to make a copy.
+		// This is unfortunate. In case there are emuhacks, we have to make a copy.
+		// If we could hash while reading we could avoid this.
 		std::vector<u32> buffer;
 		buffer.resize(origSize_ / 4);
 		size_t pos = 0;
@@ -602,10 +611,8 @@ u64 IRBlock::CalculateHash() const {
 			MIPSOpcode instr = Memory::ReadUnchecked_Instruction(origAddr_ + off, false);
 			buffer[pos++] = instr.encoding;
 		}
-
 		return XXH3_64bits(&buffer[0], origSize_);
 	}
-
 	return 0;
 }
 

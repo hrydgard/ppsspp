@@ -193,6 +193,7 @@ static const IRMeta irMeta[] = {
 
 const IRMeta *metaIndex[256];
 
+// Is there a way to constexpr this?
 void InitIR() {
 	if (metaIndex[0])
 		return;
