@@ -58,7 +58,8 @@ private:
 	void SendToThread(LogLevel Level, const char *Text);
 	void WriteToConsole(LogLevel Level, const char *Text, size_t Len);
 
-	HANDLE hThread = nullptr;
+	std::thread thread_;
+
 	HANDLE hTriggerEvent = nullptr;
 	CRITICAL_SECTION criticalSection;
 
@@ -70,6 +71,7 @@ private:
 	int openHeight_ = 0;
 	bool hidden_ = false;
 	bool useColor_ = true;
+	bool useThread_ = true;
 };
 
 #endif

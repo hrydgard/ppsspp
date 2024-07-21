@@ -130,8 +130,11 @@ void ConsoleListener::Open() {
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	if (hTriggerEvent != NULL && hThread == NULL) {
-		hThread = (HANDLE)_beginthreadex(NULL, 0, &ConsoleListener::RunThread, this, 0, NULL);
+	if (useThread_ && hTriggerEvent != NULL && !thread_.joinable()) {
+		thread_ = std::thread([&] {
+			SetCurrentThreadName("Console");
+			LogWriterThread();
+		});
 	}
 }
 
@@ -154,13 +157,10 @@ void ConsoleListener::UpdateHandle() {
 
 // Close the console window and close the eventual file handle
 void ConsoleListener::Close() {
-	if (hThread) {
+	if (thread_.joinable()) {
 		logPendingWritePos_.store((u32)-1, std::memory_order_release);
-
 		SetEvent(hTriggerEvent);
-		WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
-		CloseHandle(hThread);
-		hThread = nullptr;
+		thread_.join();
 	}
 	if (hTriggerEvent) {
 		DeleteCriticalSection(&criticalSection);
@@ -237,13 +237,6 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth) {
 	// Partial row
 	Ret.X = BytesRead - (BufferWidth * Step);
 	return Ret;
-}
-
-unsigned int WINAPI ConsoleListener::RunThread(void *lpParam) {
-	SetCurrentThreadName("Console");
-	ConsoleListener *consoleLog = (ConsoleListener *)lpParam;
-	consoleLog->LogWriterThread();
-	return 0;
 }
 
 void ConsoleListener::LogWriterThread() {
@@ -523,7 +516,7 @@ void ConsoleListener::Log(const LogMessage &msg) {
 	buf[sizeof(buf) - 2] = '\n';
 	buf[sizeof(buf) - 1] = '\0';
 
-	if (hThread == NULL && IsOpen())
+	if (!useThread_ && IsOpen())
 		WriteToConsole(msg.level, buf, strlen(buf));
 	else
 		SendToThread(msg.level, buf);
