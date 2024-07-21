@@ -143,7 +143,9 @@ LogManager::LogManager(bool *enabledSetting) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
 #if PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
 	consoleLog_ = new ConsoleListener();
+#endif
 	if (IsDebuggerPresent())
 		debuggerLog_ = new OutputDebugStringLogListener();
 #else
@@ -156,7 +158,9 @@ LogManager::LogManager(bool *enabledSetting) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	AddListener(fileLog_);
 #if PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
 	AddListener(consoleLog_);
+#endif
 #else
 	AddListener(stdioLog_);
 #endif
@@ -172,7 +176,7 @@ LogManager::~LogManager() {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		RemoveListener(fileLog_);
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 		RemoveListener(consoleLog_);
 #endif
 		RemoveListener(stdioLog_);
@@ -188,7 +192,7 @@ LogManager::~LogManager() {
 	if (fileLog_)
 		delete fileLog_;
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	delete consoleLog_;
 #endif
 	delete stdioLog_;
