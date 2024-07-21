@@ -24,6 +24,7 @@
 #if PPSSPP_PLATFORM(WINDOWS)
 
 #include <atomic>
+#include <thread>
 
 #include "Common/Log/LogManager.h"
 #include "Common/CommonWindows.h"
@@ -33,7 +34,7 @@ public:
 	ConsoleListener();
 	~ConsoleListener();
 
-	void Init(bool AutoOpen = true, int Width = 200, int Height = 100, const char * Name = "DebugConsole (PPSSPP)");
+	void Init(bool AutoOpen = true, int Width = 200, int Height = 100);
 	void Open();
 	void UpdateHandle();
 	void Close();
@@ -46,10 +47,9 @@ public:
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);
-	bool Hidden() const { return bHidden; }
+	bool Hidden() const { return hidden_; }
 
 private:
-#if defined(USING_WIN_UI)
 	HWND hWnd;
 	HANDLE hConsole;
 
@@ -58,21 +58,18 @@ private:
 	void SendToThread(LogLevel Level, const char *Text);
 	void WriteToConsole(LogLevel Level, const char *Text, size_t Len);
 
-	static int refCount;
-	static HANDLE hThread;
-	static HANDLE hTriggerEvent;
-	static CRITICAL_SECTION criticalSection;
+	HANDLE hThread = nullptr;
+	HANDLE hTriggerEvent = nullptr;
+	CRITICAL_SECTION criticalSection;
 
-	static char *logPending;
-	static std::atomic<uint32_t> logPendingReadPos;
-	static std::atomic<uint32_t> logPendingWritePos;
+	char *logPending_ = nullptr;
+	std::atomic<uint32_t> logPendingReadPos_;
+	std::atomic<uint32_t> logPendingWritePos_;
 
 	int openWidth_ = 0;
 	int openHeight_ = 0;
-	std::wstring title_;
-#endif
-	bool bHidden;
-	bool bUseColor;
+	bool hidden_ = false;
+	bool useColor_ = true;
 };
 
 #endif
