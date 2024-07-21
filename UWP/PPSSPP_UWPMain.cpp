@@ -18,7 +18,7 @@
 #include "Common/DirectXHelper.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"

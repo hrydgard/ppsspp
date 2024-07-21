@@ -78,7 +78,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"

@@ -9,14 +9,14 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/StdioListener.h"
 #include "Common/Input/InputState.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
@@ -1202,7 +1202,7 @@ void retro_init(void)
       LogManager::Init(&g_Config.bEnableLogging);
       printfLogger = new PrintfLogger(log);
       LogManager* logman = LogManager::GetInstance();
-      logman->RemoveListener(logman->GetConsoleListener());
+      logman->RemoveListener(logman->GetStdioListener());
       logman->RemoveListener(logman->GetDebuggerListener());
       logman->ChangeFileLog(nullptr);
       logman->AddListener(printfLogger);

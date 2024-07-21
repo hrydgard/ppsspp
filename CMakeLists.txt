@@ -863,8 +863,6 @@ add_library(Common STATIC
 	Common/Common.h
 	Common/CommonFuncs.h
 	Common/CommonTypes.h
-	Common/ConsoleListener.cpp
-	Common/ConsoleListener.h
 	Common/DbgNew.h
 	Common/FakeEmitter.h
 	Common/FakeCPUDetect.cpp
@@ -872,8 +870,12 @@ add_library(Common STATIC
 	Common/ExceptionHandlerSetup.h
 	Common/Log.h
 	Common/Log.cpp
-	Common/LogManager.cpp
-	Common/LogManager.h
+	Common/Log/ConsoleListener.cpp
+	Common/Log/ConsoleListener.h
+	Common/Log/StdioListener.cpp
+	Common/Log/StdioListener.h
+	Common/Log/LogManager.cpp
+	Common/Log/LogManager.h
 	Common/LogReporting.cpp
 	Common/LogReporting.h
 	Common/MemArenaAndroid.cpp

@@ -5,7 +5,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
-#include "Common/LogManager.h"
+#include "Common/Log.h"
 #include "UI/MiscScreens.h"
 #include "Common/GPU/thin3d.h"
 

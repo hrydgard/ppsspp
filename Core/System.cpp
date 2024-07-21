@@ -67,7 +67,6 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
-#include "Common/LogManager.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "GPU/GPUState.h"

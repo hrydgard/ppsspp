@@ -548,7 +548,8 @@
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="CommonWindows.h" />
-    <ClInclude Include="ConsoleListener.h" />
+    <ClInclude Include="Log\ConsoleListener.h" />
+    <ClInclude Include="Log\StdioListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />
     <ClInclude Include="Crypto\sha1.h" />
@@ -557,7 +558,7 @@
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Log.h" />
-    <ClInclude Include="LogManager.h" />
+    <ClInclude Include="Log\LogManager.h" />
     <ClInclude Include="MachineContext.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
@@ -979,7 +980,8 @@
     <ClCompile Include="LoongArchCPUDetect.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
-    <ClCompile Include="ConsoleListener.cpp" />
+    <ClCompile Include="Log\ConsoleListener.cpp" />
+    <ClCompile Include="Log\StdioListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1005,7 +1007,7 @@
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
     <ClCompile Include="ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="LogManager.cpp" />
+    <ClCompile Include="Log\LogManager.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
     <ClCompile Include="MemArenaWin32.cpp" />

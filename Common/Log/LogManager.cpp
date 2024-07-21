@@ -28,8 +28,13 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+
+#if PPSSPP_PLATFORM(WINDOWS)
+#include "Common/Log/ConsoleListener.h"
+#endif
+
+#include "Common/Log/StdioListener.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -137,10 +142,12 @@ LogManager::LogManager(bool *enabledSetting) {
 #else
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
+#if PPSSPP_PLATFORM(WINDOWS)
 	consoleLog_ = new ConsoleListener();
-#ifdef _WIN32
 	if (IsDebuggerPresent())
 		debuggerLog_ = new OutputDebugStringLogListener();
+#else
+	stdioLog_ = new StdioListener();
 #endif
 #endif
 	ringLog_ = new RingbufferLogListener();
@@ -148,7 +155,11 @@ LogManager::LogManager(bool *enabledSetting) {
 
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	AddListener(fileLog_);
+#if PPSSPP_PLATFORM(WINDOWS)
 	AddListener(consoleLog_);
+#else
+	AddListener(stdioLog_);
+#endif
 #if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
 	if (IsDebuggerPresent() && debuggerLog_ && LOG_MSC_OUTPUTDEBUG)
 		AddListener(debuggerLog_);
@@ -161,7 +172,10 @@ LogManager::~LogManager() {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		RemoveListener(fileLog_);
+#if PPSSPP_PLATFORM(WINDOWS)
 		RemoveListener(consoleLog_);
+#endif
+		RemoveListener(stdioLog_);
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
 		RemoveListener(debuggerLog_);
 #endif
@@ -174,7 +188,10 @@ LogManager::~LogManager() {
 	if (fileLog_)
 		delete fileLog_;
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
+#if PPSSPP_PLATFORM(WINDOWS)
 	delete consoleLog_;
+#endif
+	delete stdioLog_;
 	delete debuggerLog_;
 #endif
 	delete ringLog_;

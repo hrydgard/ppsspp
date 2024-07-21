@@ -15,6 +15,10 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS)
+
 #include <atomic>
 #include <algorithm>  // min
 #include <cstring>
@@ -22,7 +26,7 @@
 #include <math.h>
 #ifdef _WIN32
 #include <process.h>
-#include "CommonWindows.h"
+#include "Common/CommonWindows.h"
 #include <array>
 #else
 #include <stdarg.h>
@@ -31,11 +35,10 @@
 #include <unistd.h>
 #endif
 
-#include "ppsspp_config.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/CommonTypes.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Common/StringUtils.h"
 
 #if defined(USING_WIN_UI)
@@ -659,3 +662,5 @@ void ConsoleListener::ClearScreen(bool Cursor)
 	if (Cursor) SetConsoleCursorPosition(hConsole, coordScreen); 
 #endif
 }
+
+#endif  // PPSSPP_PLATFORM(WINDOWS)

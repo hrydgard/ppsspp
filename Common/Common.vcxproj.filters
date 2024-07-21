@@ -8,7 +8,7 @@
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Log.h" />
-    <ClInclude Include="LogManager.h" />
+    <ClInclude Include="Log\LogManager.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="StringUtils.h" />
@@ -563,11 +563,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
-    <ClCompile Include="ConsoleListener.cpp" />
+    <ClCompile Include="Log\ConsoleListener.cpp" />
+    <ClCompile Include="Log\StdioListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="FakeCPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp" />
-    <ClCompile Include="LogManager.cpp" />
+    <ClCompile Include="Log\LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thunk.cpp" />

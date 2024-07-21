@@ -46,7 +46,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 

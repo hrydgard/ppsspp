@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/System/OSD.h"
 
 #include "Core/Core.h"
