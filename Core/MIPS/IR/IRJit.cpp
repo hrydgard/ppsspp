@@ -91,10 +91,19 @@ void IRJit::ClearCache() {
 
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
+	if (numbers.empty()) {
+		return;
+	}
+
+	INFO_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
+
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
+		// TODO: We are invalidating a lot of blocks that are already invalid (yu gi oh).
+		// INFO_LOG(Log::JIT, "Block at %08x invalidated: valid: %d", block->GetOriginalStart(), block->IsValid());
 		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
 		int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
+		blocks_.RemoveBlock(block_num);
 		block->Destroy(cookie);
 	}
 }
@@ -261,6 +270,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
 				const IRInst *instPtr = blocks_.GetArenaPtr() + offset;
+				// First op is always downcount, to save one dispatch.
 				_dbg_assert_(instPtr->op == IROp::Downcount);
 				mips->downcount -= instPtr->constant;
 				instPtr++;
@@ -318,7 +328,8 @@ void IRBlockCache::Clear() {
 
 IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {
 	// For whatever reason, this makes things go slower?? Probably just a CPU cache alignment fluke.
-	// arena_.reserve(1024 * 1024 * 2);
+	//arena_.reserve(1024 * 1024 * 12);
+	//arena_.reserve(1024);
 }
 
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
@@ -395,20 +406,47 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 	return found;
 }
 
-void IRBlockCache::FinalizeBlock(int i, bool preload) {
+void IRBlockCache::FinalizeBlock(int blockIndex, bool preload) {
+	// TODO: What's different about preload blocks?
+	IRBlock &block = blocks_[blockIndex];
 	if (!preload) {
-		int cookie = compileToNative_ ? blocks_[i].GetNativeOffset() : blocks_[i].GetIRArenaOffset();
-		blocks_[i].Finalize(cookie);
+		int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
+		block.Finalize(cookie);
 	}
 
 	u32 startAddr, size;
-	blocks_[i].GetRange(startAddr, size);
+	block.GetRange(startAddr, size);
 
 	u32 startPage = AddressToPage(startAddr);
 	u32 endPage = AddressToPage(startAddr + size);
 
 	for (u32 page = startPage; page <= endPage; ++page) {
-		byPage_[page].push_back(i);
+		byPage_[page].push_back(blockIndex);
+	}
+}
+
+// Call after Destroy-ing it.
+void IRBlockCache::RemoveBlock(int blockIndex) {
+	// We need to remove the block from the byPage lookup.
+	IRBlock &block = blocks_[blockIndex];
+
+	u32 startAddr, size;
+	block.GetRange(startAddr, size);
+
+	u32 startPage = AddressToPage(startAddr);
+	u32 endPage = AddressToPage(startAddr + size);
+
+	for (u32 page = startPage; page <= endPage; ++page) {
+		auto iter = std::find(byPage_[page].begin(), byPage_[page].end(), blockIndex);
+		if (iter != byPage_[page].end()) {
+			byPage_[page].erase(iter);
+		}
+	}
+
+	// Additionally, we zap the block in the IR arena.
+	IRInst bad{ IROp::Bad };
+	for (int off = block.GetIRArenaOffset(); off < block.GetIRArenaOffset() + block.GetNumInstructions(); off++) {
+		arena_[off] = bad;
 	}
 }
 
@@ -580,6 +618,8 @@ void IRBlock::Finalize(int cookie) {
 		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		Memory::Write_Opcode_JIT(origAddr_, opcode);
+	} else {
+		WARN_LOG(Log::JIT, "Finalizing invalid block (cookie: %d)", cookie);
 	}
 }
 

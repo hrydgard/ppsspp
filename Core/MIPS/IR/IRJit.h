@@ -49,7 +49,7 @@ namespace MIPSComp {
 class IRBlock {
 public:
 	IRBlock() {}
-	IRBlock(u32 emAddr, u32 origSize, int instOffset, u16 numInstructions)
+	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
 		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numInstructions_(numInstructions) {}
 	IRBlock(IRBlock &&b) {
 		arenaOffset_ = b.arenaOffset_;
@@ -110,7 +110,7 @@ private:
 	u32 origAddr_ = 0;
 	u32 origSize_ = 0;
 	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
-	u16 numInstructions_ = 0;
+	u32 numInstructions_ = 0;
 };
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
@@ -129,6 +129,7 @@ public:
 			return nullptr;
 		}
 	}
+	void RemoveBlock(int blockNum);
 	int GetBlockNumFromIRArenaOffset(int offset) const;
 	const IRInst *GetBlockInstructionPtr(const IRBlock &block) const {
 		return arena_.data() + block.GetIRArenaOffset();
