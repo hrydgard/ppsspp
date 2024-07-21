@@ -104,6 +104,7 @@ struct LogChannel {
 };
 
 class ConsoleListener;
+class StdioListener;
 
 class LogManager {
 private:
@@ -116,7 +117,10 @@ private:
 
 	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_ = nullptr;
+#if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *consoleLog_ = nullptr;
+#endif
+	StdioListener *stdioLog_ = nullptr;
 	OutputDebugStringLogListener *debuggerLog_ = nullptr;
 	RingbufferLogListener *ringLog_ = nullptr;
 	static LogManager *logManager_;  // Singleton. Ugh.
@@ -157,8 +161,14 @@ public:
 		return log_[(size_t)type].level;
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *GetConsoleListener() const {
 		return consoleLog_;
+	}
+#endif
+
+	StdioListener *GetStdioListener() const {
+		return stdioLog_;
 	}
 
 	OutputDebugStringLogListener *GetDebuggerListener() const {

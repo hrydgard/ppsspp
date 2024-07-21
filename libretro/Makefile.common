@@ -433,11 +433,12 @@ SOURCES_CXX += \
 	$(COMMONDIR)/ArmCPUDetect.cpp \
 	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
-	$(COMMONDIR)/ConsoleListener.cpp \
+	$(COMMONDIR)/Log/ConsoleListener.cpp \
+	$(COMMONDIR)/Log/StdioListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FakeCPUDetect.cpp \
 	$(COMMONDIR)/Log.cpp \
-	$(COMMONDIR)/LogManager.cpp \
+	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/MipsCPUDetect.cpp \

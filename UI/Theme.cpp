@@ -25,7 +25,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/DirListing.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 
 #include "Core/Config.h"
 

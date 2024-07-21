@@ -55,8 +55,8 @@
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
 
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Common/StringUtils.h"
 
 #include "Commctrl.h"
@@ -1010,7 +1010,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - By default in Debug, the console should be shown by default.
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
-	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120, "PPSSPP Debug Console");
+	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120);
 
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);

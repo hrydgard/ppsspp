@@ -17,13 +17,16 @@
 
 #pragma once
 
+// Windows-only.
+
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS)
+
 #include <atomic>
 
-#include "LogManager.h"
-
-#ifdef _WIN32
-#include "CommonWindows.h"
-#endif
+#include "Common/Log/LogManager.h"
+#include "Common/CommonWindows.h"
 
 class ConsoleListener : public LogListener {
 public:
@@ -38,9 +41,7 @@ public:
 	void LetterSpace(int Width, int Height);
 	void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
 	void PixelSpace(int Left, int Top, int Width, int Height, bool);
-#if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
-#endif
 	void Log(const LogMessage &message) override;
 	void ClearScreen(bool Cursor = true);
 
@@ -73,3 +74,5 @@ private:
 	bool bHidden;
 	bool bUseColor;
 };
+
+#endif

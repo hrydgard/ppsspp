@@ -89,4 +89,4 @@ void ReportMessageFormatted(const char *message, const char *formatted) {
 	messageCallback(message, formatted);
 }
 
-}
+}  // namespace

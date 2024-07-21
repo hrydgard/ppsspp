@@ -39,7 +39,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/OSVersion.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"

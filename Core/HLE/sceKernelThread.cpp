@@ -22,7 +22,7 @@
 #include <set>
 
 #include "Common/CommonTypes.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"

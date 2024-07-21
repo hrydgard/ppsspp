@@ -72,8 +72,8 @@
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"

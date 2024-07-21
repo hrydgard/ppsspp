@@ -350,7 +350,9 @@ void MainWindow::dumpNextAct()
 
 void MainWindow::consoleAct()
 {
+#if PPSSPP_PLATFORM(WINDOWS)
 	LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+#endif
 }
 
 void MainWindow::raiseTopMost()
