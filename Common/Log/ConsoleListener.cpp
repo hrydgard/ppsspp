@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include <atomic>
 #include <algorithm>  // min
 #include <array>
@@ -45,10 +45,11 @@ const int LOG_MAX_DISPLAY_LINES = 4000;
 static bool g_Initialized;
 
 ConsoleListener::ConsoleListener() : hidden_(true) {
-#if defined(USING_WIN_UI)
-	hConsole = nullptr;
 	useColor_ = true;
-	if (!hTriggerEvent) {
+
+	// useThread_ = false;
+
+	if (useThread_ && !hTriggerEvent) {
 		hTriggerEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		InitializeCriticalSection(&criticalSection);
 		logPending_ = new char[LOG_PENDING_MAX];
@@ -56,17 +57,6 @@ ConsoleListener::ConsoleListener() : hidden_(true) {
 
 	_dbg_assert_(!g_Initialized);
 	g_Initialized = true;
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
-	bUseColor = false;
-#elif defined(_MSC_VER)
-	bUseColor = false;
-#elif defined(__APPLE__)
-    // Xcode builtin terminal used for debugging does not support colours.
-    // Fortunately it can be detected with a TERM env variable.
-    bUseColor = isatty(fileno(stdout)) && getenv("TERM") != NULL;
-#else
-	bUseColor = isatty(fileno(stdout));
-#endif
 }
 
 ConsoleListener::~ConsoleListener() {

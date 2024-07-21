@@ -21,7 +21,7 @@
 
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 
 #include <atomic>
 #include <thread>
@@ -50,10 +50,9 @@ public:
 	bool Hidden() const { return hidden_; }
 
 private:
-	HWND hWnd;
-	HANDLE hConsole;
+	HWND hWnd = nullptr;
+	HANDLE hConsole = nullptr;
 
-	static unsigned int WINAPI RunThread(void *lpParam);
 	void LogWriterThread();
 	void SendToThread(LogLevel Level, const char *Text);
 	void WriteToConsole(LogLevel Level, const char *Text, size_t Len);
@@ -61,7 +60,7 @@ private:
 	std::thread thread_;
 
 	HANDLE hTriggerEvent = nullptr;
-	CRITICAL_SECTION criticalSection;
+	CRITICAL_SECTION criticalSection{};
 
 	char *logPending_ = nullptr;
 	std::atomic<uint32_t> logPendingReadPos_;
