@@ -79,7 +79,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bo
 
 	// Don't worry, the codespace isn't large enough to overflow offsets.
 	const u8 *blockStart = GetCodePointer();
-	block->SetTargetOffset((int)GetOffset(blockStart));
+	block->SetNativeOffset((int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
 
 	regs_.Start(irBlockCache, block_num);
@@ -110,7 +110,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num, bo
 		QuickJ(R_RA, hooks_.crashHandler);
 	}
 
-	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
+	int len = (int)GetOffset(GetCodePointer()) - block->GetNativeOffset();
 	if (len < MIN_BLOCK_NORMAL_LEN) {
 		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
 		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
@@ -300,7 +300,7 @@ void RiscVJitBackend::ClearAllBlocks() {
 
 void RiscVJitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {
 	IRBlock *block = irBlockCache->GetBlock(block_num);
-	int offset = block->GetTargetOffset();
+	int offset = block->GetNativeOffset();
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
 	// Overwrite the block with a jump to compile it again.

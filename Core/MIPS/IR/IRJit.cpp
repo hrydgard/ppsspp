@@ -44,9 +44,11 @@
 
 namespace MIPSComp {
 
-IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState) {
+IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState), blocks_(actualJit) {
 	// u32 size = 128 * 1024;
 	InitIR();
+
+	compileToNative_ = actualJit;
 
 	// If this IRJit instance will be used to drive a "JIT using IR", don't optimize for interpretation.
 	jo.optimizeForInterpreter = !actualJit;
@@ -91,7 +93,8 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
-		int cookie = block->GetTargetOffset() < 0 ? block->GetInstructionOffset() : block->GetTargetOffset();
+		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
+		int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
 		block->Destroy(cookie);
 	}
 }
@@ -105,7 +108,7 @@ void IRJit::Compile(u32 em_address) {
 		if (block_num != -1) {
 			IRBlock *block = blocks_.GetBlock(block_num);
 			// Okay, let's link and finalize the block now.
-			int cookie = block->GetTargetOffset() < 0 ? block->GetInstructionOffset() : block->GetTargetOffset();
+			int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
 			block->Finalize(cookie);
 			if (block->IsValid()) {
 				// Success, we're done.
@@ -272,7 +275,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 #endif
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
-					int blockNum = blocks_.GetBlockNumFromOffset(offset);
+					int blockNum = blocks_.GetBlockNumFromIRArenaOffset(offset);
 					IRBlock *block = blocks_.GetBlockUnchecked(blockNum);
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
 					break;
@@ -303,7 +306,7 @@ void IRJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 
 void IRBlockCache::Clear() {
 	for (int i = 0; i < (int)blocks_.size(); ++i) {
-		int cookie = blocks_[i].GetTargetOffset() < 0 ? blocks_[i].GetInstructionOffset() : blocks_[i].GetTargetOffset();
+		int cookie = compileToNative_ ? blocks_[i].GetNativeOffset() : blocks_[i].GetIRArenaOffset();
 		blocks_[i].Destroy(cookie);
 	}
 	blocks_.clear();
@@ -312,7 +315,7 @@ void IRBlockCache::Clear() {
 	arena_.shrink_to_fit();
 }
 
-IRBlockCache::IRBlockCache() {
+IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {
 	// For whatever reason, this makes things go slower?? Probably just a CPU cache alignment fluke.
 	// arena_.reserve(1024 * 1024 * 2);
 }
@@ -332,14 +335,14 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 	return (int)blocks_.size() - 1;
 }
 
-int IRBlockCache::GetBlockNumFromOffset(int offset) const {
+int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
 	// Block offsets are always in rising order (we don't go back and replace them when invalidated). So we can binary search.
 	int low = 0;
 	int high = (int)blocks_.size() - 1;
 	int found = -1;
 	while (low <= high) {
 		int mid = low + (high - low) / 2;
-		const int blockOffset = blocks_[mid].GetInstructionOffset();
+		const int blockOffset = blocks_[mid].GetIRArenaOffset();
 		if (blockOffset == offset) {
 			found = mid;
 			break;
@@ -357,7 +360,7 @@ int IRBlockCache::GetBlockNumFromOffset(int offset) const {
 #else
 	// TODO: Optimize if we need to call this often.
 	for (int i = 0; i < (int)blocks_.size(); i++) {
-		if (blocks_[i].GetInstructionOffset() == offset) {
+		if (blocks_[i].GetIRArenaOffset() == offset) {
 			_dbg_assert_(i == found);
 			return i;
 		}
@@ -391,7 +394,7 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 
 void IRBlockCache::FinalizeBlock(int i, bool preload) {
 	if (!preload) {
-		int cookie = blocks_[i].GetTargetOffset() < 0 ? blocks_[i].GetInstructionOffset() : blocks_[i].GetTargetOffset();
+		int cookie = compileToNative_ ? blocks_[i].GetNativeOffset() : blocks_[i].GetIRArenaOffset();
 		blocks_[i].Finalize(cookie);
 	}
 
@@ -434,13 +437,13 @@ int IRBlockCache::FindByCookie(int cookie) {
 		return -1;
 
 	// TODO: Maybe a flag to determine target offset mode?
-	if (blocks_[0].GetTargetOffset() < 0)
-		return GetBlockNumFromOffset(cookie);
+	if (!compileToNative_) {
+		return GetBlockNumFromIRArenaOffset(cookie);
+	}
 
-	// TODO: Now that we are using offsets in pure IR mode too, we can probably unify
-	// the two paradigms. Or actually no, we still need two offsets..
+	// TODO: This could also use a binary search.
 	for (int i = 0; i < GetNumBlocks(); ++i) {
-		int offset = blocks_[i].GetTargetOffset();
+		int offset = blocks_[i].GetNativeOffset();
 		if (offset == cookie)
 			return i;
 	}
@@ -453,7 +456,7 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 
 	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
-		int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset() : b.GetTargetOffset();
+		int cookie = compileToNative_ ? b.GetNativeOffset() : b.GetIRArenaOffset();
 		if (b.IsValid() && b.RestoreOriginalFirstOp(cookie)) {
 			result[number] = number;
 		} else {
@@ -474,7 +477,7 @@ void IRBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 		IRBlock &b = blocks_[number];
 		// Only if we restored it, write it back.
 		if (b.IsValid() && saved[number] != 0 && b.HasOriginalFirstOp()) {
-			int cookie = b.GetTargetOffset() < 0 ? b.GetInstructionOffset() : b.GetTargetOffset();
+			int cookie = compileToNative_ ? b.GetNativeOffset() : b.GetIRArenaOffset();
 			b.Finalize(cookie);
 		}
 	}

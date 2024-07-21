@@ -534,7 +534,7 @@ void IRNativeJit::InvalidateCacheAt(u32 em_address, int length) {
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
 		backend_->InvalidateBlock(&blocks_, block_num);
-		block->Destroy(block->GetTargetOffset());
+		block->Destroy(block->GetNativeOffset());
 	}
 }
 
@@ -550,7 +550,7 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	int block_offset = INT_MAX;
 	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
 		const auto &b = blocks_.GetBlock(i);
-		int b_start = b->GetTargetOffset();
+		int b_start = b->GetNativeOffset();
 		if (b_start > offset)
 			continue;
 
@@ -737,7 +737,7 @@ JitBlockProfileStats IRNativeBlockCacheDebugInterface::GetBlockProfileStats(int 
 }
 
 void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
-	int blockOffset = irBlocks_.GetBlock(blockNum)->GetTargetOffset();
+	int blockOffset = irBlocks_.GetBlock(blockNum)->GetNativeOffset();
 	int endOffset = backend_->GetNativeBlock(blockNum)->checkedOffset;
 
 	// If endOffset is before, the checked entry is before the block start.
@@ -747,7 +747,7 @@ void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *star
 			// Last block, get from current code pointer.
 			endOffset = (int)codeBlock_->GetOffset(codeBlock_->GetCodePtr());
 		} else {
-			endOffset = irBlocks_.GetBlock(blockNum + 1)->GetTargetOffset();
+			endOffset = irBlocks_.GetBlock(blockNum + 1)->GetNativeOffset();
 			_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
 		}
 	}
