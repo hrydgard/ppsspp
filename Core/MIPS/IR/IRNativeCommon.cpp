@@ -152,13 +152,14 @@ void IRNativeBackend::DoMIPSInst(uint32_t value) {
 	MIPSInterpret(op);
 }
 
+// This is called from IR->JIT implementation to fall back to the IR interpreter for missing ops.
+// Not fast.
 uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
-	IRInst inst[2];
-	memcpy(&inst, &value, sizeof(inst));
-
+	IRInst inst[2]{};
+	memcpy(&inst[0], &value, sizeof(value));
 	if constexpr (enableDebugStats)
 		debugSeenNotCompiledIR[(uint8_t)inst[0].op]++;
-
+	// Doesn't really matter what value it returns as PC.
 	inst[1].op = IROp::ExitToPC;
 	return IRInterpret(currentMIPS, &inst[0]);
 }
