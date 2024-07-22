@@ -772,7 +772,9 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
-		MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
+		if (g_Config.bPreloadFunctions) {
+			MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
+		}
 		return;
 	}
 
@@ -791,7 +793,9 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
 				currentMIPS->InvalidateICache(func.stubAddr, 8);
-				MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
+				if (g_Config.bPreloadFunctions) {
+					MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
+				}
 				return;
 			}
 		}
@@ -831,7 +835,9 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 				INFO_LOG(Log::Loader, "Resolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncStub(it->stubAddr, func.symAddr);
 				currentMIPS->InvalidateICache(it->stubAddr, 8);
-				MIPSAnalyst::PrecompileFunction(it->stubAddr, 8);
+				if (g_Config.bPreloadFunctions) {
+					MIPSAnalyst::PrecompileFunction(it->stubAddr, 8);
+				}
 			}
 		}
 	}
