@@ -248,6 +248,8 @@ protected:
 
 	MIPSState *mips_;
 
+	bool compilerEnabled_ = true;
+
 	// where to write branch-likely trampolines. not used atm
 	// u32 blTrampolines_;
 	// int blTrampolineCount_;

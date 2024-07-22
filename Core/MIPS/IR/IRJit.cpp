@@ -110,6 +110,8 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 }
 
 void IRJit::Compile(u32 em_address) {
+	_dbg_assert_(compilerEnabled_);
+
 	PROFILE_THIS_SCOPE("jitc");
 
 	if (g_Config.bPreloadFunctions) {
@@ -146,6 +148,8 @@ void IRJit::Compile(u32 em_address) {
 
 // WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
 bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
+	_dbg_assert_(compilerEnabled_);
+
 	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
 	if (instructions.empty()) {
 		_dbg_assert_(preload);
@@ -176,6 +180,8 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 }
 
 void IRJit::CompileFunction(u32 start_address, u32 length) {
+	_dbg_assert_(compilerEnabled_);
+
 	PROFILE_THIS_SCOPE("jitc");
 
 	// Note: we don't actually write emuhacks yet, so we can validate hashes.
@@ -264,7 +270,9 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		}
 
 		MIPSState *mips = mips_;
-
+#ifdef _DEBUG
+		compilerEnabled_ = false;
+#endif
 		while (mips->downcount >= 0) {
 			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
@@ -294,10 +302,19 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				}
 			} else {
 				// RestoreRoundingMode(true);
+#ifdef _DEBUG
+				compilerEnabled_ = true;
+#endif
 				Compile(mips->pc);
+#ifdef _DEBUG
+				compilerEnabled_ = false;
+#endif
 				// ApplyRoundingMode(true);
 			}
 		}
+#ifdef _DEBUG
+		compilerEnabled_ = true;
+#endif
 	}
 
 	// RestoreRoundingMode(true);
@@ -437,14 +454,19 @@ void IRBlockCache::RemoveBlock(int blockIndex) {
 		auto iter = std::find(byPage_[page].begin(), byPage_[page].end(), blockIndex);
 		if (iter != byPage_[page].end()) {
 			byPage_[page].erase(iter);
+		} else {
+			WARN_LOG(Log::JIT, "RemoveBlock: Block at %08x was not found where expected in byPage table.", startAddr);
 		}
 	}
 
-	// Additionally, we zap the block in the IR arena.
+	// Additionally, we'd like to zap the block in the IR arena.
+	// However, this breaks if calling sceKernelIcacheClearAll(), since as soon as we return, we'll be executing garbage.
+	/*
 	IRInst bad{ IROp::Bad };
 	for (int off = block.GetIRArenaOffset(); off < (int)(block.GetIRArenaOffset() + block.GetNumIRInstructions()); off++) {
 		arena_[off] = bad;
 	}
+	*/
 }
 
 u32 IRBlockCache::AddressToPage(u32 addr) const {
