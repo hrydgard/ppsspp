@@ -667,12 +667,16 @@ bool StartVRRender() {
 		M[10] = -1;
 		M[11] = -(fovHack + fovHack);
 		M[14] = -(nearZ + nearZ);
+		if (g_Config.bAntiFlickeringFlow) {
+			M[0] /= 2.0f;
+		}
 		memcpy(vrMatrix[VR_PROJECTION_MATRIX], M, sizeof(float) * 16);
 
 		// Decide if the scene is 3D or not
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
 		if (g_Config.bEnableVR && !vrIncompatibleGame && (appMode == VR_GAME_MODE) && vrScene) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
+			VR_SetConfig(VR_CONFIG_REPROJECTION, g_Config.bAntiFlickeringFlow ? 0 : 1);
 			vrFlatGame = false;
 		} else if (appMode == VR_GAME_MODE) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
@@ -689,7 +693,7 @@ bool StartVRRender() {
 
 		// Set customizations
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, vrScene && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
-		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough);
+		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough && IsPassthroughSupported());
 		return true;
 	}
 	return false;
@@ -897,6 +901,9 @@ void UpdateVRViewMatrices() {
 	float mPitch = mx * ToRadians(rotation.x);
 	float mYaw = my * ToRadians(rotation.y);
 	float mRoll = mz * ToRadians(rotation.z);
+	if (!VR_GetConfig(VR_CONFIG_REPROJECTION)) {
+		mPitch = 0; mYaw = 0; mRoll = 0;
+	}
 
 	// use in-game camera interpolated rotation
 	if (g_Config.bHeadRotationEnabled) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal

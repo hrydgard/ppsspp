@@ -482,6 +482,7 @@ public:
 	bool bEnable6DoF;
 	bool bEnableStereo;
 	bool bEnableMotions;
+	bool bAntiFlickeringFlow;
 	bool bForce72Hz;
 	bool bManualForceVR;
 	bool bPassthrough;
