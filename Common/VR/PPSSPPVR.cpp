@@ -879,9 +879,9 @@ void UpdateVRViewMatrices() {
 	}
 
 	// apply camera pitch offset
+	float pitchOffset = 0;
 	XrVector3f positionOffset = {g_Config.fCameraSide, g_Config.fCameraHeight, g_Config.fCameraDistance};
 	if (!flatScreen) {
-		float pitchOffset = 0;
 		switch (g_Config.iCameraPitch) {
 			case 1: //Top view -> First person
 				pitchOffset = 90;
@@ -901,9 +901,6 @@ void UpdateVRViewMatrices() {
 	float mPitch = mx * ToRadians(rotation.x);
 	float mYaw = my * ToRadians(rotation.y);
 	float mRoll = mz * ToRadians(rotation.z);
-	if (!VR_GetConfig(VR_CONFIG_REPROJECTION)) {
-		mPitch = 0; mYaw = 0; mRoll = 0;
-	}
 
 	// use in-game camera interpolated rotation
 	if (g_Config.bHeadRotationEnabled) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
@@ -913,6 +910,10 @@ void UpdateVRViewMatrices() {
 	XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, mYaw);
 	XrQuaternionf roll = XrQuaternionf_CreateFromVectorAngle({0, 0, 1}, mRoll);
 	invView.orientation = XrQuaternionf_Multiply(roll, XrQuaternionf_Multiply(pitch, yaw));
+	if (!VR_GetConfig(VR_CONFIG_REPROJECTION)) {
+        float axis = vrMirroring[VR_MIRRORING_PITCH] ? -1.0f : 1.0f;
+		invView.orientation = XrQuaternionf_CreateFromVectorAngle({axis, 0, 0}, ToRadians(pitchOffset));
+	}
 
 	float M[16];
 	XrQuaternionf_ToMatrix4f(&invView.orientation, M);
