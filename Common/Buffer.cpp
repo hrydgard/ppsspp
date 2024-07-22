@@ -22,7 +22,9 @@ char *Buffer::Append(size_t length) {
 
 void Buffer::Append(const std::string &str) {
 	char *ptr = Append(str.size());
-	memcpy(ptr, str.data(), str.size());
+	if (ptr) {
+		memcpy(ptr, str.data(), str.size());
+	}
 }
 
 void Buffer::Append(const char *str) {

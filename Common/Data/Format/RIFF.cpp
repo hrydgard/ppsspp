@@ -21,11 +21,12 @@ RIFFReader::~RIFFReader() {
 }
 
 int RIFFReader::ReadInt() {
+	int value = 0;
 	if (data_ && pos_ < eof_ - 3) {
 		pos_ += 4;
-		return *(int *)(data_ + pos_ - 4);
+		memcpy(&value, data_ + pos_ - 4, 4);
 	}
-	return 0;
+	return value;
 }
 
 bool RIFFReader::Descend(uint32_t intoId) {
@@ -104,4 +105,3 @@ int RIFFReader::GetCurrentChunkSize() {
 	else
 		return 0;
 }
-

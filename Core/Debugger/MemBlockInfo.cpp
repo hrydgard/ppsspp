@@ -280,7 +280,7 @@ void MemSlabMap::Clear() {
 			delete s;
 		s = next;
 	}
-	delete bulkStorage_;
+	delete [] bulkStorage_;
 	bulkStorage_ = nullptr;
 	first_ = nullptr;
 	lastFind_ = nullptr;
