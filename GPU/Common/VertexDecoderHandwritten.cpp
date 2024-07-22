@@ -85,7 +85,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
 		u32 normal = src[i].packed_normal;
 		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
-		_mm_store1_pd((double *)&dst[i].u, _mm_castps_pd(finalUV));
+		_mm_store_sd((double *)&dst[i].u, _mm_castps_pd(finalUV));
 		dst[i].packed_normal = normal;
 		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
 		alphaMask = _mm_and_si128(alphaMask, colpos);
