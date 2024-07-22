@@ -14,3 +14,10 @@ Under the assets directory is the SDL2 game controller database: gamecontrollerd
 Hot plugging of control pads is also supported.
 
 If you control pad has a "Guide" or "Home" button then when pressed, this will trigger the emulator pause menu, thus allowing you to exit the emulator if you wish or load another game from your library.
+
+WSL notes
+=========
+Works fine on WSL2 with OpenGL, at least. For more notes, see https://www.ppsspp.org/docs/development/wsl/ .
+
+Running with valgrind
+=====================
