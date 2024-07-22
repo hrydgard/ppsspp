@@ -327,11 +327,7 @@ void IRBlockCache::Clear() {
 	arena_.shrink_to_fit();
 }
 
-IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {
-	// For whatever reason, this makes things go slower?? Probably just a CPU cache alignment fluke.
-	//arena_.reserve(1024 * 1024 * 12);
-	//arena_.reserve(1024);
-}
+IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {}
 
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
 	// We have 24 bits to represent offsets with.
@@ -346,7 +342,7 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 		arena_.push_back(insts[i]);
 	}
 	int newBlockIndex = (int)blocks_.size();
-	blocks_.push_back(IRBlock(emAddr, origSize, offset, insts.size()));
+	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u32)insts.size()));
 	return newBlockIndex;
 }
 
@@ -446,7 +442,7 @@ void IRBlockCache::RemoveBlock(int blockIndex) {
 
 	// Additionally, we zap the block in the IR arena.
 	IRInst bad{ IROp::Bad };
-	for (int off = block.GetIRArenaOffset(); off < block.GetIRArenaOffset() + block.GetNumIRInstructions(); off++) {
+	for (int off = block.GetIRArenaOffset(); off < (int)(block.GetIRArenaOffset() + block.GetNumIRInstructions()); off++) {
 		arena_[off] = bad;
 	}
 }
