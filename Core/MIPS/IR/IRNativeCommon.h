@@ -185,7 +185,6 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void ClearCache() override;
-	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	bool CodeInRange(const u8 *ptr) const override;
@@ -199,8 +198,8 @@ public:
 
 protected:
 	void Init(IRNativeBackend &backend);
-	bool CompileTargetBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
-	void FinalizeTargetBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
+	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;

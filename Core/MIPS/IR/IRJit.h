@@ -49,32 +49,32 @@ namespace MIPSComp {
 class IRBlock {
 public:
 	IRBlock() {}
-	IRBlock(u32 emAddr, u32 origSize, int instOffset, u16 numInstructions)
-		: origAddr_(emAddr), origSize_(origSize), instOffset_(instOffset), numInstructions_(numInstructions) {}
+	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
+		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
 	IRBlock(IRBlock &&b) {
-		instOffset_ = b.instOffset_;
+		arenaOffset_ = b.arenaOffset_;
 		hash_ = b.hash_;
 		origAddr_ = b.origAddr_;
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
-		targetOffset_ = b.targetOffset_;
-		numInstructions_ = b.numInstructions_;
-		b.instOffset_ = 0xFFFFFFFF;
+		nativeOffset_ = b.nativeOffset_;
+		numIRInstructions_ = b.numIRInstructions_;
+		b.arenaOffset_ = 0xFFFFFFFF;
 	}
 
 	~IRBlock() {}
 
-	u32 GetInstructionOffset() const { return instOffset_; }
-	int GetNumInstructions() const { return numInstructions_; }
+	u32 GetIRArenaOffset() const { return arenaOffset_; }
+	int GetNumIRInstructions() const { return numIRInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
 	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
-	void SetTargetOffset(int offset) {
-		targetOffset_ = offset;
+	void SetNativeOffset(int offset) {
+		nativeOffset_ = offset;
 	}
-	int GetTargetOffset() const {
-		return targetOffset_;
+	int GetNativeOffset() const {
+		return nativeOffset_;
 	}
 	void UpdateHash() {
 		hash_ = CalculateHash();
@@ -103,19 +103,20 @@ private:
 	u64 CalculateHash() const;
 
 	// Offset into the block cache's Arena
-	// TODO: These should maybe be stored in a separate array.
-	u32 instOffset_ = 0;
+	u32 arenaOffset_ = 0;
+	// Offset into the native code buffer.
+	int nativeOffset_ = -1;
 	u64 hash_ = 0;
 	u32 origAddr_ = 0;
 	u32 origSize_ = 0;
 	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
-	int targetOffset_ = -1;
-	u16 numInstructions_ = 0;
+	u32 numIRInstructions_ = 0;
 };
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
-	IRBlockCache();
+	IRBlockCache(bool compileToNative);
+
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int blockNum, bool preload = false);
@@ -128,12 +129,13 @@ public:
 			return nullptr;
 		}
 	}
-	int GetBlockNumFromOffset(int offset) const;
+	void RemoveBlock(int blockNum);
+	int GetBlockNumFromIRArenaOffset(int offset) const;
 	const IRInst *GetBlockInstructionPtr(const IRBlock &block) const {
-		return arena_.data() + block.GetInstructionOffset();
+		return arena_.data() + block.GetIRArenaOffset();
 	}
 	const IRInst *GetBlockInstructionPtr(int blockNum) const {
-		return arena_.data() + blocks_[blockNum].GetInstructionOffset();
+		return arena_.data() + blocks_[blockNum].GetIRArenaOffset();
 	}
 	const IRInst *GetArenaPtr() const {
 		return arena_.data();
@@ -153,6 +155,8 @@ public:
 	}
 
 	int FindPreloadBlock(u32 em_address);
+
+	// "Cookie" means the 24 bits we inject into the first instruction of each block.
 	int FindByCookie(int cookie);
 
 	std::vector<u32> SaveAndClearEmuHackOps();
@@ -187,7 +191,7 @@ public:
 
 private:
 	u32 AddressToPage(u32 addr) const;
-
+	bool compileToNative_;
 	std::vector<IRBlock> blocks_;
 	std::vector<IRInst> arena_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
@@ -232,8 +236,10 @@ public:
 
 protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
-	virtual bool CompileTargetBlock(IRBlockCache *irBlockCache, int block_num, bool preload) { return true; }
-	virtual void FinalizeTargetBlock(IRBlockCache *irBlockCache, int block_num) {}
+	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) { return true; }
+	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
+
+	bool compileToNative_;
 
 	JitOptions jo;
 

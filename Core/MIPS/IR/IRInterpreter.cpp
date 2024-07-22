@@ -1237,7 +1237,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::Nop:
+		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
+		case IROp::Bad:
 		default:
 			Crash();
 			break;

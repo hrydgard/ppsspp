@@ -238,6 +238,7 @@ enum class IROp : uint8_t {
 	ValidateAddress128,
 
 	Nop,
+	Bad,
 };
 
 enum IRComparison {

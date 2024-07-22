@@ -126,7 +126,7 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlockCache *irBlockCache, int block
 		mr[statics[i].mr].nReg = statics[i].nr;
 		mr[statics[i].mr].isStatic = true;
 		// Lock it until the very end.
-		mr[statics[i].mr].spillLockIRIndex = irBlock_->GetNumInstructions();
+		mr[statics[i].mr].spillLockIRIndex = irBlock_->GetNumIRInstructions();
 	}
 
 	irBlockNum_ = blockNum;
@@ -434,7 +434,7 @@ bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, IRReg r) const {
 	// We look starting one ahead, unlike spilling.  We want to know if it clobbers later.
 	info.currentIndex = irIndex_ + 1;
 	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
-	info.numInstructions = irBlock_->GetNumInstructions();
+	info.numInstructions = irBlock_->GetNumIRInstructions();
 
 	// Make sure we're on the first one if this is multi-lane.
 	IRReg first = r;
@@ -461,7 +461,7 @@ bool IRNativeRegCacheBase::IsRegRead(MIPSLoc type, IRReg first) const {
 	// We look starting one ahead, unlike spilling.
 	info.currentIndex = irIndex_ + 1;
 	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
-	info.numInstructions = irBlock_->GetNumInstructions();
+	info.numInstructions = irBlock_->GetNumIRInstructions();
 
 	// Note: this intentionally doesn't look at the full reg, only the lane.
 	IRUsage usage = GetNextRegUsage(info, type, first);
@@ -478,7 +478,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
 	info.currentIndex = irIndex_;
 	info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
-	info.numInstructions = irBlock_->GetNumInstructions();
+	info.numInstructions = irBlock_->GetNumIRInstructions();
 
 	*clobbered = false;
 	for (int i = 0; i < allocCount; i++) {
@@ -1031,7 +1031,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 							info.lookaheadCount = 16;
 							info.currentIndex = irIndex_;
 							info.instructions = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
-							info.numInstructions = irBlock_->GetNumInstructions();
+							info.numInstructions = irBlock_->GetNumIRInstructions();
 
 							IRReg basefpr = first - oldlane - 32;
 							clobbered = true;
