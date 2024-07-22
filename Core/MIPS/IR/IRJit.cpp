@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 #include <set>
+#include <algorithm>
 
 #include "ext/xxhash.h"
 #include "Common/Profiler/Profiler.h"
@@ -85,7 +86,7 @@ void IRJit::UpdateFCR31() {
 }
 
 void IRJit::ClearCache() {
-	INFO_LOG(Log::JIT, "IRJit: Clearing the cache!");
+	INFO_LOG(Log::JIT, "IRJit: Clearing the block cache!");
 	blocks_.Clear();
 }
 
@@ -95,7 +96,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 		return;
 	}
 
-	INFO_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
+	DEBUG_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
 
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
@@ -631,7 +632,7 @@ void IRBlock::Destroy(int cookie) {
 			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
 		} else {
 			// NOTE: This is not an error. Just interesting to log.
-			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Block at %08x was overwritten - expected %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_);
+			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Block at %08x was overwritten - expected %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_.encoding);
 		}
 		// TODO: Also wipe the block in the IR opcode arena.
 		// Let's mark this invalid so we don't try to clear it again.
