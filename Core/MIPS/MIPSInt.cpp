@@ -42,6 +42,7 @@
 #define FsI(i) (currentMIPS->fs[i])
 #define PC (currentMIPS->pc)
 
+#define _SIMM16_SHL2 ((u32)(s32)(s16)(op & 0xFFFF) << 2)
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
 #define _RD   ((op>>11) & 0x1F)
@@ -94,7 +95,7 @@ namespace MIPSInt
 {
 	void Int_Cache(MIPSOpcode op)
 	{
-		int imm = SignExtend16ToS32(op & 0xFFFF);
+		int imm = SignExtend16ToS32(op);
 		int rs = _RS;
 		uint32_t addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
@@ -153,7 +154,7 @@ namespace MIPSInt
 	void Int_Syscall(MIPSOpcode op)
 	{
 		// Need to pre-move PC, as CallSyscall may result in a rescheduling!
-		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from 
+		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from
 		// but I don't see a need to bother.
 		if (mipsr4k.inDelaySlot)
 		{
@@ -182,12 +183,12 @@ namespace MIPSInt
 
 	void Int_RelBranch(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = _SIMM16_SHL2;
 		int rs = _RS;
 		int rt = _RT;
 		u32 addr = PC + imm + 4;
 
-		switch (op >> 26) 
+		switch (op >> 26)
 		{
 		case 4:  if (R(rt) == R(rs))  DelayBranchTo(addr); else PC += 4; break; //beq
 		case 5:  if (R(rt) != R(rs))  DelayBranchTo(addr); else PC += 4; break; //bne
@@ -207,7 +208,7 @@ namespace MIPSInt
 
 	void Int_RelBranchRI(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = _SIMM16_SHL2;
 		int rs = _RS;
 		u32 addr = PC + imm + 4;
 
@@ -230,7 +231,7 @@ namespace MIPSInt
 
 	void Int_VBranch(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = _SIMM16_SHL2;
 		u32 addr = PC + imm + 4;
 
 		// x, y, z, w, any, all, (invalid), (invalid)
@@ -248,7 +249,7 @@ namespace MIPSInt
 
 	void Int_FPUBranch(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFF)<<2;
+		int imm = _SIMM16_SHL2;
 		u32 addr = PC + imm + 4;
 		switch((op>>16)&0x1f)
 		{
@@ -261,7 +262,7 @@ namespace MIPSInt
 			break;
 		}
 	}
-	
+
 	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
@@ -270,7 +271,7 @@ namespace MIPSInt
 		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
 
-		switch (op>>26) 
+		switch (op>>26)
 		{
 		case 2: //j
 			if (!mipsr4k.inDelaySlot)
@@ -298,7 +299,7 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 		u32 addr = R(rs);
-		switch (op & 0x3f) 
+		switch (op & 0x3f)
 		{
 		case 8: //jr
 			if (!mipsr4k.inDelaySlot)
@@ -328,7 +329,7 @@ namespace MIPSInt
 			return; //nop
 		}
 
-		switch (op>>26) 
+		switch (op>>26)
 		{
 		case 8:	R(rt) = R(rs) + simm; break; //addi
 		case 9:	R(rt) = R(rs) + simm; break;	//addiu
@@ -391,7 +392,7 @@ namespace MIPSInt
 			return;
 		}
 
-		switch (op & 63) 
+		switch (op & 63)
 		{
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
@@ -428,7 +429,7 @@ namespace MIPSInt
 			return;
 		}
 
-		switch (op >> 26) 
+		switch (op >> 26)
 		{
 		case 32: R(rt) = SignExtend8ToU32(Memory::Read_U8(addr)); break; //lb
 		case 33: R(rt) = SignExtend16ToU32(Memory::Read_U16(addr)); break; //lh
@@ -549,7 +550,7 @@ namespace MIPSInt
 				DEBUG_LOG(Log::CPU, "FCR%i written to, value %08x", fs, value);
 				break;
 			}
-		
+
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -590,7 +591,7 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 
-		switch (op & 63) 
+		switch (op & 63)
 		{
 		case 24: //mult
 			{
@@ -702,16 +703,16 @@ namespace MIPSInt
 			PC += 4;
 			return;
 		}
-		
+
 		switch (op & 0x3f)
 		{
 		case 0: R(rd) = R(rt) << sa;					 break; //sll
-		case 2: 
+		case 2:
 			if (_RS == 0) //srl
 			{
 				R(rd) = R(rt) >> sa;
-				break; 
-			} 
+				break;
+			}
 			else if (_RS == 1) //rotr
 			{
 				R(rd) = __rotr(R(rt), sa);
@@ -726,7 +727,7 @@ namespace MIPSInt
 			if (_FD == 0) //srlv
 			{
 				R(rd) = R(rt) >> (R(rs)&0x1F);
-				break; 
+				break;
 			}
 			else if (_FD == 1) // rotrv
 			{

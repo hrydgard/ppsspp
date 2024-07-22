@@ -186,7 +186,7 @@ public:
 			Uint8x4ToFloat4(color, *(const u32 *)(data_ + decFmt_.c0off));
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c0off, 16); 
+			memcpy(color, data_ + decFmt_.c0off, 16);
 			break;
 		default:
 			memset(color, 0, sizeof(float) * 4);
@@ -225,7 +225,7 @@ public:
 			}
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c1off, 12); 
+			memcpy(color, data_ + decFmt_.c1off, 12);
 			break;
 		default:
 			memset(color, 0, sizeof(float) * 3);
@@ -445,8 +445,8 @@ public:
 
 	// "Immutable" state, set at startup
 
-	// The decoding steps. Never more than 5.
-	StepFunction steps_[5];
+	// The decoding steps. Never more than 5 (weight, texcoord, color, normal, pos)
+	StepFunction steps_[5]{};
 	int numSteps_;
 
 	u32 fmt_;

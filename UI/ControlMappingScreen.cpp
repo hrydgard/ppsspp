@@ -247,6 +247,7 @@ static const BindingCategory cats[] = {
 	{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
 	{"Emulator controls", VIRTKEY_FASTFORWARD},
 	{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
+	{},  // sentinel
 };
 
 void ControlMappingScreen::CreateViews() {
@@ -313,7 +314,7 @@ void ControlMappingScreen::CreateViews() {
 	if (curCat >= 0 && curSection) {
 		curSection->SetOpenPtr(&categoryToggles_[curCat]);
 	}
-	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 1);
+	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }

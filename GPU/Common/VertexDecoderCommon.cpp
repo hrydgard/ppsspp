@@ -1374,8 +1374,9 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 		prescaleUV_ = uvScaleOffset;
 		// Interpret the decode steps
 		for (; count; count--) {
-			for (int i = 0; i < numSteps_; i++) {
-				((*this).*steps_[i])();
+			const int steps = numSteps_;
+			for (int i = 0; i < steps; i++) {
+				(this->*steps_[i])();
 			}
 			ptr_ += size;
 			decoded_ += stride;
