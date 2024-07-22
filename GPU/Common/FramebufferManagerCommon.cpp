@@ -1664,13 +1664,13 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 
 		//clip the VR framebuffer to keep the aspect ratio
 		if (IsVREnabled() && !IsFlatVRGame() && !IsGameVRScene()) {
-			float aspect = 272.0f / 480.0f;
+			float aspect = 272.0f / 480.0f * (g_Config.bAntiFlickeringFlow ? 2.0f : 1.0f);
 			float clipY = 272.0f * (1.0f - aspect) / 2.0f;
 			v0 = (clipY + offsetY) / (float)vfb->bufferHeight;
 			v1 = (272.0f - clipY + offsetY) / (float)vfb->bufferHeight;
 
 			//zoom inside
-			float zoom = 0.1f;
+			float zoom = g_Config.bAntiFlickeringFlow ? 0.4f : 0.1f;
 			u0 += zoom / aspect;
 			u1 -= zoom / aspect;
 			v0 += zoom;

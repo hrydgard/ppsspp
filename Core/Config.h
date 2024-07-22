@@ -482,6 +482,7 @@ public:
 	bool bEnable6DoF;
 	bool bEnableStereo;
 	bool bEnableMotions;
+	bool bAntiFlickeringFlow;
 	bool bForce72Hz;
 	bool bManualForceVR;
 	bool bPassthrough;
@@ -489,6 +490,7 @@ public:
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
+	float fCameraPitch;
 	float fCanvasDistance;
 	float fCanvas3DDistance;
 	float fFieldOfViewPercentage;
@@ -497,7 +499,6 @@ public:
 	float fHeadRotationScale;
 	bool bHeadRotationEnabled;
 	bool bHeadRotationSmoothing;
-	int iCameraPitch;
 
 	// Debugger
 	int iDisasmWindowX;

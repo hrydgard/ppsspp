@@ -384,7 +384,9 @@ void VR_EndFrame( engine_t* engine ) {
 void VR_FinishFrame( engine_t* engine ) {
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
-	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_SBS_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {
+	bool headTracking = (vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_SBS_6DOF) || (vrMode == VR_MODE_STEREO_6DOF);
+	bool reprojection = vrConfig[VR_CONFIG_REPROJECTION];
+	if (headTracking && reprojection) {
 		VR_SetConfigFloat(VR_CONFIG_MENU_YAW, hmdorientation.y);
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {;
@@ -427,7 +429,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		projection_layer.views = projection_layer_elements;
 
 		engine->appState.Layers[engine->appState.LayerCount++].Projection = projection_layer;
-	} else if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_SBS_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
+	} else {
 
 		// Flat screen pose
 		float distance = VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE) / 4.0f - 1.0f;
@@ -459,12 +461,18 @@ void VR_FinishFrame( engine_t* engine ) {
 		cylinder_layer.radius = 2.0f;
 		cylinder_layer.centralAngle = (float)(M_PI * 0.5);
 		cylinder_layer.aspectRatio = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		if (headTracking && !reprojection) {
+			float width = engine->appState.ViewConfigurationView[0].recommendedImageRectWidth;
+			float height = engine->appState.ViewConfigurationView[0].recommendedImageRectHeight;
+			cylinder_layer.aspectRatio = 2.0f * width / height;
+			cylinder_layer.centralAngle = (float)(M_PI);
+		}
 
 		// Build the cylinder layer
-		if (vrMode == VR_MODE_MONO_SCREEN) {
+		if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_MONO_6DOF)) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
-		} else if (vrMode == VR_MODE_SBS_SCREEN) {
+		} else if ((vrMode == VR_MODE_SBS_SCREEN) || (vrMode == VR_MODE_SBS_6DOF)) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
 			cylinder_layer.subImage.imageRect.extent.width /= 2;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
@@ -478,8 +486,6 @@ void VR_FinishFrame( engine_t* engine ) {
 			cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[1].ColorSwapChain.Handle;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 		}
-	} else {
-		assert(false);
 	}
 
 	// Compose the layers for this frame.
