@@ -677,7 +677,12 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		return err;
 	}
 	if (atrac->GetTrack().loopinfo.size() == 0) {
-		return hleLogError(Log::ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information");
+		if (loopNum == -1) {
+			// This is very common and not really a problem.
+			return hleLogDebug(Log::ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information to write to!");
+		} else {
+			return hleLogError(Log::ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information to write to!");
+		}
 	}
 
 	atrac->SetLoopNum(loopNum);
