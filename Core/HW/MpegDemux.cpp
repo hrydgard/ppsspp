@@ -197,7 +197,7 @@ bool MpegDemux::demux(int audioChannel)
 	while (m_index < m_readSize && !needMore)
 	{
 		// Search for start code
-		int startCode = 0xFF;
+		u32 startCode = 0xFF;
 		while ((startCode & PACKET_START_CODE_MASK) != PACKET_START_CODE_PREFIX && !isEOF()) {
 			startCode = (startCode << 8) | read8();
 		}

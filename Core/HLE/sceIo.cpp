@@ -2291,11 +2291,12 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 			return SCE_KERNEL_ERROR_NOASYNC;
 		}
 		return 0; //completed
-	}
-	else
-	{
-		ERROR_LOG(Log::sceIo, "ERROR - sceIoGetAsyncStat with invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+	} else {
+		if (id == 0) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_BADF, "ERROR - sceIoGetAsyncStat with invalid id %d", id);
+		} else {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_BADF, "ERROR - sceIoGetAsyncStat with invalid id %d", id);
+		}
 	}
 }
 

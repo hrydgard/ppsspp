@@ -143,7 +143,7 @@ if(IOS_APP_STORE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
 	message("iOS App Store build")
-else()
+elseif(IOS)
 	message("iOS sideload build")
 endif()
 
