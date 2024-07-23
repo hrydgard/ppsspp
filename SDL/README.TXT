@@ -21,3 +21,7 @@ Works fine on WSL2 with OpenGL, at least. For more notes, see https://www.ppsspp
 
 Running with valgrind
 =====================
+
+Here's an example where we both use suppressions, and generate new ones (that you can then take from suppressions.log and simplify and copy to valgrind-wsl2.supp):
+
+> valgrind --suppressions=SDL/valgrind-wsl2.supp --gen-suppressions=all --log-file=suppressions.log build/PPSSPPSDL
