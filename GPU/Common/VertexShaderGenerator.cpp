@@ -1012,6 +1012,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
+		// NOTE: Can't change this without updating uniform buffer declarations (for D3D11 and VK, the one in ShaderUniforms.h).
 		bool useIndexing = compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == GLSL_VULKAN;
 
 		char iStr[4];
@@ -1062,7 +1063,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      ldot = u_matspecular.a > 0.0 ? pow(max(ldot, 0.0), u_matspecular.a) : 1.0;\n");
 				p.C("    }\n");
 				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
-				p.C("    if (comp == 0x1u && ldot > 0.0) {\n");  // do specular
+				p.C("    if (comp == 0x1u && ldot >= 0.0) {\n");  // do specular. note - must allow for the >= case, since the u_matspecular.a <= 0.0 case relies on it.
 				p.C("      if (u_matspecular.a > 0.0) {\n");
 				p.C("        ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
 				p.C("        ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
