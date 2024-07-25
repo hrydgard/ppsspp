@@ -20,7 +20,6 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMt19937.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 
 #ifdef USE_CRT_DBG
 #undef new

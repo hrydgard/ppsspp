@@ -45,7 +45,6 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 u8 voffset[128];
 u8 fromvoffset[128];
 
-
 #ifndef M_LOG2E
 #define M_E        2.71828182845904523536f
 #define M_LOG2E    1.44269504088896340736f
@@ -88,7 +87,6 @@ const float cst_constants[32] = {
 	logf(10.0f)/logf(2.0f),
 	sqrtf(3.0f)/2.0f,
 };
-
 
 MIPSState::MIPSState() {
 	MIPSComp::jit = nullptr;

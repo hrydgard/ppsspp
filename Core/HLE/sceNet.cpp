@@ -22,7 +22,6 @@
 #include <fcntl.h>
 #endif
 
-#include "Common/Net/Resolve.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"
@@ -34,18 +33,18 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Reporting.h"
 #include "Core/Util/PortManager.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
-#include "sceKernelMutex.h"
 #include "sceUtility.h"
 
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNp.h"
-#include "Core/Reporting.h"
+#include "Core/CoreTiming.h"
 #include "Core/Instance.h"
 
 #if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)

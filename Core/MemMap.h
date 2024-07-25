@@ -521,7 +521,6 @@ struct PSPPointer
 	}
 };
 
-
 constexpr u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 constexpr u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 

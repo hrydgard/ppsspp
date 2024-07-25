@@ -29,7 +29,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/MediaEngine.h"
-#include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"

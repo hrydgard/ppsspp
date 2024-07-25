@@ -5,10 +5,8 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
-    <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Log.h" />
-    <ClInclude Include="Log\LogManager.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="StringUtils.h" />
@@ -560,15 +558,20 @@
     <ClInclude Include="Render\Text\draw_text_cocoa.h">
       <Filter>Render\Text</Filter>
     </ClInclude>
+    <ClInclude Include="Log\StdioListener.h" />
+    <ClInclude Include="Log\ConsoleListener.h">
+      <Filter>Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\LogManager.h">
+      <Filter>Log</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
-    <ClCompile Include="Log\ConsoleListener.cpp" />
     <ClCompile Include="Log\StdioListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="FakeCPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp" />
-    <ClCompile Include="Log\LogManager.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thunk.cpp" />
@@ -1045,6 +1048,12 @@
     <ClCompile Include="..\ext\at3_standalone\compat.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
+    <ClCompile Include="Log\ConsoleListener.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Log\LogManager.cpp">
+      <Filter>Log</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1160,6 +1169,9 @@
     </Filter>
     <Filter Include="ext\at3_standalone">
       <UniqueIdentifier>{586da66e-922a-4479-9dac-9d608a1b9183}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{cb2c7c09-1177-4a1e-962c-5cc7bcb56789}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

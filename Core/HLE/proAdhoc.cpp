@@ -62,7 +62,17 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
+
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMutex.h"
+#include "Core/HLE/sceUtility.h"
+
+#include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
