@@ -887,6 +887,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	SetCurrentThreadName("Main");
 
+	TimeInit();
+
 	WinMainInit();
 
 #ifndef _DEBUG
@@ -1015,9 +1017,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 	}
-
-	// This still seems to improve performance noticeably.
-	timeBeginPeriod(1);
 
 	ContextMenuInit(_hInstance);
 	MainWindow::Init(_hInstance);

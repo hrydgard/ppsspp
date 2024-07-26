@@ -45,6 +45,8 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
@@ -799,6 +801,8 @@ Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
 {
+	TimeInit();
+
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);

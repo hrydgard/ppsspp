@@ -1108,6 +1108,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	TimeInit();
+
 #ifdef HAVE_LIBNX
 	socketInitializeDefault();
 	nxlinkStdio();

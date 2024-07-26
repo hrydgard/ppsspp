@@ -35,12 +35,6 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 
-static std::map<std::string, std::unique_ptr<FileLoaderFactory>> factories;
-
-void RegisterFileLoaderFactory(const std::string &prefix, std::unique_ptr<FileLoaderFactory> factory) {
-	factories[prefix] = std::move(factory);
-}
-
 FileLoader *ConstructFileLoader(const Path &filename) {
 	if (filename.Type() == PathType::HTTP) {
 		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
@@ -49,12 +43,6 @@ FileLoader *ConstructFileLoader(const Path &filename) {
 			baseLoader = new DiskCachingFileLoader(baseLoader);
 		}
 		return new CachingFileLoader(baseLoader);
-	}
-
-	for (auto &iter : factories) {
-		if (startsWith(filename.ToString(), iter.first)) {
-			return iter.second->ConstructFileLoader(filename);
-		}
 	}
 	return new LocalFileLoader(filename);
 }

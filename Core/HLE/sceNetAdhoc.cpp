@@ -46,6 +46,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
 #include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/MemMapHelpers.h"

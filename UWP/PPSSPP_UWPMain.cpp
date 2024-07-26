@@ -65,6 +65,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	app_(app),
 	m_deviceResources(deviceResources)
 {
+	TimeInit();
+
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 

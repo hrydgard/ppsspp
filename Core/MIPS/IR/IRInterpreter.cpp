@@ -200,7 +200,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = mips->r[inst->src1] ^ inst->constant;
 			break;
 		case IROp::Neg:
-			mips->r[inst->dest] = -(s32)mips->r[inst->src1];
+			mips->r[inst->dest] = (u32)(-(s32)mips->r[inst->src1]);
 			break;
 		case IROp::Not:
 			mips->r[inst->dest] = ~mips->r[inst->src1];

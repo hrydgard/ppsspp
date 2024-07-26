@@ -294,6 +294,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 										"(Ljava/lang/String;)Ljava/lang/Class;");
 
 	RegisterAttachDetach(&Android_AttachThreadToJNI, &Android_DetachThreadFromJNI);
+
+	TimeInit();
 	return JNI_VERSION_1_6;
 }
 

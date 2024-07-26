@@ -67,6 +67,7 @@ using namespace std::placeholders;
 #if !PPSSPP_PLATFORM(UWP)
 #include "GPU/Vulkan/DebugVisVulkan.h"
 #endif
+#include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/Debugger/SymbolMap.h"

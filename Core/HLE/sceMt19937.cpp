@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <string>  // for some reason required for the 'new'.
+
 #include "Common/Data/Random/Rng.h"
+#include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMt19937.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 
 #ifdef USE_CRT_DBG
 #undef new

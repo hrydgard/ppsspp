@@ -39,17 +39,13 @@
 #endif
 
 #include <atomic>
-#include <climits>
 #include <mutex>
 #include <thread>
+#include <climits>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
-
-#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"

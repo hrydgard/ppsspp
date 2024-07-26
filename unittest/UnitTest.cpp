@@ -60,6 +60,7 @@
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
@@ -1096,6 +1097,7 @@ TestItem availableTests[] = {
 
 int main(int argc, const char *argv[]) {
 	SetCurrentThreadName("UnitTest");
+	TimeInit();
 
 	printf("CPU name: %s\n", cpu_info.cpu_string);
 	printf("ABI: %s\n", GetCompilerABI());
