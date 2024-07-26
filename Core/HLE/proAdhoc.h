@@ -41,6 +41,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <climits>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"

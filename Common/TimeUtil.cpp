@@ -42,7 +42,7 @@ static double frequencyMult;
 static LARGE_INTEGER startTime;
 
 HANDLE Timer;
-int SchedulerPeriodMs;
+int SchedulerPeriodMs = 10;
 INT64 QpcPerSecond;
 
 void TimeInit() {
@@ -52,10 +52,12 @@ void TimeInit() {
 	frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
 
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+#if !PPSSPP_PLATFORM(UWP)
 	TIMECAPS caps;
 	timeGetDevCaps(&caps, sizeof caps);
 	timeBeginPeriod(caps.wPeriodMin);
 	SchedulerPeriodMs = (int)caps.wPeriodMin;
+#endif
 }
 
 double time_now_d() {
@@ -269,6 +271,7 @@ void sleep_precise(double seconds) {
 	LARGE_INTEGER qpc;
 	QueryPerformanceCounter(&qpc);
 	INT64 targetQpc = (INT64)(qpc.QuadPart + seconds * QpcPerSecond);
+
 	if (Timer) { // Try using a high resolution timer first.
 		const double TOLERANCE = 0.001'02;
 		INT64 maxTicks = (INT64)SchedulerPeriodMs * 9'500;
