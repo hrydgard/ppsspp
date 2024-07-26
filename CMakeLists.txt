@@ -186,6 +186,7 @@ option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SY
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 option(USE_CCACHE "Use ccache if detected" ON)
+option(USE_NO_MMAP "Disable mmap usage" OFF)
 
 if(USE_CCACHE)
 	include(ccache)
@@ -245,6 +246,12 @@ endif()
 # want to have to update all build systems.
 if(HTTPS_NOT_AVAILABLE)
 	add_definitions(-DHTTPS_NOT_AVAILABLE)
+endif()
+
+# Disable the usage of MMAP for the memory system.
+# It is not tested on all platforms and can cause issues.
+if(USE_NO_MMAP)
+	add_definitions(-DNO_MMAP -DMASKED_PSP_MEMORY)
 endif()
 
 # Work around for some misfeature of the current glslang build system
