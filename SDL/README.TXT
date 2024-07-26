@@ -25,3 +25,17 @@ Running with valgrind
 Here's an example where we both use suppressions, and generate new ones (that you can then take from suppressions.log and simplify and copy to valgrind-wsl2.supp):
 
 > valgrind --suppressions=SDL/valgrind-wsl2.supp --gen-suppressions=all --log-file=suppressions.log build/PPSSPPSDL
+
+Running with ASAN
+=================
+
+./b.sh --sanitize
+
+build/PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL
+
+Running with UBSAN
+==================
+
+./b.sh --sanitize --sanitizeub
+
+UBSAN_OPTIONS=print_stacktrack=true build/PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL
