@@ -1018,9 +1018,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
-	// This still seems to improve performance noticeably.
-	timeBeginPeriod(1);
-
 	ContextMenuInit(_hInstance);
 	MainWindow::Init(_hInstance);
 	MainWindow::Show(_hInstance);
