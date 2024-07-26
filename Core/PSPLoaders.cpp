@@ -56,7 +56,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelMemory.h"
 
-static std::thread loadingThread;
+static std::thread g_loadingThread;
 
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {
@@ -313,7 +313,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Note: this thread reads the game binary, loads caches, and links HLE while UI spins.
 	// To do something deterministically when the game starts, disabling this thread won't be enough.
 	// Instead: Use Core_ListenLifecycle() or watch coreState.
-	loadingThread = std::thread([bootpath] {
+	g_loadingThread = std::thread([bootpath] {
 		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -474,7 +474,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 	PSPLoaders_Shutdown();
 	// Note: See Load_PSP_ISO for notes about this thread.
-	loadingThread = std::thread([finalName] {
+	g_loadingThread = std::thread([finalName] {
 		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -500,7 +500,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 
 	PSPLoaders_Shutdown();
 	// Note: See Load_PSP_ISO for notes about this thread.
-	loadingThread = std::thread([] {
+	g_loadingThread = std::thread([] {
 		SetCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -521,6 +521,6 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 }
 
 void PSPLoaders_Shutdown() {
-	if (loadingThread.joinable())
-		loadingThread.join();
+	if (g_loadingThread.joinable())
+		g_loadingThread.join();
 }

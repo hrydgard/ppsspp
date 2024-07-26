@@ -285,9 +285,9 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				instPtr++;
 #ifdef IR_PROFILING
 				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(offset));
-				TimeSpan span;
+				Instant start = Instant::Now();
 				mips->pc = IRInterpret(mips, instPtr);
-				int64_t elapsedNanos = span.ElapsedNanos();
+				int64_t elapsedNanos = start.ElapsedNanos();
 				block->profileStats_.executions += 1;
 				block->profileStats_.totalNanos += elapsedNanos;
 #else

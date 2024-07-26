@@ -1195,6 +1195,8 @@ static const struct retro_controller_info ports[] =
 
 void retro_init(void)
 {
+   TimeInit();
+
    struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
    {

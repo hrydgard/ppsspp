@@ -887,6 +887,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	SetCurrentThreadName("Main");
 
+	TimeInit();
+
 	WinMainInit();
 
 #ifndef _DEBUG

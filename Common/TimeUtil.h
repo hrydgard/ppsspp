@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 
+void TimeInit();
+
 // Seconds.
 double time_now_d();
 
@@ -18,32 +20,24 @@ double time_now_unix_utc();
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);
 
+// Precise sleep. Can consume a little bit of CPU on Windows at least.
+void sleep_precise(double seconds);
+
 // Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
 void yield();
 
 void GetCurrentTimeFormatted(char formattedTime[13]);
 
-// Rust-style Instant for clear and easy timing.
+// Most accurate timer possible - no extra double conversions. Only for spans.
 class Instant {
 public:
 	static Instant Now() {
-		return Instant(time_now_d());
+		return Instant();
 	}
-	double ElapsedSeconds() const {
-		return time_now_d() - instantTime_;
-	}
-private:
-	explicit Instant(double initTime) : instantTime_(initTime) {}
-	double instantTime_;
-};
-
-// Most accurate timer possible - no extra double conversions. Only for spans.
-class TimeSpan {
-public:
-	TimeSpan();
 	double ElapsedSeconds() const;
 	int64_t ElapsedNanos() const;
 private:
+	Instant();
 	uint64_t nativeStart_;
 #ifndef _WIN32
 	int64_t nsecs_;

@@ -41,20 +41,27 @@ static LARGE_INTEGER frequency;
 static double frequencyMult;
 static LARGE_INTEGER startTime;
 
-static inline void InitTime() {
-	if (frequency.QuadPart == 0) {
-		QueryPerformanceFrequency(&frequency);
-		QueryPerformanceCounter(&startTime);
-		frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
-	}
+HANDLE Timer;
+int SchedulerPeriodMs;
+INT64 QpcPerSecond;
+
+void TimeInit() {
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&startTime);
+	QpcPerSecond = frequency.QuadPart;
+	frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
+
+	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+	TIMECAPS caps;
+	timeGetDevCaps(&caps, sizeof caps);
+	timeBeginPeriod(caps.wPeriodMin);
+	SchedulerPeriodMs = (int)caps.wPeriodMin;
 }
 
 double time_now_d() {
-	InitTime();
 	LARGE_INTEGER time;
 	QueryPerformanceCounter(&time);
-	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
-	return elapsed * frequencyMult;
+	return static_cast<double>(time.QuadPart - startTime.QuadPart) * frequencyMult;
 }
 
 // Fake, but usable in a pinch. Don't, though.
@@ -91,23 +98,27 @@ void yield() {
 	YieldProcessor();
 }
 
-TimeSpan::TimeSpan() {
+Instant::Instant() {
 	_dbg_assert_(frequencyMult != 0.0);
 	QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&nativeStart_));
 }
 
-double TimeSpan::ElapsedSeconds() const {
+double Instant::ElapsedSeconds() const {
 	LARGE_INTEGER time;
 	QueryPerformanceCounter(&time);
 	double elapsed = static_cast<double>(time.QuadPart - nativeStart_);
 	return elapsed * frequencyMult;
 }
 
-int64_t TimeSpan::ElapsedNanos() const {
+int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+
+void TimeInit() {
+	// Nothing to do.
+}
 
 // The only intended use is to match the timings in VK_GOOGLE_display_timing
 uint64_t time_now_raw() {
@@ -174,6 +185,10 @@ double TimeSpan::ElapsedSeconds() const {
 
 #else
 
+void TimeInit() {
+	// Nothing to do.
+}
+
 static time_t start;
 
 double time_now_d() {
@@ -229,7 +244,7 @@ int64_t TimeSpan::ElapsedNanos() const {
 }
 
 double TimeSpan::ElapsedSeconds() const {
-	return (double)ElapsedNanos() * (1.0 / 1000000000);
+	return (double)ElapsedNanos() * (1.0 / 1000000000.0);
 }
 
 #endif
@@ -243,6 +258,53 @@ void sleep_ms(int ms) {
 	emscripten_sleep(ms);
 #else
 	usleep(ms * 1000);
+#endif
+}
+
+// Precise Windows sleep function from: https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
+// Described in: https://blog.bearcats.nl/perfect-sleep-function/
+
+void sleep_precise(double seconds) {
+#ifdef _WIN32
+	LARGE_INTEGER qpc;
+	QueryPerformanceCounter(&qpc);
+	INT64 targetQpc = (INT64)(qpc.QuadPart + seconds * QpcPerSecond);
+	if (Timer) { // Try using a high resolution timer first.
+		const double TOLERANCE = 0.001'02;
+		INT64 maxTicks = (INT64)SchedulerPeriodMs * 9'500;
+		for (;;) // Break sleep up into parts that are lower than scheduler period.
+		{
+			double remainingSeconds = (targetQpc - qpc.QuadPart) / (double)QpcPerSecond;
+			INT64 sleepTicks = (INT64)((remainingSeconds - TOLERANCE) * 10'000'000);
+			if (sleepTicks <= 0)
+				break;
+			LARGE_INTEGER due;
+			due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
+			SetWaitableTimerEx(Timer, &due, 0, NULL, NULL, NULL, 0);
+			WaitForSingleObject(Timer, INFINITE);
+			QueryPerformanceCounter(&qpc);
+		}
+	} else { // Fallback to Sleep.
+		const double TOLERANCE = 0.000'02;
+		double sleepMs = (seconds - TOLERANCE) * 1000 - SchedulerPeriodMs; // Sleep for 1 scheduler period less than requested.
+		int sleepSlices = (int)(sleepMs / SchedulerPeriodMs);
+		if (sleepSlices > 0)
+			Sleep((DWORD)sleepSlices * SchedulerPeriodMs);
+		QueryPerformanceCounter(&qpc);
+	}
+	while (qpc.QuadPart < targetQpc) // Spin for any remaining time.
+	{
+		YieldProcessor();
+		QueryPerformanceCounter(&qpc);
+	}
+#else
+#if defined(HAVE_LIBNX)
+	svcSleepThread((int64_t)(seconds * 1000000000.0));
+#elif defined(__EMSCRIPTEN__)
+	emscripten_sleep(seconds * 1000.0);
+#else
+	usleep(seconds * 1000000.0);
+#endif
 #endif
 }
 
