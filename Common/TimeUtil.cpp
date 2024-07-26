@@ -160,14 +160,14 @@ void yield() {
 #endif
 }
 
-TimeSpan::TimeSpan() {
+Instant::Instant() {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	nativeStart_ = ts.tv_sec;
 	nsecs_ = ts.tv_nsec;
 }
 
-int64_t TimeSpan::ElapsedNanos() const {
+int64_t Instant::ElapsedNanos() const {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	int64_t secs = ts.tv_sec - nativeStart_;
@@ -179,7 +179,7 @@ int64_t TimeSpan::ElapsedNanos() const {
 	return secs * 1000000000ULL + nsecs;
 }
 
-double TimeSpan::ElapsedSeconds() const {
+double Instant::ElapsedSeconds() const {
 	return (double)ElapsedNanos() * (1.0 / nanos);
 }
 
@@ -223,14 +223,14 @@ double time_now_unix_utc() {
 	return time_now_raw();
 }
 
-TimeSpan::TimeSpan() {
+Instant::Instant() {
 	struct timeval tv;
 	gettimeofday(&tv, nullptr);
 	nativeStart_ = tv.tv_sec;
 	nsecs_ = tv.tv_usec;
 }
 
-int64_t TimeSpan::ElapsedNanos() const {
+int64_t Instant::ElapsedNanos() const {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
@@ -243,7 +243,7 @@ int64_t TimeSpan::ElapsedNanos() const {
 	return secs * 1000000000 + usecs * 1000;
 }
 
-double TimeSpan::ElapsedSeconds() const {
+double Instant::ElapsedSeconds() const {
 	return (double)ElapsedNanos() * (1.0 / 1000000000.0);
 }
 
