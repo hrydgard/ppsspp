@@ -780,8 +780,12 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		device_info.pNext = &features2;
 		features2.features = deviceFeatures_.enabled.standard;
 		ChainStruct(features2, &deviceFeatures_.enabled.multiview);
-		ChainStruct(features2, &deviceFeatures_.enabled.presentWait);
-		ChainStruct(features2, &deviceFeatures_.enabled.presentId);
+		if (extensionsLookup_.KHR_present_wait) {
+			ChainStruct(features2, &deviceFeatures_.enabled.presentWait);
+		}
+		if (extensionsLookup_.KHR_present_id) {
+			ChainStruct(features2, &deviceFeatures_.enabled.presentId);
+		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &deviceFeatures_.enabled.provokingVertex);
 		}
