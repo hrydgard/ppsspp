@@ -901,10 +901,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
 
-#ifdef _DEBUG
-	SanityCheckPassesOnAdd();
-#endif
-
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
@@ -948,6 +944,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			return;
 		}
 	}
+
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
 
 	// More redundant bind elimination.
 	if (curRenderStep_) {
