@@ -57,6 +57,9 @@ ConsoleListener::ConsoleListener() : hidden_(true) {
 
 	_dbg_assert_(!g_Initialized);
 	g_Initialized = true;
+
+	logPendingReadPos_.store(0);
+	logPendingWritePos_.store(0);
 }
 
 ConsoleListener::~ConsoleListener() {
