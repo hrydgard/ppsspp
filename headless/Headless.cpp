@@ -464,6 +464,8 @@ int main(int argc, const char* argv[])
 	coreParameter.pixelHeight = 272;
 	coreParameter.fastForward = true;
 
+	// NOTE: In headless mode, we never save the config. This is just for this run.
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS);
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
@@ -502,6 +504,16 @@ int main(int argc, const char* argv[])
 	g_Config.iReverbVolume = VOLUME_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseNewAtrac = newAtrac;
+	
+	// Trying to get tests to pass. TEMP
+	g_Config.iTexFiltering = 0;
+	g_Config.bVendorBugChecksEnabled = false;
+	g_Config.bUseGeometryShader = false;
+	g_Config.bDisableRangeCulling = false;
+	g_Config.bUberShaderFragment = false;
+	g_Config.bUberShaderVertex = false;
+	g_Config.bHardwareTessellation = false;
+	g_Config.bRenderMultiThreading = false;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
