@@ -1285,13 +1285,11 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrSettings->Add(new CheckBox(&g_Config.bEnableVR, vr->T("Virtual reality")));
 	vrSettings->Add(new CheckBox(&g_Config.bEnable6DoF, vr->T("6DoF movement")));
 	vrSettings->Add(new CheckBox(&g_Config.bEnableStereo, vr->T("Stereoscopic vision (Experimental)")));
-	CheckBox* antiFlickering = new CheckBox(&g_Config.bAntiFlickeringFlow, vr->T("Anti-flickering flow"));
-	antiFlickering->SetEnabledPtr(&g_Config.bEnableVR);
-	vrSettings->Add(antiFlickering);
-	vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
+	vrSettings->Add(new CheckBox(&g_Config.bEnableImmersiveVR, vr->T("Enable immersive mode")));
 	if (IsPassthroughSupported()) {
 		vrSettings->Add(new CheckBox(&g_Config.bPassthrough, vr->T("Enable passthrough")));
 	}
+	vrSettings->Add(new CheckBox(&g_Config.bForce72Hz, vr->T("Force 72Hz update")));
 
 	vrSettings->Add(new ItemHeader(vr->T("VR camera")));
 	vrSettings->Add(new PopupSliderChoiceFloat(&g_Config.fCanvasDistance, 1.0f, 15.0f, 12.0f, vr->T("Distance to 2D menus and scenes"), 1.0f, screenManager(), ""));
