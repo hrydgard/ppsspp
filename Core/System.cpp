@@ -74,6 +74,8 @@
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 
+#include "Core/MIPS/MIPSHooks.h"
+
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
 	CPU_THREAD_PENDING,
@@ -312,6 +314,9 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	LoadSymbolsIfSupported();
 
 	CoreTiming::Init();
+
+	// Prepare the MIPS hooks mapping (only needs to be run once)
+	MIPSHooks::Init();
 
 	// Init all the HLE modules
 	HLEInit();
