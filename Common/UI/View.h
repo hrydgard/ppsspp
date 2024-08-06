@@ -829,6 +829,7 @@ public:
 	}
 protected:
 	virtual std::string ValueText() const = 0;
+	virtual bool perGame() const { return false; }
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 

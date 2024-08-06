@@ -297,6 +297,7 @@ public:
 
 protected:
 	std::string ValueText() const override;
+	bool perGame() const override;
 
 private:
 	EventReturn HandleClick(EventParams &e);
@@ -335,6 +336,7 @@ public:
 
 protected:
 	std::string ValueText() const override;
+	bool perGame() const override;
 
 private:
 	EventReturn HandleClick(EventParams &e);
