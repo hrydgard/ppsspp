@@ -50,7 +50,7 @@ void InstallZipScreen::CreateViews() {
 	std::string shortFilename = zipPath_.GetFilename();
 	
 	// TODO: Do in the background?
-	ZipFileInfo zipInfo;
+	ZipFileInfo zipInfo{};
 	ZipFileContents contents = DetectZipFileContents(zipPath_, &zipInfo);
 
 	if (contents == ZipFileContents::ISO_FILE || contents == ZipFileContents::PSP_GAME_DIR) {

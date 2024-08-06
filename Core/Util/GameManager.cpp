@@ -234,6 +234,10 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 		std::string zippedName = fn;
 		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
 			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
+		// Ignore macos metadata stuff
+		if (startsWith(zippedName, "__macosx/")) {
+			continue;
+		}
 		if (zippedName.find("eboot.pbp") != std::string::npos) {
 			int slashCount = 0;
 			int slashLocation = -1;
@@ -251,7 +255,12 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 			if (slashCount <= 1) {
 				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
-				isoFileIndex = i;
+				INFO_LOG(Log::HLE, "ISO found in zip: %s", zippedName.c_str());
+				if (isoFileIndex != -1) {
+					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
+				} else {
+					isoFileIndex = i;
+				}
 			}
 		} else if (zippedName.find("textures.ini") != std::string::npos) {
 			int slashLocation = (int)zippedName.find_last_of('/');
@@ -493,11 +502,6 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 	zip_stat_index(z, file_index, 0, &zstat);
 	size_t size = zstat.size;
 
-	// Don't spam the log.
-	if (file_index < 10) {
-		INFO_LOG(Log::HLE, "Writing %d bytes to '%s'", (int)size, outFilename.c_str());
-	}
-
 	zip_file *zf = zip_fopen_index(z, file_index, 0);
 	if (!zf) {
 		ERROR_LOG(Log::HLE, "Failed to open file by index (%d) (%s)", file_index, outFilename.c_str());
@@ -506,6 +510,10 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 
 	FILE *f = File::OpenCFile(outFilename, "wb");
 	if (f) {
+		// Don't spam the log.
+		if (file_index < 10) {
+			INFO_LOG(Log::HLE, "Writing %d bytes to '%s'", (int)size, outFilename.c_str());
+		}
 		size_t pos = 0;
 		const size_t blockSize = 1024 * 128;
 		u8 *buffer = new u8[blockSize];
@@ -729,7 +737,16 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		allBytes += zstat.size;
 	}
 
-	Path outputISOFilename = Path(g_Config.currentDirectory) / fn.substr(nameOffset);
+	std::string name = fn.substr(nameOffset);
+
+	INFO_LOG(Log::IO, "Name in zip: %s  size: %d", name.c_str(), (int)zstat.size);
+
+	if (startsWith(name, "._")) {
+		// Not sure why Apple seems to add this when zipping file?
+		name = name.substr(2);
+	}
+
+	Path outputISOFilename = Path(g_Config.currentDirectory) / name;
 	size_t bytesCopied = 0;
 	bool success = false;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
