@@ -362,3 +362,40 @@ jobs:
     - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
+
+  build_test_headless_alpine:
+    runs-on: ubuntu-latest
+    container: 
+      image: alpine:latest
+      options: --shm-size=8g
+    steps:
+    - name: Install Linux dependencies (Alpine)
+      run: |
+        apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Fix git detected dubious ownership in repository
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+    
+    - name: Compile ffmpeg
+      run: |
+        cd ffmpeg && ./linux_x86-64.sh
+
+    - name: Build for testing
+      run: |
+        ./b.sh --headless --unittest
+
+    - name: Execute unit tests
+      run: |
+        ./build/PPSSPPUnitTest ALL
+
+    - name: Execute headless tests
+      run: |
+        python test.py -g --graphics=software
