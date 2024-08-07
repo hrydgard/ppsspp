@@ -169,8 +169,9 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
 
-	if (IsVREnabled()) {
+	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
+		features &= ~GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (!gl_extensions.GLES3) {
