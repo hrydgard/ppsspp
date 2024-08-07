@@ -484,6 +484,7 @@ public:
 	bool bEnableMotions;
 	bool bEnableImmersiveVR;
 	bool bForce72Hz;
+	bool bForceVR;
 	bool bManualForceVR;
 	bool bPassthrough;
 	bool bRescaleHUD;

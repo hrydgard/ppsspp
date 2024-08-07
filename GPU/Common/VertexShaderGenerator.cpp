@@ -1307,7 +1307,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  }\n");
 	}
 
-	if (vertexRangeCulling && !gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+	if (vertexRangeCulling) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 

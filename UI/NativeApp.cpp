@@ -1322,7 +1322,7 @@ bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
 
 	// VR actions
-	if (IsVREnabled() && !UpdateVRKeys(key)) {
+	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRKeys(key)) {
 		return false;
 	}
 
@@ -1372,7 +1372,7 @@ bool NativeKey(const KeyInput &key) {
 
 void NativeAxis(const AxisInput *axes, size_t count) {
 	// VR actions
-	if (IsVREnabled() && !UpdateVRAxis(axes, count)) {
+	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRAxis(axes, count)) {
 		return;
 	}
 
