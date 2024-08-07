@@ -10,6 +10,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Core/ConfigSettings.h"
 
 namespace UI {
 
@@ -197,6 +198,14 @@ void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
 			units_ = fmt_.substr(3);
 		}
 	}
+}
+
+bool PopupSliderChoiceFloat::perGame() const {
+	return ConfigSetting::perGame(value_);
+}
+
+bool PopupSliderChoice::perGame() const {
+	return ConfigSetting::perGame(value_);
 }
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
@@ -644,7 +653,13 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, valueText, availBounds, &w, &h, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		textPadding_.right = w + paddingX;
 
+		if (perGame()) {
+			textPadding_.left = 30;
+		}
 		Choice::Draw(dc);
+		if (perGame()) {
+			dc.Draw()->DrawImage(ImageID("I_GEAR"), bounds_.x + 22, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+		}
 		int imagePadding = 0;
 		if (rightIconImage_.isValid()) {
 			imagePadding = bounds_.h;

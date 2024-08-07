@@ -18,6 +18,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
+#include "Core/ConfigSettings.h"
 
 namespace UI {
 
@@ -798,6 +799,10 @@ void CheckBox::Draw(UIContext &dc) {
 
 	if (!text_.empty()) {
 		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+		if (ConfigSetting::perGame(toggle_)) {
+			dc.Draw()->DrawImage(ImageID("I_GEAR"), bounds_.x + 22, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+			textBounds.x += 30;
+		}
 		dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
