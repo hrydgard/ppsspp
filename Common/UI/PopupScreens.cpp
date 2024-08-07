@@ -126,7 +126,7 @@ void PopupMultiChoice::UpdateText() {
 		if (choices_[index]) {
 			valueText_ = T(category_, choices_[index]);
 		} else {
-			valueText_ = "";
+			valueText_.clear();
 		}
 	}
 }

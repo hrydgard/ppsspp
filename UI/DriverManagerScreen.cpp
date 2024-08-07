@@ -51,20 +51,21 @@ struct DriverMeta {
 			return false;
 		}
 
-		int schemaVersion = meta.root().getInt("schemaVersion");
+		const auto &root = meta.root();
+		int schemaVersion = root.getInt("schemaVersion");
 		if (schemaVersion > 1) {
 			*errorStr = "unknown schemaVersion in meta.json";
 			return false;
 		}
 
-		if (!meta.root().getString("name", &name) || name.empty()) {
+		if (!root.getString("name", &name) || name.empty()) {
 			*errorStr = "missing driver name in json";
 			return false;
 		}
-		meta.root().getString("description", &description);
-		meta.root().getString("vendor", &vendor);
-		meta.root().getString("driverVersion", &driverVersion);
-		minApi = meta.root().getInt("minApi");
+		root.getString("description", &description);
+		root.getString("vendor", &vendor);
+		root.getString("driverVersion", &driverVersion);
+		minApi = root.getInt("minApi");
 		return true;
 	}
 };
