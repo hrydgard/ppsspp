@@ -956,7 +956,6 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnable", &g_Config.bEnableVR, true, CfgFlag::PER_GAME),
 	ConfigSetting("VREnable6DoF", &g_Config.bEnable6DoF, false, CfgFlag::PER_GAME),
 	ConfigSetting("VREnableStereo", &g_Config.bEnableStereo, false, CfgFlag::PER_GAME),
-	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true, CfgFlag::PER_GAME),
 	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true, CfgFlag::PER_GAME),
 	ConfigSetting("VRForce", &g_Config.bForceVR, false, CfgFlag::DEFAULT),
 	ConfigSetting("VRImmersiveMode", &g_Config.bEnableImmersiveVR, true, CfgFlag::PER_GAME),
@@ -971,10 +970,6 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRCanvas3DDistance", &g_Config.fCanvas3DDistance, 3.0f, CfgFlag::DEFAULT),
 	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f, CfgFlag::PER_GAME),
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f, CfgFlag::PER_GAME),
-	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f, CfgFlag::DEFAULT),
-	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f, CfgFlag::PER_GAME),
-	ConfigSetting("VRHeadRotationEnabled", &g_Config.bHeadRotationEnabled, false, CfgFlag::PER_GAME),
-	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false, CfgFlag::PER_GAME),
 };
 
 static const ConfigSectionSettings sections[] = {

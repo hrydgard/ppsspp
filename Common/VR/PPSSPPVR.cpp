@@ -112,11 +112,6 @@ static std::vector<ButtonMapping> controllerMapping[2] = {
 		leftControllerMapping,
 		rightControllerMapping
 };
-static bool controllerMotion[2][5] = {};
-static bool hmdMotion[4] = {};
-static float hmdMotionLast[2] = {};
-static float hmdMotionDiff[2] = {};
-static float hmdMotionDiffLast[2] = {};
 static int mouseController = 1;
 static bool mousePressed = false;
 
@@ -273,103 +268,6 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 				m.repeat++;
 			}
 		}
-	}
-
-	//motion control
-	if (g_Config.bEnableMotions) {
-		for (int j = 0; j < 2; j++) {
-			bool activate;
-			float limit = g_Config.fMotionLength; //length of needed movement in meters
-			XrVector3f axis = {0, 1, 0};
-			float center = ToRadians(VR_GetConfigFloat(VR_CONFIG_MENU_YAW));
-			XrQuaternionf orientation = XrQuaternionf_CreateFromVectorAngle(axis, center);
-			XrVector3f position = XrQuaternionf_Rotate(orientation, IN_VRGetPose(j).position);
-
-			//up
-			activate = position.y > limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_MOTION_UP;
-			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][0] != activate) cbNativeKey(keyInput);
-			controllerMotion[j][0] = activate;
-
-			//down
-			activate = position.y < -limit * 1.5f;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_MOTION_DOWN;
-			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][1] != activate) cbNativeKey(keyInput);
-			controllerMotion[j][1] = activate;
-
-			//left
-			activate = position.x < -limit * (j == 0 ? 1.0f : 0.25f);
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_MOTION_LEFT;
-			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][2] != activate) cbNativeKey(keyInput);
-			controllerMotion[j][2] = activate;
-
-			//right
-			activate = position.x > limit * (j == 1 ? 1.0f : 0.25f);
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_MOTION_RIGHT;
-			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][3] != activate) cbNativeKey(keyInput);
-			controllerMotion[j][3] = activate;
-
-			//forward
-			activate = position.z < -limit;
-			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-			keyInput.keyCode = NKCODE_EXT_MOTION_FORWARD;
-			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][4] != activate) cbNativeKey(keyInput);
-			controllerMotion[j][4] = activate;
-		}
-	}
-
-	// Head control
-	if (g_Config.bHeadRotationEnabled) {
-		float pitch = -VR_GetHMDAngles().x;
-		float yaw = -VR_GetHMDAngles().y;
-		bool disable = vrFlatForced || appMode == VR_MENU_MODE;
-		bool isVR = !IsFlatVRScene();
-
-		// calculate delta angles of the rotation
-		if (isVR) {
-			float f = g_Config.bHeadRotationSmoothing ? 0.5f : 1.0f;
-			float deltaPitch = pitch - hmdMotionLast[0];
-			float deltaYaw = yaw - hmdMotionLast[1];
-			while (deltaYaw >= 180) deltaYaw -= 360;
-			while (deltaYaw < -180) deltaYaw += 360;
-			hmdMotionLast[0] = pitch;
-			hmdMotionLast[1] = yaw;
-			hmdMotionDiffLast[0] = hmdMotionDiffLast[0] * (1-f) + hmdMotionDiff[0] * f;
-			hmdMotionDiffLast[1] = hmdMotionDiffLast[1] * (1-f) + hmdMotionDiff[1] * f;
-			hmdMotionDiff[0] += deltaPitch;
-			hmdMotionDiff[1] += deltaYaw;
-			pitch = hmdMotionDiff[0];
-			yaw = hmdMotionDiff[1];
-		}
-
-		bool activate;
-		float limit = isVR ? g_Config.fHeadRotationScale : 20;
-		keyInput.deviceId = DEVICE_ID_XR_HMD;
-
-		//left
-		activate = !disable && yaw < -limit;
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
-		if (hmdMotion[2] != activate) cbNativeKey(keyInput);
-		if (isVR && activate) hmdMotionDiff[1] += limit;
-		hmdMotion[2] = activate;
-
-		//right
-		activate = !disable && yaw > limit;
-		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
-		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
-		if (hmdMotion[3] != activate) cbNativeKey(keyInput);
-		if (isVR && activate) hmdMotionDiff[1] -= limit;
-		hmdMotion[3] = activate;
 	}
 
 	// Camera adjust
@@ -894,9 +792,6 @@ void UpdateVRViewMatrices() {
 	float mYaw = my * ToRadians(rotation.y);
 	float mRoll = mz * ToRadians(rotation.z);
 
-	// use in-game camera interpolated rotation
-	if (g_Config.bHeadRotationEnabled) mYaw = -my * ToRadians(hmdMotionDiffLast[1]); // horizontal
-
 	// create updated quaternion
 	XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, mPitch);
 	XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, mYaw);
@@ -911,7 +806,7 @@ void UpdateVRViewMatrices() {
 	XrQuaternionf_ToMatrix4f(&invView.orientation, M);
 
 	// Apply 6Dof head movement
-	if (g_Config.bEnable6DoF && !g_Config.bHeadRotationEnabled && IsVREnabled()) {
+	if (g_Config.bEnable6DoF && IsVREnabled()) {
 		M[3] -= vrView[0].pose.position.x * (vrMirroring[VR_MIRRORING_AXIS_X] ? -1.0f : 1.0f) * scale;
 		M[7] -= vrView[0].pose.position.y * (vrMirroring[VR_MIRRORING_AXIS_Y] ? -1.0f : 1.0f) * scale;
 		M[11] -= vrView[0].pose.position.z * (vrMirroring[VR_MIRRORING_AXIS_Z] ? -1.0f : 1.0f) * scale;
