@@ -1219,8 +1219,9 @@ static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
 
 	// The lib info prefix looks like {'\', 'y', 'r', '=', '`', 'c', '`', '0'} (Big Endian)
 	const u64_le lib_info_prefix = 0x306063603D72795C;
-	auto lib_info_ptr = reinterpret_cast<const u64_le*>(ptr);
-	if (*lib_info_ptr != lib_info_prefix) {
+
+	// 'ptr' can potentially be misaligned here so let's use a memcmp instead of dereferencing 8 bytes at 'ptr'
+	if (memcmp(ptr, &lib_info_prefix, 8) != 0) {
 		// That's very wrong!
 		WARN_LOG(Log::sceModule, "~SCE module, unexpected header (not an error)");
 		return;
@@ -1236,13 +1237,14 @@ static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
 	}
 	nameBuffer[12] = '\0';
 
-	u8 versionBuffer[8] = "?.?.?.?";
+	u8 versionBuffer[7 + 1] = "?.?.?.?";
 	for (int i = 0; i < 4; ++i, ++ptr) {
 		u8 symbol = *ptr - 0x14u;
 		if (isprint(symbol)) {
 			versionBuffer[2 * i] = symbol;
 		}
 	}
+	// The null byte is already in its place, no need to assign it manually
 	
 	INFO_LOG(Log::sceModule, "~SCE module: Lib-PSP %s (SDK %s)", nameBuffer, versionBuffer);
 }

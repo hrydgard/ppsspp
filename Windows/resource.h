@@ -61,7 +61,7 @@
 #define IDD_GEDBG_TAB_MATRICES          255
 #define IDD_GEDBG_STEPCOUNT             256
 #define IDD_CPUWATCH                    257
-#define IDD_EDITSYMBOLS                  258
+#define IDD_EDITSYMBOLS                 258
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -123,12 +123,12 @@
 #define IDC_SHOWOFFSETS                 1200
 #define IDC_GEDBG_PRIMCOUNTER           1201
 #define IDC_BUTTON_SEARCH               1204
-#define IDC_EDITSYMBOLS_SCAN             1205
-#define IDC_EDITSYMBOLS_REMOVE           1206
-#define IDC_EDITSYMBOLS_ADDRESS          1207
-#define IDC_EDITSYMBOLS_SIZE             1208
-#define IDC_EDITSYMBOLS_OK               1209
-#define IDC_EDITSYMBOLS_CANCEL           1210
+#define IDC_EDITSYMBOLS_SCAN            1205
+#define IDC_EDITSYMBOLS_REMOVE          1206
+#define IDC_EDITSYMBOLS_ADDRESS         1207
+#define IDC_EDITSYMBOLS_SIZE            1208
+#define IDC_EDITSYMBOLS_OK              1209
+#define IDC_EDITSYMBOLS_CANCEL          1210
 
 #define ID_FILE_EXIT                     40000
 #define ID_DEBUG_SAVEMAPFILE             40001
@@ -354,7 +354,7 @@
 #define IDC_DISASM_FMT_INT               40233
 #define IDC_DISASM_FMT_FLOAT             40234
 #define IDC_DISASM_FMT_STR               40235
-#define ID_DISASM_EDITSYMBOLS             40236
+#define ID_DISASM_EDITSYMBOLS            40236
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
