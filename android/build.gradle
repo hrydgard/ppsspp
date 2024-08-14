@@ -161,6 +161,25 @@ android {
 				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
 			}
 		}
+		legacy {
+			applicationId 'org.ppsspp.ppsspplegacy'
+			dimension "variant"
+			targetSdkVersion 29  // This is the point of legacy.
+			externalNativeBuild {
+				cmake {
+					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+					arguments '-DANDROID=true',
+						'-DANDROID_PLATFORM=android-16',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_LEGACY=TRUE'
+				}
+			}
+			ndk {
+				abiFilters 'armeabi-v7a', 'arm64-v8a'
+			}
+		}
 		vr {
 			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
@@ -174,7 +193,8 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR=TRUE'
+							'-DOPENXR=TRUE',
+							'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
@@ -182,6 +202,8 @@ android {
 			}
 		}
 	}
+	// TODO: This is deprecated and needs a replacement. See https://stackoverflow.com/questions/67330818/android-gradle-plugin7-0-0-alpha15-removed-variantfilter-property-how-to-rest
+	// Though, not really that important.
 	variantFilter { variant ->
 		def needed = variant.name in [
 			'normalDebug',		// for debugging
@@ -191,6 +213,7 @@ android {
 			'vrDebug',    		// for VR debugging
 			'vrOptimized',		// for VR testing
 			'vrRelease',  		// for VR releases
+			'legacyOptimized',  // for legacy releases
 		]
 		variant.setIgnore(!needed)
 	}
