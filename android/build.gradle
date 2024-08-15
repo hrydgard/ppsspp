@@ -209,14 +209,16 @@ android {
 	// Though, not really that important.
 	variantFilter { variant ->
 		def needed = variant.name in [
-			'normalDebug',		// for debugging
-			'normalOptimized',	// for testing
-			'normalRelease',	// for Google Play releases
-			'goldRelease',		// for Google Play releases
-			'vrDebug',    		// for VR debugging
-			'vrOptimized',		// for VR testing
-			'vrRelease',  		// for VR releases
-			'legacyOptimized',  // for legacy releases
+			'normalDebug',      // for debugging
+			'normalOptimized',  // for testing/user build
+			'normalRelease',    // for Google Play releases
+			'goldRelease',      // for Google Play releases
+			'vrDebug',          // for VR debugging
+			'vrOptimized',      // for VR testing
+			'vrRelease',        // for VR releases
+			'legacyDebug',      // for legacy debugging
+			'legacyOptimized',  // for legacy testing/user build
+			'legacyRelease',    // for buildbot releases
 		]
 		variant.setIgnore(!needed)
 	}
