@@ -693,6 +693,9 @@ void SystemInfoScreen::CreateTabs() {
 #ifdef JENKINS
 	buildConfig->Add(new InfoItem(si->T("Built by"), "Jenkins"));
 #endif
+#ifdef ANDROID_LEGACY
+	buildConfig->Add(new InfoItem("ANDROID_LEGACY", ""));
+#endif
 #ifdef _DEBUG
 	buildConfig->Add(new InfoItem("_DEBUG", ""));
 #else
