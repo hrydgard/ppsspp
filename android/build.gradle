@@ -123,6 +123,9 @@ android {
 		vr {
 			manifest.srcFile 'VRManifest.xml'
 		}
+		legacy {
+			res.srcDirs = ['legacy/res']
+		}
 	}
 	productFlavors {
 		normal {
