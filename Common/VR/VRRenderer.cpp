@@ -38,14 +38,10 @@ void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrResult result;
 	OXR(result = xrGetReferenceSpaceBoundsRect(pappState->Session, XR_REFERENCE_SPACE_TYPE_STAGE, &stageBounds));
 	if (result != XR_SUCCESS) {
-		ALOGV("Stage bounds query failed: using small defaults");
 		stageBounds.width = 1.0f;
 		stageBounds.height = 1.0f;
-
 		pappState->CurrentSpace = pappState->FakeStageSpace;
 	}
-
-	ALOGV("Stage bounds: width = %f, depth %f", stageBounds.width, stageBounds.height);
 }
 
 void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight) {
@@ -167,6 +163,8 @@ void VR_Recenter(engine_t* engine) {
 	// Create a default stage space to use if SPACE_TYPE_STAGE is not
 	// supported, or calls to xrGetReferenceSpaceBoundsRect fail.
 	spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+	spaceCreateInfo.poseInReferenceSpace = {};
+	spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0;
 	if (VR_GetPlatformFlag(VR_PLATFORM_TRACKING_FLOOR)) {
 		spaceCreateInfo.poseInReferenceSpace.position.y = -1.6750f;
 	}
@@ -176,7 +174,8 @@ void VR_Recenter(engine_t* engine) {
 
 	if (stageSupported) {
 		spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-		spaceCreateInfo.poseInReferenceSpace.position.y = 0.0;
+		spaceCreateInfo.poseInReferenceSpace = {};
+		spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0;
 		OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.StageSpace));
 		ALOGV("Created stage space");
 		if (VR_GetPlatformFlag(VR_PLATFORM_TRACKING_FLOOR)) {
