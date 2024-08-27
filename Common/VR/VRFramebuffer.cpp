@@ -504,6 +504,7 @@ int ovrApp_HandleXrEvents(ovrApp* app) {
 					default:
 						break;
 				}
+				recenter = true;
 			} break;
 			default:
 				ALOGV("xrPollEvent: Unknown event");
