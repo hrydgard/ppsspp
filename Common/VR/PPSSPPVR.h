@@ -56,6 +56,7 @@ bool IsPassthroughSupported();
 bool IsFlatVRGame();
 bool IsFlatVRScene();
 bool IsGameVRScene();
+bool IsImmersiveVRMode();
 bool Is2DVRObject(float* projMatrix, bool ortho);
 void UpdateVRParams(float* projMatrix);
 void UpdateVRProjection(float* projMatrix, float* output);

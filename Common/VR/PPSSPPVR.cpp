@@ -527,7 +527,7 @@ bool StartVRRender() {
 
 		// VR flags
 		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
-		bool vrMode = (g_Config.bEnableVR || g_Config.bEnableImmersiveVR) && !vrIncompatibleGame;
+		bool vrMode = (g_Config.bEnableVR || IsImmersiveVRMode()) && !vrIncompatibleGame;
 		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
 		bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
 
@@ -558,7 +558,7 @@ bool StartVRRender() {
 		M[10] = -1;
 		M[11] = -1;
 		M[14] = -(nearZ + nearZ);
-		if (g_Config.bEnableImmersiveVR) {
+		if (IsImmersiveVRMode()) {
 			M[0] /= 2.0f;
 		}
 		memcpy(vrMatrix[VR_PROJECTION_MATRIX], M, sizeof(float) * 16);
@@ -567,7 +567,7 @@ bool StartVRRender() {
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
 		if (vrMode && vrScene && (appMode == VR_GAME_MODE)) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
-			VR_SetConfig(VR_CONFIG_REPROJECTION, g_Config.bEnableImmersiveVR ? 0 : 1);
+			VR_SetConfig(VR_CONFIG_REPROJECTION, IsImmersiveVRMode() ? 0 : 1);
 			vrFlatGame = false;
 		} else if (appMode == VR_GAME_MODE) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_SCREEN : VR_MODE_MONO_SCREEN);
@@ -630,6 +630,10 @@ bool IsFlatVRScene() {
 
 bool IsGameVRScene() {
 	return (appMode == VR_GAME_MODE) || (appMode == VR_DIALOG_MODE);
+}
+
+bool IsImmersiveVRMode() {
+	return g_Config.bEnableImmersiveVR && !PSP_CoreParameter().compat.vrCompat().IdentityViewHack;
 }
 
 bool Is2DVRObject(float* projMatrix, bool ortho) {
