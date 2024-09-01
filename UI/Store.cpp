@@ -233,8 +233,6 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 }
 
-
-
 // This is the entry in a list. Does not have install buttons and so on.
 class ProductItemView : public UI::StickyChoice {
 public:
@@ -333,6 +331,37 @@ void ProductView::CreateViews() {
 
 	float size = entry_.size / (1024.f * 1024.f);
 	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T_cstr("Size"), size, st->T_cstr("MB"))));
+
+	if (!entry_.license.empty()) {
+		LinearLayout *horiz = Add(new LinearLayout(ORIENT_HORIZONTAL));
+		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str())));
+		horiz->Add(new Button(st->T("Details")))->OnClick.Add([this](UI::EventParams) {
+			std::string url = StringFromFormat("https://www.ppsspp.org/docs/reference/homebrew-store-distribution/#%s", entry_.file.c_str());
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
+			return UI::EVENT_DONE;
+		});
+	}
+	if (!entry_.websiteURL.empty()) {
+		// Display in a few different ways depending on the URL
+		size_t slashes = std::count(entry_.websiteURL.begin(), entry_.websiteURL.end(), '/');
+		std::string buttonText;
+		if (slashes == 2) {
+			// Just strip https and show the URL.
+			std::string_view name = StripPrefix("https://", entry_.websiteURL);
+			name = StripPrefix("http://", name);
+			if (name.size() < entry_.websiteURL.size()) {
+				buttonText = name;
+			}
+		}
+		if (buttonText.empty()) {
+			// Fall back
+			buttonText = st->T("Website");
+		}
+		Add(new Button(buttonText))->OnClick.Add([this](UI::EventParams) {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, entry_.websiteURL.c_str());
+			return UI::EVENT_DONE;
+		});
+	}
 }
 
 void ProductView::Update() {
@@ -460,11 +489,13 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = game.getStringOr("author", "?");
+			e.author = ReplaceAll(game.getStringOr("author", "?"), "&&", "&");  // Can't remove && in the JSON source data due to old app versions
 			e.size = game.getInt("size");
 			e.downloadURL = game.getStringOr("download-url", "");
 			e.iconURL = game.getStringOr("icon-url", "");
 			e.contentRating = game.getInt("content-rating", 0);
+			e.websiteURL = game.getStringOr("website-url", "");
+			e.license = game.getStringOr("license", "");
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 			if (e.contentRating >= 100) {
 				continue;
