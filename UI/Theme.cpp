@@ -197,11 +197,11 @@ void UpdateTheme(UIContext *ctx) {
 #if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
 	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 17);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 13);
+	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 28);
 #else
 	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
 	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), "", 12);
+	ui_theme.uiFontBig = UI::FontStyle(FontID("UBUNTU24"), "", 26);
 #endif
 
 	ui_theme.checkOn = ImageID("I_CHECKEDBOX");

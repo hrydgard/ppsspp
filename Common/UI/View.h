@@ -93,7 +93,7 @@ struct FontStyle {
 struct Theme {
 	FontStyle uiFont;
 	FontStyle uiFontSmall;
-	FontStyle uiFontSmaller;
+	FontStyle uiFontBig;
 
 	ImageID checkOn;
 	ImageID checkOff;
@@ -982,10 +982,10 @@ private:
 class TextView : public InertView {
 public:
 	TextView(std::string_view text, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false), clip_(true) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false) {}
 
 	TextView(std::string_view text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small) {}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -994,6 +994,7 @@ public:
 	const std::string &GetText() const { return text_; }
 	std::string DescribeText() const override { return GetText(); }
 	void SetSmall(bool small) { small_ = small; }
+	void SetBig(bool big) { big_ = big; }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
@@ -1009,9 +1010,10 @@ private:
 	uint32_t textColor_;
 	bool hasTextColor_ = false;
 	bool small_;
-	bool shadow_;
-	bool focusable_;
-	bool clip_;
+	bool big_ = false;
+	bool shadow_ = false;
+	bool focusable_ = false;
+	bool clip_ = true;
 	bool bullet_ = false;
 	float pad_ = 0.0f;
 };
