@@ -288,7 +288,7 @@ void ProductView::CreateViews() {
 	if (!entry_.iconURL.empty()) {
 		Add(new HttpImageFileView(&g_DownloadManager, ResolveUrl(StoreBaseUrl(), entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
 	}
-	Add(new TextView(entry_.name));
+	Add(new TextView(entry_.name))->SetBig(true);
 	Add(new TextView(entry_.author));
 
 	auto st = GetI18NCategory(I18NCat::STORE);
@@ -313,7 +313,7 @@ void ProductView::CreateViews() {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 			return UI::EVENT_DONE;
 		});
-		Add(new TextView(st->T("Installed")));
+		// Add(new TextView(st->T("Installed")));  // Not really needed
 	}
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));
@@ -334,8 +334,8 @@ void ProductView::CreateViews() {
 
 	if (!entry_.license.empty()) {
 		LinearLayout *horiz = Add(new LinearLayout(ORIENT_HORIZONTAL));
-		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str())));
-		horiz->Add(new Button(st->T("Details")))->OnClick.Add([this](UI::EventParams) {
+		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str()), new LinearLayoutParams(0.0, G_VCENTER)));
+		horiz->Add(new Button(di->T("More information..."), new LinearLayoutParams(0.0, G_VCENTER)))->OnClick.Add([this](UI::EventParams) {
 			std::string url = StringFromFormat("https://www.ppsspp.org/docs/reference/homebrew-store-distribution/#%s", entry_.file.c_str());
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 			return UI::EVENT_DONE;

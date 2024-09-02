@@ -1043,7 +1043,13 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	if (bullet_) {
 		bounds.w -= bulletOffset;
 	}
-	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_, bounds, &w, &h, textAlign_);
+	const FontStyle *style = &dc.theme->uiFont;
+	if (small_) {
+		style = &dc.theme->uiFontSmall;
+	} else if (big_) {
+		style = &dc.theme->uiFontBig;
+	}
+	dc.MeasureTextRect(*style, 1.0f, 1.0f, text_, bounds, &w, &h, textAlign_);
 	w += pad_ * 2.0f;
 	h += pad_ * 2.0f;
 	if (bullet_) {
@@ -1074,7 +1080,13 @@ void TextView::Draw(UIContext &dc) {
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
-	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
+	const FontStyle *style = &dc.theme->uiFont;
+	if (small_) {
+		style = &dc.theme->uiFontSmall;
+	} else if (big_) {
+		style = &dc.theme->uiFontBig;
+	}
+	dc.SetFontStyle(*style);
 
 	Bounds textBounds = bounds_;
 
@@ -1094,7 +1106,7 @@ void TextView::Draw(UIContext &dc) {
 		dc.DrawTextRect(text_, textBounds.Offset(1.0f + pad_, 1.0f + pad_), shadowColor, textAlign_);
 	}
 	dc.DrawTextRect(text_, textBounds.Offset(pad_, pad_), textColor, textAlign_);
-	if (small_) {
+	if (small_ || big_) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.theme->uiFont);
 	}
