@@ -30,6 +30,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
@@ -161,6 +162,8 @@ void GameScreen::CreateViews() {
 				char buffer[16];
 				snprintf(buffer, sizeof(buffer), "%08X", crc);
 				System_CopyStringToClipboard(buffer);
+				// Success indication. Not worth a translatable string.
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
 				return UI::EVENT_DONE;
 			});
 			tvCRCCopy_->SetVisibility(crcVisibility);

@@ -7,6 +7,8 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.UiModeManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -1666,8 +1668,21 @@ public abstract class NativeActivity extends Activity {
 				NativeApp.reportException(e, params);
 				return false;
 			}
+		} else if (command.equals("copy_to_clipboard")) {
+			if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+				copyStringToClipboard(params);
+			}
+		} else {
+			Log.w(TAG, "Unknown string command " + command);
 		}
 		return false;
+	}
+
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
+	private void copyStringToClipboard(String text) {
+		ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipData clip = ClipData.newPlainText("Copied Text", text);
+		clipboard.setPrimaryClip(clip);
 	}
 
 	@SuppressLint("NewApi")
