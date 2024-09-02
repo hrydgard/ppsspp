@@ -171,6 +171,14 @@ std::string IndentString(const std::string &str, const std::string &sep, bool sk
 	return output.str();
 }
 
+std::string_view StripPrefix(std::string_view prefix, std::string_view s) {
+	if (startsWith(s, prefix)) {
+		return s.substr(prefix.size(), s.size() - prefix.size());
+	} else {
+		return s;
+	}
+}
+
 void SkipSpace(const char **ptr) {
 	while (**ptr && isspace(**ptr)) {
 		(*ptr)++;
