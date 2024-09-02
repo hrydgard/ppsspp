@@ -408,6 +408,7 @@ void System_Toast(std::string_view str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_TEXT_CLIPBOARD:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	{
 		return !IsXBox();
