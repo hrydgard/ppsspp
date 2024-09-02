@@ -355,6 +355,7 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_TEXT_CLIPBOARD:
 	case SYSPROP_HAS_DEBUGGER:
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
@@ -909,7 +910,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	std::string controlsConfigFilename = "";
 	const std::wstring controlsOption = L"--controlconfig=";
-
 
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
 		if (wideArgs[i][0] == L'\0')

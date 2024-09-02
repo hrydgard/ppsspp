@@ -75,6 +75,7 @@ private:
 	UI::TextView *tvPlayTime_ = nullptr;
 	UI::TextView *tvCRC_ = nullptr;
 	UI::TextView *tvID_ = nullptr;
+	UI::Button *tvCRCCopy_ = nullptr;
 	NoticeView *tvVerified_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;

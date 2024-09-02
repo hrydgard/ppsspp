@@ -499,6 +499,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
+		return androidVersion >= 11;  // honeycomb
+	case SYSPROP_HAS_TEXT_CLIPBOARD:
 		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 		return false;  // We have this implemented but it may or may not work depending on if a file explorer is installed.
@@ -1113,6 +1115,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::RECREATE_ACTIVITY:
 		PushCommand("recreate", param1);
+		return true;
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		PushCommand("copy_to_clipboard", param1);
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
