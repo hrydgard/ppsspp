@@ -906,14 +906,13 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_VFS.Register("", new DirectoryReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
+	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
 
+	// OS Build
 	uint32_t outMajor = 0, outMinor = 0, outBuild = 0;
-	osName = GetWindowsVersion(outMajor, outMinor, outBuild) + " " + GetWindowsSystemArchitecture();
-	if (outMajor > 0) {
-		// Builds with (service pack) don't show OS Version for now
-		char buffer[50];
-		sprintf_s(buffer, sizeof(buffer), "%u.%u.%u", outMajor, outMinor, outBuild);
-		osVersion = std::string(buffer);
+	if (GetVersionFromKernel32(outMajor, outMinor, outBuild)) {
+		// Builds with (service pack) don't show OS Build for now
+		osVersion = std::to_string(outMajor) + "." + std::to_string(outMinor) + "." + std::to_string(outBuild);
 	}
 
 	std::string configFilename = "";

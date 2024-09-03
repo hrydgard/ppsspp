@@ -21,6 +21,7 @@
 #include "UWPUtil.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "Common/Log.h"
+#include "Common/OSVersion.h"
 
 #include <ppl.h>
 #include <ppltasks.h>
@@ -239,25 +240,39 @@ bool IsMobile() {
 	return deviceInfo->DeviceFamily == "Windows.Mobile";
 }
 
-uint64_t GetWindowsVersionInfo() {
+void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
 	Platform::String^ deviceFamilyVersion = Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamilyVersion;
-	return std::stoull(deviceFamilyVersion->Data());
-}
+	uint64_t version = std::stoull(deviceFamilyVersion->Data());
 
-void ParseVersionInfo(uint64_t version, uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
 	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
 	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
 	build = static_cast<uint32_t>((version & 0x00000000FFFF0000L) >> 16);
 	revision = static_cast<uint32_t>(version & 0x000000000000FFFFL);
 }
 
-std::string GetWindowsVersionInfoPreview() {
-	uint64_t version = GetWindowsVersionInfo();
+std::string GetSystemName() {
+	std::string osName = "Microsoft Windows 10";
+
+	if (IsXBox()) {
+		osName = "Xbox OS";
+	}
+	else {
+		uint32_t major = 0, minor = 0, build = 0, revision = 0;
+		GetVersionInfo(major, minor, build, revision);
+
+		if (build >= 22000) {
+			osName = "Microsoft Windows 11";
+		}
+	}
+	return osName + " " + GetWindowsSystemArchitecture();
+}
+
+std::string GetWindowsBuild() {
 	uint32_t major = 0, minor = 0, build = 0, revision = 0;
-	ParseVersionInfo(version, major, minor, build, revision);
+	GetVersionInfo(major, minor, build, revision);
 
 	char buffer[50];
-	sprintf_s(buffer, sizeof(buffer), "%u.%u.%u", major, minor, build);
+	sprintf_s(buffer, sizeof(buffer), "%u.%u.%u (rev. %u)", major, minor, build, revision);
 	return std::string(buffer);
 }
 #pragma endregion
