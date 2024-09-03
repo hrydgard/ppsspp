@@ -204,7 +204,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
 		return osName;
-	case SYSPROP_SYSTEMVERSION:
+	case SYSPROP_SYSTEMBUILD:
 		return osVersion;
 	case SYSPROP_LANGREGION:
 		return langRegion;

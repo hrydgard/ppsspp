@@ -314,7 +314,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
 		return GetSystemName();
-	case SYSPROP_SYSTEMVERSION:
+	case SYSPROP_SYSTEMBUILD:
 		return GetWindowsBuild();
 	case SYSPROP_LANGREGION:
 		return GetLangRegion();
