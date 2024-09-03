@@ -489,6 +489,11 @@ void SystemInfoScreen::CreateTabs() {
 	systemInfo->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
+#elif PPSSPP_PLATFORM(WINDOWS)
+	std::string sysVersion = System_GetProperty(SYSPROP_SYSTEMVERSION);
+	if (!sysVersion.empty()) {
+		systemInfo->Add(new InfoItem(si->T("OS Build"), sysVersion));
+	}
 #endif
 	systemInfo->Add(new InfoItem(si->T("Lang/Region"), System_GetProperty(SYSPROP_LANGREGION)));
 	std::string board = System_GetProperty(SYSPROP_BOARDNAME);

@@ -106,6 +106,7 @@ CVFPUDlg *vfpudlg = nullptr;
 
 static std::string langRegion;
 static std::string osName;
+static std::string osVersion;
 static std::string gpuDriverVersion;
 
 static std::string restartArgs;
@@ -203,6 +204,8 @@ std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
 		return osName;
+	case SYSPROP_SYSTEMVERSION:
+		return osVersion;
 	case SYSPROP_LANGREGION:
 		return langRegion;
 	case SYSPROP_CLIPBOARD_TEXT:
@@ -903,7 +906,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_VFS.Register("", new DirectoryReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
-	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
+
+	uint32_t outMajor = 0, outMinor = 0, outBuild = 0;
+	osName = GetWindowsVersion(outMajor, outMinor, outBuild) + " " + GetWindowsSystemArchitecture();
+	if (outMajor > 0) {
+		// Builds with (service pack) don't show OS Version for now
+		char buffer[50];
+		sprintf_s(buffer, sizeof(buffer), "%u.%u.%u", outMajor, outMinor, outBuild);
+		osVersion = std::string(buffer);
+	}
 
 	std::string configFilename = "";
 	const std::wstring configOption = L"--config=";

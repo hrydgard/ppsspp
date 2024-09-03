@@ -238,4 +238,26 @@ bool IsMobile() {
 	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
 	return deviceInfo->DeviceFamily == "Windows.Mobile";
 }
+
+uint64_t GetWindowsVersionInfo() {
+	Platform::String^ deviceFamilyVersion = Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamilyVersion;
+	return std::stoull(deviceFamilyVersion->Data());
+}
+
+void ParseVersionInfo(uint64_t version, uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
+	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
+	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
+	build = static_cast<uint32_t>((version & 0x00000000FFFF0000L) >> 16);
+	revision = static_cast<uint32_t>(version & 0x000000000000FFFFL);
+}
+
+std::string GetWindowsVersionInfoPreview() {
+	uint64_t version = GetWindowsVersionInfo();
+	uint32_t major = 0, minor = 0, build = 0, revision = 0;
+	ParseVersionInfo(version, major, minor, build, revision);
+
+	char buffer[50];
+	sprintf_s(buffer, sizeof(buffer), "%u.%u.%u", major, minor, build);
+	return std::string(buffer);
+}
 #pragma endregion

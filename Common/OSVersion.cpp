@@ -93,7 +93,7 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 #endif
 }
 
-bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
+bool DoesVersionMatchWindows(WindowsReleaseInfo release, uint64_t version, uint32_t& outMajor, uint32_t& outMinor, uint32_t& outBuild) {
 	if (release.spMajor == 0 && release.spMinor == 0) {
 		// Compare Info
 		uint32_t major = release.major;
@@ -101,25 +101,29 @@ bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
 		uint32_t build = release.build;
 		bool greater = release.greater;
 
-		OSVERSIONINFOEX osvi;
-		ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-		osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-		GetVersionEx((LPOSVERSIONINFO)&osvi);
+		// System Info
+		uint32_t osMajor = 0, osMinor = 0, osBuild = 0, osRevision = 0;
 
-		// OS Info
-		uint32_t osMajor = osvi.dwMajorVersion;
-		uint32_t osMinor = osvi.dwMinorVersion;
-		uint32_t osBuild = osvi.dwBuildNumber;
-
-#if !PPSSPP_PLATFORM(UWP)
-		// "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
-		// Try to use kernel32.dll instead, for Windows 10+.
-		GetVersionFromKernel32(osMajor, osMinor, osBuild);
-#endif
+		if (version > 0) {
+			// Extract the major, minor, build, and revision numbers
+			// UWP take this path
+			osMajor = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
+			osMinor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
+			osBuild = static_cast<uint32_t>((version & 0x00000000FFFF0000L) >> 16);
+			osRevision = static_cast<uint32_t>((version & 0x000000000000FFFFL));
+		}
+		else {
+			// "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
+			// Try to use kernel32.dll instead, for Windows 10+.
+			GetVersionFromKernel32(osMajor, osMinor, osBuild);
+		}
 		
 		if (major == osMajor) {
 			// To detect Windows 11 we must check build number
 			if (osMinor >= minor && osBuild >= build) {
+				outMajor = osMajor;
+				outMinor = osMinor;
+				outBuild = osBuild;
 				return true;
 			}
 		}
@@ -142,6 +146,20 @@ bool IsWin7OrHigher() {
 }
 
 std::string GetWindowsVersion() {
+	uint32_t outMajor = 0, outMinor = 0, outBuild = 0; // Dummy
+	return GetWindowsVersion(0, outMajor, outMinor, outBuild);
+}
+
+std::string GetWindowsVersion(uint64_t versionInfo) {
+	uint32_t outMajor = 0, outMinor = 0, outBuild = 0; // Dummy
+	return GetWindowsVersion(versionInfo, outMajor, outMinor, outBuild);
+}
+
+std::string GetWindowsVersion(uint32_t& outMajor, uint32_t& outMinor, uint32_t& outBuild) {
+	return GetWindowsVersion(0, outMajor, outMinor, outBuild);
+}
+
+std::string GetWindowsVersion(uint64_t versionInfo, uint32_t& outMajor, uint32_t& outMinor, uint32_t& outBuild) {
 	std::vector<std::pair<std::string, WindowsReleaseInfo>> windowsReleases = {
 		/* { "Preview text", { major, minor, spMajor, spMinor, build, greater } }, */
 		{ "Microsoft Windows XP, Service Pack 2", { 5, 1, 2, 0 } },
@@ -160,7 +178,7 @@ std::string GetWindowsVersion() {
 	// Start from higher to lower
 	for (auto release = rbegin(windowsReleases); release != rend(windowsReleases); ++release) {
 		WindowsReleaseInfo releaseInfo = release->second;
-		bool buildMatch = DoesVersionMatchWindows(releaseInfo);
+		bool buildMatch = DoesVersionMatchWindows(releaseInfo, versionInfo, outMajor, outMinor, outBuild);
 		if (buildMatch) {
 			std::string previewText = release->first;
 			return previewText;

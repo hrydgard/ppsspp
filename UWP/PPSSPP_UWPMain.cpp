@@ -314,7 +314,21 @@ std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
-		return GetWindowsVersion();
+	{
+		uint64_t versionInfo = GetWindowsVersionInfo();
+		std::string osName;
+		if (IsXBox()) {
+			osName = "Xbox OS";
+		}
+		else {
+			osName = GetWindowsVersion(versionInfo);
+		}
+
+		osName += " " + GetWindowsSystemArchitecture();
+		return osName;
+	}
+	case SYSPROP_SYSTEMVERSION:
+		return GetWindowsVersionInfoPreview();
 	case SYSPROP_LANGREGION:
 		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
