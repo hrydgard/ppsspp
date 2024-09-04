@@ -199,14 +199,15 @@ static void countSlashes(const std::string &fileName, int *slashLocation, int *s
 	}
 }
 
-ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
 	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
-		return ZipFileContents::UNKNOWN;
+		info->contents = ZipFileContents::UNKNOWN;
+		return false;
 	}
-	ZipFileContents retVal = DetectZipFileContents(z, info);
+	DetectZipFileContents(z, info);
 	zip_close(z);
-	return retVal;
+	return true;
 }
 
 inline char asciitolower(char in) {
@@ -215,7 +216,7 @@ inline char asciitolower(char in) {
 	return in;
 }
 
-ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
 
 	// Verify that this is a PSP zip file with the correct layout. We also try
@@ -280,21 +281,21 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 
 	// If a ZIP is detected as both, let's let the memstick game interpretation prevail.
 	if (isPSPMemstickGame) {
-		return ZipFileContents::PSP_GAME_DIR;
+		info->contents = ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
-		return ZipFileContents::ISO_FILE;
+		info->contents = ZipFileContents::ISO_FILE;
 	} else if (isTexturePack) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
-		return ZipFileContents::TEXTURE_PACK;
+		info->contents = ZipFileContents::TEXTURE_PACK;
 	} else {
-		return ZipFileContents::UNKNOWN;
+		info->contents = ZipFileContents::UNKNOWN;
 	}
 }
 
 // Parameters need to be by value, since this is a thread func.
-bool GameManager::InstallGame(const Path &url, const Path &fileName, bool deleteAfter) {
-	SetCurrentThreadName("InstallGame");
+bool GameManager::InstallZipContents(const Path &url, const Path &fileName, bool deleteAfter) {
+	SetCurrentThreadName("InstallZipContents");
 
 	if (installDonePending_) {
 		ERROR_LOG(Log::HLE, "Cannot have two installs in progress at the same time");
@@ -332,9 +333,9 @@ bool GameManager::InstallGame(const Path &url, const Path &fileName, bool delete
 	}
 
 	ZipFileInfo info;
-	ZipFileContents contents = DetectZipFileContents(z, &info);
+	DetectZipFileContents(z, &info);
 	bool success = false;
-	switch (contents) {
+	switch (info.contents) {
 	case ZipFileContents::PSP_GAME_DIR:
 		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
 		// InstallMemstickGame contains code to close (and delete) z.
@@ -773,7 +774,7 @@ bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, boo
 	if (InstallInProgress() || installDonePending_) {
 		return false;
 	}
-	installThread_ = std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter));
+	installThread_ = std::thread(std::bind(&GameManager::InstallZipContents, this, url, fileName, deleteAfter));
 	return true;
 }
 

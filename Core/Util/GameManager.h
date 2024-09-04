@@ -79,7 +79,7 @@ public:
 
 private:
 	// TODO: The return value on this is a bit pointless, we can't get at it.
-	bool InstallGame(const Path &url, const Path &tempFileName, bool deleteAfter);
+	bool InstallZipContents(const Path &url, const Path &tempFileName, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
@@ -117,6 +117,7 @@ enum class ZipFileContents {
 };
 
 struct ZipFileInfo {
+	ZipFileContents contents;
 	int numFiles;
 	int stripChars;  // for PSP game
 	int isoFileIndex;  // for ISO
@@ -124,5 +125,5 @@ struct ZipFileInfo {
 	bool ignoreMetaFiles;
 };
 
-ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info);
-ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);

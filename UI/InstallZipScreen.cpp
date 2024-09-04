@@ -51,9 +51,9 @@ void InstallZipScreen::CreateViews() {
 	
 	// TODO: Do in the background?
 	ZipFileInfo zipInfo{};
-	ZipFileContents contents = DetectZipFileContents(zipPath_, &zipInfo);
+	DetectZipFileContents(zipPath_, &zipInfo);  // Even if this fails, it sets zipInfo->contents.
 
-	if (contents == ZipFileContents::ISO_FILE || contents == ZipFileContents::PSP_GAME_DIR) {
+	if (zipInfo.contents == ZipFileContents::ISO_FILE || zipInfo.contents == ZipFileContents::PSP_GAME_DIR) {
 		std::string_view question = iz->T("Install game from ZIP file?");
 		leftColumn->Add(new TextView(question, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
@@ -67,7 +67,7 @@ void InstallZipScreen::CreateViews() {
 		rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
 
 		returnToHomebrew_ = true;
-	} else if (contents == ZipFileContents::TEXTURE_PACK) {
+	} else if (zipInfo.contents == ZipFileContents::TEXTURE_PACK) {
 		std::string_view question = iz->T("Install textures from ZIP file?");
 		leftColumn->Add(new TextView(question, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
