@@ -194,7 +194,8 @@ public:
 
 	// Register-allocated JIT Temps don't get flushed so we don't reserve space for them.
 	// However, the IR interpreter needs some temps that can stick around between ops.
-	// Can be indexed through r[] using indices 192+.
+	// Can be indexed through r[] using indices 192+, thanks to predictable struct layout.
+	// Unfortunately, UBSAN isn't too happy about these.
 	u32 t[16];     //192
 
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.

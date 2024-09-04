@@ -10,6 +10,8 @@
 	<string>Your camera may be used to emulate Go!Cam, a camera accessory</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Your local network needs to be accessed by PPSSPP for network multiplayer support.</string>
 	<key>CFBundleDisplayName</key>
 	<string>PPSSPP</string>
 	<key>CFBundleExecutable</key>
@@ -44,8 +46,6 @@
 	<false/>
 	<key>UIRequiresFullScreen</key>
 	<true/>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>PPSSPP needs some local network access for network multiplayer support.</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
