@@ -765,7 +765,7 @@ namespace MainWindow
 
 		switch (message) {
 		case WM_CREATE:
-			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+			if (!IsVistaOrHigher()) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}

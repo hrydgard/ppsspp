@@ -46,7 +46,7 @@ bool GetVersionFromKernel32(uint32_t &major, uint32_t &minor, uint32_t &build) {
 #endif
 }
 
-bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool greater) {
+bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, uint32_t build, bool greater) {
 #if !PPSSPP_PLATFORM(UWP)
 	if (spMajor == 0 && spMinor == 0) {
 		// "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
@@ -55,7 +55,9 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 		if (GetVersionFromKernel32(actualMajor, actualMinor, actualBuild)) {
 			if (greater)
 				return actualMajor > major || (major == actualMajor && actualMinor >= minor);
-			return major == actualMajor && minor == actualMinor;
+
+			// To detect Windows 11 we must check build number
+			return major == actualMajor && minor == actualMinor && actualBuild >= build;
 		}
 	}
 
@@ -86,25 +88,25 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
 
 #else
-	if (greater) {
+	if (greater)
 		return true;
-	}
 	return false;
 #endif
 }
 
-bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
-	return DoesVersionMatchWindows(release.major, release.minor, release.spMajor, release.spMinor, release.greater);
-}
-
 bool IsVistaOrHigher() {
 	// Vista is 6.0
-	return DoesVersionMatchWindows(6, 0, 0, 0, true);
+	return DoesVersionMatchWindows(6, 0, 0, 0, 0, true);
 }
 
 bool IsWin7OrHigher() {
 	// Win7 is 6.1
-	return DoesVersionMatchWindows(6, 1, 0, 0, true);
+	return DoesVersionMatchWindows(6, 1, 0, 0, 0, true);
+}
+
+bool IsWin8OrHigher() {
+	// Win8 is 6.2
+	return DoesVersionMatchWindows(6, 2, 0, 0, 0, true);
 }
 
 std::string GetWindowsVersion() {
@@ -126,8 +128,7 @@ std::string GetWindowsVersion() {
 	// Start from higher to lower
 	for (auto release = rbegin(windowsReleases); release != rend(windowsReleases); ++release) {
 		WindowsReleaseInfo releaseInfo = release->second;
-		bool buildMatch = DoesVersionMatchWindows(releaseInfo);
-		if (buildMatch) {
+		if (DoesVersionMatchWindows(releaseInfo.major, releaseInfo.minor, releaseInfo.spMajor, releaseInfo.spMinor, releaseInfo.build, releaseInfo.greater)) {
 			std::string previewText = release->first;
 			return previewText;
 		}
