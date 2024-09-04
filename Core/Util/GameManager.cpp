@@ -167,7 +167,11 @@ void GameManager::Update() {
 				return;
 			}
 			// Game downloaded to temporary file - install it!
-			InstallGameOnThread(Path(curDownload_->url()), fileName, true);
+			ZipFileTask task;
+			task.url = Path(curDownload_->url());
+			task.fileName = fileName;
+			task.deleteAfter = true;
+			InstallZipOnThread(task);
 		} else {
 			ERROR_LOG(Log::HLE, "Expected HTTP status code 200, got status code %d. Install cancelled, deleting partial file '%s'",
 				curDownload_->ResultCode(), fileName.c_str());
@@ -199,14 +203,15 @@ static void countSlashes(const std::string &fileName, int *slashLocation, int *s
 	}
 }
 
-ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
 	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
-		return ZipFileContents::UNKNOWN;
+		info->contents = ZipFileContents::UNKNOWN;
+		return false;
 	}
-	ZipFileContents retVal = DetectZipFileContents(z, info);
+	DetectZipFileContents(z, info);
 	zip_close(z);
-	return retVal;
+	return true;
 }
 
 inline char asciitolower(char in) {
@@ -215,7 +220,7 @@ inline char asciitolower(char in) {
 	return in;
 }
 
-ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
 
 	// Verify that this is a PSP zip file with the correct layout. We also try
@@ -280,83 +285,96 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 
 	// If a ZIP is detected as both, let's let the memstick game interpretation prevail.
 	if (isPSPMemstickGame) {
-		return ZipFileContents::PSP_GAME_DIR;
+		info->contents = ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
-		return ZipFileContents::ISO_FILE;
+		info->contents = ZipFileContents::ISO_FILE;
 	} else if (isTexturePack) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
-		return ZipFileContents::TEXTURE_PACK;
+		info->contents = ZipFileContents::TEXTURE_PACK;
 	} else {
-		return ZipFileContents::UNKNOWN;
+		info->contents = ZipFileContents::UNKNOWN;
 	}
 }
 
 // Parameters need to be by value, since this is a thread func.
-bool GameManager::InstallGame(const Path &url, const Path &fileName, bool deleteAfter) {
-	SetCurrentThreadName("InstallGame");
+void GameManager::InstallZipContents(ZipFileTask task) {
+	SetCurrentThreadName("InstallZipContents");
 
 	if (installDonePending_) {
 		ERROR_LOG(Log::HLE, "Cannot have two installs in progress at the same time");
-		return false;
+		return;
 	}
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
-	if (!File::Exists(fileName)) {
-		ERROR_LOG(Log::HLE, "Game file '%s' doesn't exist", fileName.c_str());
-		return false;
+	if (!File::Exists(task.fileName)) {
+		ERROR_LOG(Log::HLE, "Game file '%s' doesn't exist", task.fileName.c_str());
+		return;
 	}
 
 	auto st = GetI18NCategory(I18NCat::STORE);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
-	std::string extension = url.GetFileExtension();
+	std::string urlExtension = task.url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
-	if (extension == ".cso" || extension == ".iso" || extension == ".chd") {
+	// TODO: Bad idea due to Android content api where we don't always get the filename.
+	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
 		// It's a raw ISO or CSO file. We just copy it to the destination.
-		std::string shortFilename = url.GetFilename();
-		bool success = InstallRawISO(fileName, shortFilename, deleteAfter);
-		return success;
+		std::string shortFilename = task.url.GetFilename();
+		bool success = InstallRawISO(task.fileName, shortFilename, task.deleteAfter);
+		if (!success) {
+			ERROR_LOG(Log::HLE, "Raw ISO install failed");
+			// This shouldn't normally happen at all (only when putting ISOs in a store, which is not a normal use case), so skipping the translation string
+			SetInstallError("Failed to install raw ISO");
+		}
+		return;
 	}
 
 	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 	Path dest = pspGame;
 	int error = 0;
 
-	struct zip *z = ZipOpenPath(fileName);
+	struct zip *z = ZipOpenPath(task.fileName);
 	if (!z) {
 		g_OSD.RemoveProgressBar("install", false, 0.5f);
 		SetInstallError(sy->T("Unable to open zip file"));
-		return false;
+		return;
 	}
 
-	ZipFileInfo info;
-	ZipFileContents contents = DetectZipFileContents(z, &info);
 	bool success = false;
-	switch (contents) {
+
+	ZipFileInfo zipInfo;
+	if (task.zipFileInfo) {
+		// The normal case
+		zipInfo = task.zipFileInfo.value();
+	} else {
+		DetectZipFileContents(task.fileName, &zipInfo);
+	}
+
+	switch (zipInfo.contents) {
 	case ZipFileContents::PSP_GAME_DIR:
-		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
+		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", task.fileName.c_str(), pspGame.c_str());
 		// InstallMemstickGame contains code to close (and delete) z.
-		success = InstallMemstickGame(z, fileName, pspGame, info, false, deleteAfter);
+		success = InstallMemstickGame(z, task.fileName, pspGame, zipInfo, false, task.deleteAfter);
 		break;
 	case ZipFileContents::ISO_FILE:
-		INFO_LOG(Log::HLE, "Installing '%s' into its containing directory", fileName.c_str());
+		INFO_LOG(Log::HLE, "Installing '%s' into its containing directory", task.fileName.c_str());
 		// InstallZippedISO contains code to close z.
-		success = InstallZippedISO(z, info.isoFileIndex, fileName, deleteAfter);
+		success = InstallZippedISO(z, zipInfo.isoFileIndex, task.fileName, task.deleteAfter);
 		break;
 	case ZipFileContents::TEXTURE_PACK:
 		// InstallMemstickGame contains code to close z, and works for textures too.
-		if (DetectTexturePackDest(z, info.textureIniIndex, dest)) {
-			INFO_LOG(Log::HLE, "Installing texture pack '%s' into '%s'", fileName.c_str(), dest.c_str());
+		if (DetectTexturePackDest(z, zipInfo.textureIniIndex, dest)) {
+			INFO_LOG(Log::HLE, "Installing texture pack '%s' into '%s'", task.fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
 			// Install as a zip file if textures.ini is in the root. Performs better on Android.
-			if (info.stripChars == 0) {
-				success = InstallMemstickZip(z, fileName, dest / "textures.zip", info, deleteAfter);
+			if (zipInfo.stripChars == 0) {
+				success = InstallMemstickZip(z, task.fileName, dest / "textures.zip", zipInfo, task.deleteAfter);
 			} else {
 				// TODO: Can probably remove this, as we now put .nomedia in /TEXTURES directly.
 				File::CreateEmptyFile(dest / ".nomedia");
-				success = InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
+				success = InstallMemstickGame(z, task.fileName, dest, zipInfo, true, task.deleteAfter);
 			}
 		} else {
 			zip_close(z);
@@ -368,12 +386,12 @@ bool GameManager::InstallGame(const Path &url, const Path &fileName, bool delete
 		SetInstallError(sy->T("Not a PSP game"));
 		zip_close(z);
 		z = nullptr;
-		if (deleteAfter)
-			File::Delete(fileName);
+		if (task.deleteAfter) {
+			File::Delete(task.fileName);
+		}
 		break;
 	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
-	return success;
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
@@ -769,11 +787,12 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 	return true;
 }
 
-bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, bool deleteAfter) {
+bool GameManager::InstallZipOnThread(ZipFileTask task) {
 	if (InstallInProgress() || installDonePending_) {
 		return false;
 	}
-	installThread_ = std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter));
+
+	installThread_ = std::thread(std::bind(&GameManager::InstallZipContents, this, task));
 	return true;
 }
 
