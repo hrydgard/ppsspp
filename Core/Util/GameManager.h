@@ -24,6 +24,7 @@
 
 #include <thread>
 #include <atomic>
+#include <optional>
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/File/Path.h"
@@ -32,6 +33,29 @@ enum class GameManagerState {
 	IDLE,
 	DOWNLOADING,
 	INSTALLING,
+};
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+	TEXTURE_PACK,
+};
+
+struct ZipFileInfo {
+	ZipFileContents contents;
+	int numFiles;
+	int stripChars;  // for PSP game
+	int isoFileIndex;  // for ISO
+	int textureIniIndex;  // for textures
+	bool ignoreMetaFiles;
+};
+
+struct ZipFileTask {
+	std::optional<ZipFileInfo> zipFileInfo;
+	Path url;  // Same as filename if installing from disk. Probably not really useful.
+	Path fileName;
+	bool deleteAfter;
 };
 
 struct zip;
@@ -74,12 +98,14 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(const Path &url, const Path &tempFileName, bool deleteAfter);
+	bool InstallZipOnThread(ZipFileTask task);
+
+	// Separate kind of functionality from InstallZipOnThread, so doesn't re-use the task struct.
 	bool UninstallGameOnThread(const std::string &name);
 
 private:
-	// TODO: The return value on this is a bit pointless, we can't get at it.
-	bool InstallZipContents(const Path &url, const Path &tempFileName, bool deleteAfter);
+	void InstallZipContents(ZipFileTask task);
+
 	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
@@ -108,22 +134,6 @@ private:
 };
 
 extern GameManager g_GameManager;
-
-enum class ZipFileContents {
-	UNKNOWN,
-	PSP_GAME_DIR,
-	ISO_FILE,
-	TEXTURE_PACK,
-};
-
-struct ZipFileInfo {
-	ZipFileContents contents;
-	int numFiles;
-	int stripChars;  // for PSP game
-	int isoFileIndex;  // for ISO
-	int textureIniIndex;  // for textures
-	bool ignoreMetaFiles;
-};
 
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
