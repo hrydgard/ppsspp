@@ -1236,6 +1236,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 				return mips->pc;
 			}
 			break;
+		case IROp::LogBlockHash:
+			// Do nothing for now
+			break;
 
 		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
 		case IROp::Bad:
