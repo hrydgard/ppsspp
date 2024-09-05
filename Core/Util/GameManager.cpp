@@ -347,7 +347,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	ZipFileInfo zipInfo;
 	if (task.zipFileInfo) {
 		// The normal case
-		zipInfo = task.zipFileInfo.value();
+		zipInfo = *task.zipFileInfo;
 	} else {
 		DetectZipFileContents(task.fileName, &zipInfo);
 	}
