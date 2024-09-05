@@ -37,6 +37,9 @@
 #include <ctime>
 #include <memory>
 
+#include <sys/utime.h>
+#include <sys/types.h>
+
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Common/File/AndroidContentURI.h"
@@ -1238,6 +1241,22 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 	}
 	fclose(f);
 	return true;
+}
+
+void ChangeMTime(const Path &path, time_t mtime) {
+	if (path.Type() == PathType::CONTENT_URI) {
+		// No clue what to do here.
+		return;
+	}
+
+	_utimbuf buf{};
+	buf.actime = mtime;
+	buf.modtime = mtime;
+#ifdef _WIN32
+	_utime(path.c_str(), &buf);
+#else
+	utime(path.c_str(), &buf);
+#endif
 }
 
 }  // namespace File

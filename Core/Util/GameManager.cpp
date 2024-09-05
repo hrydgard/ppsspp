@@ -24,13 +24,15 @@
 #include <set>
 #include <sstream>
 #include <thread>
-
+#include <sys/types.h>
+#include <sys/utime.h>
 #ifdef SHARED_LIBZIP
 #include <zip.h>
 #else
 #include "ext/libzip/zip.h"
 #endif
 #ifdef _WIN32
+
 #include "Common/CommonWindows.h"
 #endif
 #include "Common/Data/Encoding/Utf8.h"
@@ -652,8 +654,14 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 			*bytesCopied += readSize;
 			installProgress_ = (float)*bytesCopied / (float)allBytes;
 		}
+
 		zip_fclose(zf);
 		fclose(f);
+
+		// Copy the mtime, too. May not be possible on Android?
+		if (zstat.mtime) {
+			File::ChangeMTime(outFilename, zstat.mtime);
+		}
 		delete[] buffer;
 		return true;
 	} else {
