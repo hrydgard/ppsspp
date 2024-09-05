@@ -40,7 +40,6 @@ private:
 
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
-	UI::ProgressBar *progressBar_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
 	Path zipPath_;
 	ZipFileInfo zipFileInfo_{};

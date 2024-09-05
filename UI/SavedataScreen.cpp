@@ -192,45 +192,6 @@ void SortedLinearLayout::Update() {
 	UI::LinearLayout::Update();
 }
 
-class SavedataButton : public UI::Clickable {
-public:
-	SavedataButton(const Path &gamePath, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), savePath_(gamePath) {
-		SetTag(gamePath.ToString());
-	}
-
-	void Draw(UIContext &dc) override;
-	bool UpdateText();
-	std::string DescribeText() const override;
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		w = 500;
-		h = 74;
-	}
-
-	const Path &GamePath() const { return savePath_; }
-
-	uint64_t GetTotalSize() const {
-		return totalSize_;
-	}
-	int64_t GetDateSeconds() const {
-		return dateSeconds_;
-	}
-
-	void UpdateTotalSize();
-	void UpdateDateSeconds();
-
-private:
-	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
-
-	Path savePath_;
-	std::string title_;
-	std::string subtitle_;
-	uint64_t totalSize_ = 0;
-	int64_t dateSeconds_ = 0;
-	bool hasTotalSize_ = false;
-	bool hasDateSeconds_ = false;
-};
-
 void SavedataButton::UpdateTotalSize() {
 	if (hasTotalSize_)
 		return;
@@ -288,8 +249,9 @@ void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 		title_ = CleanSaveString(currentTitle);
 	}
 	if (subtitle_.empty() && ginfo->gameSizeOnDisk > 0) {
+		std::string date = GetFileDateAsString(ginfo->GetFilePath() / "PARAM.SFO");
 		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSizeOnDisk / 1024);
+		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB, %s)", ginfo->gameSizeOnDisk / 1024, date.c_str());
 	}
 }
 

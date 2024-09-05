@@ -51,7 +51,7 @@
 
 GameManager g_GameManager;
 
-static struct zip *ZipOpenPath(Path fileName) {
+struct zip *ZipOpenPath(Path fileName) {
 	int error = 0;
 	// Need to special case for content URI here, similar to OpenCFile.
 	struct zip *z;
@@ -69,6 +69,10 @@ static struct zip *ZipOpenPath(Path fileName) {
 		ERROR_LOG(Log::HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
 	}
 	return z;
+}
+
+void ZipClose(struct zip *z) {
+	zip_close(z);
 }
 
 GameManager::GameManager() {
@@ -190,17 +194,23 @@ void GameManager::Update() {
 	}
 }
 
-static void countSlashes(const std::string &fileName, int *slashLocation, int *slashCount) {
-	*slashCount = 0;
+static int countSlashes(const std::string &fileName, int *slashLocation) {
+	int slashCount = 0;
 	int lastSlashLocation = -1;
-	*slashLocation = -1;
+	if (slashLocation) {
+		*slashLocation = -1;
+	}
 	for (size_t i = 0; i < fileName.size(); i++) {
 		if (fileName[i] == '/') {
-			(*slashCount)++;
-			*slashLocation = lastSlashLocation;
-			lastSlashLocation = (int)i;
+			slashCount++;
+			if (slashLocation) {
+				*slashLocation = lastSlashLocation;
+				lastSlashLocation = (int)i;
+			}
 		}
 	}
+
+	return slashCount;
 }
 
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info) {
@@ -220,6 +230,23 @@ inline char asciitolower(char in) {
 	return in;
 }
 
+bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles) {
+	int numFiles = zip_get_num_files(z);
+	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
+		// Ignore the check, just assume we can't.
+		return false;
+	}
+	for (int i = 0; i < numFiles; i++) {
+		const char *fn = zip_get_name(z, i, 0);
+		Path p = destination / fn;
+		if (File::Exists(p)) {
+			INFO_LOG(Log::HLE, "Extract zip check: %s exists, can't extract without overwrite", p.ToVisualString().c_str());
+			return false;
+		}
+	}
+	return true;
+}
+
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
 
@@ -233,7 +260,13 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int isoFileIndex = -1;
 	int stripCharsTexturePack = -1;
 	int textureIniIndex = -1;
+	int filesInRoot = 0;
+	int directoriesInRoot = 0;
+	bool hasParamSFO = false;
+	bool hasIcon0PNG = false;
 
+	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
+	// is quite convenient and makes it easy to add shared heuristics.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
@@ -243,20 +276,21 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 		if (startsWith(zippedName, "__macosx/")) {
 			continue;
 		}
+		if (endsWith(zippedName, "/")) {
+			// A directory. Not all zips bother including these.
+			continue;
+		}
+		int prevSlashLocation = -1;
+		int slashCount = countSlashes(zippedName, &prevSlashLocation);
 		if (zippedName.find("eboot.pbp") != std::string::npos) {
-			int slashCount = 0;
-			int slashLocation = -1;
-			countSlashes(zippedName, &slashLocation, &slashCount);
-			if (slashCount >= 1 && (!isPSPMemstickGame || slashLocation < stripChars + 1)) {
-				stripChars = slashLocation + 1;
+			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
+				stripChars = prevSlashLocation + 1;
 				isPSPMemstickGame = true;
 			} else {
 				INFO_LOG(Log::HLE, "Wrong number of slashes (%i) in '%s'", slashCount, fn);
 			}
+			// TODO: Extract icon and param.sfo from the pbp to be able to display it on the install screen.
 		} else if (endsWith(zippedName, ".iso") || endsWith(zippedName, ".cso") || endsWith(zippedName, ".chd")) {
-			int slashCount = 0;
-			int slashLocation = -1;
-			countSlashes(zippedName, &slashLocation, &slashCount);
 			if (slashCount <= 1) {
 				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
@@ -265,6 +299,7 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
 				} else {
 					isoFileIndex = i;
+					info->contentName = zippedName;
 				}
 			}
 		} else if (zippedName.find("textures.ini") != std::string::npos) {
@@ -274,6 +309,26 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 				isTexturePack = true;
 				textureIniIndex = i;
 			}
+		} else if (endsWith(zippedName, "/param.sfo")) {
+			// Get the game name so we can display it.
+			std::string paramSFOContents;
+			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
+				ParamSFOData sfo;
+				if (sfo.ReadSFO((const u8 *)paramSFOContents.data(), paramSFOContents.size())) {
+					if (sfo.HasKey("TITLE")) {
+						std::string title = sfo.GetValueString("TITLE") + ": " + sfo.GetValueString("SAVEDATA_TITLE");
+						std::string details = sfo.GetValueString("SAVEDATA_DETAIL");
+						info->contentName = title + "\n\n" + details;
+						info->savedataDir = sfo.GetValueString("SAVEDATA_DIRECTORY");  // should also be parsable from the path.
+						hasParamSFO = true;
+					}
+				}
+			}
+		} else if (endsWith(zippedName, "/icon0.png")) {
+			hasIcon0PNG = true;
+		}
+		if (slashCount == 0) {
+			filesInRoot++;
 		}
 	}
 
@@ -283,7 +338,7 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	info->textureIniIndex = textureIniIndex;
 	info->ignoreMetaFiles = false;
 
-	// If a ZIP is detected as both, let's let the memstick game interpretation prevail.
+	// Priority ordering for detecting the various kinds of zip file content.s
 	if (isPSPMemstickGame) {
 		info->contents = ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
@@ -292,6 +347,9 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
 		info->contents = ZipFileContents::TEXTURE_PACK;
+	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG) {
+		// As downloaded from GameFAQs, for example.
+		info->contents = ZipFileContents::SAVE_DATA;
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}
@@ -331,8 +389,6 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		return;
 	}
 
-	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
-	Path dest = pspGame;
 	int error = 0;
 
 	struct zip *z = ZipOpenPath(task.fileName);
@@ -349,47 +405,60 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		// The normal case
 		zipInfo = task.zipFileInfo.value();
 	} else {
-		DetectZipFileContents(task.fileName, &zipInfo);
+		DetectZipFileContents(z, &zipInfo);
 	}
 
 	switch (zipInfo.contents) {
 	case ZipFileContents::PSP_GAME_DIR:
+	{
+		Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", task.fileName.c_str(), pspGame.c_str());
-		// InstallMemstickGame contains code to close (and delete) z.
-		success = InstallMemstickGame(z, task.fileName, pspGame, zipInfo, false, task.deleteAfter);
+		// InstallZipContents contains code to close (and delete) z.
+		success = ExtractZipContents(z, pspGame, zipInfo, false);
 		break;
+	}
 	case ZipFileContents::ISO_FILE:
 		INFO_LOG(Log::HLE, "Installing '%s' into its containing directory", task.fileName.c_str());
 		// InstallZippedISO contains code to close z.
 		success = InstallZippedISO(z, zipInfo.isoFileIndex, task.fileName, task.deleteAfter);
 		break;
 	case ZipFileContents::TEXTURE_PACK:
+	{
 		// InstallMemstickGame contains code to close z, and works for textures too.
+		Path dest;
 		if (DetectTexturePackDest(z, zipInfo.textureIniIndex, dest)) {
 			INFO_LOG(Log::HLE, "Installing texture pack '%s' into '%s'", task.fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
 			// Install as a zip file if textures.ini is in the root. Performs better on Android.
 			if (zipInfo.stripChars == 0) {
-				success = InstallMemstickZip(z, task.fileName, dest / "textures.zip", zipInfo, task.deleteAfter);
+				success = InstallMemstickZip(z, task.fileName, dest / "textures.zip", zipInfo);
 			} else {
 				// TODO: Can probably remove this, as we now put .nomedia in /TEXTURES directly.
 				File::CreateEmptyFile(dest / ".nomedia");
-				success = InstallMemstickGame(z, task.fileName, dest, zipInfo, true, task.deleteAfter);
+				success = ExtractZipContents(z, dest, zipInfo, true);
 			}
 		} else {
 			zip_close(z);
 			z = nullptr;
 		}
 		break;
+	}
+	case ZipFileContents::SAVE_DATA:
+	{
+		Path pspSaveData = GetSysDirectory(DIRECTORY_SAVEDATA);
+		success = ExtractZipContents(z, pspSaveData, zipInfo, false);
+		break;
+	}
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
 		zip_close(z);
 		z = nullptr;
-		if (task.deleteAfter) {
-			File::Delete(task.fileName);
-		}
 		break;
+	}
+
+	if (task.deleteAfter && success) {
+		File::Delete(task.fileName);
 	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 }
@@ -515,6 +584,29 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	return sfo.GetValueString("DISC_ID");
 }
 
+bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
+	struct zip_stat zstat;
+	zip_stat_index(z, fileIndex, 0, &zstat);
+	if (zstat.size == 0) {
+		data->clear();
+		return true;
+	}
+
+	size_t readSize = zstat.size;
+	data->resize(readSize);
+
+	zip_file *zf = zip_fopen_index(z, fileIndex, 0);
+	zip_int64_t retval = zip_fread(zf, data->data(), readSize);
+	zip_fclose(zf);
+
+	if (retval < 0 || retval < readSize) {
+		ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
+		return false;
+	} else {
+		return true;
+	}
+}
+
 bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes) {
 	struct zip_stat zstat;
 	zip_stat_index(z, file_index, 0, &zstat);
@@ -572,7 +664,8 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 	}
 }
 
-bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter) {
+// Doesn't care what it is, just extracts the whole ZIP to the requested location.
+bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
@@ -657,10 +750,6 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	zip_close(z);
 	z = nullptr;
 	installProgress_ = 1.0f;
-	if (deleteAfter) {
-		INFO_LOG(Log::HLE, "Deleting '%s' after extraction", zipfile.c_str());
-		File::Delete(zipfile);
-	}
 	InstallDone();
 	ResetInstallError();
 	g_OSD.RemoveProgressBar("install", true, 0.5f);
@@ -681,7 +770,7 @@ bail:
 	return false;
 }
 
-bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info, bool deleteAfter) {
+bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const Path &dest, const ZipFileInfo &info) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
@@ -731,9 +820,6 @@ bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const P
 	}
 
 	installProgress_ = 1.0f;
-	if (deleteAfter) {
-		File::Delete(zipfile);
-	}
 	InstallDone();
 	ResetInstallError();
 	g_OSD.RemoveProgressBar("install", true, 0.5f);
