@@ -47,3 +47,10 @@ bool IsCtrlOnHold();
 std::string GetLangRegion();
 bool IsXBox();
 bool IsMobile();
+
+// Get major, minor, build, revision
+void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision);
+
+// Get formatted windows info as string (for preview)
+std::string GetSystemName();
+std::string GetWindowsBuild();

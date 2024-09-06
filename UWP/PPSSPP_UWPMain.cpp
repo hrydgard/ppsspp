@@ -24,7 +24,6 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
-#include "Common/OSVersion.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
@@ -314,7 +313,9 @@ std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
-		return GetWindowsVersion();
+		return GetSystemName();
+	case SYSPROP_SYSTEMBUILD:
+		return GetWindowsBuild();
 	case SYSPROP_LANGREGION:
 		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
