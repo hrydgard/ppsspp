@@ -583,6 +583,7 @@
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="KeyMapDefaults.cpp" />
     <ClCompile Include="MemFault.cpp" />
+    <ClCompile Include="MIPSTracer.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRAsm.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRCompALU.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRCompBranch.cpp" />
@@ -1193,6 +1194,7 @@
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="KeyMapDefaults.h" />
     <ClInclude Include="MemFault.h" />
+    <ClInclude Include="MIPSTracer.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
     <ClInclude Include="MIPS\fake\FakeJit.h" />

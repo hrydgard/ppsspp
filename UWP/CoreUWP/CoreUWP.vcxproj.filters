@@ -555,6 +555,9 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\MIPSTracer.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Dialog\PSPDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
@@ -1622,6 +1625,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Dialog\PSPDialog.h">
