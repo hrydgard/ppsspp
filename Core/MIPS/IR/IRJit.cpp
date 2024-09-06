@@ -172,7 +172,8 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	}
 	if (!CompileNativeBlock(&blocks_, block_num, preload))
 		return false;
-	// Overwrites the first instruction, and also updates stats.
+
+	// Updates stats, also patches the first MIPS instruction into an emuhack if 'preload == false'
 	blocks_.FinalizeBlock(block_num, preload);
 	if (!preload)
 		FinalizeNativeBlock(&blocks_, block_num);
