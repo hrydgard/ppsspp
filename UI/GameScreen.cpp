@@ -503,7 +503,7 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string discID = info->paramSFO.GetValueString("DISC_ID");
+		std::string discID = info->GetParamSFO().GetValueString("DISC_ID");
 		if ((discID.empty() || !info->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
 			discID = g_paramSFO.GenerateFakeID(gamePath_);
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));

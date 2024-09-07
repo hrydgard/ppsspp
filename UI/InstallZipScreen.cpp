@@ -21,8 +21,10 @@
 
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Loaders.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
@@ -41,6 +43,7 @@ void InstallZipScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto er = GetI18NCategory(I18NCat::ERRORS);
+	auto ga = GetI18NCategory(I18NCat::GAME);
 
 	Margins actionMenuMargins(0, 100, 15, 0);
 
@@ -61,7 +64,7 @@ void InstallZipScreen::CreateViews() {
 	installChoice_ = nullptr;
 	doneView_ = nullptr;
 	installChoice_ = nullptr;
-
+	existingSaveView_ = nullptr;
 	if (z) {
 		DetectZipFileContents(z, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSP_GAME_DIR) {
@@ -69,6 +72,9 @@ void InstallZipScreen::CreateViews() {
 
 			leftColumn->Add(new TextView(question));
 			leftColumn->Add(new TextView(shortFilename));
+			if (!zipFileInfo_.contentName.empty()) {
+				leftColumn->Add(new TextView(zipFileInfo_.contentName));
+			}
 
 			doneView_ = leftColumn->Add(new TextView(""));
 
@@ -89,15 +95,36 @@ void InstallZipScreen::CreateViews() {
 
 			showDeleteCheckbox = true;
 		} else if (zipFileInfo_.contents == ZipFileContents::SAVE_DATA) {
-			std::string_view question = iz->T("Install savedata?");
-			leftColumn->Add(new TextView(question, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
-			leftColumn->Add(new TextView(zipFileInfo_.contentName));
+			std::string_view question = iz->T("Import savedata from ZIP file");
+			leftColumn->Add(new TextView(question))->SetBig(true);
+			leftColumn->Add(new TextView(zipFileInfo_.gameTitle + ": " + zipFileInfo_.savedataDir));
+
+			Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
+			bool overwrite = !CanExtractWithoutOverwrite(z, savedataDir, 50);
+
+			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+
+			int columnWidth = 300;
+
+			LinearLayout *compareColumns = leftColumn->Add(new LinearLayout(UI::ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+			compareColumns->Add(new SavedataView(*screenManager()->getUIContext(), Path(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY,
+				zipFileInfo_.gameTitle, zipFileInfo_.savedataTitle, zipFileInfo_.savedataDetails, NiceSizeFormat(zipFileInfo_.totalFileSize), zipFileInfo_.mTime, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 
 			// Check for potential overwrite at destination, and ask the user if it's OK to overwrite.
-			Path saveDir = GetSysDirectory(DIRECTORY_SAVEDATA);
-			if (!CanExtractWithoutOverwrite(z, saveDir, 50)) {
-				leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), "", new AnchorLayoutParams(10, 60, NONE, NONE)));
-				leftColumn->Add(new SavedataButton(GetSysDirectory(DIRECTORY_SAVEDATA) / zipFileInfo_.savedataDir));
+			if (overwrite) {
+				savedataToOverwrite_ = savedataDir / zipFileInfo_.savedataDir;
+				std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savedataToOverwrite_, GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+
+				LinearLayout *rightCompare = new LinearLayout(UI::ORIENT_VERTICAL);
+				rightCompare->Add(new TextView(iz->T("Existing data")));
+				compareColumns->Add(rightCompare);
+				existingSaveView_ = rightCompare->Add(new SavedataView(*screenManager()->getUIContext(), ginfo.get(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
+				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+					rightCompare->Add(new Button(ga->T("Show In Folder")))->OnClick.Add([=](UI::EventParams &) {
+						System_ShowFileInFolder(savedataToOverwrite_);
+						return UI::EVENT_DONE;
+					});
+				}
 			}
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
@@ -165,6 +192,11 @@ void InstallZipScreen::update() {
 				doneView_->SetText(iz->T("Installed!"));
 			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
+	}
+
+	if (existingSaveView_) {
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savedataToOverwrite_, GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+		existingSaveView_->Update(ginfo.get());
 	}
 	UIScreen::update();
 }

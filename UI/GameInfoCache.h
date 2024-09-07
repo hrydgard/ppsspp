@@ -96,12 +96,20 @@ public:
 	std::shared_ptr<FileLoader> GetFileLoader();
 	void DisposeFileLoader();
 
-	u64 GetGameSizeUncompressedInBytes();  // NOTE: More expensive than GetGameSizeOnDiskInBytes().
-	u64 GetGameSizeOnDiskInBytes();
-	u64 GetSaveDataSizeInBytes();
+	u64 GetSizeUncompressedInBytes();  // NOTE: More expensive than GetGameSizeOnDiskInBytes().
+	u64 GetSizeOnDiskInBytes();
+	u64 GetGameSavedataSizeInBytes();  // For games
 	u64 GetInstallDataSizeInBytes();
 
+	// For various kinds of savedata, mainly.
+	// NOTE: This one actually performs I/O directly, not cached.
+	std::string GetMTime() const;
+
 	void ParseParamSFO();
+	const ParamSFOData &GetParamSFO() const {
+		_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);
+		return paramSFO;
+	}
 	void FinishPendingTextureLoads(Draw::DrawContext *draw);
 
 	std::vector<Path> GetSaveDataDirectories();
@@ -152,7 +160,6 @@ public:
 	int disc_number = 0;
 	int region = -1;
 	IdentifiedFileType fileType;
-	ParamSFOData paramSFO;
 	bool hasConfig = false;
 
 	// Pre read the data, create a texture the next time (GL thread..)
@@ -171,6 +178,7 @@ public:
 	u64 installDataSize = 0;
 
 protected:
+	ParamSFOData paramSFO;
 	// Note: this can change while loading, use GetTitle().
 	std::string title;
 
@@ -182,6 +190,7 @@ protected:
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfo);
+	friend class GameInfoWorkItem;
 };
 
 class GameInfoCache {
@@ -197,6 +206,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
+	// NOTE: This never returns null, so you don't need to check for that. Do check Ready() flags though.
 	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 

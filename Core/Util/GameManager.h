@@ -50,8 +50,14 @@ struct ZipFileInfo {
 	int isoFileIndex;  // for ISO
 	int textureIniIndex;  // for textures
 	bool ignoreMetaFiles;
-	std::string contentName;
+	std::string gameTitle;  // from PARAM.SFO if available
+	std::string savedataTitle;
+	std::string savedataDetails;
 	std::string savedataDir;
+	std::string mTime;
+	s64 totalFileSize;
+
+	std::string contentName;
 };
 
 struct ZipFileTask {

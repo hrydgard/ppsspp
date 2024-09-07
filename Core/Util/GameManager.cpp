@@ -266,11 +266,17 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int directoriesInRoot = 0;
 	bool hasParamSFO = false;
 	bool hasIcon0PNG = false;
+	s64 totalFileSize = 0;
 
 	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
 	// is quite convenient and makes it easy to add shared heuristics.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
+
+		zip_stat_t stat{};
+		zip_stat_index(z, i, 0, &stat);
+		totalFileSize += stat.size;
+
 		std::string zippedName = fn;
 		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
 			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
@@ -282,6 +288,7 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 			// A directory. Not all zips bother including these.
 			continue;
 		}
+
 		int prevSlashLocation = -1;
 		int slashCount = countSlashes(zippedName, &prevSlashLocation);
 		if (zippedName.find("eboot.pbp") != std::string::npos) {
@@ -318,9 +325,12 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 				ParamSFOData sfo;
 				if (sfo.ReadSFO((const u8 *)paramSFOContents.data(), paramSFOContents.size())) {
 					if (sfo.HasKey("TITLE")) {
-						std::string title = sfo.GetValueString("TITLE") + ": " + sfo.GetValueString("SAVEDATA_TITLE");
-						std::string details = sfo.GetValueString("SAVEDATA_DETAIL");
-						info->contentName = title + "\n\n" + details;
+						info->gameTitle = sfo.GetValueString("TITLE");
+						info->savedataTitle = sfo.GetValueString("SAVEDATA_TITLE");
+						char buff[20];
+						strftime(buff, 20, "%Y-%m-%d %H:%M:%S", localtime(&stat.mtime));
+						info->mTime = buff;
+						info->savedataDetails = sfo.GetValueString("SAVEDATA_DETAIL");
 						info->savedataDir = sfo.GetValueString("SAVEDATA_DIRECTORY");  // should also be parsable from the path.
 						hasParamSFO = true;
 					}
@@ -339,6 +349,7 @@ void DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	info->isoFileIndex = isoFileIndex;
 	info->textureIniIndex = textureIniIndex;
 	info->ignoreMetaFiles = false;
+	info->totalFileSize = totalFileSize;
 
 	// Priority ordering for detecting the various kinds of zip file content.s
 	if (isPSPMemstickGame) {
@@ -613,7 +624,6 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 	struct zip_stat zstat;
 	zip_stat_index(z, file_index, 0, &zstat);
 	size_t size = zstat.size;
-
 	zip_file *zf = zip_fopen_index(z, file_index, 0);
 	if (!zf) {
 		ERROR_LOG(Log::HLE, "Failed to open file by index (%d) (%s)", file_index, outFilename.c_str());

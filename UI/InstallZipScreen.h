@@ -24,6 +24,8 @@
 
 #include "UI/MiscScreens.h"
 
+class SavedataView;
+
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
 	InstallZipScreen(const Path &zipPath);
@@ -41,6 +43,8 @@ private:
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
+	SavedataView *existingSaveView_ = nullptr;
+	Path savedataToOverwrite_;
 	Path zipPath_;
 	ZipFileInfo zipFileInfo_{};
 	bool returnToHomebrew_ = true;
