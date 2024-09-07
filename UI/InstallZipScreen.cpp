@@ -107,7 +107,10 @@ void InstallZipScreen::CreateViews() {
 			int columnWidth = 300;
 
 			LinearLayout *compareColumns = leftColumn->Add(new LinearLayout(UI::ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			compareColumns->Add(new SavedataView(*screenManager()->getUIContext(), Path(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY,
+			LinearLayout *leftCompare = new LinearLayout(UI::ORIENT_VERTICAL);
+			leftCompare->Add(new TextView(iz->T("Data to import")));
+			compareColumns->Add(leftCompare);
+			leftCompare->Add(new SavedataView(*screenManager()->getUIContext(), Path(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY,
 				zipFileInfo_.gameTitle, zipFileInfo_.savedataTitle, zipFileInfo_.savedataDetails, NiceSizeFormat(zipFileInfo_.totalFileSize), zipFileInfo_.mTime, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 
 			// Check for potential overwrite at destination, and ask the user if it's OK to overwrite.
@@ -117,6 +120,7 @@ void InstallZipScreen::CreateViews() {
 
 				LinearLayout *rightCompare = new LinearLayout(UI::ORIENT_VERTICAL);
 				rightCompare->Add(new TextView(iz->T("Existing data")));
+
 				compareColumns->Add(rightCompare);
 				existingSaveView_ = rightCompare->Add(new SavedataView(*screenManager()->getUIContext(), ginfo.get(), IdentifiedFileType::PSP_SAVEDATA_DIRECTORY, false, new LinearLayoutParams(columnWidth, WRAP_CONTENT)));
 				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
