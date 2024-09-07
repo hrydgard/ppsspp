@@ -610,7 +610,7 @@ bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
 	zip_int64_t retval = zip_fread(zf, data->data(), readSize);
 	zip_fclose(zf);
 
-	if (retval < 0 || retval < readSize) {
+	if (retval < 0 || retval < (int)readSize) {
 		ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
 		return false;
 	} else {

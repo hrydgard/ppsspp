@@ -273,7 +273,6 @@ bool SavedataButton::UpdateText() {
 }
 
 void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
-	_dbg_assert_(ginfo->Ready(GameInfoFlags::PARAM_SFO));
 	const std::string currentTitle = ginfo->GetTitle();
 	if (!currentTitle.empty()) {
 		title_ = CleanSaveString(currentTitle);

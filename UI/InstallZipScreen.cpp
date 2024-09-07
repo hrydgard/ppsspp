@@ -155,7 +155,7 @@ void InstallZipScreen::CreateViews() {
 bool InstallZipScreen::key(const KeyInput &key) {
 	// Ignore all key presses during download and installation to avoid user escape
 	if (g_GameManager.GetState() == GameManagerState::IDLE) {
-		return UIScreen::key(key);
+		return UIDialogScreen::key(key);
 	}
 	return false;
 }
