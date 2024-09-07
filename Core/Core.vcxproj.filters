@@ -123,6 +123,9 @@
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSTracer.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -1315,9 +1318,6 @@
     <ClCompile Include="HLE\AtracCtx2.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="MIPSTracer.cpp">
-      <Filter>MIPS</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1348,6 +1348,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSVFPUUtils.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSTracer.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAnalyst.h">
@@ -2108,9 +2111,6 @@
     </ClInclude>
     <ClInclude Include="HLE\AtracCtx2.h">
       <Filter>HLE\Libraries</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPSTracer.h">
-      <Filter>MIPS</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
