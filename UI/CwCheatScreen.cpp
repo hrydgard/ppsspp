@@ -53,7 +53,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return false;
 	}
-	gameID = info->paramSFO.GetValueString("DISC_ID");
+	gameID = info->GetParamSFO().GetValueString("DISC_ID");
 	if ((info->id.empty() || !info->disc_total)
 		&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
 		gameID = g_paramSFO.GenerateFakeID(gamePath_);

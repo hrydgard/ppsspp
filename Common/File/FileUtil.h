@@ -83,6 +83,8 @@ uint64_t ComputeRecursiveDirectorySize(const Path &path);
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &filename);
 
+void ChangeMTime(const Path &path, time_t mtime);
+
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
 

@@ -62,24 +62,28 @@ void ParamSFOData::SetValue(const std::string &key, const u8 *value, unsigned in
 
 int ParamSFOData::GetValueInt(const std::string &key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
-	if(it == values.end() || it->second.type != VT_INT)
+	if (it == values.end() || it->second.type != VT_INT)
 		return 0;
 	return it->second.i_value;
 }
 
 std::string ParamSFOData::GetValueString(const std::string &key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
-	if(it == values.end() || (it->second.type != VT_UTF8))
+	if (it == values.end() || (it->second.type != VT_UTF8))
 		return "";
 	return it->second.s_value;
 }
 
+bool ParamSFOData::HasKey(const std::string &key) const {
+	return values.find(key) != values.end();
+}
+
 const u8 *ParamSFOData::GetValueData(const std::string &key, unsigned int *size) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
-	if(it == values.end() || (it->second.type != VT_UTF8_SPE))
+	if (it == values.end() || (it->second.type != VT_UTF8_SPE)) {
 		return 0;
-	if(size)
-	{
+	}
+	if (size) {
 		*size = it->second.u_size;
 	}
 	return it->second.u_value;

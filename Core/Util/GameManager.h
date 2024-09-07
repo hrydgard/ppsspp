@@ -40,15 +40,24 @@ enum class ZipFileContents {
 	PSP_GAME_DIR,
 	ISO_FILE,
 	TEXTURE_PACK,
+	SAVE_DATA,
 };
 
 struct ZipFileInfo {
 	ZipFileContents contents;
 	int numFiles;
-	int stripChars;  // for PSP game
+	int stripChars;  // for PSP game - how much to strip from the path.
 	int isoFileIndex;  // for ISO
 	int textureIniIndex;  // for textures
 	bool ignoreMetaFiles;
+	std::string gameTitle;  // from PARAM.SFO if available
+	std::string savedataTitle;
+	std::string savedataDetails;
+	std::string savedataDir;
+	std::string mTime;
+	s64 totalFileSize;
+
+	std::string contentName;
 };
 
 struct ZipFileTask {
@@ -106,8 +115,8 @@ public:
 private:
 	void InstallZipContents(ZipFileTask task);
 
-	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
-	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
+	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
+	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
 	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
 	void UninstallGame(const std::string &name);
@@ -135,5 +144,11 @@ private:
 
 extern GameManager g_GameManager;
 
+struct zip *ZipOpenPath(Path fileName);
+void ZipClose(zip *z);
+
 void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
 bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
+
+bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data);
+bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);

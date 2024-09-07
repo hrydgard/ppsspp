@@ -20,6 +20,9 @@
 #ifndef UNICODE
 #error Win32 build requires a unicode build
 #endif
+#else
+#define _POSIX_SOURCE
+#define _LARGE_TIME_API
 #endif
 
 #include "ppsspp_config.h"
@@ -37,6 +40,8 @@
 #include <ctime>
 #include <memory>
 
+#include <sys/types.h>
+
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Common/File/AndroidContentURI.h"
@@ -46,6 +51,7 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#include <sys/utime.h>
 #include <Windows.h>
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
@@ -63,6 +69,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <utime.h>
 #endif
 
 #if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
@@ -167,7 +174,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 
 #if defined(_WIN32) && defined(UNICODE)
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	// We shouldn't use _wfopen here, 
+	// We shouldn't use _wfopen here,
 	// this function is not allowed to read outside Local and Installation folders
 	// FileSystem (broadFileSystemAccess) doesn't apply on _wfopen
 	// if we have custom memory stick location _wfopen will return null
@@ -471,7 +478,7 @@ bool Delete(const Path &filename) {
 
 	INFO_LOG(Log::Common, "Delete: file %s", filename.c_str());
 
-	// Return true because we care about the file no 
+	// Return true because we care about the file no
 	// being there, not the actual delete.
 	if (!Exists(filename)) {
 		WARN_LOG(Log::Common, "Delete: '%s' already does not exist", filename.c_str());
@@ -498,7 +505,7 @@ bool Delete(const Path &filename) {
 #endif
 #else
 	if (unlink(filename.c_str()) == -1) {
-		WARN_LOG(Log::Common, "Delete: unlink failed on %s: %s", 
+		WARN_LOG(Log::Common, "Delete: unlink failed on %s: %s",
 				 filename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -547,7 +554,7 @@ bool CreateDir(const Path &path) {
 	if (::CreateDirectory(path.ToWString().c_str(), NULL))
 		return true;
 #endif
-	
+
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
 		WARN_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
@@ -616,7 +623,7 @@ bool CreateFullPath(const Path &path) {
 	return true;
 }
 
-// renames file srcFilename to destFilename, returns true on success 
+// renames file srcFilename to destFilename, returns true on success
 bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
 		// Impossible. You're gonna need to make a copy, and delete the original. Not the responsibility
@@ -659,12 +666,12 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		return true;
 #endif
 
-	ERROR_LOG(Log::Common, "Rename: failed %s --> %s: %s", 
+	ERROR_LOG(Log::Common, "Rename: failed %s --> %s: %s",
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 }
 
-// copies file srcFilename to destFilename, returns true on success 
+// copies file srcFilename to destFilename, returns true on success
 bool Copy(const Path &srcFilename, const Path &destFilename) {
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
@@ -692,7 +699,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	if (CopyFile(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
 		return true;
 #endif
-	ERROR_LOG(Log::Common, "Copy: failed %s --> %s: %s", 
+	ERROR_LOG(Log::Common, "Copy: failed %s --> %s: %s",
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
 #else
@@ -705,7 +712,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	// Open input file
 	FILE *input = OpenCFile(srcFilename, "rb");
 	if (!input) {
-		ERROR_LOG(Log::Common, "Copy: input failed %s --> %s: %s", 
+		ERROR_LOG(Log::Common, "Copy: input failed %s --> %s: %s",
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -714,7 +721,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	FILE *output = OpenCFile(destFilename, "wb");
 	if (!output) {
 		fclose(input);
-		ERROR_LOG(Log::Common, "Copy: output failed %s --> %s: %s", 
+		ERROR_LOG(Log::Common, "Copy: output failed %s --> %s: %s",
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
@@ -725,11 +732,11 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		int rnum = fread(buffer, sizeof(char), BSIZE, input);
 		if (rnum != BSIZE) {
 			if (ferror(input) != 0) {
-				ERROR_LOG(Log::Common, 
-						"Copy: failed reading from source, %s --> %s: %s", 
+				ERROR_LOG(Log::Common,
+						"Copy: failed reading from source, %s --> %s: %s",
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 				fclose(input);
-				fclose(output);		
+				fclose(output);
 				return false;
 			}
 		}
@@ -737,11 +744,11 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		// write output
 		int wnum = fwrite(buffer, sizeof(char), rnum, output);
 		if (wnum != rnum) {
-			ERROR_LOG(Log::Common, 
-					"Copy: failed writing to output, %s --> %s: %s", 
+			ERROR_LOG(Log::Common,
+					"Copy: failed writing to output, %s --> %s: %s",
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 			fclose(input);
-			fclose(output);				
+			fclose(output);
 			return false;
 		}
 	}
@@ -883,9 +890,9 @@ uint64_t GetFileSize(FILE *f) {
 #endif
 }
 
-// creates an empty file filename, returns true on success 
+// creates an empty file filename, returns true on success
 bool CreateEmptyFile(const Path &filename) {
-	INFO_LOG(Log::Common, "CreateEmptyFile: %s", filename.c_str()); 
+	INFO_LOG(Log::Common, "CreateEmptyFile: %s", filename.c_str());
 	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(Log::Common, "CreateEmptyFile: failed to create '%s': %s", filename.c_str(), GetLastErrorMsg().c_str());
@@ -1118,7 +1125,7 @@ bool IOFile::Seek(int64_t off, int origin)
 }
 
 uint64_t IOFile::Tell()
-{	
+{
 	if (IsOpen())
 		return ftello(m_file);
 	else
@@ -1238,6 +1245,25 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 	}
 	fclose(f);
 	return true;
+}
+
+void ChangeMTime(const Path &path, time_t mtime) {
+	if (path.Type() == PathType::CONTENT_URI) {
+		// No clue what to do here.
+		return;
+	}
+
+#ifdef _WIN32
+	_utimbuf buf{};
+	buf.actime = mtime;
+	buf.modtime = mtime;
+	_utime(path.c_str(), &buf);
+#else
+	utimbuf buf{};
+	buf.actime = mtime;
+	buf.modtime = mtime;
+	utime(path.c_str(), &buf);
+#endif
 }
 
 }  // namespace File
