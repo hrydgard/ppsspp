@@ -202,5 +202,5 @@ void InstallZipScreen::update() {
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savedataToOverwrite_, GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
 		existingSaveView_->Update(ginfo.get());
 	}
-	UIScreen::update();
+	UIDialogScreenWithBackground::update();
 }

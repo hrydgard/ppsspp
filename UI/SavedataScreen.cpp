@@ -121,7 +121,11 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 		"",
 		"",
 		showIcon,
-		layoutParams) {}
+		layoutParams) {
+	if (ginfo) {
+		Update(ginfo);
+	}
+}
 
 class SavedataPopupScreen : public PopupScreen {
 public:
@@ -129,6 +133,7 @@ public:
 
 	const char *tag() const override { return "SavedataPopup"; }
 	void update() override {
+		PopupScreen::update();
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
 		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 			// Hm, this is no good. But hopefully the previous screen loaded it.
