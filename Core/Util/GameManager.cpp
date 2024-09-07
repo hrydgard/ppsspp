@@ -24,8 +24,6 @@
 #include <set>
 #include <sstream>
 #include <thread>
-#include <sys/types.h>
-#include <sys/utime.h>
 #ifdef SHARED_LIBZIP
 #include <zip.h>
 #else
