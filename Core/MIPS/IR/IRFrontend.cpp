@@ -307,8 +307,10 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	else {
 		std::vector<IRInst> block_instructions = code->GetInstructions();
 		instructions.reserve(block_instructions.capacity());
-		block_instructions.push_back({ IROp::LogBlockHash, 0, 0, 0, 0 });
-		std::copy(block_instructions.begin(), block_instructions.end(), std::back_inserter(instructions));
+		// The first instruction is "Downcount"
+		instructions.push_back(block_instructions.front());
+		instructions.push_back({ IROp::LogBlockHash, 0, 0, 0, 0 });
+		std::copy(block_instructions.begin() + 1, block_instructions.end(), std::back_inserter(instructions));
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {

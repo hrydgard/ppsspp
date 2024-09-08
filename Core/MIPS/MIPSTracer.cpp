@@ -53,7 +53,8 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 	if (it != mipsTracer.hash_to_index.end()) {
 		u32 index = it->second;
 		auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
-		ir_ptr->constant = index;
+
+		ir_ptr[1].constant = index;
 		return;
 	}
 
@@ -80,14 +81,44 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 	hash_to_index.emplace(hash, index);
 
 	auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
-	ir_ptr->constant = index;
+	ir_ptr[1].constant = index;
 }
 
 bool MIPSTracer::flush_to_file() {
 	INFO_LOG(Log::JIT, "MIPSTracer ordered to flush the trace to a file...");
-	// Do nothing for now
+
+	output.open(logging_path, std::ios::out);
+	if (!output) {
+		WARN_LOG(Log::JIT, "MIPSTracer failed to open the file '%s'", logging_path);
+		return false;
+	}
+	auto trace = executed_blocks.get_content();
+	for (auto index : trace) {
+		auto& block_info = trace_info[index];
+		flush_block_to_file(block_info);
+	}
+
+	INFO_LOG(Log::JIT, "Trace flushed, closing the file...");
+	output.close();
 	clear();
 	return true;
+}
+
+void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
+	static char buffer[1024];
+
+	// The log format is '0x{8 hex digits of the address}: {disassembled line}'
+	const auto prefix_size = 2 + 8 + 2;
+
+	u32 addr = block_info.virt_address;
+	u32 index = block_info.storage_index;
+	u32 end_addr = addr + block_info.size;
+
+	for (; addr < end_addr; addr += 4, ++index) {
+		snprintf(buffer, sizeof(buffer), "0x%08x: ", addr);
+		MIPSDisAsm(storage[index], addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
+		output << std::string(buffer) << "\n";
+	}
 }
 
 void MIPSTracer::start_tracing() {

@@ -21,6 +21,7 @@
 #include <vector>
 #include <string>
 #include <iterator>
+#include <fstream>
 
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
@@ -135,6 +136,7 @@ struct MIPSTracer {
 	TraceBlockStorage storage;
 
 	std::string logging_path;
+	std::ofstream output;
 	bool tracing_enabled = false;
 
 	int in_storage_capacity = 0;
@@ -152,6 +154,8 @@ struct MIPSTracer {
 	}
 
 	bool flush_to_file();
+	void flush_block_to_file(TraceBlockInfo& block);
+
 	void initialize(u32 storage_capacity, u32 max_trace_size);
 	void clear();
 

@@ -2148,7 +2148,7 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 		u32 trace_size = mipsTracer.in_max_trace_size;
 
 		mipsTracer.initialize(capacity, trace_size);
-		// mipsTracer.start_tracing();
+		mipsTracer.start_tracing();
 	}
 	else {
 		mipsTracer.stop_tracing();
