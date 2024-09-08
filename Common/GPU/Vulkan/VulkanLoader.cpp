@@ -281,6 +281,7 @@ bool g_vulkanMayBeAvailable = false;
 static const char * const device_name_blacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
+	"motorola:moto g54 5G",  // See issue #18681 / #17825
 };
 
 #ifndef _WIN32
