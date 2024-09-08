@@ -79,6 +79,9 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
+#include "Core/Core.h"
+#include "Core/MIPS/MIPSTracer.h"
+
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
 #endif
@@ -1887,6 +1890,45 @@ void DeveloperToolsScreen::CreateViews() {
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(dev->T("%d Hz"));
 
+	list->Add(new ItemHeader(dev->T("MIPSTracer")));
+
+	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
+	CheckBox *MIPSLoggerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
+	list->Add(MIPSLoggerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
+	MIPSLoggerEnabled->SetEnabledFunc([]() {
+#if PPSSPP_PLATFORM(WINDOWS)
+		bool temp = g_Config.iCpuCore == static_cast<int>(CPUCore::IR_INTERPRETER) && PSP_IsInited();
+		return temp && Core_IsStepping() && coreState != CORE_POWERDOWN;
+#else
+		return false;
+#endif
+	});
+
+	Choice *MIPSlogging_path = list->Add(new Choice(dev->T("Select the output logging file")));
+	MIPSlogging_path->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
+	MIPSlogging_path->SetEnabledFunc([]() {
+#if PPSSPP_PLATFORM(WINDOWS)
+		if (!PSP_IsInited())
+			return false;
+		return true;
+#else
+		return false;
+#endif
+	});
+
+	MIPSTracerPath_ = mipsTracer.getLoggingPath();
+	MIPSTracerPath = list->Add(new InfoItem(dev->T("Current log file"), MIPSTracerPath_));
+
+	Button *test = list->Add(new Button(dev->T("Flush the trace")));
+	test->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerFlushTrace);
+	test->SetEnabledFunc([]() {
+#if PPSSPP_PLATFORM(WINDOWS)
+		return true;
+#else
+		return false;
+#endif
+	});
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
@@ -2073,6 +2115,44 @@ UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
+	if (MIPSTracerEnabled_) {
+		// mipsTracer.tracing_enabled = true;
+	}
+	else {
+		mipsTracer.tracing_enabled = false;
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
+	// auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	/*System_BrowseForFile(dev->T("Select the log file"), BrowseFileType::ANY, [](const std::string &value, int) {
+
+	});*/
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	std::string fn;
+	if (W32Util::BrowseForFileName(false, nullptr, L"Select the log file", 0, L"Text files\0*.*\0\0", L"txt", fn)) {
+		mipsTracer.setLoggingPath(fn);
+		MIPSTracerPath_ = std::move(fn);
+		MIPSTracerPath->SetRightText(MIPSTracerPath_);
+	}
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
+	// Let's ban the non-Windows platforms with force
+#if PPSSPP_PLATFORM(WINDOWS)
+	bool success = mipsTracer.flush_to_file();
+	if (!success) {
+		// TODO: report this to the user
+	}
+#endif
 	return UI::EVENT_DONE;
 }
 

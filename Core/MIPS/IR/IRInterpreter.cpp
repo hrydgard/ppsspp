@@ -32,6 +32,7 @@
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPSTracer.h"
 
 #ifdef mips
 // Why do MIPS compilers define something so generic?  Try to keep defined, at least...

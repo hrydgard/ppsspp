@@ -42,6 +42,8 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
 #include "Common/TimeUtil.h"
+#include "Core/MIPS/MIPSTracer.h"
+
 
 namespace MIPSComp {
 
@@ -165,13 +167,18 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	}
 
 	IRBlock *b = blocks_.GetBlock(block_num);
-	if (preload) {
+	if (preload || mipsTracer.tracing_enabled) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.
 		b->UpdateHash();
 	}
+
 	if (!CompileNativeBlock(&blocks_, block_num, preload))
 		return false;
+
+	if (mipsTracer.tracing_enabled) {
+		mipsTracer.prepare_block(b, blocks_);
+	}
 
 	// Updates stats, also patches the first MIPS instruction into an emuhack if 'preload == false'
 	blocks_.FinalizeBlock(block_num, preload);
