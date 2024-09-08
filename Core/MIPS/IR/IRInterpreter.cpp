@@ -1238,7 +1238,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 		case IROp::LogBlockHash:
-			// Do nothing for now
+			if (mipsTracer.tracing_enabled) {
+				mipsTracer.executed_blocks.push_back(inst->constant);
+			}
 			break;
 
 		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...

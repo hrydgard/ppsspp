@@ -25,6 +25,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
 #include "Core/MIPS/IR/IRJit.h"
+#include "Common/Log.h"
 
 
 
@@ -51,6 +52,7 @@ struct TraceBlockStorage {
 	bool push_block(const u32* instructions, u32 size);
 
 	void initialize(u32 capacity);
+	void clear();
 
 	Memory::Opcode operator[](u32 index) {
 		return Memory::Opcode(raw_instructions[index]);
@@ -135,6 +137,12 @@ struct MIPSTracer {
 	std::string logging_path;
 	bool tracing_enabled = false;
 
+	int in_storage_capacity = 0;
+	int in_max_trace_size = 0;
+
+	void start_tracing();
+	void stop_tracing();
+
 	void prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks);
 	void setLoggingPath(std::string path) {
 		logging_path = path;
@@ -144,6 +152,8 @@ struct MIPSTracer {
 	}
 
 	bool flush_to_file();
+	void initialize(u32 storage_capacity, u32 max_trace_size);
+	void clear();
 
 	MIPSTracer(): trace_info(), executed_blocks(), hash_to_index(), storage(), logging_path() {}
 };

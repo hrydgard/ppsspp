@@ -36,6 +36,14 @@ void TraceBlockStorage::initialize(u32 capacity) {
 	raw_instructions.resize(capacity);
 	cur_offset = 0;
 	cur_data_ptr = raw_instructions.data();
+	INFO_LOG(Log::JIT, "TraceBlockStorage initialized: capacity=0x%x", capacity);
+}
+
+void TraceBlockStorage::clear() {
+	raw_instructions.clear();
+	cur_offset = 0;
+	cur_data_ptr = nullptr;
+	INFO_LOG(Log::JIT, "TraceBlockStorage cleared");
 }
 
 void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
@@ -57,8 +65,9 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 	auto mips_instructions_ptr = (const u32*)Memory::GetPointerUnchecked(virt_addr);
 
 	if (!mipsTracer.storage.push_block(mips_instructions_ptr, size)) {
-		// We ran out of storage! TODO: report that to the user
-		mipsTracer.tracing_enabled = false;
+		// We ran out of storage!
+		WARN_LOG(Log::JIT, "The MIPSTracer ran out of storage for the blocks, cannot proceed!");
+		stop_tracing();
 		return;
 	}
 	// Successfully inserted the block at index 'possible_index'!
@@ -75,8 +84,36 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 }
 
 bool MIPSTracer::flush_to_file() {
+	INFO_LOG(Log::JIT, "MIPSTracer ordered to flush the trace to a file...");
 	// Do nothing for now
+	clear();
 	return true;
+}
+
+void MIPSTracer::start_tracing() {
+	tracing_enabled = true;
+	INFO_LOG(Log::JIT, "MIPSTracer enabled");
+}
+
+void MIPSTracer::stop_tracing() {
+	tracing_enabled = false;
+	INFO_LOG(Log::JIT, "MIPSTracer disabled");
+}
+
+void MIPSTracer::initialize(u32 storage_capacity, u32 max_trace_size) {
+	executed_blocks.resize(max_trace_size);
+	hash_to_index.reserve(max_trace_size);
+	storage.initialize(storage_capacity);
+	trace_info.reserve(max_trace_size);
+	INFO_LOG(Log::JIT, "MIPSTracer initialized: storage_capacity=0x%x, max_trace_size=%d", storage_capacity, max_trace_size);
+}
+
+void MIPSTracer::clear() {
+	executed_blocks.clear();
+	hash_to_index.clear();
+	storage.clear();
+	trace_info.clear();
+	INFO_LOG(Log::JIT, "MIPSTracer cleared");
 }
 
 MIPSTracer mipsTracer;
