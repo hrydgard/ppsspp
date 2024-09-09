@@ -20,11 +20,11 @@ static void MergeRenderAreaRectInto(VkRect2D *dest, const VkRect2D &src) {
 		dest->extent.height += (dest->offset.y - src.offset.y);
 		dest->offset.y = src.offset.y;
 	}
-	if (dest->extent.width < src.extent.width) {
-		dest->extent.width = src.extent.width;
+	if (dest->offset.x + dest->extent.width < src.offset.x + src.extent.width) {
+		dest->extent.width = src.offset.x + src.extent.width - dest->offset.x;
 	}
-	if (dest->extent.height < src.extent.height) {
-		dest->extent.height = src.extent.height;
+	if (dest->offset.y + dest->extent.height < src.offset.y + src.extent.height) {
+		dest->extent.height = src.offset.y + src.extent.height - dest->offset.y;
 	}
 }
 
@@ -488,18 +488,24 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			for (int j = 0; j < (int)copies.size(); j++) {
 				steps[i + j] = copies[j];
 			}
+
+			const int firstRender = i + (int)copies.size();
+
 			// Write the renders back (so they will be deleted properly).
 			for (int j = 0; j < (int)renders.size(); j++) {
-				steps[i + j + copies.size()] = renders[j];
+				steps[firstRender + j] = renders[j];
 			}
-			_assert_(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
+			_assert_(steps[firstRender]->stepType == VKRStepType::RENDER);
 			// Combine the renders.
 			for (int j = 1; j < (int)renders.size(); j++) {
-				steps[i + copies.size()]->commands.reserve(renders[j]->commands.size());
+				steps[firstRender]->commands.reserve(renders[j]->commands.size());
 				for (int k = 0; k < (int)renders[j]->commands.size(); k++) {
-					steps[i + copies.size()]->commands.push_back(renders[j]->commands[k]);
+					steps[firstRender]->commands.push_back(renders[j]->commands[k]);
 				}
-				steps[i + copies.size() + j]->stepType = VKRStepType::RENDER_SKIP;
+				MergeRenderAreaRectInto(&steps[firstRender]->render.renderArea, renders[j]->render.renderArea);
+				// Easier than removing them from the list, though that might be the better option.
+				steps[firstRender + j]->stepType = VKRStepType::RENDER_SKIP;
+				steps[firstRender + j]->commands.clear();
 			}
 			// We're done.
 			break;
@@ -560,6 +566,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					break;
 				}
 			}
+			MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
 			steps[j]->stepType = VKRStepType::RENDER_SKIP;
 		}
 
@@ -575,6 +582,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					break;
 				}
 			}
+			MergeRenderAreaRectInto(&steps[i + 1]->render.renderArea, steps[j]->render.renderArea);
 			steps[j]->stepType = VKRStepType::RENDER_SKIP;
 		}
 
@@ -656,7 +664,8 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 				for (int k = 0; k < (int)type2[j]->commands.size(); k++) {
 					steps[i + type1.size()]->commands.push_back(type2[j]->commands[k]);
 				}
-				steps[i + j + type1.size()]->stepType = VKRStepType::RENDER_SKIP;
+				// Technically, should merge render area here, but they're all the same so not needed.
+				steps[i + type1.size() + j]->stepType = VKRStepType::RENDER_SKIP;
 			}
 			// We're done.
 			break;
