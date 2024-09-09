@@ -46,7 +46,7 @@ android {
 		}
 	}
 
-	compileSdk 34
+	compileSdk 35
 	ndkVersion "21.4.7075529"
 
 	defaultConfig {
@@ -74,7 +74,7 @@ android {
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
 		minSdk 9
-		targetSdk 34
+		targetSdk 35
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
