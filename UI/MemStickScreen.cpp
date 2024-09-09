@@ -302,7 +302,7 @@ UI::EventReturn MemStickScreen::OnConfirmClick(UI::EventParams &params) {
 }
 
 UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
-	// The old way, from before scoped storage.
+	// The old way, from before scoped storage. Write in the full path.
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](const std::string &value, int) {

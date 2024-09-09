@@ -746,6 +746,5 @@ bool CreateSysDirectories() {
 			File::CreateEmptyFile(path / ".nomedia");
 		}
 	}
-
 	return true;
 }

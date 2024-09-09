@@ -683,6 +683,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString()) == StorageError::SUCCESS) {
 				return true;
 			}
+			INFO_LOG(Log::Common, "Android_CopyFile failed, falling back.");
 			// Else fall through, and try using file I/O.
 		}
 		break;
@@ -690,7 +691,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		return false;
 	}
 
-	INFO_LOG(Log::Common, "Copy: %s --> %s", srcFilename.c_str(), destFilename.c_str());
+	INFO_LOG(Log::Common, "Copy by OpenCFile: %s --> %s", srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 	if (CopyFileFromAppW(srcFilename.ToWString().c_str(), destFilename.ToWString().c_str(), FALSE))
@@ -702,7 +703,7 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	ERROR_LOG(Log::Common, "Copy: failed %s --> %s: %s",
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 	return false;
-#else
+#else  // Non-Win32
 
 	// buffer size
 #define BSIZE 16384
@@ -725,6 +726,8 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 				srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
 		return false;
 	}
+
+	int bytesWritten = 0;
 
 	// copy loop
 	while (!feof(input)) {
@@ -751,7 +754,14 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 			fclose(output);
 			return false;
 		}
+
+		bytesWritten += wnum;
 	}
+
+	if (bytesWritten == 0) {
+		WARN_LOG(Log::Common, "Copy: No bytes written (must mean that input was empty)");
+	}
+
 	// close flushes
 	fclose(input);
 	fclose(output);
