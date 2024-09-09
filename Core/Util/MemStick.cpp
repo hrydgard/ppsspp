@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
