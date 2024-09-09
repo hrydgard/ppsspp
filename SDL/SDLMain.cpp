@@ -1398,6 +1398,10 @@ int main(int argc, char *argv[]) {
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(1);
 
+	// Avoid the IME popup when holding keys. This doesn't affect all versions of SDL.
+	// TODO: Enable it in text input fields
+	SDL_StopTextInput();
+
 	InitSDLAudioDevice();
 
 	if (joystick_enabled) {
