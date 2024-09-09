@@ -1134,8 +1134,10 @@ int main(int argc, char *argv[]) {
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 #endif
 
+	bool vulkanMayBeAvailable = false;
 	if (VulkanMayBeAvailable()) {
 		printf("DEBUG: Vulkan might be available.\n");
+		vulkanMayBeAvailable = true;
 	} else {
 		printf("DEBUG: Vulkan is not available, not using Vulkan.\n");
 	}
@@ -1326,6 +1328,11 @@ int main(int argc, char *argv[]) {
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
+
+	// Switch away from Vulkan if not available.
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && !vulkanMayBeAvailable) {
+		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+	}
 
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
