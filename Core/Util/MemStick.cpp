@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -178,7 +181,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	bool dryRun = false;  // Useful for debugging.
 
-	size_t failedFiles = 0;
+	size_t failedFileCount = 0;
 
 	// We're not moving huge files like ISOs during this process, unless
 	// they can be directly moved, without rewriting the file.
@@ -218,19 +221,26 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		} else {
 			// Remove the "from" prefix from the path.
 			// We have to drop down to string operations for this.
+			if (File::Exists(to)) {
+				WARN_LOG(Log::System, "Target file '%s' already exists. Will be overwritten", to.c_str());
+			}
+
 			if (!File::Copy(from, to)) {
 				ERROR_LOG(Log::System, "Failed to copy file '%s' to '%s'", from.c_str(), to.c_str());
-				failedFiles++;
+				failedFileCount++;
 				// Should probably just bail?
 			} else {
-				INFO_LOG(Log::System, "Copied file '%s' to '%s'", from.c_str(), to.c_str());
+				INFO_LOG(Log::System, "Copied file '%s' to '%s' (size: %d)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
 			}
 		}
 	}
 
-	if (failedFiles) {
-		return new MoveResult{ false, "", failedFiles };
+	if (failedFileCount) {
+		ERROR_LOG(Log::System, "Copy failed (%d files failed)", (int)failedFileCount);
+		return new MoveResult{ false, "", failedFileCount };
 	}
+
+	INFO_LOG(Log::System, "Done copying. Moving to verification.");
 
 	// After the whole move, verify that all the files arrived correctly.
 	// If there's a single error, we do not delete the source data.
@@ -247,22 +257,32 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 			break;
 		}
 
-		if (fileSuffix.fileSize != info.size) {
-			ERROR_LOG(Log::System, "Mismatched size in target file %s. Verification failed.", fileSuffix.suffix.c_str());
+		if (!info.exists) {
+			ERROR_LOG(Log::System, "File '%s' missing at target location '%s'.", fileSuffix.suffix.c_str(), to.c_str());
 			ok = false;
-			failedFiles++;
+			failedFileCount++;
+			break;
+		}
+
+		// More lenient handling for .nomedia files.
+		if (fileSuffix.fileSize != info.size && !endsWithNoCase(fileSuffix.suffix, ".nomedia")) {
+			ERROR_LOG(Log::System, "Mismatched size in target file %s (expected %d, was %d bytes). Verification failed.", fileSuffix.suffix.c_str(), (int)fileSuffix.fileSize, (int)info.size);
+			ok = false;
+			failedFileCount++;
 			break;
 		}
 	}
 
 	if (!ok) {
-		return new MoveResult{ false, "", failedFiles };
+		return new MoveResult{ false, "", failedFileCount };
 	}
 
 	INFO_LOG(Log::System, "Verification complete");
 
 	// Delete all the old, now hopefully empty, directories.
 	// Hopefully DeleteDir actually fails if it contains a file...
+	// Reverse the order to delete subfolders before parents.
+	std::reverse(directorySuffixesToCreate.begin(), directorySuffixesToCreate.end());
 	for (size_t i = 0; i < directorySuffixesToCreate.size(); i++) {
 		const auto &dirSuffix = directorySuffixesToCreate[i];
 		Path dir = moveSrc / dirSuffix;

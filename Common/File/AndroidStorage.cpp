@@ -154,20 +154,26 @@ static bool ParseFileInfo(const std::string &line, File::FileInfo *fileInfo) {
 	std::vector<std::string> parts;
 	SplitString(line, '|', parts);
 	if (parts.size() != 4) {
-		ERROR_LOG(Log::FileSystem, "Bad format: %s", line.c_str());
+		ERROR_LOG(Log::FileSystem, "Bad format (1): %s", line.c_str());
 		return false;
 	}
 	fileInfo->name = std::string(parts[2]);
 	fileInfo->isDirectory = parts[0][0] == 'D';
 	fileInfo->exists = true;
-	sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size);
+	if (1 != sscanf(parts[1].c_str(), "%" PRIu64, &fileInfo->size)) {
+		ERROR_LOG(Log::FileSystem, "Bad format (2): %s", line.c_str());
+		return false;
+	}
 	fileInfo->isWritable = true;  // TODO: Should be passed as part of the string.
 	// TODO: For read-only mappings, reflect that here, similarly as with isWritable.
 	// Directories are normally executable (0111) which means they're traversable.
 	fileInfo->access = fileInfo->isDirectory ? 0777 : 0666;
 
 	uint64_t lastModifiedMs = 0;
-	sscanf(parts[3].c_str(), "%" PRIu64, &lastModifiedMs);
+	if (1 != sscanf(parts[3].c_str(), "%" PRIu64, &lastModifiedMs)) {
+		ERROR_LOG(Log::FileSystem, "Bad format (3): %s", line.c_str());
+		return false;
+	}
 
 	// Convert from milliseconds
 	uint32_t lastModified = lastModifiedMs / 1000;
@@ -229,7 +235,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool
 		const char *charArray = env->GetStringUTFChars(str, 0);
 		if (charArray) {  // paranoia
 			std::string line = charArray;
-			File::FileInfo info;
+			File::FileInfo info{};
 			if (line == "X") {
 				// Indicates an exception thrown, path doesn't exist.
 				*exists = false;
