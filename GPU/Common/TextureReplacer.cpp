@@ -741,6 +741,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) co
 void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int origW, int origH, int scaledW, int scaledH) {
 	_assert_msg_(saveEnabled_, "Texture saving not enabled");
 	_assert_(srcPitch >= 0);
+	_assert_(data);
 
 	if (!WillSave(replacedInfo)) {
 		// Ignore.
