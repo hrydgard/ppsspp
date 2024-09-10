@@ -67,6 +67,8 @@ typedef signed __int64 s64;
 #define s64 _s64
 #endif // _s64
 
+#undef BIT // Conflicting declarations for Arm64Emitter
+
 typedef unsigned char   u_char;
 typedef unsigned short  u_short;
 typedef unsigned int    u_int;
