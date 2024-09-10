@@ -67,6 +67,10 @@ public:
 		return root.empty() ? file : root;
 	}
 
+	const std::string &Provider() const {
+		return provider;
+	}
+
 	bool IsTreeURI() const {
 		return !root.empty();
 	}

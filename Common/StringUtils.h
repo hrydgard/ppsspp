@@ -69,6 +69,8 @@ inline bool equalsNoCase(std::string_view str, std::string_view key) {
 	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
+bool containsNoCase(std::string_view haystack, std::string_view needle);
+
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
 
