@@ -389,14 +389,30 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	// Examine the URL to guess out what we're installing.
 	// TODO: Bad idea due to Android content api where we don't always get the filename.
 	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
-		// It's a raw ISO or CSO file. We just copy it to the destination.
-		std::string shortFilename = task.url.GetFilename();
-		bool success = InstallRawISO(task.fileName, shortFilename, task.deleteAfter);
+		// It's a raw ISO or CSO file. We just copy it to the destination, which is the
+		// currently selected directory in the game browser. Note: This might not be a good option!
+		Path destPath = Path(g_Config.currentDirectory) / task.url.GetFilename();
+		if (!File::Exists(destPath)) {
+			// Fall back to the root of the memstick.
+			destPath = g_Config.memStickDirectory;
+		}
+		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
+
+		// TODO: To save disk space, we should probably attempt a move first, if deleteAfter is true.
+		// TODO: Update the progress bar continuously.
+		bool success = File::Copy(task.fileName, destPath);
+
 		if (!success) {
 			ERROR_LOG(Log::HLE, "Raw ISO install failed");
 			// This shouldn't normally happen at all (only when putting ISOs in a store, which is not a normal use case), so skipping the translation string
 			SetInstallError("Failed to install raw ISO");
 		}
+		if (task.deleteAfter) {
+			File::Delete(task.fileName);
+		}
+		g_OSD.RemoveProgressBar("install", success, 0.5f);
+		installProgress_ = 1.0f;
+		InstallDone();
 		return;
 	}
 
@@ -404,8 +420,10 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 
 	struct zip *z = ZipOpenPath(task.fileName);
 	if (!z) {
-		g_OSD.RemoveProgressBar("install", false, 0.5f);
+		g_OSD.RemoveProgressBar("install", false, 1.5f);
 		SetInstallError(sy->T("Unable to open zip file"));
+		installProgress_ = 1.0f;
+		InstallDone();
 		return;
 	}
 
@@ -424,15 +442,17 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	{
 		Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", task.fileName.c_str(), pspGame.c_str());
-		// InstallZipContents contains code to close (and delete) z.
+		// InstallZipContents contains code to close z.
 		success = ExtractZipContents(z, pspGame, zipInfo, false);
 		break;
 	}
 	case ZipFileContents::ISO_FILE:
-		INFO_LOG(Log::HLE, "Installing '%s' into its containing directory", task.fileName.c_str());
+	{
+		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", task.fileName.c_str(), task.destination.c_str());
 		// InstallZippedISO contains code to close z.
-		success = InstallZippedISO(z, zipInfo.isoFileIndex, task.fileName, task.deleteAfter);
+		success = InstallZippedISO(z, zipInfo.isoFileIndex, task.destination);
 		break;
+	}
 	case ZipFileContents::TEXTURE_PACK:
 	{
 		// InstallMemstickGame contains code to close z, and works for textures too.
@@ -468,10 +488,16 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		break;
 	}
 
+	// Common functionality.
 	if (task.deleteAfter && success) {
 		File::Delete(task.fileName);
 	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
+	installProgress_ = 1.0f;
+	InstallDone();
+	if (success) {
+		ResetInstallError();
+	}
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
@@ -765,10 +791,6 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	INFO_LOG(Log::HLE, "Unzipped %d files (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
 	zip_close(z);
 	z = nullptr;
-	installProgress_ = 1.0f;
-	InstallDone();
-	ResetInstallError();
-	g_OSD.RemoveProgressBar("install", true, 0.5f);
 	return true;
 
 bail:
@@ -782,7 +804,6 @@ bail:
 		File::DeleteDir(iter);
 	}
 	SetInstallError(sy->T("Storage full"));
-	g_OSD.RemoveProgressBar("install", false, 0.5f);
 	return false;
 }
 
@@ -842,7 +863,7 @@ bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const P
 	return true;
 }
 
-bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter) {
+bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir) {
 	// Let's place the output file in the currently selected Games directory.
 	std::string fn = zip_get_name(z, isoFileIndex, 0);
 	size_t nameOffset = fn.rfind('/');
@@ -866,7 +887,12 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		name = name.substr(2);
 	}
 
-	Path outputISOFilename = Path(g_Config.currentDirectory) / name;
+	Path outputISOFilename = destDir;
+	if (outputISOFilename.empty()) {
+		outputISOFilename = Path(g_Config.currentDirectory);
+	}
+	outputISOFilename = outputISOFilename / name;
+
 	size_t bytesCopied = 0;
 	bool success = false;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -876,10 +902,6 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		success = true;
 	}
 	zip_close(z);
-	if (success && deleteAfter) {
-		File::Delete(zipfile);
-		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
-	}
 	g_OSD.RemoveProgressBar("install", success, 0.5f);
 
 	z = 0;
@@ -907,25 +929,6 @@ bool GameManager::UninstallGameOnThread(const std::string &name) {
 		return false;
 	}
 	installThread_ = std::thread(std::bind(&GameManager::UninstallGame, this, name));
-	return true;
-}
-
-bool GameManager::InstallRawISO(const Path &file, const std::string &originalName, bool deleteAfter) {
-	Path destPath = Path(g_Config.currentDirectory) / originalName;
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
-	// TODO: To save disk space, we should probably attempt a move first.
-	if (File::Copy(file, destPath)) {
-		if (deleteAfter) {
-			File::Delete(file);
-		}
-		g_OSD.RemoveProgressBar("install", true, 0.5f);
-	} else {
-		g_OSD.RemoveProgressBar("install", false, 0.5f);
-	}
-	installProgress_ = 1.0f;
-	InstallDone();
-	ResetInstallError();
 	return true;
 }
 

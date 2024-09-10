@@ -20,8 +20,10 @@
 #include "Common/UI/ViewGroup.h"
 
 #include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Loaders.h"
@@ -65,6 +67,10 @@ void InstallZipScreen::CreateViews() {
 	doneView_ = nullptr;
 	installChoice_ = nullptr;
 	existingSaveView_ = nullptr;
+	destFolders_.clear();
+
+	std::vector<Path> destOptions;
+
 	if (z) {
 		DetectZipFileContents(z, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSP_GAME_DIR) {
@@ -77,6 +83,21 @@ void InstallZipScreen::CreateViews() {
 			}
 
 			doneView_ = leftColumn->Add(new TextView(""));
+
+			if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+				const bool isInDownloads = File::IsProbablyInDownloadsFolder(zipPath_);
+				Path parent;
+				if (!isInDownloads && zipPath_.CanNavigateUp()) {
+					parent = zipPath_.NavigateUp();
+					destFolders_.push_back(parent);
+				}
+				if (g_Config.currentDirectory.IsLocalType() && File::Exists(g_Config.currentDirectory) && g_Config.currentDirectory != parent) {
+					destFolders_.push_back(g_Config.currentDirectory);
+				}
+				destFolders_.push_back(g_Config.memStickDirectory);
+			} else {
+				destFolders_.push_back(GetSysDirectory(DIRECTORY_GAME));
+			}
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
@@ -101,6 +122,8 @@ void InstallZipScreen::CreateViews() {
 
 			Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 			bool overwrite = !CanExtractWithoutOverwrite(z, savedataDir, 50);
+
+			destFolders_.push_back(savedataDir);
 
 			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
 
@@ -143,6 +166,15 @@ void InstallZipScreen::CreateViews() {
 		leftColumn->Add(new TextView(er->T("Error reading file"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	}
 
+	if (destFolders_.size() > 1) {
+		leftColumn->Add(new TextView(iz->T("Install into folder")));
+		for (int i = 0; i < (int)destFolders_.size(); i++) {
+			leftColumn->Add(new RadioButton(&destFolderChoice_, i, destFolders_[i].ToVisualString()));
+		}
+	} else if (destFolders_.size() == 1 && zipFileInfo_.contents != ZipFileContents::SAVE_DATA) {
+		leftColumn->Add(new TextView(StringFromFormat("%s %s", iz->T_cstr("Install into folder:"), destFolders_[0].ToVisualString().c_str())));
+	}
+
 	// OK so that EmuScreen will handle it right.
 	backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
 	backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
@@ -166,6 +198,9 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	task.fileName = zipPath_;
 	task.deleteAfter = deleteZipFile_;
 	task.zipFileInfo = zipFileInfo_;
+	if (!destFolders_.empty() && destFolderChoice_ < destFolders_.size()) {
+		task.destination = destFolders_[destFolderChoice_];
+	}
 	if (g_GameManager.InstallZipOnThread(task)) {
 		installStarted_ = true;
 		if (installChoice_) {

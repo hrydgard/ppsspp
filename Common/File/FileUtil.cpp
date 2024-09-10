@@ -1276,4 +1276,21 @@ void ChangeMTime(const Path &path, time_t mtime) {
 #endif
 }
 
+bool IsProbablyInDownloadsFolder(const Path &filename) {
+	INFO_LOG(Log::Common, "IsProbablyInDownloadsFolder: Looking at %s (%s)...", filename.c_str(), filename.ToVisualString().c_str());
+	switch (filename.Type()) {
+	case PathType::CONTENT_URI:
+	{
+		AndroidContentURI uri(filename.ToString());
+		INFO_LOG(Log::Common, "Content URI provider: %s", uri.Provider().c_str());
+		if (containsNoCase(uri.Provider(), "download")) {
+			// like com.android.providers.downloads.documents
+			return true;
+		}
+		break;
+	}
+	}
+	return filename.FilePathContainsNoCase("download");
+}
+
 }  // namespace File

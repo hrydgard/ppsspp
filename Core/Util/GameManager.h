@@ -64,6 +64,7 @@ struct ZipFileTask {
 	std::optional<ZipFileInfo> zipFileInfo;
 	Path url;  // Same as filename if installing from disk. Probably not really useful.
 	Path fileName;
+	Path destination;  // If set, will override the default destination.
 	bool deleteAfter;
 };
 
@@ -117,8 +118,7 @@ private:
 
 	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info);
-	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
-	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
+	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir);
 	void UninstallGame(const std::string &name);
 
 	void InstallDone();

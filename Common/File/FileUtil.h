@@ -122,6 +122,10 @@ bool CreateEmptyFile(const Path &filename);
 // TODO: Belongs in System or something.
 bool OpenFileInEditor(const Path &fileName);
 
+// Uses some heuristics to determine if this is a folder that we would want to
+// write to.
+bool IsProbablyInDownloadsFolder(const Path &folder);
+
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();
 

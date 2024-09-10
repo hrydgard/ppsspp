@@ -19,6 +19,8 @@
 
 #include <functional>
 
+#include "Common/File/Path.h"
+
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 
@@ -46,6 +48,8 @@ private:
 	SavedataView *existingSaveView_ = nullptr;
 	Path savedataToOverwrite_;
 	Path zipPath_;
+	std::vector<Path> destFolders_;
+	int destFolderChoice_ = 0;
 	ZipFileInfo zipFileInfo_{};
 	bool returnToHomebrew_ = true;
 	bool installStarted_ = false;
