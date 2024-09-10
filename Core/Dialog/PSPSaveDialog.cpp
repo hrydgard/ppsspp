@@ -1112,7 +1112,8 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	param.ClearSFOCache();
 	auto &result = param.GetPspParam()->common.result;
 
-	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode) {
+	SceUtilitySavedataType utilityMode = (SceUtilitySavedataType)(u32)param.GetPspParam()->mode;
+	switch (utilityMode) {
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);

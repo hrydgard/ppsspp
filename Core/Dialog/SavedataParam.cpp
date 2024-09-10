@@ -503,11 +503,13 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath, true);
 
+	// This was added in #18430, see below.
 	bool subWrite = param->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE || param->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA;
 	bool wasCrypted = GetSaveCryptMode(param, saveDirName) != 0;
 
-	// Update values
-	if(!subWrite){
+	// Update values. NOTE! #18430 made this conditional on !subWrite, but this is not correct, as it causes #18687.
+	// So now we do a hacky trick and just check for a valid title before we proceed with updating the sfoFile.
+	if (strnlen(param->sfoParam.title, sizeof(param->sfoParam.title)) > 0) {
 		sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
 		sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
 		sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
@@ -554,7 +556,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	// Calc SFO hash for PSP.
 	if (cryptedData != 0 || (subWrite && wasCrypted)) {
 		int offset = sfoFile->GetDataOffset(sfoData, "SAVEDATA_PARAMS");
-		if(offset >= 0)
+		if (offset >= 0)
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}
 
@@ -597,7 +599,6 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}	
 		delete[] cryptedData;
 	}
-
 
 	// SAVE ICON0
 	if (param->icon0FileData.buf.IsValid())
