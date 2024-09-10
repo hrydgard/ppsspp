@@ -53,6 +53,7 @@ struct CompatFlags {
 	bool ClearToRAM;
 	bool Force04154000Download;
 	bool DrawSyncEatCycles;
+	bool DrawSyncInstant;
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;

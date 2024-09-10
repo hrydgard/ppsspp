@@ -83,6 +83,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ClearToRAM", &flags_.ClearToRAM);
 	CheckSetting(iniFile, gameID, "Force04154000Download", &flags_.Force04154000Download);
 	CheckSetting(iniFile, gameID, "DrawSyncEatCycles", &flags_.DrawSyncEatCycles);
+	CheckSetting(iniFile, gameID, "DrawSyncInstant", &flags_.DrawSyncInstant);
 	CheckSetting(iniFile, gameID, "FakeMipmapChange", &flags_.FakeMipmapChange);
 	CheckSetting(iniFile, gameID, "RequireBufferedRendering", &flags_.RequireBufferedRendering);
 	CheckSetting(iniFile, gameID, "RequireBlockTransfer", &flags_.RequireBlockTransfer);
