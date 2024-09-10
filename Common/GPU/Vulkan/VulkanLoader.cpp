@@ -322,7 +322,9 @@ static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, 
 #define dlopen(...) NULL
 #define dlclose(...)
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)NULL;
+#define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) 
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)NULL;
+#define LOAD_DEVICE_FUNC_CORE(instance, x, ext_x, min_core)
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)NULL;
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x)  (PFN_ ## x)NULL;

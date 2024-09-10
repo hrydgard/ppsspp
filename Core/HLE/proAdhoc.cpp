@@ -2199,8 +2199,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	}
 
 	if (iResult != 0) {
-		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
-		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error connecting to ") + g_Config.proAdhocServer, 2.0f, 0x0000ff).c_str());
+		ERROR_LOG(Log::sceNet, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string("DNS Error connecting to " + g_Config.proAdhocServer, 2.0f, 0x0000ff).c_str());
 		return iResult;
 	}
 	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
