@@ -238,6 +238,10 @@ bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxO
 	}
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
+		if (endsWith(fn, "/")) {
+			// we don't care about directory overwrites, that's fine.
+			continue;
+		}
 		Path p = destination / fn;
 		if (File::Exists(p)) {
 			INFO_LOG(Log::HLE, "Extract zip check: %s exists, can't extract without overwrite", p.ToVisualString().c_str());
