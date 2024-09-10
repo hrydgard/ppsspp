@@ -461,8 +461,8 @@ void VR_FinishFrame( engine_t* engine ) {
 		cylinder_layer.centralAngle = (float)(M_PI * 0.5);
 		cylinder_layer.aspectRatio = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 		if (headTracking && !reprojection) {
-			float width = engine->appState.ViewConfigurationView[0].recommendedImageRectWidth;
-			float height = engine->appState.ViewConfigurationView[0].recommendedImageRectHeight;
+			float width = (float)engine->appState.ViewConfigurationView[0].recommendedImageRectWidth;
+			float height = (float)engine->appState.ViewConfigurationView[0].recommendedImageRectHeight;
 			cylinder_layer.aspectRatio = 2.0f * width / height;
 			cylinder_layer.centralAngle = (float)(M_PI);
 		}
