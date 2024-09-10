@@ -1237,7 +1237,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 				return mips->pc;
 			}
 			break;
-		case IROp::LogBlockHash:
+		case IROp::LogIRBlock:
 			if (mipsTracer.tracing_enabled) {
 				mipsTracer.executed_blocks.push_back(inst->constant);
 			}

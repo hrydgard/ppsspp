@@ -1951,6 +1951,9 @@ void DeveloperToolsScreen::CreateViews() {
 #endif
 	});
 
+	Button *InvalidateJitCache = list->Add(new Button(dev->T("Clear the JIT cache")));
+	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
@@ -2181,6 +2184,12 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e)
 		WARN_LOG(Log::JIT, "Error: cannot flush the trace to the specified file!");
 	}
 #endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearJitCache(UI::EventParams &e) {
+	INFO_LOG(Log::JIT, "Ordered to clear the jit cache");
+	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 	return UI::EVENT_DONE;
 }
 

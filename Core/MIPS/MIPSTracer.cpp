@@ -117,18 +117,24 @@ void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
 	for (; addr < end_addr; addr += 4, ++index) {
 		snprintf(buffer, sizeof(buffer), "0x%08x: ", addr);
 		MIPSDisAsm(storage[index], addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
+
+		// TODO: check if removing the std::string makes this faster
 		output << std::string(buffer) << "\n";
 	}
 }
 
 void MIPSTracer::start_tracing() {
+	if (!tracing_enabled) {
+		INFO_LOG(Log::JIT, "MIPSTracer enabled");
+	}
 	tracing_enabled = true;
-	INFO_LOG(Log::JIT, "MIPSTracer enabled");
 }
 
 void MIPSTracer::stop_tracing() {
+	if (tracing_enabled) {
+		INFO_LOG(Log::JIT, "MIPSTracer disabled");
+	}
 	tracing_enabled = false;
-	INFO_LOG(Log::JIT, "MIPSTracer disabled");
 }
 
 void MIPSTracer::initialize(u32 storage_capacity, u32 max_trace_size) {
