@@ -18,6 +18,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
@@ -303,7 +304,8 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	}
 	av_dict_free(&open_opt);
 
-	if (!SetupStreams()) {
+	bool usedFFMPEGFindStreamInfo = false;
+	if (!SetupStreams() || PSP_CoreParameter().compat.flags().UseFFMPEGFindStreamInfo) {
 		// Fallback to old behavior.  Reads too much and corrupts when game doesn't read fast enough.
 		// SetupStreams sometimes work for newer FFmpeg 3.1+ now, but sometimes framerate is missing.
 		WARN_LOG_REPORT_ONCE(setupStreams, Log::ME, "Failed to read valid video stream data from header");
@@ -311,6 +313,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 			closeContext();
 			return false;
 		}
+		usedFFMPEGFindStreamInfo = true;
 	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
@@ -342,6 +345,11 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	setVideoDim();
 	m_audioContext = CreateAudioDecoder((PSPAudioType)m_audioType);
 	m_isVideoEnd = false;
+
+	if (PSP_CoreParameter().compat.flags().UseFFMPEGFindStreamInfo && usedFFMPEGFindStreamInfo) {
+		m_mpegheaderReadPos++;
+		av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
+	}
 #endif // USE_FFMPEG
 	return true;
 }

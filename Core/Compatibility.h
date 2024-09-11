@@ -110,6 +110,7 @@ struct CompatFlags {
 	bool FramebufferAllowLargeVerticalOffset;
 	bool DisableMemcpySlicing;
 	bool ForceEnableGPUReadback;
+	bool UseFFMPEGFindStreamInfo;
 };
 
 struct VRCompat {
