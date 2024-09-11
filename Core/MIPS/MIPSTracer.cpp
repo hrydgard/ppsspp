@@ -22,64 +22,78 @@
 #include "Core/MemMap.h" // for Memory::GetPointerUnchecked
 
 
-bool TraceBlockStorage::push_block(const u32* instructions, u32 size) {
-	if (cur_offset + size >= raw_instructions.size()) {
+bool TraceBlockStorage::save_block(const u32* instructions, u32 size) {
+	// 'size' is measured in bytes
+	const auto indexes_count = size / 4;
+
+	if (cur_index + 1 + indexes_count >= raw_instructions.size()) {
 		return false;
 	}
+
+	// Save the size first
+	*cur_data_ptr = size;
+	++cur_data_ptr;
+
+	// Now save the MIPS instructions
 	std::memcpy(cur_data_ptr, instructions, size);
-	cur_offset += size;
-	cur_data_ptr += size;
+	cur_data_ptr += indexes_count;
+
+	cur_index += 1 + indexes_count;
 	return true;
 }
 
 void TraceBlockStorage::initialize(u32 capacity) {
 	raw_instructions.resize(capacity);
-	cur_offset = 0;
+	cur_index = 0;
 	cur_data_ptr = raw_instructions.data();
 	INFO_LOG(Log::JIT, "TraceBlockStorage initialized: capacity=0x%x", capacity);
 }
 
 void TraceBlockStorage::clear() {
 	raw_instructions.clear();
-	cur_offset = 0;
+	cur_index = 0;
 	cur_data_ptr = nullptr;
 	INFO_LOG(Log::JIT, "TraceBlockStorage cleared");
 }
 
 void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
-	auto hash = block->GetHash();
-	auto it = mipsTracer.hash_to_index.find(hash);
-
-	if (it != mipsTracer.hash_to_index.end()) {
-		u32 index = it->second;
-		auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
-
-		ir_ptr[1].constant = index;
-		return;
-	}
-
-	// 1) Copy the block instructions into our storage
 	u32 virt_addr, size;
 	block->GetRange(virt_addr, size);
-	u32 storage_index = mipsTracer.storage.cur_offset;
 
-	auto mips_instructions_ptr = (const u32*)Memory::GetPointerUnchecked(virt_addr);
+	u64 hash = block->GetHash();
+	auto it = hash_to_storage_index.find(hash);
 
-	if (!mipsTracer.storage.push_block(mips_instructions_ptr, size)) {
-		// We ran out of storage!
-		WARN_LOG(Log::JIT, "The MIPSTracer ran out of storage for the blocks, cannot proceed!");
-		stop_tracing();
-		return;
+	u32 storage_index;
+	if (it != hash_to_storage_index.end()) {
+		// We've seen this one before => it's saved in our storage
+		storage_index = it->second;
 	}
-	// Successfully inserted the block at index 'possible_index'!
+	else {
+		// We haven't seen a block like that before, let's save it
+		auto mips_instructions_ptr = (const u32*)Memory::GetPointerUnchecked(virt_addr);
 
-	mipsTracer.trace_info.push_back({ virt_addr, size, storage_index });
+		storage_index = storage.cur_index;
+		if (!storage.save_block(mips_instructions_ptr, size)) {
+			// We ran out of storage!
+			WARN_LOG(Log::JIT, "The MIPSTracer ran out of storage for the blocks, cannot proceed!");
+			stop_tracing();
+			return;
+		}
+		// Successfully inserted the block at index 'storage_index'!
 
-	// 2) Save the hash and the index
+		hash_to_storage_index.emplace(hash, storage_index);
+	}
 
-	u32 index = mipsTracer.trace_info.size() - 1;
-	hash_to_index.emplace(hash, index);
+	// NB!
+	// If for some reason the blocks get invalidated while tracing, PPSSPP will be forced to recompile
+	// the same code again => the 'trace_info' will be filled with duplicates, because we can't detect that...
+	// If we store the TraceBlockInfo instances in an unordered_map, we won't be able to reference the entries
+	// by using the 4 byte IRInst field 'constant' (the iterators won't fit there).
+	// And, of course, doing a linear search in the vector is not worth the conserved space.
+	trace_info.push_back({ virt_addr, storage_index });
 
+
+	u32 index = trace_info.size() - 1;
 	auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
 	ir_ptr[1].constant = index;
 }
@@ -107,16 +121,21 @@ bool MIPSTracer::flush_to_file() {
 void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
 	static char buffer[1024];
 
-	// The log format is '0x{8 hex digits of the address}: {disassembled line}'
+	// The log format is '{prefix}{disassembled line}', where 'prefix' is '0x{8 hex digits of the address}: '
 	const auto prefix_size = 2 + 8 + 2;
 
 	u32 addr = block_info.virt_address;
 	u32 index = block_info.storage_index;
-	u32 end_addr = addr + block_info.size;
+
+	u32 size = storage[index];
+	++index;
+
+	u32 end_addr = addr + size;
+	
 
 	for (; addr < end_addr; addr += 4, ++index) {
 		snprintf(buffer, sizeof(buffer), "0x%08x: ", addr);
-		MIPSDisAsm(storage[index], addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
+		MIPSDisAsm(storage.read_asm(index), addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
 
 		// TODO: check if removing the std::string makes this faster
 		output << std::string(buffer) << "\n";
@@ -126,20 +145,49 @@ void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
 void MIPSTracer::start_tracing() {
 	if (!tracing_enabled) {
 		INFO_LOG(Log::JIT, "MIPSTracer enabled");
+		tracing_enabled = true;
 	}
-	tracing_enabled = true;
 }
 
 void MIPSTracer::stop_tracing() {
 	if (tracing_enabled) {
 		INFO_LOG(Log::JIT, "MIPSTracer disabled");
+		tracing_enabled = false;
+
+#ifdef _DEBUG
+		print_stats();
+#endif
 	}
-	tracing_enabled = false;
+}
+
+inline void MIPSTracer::print_stats() const {
+	// First, the storage
+	INFO_LOG(Log::JIT, "=============== MIPSTracer storage ===============");
+	INFO_LOG(Log::JIT, "Current index = %d, storage size = %d", storage.cur_index, storage.raw_instructions.size());
+
+	// Then the cyclic buffer
+	if (executed_blocks.overflow) {
+		INFO_LOG(Log::JIT, "=============== MIPSTracer cyclic buffer (overflow) ===============");
+		INFO_LOG(Log::JIT, "Trace size = %d, starts from index %d", executed_blocks.buffer.size(), executed_blocks.current_index);
+	}
+	else {
+		INFO_LOG(Log::JIT, "=============== MIPSTracer cyclic buffer (no overflow) ===============");
+		INFO_LOG(Log::JIT, "Trace size = %d, starts from index 0", executed_blocks.current_index);
+	}
+	// Next, the hash-to-index mapping
+	INFO_LOG(Log::JIT, "=============== MIPSTracer hashes ===============");
+	INFO_LOG(Log::JIT, "Number of unique hashes = %d", hash_to_storage_index.size());
+
+	// Finally, the basic block list
+	INFO_LOG(Log::JIT, "=============== MIPSTracer basic block list ===============");
+	INFO_LOG(Log::JIT, "Number of processed basic blocks = %d", trace_info.size());
+
+	INFO_LOG(Log::JIT, "=============== MIPSTracer stats end ===============");
 }
 
 void MIPSTracer::initialize(u32 storage_capacity, u32 max_trace_size) {
 	executed_blocks.resize(max_trace_size);
-	hash_to_index.reserve(max_trace_size);
+	hash_to_storage_index.reserve(max_trace_size);
 	storage.initialize(storage_capacity);
 	trace_info.reserve(max_trace_size);
 	INFO_LOG(Log::JIT, "MIPSTracer initialized: storage_capacity=0x%x, max_trace_size=%d", storage_capacity, max_trace_size);
@@ -147,7 +195,7 @@ void MIPSTracer::initialize(u32 storage_capacity, u32 max_trace_size) {
 
 void MIPSTracer::clear() {
 	executed_blocks.clear();
-	hash_to_index.clear();
+	hash_to_storage_index.clear();
 	storage.clear();
 	trace_info.clear();
 	INFO_LOG(Log::JIT, "MIPSTracer cleared");

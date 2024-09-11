@@ -29,33 +29,33 @@
 #include "Common/Log.h"
 
 
-
-
 struct TraceBlockInfo {
 	u32 virt_address;
-	u32 size;
 	u32 storage_index;
 };
 
 struct TraceBlockStorage {
 	std::vector<u32> raw_instructions;
-	u32 cur_offset;
+	u32 cur_index;
 	u32* cur_data_ptr;
 
 	TraceBlockStorage(u32 capacity):
 		raw_instructions(capacity, 0),
-		cur_offset(0),
+		cur_index(0),
 		cur_data_ptr(raw_instructions.data())
 		{}
 
-	TraceBlockStorage(): raw_instructions(), cur_offset(0), cur_data_ptr(nullptr) {}
+	TraceBlockStorage(): raw_instructions(), cur_index(0), cur_data_ptr(nullptr) {}
 
-	bool push_block(const u32* instructions, u32 size);
+	bool save_block(const u32* instructions, u32 size);
 
 	void initialize(u32 capacity);
 	void clear();
 
-	Memory::Opcode operator[](u32 index) {
+	u32 operator[](u32 index) {
+		return raw_instructions[index];
+	}
+	Memory::Opcode read_asm(u32 index) {
 		return Memory::Opcode(raw_instructions[index]);
 	}
 };
@@ -131,7 +131,7 @@ struct MIPSTracer {
 	// The trace might be very big, in that case I don't mind losing the oldest entries.
 	CyclicBuffer<u32> executed_blocks;
 
-	std::unordered_map<u64, u32> hash_to_index;
+	std::unordered_map<u64, u32> hash_to_storage_index;
 
 	TraceBlockStorage storage;
 
@@ -159,7 +159,9 @@ struct MIPSTracer {
 	void initialize(u32 storage_capacity, u32 max_trace_size);
 	void clear();
 
-	MIPSTracer(): trace_info(), executed_blocks(), hash_to_index(), storage(), logging_path() {}
+	inline void print_stats() const;
+
+	MIPSTracer(): trace_info(), executed_blocks(), hash_to_storage_index(), storage(), logging_path() {}
 };
 
 extern MIPSTracer mipsTracer;
