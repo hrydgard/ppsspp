@@ -570,7 +570,7 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	const IRBlock *block = blocks_.GetBlock(block_num);
 	if (block) {
 		u32 start = 0, size = 0;
-		block->GetRange(start, size);
+		block->GetRange(&start, &size);
 
 		// It helps to know which func this block is inside.
 		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(start) : "";
@@ -782,7 +782,7 @@ void IRNativeBlockCacheDebugInterface::ComputeStats(BlockCacheStats &bcStats) co
 
 		// MIPS (PSP) size.
 		u32 origAddr, origSize;
-		b.GetRange(origAddr, origSize);
+		b.GetRange(&origAddr, &origSize);
 
 		double bloat = (double)codeSize / (double)origSize;
 		if (bloat < minBloat) {

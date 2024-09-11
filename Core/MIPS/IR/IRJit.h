@@ -84,9 +84,9 @@ public:
 	}
 	bool OverlapsRange(u32 addr, u32 size) const;
 
-	void GetRange(u32 &start, u32 &size) const {
-		start = origAddr_;
-		size = origSize_;
+	void GetRange(u32 *start, u32 *size) const {
+		*start = origAddr_;
+		*size = origSize_;
 	}
 	u32 GetOriginalStart() const {
 		return origAddr_;
@@ -129,7 +129,7 @@ public:
 			return nullptr;
 		}
 	}
-	void RemoveBlock(int blockNum);
+	void RemoveBlockFromPageLookup(int blockNum);
 	int GetBlockNumFromIRArenaOffset(int offset) const;
 	const IRInst *GetBlockInstructionPtr(const IRBlock &block) const {
 		return arena_.data() + block.GetIRArenaOffset();
@@ -167,7 +167,7 @@ public:
 		JitBlockMeta meta{};
 		if (IsValidBlock(blockNum)) {
 			meta.valid = true;
-			blocks_[blockNum].GetRange(meta.addr, meta.sizeInBytes);
+			blocks_[blockNum].GetRange(&meta.addr, &meta.sizeInBytes);
 		}
 		return meta;
 	}

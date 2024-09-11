@@ -104,7 +104,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 		// INFO_LOG(Log::JIT, "Block at %08x invalidated: valid: %d", block->GetOriginalStart(), block->IsValid());
 		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
 		int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
-		blocks_.RemoveBlock(block_num);
+		blocks_.RemoveBlockFromPageLookup(block_num);
 		block->Destroy(cookie);
 	}
 }
@@ -431,7 +431,7 @@ void IRBlockCache::FinalizeBlock(int blockIndex, bool preload) {
 	}
 
 	u32 startAddr, size;
-	block.GetRange(startAddr, size);
+	block.GetRange(&startAddr, &size);
 
 	u32 startPage = AddressToPage(startAddr);
 	u32 endPage = AddressToPage(startAddr + size);
@@ -442,12 +442,12 @@ void IRBlockCache::FinalizeBlock(int blockIndex, bool preload) {
 }
 
 // Call after Destroy-ing it.
-void IRBlockCache::RemoveBlock(int blockIndex) {
+void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
 	// We need to remove the block from the byPage lookup.
 	IRBlock &block = blocks_[blockIndex];
 
 	u32 startAddr, size;
-	block.GetRange(startAddr, size);
+	block.GetRange(&startAddr, &size);
 
 	u32 startPage = AddressToPage(startAddr);
 	u32 endPage = AddressToPage(startAddr + size);
@@ -456,7 +456,8 @@ void IRBlockCache::RemoveBlock(int blockIndex) {
 		auto iter = std::find(byPage_[page].begin(), byPage_[page].end(), blockIndex);
 		if (iter != byPage_[page].end()) {
 			byPage_[page].erase(iter);
-		} else {
+		} else if (block.IsValid()) {
+			// If it was previously invalidated, we don't care, hence the above check.
 			WARN_LOG(Log::JIT, "RemoveBlock: Block at %08x was not found where expected in byPage table.", startAddr);
 		}
 	}
@@ -549,7 +550,7 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 	const IRBlock &ir = blocks_[blockNum];
 	JitBlockDebugInfo debugInfo{};
 	uint32_t start, size;
-	ir.GetRange(start, size);
+	ir.GetRange(&start, &size);
 	debugInfo.originalAddress = start;  // TODO
 
 	debugInfo.origDisasm.reserve(((start + size) - start) / 4);
@@ -580,7 +581,7 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 		if (codeSize == 0)
 			continue;
 		u32 origAddr, mipsBytes;
-		b.GetRange(origAddr, mipsBytes);
+		b.GetRange(&origAddr, &mipsBytes);
 		double origSize = (double)mipsBytes;
 		double bloat = codeSize / origSize;
 		if (bloat < minBloat) {
@@ -652,7 +653,7 @@ void IRBlock::Destroy(int cookie) {
 			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
 		} else {
 			// NOTE: This is not an error. Just interesting to log.
-			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Block at %08x was overwritten - expected %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_.encoding);
+			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Note: Block at %08x was overwritten - checked for %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_.encoding);
 		}
 		// TODO: Also wipe the block in the IR opcode arena.
 		// Let's mark this invalid so we don't try to clear it again.
