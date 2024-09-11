@@ -279,10 +279,12 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
 				const IRInst *instPtr = blocks_.GetArenaPtr() + offset;
-				// First op is always downcount, to save one dispatch.
-				_dbg_assert_(instPtr->op == IROp::Downcount);
-				mips->downcount -= instPtr->constant;
-				instPtr++;
+				// First op is always, except when using breakpoints, downcount, to save one dispatch inside IRInterpret.
+				// This branch is very cpu-branch-predictor-friendly so this still beats the dispatch.
+				if (instPtr->op == IROp::Downcount) {
+					mips->downcount -= instPtr->constant;
+					instPtr++;
+				}
 #ifdef IR_PROFILING
 				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromOffset(offset));
 				Instant start = Instant::Now();
