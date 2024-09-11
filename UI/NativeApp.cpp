@@ -659,7 +659,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					}
 				}
 			} else {
-				fprintf(stderr, "Can only boot one file");
+				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
 #if defined(_WIN32) || defined(__ANDROID__)
 				// Ignore and proceed.
 #else
