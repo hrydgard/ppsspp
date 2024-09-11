@@ -125,7 +125,9 @@ void InstallZipScreen::CreateViews() {
 
 			destFolders_.push_back(savedataDir);
 
-			leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+			if (overwrite) {
+				leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+			}
 
 			int columnWidth = 300;
 
