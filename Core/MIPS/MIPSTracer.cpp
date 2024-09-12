@@ -58,7 +58,7 @@ void TraceBlockStorage::clear() {
 
 void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
 	u32 virt_addr, size;
-	block->GetRange(virt_addr, size);
+	block->GetRange(&virt_addr, &size);
 
 	u64 hash = block->GetHash();
 	auto it = hash_to_storage_index.find(hash);
@@ -99,7 +99,7 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 }
 
 bool MIPSTracer::flush_to_file() {
-	INFO_LOG(Log::JIT, "MIPSTracer ordered to flush the trace to a file...");
+	INFO_LOG(Log::JIT, "Flushing the trace to a file...");
 
 	output.open(logging_path, std::ios::out);
 	if (!output) {

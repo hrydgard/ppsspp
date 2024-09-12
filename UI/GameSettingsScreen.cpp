@@ -1954,6 +1954,9 @@ void DeveloperToolsScreen::CreateViews() {
 	Button *InvalidateJitCache = list->Add(new Button(dev->T("Clear the JIT cache")));
 	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
 
+	Button *ClearMIPSTracer = list->Add(new Button(dev->T("Clear the MIPSTracer")));
+	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
@@ -2144,8 +2147,6 @@ UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
-	mipsTracer.clear();
-
 	if (MIPSTracerEnabled_) {
 		u32 capacity = mipsTracer.in_storage_capacity;
 		u32 trace_size = mipsTracer.in_max_trace_size;
@@ -2188,8 +2189,14 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e)
 }
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearJitCache(UI::EventParams &e) {
-	INFO_LOG(Log::JIT, "Ordered to clear the jit cache");
+	INFO_LOG(Log::JIT, "Clearing the jit cache...");
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearTracer(UI::EventParams &e) {
+	INFO_LOG(Log::JIT, "Clearing the MIPSTracer...");
+	mipsTracer.clear();
 	return UI::EVENT_DONE;
 }
 

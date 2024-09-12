@@ -139,8 +139,8 @@ struct MIPSTracer {
 	std::ofstream output;
 	bool tracing_enabled = false;
 
-	int in_storage_capacity = 0;
-	int in_max_trace_size = 0;
+	int in_storage_capacity = 0x10'0000;
+	int in_max_trace_size = 0x10'0000;
 
 	void start_tracing();
 	void stop_tracing();

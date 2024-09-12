@@ -154,6 +154,7 @@ private:
 	UI::EventReturn OnMIPSTracerPathChanged(UI::EventParams &e);
 	UI::EventReturn OnMIPSTracerFlushTrace(UI::EventParams &e);
 	UI::EventReturn OnMIPSTracerClearJitCache(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerClearTracer(UI::EventParams &e);
 	UI::EventReturn OnGPUDriverTest(UI::EventParams &e);
 	UI::EventReturn OnFramedumpTest(UI::EventParams &e);
 	UI::EventReturn OnMemstickTest(UI::EventParams &e);
