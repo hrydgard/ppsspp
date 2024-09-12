@@ -1890,30 +1890,23 @@ void DeveloperToolsScreen::CreateViews() {
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(dev->T("%d Hz"));
 
+#if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
 	list->Add(new ItemHeader(dev->T("MIPSTracer")));
 
 	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
 	CheckBox *MIPSLoggerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
 	list->Add(MIPSLoggerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
 	MIPSLoggerEnabled->SetEnabledFunc([]() {
-#if PPSSPP_PLATFORM(WINDOWS)
 		bool temp = g_Config.iCpuCore == static_cast<int>(CPUCore::IR_INTERPRETER) && PSP_IsInited();
 		return temp && Core_IsStepping() && coreState != CORE_POWERDOWN;
-#else
-		return false;
-#endif
 	});
 
 	Choice *MIPSlogging_path = list->Add(new Choice(dev->T("Select the output logging file")));
 	MIPSlogging_path->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
 	MIPSlogging_path->SetEnabledFunc([]() {
-#if PPSSPP_PLATFORM(WINDOWS)
 		if (!PSP_IsInited())
 			return false;
 		return true;
-#else
-		return false;
-#endif
 	});
 
 	MIPSTracerPath_ = mipsTracer.getLoggingPath();
@@ -1943,19 +1936,13 @@ void DeveloperToolsScreen::CreateViews() {
 
 	Button *FlushTrace = list->Add(new Button(dev->T("Flush the trace")));
 	FlushTrace->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerFlushTrace);
-	FlushTrace->SetEnabledFunc([]() {
-#if PPSSPP_PLATFORM(WINDOWS)
-		return true;
-#else
-		return false;
-#endif
-	});
 
 	Button *InvalidateJitCache = list->Add(new Button(dev->T("Clear the JIT cache")));
 	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
 
 	Button *ClearMIPSTracer = list->Add(new Button(dev->T("Clear the MIPSTracer")));
-	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
+	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
+#endif
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
@@ -2161,30 +2148,21 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
-	// auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	/*System_BrowseForFile(dev->T("Select the log file"), BrowseFileType::ANY, [](const std::string &value, int) {
-
-	});*/
-
-#if PPSSPP_PLATFORM(WINDOWS)
-	std::string fn;
-	if (W32Util::BrowseForFileName(false, nullptr, L"Select the log file", 0, L"Text files\0*.*\0\0", L"txt", fn)) {
-		mipsTracer.setLoggingPath(fn);
-		MIPSTracerPath_ = std::move(fn);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	System_BrowseForFile(GetRequesterToken(), dev->T("Select the log file"), BrowseFileType::ANY,
+		[this](const std::string &value, int) {
+		mipsTracer.setLoggingPath(value);
+		MIPSTracerPath_ = value;
 		MIPSTracerPath->SetRightText(MIPSTracerPath_);
-	}
-#endif
+	});
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
-	// Let's ban the non-Windows platforms with force
-#if PPSSPP_PLATFORM(WINDOWS)
 	bool success = mipsTracer.flush_to_file();
 	if (!success) {
 		WARN_LOG(Log::JIT, "Error: cannot flush the trace to the specified file!");
 	}
-#endif
 	return UI::EVENT_DONE;
 }
 

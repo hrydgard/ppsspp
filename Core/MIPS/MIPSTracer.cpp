@@ -103,7 +103,7 @@ bool MIPSTracer::flush_to_file() {
 
 	output.open(logging_path, std::ios::out);
 	if (!output) {
-		WARN_LOG(Log::JIT, "MIPSTracer failed to open the file '%s'", logging_path);
+		WARN_LOG(Log::JIT, "MIPSTracer failed to open the file '%s'", logging_path.c_str());
 		return false;
 	}
 	auto trace = executed_blocks.get_content();
