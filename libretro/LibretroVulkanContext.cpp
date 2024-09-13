@@ -31,14 +31,6 @@ void LibretroVulkanContext::SwapBuffers() {
 static bool create_device(retro_vulkan_context *context, VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features) {
 	init_glslang();
 
-	std::string errorStr;
-	if (!VulkanLoad(&errorStr)) {
-		// TODO: In the context of RetroArch, someone has already loaded the functions.
-		// But grabbing the pointers for ourselves can't really be a bad thing.
-		ERROR_LOG(Log::G3D, "RetroArch called the Vulkan entry point without Vulkan available??? %s", errorStr.c_str());
-		return false;
-	}
-
 	vk = new VulkanContext();
 
 	vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);

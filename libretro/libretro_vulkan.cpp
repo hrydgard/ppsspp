@@ -376,7 +376,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 		return (PFN_vkVoidFunction)vkCreateLibretroSurfaceKHR;
 	}
 
-	PFN_vkVoidFunction fptr = vkGetInstanceProcAddr_org(instance, pName);
+	PFN_vkVoidFunction fptr = vk_init_info.get_instance_proc_addr(instance, pName);
    if (!fptr) {
       ERROR_LOG(Log::G3D, "Failed to load VK instance function: %s", pName);
       return fptr;
@@ -412,9 +412,13 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 
 	vkGetInstanceProcAddr_org = vkGetInstanceProcAddr;
 	vkGetInstanceProcAddr = vkGetInstanceProcAddr_libretro;
-	vkGetDeviceProcAddr_org = vkGetDeviceProcAddr;
+	vkGetDeviceProcAddr_org = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr");;
 	vkGetDeviceProcAddr = vkGetDeviceProcAddr_libretro;
 	vkCreateInstance = vkCreateInstance_libretro;
+
+	vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceVersion");
+	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceExtensionProperties");
+	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceLayerProperties");
 }
 
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) {
