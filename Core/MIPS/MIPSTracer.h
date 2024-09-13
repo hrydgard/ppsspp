@@ -27,6 +27,8 @@
 #include "Core/Opcode.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Common/Log.h"
+#include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 
 
 struct TraceBlockInfo {
@@ -135,8 +137,8 @@ struct MIPSTracer {
 
 	TraceBlockStorage storage;
 
-	std::string logging_path;
-	std::ofstream output;
+	Path logging_path;
+	FILE* output;
 	bool tracing_enabled = false;
 
 	int in_storage_capacity = 0x10'0000;
@@ -147,10 +149,10 @@ struct MIPSTracer {
 
 	void prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks);
 	void setLoggingPath(std::string path) {
-		logging_path = path;
+		logging_path = Path(path);
 	}
 	std::string getLoggingPath() const {
-		return logging_path;
+		return logging_path.ToString();
 	}
 
 	bool flush_to_file();

@@ -100,8 +100,8 @@ void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache&
 
 bool MIPSTracer::flush_to_file() {
 	INFO_LOG(Log::JIT, "Flushing the trace to a file...");
-
-	output.open(logging_path, std::ios::out);
+	output = File::OpenCFile(logging_path, "w");
+	
 	if (!output) {
 		WARN_LOG(Log::JIT, "MIPSTracer failed to open the file '%s'", logging_path.c_str());
 		return false;
@@ -113,13 +113,14 @@ bool MIPSTracer::flush_to_file() {
 	}
 
 	INFO_LOG(Log::JIT, "Trace flushed, closing the file...");
-	output.close();
+	std::fclose(output);
+
 	clear();
 	return true;
 }
 
 void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
-	static char buffer[1024];
+	char buffer[512];
 
 	// The log format is '{prefix}{disassembled line}', where 'prefix' is '0x{8 hex digits of the address}: '
 	const auto prefix_size = 2 + 8 + 2;
@@ -137,8 +138,7 @@ void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
 		snprintf(buffer, sizeof(buffer), "0x%08x: ", addr);
 		MIPSDisAsm(storage.read_asm(index), addr, buffer + prefix_size, sizeof(buffer) - prefix_size, true);
 
-		// TODO: check if removing the std::string makes this faster
-		output << std::string(buffer) << "\n";
+		std::fprintf(output, "%s\n", buffer);
 	}
 }
 
