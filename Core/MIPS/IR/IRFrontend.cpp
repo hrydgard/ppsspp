@@ -30,6 +30,7 @@
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/MIPSTracer.h"
 
+#include <iterator>
 
 namespace MIPSComp {
 
