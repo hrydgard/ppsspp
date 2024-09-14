@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <iomanip>
+#include <cctype>
 
 #include "Common/Buffer.h"
 #include "Common/StringUtils.h"
