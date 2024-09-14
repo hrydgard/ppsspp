@@ -20,6 +20,7 @@
 #include <cstring> // for std::memcpy
 #include "Core/MIPS/MIPSTables.h" // for MIPSDisAsm
 #include "Core/MemMap.h" // for Memory::GetPointerUnchecked
+#include "Common/File/FileUtil.h" // for the File::OpenCFile
 
 
 bool TraceBlockStorage::save_block(const u32* instructions, u32 size) {

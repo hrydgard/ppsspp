@@ -79,7 +79,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
-#include "Core/Core.h"
+#include "Core/Core.h" // for Core_IsStepping
 #include "Core/MIPS/MIPSTracer.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)

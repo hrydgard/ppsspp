@@ -20,15 +20,12 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <iterator>
-#include <fstream>
 
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
-#include "Common/File/FileUtil.h"
 
 
 struct TraceBlockInfo {
