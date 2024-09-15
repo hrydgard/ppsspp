@@ -882,6 +882,10 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
 		using namespace CustomKeyData;
 		if (touch.show) {
+			_dbg_assert_(cfg.shape < ARRAY_SIZE(customKeyShapes));
+			_dbg_assert_(cfg.image < ARRAY_SIZE(customKeyImages));
+
+			// Note: cfg.shape and cfg.image are bounds-checked elsewhere.
 			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
 					g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyShapes[cfg.shape].i,
 					customKeyImages[cfg.image].i, touch.scale, customKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
@@ -940,7 +944,15 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
+	// Sanitize custom button images, while adding them.
 	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
+			g_Config.CustomButton[i].shape = 0;
+		}
+		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
+			g_Config.CustomButton[i].image = 0;
+		}
+
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i + 1);
 		addCustomButton(g_Config.CustomButton[i], temp, g_Config.touchCustom[i]);

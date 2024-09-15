@@ -252,6 +252,7 @@ namespace CustomKeyData {
 		{ ImageID("I_ARROW_UP"), 0.0f},
 		{ ImageID("I_ARROW_DOWN"), 0.0f},
 		{ ImageID("I_THREE_DOTS"), 0.0f},
+		{ ImageID("I_EMPTY"), 0.0f},
 	};
 
 	// Shape list
