@@ -125,11 +125,11 @@ typedef s64 SceOff;
 typedef u64 SceIores;
 
 const int PSP_COUNT_FDS = 64;
-// TODO: Should be 3, and stdin/stdout/stderr are special values aliased to 0?
-const int PSP_MIN_FD = 4;
+// TODO: stdin/stdout/stderr are special values aliased to 0?
+const int PSP_MIN_FD = 3;
 const int PSP_STDOUT = 1;
 const int PSP_STDERR = 2;
-const int PSP_STDIN = 3;
+const int PSP_STDIN = 0;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
