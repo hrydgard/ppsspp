@@ -22,6 +22,8 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
+#include "JitCommon/JitCommon.h"
+
 #define CONDTYPE_MASK   0x00000007
 #define CONDTYPE_EQ     0x00000001
 #define CONDTYPE_NE     0x00000002
@@ -122,6 +124,51 @@ struct MIPSInfo {
 
 typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, uint32_t pc, char *out, size_t outSize);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
+
+enum MipsEncoding {
+	Imme,
+	Spec,
+	Spe2,
+	Spe3,
+	RegI,
+	Cop0,
+	Cop0CO,
+	Cop1,
+	Cop1BC,
+	Cop1S,
+	Cop1W,
+	Cop2,
+	Cop2BC2,
+	Cop2Rese,
+	VFPU0,
+	VFPU1,
+	VFPU3,
+	VFPU4Jump,
+	VFPU7,
+	VFPU4,
+	VFPU5,
+	VFPU6,
+	VFPUMatrix1,
+	VFPU9,
+	ALLEGREX0,
+	Emu,
+	Rese,
+	NumEncodings,
+
+	Instruc = -1,
+	Inval = -2,
+};
+
+
+struct MIPSInstruction {
+	MipsEncoding altEncoding;
+	const char *name;
+	MIPSComp::MIPSCompileFunc compile;
+	MIPSDisFunc disasm;
+	MIPSInterpretFunc interpret;
+	//MIPSInstructionInfo information;
+	MIPSInfo flags;
+};
 
 namespace MIPSComp {
 	class MIPSFrontendInterface;
