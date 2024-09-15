@@ -144,16 +144,16 @@ struct MIPSTracer {
 	void start_tracing();
 	void stop_tracing();
 
-	void prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks);
-	void setLoggingPath(std::string path) {
+	void prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks);
+	void set_logging_path(std::string path) {
 		logging_path = Path(path);
 	}
-	std::string getLoggingPath() const {
+	std::string get_logging_path() const {
 		return logging_path.ToString();
 	}
 
 	bool flush_to_file();
-	void flush_block_to_file(TraceBlockInfo& block);
+	void flush_block_to_file(const TraceBlockInfo& block);
 
 	void initialize(u32 storage_capacity, u32 max_trace_size);
 	void clear();

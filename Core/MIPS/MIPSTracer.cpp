@@ -57,7 +57,7 @@ void TraceBlockStorage::clear() {
 	INFO_LOG(Log::JIT, "TraceBlockStorage cleared");
 }
 
-void MIPSTracer::prepare_block(MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
+void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
 	u32 virt_addr, size;
 	block->GetRange(&virt_addr, &size);
 
@@ -120,7 +120,7 @@ bool MIPSTracer::flush_to_file() {
 	return true;
 }
 
-void MIPSTracer::flush_block_to_file(TraceBlockInfo& block_info) {
+void MIPSTracer::flush_block_to_file(const TraceBlockInfo& block_info) {
 	char buffer[512];
 
 	// The log format is '{prefix}{disassembled line}', where 'prefix' is '0x{8 hex digits of the address}: '

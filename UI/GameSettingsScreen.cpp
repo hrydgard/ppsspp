@@ -1909,7 +1909,7 @@ void DeveloperToolsScreen::CreateViews() {
 		return true;
 	});
 
-	MIPSTracerPath_ = mipsTracer.getLoggingPath();
+	MIPSTracerPath_ = mipsTracer.get_logging_path();
 	MIPSTracerPath = list->Add(new InfoItem(dev->T("Current log file"), MIPSTracerPath_));
 
 	PopupSliderChoice* storage_capacity = list->Add(
@@ -2151,7 +2151,7 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	System_BrowseForFile(GetRequesterToken(), dev->T("Select the log file"), BrowseFileType::ANY,
 		[this](const std::string &value, int) {
-		mipsTracer.setLoggingPath(value);
+		mipsTracer.set_logging_path(value);
 		MIPSTracerPath_ = value;
 		MIPSTracerPath->SetRightText(MIPSTracerPath_);
 	});

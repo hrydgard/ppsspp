@@ -190,7 +190,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::ApplyRoundingMode, "ApplyRoundingMode", "" },
 	{ IROp::UpdateRoundingMode, "UpdateRoundingMode", "" },
 
-	{IROp::LogIRBlock, "LogIRBlock", ""}
+	{ IROp::LogIRBlock, "LogIRBlock", "" },
 };
 
 const IRMeta *metaIndex[256];
