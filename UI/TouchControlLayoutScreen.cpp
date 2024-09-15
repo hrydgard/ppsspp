@@ -514,6 +514,8 @@ void ControlLayoutView::CreateViews() {
 	auto addDragCustomKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;
 		if (pos.show) {
+
+
 			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyImages[cfg.image].i, bounds);
 			b->FlipImageH(customKeyShapes[cfg.shape].f);
 			b->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
@@ -523,6 +525,14 @@ void ControlLayoutView::CreateViews() {
 	};
 
 	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		// Similar to GamepadEmu, we sanitize the images for valid values.
+		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
+			g_Config.CustomButton[i].shape = 0;
+		}
+		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
+			g_Config.CustomButton[i].image = 0;
+		}
+
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i);
 		addDragCustomKey(g_Config.touchCustom[i], temp, g_Config.CustomButton[i]);
