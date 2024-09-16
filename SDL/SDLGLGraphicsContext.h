@@ -7,6 +7,8 @@
 #include "SDL_syswm.h"
 #endif
 
+#include <string>
+
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GraphicsContext.h"
@@ -16,7 +18,7 @@ public:
 	// Returns 0 on success.
 	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
 
-	bool InitFromRenderThread() override;
+	bool InitFromRenderThread(std::string *errorMessage) override;
 
 	void Shutdown() override {}
 	void ShutdownFromRenderThread() override;

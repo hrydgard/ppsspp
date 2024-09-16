@@ -1336,24 +1336,44 @@ int main(int argc, char *argv[]) {
 
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
-		if (ctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
-			printf("GL init error '%s'\n", error_message.c_str());
+		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
+		if (glctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
+			// Let's try the fallback once per process run.
+			printf("GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
+			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
+			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
+			delete glctx;
+
+			// NOTE : This should match the lines below in the Vulkan case.
+			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
+			if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
+				printf("Vulkan fallback failed: %s\n", error_message.c_str());
+				return 1;
+			}
+			graphicsContext = vkctx;
+		} else {
+			graphicsContext = glctx;
 		}
-		graphicsContext = ctx;
 #if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
-		if (!ctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
+		SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
+		if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
+			// Let's try the fallback once per process run.
+
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			delete ctx;
+			delete vkctx;
+
+			// NOTE : This should match the three lines above in the OpenGL case.
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-			glctx->Init(window, x, y, w, h, mode, &error_message);
+			if (glctx->Init(window, x, y, w, h, mode, &error_message) != 0) {
+				printf("GL fallback failed: %s\n", error_message.c_str());
+				return 1;
+			}
 			graphicsContext = glctx;
 		} else {
-			graphicsContext = ctx;
+			graphicsContext = vkctx;
 		}
 #endif
 	}
@@ -1396,7 +1416,11 @@ int main(int argc, char *argv[]) {
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
 	if (!graphicsContext->InitFromRenderThread(&error_message)) {
 		printf("Init from thread error: '%s'\n", error_message.c_str());
+		return 1;
 	}
+
+	// OK, we have a valid graphics backend selected. Let's clear the failures.
+	g_Config.sFailedGPUBackends.clear();
 
 #ifdef MOBILE_DEVICE
 	SDL_ShowCursor(SDL_DISABLE);

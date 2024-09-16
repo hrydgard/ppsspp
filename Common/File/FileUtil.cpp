@@ -1289,6 +1289,8 @@ bool IsProbablyInDownloadsFolder(const Path &filename) {
 		}
 		break;
 	}
+	default:
+		break;
 	}
 	return filename.FilePathContainsNoCase("download");
 }
