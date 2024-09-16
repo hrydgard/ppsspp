@@ -124,6 +124,12 @@ void CyclicBuffer<T>::resize(u32 new_capacity) {
 	buffer.resize(new_capacity);
 }
 
+
+// This system is meant for trace recording.
+// A trace here stands for a sequence of instructions and their respective addresses in RAM.
+// The register/memory changes (or thread switches) are not included!
+// Note: the tracer stores the basic blocks inside, which causes the last block to be dumped as a whole,
+// despite the fact that it may not have executed to its end by the time the tracer is stopped.
 struct MIPSTracer {
 	std::vector<TraceBlockInfo> trace_info;
 
