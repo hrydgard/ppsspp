@@ -305,6 +305,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\Jit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\JitSafeMem.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\RegCache.h" />
@@ -583,6 +584,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSTracer.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\Asm.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompBranch.cpp" />

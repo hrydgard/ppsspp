@@ -2342,6 +2342,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSVFPUFallbacks.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
+	Core/MIPS/MIPSTracer.cpp
+	Core/MIPS/MIPSTracer.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp

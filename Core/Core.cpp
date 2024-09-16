@@ -43,6 +43,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
+#include "Core/MIPS/MIPSTracer.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -334,6 +335,9 @@ bool Core_Run(GraphicsContext *ctx) {
 
 void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
 	if (step) {
+		// Stop the tracer
+		mipsTracer.stop_tracing();
+
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");

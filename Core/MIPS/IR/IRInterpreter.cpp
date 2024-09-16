@@ -32,6 +32,7 @@
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPSTracer.h"
 
 #ifdef mips
 // Why do MIPS compilers define something so generic?  Try to keep defined, at least...
@@ -1234,6 +1235,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
+			}
+			break;
+		case IROp::LogIRBlock:
+			if (mipsTracer.tracing_enabled) {
+				mipsTracer.executed_blocks.push_back(inst->constant);
 			}
 			break;
 

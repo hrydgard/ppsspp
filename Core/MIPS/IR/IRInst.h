@@ -237,6 +237,9 @@ enum class IROp : uint8_t {
 	ValidateAddress32,
 	ValidateAddress128,
 
+	// Tracing support.
+	LogIRBlock,
+
 	Nop,
 	Bad,
 };

@@ -91,6 +91,9 @@ public:
 	u32 GetOriginalStart() const {
 		return origAddr_;
 	}
+	u64 GetHash() const {
+		return hash_;
+	}
 
 	void Finalize(int number);
 	void Destroy(int number);

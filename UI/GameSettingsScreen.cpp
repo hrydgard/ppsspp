@@ -79,6 +79,9 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
+#include "Core/Core.h" // for Core_IsStepping
+#include "Core/MIPS/MIPSTracer.h"
+
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
 #endif
@@ -1887,6 +1890,60 @@ void DeveloperToolsScreen::CreateViews() {
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(dev->T("%d Hz"));
 
+#if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
+	list->Add(new ItemHeader(dev->T("MIPSTracer")));
+
+	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
+	CheckBox *MIPSLoggerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
+	list->Add(MIPSLoggerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
+	MIPSLoggerEnabled->SetEnabledFunc([]() {
+		bool temp = g_Config.iCpuCore == static_cast<int>(CPUCore::IR_INTERPRETER) && PSP_IsInited();
+		return temp && Core_IsStepping() && coreState != CORE_POWERDOWN;
+	});
+
+	Choice *MIPSlogging_path = list->Add(new Choice(dev->T("Select the output logging file")));
+	MIPSlogging_path->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
+	MIPSlogging_path->SetEnabledFunc([]() {
+		if (!PSP_IsInited())
+			return false;
+		return true;
+	});
+
+	MIPSTracerPath_ = mipsTracer.get_logging_path();
+	MIPSTracerPath = list->Add(new InfoItem(dev->T("Current log file"), MIPSTracerPath_));
+
+	PopupSliderChoice* storage_capacity = list->Add(
+		new PopupSliderChoice(
+			&mipsTracer.in_storage_capacity, 0x4'0000, 0x40'0000, 0x10'0000, dev->T("Storage capacity"), 0x10000, screenManager()
+		)
+	);
+	storage_capacity->SetFormat("0x%x asm opcodes");
+	storage_capacity->OnChange.Add([&](UI::EventParams &) {
+		INFO_LOG(Log::JIT, "User changed the tracer's storage capacity to 0x%x", mipsTracer.in_storage_capacity);
+		return UI::EVENT_CONTINUE;
+	});
+
+	PopupSliderChoice* trace_max_size = list->Add(
+		new PopupSliderChoice(
+			&mipsTracer.in_max_trace_size, 0x1'0000, 0x40'0000, 0x10'0000, dev->T("Max allowed trace size"), 0x10000, screenManager()
+		)
+	);
+	trace_max_size->SetFormat("%d basic blocks");
+	trace_max_size->OnChange.Add([&](UI::EventParams &) {
+		INFO_LOG(Log::JIT, "User changed the tracer's max trace size to %d", mipsTracer.in_max_trace_size);
+		return UI::EVENT_CONTINUE;
+	});
+
+	Button *FlushTrace = list->Add(new Button(dev->T("Flush the trace")));
+	FlushTrace->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerFlushTrace);
+
+	Button *InvalidateJitCache = list->Add(new Button(dev->T("Clear the JIT cache")));
+	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
+
+	Button *ClearMIPSTracer = list->Add(new Button(dev->T("Clear the MIPSTracer")));
+	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
+#endif
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
@@ -2073,6 +2130,51 @@ UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
+	if (MIPSTracerEnabled_) {
+		u32 capacity = mipsTracer.in_storage_capacity;
+		u32 trace_size = mipsTracer.in_max_trace_size;
+
+		mipsTracer.initialize(capacity, trace_size);
+		mipsTracer.start_tracing();
+	}
+	else {
+		mipsTracer.stop_tracing();
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	System_BrowseForFile(GetRequesterToken(), dev->T("Select the log file"), BrowseFileType::ANY,
+		[this](const std::string &value, int) {
+		mipsTracer.set_logging_path(value);
+		MIPSTracerPath_ = value;
+		MIPSTracerPath->SetRightText(MIPSTracerPath_);
+	});
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
+	bool success = mipsTracer.flush_to_file();
+	if (!success) {
+		WARN_LOG(Log::JIT, "Error: cannot flush the trace to the specified file!");
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearJitCache(UI::EventParams &e) {
+	INFO_LOG(Log::JIT, "Clearing the jit cache...");
+	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMIPSTracerClearTracer(UI::EventParams &e) {
+	INFO_LOG(Log::JIT, "Clearing the MIPSTracer...");
+	mipsTracer.clear();
 	return UI::EVENT_DONE;
 }
 
