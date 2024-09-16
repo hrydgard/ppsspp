@@ -299,6 +299,13 @@ void EGL_Close() {
 
 #endif // USING_EGL
 
+bool SDLGLGraphicsContext::InitFromRenderThread() {
+	bool retval = GraphicsContext::InitFromRenderThread();
+	// HACK: Ensure that the swap interval is set after context creation (needed for kmsdrm)
+	SDL_GL_SetSwapInterval(1);
+	return retval;
+}
+
 // Returns 0 on success.
 int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
 	struct GLVersionPair {
@@ -435,6 +442,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 		INFO_LOG(Log::G3D, "SDL SwapInterval: %d", interval);
 		SDL_GL_SetSwapInterval(interval);
 	});
+
 	window_ = window;
 	return 0;
 }

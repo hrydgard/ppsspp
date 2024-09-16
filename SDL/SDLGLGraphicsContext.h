@@ -16,6 +16,8 @@ public:
 	// Returns 0 on success.
 	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
 
+	bool InitFromRenderThread() override;
+
 	void Shutdown() override {}
 	void ShutdownFromRenderThread() override;
 
