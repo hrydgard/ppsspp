@@ -292,12 +292,14 @@ void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSyste
 	fileSystems.push_back(x);
 }
 
+// Assumes the lock is held
 void MetaFileSystem::UnmountAll() {
 	fileSystems.clear();
 	currentDir.clear();
 }
 
 void MetaFileSystem::Unmount(const std::string &prefix) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);
@@ -325,6 +327,7 @@ IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) 
 }
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
 		if (it->prefix == NormalizePrefix(prefix))
 			return it->system.get();
