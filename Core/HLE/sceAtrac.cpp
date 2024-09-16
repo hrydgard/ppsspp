@@ -528,7 +528,11 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 static u32 sceAtracReleaseAtracID(int atracID) {
 	int result = deleteAtrac(atracID);
 	if (result < 0) {
-		return hleLogError(Log::ME, result, "did not exist");
+		if (atracID >= 0) {
+			return hleLogError(Log::ME, result, "did not exist");
+		} else {
+			return hleLogWarning(Log::ME, result, "did not exist");
+		}
 	}
 	return hleLogSuccessInfoI(Log::ME, result);
 }
