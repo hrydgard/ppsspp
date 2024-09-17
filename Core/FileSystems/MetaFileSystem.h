@@ -43,8 +43,9 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
-	std::recursive_mutex lock;  // must be recursive
+	std::recursive_mutex lock;  // must be recursive. TODO: fix that
 
+	// Assumes the lock is held
 	void Reset() {
 		// This used to be 6, probably an attempt to replicate PSP handles.
 		// However, that's an artifact of using psplink anyway...
