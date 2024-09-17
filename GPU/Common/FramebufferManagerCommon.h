@@ -656,7 +656,10 @@ protected:
 
 	// Half-skip toggles.
 	bool halfSkipDownloadFramebufferOnSwitch_ = false;
+	bool halfSkipDownloadFramebufferOnCopy_ = false;
 	bool halfSkipShouldDownloadFramebufferDepth_ = false;
+
+	bool ShouldReadback(bool *toggle);
 };
 
 // Should probably live elsewhere.

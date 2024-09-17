@@ -1049,8 +1049,9 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Saving each frame would be slow.
 
 		// TODO: This type of download could be made async, for less stutter on framebuffer creation.		
-		halfSkipDownloadFramebufferOnSwitch_ = !halfSkipDownloadFramebufferOnSwitch_;
-		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && halfSkipDownloadFramebufferOnSwitch_)) {
+
+		bool performReadback = ShouldReadback(&halfSkipDownloadFramebufferOnSwitch_);
+		if (performReadback) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
@@ -1064,27 +1065,30 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
 
+bool FramebufferManagerCommon::ShouldReadback(bool *toggle) {
+	bool performReadback = true;
+	switch (GetSkipGPUReadbackMode()) {
+	case SkipGPUReadbackMode::SKIP:
+		performReadback = false;
+		break;
+	case SkipGPUReadbackMode::HALF_SKIP:
+		*toggle = !*toggle;
+		performReadback = *toggle;
+		break;
+	case SkipGPUReadbackMode::COPY_TO_TEXTURE:
+	case SkipGPUReadbackMode::NO_SKIP:
+		break;
+	}
+	return performReadback;
+}
+
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
 	// Download depth buffer if compat flag set (previously used for Syphon Filter lens flares, now used for nothing)
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || GetSkipGPUReadbackMode() != SkipGPUReadbackMode::NO_SKIP) {
 		return false;
 	}
 
-	bool performDepthReadback = true;
-
-	switch (GetSkipGPUReadbackMode()) {
-	case SkipGPUReadbackMode::SKIP:
-		performDepthReadback = false;
-		break;
-	case SkipGPUReadbackMode::HALF_SKIP:
-		halfSkipShouldDownloadFramebufferDepth_ = !halfSkipShouldDownloadFramebufferDepth_;
-		performDepthReadback = halfSkipShouldDownloadFramebufferDepth_;
-		break;
-	case SkipGPUReadbackMode::COPY_TO_TEXTURE:
-	case SkipGPUReadbackMode::NO_SKIP:
-		break;
-	}
-
+	bool performDepthReadback = ShouldReadback(&halfSkipShouldDownloadFramebufferDepth_);
 	return performDepthReadback && (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
 }
 
@@ -2207,9 +2211,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		FlushBeforeCopy();
 		// TODO: In Hot Shots Golf, check if we can do a readback to a framebuffer here.
 		// Again we have the problem though that it's doing a lot of small copies here, one for each line.
+
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, Log::FrameBuf, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
-		} else if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
+		} else if ((!srcBuffer->memoryUpdated || channel == RASTER_DEPTH) && ShouldReadback(&halfSkipDownloadFramebufferOnCopy_)) {
 			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel, Draw::ReadbackMode::BLOCK);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
