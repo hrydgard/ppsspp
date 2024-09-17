@@ -227,8 +227,8 @@ protected:
 	}
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
+	static void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
+	static void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
 	int NativeKeyboard();
 

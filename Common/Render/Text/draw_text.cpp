@@ -37,7 +37,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 	fontScaleY_ = yscale;
 }
 
-float TextDrawer::CalculateDPIScale() {
+float TextDrawer::CalculateDPIScale() const {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
 	float scale = g_display.dpi_scale_y;

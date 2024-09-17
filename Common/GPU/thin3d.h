@@ -450,9 +450,9 @@ public:
 class Framebuffer : public RefCountedObject {
 public:
 	Framebuffer() : RefCountedObject("Framebuffer") {}
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Layers() { return layers_; }
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Layers() const { return layers_; }
 	int MultiSampleLevel() { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}

@@ -114,7 +114,7 @@ protected:
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	virtual void FinishFadeOut();
-	u32 CalcFadedColor(u32 inColor);
+	u32 CalcFadedColor(u32 inColor) const;
 
 	DialogStatus pendingStatus = SCE_UTILITY_STATUS_NONE;
 	u64 pendingStatusTicks = 0;
