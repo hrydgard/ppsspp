@@ -160,20 +160,20 @@ void CompatRatingChoice::SetupChoices() {
 	AddChoice(4, rp->T("Nothing"));
 }
 
-ReportScreen::ReportScreen(const Path &gamePath)
-	: UIDialogScreenWithGameBackground(gamePath) {
+ReportScreen::ReportScreen(const Path &gamePath)  // unused gamePath, after removing the background
+	: UIDialogScreen(), gamePath_(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
 }
 
 ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
-	ScreenRenderFlags flags = UIScreen::render(mode);
+	_dbg_assert_(mode & ScreenRenderMode::FIRST);
+	_dbg_assert_(mode & ScreenRenderMode::TOP);
 
 	if (mode & ScreenRenderMode::TOP) {
-
 		// We do this after render because we need it to be within the frame (so the screenshot works).
 		// We could do it mid frame, but then we have to reapply viewport/scissor.
-		if (!tookScreenshot_) {
+		if (!tookScreenshot_ && !g_Config.bSkipBufferEffects) {
 			Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 			if (!File::Exists(path)) {
 				File::CreateDir(path);
@@ -189,6 +189,11 @@ ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
 			tookScreenshot_ = true;
 		}
 	}
+
+	// We take the screenshot first, then we start rendering.
+	// We are the only screen visible so this avoid starting and then trying to resume a backbuffer render pass.
+	ScreenRenderFlags flags = UIScreen::render(mode);
+
 	return flags;
 }
 
@@ -200,12 +205,12 @@ void ReportScreen::update() {
 			screenshot_->SetVisibility(V_GONE);
 		}
 	}
-	UIDialogScreenWithGameBackground::update();
+	UIDialogScreen::update();
 	UpdateCRCInfo();
 }
 
 void ReportScreen::resized() {
-	UIDialogScreenWithGameBackground::resized();
+	UIDialogScreen::resized();
 	RecreateViews();
 }
 
@@ -407,7 +412,7 @@ EventReturn ReportScreen::HandleShowCRC(EventParams &e) {
 }
 
 ReportFinishScreen::ReportFinishScreen(const Path &gamePath, ReportingOverallScore score)
-	: UIDialogScreenWithGameBackground(gamePath), score_(score) {
+	: UIDialogScreen(), gamePath_(gamePath), score_(score) {
 }
 
 void ReportFinishScreen::CreateViews() {
@@ -468,7 +473,7 @@ void ReportFinishScreen::update() {
 		}
 	}
 
-	UIDialogScreenWithGameBackground::update();
+	UIDialogScreen::update();
 }
 
 void ReportFinishScreen::ShowSuggestions() {

@@ -185,6 +185,7 @@ ScreenRenderFlags ScreenManager::render() {
 		Screen *coveringScreen = nullptr;
 		Screen *foundBackgroundScreen = nullptr;
 		bool first = true;
+
 		do {
 			--iter;
 			ScreenRenderRole role = iter->screen->renderRole(first);
