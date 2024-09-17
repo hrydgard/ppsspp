@@ -799,12 +799,12 @@ OpenGLContext::~OpenGLContext() {
 void OpenGLContext::BeginFrame(DebugFlags debugFlags) {
 	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.BeginPushBuffer(frameData.push);
+	frameData.push->Begin();
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
+	frameData.push->End();  // upload the data!
 	renderManager_.Finish();
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }

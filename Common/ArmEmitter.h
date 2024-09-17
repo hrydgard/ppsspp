@@ -456,7 +456,7 @@ public:
 	void AddNewLit(u32 val);
 	bool TrySetValue_TwoOp(ARMReg reg, u32 val);
 
-	CCFlags GetCC() { return CCFlags(condition >> 28); }
+	CCFlags GetCC() const { return CCFlags(condition >> 28); }
 	void SetCC(CCFlags cond = CC_AL);
 
 	// Special purpose instructions

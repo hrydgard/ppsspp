@@ -1934,7 +1934,7 @@ inline int64_t abs64(int64_t x) {
 	return x >= 0 ? x : -x;
 }
 
-int Count(bool part[4]) {
+static int Count(const bool part[4]) {
 	int cnt = 0;
 	for (int i = 0; i < 4; i++) {
 		if (part[i])
