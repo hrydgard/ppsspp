@@ -84,8 +84,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 
-	vulkan_->ChooseDevice(deviceNum);
-	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;

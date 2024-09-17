@@ -31,7 +31,7 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
 	for (size_t i = 0; i < v.size(); i++) {
 		std::vector<std::string_view> parts;
 		SplitString(v[i], '=', parts);
-		DEBUG_LOG(IO, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
+		DEBUG_LOG(Log::IO, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
 		if (parts[0] == param_name) {
 			*value = parts[1];
 			return true;
@@ -119,13 +119,13 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 	if (!strncasecmp(key, "User-Agent", key_len)) {
 		user_agent = new char[value_len + 1];
 		memcpy(user_agent, buffer, value_len + 1);
-		VERBOSE_LOG(IO, "user-agent: %s", user_agent);
+		VERBOSE_LOG(Log::IO, "user-agent: %s", user_agent);
 	} else if (!strncasecmp(key, "Referer", key_len)) {
 		referer = new char[value_len + 1];
 		memcpy(referer, buffer, value_len + 1);
 	} else if (!strncasecmp(key, "Content-Length", key_len)) {
 		content_length = atoi(buffer);
-		VERBOSE_LOG(IO, "Content-Length: %i", (int)content_length);
+		VERBOSE_LOG(Log::IO, "Content-Length: %i", (int)content_length);
 	} else {
 		std::string key_str(key, key_len);
 		std::transform(key_str.begin(), key_str.end(), key_str.begin(), tolower);
@@ -148,12 +148,12 @@ void RequestHeader::ParseHeaders(net::InputSink *sink) {
 		line_count++;
 		if (type == SIMPLE) {
 			// Done!
-			VERBOSE_LOG(IO, "Simple: Done parsing http request.");
+			VERBOSE_LOG(Log::IO, "Simple: Done parsing http request.");
 			break;
 		}
 	}
 
-	VERBOSE_LOG(IO, "finished parsing request.");
+	VERBOSE_LOG(Log::IO, "finished parsing request.");
 	ok = line_count > 1 && resource != nullptr;
 }
 

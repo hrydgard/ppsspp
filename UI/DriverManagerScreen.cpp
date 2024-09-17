@@ -191,7 +191,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 
 	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
-			INFO_LOG(G3D, "Switching driver to '%s'", e.s.c_str());
+			INFO_LOG(Log::G3D, "Switching driver to '%s'", e.s.c_str());
 			g_Config.sCustomDriver = e.s;
 			TriggerRestart("GameSettingsScreen::CustomDriverYes", false, gamePath_);
 		}
@@ -203,7 +203,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e)
 	if (e.s.empty()) {
 		return UI::EVENT_DONE;
 	}
-	INFO_LOG(G3D, "Uninstalling driver: %s", e.s.c_str());
+	INFO_LOG(Log::G3D, "Uninstalling driver: %s", e.s.c_str());
 
 	Path folder = GetDriverPath() / e.s;
 	File::DeleteDirRecursively(folder);
@@ -230,7 +230,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		std::unique_ptr<ZipFileReader> zipFileReader = std::unique_ptr<ZipFileReader>(ZipFileReader::Create(zipPath, "", true));
 		if (!zipFileReader) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver", "couldn't open zip"));
-			ERROR_LOG(SYSTEM, "Failed to open file '%s' as zip", zipPath.c_str());
+			ERROR_LOG(Log::System, "Failed to open file '%s' as zip", zipPath.c_str());
 			return;
 		}
 
@@ -251,7 +251,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		delete[] metaData;
 
 		const Path newCustomDriver = GetDriverPath() / meta.name;
-		NOTICE_LOG(G3D, "Installing driver into '%s'", newCustomDriver.c_str());
+		NOTICE_LOG(Log::G3D, "Installing driver into '%s'", newCustomDriver.c_str());
 		File::CreateFullPath(newCustomDriver);
 
 		std::vector<File::FileInfo> zipListing;

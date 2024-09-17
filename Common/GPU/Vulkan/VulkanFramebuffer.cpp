@@ -117,7 +117,7 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 	views[attachmentCount++] = color.rtView;  // 2D array texture if multilayered.
 	if (hasDepth) {
 		if (!depth.rtView) {
-			WARN_LOG(G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", (void *)depth.image, (void *)depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
+			WARN_LOG(Log::G3D, "depth render type to non-depth fb: %p %p fmt=%d (%s %dx%d)", (void *)depth.image, (void *)depth.texAllLayersView, depth.format, tag_.c_str(), width, height);
 			// Will probably crash, depending on driver.
 		}
 		views[attachmentCount++] = depth.rtView;
@@ -505,7 +505,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		VkAttachmentReference2KHR depthResolveReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
 		VkSubpassDescriptionDepthStencilResolveKHR depthStencilResolve{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR };
 		if (hasDepth && multisample) {
-			subpass2.pNext = &depthStencilResolve;
+			ChainStruct(subpass2, &depthStencilResolve);
 			depthResolveReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 			depthResolveReference2.attachment = 1;
 			depthResolveReference2.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -524,7 +524,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		rp2.pCorrelatedViewMasks = multiview ? &viewMask : nullptr;
 		rp2.pSubpasses = &subpass2;
 		rp2.subpassCount = 1;
-		res = vkCreateRenderPass2KHR(vulkan->GetDevice(), &rp2, nullptr, &pass);
+		res = vkCreateRenderPass2(vulkan->GetDevice(), &rp2, nullptr, &pass);
 	} else {
 		res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
 	}

@@ -105,3 +105,57 @@ private:
 	int textureWidth_ = 0;
 	int textureHeight_ = 0;
 };
+
+class SavedataButton : public UI::Clickable {
+public:
+	SavedataButton(const Path &gamePath, UI::LayoutParams *layoutParams = 0)
+		: UI::Clickable(layoutParams), savePath_(gamePath) {
+		SetTag(gamePath.ToString());
+	}
+
+	void Draw(UIContext &dc) override;
+	bool UpdateText();
+	std::string DescribeText() const override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 500;
+		h = 74;
+	}
+
+	const Path &GamePath() const { return savePath_; }
+
+	uint64_t GetTotalSize() const {
+		return totalSize_;
+	}
+	int64_t GetDateSeconds() const {
+		return dateSeconds_;
+	}
+
+	void UpdateTotalSize();
+	void UpdateDateSeconds();
+
+private:
+	void UpdateText(const std::shared_ptr<GameInfo> &ginfo);
+
+	Path savePath_;
+	std::string title_;
+	std::string subtitle_;
+	uint64_t totalSize_ = 0;
+	int64_t dateSeconds_ = 0;
+	bool hasTotalSize_ = false;
+	bool hasDateSeconds_ = false;
+};
+
+// View used for the detailed popup, and also in the import savedata comparison.
+// It doesn't do its own data loading for that reason.
+class SavedataView : public UI::LinearLayout {
+public:
+	SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType type, bool showIcon, UI::LayoutParams *layoutParams = nullptr);
+	SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileType type, std::string_view title, std::string_view savedataTitle, std::string_view savedataDetail, std::string_view fileSize, std::string_view mtime, bool showIcon, UI::LayoutParams *layoutParams = nullptr);
+
+	void Update(GameInfo *ginfo);
+private:
+	UI::TextView *savedataTitle_ = nullptr;
+	UI::TextView *detail_ = nullptr;
+	UI::TextView *mTime_ = nullptr;
+	UI::TextView *fileSize_ = nullptr;
+};

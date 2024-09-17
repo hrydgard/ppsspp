@@ -149,7 +149,7 @@ void MipsJit::Compile(u32 em_address) {
 	bool cleanSlate = false;
 
 	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		WARN_LOG(Log::JIT, "Detected rounding mode usage, rebuilding jit with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
 		js.lastSetRounding = js.hasSetRounding;
 		cleanSlate = true;
@@ -237,7 +237,7 @@ bool MipsJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 void MipsJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void MipsJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {

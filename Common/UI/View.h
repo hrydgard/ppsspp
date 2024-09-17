@@ -93,7 +93,7 @@ struct FontStyle {
 struct Theme {
 	FontStyle uiFont;
 	FontStyle uiFontSmall;
-	FontStyle uiFontSmaller;
+	FontStyle uiFontBig;
 
 	ImageID checkOn;
 	ImageID checkOff;
@@ -462,13 +462,13 @@ public:
 	Visibility GetVisibility() const { return visibility_; }
 
 	const std::string &Tag() const { return tag_; }
-	void SetTag(const std::string &str) { tag_ = str; }
+	void SetTag(std::string_view str) { tag_ = str; }
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	virtual Point GetFocusPosition(FocusDirection dir) const;
+	virtual Point2D GetFocusPosition(FocusDirection dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -732,6 +732,10 @@ public:
 		rightIconFlipH_ = flipH;
 		rightIconImage_ = iconImage;
 	}
+	// Only useful for things that extend Choice.
+	void SetHideTitle(bool hide) {
+		hideTitle_ = hide;
+	}
 
 protected:
 	// hackery
@@ -751,6 +755,7 @@ protected:
 	float imgRot_ = 0.0f;
 	bool imgFlipH_ = false;
 	u32 drawTextFlags_ = 0;
+	bool hideTitle_ = false;
 
 private:
 	bool selected_ = false;
@@ -822,11 +827,10 @@ public:
 	void SetPasswordDisplay() {
 		passwordDisplay_ = true;
 	}
-
 protected:
 	virtual std::string ValueText() const = 0;
 
-	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
 	bool passwordDisplay_ = false;
 };
@@ -904,7 +908,7 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	Point GetFocusPosition(FocusDirection dir) const override;
+	Point2D GetFocusPosition(FocusDirection dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
 	void SetOpenPtr(bool *open) {
@@ -916,10 +920,8 @@ private:
 
 class BitCheckBox : public CheckBox {
 public:
-	BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
-		: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
-	}
-    
+	// bit is a bitmask (should only have a single bit set), not a bit index.
+	BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr);
 	BitCheckBox(int *bitfield, int bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {}
 
 	void Toggle() override;
@@ -980,10 +982,10 @@ private:
 class TextView : public InertView {
 public:
 	TextView(std::string_view text, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false), clip_(true) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false) {}
 
 	TextView(std::string_view text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small) {}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -992,6 +994,7 @@ public:
 	const std::string &GetText() const { return text_; }
 	std::string DescribeText() const override { return GetText(); }
 	void SetSmall(bool small) { small_ = small; }
+	void SetBig(bool big) { big_ = big; }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
@@ -1007,9 +1010,10 @@ private:
 	uint32_t textColor_;
 	bool hasTextColor_ = false;
 	bool small_;
-	bool shadow_;
-	bool focusable_;
-	bool clip_;
+	bool big_ = false;
+	bool shadow_ = false;
+	bool focusable_ = false;
+	bool clip_ = true;
 	bool bullet_ = false;
 	float pad_ = 0.0f;
 };

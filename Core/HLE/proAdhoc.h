@@ -39,17 +39,13 @@
 #endif
 
 #include <atomic>
-#include <climits>
 #include <mutex>
 #include <thread>
+#include <climits>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
-
-#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
@@ -109,6 +105,10 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #endif
 #ifndef POLLPRI
 #define POLLPRI POLL_PRI
+#endif
+
+#ifndef SD_RECEIVE
+#define SD_RECEIVE SHUT_RD //0x00
 #endif
 
 #ifndef SD_BOTH

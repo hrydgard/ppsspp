@@ -32,7 +32,7 @@ static std::string getlocale() {
 
 TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 	if (TTF_Init() < 0) {
-		ERROR_LOG(G3D, "Unable to initialize SDL2_ttf");
+		ERROR_LOG(Log::G3D, "Unable to initialize SDL2_ttf");
 	}
 
 	dpiScale_ = CalculateDPIScale();
@@ -46,6 +46,8 @@ TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 
 TextDrawerSDL::~TextDrawerSDL() {
 	ClearCache();
+	ClearFonts();
+
 	TTF_Quit();
 
 #if defined(USE_SDL2_TTF_FONTCONFIG)
@@ -273,12 +275,12 @@ void TextDrawerSDL::SetFont(uint32_t fontHandle) {
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	} else {
-		ERROR_LOG(G3D, "Invalid font handle %08x", fontHandle);
+		ERROR_LOG(Log::G3D, "Invalid font handle %08x", fontHandle);
 	}
 }
 
-void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *h) {
-	CacheKey key{ std::string(str, len), fontHash_ };
+void TextDrawerSDL::MeasureString(std::string_view str, float *w, float *h) {
+	CacheKey key{ std::string(str), fontHash_ };
 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(key);
@@ -312,118 +314,15 @@ void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawerSDL::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str, len);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
-	}
+bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+	_dbg_assert_(!fullColor)
 
-	TTF_Font *font = fontMap_.find(fontHash_)->second;
-	int ptSize = TTF_FontHeight(font) / 1.35;
-	uint32_t missingGlyph = CheckMissingGlyph(toMeasure);
-
-	if (missingGlyph) {
-		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0) {
-			font = fallbackFonts_[fallbackFont];
-		}
-	}
-
-	std::vector<std::string> lines;
-	SplitString(toMeasure, '\n', lines);
-
-	int total_w = 0;
-	int total_h = 0;
-	for (size_t i = 0; i < lines.size(); i++) {
-		CacheKey key{ lines[i], fontHash_ };
-
-		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(key);
-		if (iter != sizeCache_.end()) {
-			entry = iter->second.get();
-		} else {
-			int width = 0;
-			int height = 0;
-			TTF_SizeUTF8(font, lines[i].c_str(), &width, &height);
-			entry = new TextMeasureEntry();
-			entry->width = width;
-			entry->height = height;
-			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-		}
-
-		entry->lastUsedFrame = frameCount_;
-		if (total_w < entry->width) {
-			total_w = entry->width;
-		}
-		total_h += TTF_FontLineSkip(font);
-	}
-
-	*w = total_w * fontScaleX_ * dpiScale_;
-	*h = total_h * fontScaleY_ * dpiScale_;
-}
-
-void TextDrawerSDL::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
-	using namespace Draw;
-	if (!strlen(str))
-		return;
-
-	CacheKey key{ std::string(str), fontHash_ };
-	target.Flush(true);
-
-	TextStringEntry *entry;
-
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		entry = iter->second.get();
-		entry->lastUsedFrame = frameCount_;
-	} else {
-		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
-		if ((draw_->GetDataFormatSupport(texFormat) & Draw::FMT_TEXTURE) == 0) {
-			// This is always supported in Vulkan. The other format is the common OpenGL one.
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		}
-
-		entry = new TextStringEntry();
-
-		TextureDesc desc{};
-		std::vector<uint8_t> bitmapData;
-		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
-		desc.initData.push_back(&bitmapData[0]);
-
-		desc.type = TextureType::LINEAR2D;
-		desc.format = texFormat;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		desc.tag = "TextDrawer";
-		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-	}
-
-	if (entry->texture) {
-		draw_->BindTexture(0, entry->texture);
-	}
-
-	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
-	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
-	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	if (entry->texture) {
-		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
-		target.Flush(true);
-	}
-}
-
-void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
-	if (!strlen(str)) {
+	if (str.empty()) {
 		bitmapData.clear();
-		return;
+		return false;
 	}
 
-	// Replace "&&" with "&"
-	std::string processedStr = ReplaceAll(str, "&&", "&");
+	std::string processedStr(str);
 
 	// If a string includes only newlines, SDL2_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that. 
@@ -492,46 +391,10 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	SDL_UnlockSurface(text);
 	SDL_FreeSurface(text);
+	return true;
 }
 
-void TextDrawerSDL::OncePerFrame() {
-	// Reset everything if DPI changes
-	float newDpiScale = CalculateDPIScale();
-	if (newDpiScale != dpiScale_) {
-		dpiScale_ = newDpiScale;
-		ClearCache();
-	}
-
-	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
-		for (auto iter = cache_.begin(); iter != cache_.end();) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				if (iter->second->texture)
-					iter->second->texture->Release();
-				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-	}
-}
-
-void TextDrawerSDL::ClearCache() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
-
+void TextDrawerSDL::ClearFonts() {
 	for (auto iter : fontMap_) {
 		TTF_CloseFont(iter.second);
 	}
@@ -540,7 +403,6 @@ void TextDrawerSDL::ClearCache() {
 	}
 	fontMap_.clear();
 	fallbackFonts_.clear();
-	fontHash_ = 0;
 }
 
 #endif

@@ -7,6 +7,8 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.UiModeManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -443,6 +445,7 @@ public abstract class NativeActivity extends Activity {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 		String shortcut = overrideShortcutParam == null ? shortcutParam : overrideShortcutParam;
 		overrideShortcutParam = null;
+		shortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
@@ -594,6 +597,7 @@ public abstract class NativeActivity extends Activity {
 		// whether to start at 1x or 2x.
 		sizeManager.updateDisplayMeasurements();
 
+		boolean wasInitialized = initialized;
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -660,6 +664,13 @@ public abstract class NativeActivity extends Activity {
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			startRenderLoopThread();
+		}
+
+		if (shortcutParam != null && shortcutParam.length() > 0) {
+			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
+			// Make sure we only send it once.
+			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
+			shortcutParam = null;
 		}
 	}
 
@@ -1422,7 +1433,10 @@ public abstract class NativeActivity extends Activity {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				if (command.equals("browse_file_audio")) {
-					intent.setType("audio/x-wav");
+					// Trickery for multiple mime types.
+					String [] mimeTypes = {"audio/x-wav", "audio/x-mpeg3", "audio/mpeg"};
+					intent.setType("*/*");
+					intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
 				} else if (command.equals("browse_file_zip")) {
 					intent.setType("application/zip");
 				} else {
@@ -1619,10 +1633,10 @@ public abstract class NativeActivity extends Activity {
 			} else if (params.equals("stopRecording")) {
 				NativeApp.audioRecording_Stop();
 			}
-		} else if (command.equals("uistate")) {
+		} else if (command.equals("set_keep_screen_bright")) {
 			Window window = this.getWindow();
-			if (params.equals("ingame")) {
-				// Keep the screen bright - very annoying if it goes dark when tilting away
+			if (params.equals("on")) {
+				// Keep the screen bright - very annoying if it goes dark when using tilt or a joystick
 				window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				updateSustainedPerformanceMode();
 			} else {
@@ -1654,8 +1668,21 @@ public abstract class NativeActivity extends Activity {
 				NativeApp.reportException(e, params);
 				return false;
 			}
+		} else if (command.equals("copy_to_clipboard")) {
+			if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+				copyStringToClipboard(params);
+			}
+		} else {
+			Log.w(TAG, "Unknown string command " + command);
 		}
 		return false;
+	}
+
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
+	private void copyStringToClipboard(String text) {
+		ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipData clip = ClipData.newPlainText("Copied Text", text);
+		clipboard.setPrimaryClip(clip);
 	}
 
 	@SuppressLint("NewApi")

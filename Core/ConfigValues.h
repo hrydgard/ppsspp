@@ -126,6 +126,12 @@ enum class BackgroundAnimation {
 	MOVING_BACKGROUND = 4,
 };
 
+// iOS only
+enum class AppSwitchMode {
+	SINGLE_SWIPE_NO_INDICATOR = 0,
+	DOUBLE_SWIPE_INDICATOR = 1,
+};
+
 // for Config.iShowStatusFlags
 enum class ShowStatusFlags {
 	FPS_COUNTER = 1 << 1,
@@ -164,7 +170,7 @@ enum class DebugOverlay : int {
 	FRAME_PROFILE,
 #endif
 	CONTROL,
-	AUDIO,
+	Audio,
 	GPU_PROFILE,
 	GPU_ALLOCATOR,
 	FRAMEBUFFER_LIST,

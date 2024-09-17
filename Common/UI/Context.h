@@ -82,17 +82,16 @@ public:
 	void SetFontStyle(const UI::FontStyle &style);
 	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
-	void MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align = 0) const;
-	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align = 0) const;
-	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align = 0) const;
-	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
-	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
+	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
+	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 	// Will squeeze the text into the bounds if needed.
-	void DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 
-	float CalculateTextScale(const char *text, float availWidth, float availHeight) const;
+	float CalculateTextScale(std::string_view str, float availWidth, float availHeight) const;
 
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);

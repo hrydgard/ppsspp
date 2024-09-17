@@ -216,10 +216,10 @@ void __KernelVTimerInit() {
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	if (!name) {
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateVTimer(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateVTimer(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
-	DEBUG_LOG(SCEKERNEL, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
 
 	VTimer *vtimer = new VTimer;
 	SceUID id = kernelObjects.Create(vtimer);
@@ -232,20 +232,20 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	if (optParamAddr != 0) {
 		u32 size = Memory::Read_U32(optParamAddr);
 		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
 	}
 
 	return id;
 }
 
 u32 sceKernelDeleteVTimer(SceUID uid) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelDeleteVTimer(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteVTimer(%08x)", uid);
 
 	u32 error;
 	VTimer* vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelDeleteVTimer(%08x)", error, uid);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelDeleteVTimer(%08x)", error, uid);
 		return error;
 	}
 
@@ -260,13 +260,13 @@ u32 sceKernelDeleteVTimer(SceUID uid) {
 }
 
 u32 sceKernelGetVTimerBase(SceUID uid, u32 baseClockAddr) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerBase(%08x, %08x)", uid, baseClockAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelGetVTimerBase(%08x, %08x)", uid, baseClockAddr);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerBase(%08x, %08x)", error, uid, baseClockAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelGetVTimerBase(%08x, %08x)", error, uid, baseClockAddr);
 		return error;
 	}
 
@@ -277,13 +277,13 @@ u32 sceKernelGetVTimerBase(SceUID uid, u32 baseClockAddr) {
 }
 
 u64 sceKernelGetVTimerBaseWide(SceUID uid) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerBaseWide(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelGetVTimerBaseWide(%08x)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerBaseWide(%08x)", error, uid);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelGetVTimerBaseWide(%08x)", error, uid);
 		return -1;
 	}
 
@@ -291,13 +291,13 @@ u64 sceKernelGetVTimerBaseWide(SceUID uid) {
 }
 
 u32 sceKernelGetVTimerTime(SceUID uid, u32 timeClockAddr) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelGetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
 		return error;
 	}
 
@@ -309,13 +309,13 @@ u32 sceKernelGetVTimerTime(SceUID uid, u32 timeClockAddr) {
 }
 
 u64 sceKernelGetVTimerTimeWide(SceUID uid) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetVTimerTimeWide(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelGetVTimerTimeWide(%08x)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelGetVTimerTimeWide(%08x)", error, uid);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelGetVTimerTimeWide(%08x)", error, uid);
 		return -1;
 	}
 
@@ -334,13 +334,13 @@ static u64 __KernelSetVTimer(VTimer *vt, u64 time) {
 }
 
 u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelSetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelSetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
 		return error;
 	}
 
@@ -353,16 +353,16 @@ u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr) {
 
 u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock) {
 	if (__IsInInterrupt()) {
-		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu): in interrupt", uid, timeClock);
+		WARN_LOG(Log::sceKernel, "sceKernelSetVTimerTimeWide(%08x, %llu): in interrupt", uid, timeClock);
 		return -1;
 	}
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerTimeWide(%08x, %llu)", uid, timeClock);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetVTimerTimeWide(%08x, %llu)", uid, timeClock);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error || vt == NULL) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", error, uid, timeClock);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", error, uid, timeClock);
 		return -1;
 	}
 
@@ -381,11 +381,11 @@ u32 sceKernelStartVTimer(SceUID uid) {
 	hleEatCycles(12200);
 
 	if (uid == runningVTimer) {
-		WARN_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x): invalid vtimer", uid);
+		WARN_LOG(Log::sceKernel, "sceKernelStartVTimer(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelStartVTimer(%08x)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -410,10 +410,10 @@ static void __stopVTimer(VTimer *vt) {
 
 u32 sceKernelStopVTimer(SceUID uid) {
 	if (uid == runningVTimer) {
-		WARN_LOG(SCEKERNEL, "sceKernelStopVTimer(%08x): invalid vtimer", uid);
+		WARN_LOG(Log::sceKernel, "sceKernelStopVTimer(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
-	DEBUG_LOG(SCEKERNEL, "sceKernelStopVTimer(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelStopVTimer(%08x)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -432,7 +432,7 @@ u32 sceKernelStopVTimer(SceUID uid) {
 u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
 	hleEatCycles(900);
 	if (uid == runningVTimer) {
-		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+		WARN_LOG(Log::sceKernel, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
 
@@ -440,11 +440,11 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", error, uid, scheduleAddr, handlerFuncAddr, commonAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", error, uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return error;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 	hleEatCycles(2000);
 
 	u64 schedule = Memory::Read_U64(scheduleAddr);
@@ -462,7 +462,7 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
 	hleEatCycles(900);
 	if (uid == runningVTimer) {
-		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
+		WARN_LOG(Log::sceKernel, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
 
@@ -470,11 +470,11 @@ u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr,
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", error, uid, schedule, handlerFuncAddr, commonAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", error, uid, schedule, handlerFuncAddr, commonAddr);
 		return error;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
 
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
@@ -489,24 +489,24 @@ u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr,
 
 u32 sceKernelCancelVTimerHandler(SceUID uid) {
 	if (uid == runningVTimer) {
-		WARN_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x): invalid vtimer", uid);
+		WARN_LOG(Log::sceKernel, "sceKernelCancelVTimerHandler(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelCancelVTimerHandler(%08x)", uid);
+	DEBUG_LOG(Log::sceKernel, "sceKernelCancelVTimerHandler(%08x)", uid);
 
 	//__cancelVTimer checks if uid is valid
 	return __KernelCancelVTimer(uid);
 }
 
 u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(SCEKERNEL, "%08x=sceKernelReferVTimerStatus(%08x, %08x)", error, uid, statusAddr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelReferVTimerStatus(%08x, %08x)", error, uid, statusAddr);
 		return error;
 	}
 
@@ -522,5 +522,5 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 
 // Not sure why this is exposed...
 void _sceKernelReturnFromTimerHandler() {
-	ERROR_LOG_REPORT(SCEKERNEL,"_sceKernelReturnFromTimerHandler - should not be called!");
+	ERROR_LOG_REPORT(Log::sceKernel,"_sceKernelReturnFromTimerHandler - should not be called!");
 }

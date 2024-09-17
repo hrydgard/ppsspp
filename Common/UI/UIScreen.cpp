@@ -84,11 +84,11 @@ bool UIScreen::key(const KeyInput &key) {
 
 bool UIScreen::UnsyncTouch(const TouchInput &touch) {
 	if (ClickDebug && root_ && (touch.flags & TOUCH_DOWN)) {
-		INFO_LOG(SYSTEM, "Touch down!");
+		INFO_LOG(Log::System, "Touch down!");
 		std::vector<UI::View *> views;
 		root_->Query(touch.x, touch.y, views);
 		for (auto view : views) {
-			INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
+			INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
 		}
 	}
 
@@ -167,11 +167,11 @@ void UIScreen::update() {
 			break;
 		case QueuedEventType::TOUCH:
 			if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
-				INFO_LOG(SYSTEM, "Touch down!");
+				INFO_LOG(Log::System, "Touch down!");
 				std::vector<UI::View *> views;
 				root_->Query(ev.touch.x, ev.touch.y, views);
 				for (auto view : views) {
-					INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
+					INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
 				}
 			}
 			touch(ev.touch);
@@ -262,7 +262,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
-			ERROR_LOG(SYSTEM, "Screen already finished");
+			ERROR_LOG(Log::System, "Screen already finished");
 		} else {
 			finished_ = true;
 			TriggerFinish(DR_BACK);
@@ -385,10 +385,6 @@ void PopupScreen::SetPopupOrigin(const UI::View *view) {
 	popupOrigin_ = view->GetBounds().Center();
 }
 
-void PopupScreen::SetPopupOffset(float y) {
-	offsetY_ = y;
-}
-
 void PopupScreen::TriggerFinish(DialogResult result) {
 	if (CanComplete(result)) {
 		ignoreInput_ = true;
@@ -398,7 +394,7 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 		OnCompleted(result);
 	}
 	// Inform UI that popup close to hide OSK (if visible)
-	System_NotifyUIState("popup_closed");
+	System_NotifyUIEvent(UIEventNotification::POPUP_CLOSED);
 }
 
 void PopupScreen::CreateViews() {
@@ -411,8 +407,18 @@ void PopupScreen::CreateViews() {
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
-	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true));
+	AnchorLayoutParams *anchorParams;
+	if (!alignTop_) {
+		// Standard centering etc.
+		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
+			dc.GetBounds().centerX(), dc.GetBounds().centerY() + offsetY_, NONE, NONE, true);
+	} else {
+		// Top-aligned, for dialogs where we need to pop a keyboard below.
+		anchorParams = new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT,
+			NONE, 0, NONE, NONE, false);
+	}
+
+	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
 
 	root_->Add(box_);
 	box_->SetBG(dc.theme->popupStyle.background);

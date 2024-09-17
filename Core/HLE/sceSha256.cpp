@@ -23,10 +23,10 @@
 
 static int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
 	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(digestPtr) || !Memory::IsValidAddress(data + dataLen)) {
-		ERROR_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x) - bad address(es)", data, dataLen, digestPtr);
+		ERROR_LOG(Log::HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x) - bad address(es)", data, dataLen, digestPtr);
 		return -1;
 	}
-	INFO_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x)", data, dataLen, digestPtr);
+	INFO_LOG(Log::HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x)", data, dataLen, digestPtr);
 
 	// Already checked above...
 	u8 *digest = Memory::GetPointerWriteUnchecked(digestPtr);

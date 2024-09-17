@@ -55,6 +55,9 @@ public:
 	void ApplySearchFilter(const std::string &filter);
 	void Draw(UIContext &dc) override;
 	void Update() override;
+	void RequestRefresh() {
+		refreshPending_ = true;
+	}
 
 	void SetHomePath(const Path &path) {
 		homePath_ = path;
@@ -106,6 +109,7 @@ private:
 	Path focusGamePath_;
 	bool listingPending_ = false;
 	bool searchPending_ = false;
+	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
 	ScreenManager *screenManager_;

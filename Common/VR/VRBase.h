@@ -65,20 +65,17 @@ typedef struct {
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
-	ovrSwapChain DepthSwapChain;
 	void* ColorSwapChainImage;
-	void* DepthSwapChainImage;
+	unsigned int* GLDepthBuffers;
 	unsigned int* GLFrameBuffers;
 	VkFramebuffer* VKFrameBuffers;
 	VkImageView* VKColorImages;
-	VkImageView* VKDepthImages;
 
 	bool Acquired;
 	XrGraphicsBindingVulkanKHR* VKContext;
 } ovrFramebuffer;
 
 typedef struct {
-	bool Multiview;
 	ovrFramebuffer FrameBuffer[ovrMaxNumEyes];
 } ovrRenderer;
 
@@ -124,7 +121,6 @@ typedef struct {
 enum VRPlatformFlag {
 	VR_PLATFORM_CONTROLLER_PICO,
 	VR_PLATFORM_CONTROLLER_QUEST,
-	VR_PLATFORM_EXTENSION_FOVEATION,
 	VR_PLATFORM_EXTENSION_INSTANCE,
 	VR_PLATFORM_EXTENSION_PASSTHROUGH,
 	VR_PLATFORM_EXTENSION_PERFORMANCE,

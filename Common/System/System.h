@@ -56,6 +56,13 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 // Going forward, "optional" things (PPSSPP will still function alright without it) will be requests,
 // to make implementations simpler in the default case.
 
+enum class UIEventNotification {
+	MENU_RETURN,
+	POPUP_CLOSED,
+	TEXT_GOTFOCUS,
+	TEXT_LOSTFOCUS,
+};
+
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
 	ASK_USERNAME_PASSWORD,
@@ -79,13 +86,16 @@ enum class SystemRequestType {
 	// Note: height specified as param3, width based on param1.size() / param3.
 	SEND_DEBUG_SCREENSHOT,
 
-	NOTIFY_UI_STATE,  // Used on Android only. Not a SystemNotification since it takes a parameter.
+	NOTIFY_UI_EVENT,  // Used to manage events that are useful for popup virtual keyboards.
+	SET_KEEP_SCREEN_BRIGHT,
 
 	// High-level hardware control
 	CAMERA_COMMAND,
 	GPS_COMMAND,
 	INFRARED_COMMAND,
 	MICROPHONE_COMMAND,
+
+	RUN_CALLBACK_IN_WNDPROC,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
@@ -93,7 +103,7 @@ enum class SystemRequestType {
 // This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
 // or ignore that cleanly.
 // Some requests don't use responses.
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3);
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4);
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
@@ -114,6 +124,7 @@ enum SystemKeyboardLayout {
 
 enum SystemProperty {
 	SYSPROP_NAME,
+	SYSPROP_SYSTEMBUILD,
 	SYSPROP_LANGREGION,
 	SYSPROP_CPUINFO,
 	SYSPROP_BOARDNAME,
@@ -132,9 +143,11 @@ enum SystemProperty {
 	SYSPROP_HAS_IMAGE_BROWSER,
 	SYSPROP_HAS_BACK_BUTTON,
 	SYSPROP_HAS_KEYBOARD,
+	SYSPROP_KEYBOARD_IS_SOFT,
 	SYSPROP_HAS_ACCELEROMETER,  // Used to enable/disable tilt input settings
 	SYSPROP_HAS_OPEN_DIRECTORY,
 	SYSPROP_HAS_LOGIN_DIALOG,
+	SYSPROP_HAS_TEXT_CLIPBOARD,
 	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
@@ -191,7 +204,13 @@ enum SystemProperty {
 
 	SYSPROP_USER_DOCUMENTS_DIR,
 
+	// iOS app store limitation: The documents directory should be the only browsable directory.
+	// We'll not return true for this in non-app-store builds.
+	SYSPROP_LIMITED_FILE_BROWSING,
+
 	SYSPROP_OK_BUTTON_LEFT,
+
+	SYSPROP_MAIN_WINDOW_HANDLE,
 };
 
 enum class SystemNotification {
@@ -212,6 +231,9 @@ enum class SystemNotification {
 	TEST_JAVA_EXCEPTION,
 	KEEP_SCREEN_AWAKE,
 	ACTIVITY,
+	UI_STATE_CHANGED,
+	AUDIO_MODE_CHANGED,
+	APP_SWITCH_MODE_CHANGED,
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of
@@ -252,7 +274,7 @@ enum class UIMessage {
 
 std::string System_GetProperty(SystemProperty prop);
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
-int System_GetPropertyInt(SystemProperty prop);
+int64_t System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 

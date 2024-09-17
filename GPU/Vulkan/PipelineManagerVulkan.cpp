@@ -48,7 +48,7 @@ void PipelineManagerVulkan::Clear() {
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (!value->pipeline) {
 			// Something went wrong.
-			ERROR_LOG(G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
+			ERROR_LOG(Log::G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
 		} else {
 			value->pipeline->QueueForDeletion(vulkan_);
 		}
@@ -192,15 +192,15 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	_assert_(fs && vs);
 
 	if (!fs || !fs->GetModule()) {
-		ERROR_LOG(G3D, "Fragment shader missing in CreateVulkanPipeline");
+		ERROR_LOG(Log::G3D, "Fragment shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}
 	if (!vs || !vs->GetModule()) {
-		ERROR_LOG(G3D, "Vertex shader missing in CreateVulkanPipeline");
+		ERROR_LOG(Log::G3D, "Vertex shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}
 	if (gs && !gs->GetModule()) {
-		ERROR_LOG(G3D, "Geometry shader missing in CreateVulkanPipeline");
+		ERROR_LOG(Log::G3D, "Geometry shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}
 
@@ -284,6 +284,11 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	rs.rasterizerDiscardEnable = false;
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = key.depthClampEnable;
+
+	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+		ChainStruct(rs, &desc->rs_provoking);
+		desc->rs_provoking.provokingVertexMode = VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT;
+	}
 
 	desc->fragmentShaderSource = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	desc->vertexShaderSource = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
@@ -375,6 +380,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (fs->Flags() & FragmentShaderFlags::USES_DISCARD) {
 		pipelineFlags |= PipelineFlags::USES_DISCARD;
+	}
+	if (fs->Flags() & FragmentShaderFlags::USES_FLAT_SHADING) {
+		pipelineFlags |= PipelineFlags::USES_FLAT_SHADING;
 	}
 	if (vs->Flags() & VertexShaderFlags::MULTI_VIEW) {
 		pipelineFlags |= PipelineFlags::USES_MULTIVIEW;
@@ -650,7 +658,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 		size = (uint32_t)dataSize;
 		fwrite(&size, sizeof(size), 1, file);
 		fwrite(buffer.get(), 1, size, file);
-		NOTICE_LOG(G3D, "Saved Vulkan pipeline cache (%d bytes).", (int)size);
+		NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline cache (%d bytes).", (int)size);
 	}
 
 	size_t seekPosOnFailure = ftell(file);
@@ -702,20 +710,20 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 	}
 
 	if (failed) {
-		ERROR_LOG(G3D, "Failed to write pipeline cache, some shader was missing");
+		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, some shader was missing");
 		// Write a zero in the right place so it doesn't try to load the pipelines next time.
 		size = 0;
 		fseek(file, (long)seekPosOnFailure, SEEK_SET);
 		writeFailed = fwrite(&size, sizeof(size), 1, file) != 1;
 		if (writeFailed) {
-			ERROR_LOG(G3D, "Failed to write pipeline cache, disk full?");
+			ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
 		}
 		return;
 	}
 	if (writeFailed) {
-		ERROR_LOG(G3D, "Failed to write pipeline cache, disk full?");
+		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
 	} else {
-		NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
+		NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 	}
 }
 
@@ -725,11 +733,11 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
-		NOTICE_LOG(G3D, "WARNING: Using the badly tested raw pipeline cache path!!!!");
+		NOTICE_LOG(Log::G3D, "WARNING: Using the badly tested raw pipeline cache path!!!!");
 		// WARNING: Do not use this path until after reading and implementing https://zeux.io/2019/07/17/serializing-pipeline-cache/ !
 		bool success = fread(&size, sizeof(size), 1, file) == 1;
 		if (!size || !success) {
-			WARN_LOG(G3D, "Zero-sized Vulkan pipeline cache.");
+			WARN_LOG(Log::G3D, "Zero-sized Vulkan pipeline cache.");
 			return true;
 		}
 		auto buffer = std::make_unique<uint8_t[]>(size);
@@ -738,12 +746,12 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		VkPipelineCacheHeader *header = (VkPipelineCacheHeader *)buffer.get();
 		if (!success || header->version != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
 			// Bad header, don't do anything.
-			WARN_LOG(G3D, "Bad Vulkan pipeline cache header - ignoring");
+			WARN_LOG(Log::G3D, "Bad Vulkan pipeline cache header - ignoring");
 			return false;
 		}
 		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties().properties.pipelineCacheUUID, VK_UUID_SIZE)) {
 			// Wrong hardware/driver/etc.
-			WARN_LOG(G3D, "Bad Vulkan pipeline cache UUID - ignoring");
+			WARN_LOG(Log::G3D, "Bad Vulkan pipeline cache UUID - ignoring");
 			return false;
 		}
 
@@ -761,14 +769,14 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		} else {
 			vkMergePipelineCaches(vulkan_->GetDevice(), pipelineCache_, 1, &cache);
 		}
-		NOTICE_LOG(G3D, "Loaded Vulkan binary pipeline cache (%d bytes).", (int)size);
+		NOTICE_LOG(Log::G3D, "Loaded Vulkan binary pipeline cache (%d bytes).", (int)size);
 		// Note that after loading the cache, it's still a good idea to pre-create the various pipelines.
 	} else {
 		if (!pipelineCache_) {
 			VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 			VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 			if (res != VK_SUCCESS) {
-				WARN_LOG(G3D, "vkCreatePipelineCache failed (%08x), highly unexpected", (u32)res);
+				WARN_LOG(Log::G3D, "vkCreatePipelineCache failed (%08x), highly unexpected", (u32)res);
 				return false;
 			}
 		}
@@ -777,7 +785,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 	// Read the number of pipelines.
 	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
-	NOTICE_LOG(G3D, "Creating %d pipelines from cache (%dx MSAA)...", size, (1 << multiSampleLevel));
+	NOTICE_LOG(Log::G3D, "Creating %d pipelines from cache (%dx MSAA)...", size, (1 << multiSampleLevel));
 	int pipelineCreateFailCount = 0;
 	int shaderFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
@@ -787,12 +795,12 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		StoredVulkanPipelineKey key;
 		failed = failed || fread(&key, sizeof(key), 1, file) != 1;
 		if (failed) {
-			ERROR_LOG(G3D, "Truncated Vulkan pipeline cache file, stopping.");
+			ERROR_LOG(Log::G3D, "Truncated Vulkan pipeline cache file, stopping.");
 			break;
 		}
 
 		if (key.raster.topology == VK_PRIMITIVE_TOPOLOGY_POINT_LIST || key.raster.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST) {
-			WARN_LOG(G3D, "Bad raster key in cache, ignoring");
+			WARN_LOG(Log::G3D, "Bad raster key in cache, ignoring");
 			continue;
 		}
 
@@ -802,7 +810,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		if (!vs || !fs || (!gs && key.gShaderID.Bit(GS_BIT_ENABLED))) {
 			// We just ignore this one, it'll get created later if needed.
 			// Probably some useFlags mismatch.
-			WARN_LOG(G3D, "Failed to find vs or fs in pipeline %d in cache, skipping pipeline", (int)i);
+			WARN_LOG(Log::G3D, "Failed to find vs or fs in pipeline %d in cache, skipping pipeline", (int)i);
 			continue;
 		}
 
@@ -828,7 +836,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 
 	rm->NudgeCompilerThread();
 
-	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
+	NOTICE_LOG(Log::G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
 	// We just ignore any failures.
 	return true;
 }

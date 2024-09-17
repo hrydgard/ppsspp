@@ -49,15 +49,6 @@ void VR_Init( void* system, const char* name, int version ) {
 	}
 	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
 #ifdef ANDROID
-	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
-		extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_OPENGL_ES_EXTENSION_NAME);
-		extensions.push_back(XR_FB_FOVEATION_EXTENSION_NAME);
-		extensions.push_back(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME);
-		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
-			extensions.push_back(XR_FB_SWAPCHAIN_UPDATE_STATE_VULKAN_EXTENSION_NAME);
-		}
-	}
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_INSTANCE)) {
 		extensions.push_back(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
 	}
@@ -77,7 +68,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	strcpy(appInfo.engineName, name);
 	appInfo.applicationVersion = version;
 	appInfo.engineVersion = version;
-	appInfo.apiVersion = XR_CURRENT_API_VERSION;
+	appInfo.apiVersion = XR_API_VERSION_1_0;
 
 	XrInstanceCreateInfo instanceCreateInfo;
 	memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));

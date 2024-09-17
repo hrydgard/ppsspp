@@ -25,6 +25,7 @@ void Register_sceAtrac3plus();
 void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
+void __AtracLoadModule(int version, u32 crc);
 
 enum AtracStatus : u8 {
 	ATRAC_STATUS_NO_DATA = 1,
@@ -48,8 +49,7 @@ typedef AtracStatus AtracStatus_le;
 typedef swap_struct_t<AtracStatus, swap_32_t<AtracStatus> > AtracStatus_le;
 #endif
 
-typedef struct
-{
+struct SceAtracIdInfo {
     u32_le decodePos; // 0
     u32_le endSample; // 4
     u32_le loopStart; // 8
@@ -76,19 +76,16 @@ typedef struct
     u32_le secondBufferByte; // 68
     // make sure the size is 128
 	u8 unk[56];
-} SceAtracIdInfo;
+};
 
-typedef struct
-{
+struct SceAtracContext {
 	// size 128
     SceAudiocodecCodec codec;
 	// size 128
     SceAtracIdInfo info;
-} SceAtracId;
+};
 
-// provide some decoder interface
-
-u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
-int _AtracGetIDByContext(u32 contextAddr);
-void __AtracLoadModule(int version, u32 crc);
+// External interface used by sceSas.
+u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
+u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
+int AtracSasGetIDByContext(u32 contextAddr);

@@ -124,6 +124,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE) && !flatBug;
+	if (doFlatShading) {
+		*fragmentShaderFlags |= FragmentShaderFlags::USES_FLAT_SHADING;
+	}
+
 	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;
@@ -465,7 +469,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			if (enableColorTest && !colorTestAgainstZero) {
 				if (compat.bitwiseOps) {
-					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.99)); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
+					WRITE(p, "uint roundAndScaleTo8x4(in vec3 x) { uvec3 u = uvec3(floor(x * 255.92)); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
 					WRITE(p, "uint packFloatsTo8x4(in vec3 x) { uvec3 u = uvec3(x); return u.r | (u.g << 0x8u) | (u.b << 0x10u); }\n");
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 					WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");

@@ -186,7 +186,7 @@ public:
 			Uint8x4ToFloat4(color, *(const u32 *)(data_ + decFmt_.c0off));
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c0off, 16); 
+			memcpy(color, data_ + decFmt_.c0off, 16);
 			break;
 		default:
 			memset(color, 0, sizeof(float) * 4);
@@ -225,7 +225,7 @@ public:
 			}
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c1off, 12); 
+			memcpy(color, data_ + decFmt_.c1off, 12);
 			break;
 		default:
 			memset(color, 0, sizeof(float) * 3);
@@ -254,7 +254,7 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
+			ERROR_LOG_REPORT_ONCE(fmtw0, Log::G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
 			memset(weights, 0, sizeof(float) * 8);
 			break;
 		}
@@ -309,7 +309,7 @@ void PrintDecodedVertex(const VertexReader &vtx);
 class VertexDecoder;
 class VertexDecoderJitCache;
 
-typedef void (VertexDecoder::*StepFunction)() const;
+typedef void (*StepFunction)(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 typedef void (VertexDecoderJitCache::*JitStepFunction)();
 
 struct JitLookup {
@@ -326,7 +326,6 @@ struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
-	bool alignOutputToWord;
 };
 
 class VertexDecoder {
@@ -344,89 +343,89 @@ public:
 
 	std::string GetString(DebugShaderStringType stringType) const;
 
-	void Step_WeightsU8() const;
-	void Step_WeightsU16() const;
-	void Step_WeightsU8ToFloat() const;
-	void Step_WeightsU16ToFloat() const;
-	void Step_WeightsFloat() const;
-
 	void ComputeSkinMatrix(const float weights[8]) const;
 
-	void Step_WeightsU8Skin() const;
-	void Step_WeightsU16Skin() const;
-	void Step_WeightsFloatSkin() const;
+	static void Step_WeightsU8(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsU16(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsU8ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsU16ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_TcU8ToFloat() const;
-	void Step_TcU16ToFloat() const;
-	void Step_TcFloat() const;
+	static void Step_WeightsU8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsU16Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_WeightsFloatSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_TcU8Prescale() const;
-	void Step_TcU16Prescale() const;
-	void Step_TcU16DoublePrescale() const;
-	void Step_TcFloatPrescale() const;
+	static void Step_TcU8ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_TcU16DoubleToFloat() const;
-	void Step_TcU16ThroughToFloat() const;
-	void Step_TcU16ThroughDoubleToFloat() const;
-	void Step_TcFloatThrough() const;
+	static void Step_TcU8Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16DoublePrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcFloatPrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_TcU8MorphToFloat() const;
-	void Step_TcU16MorphToFloat() const;
-	void Step_TcU16DoubleMorphToFloat() const;
-	void Step_TcFloatMorph() const;
-	void Step_TcU8PrescaleMorph() const;
-	void Step_TcU16PrescaleMorph() const;
-	void Step_TcU16DoublePrescaleMorph() const;
-	void Step_TcFloatPrescaleMorph() const;
+	static void Step_TcU16DoubleToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16ThroughToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16ThroughDoubleToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcFloatThrough(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_ColorInvalid() const;
-	void Step_Color4444() const;
-	void Step_Color565() const;
-	void Step_Color5551() const;
-	void Step_Color8888() const;
+	static void Step_TcU8MorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16MorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16DoubleMorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcFloatMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU8PrescaleMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16PrescaleMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcU16DoublePrescaleMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_TcFloatPrescaleMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_Color4444Morph() const;
-	void Step_Color565Morph() const;
-	void Step_Color5551Morph() const;
-	void Step_Color8888Morph() const;
+	static void Step_ColorInvalid(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color4444(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color565(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color5551(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color8888(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_NormalS8() const;
-	void Step_NormalS8ToFloat() const;
-	void Step_NormalS16() const;
-	void Step_NormalFloat() const;
+	static void Step_Color4444Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color565Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color5551Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_Color8888Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_NormalS8Skin() const;
-	void Step_NormalS16Skin() const;
-	void Step_NormalFloatSkin() const;
+	static void Step_NormalS8(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalS8ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalS16(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_NormalS8Morph() const;
-	void Step_NormalS16Morph() const;
-	void Step_NormalFloatMorph() const;
+	static void Step_NormalS8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalS16Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalFloatSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_NormalS8MorphSkin() const;
-	void Step_NormalS16MorphSkin() const;
-	void Step_NormalFloatMorphSkin() const;
+	static void Step_NormalS8Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalS16Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalFloatMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_PosS8() const;
-	void Step_PosS16() const;
-	void Step_PosFloat() const;
+	static void Step_NormalS8MorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalS16MorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_NormalFloatMorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_PosS8Skin() const;
-	void Step_PosS16Skin() const;
-	void Step_PosFloatSkin() const;
+	static void Step_PosS8(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS16(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_PosS8Morph() const;
-	void Step_PosS16Morph() const;
-	void Step_PosFloatMorph() const;
+	static void Step_PosS8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS16Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosFloatSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_PosS8MorphSkin() const;
-	void Step_PosS16MorphSkin() const;
-	void Step_PosFloatMorphSkin() const;
+	static void Step_PosS8Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS16Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosFloatMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
-	void Step_PosInvalid() const;
-	void Step_PosS8Through() const;
-	void Step_PosS16Through() const;
-	void Step_PosFloatThrough() const;
+	static void Step_PosS8MorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS16MorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosFloatMorphSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+
+	static void Step_PosInvalid(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS8Through(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosS16Through(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
+	static void Step_PosFloatThrough(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
 	// output must be big for safety.
 	// Returns number of chars written.
@@ -438,16 +437,14 @@ public:
 	}
 
 	// Mutable decoder state
-	mutable u8 *decoded_ = nullptr;
-	mutable const u8 *ptr_ = nullptr;
 	mutable const UVScale *prescaleUV_ = nullptr;
 	JittedVertexDecoder jitted_ = 0;
 	int32_t jittedSize_ = 0;
 
 	// "Immutable" state, set at startup
 
-	// The decoding steps. Never more than 5.
-	StepFunction steps_[5];
+	// The decoding steps. Never more than 5 (weight, texcoord, color, normal, pos)
+	StepFunction steps_[5]{};
 	int numSteps_;
 
 	u32 fmt_;
@@ -475,6 +472,10 @@ public:
 	u8 nweights;
 
 	u8 biggest;  // in practice, alignment.
+
+#ifdef _DEBUG
+	mutable u64 decodedCount = 0;
+#endif
 
 	friend class VertexDecoderJitCache;
 

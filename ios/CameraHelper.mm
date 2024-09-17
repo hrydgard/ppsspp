@@ -37,7 +37,7 @@ NSString *getSelectedCamera() {
                 if (granted) {
                     NSLog(@"camera permission granted");
                     dispatch_async(dispatch_get_main_queue(), ^{
-                        [self startVideo];
+                        [self startVideo:mWidth h:mHeight];
                     });
                 } else {
                     NSLog(@"camera permission denied");
@@ -56,14 +56,10 @@ NSString *getSelectedCamera() {
     }
 }
 
--(void) setCameraSize: (int)width h:(int)height {
-	NSLog(@"CameraHelper::setCameraSize %dx%d", width, height);
+-(void) startVideo: (int)width h:(int)height {
+    NSLog(@"CameraHelper::startVideo %dx%d", width, height);
 	mWidth = width;
 	mHeight = height;
-}
-
--(void) startVideo {
-    NSLog(@"CameraHelper::startVideo");
     if ([self checkPermission]) {
         return;
     }

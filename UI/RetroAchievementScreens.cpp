@@ -13,8 +13,8 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 
-static inline const char *DeNull(const char *ptr) {
-	return ptr ? ptr : "";
+static inline std::string_view DeNull(const char *ptr) {
+	return ptr ? std::string_view(ptr) : "";
 }
 
 // Compound view, creating a FileChooserChoice inside.
@@ -46,7 +46,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 			g_BackgroundAudio.SFX().UpdateSample(sound, sample);
 		} else {
 			auto au = GetI18NCategory(I18NCat::AUDIO);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV."));
+			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV or MP3."));
 			value->clear();
 		}
 		return UI::EVENT_DONE;
@@ -113,7 +113,7 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		if (!bucket.num_achievements) {
 			continue;
 		}
-		std::string title = StringFromFormat("%s (%d)", ac->T(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+		std::string title = StringFromFormat("%s (%d)", ac->T_cstr(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
 		CollapsibleSection *section = achievements->Add(new CollapsibleSection(title));
 		section->SetSpacing(2.0f);
 		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
@@ -298,7 +298,8 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			});
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-				System_AskUsernamePassword(GetRequesterToken(), StringFromFormat("RetroAchievements: %s", di->T("Log in")), [](const std::string &value, int) {
+				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
+				System_AskUsernamePassword(GetRequesterToken(), title, [](const std::string &value, int) {
 					std::vector<std::string> parts;
 					SplitString(value, '\n', parts);
 					if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {
@@ -337,7 +338,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		RecreateViews();
 		return UI::EVENT_DONE;
 	});
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
@@ -361,7 +362,7 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
 	}
-	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Achievement sound volume"), screenManager()));
+	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, ac->T("Achievement sound volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
 
@@ -382,6 +383,9 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 
 	using namespace UI;
 	viewGroup->Add(new ItemHeader(di->T("Settings")));
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+#endif
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEncoreMode, ac->T("Encore Mode")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficial, ac->T("Unofficial achievements")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
@@ -407,7 +411,7 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	}
 }
 
-void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
+static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	float tw, th;
@@ -418,12 +422,12 @@ void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	*w += 8.0f;
 }
 
-void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
+static void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
 }
 
-void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h) {
+static void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
 }
@@ -534,7 +538,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.PopScissor();
 }
 
-void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
+static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 
@@ -557,7 +561,7 @@ void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alp
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
@@ -576,7 +580,7 @@ void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alp
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
+static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 	if (hasFocus) {
@@ -619,7 +623,7 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
+static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 	if (hasFocus) {

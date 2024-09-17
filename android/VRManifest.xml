@@ -4,6 +4,7 @@
     <uses-feature android:glEsVersion="0x00030001" />
     <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
     <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false" />
+    <uses-feature android:name="oculus.software.handtracking" android:required="false" />
 
     <application
         android:allowBackup="true"

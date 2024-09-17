@@ -283,6 +283,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 }
 
 // For "light ubershader" bits.
+// TODO: We pack these bits even when not using ubershader lighting. Maybe not bother.
 uint32_t PackLightControlBits() {
 	// Bit organization
 	// Bottom 4 bits are enable bits for each light.

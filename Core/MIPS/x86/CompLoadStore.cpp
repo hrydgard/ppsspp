@@ -93,7 +93,7 @@ namespace MIPSComp {
 			if (makeRTWritable) {
 				gpr.MapReg(rt, true, true);
 			}
-			// NOTICE_LOG(JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
+			// NOTICE_LOG(Log::JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
 		} else {
 			gpr.MapReg(rt, true, false);
 		}

@@ -166,7 +166,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 	using namespace Draw;
 
 	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: bad fbo");
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, Log::sceGe, "ReadbackDepthbufferSync: bad fbo");
 		return false;
 	}
 	// Old desktop GL can download depth, but not upload.

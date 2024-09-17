@@ -196,7 +196,7 @@ tests_good = [
   "gpu/transfer/overlap",
   "gpu/vertices/colors",
   "gpu/vertices/morph",
-  "gpu/vertices/texcoords",
+  # "gpu/vertices/texcoords",  #  See issue #19093
   "hash/hash",
   "hle/check_not_used_uids",
   "intr/intr",

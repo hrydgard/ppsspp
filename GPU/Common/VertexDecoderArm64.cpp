@@ -254,7 +254,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			ResetCodePtr(GetOffset(start));
 			char temp[1024] = {0};
 			dec.ToString(temp, true);
-			ERROR_LOG(G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
+			ERROR_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
 			return nullptr;
 		}
 	}
@@ -289,12 +289,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	if (log) {
 		char temp[1024] = { 0 };
 		dec.ToString(temp, true);
-		INFO_LOG(JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
+		INFO_LOG(Log::JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
 		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
-			INFO_LOG(JIT, "%s", line.c_str());
+			INFO_LOG(Log::JIT, "%s", line.c_str());
 		}
-		INFO_LOG(JIT, "==========");
+		INFO_LOG(Log::JIT, "==========");
 	}
 
 	*jittedSize = (int)(GetCodePtr() - start);

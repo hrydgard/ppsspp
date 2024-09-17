@@ -13,7 +13,7 @@
 #include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
 #include "DebuggerShared.h"
-#include "LogManager.h"
+#include "Common/Log.h"
 #include "winnt.h"
 #include <WindowsX.h>
 #include <algorithm>

@@ -123,7 +123,7 @@ static void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0
 		if (!constants) {
 			if (regnum >= n) {
 				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc).c_str());
+				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)
@@ -576,7 +576,7 @@ namespace MIPSInt
 
 	void Int_Vflush(MIPSOpcode op)
 	{
-		VERBOSE_LOG(CPU, "vflush");
+		VERBOSE_LOG(Log::CPU, "vflush");
 		PC += 4;
 		// Anything with 0xFC000000 is a nop, but only 0xFFFF0000 retains prefixes.
 		if ((op & 0xFFFF0000) != 0xFFFF0000)
@@ -621,8 +621,9 @@ namespace MIPSInt
 			break;
 		default:
 			ApplySwizzleS(s, sz);
+			break;
 		}
-		for (int i = 0; i < n; i++) {
+		for (int i = 0; i < (int)n; i++) {
 			switch (optype) {
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = s[i]; break; //vabs (prefix)
@@ -904,7 +905,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(CPU, "vf2h with invalid elements");
+			ERROR_LOG_REPORT(Log::CPU, "vf2h with invalid elements");
 			break;
 		}
 		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);
@@ -972,7 +973,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(CPU, "vus2i with more than 2 elements");
+				ERROR_LOG_REPORT(Log::CPU, "vus2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -996,7 +997,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(CPU, "vs2i with more than 2 elements");
+				ERROR_LOG_REPORT(Log::CPU, "vs2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1255,7 +1256,7 @@ namespace MIPSInt
 
 			// Other sizes don't seem completely predictable.
 			if (sz != V_Quad) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, CPU, "vfby2 with incorrect size");
+				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby2 with incorrect size");
 			}
 		} else {
 			// vbfy1
@@ -1270,7 +1271,7 @@ namespace MIPSInt
 			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 			if (sz != V_Quad && sz != V_Pair) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, CPU, "vfby1 with incorrect size");
+				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby1 with incorrect size");
 			}
 		}
 
@@ -2075,7 +2076,7 @@ namespace MIPSInt
 					d[i] = s[i];
 			}
 		} else {
-			ERROR_LOG_REPORT(CPU, "Bad Imm3 in cmov: %d", imm3);
+			ERROR_LOG_REPORT(Log::CPU, "Bad Imm3 in cmov: %d", imm3);
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
@@ -2127,7 +2128,7 @@ namespace MIPSInt
 			ApplySwizzleT(&t[n - 1], V_Single, -INFINITY);
 		}
 
-		for (int i = 0; i < n; i++) {
+		for (int i = 0; i < (int)n; i++) {
 			switch (optype) {
 			case 0: d.f[i] = s[i] + t[i]; break; //vadd
 			case 1: d.f[i] = s[i] - t[i]; break; //vsub
@@ -2247,7 +2248,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(CPU, "vcrsp/vqmul with invalid elements");
+			ERROR_LOG_REPORT(Log::CPU, "vcrsp/vqmul with invalid elements");
 			break;
 		}
 

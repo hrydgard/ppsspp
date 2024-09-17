@@ -116,7 +116,7 @@ void SimpleGLWindow::SetupGL() {
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
 
-#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(COMMON, "SimpleGLWindow: %s (%08x)", msg, (uint32_t)GetLastError()); return; } }
+#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(Log::Common, "SimpleGLWindow: %s (%08x)", msg, (uint32_t)GetLastError()); return; } }
 
 	ENFORCE(hDC_ = GetDC(hWnd_), "Unable to create DC.");
 	ENFORCE(pixelFormat = ChoosePixelFormat(hDC_, &pfd), "Unable to match pixel format.");

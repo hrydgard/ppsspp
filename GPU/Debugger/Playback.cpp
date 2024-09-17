@@ -355,7 +355,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 			execListBuf = 0;
 		}
 		if (execListBuf == 0) {
-			ERROR_LOG(SYSTEM, "Unable to allocate for display list");
+			ERROR_LOG(Log::System, "Unable to allocate for display list");
 			return false;
 		}
 
@@ -462,7 +462,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
+		ERROR_LOG(Log::System, "Unable to allocate for vertices");
 		return;
 	}
 
@@ -476,7 +476,7 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 void DumpExecute::Indices(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
+		ERROR_LOG(Log::System, "Unable to allocate for indices");
 		return;
 	}
 
@@ -513,7 +513,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 	} else {
 		u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 		if (psp == 0) {
-			ERROR_LOG(SYSTEM, "Unable to allocate for clut");
+			ERROR_LOG(Log::System, "Unable to allocate for clut");
 			return;
 		}
 
@@ -525,7 +525,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
+		ERROR_LOG(Log::System, "Unable to allocate for transfer");
 		return;
 	}
 
@@ -569,7 +569,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
+		ERROR_LOG(Log::System, "Unable to allocate for texture");
 		return;
 	}
 
@@ -733,7 +733,7 @@ bool DumpExecute::Run() {
 			break;
 
 		default:
-			ERROR_LOG(SYSTEM, "Unsupported GE dump command: %d", (int)cmd.type);
+			ERROR_LOG(Log::System, "Unsupported GE dump command: %d", (int)cmd.type);
 			return false;
 		}
 	}
@@ -788,7 +788,7 @@ bool RunMountedReplay(const std::string &filename) {
 		version = header.version;
 
 		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
-			ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+			ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
 			pspFileSystem.CloseFile(fp);
 			return false;
 		}
@@ -817,7 +817,7 @@ bool RunMountedReplay(const std::string &filename) {
 		pspFileSystem.CloseFile(fp);
 
 		if (truncated) {
-			ERROR_LOG(SYSTEM, "Truncated GE dump");
+			ERROR_LOG(Log::System, "Truncated GE dump");
 			return false;
 		}
 

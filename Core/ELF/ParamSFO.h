@@ -35,6 +35,7 @@ public:
 
 	int GetValueInt(const std::string &key) const;
 	std::string GetValueString(const std::string &key) const;
+	bool HasKey(const std::string &key) const;
 	const u8 *GetValueData(const std::string &key, unsigned int *size) const;
 
 	std::vector<std::string> GetKeys() const;
@@ -42,9 +43,11 @@ public:
 
 	std::string GetDiscID();
 
-	bool ReadSFO(const u8 *paramsfo, size_t size);
-	bool WriteSFO(u8 **paramsfo, size_t *size) const;
+	// This allocates a buffer (*paramsfo) using new[], whose size is zero-filled up to a multiple of 16 bytes.
+	// This is required for SavedataParam::BuildHash.
+	void WriteSFO(u8 **paramsfo, size_t *size) const;
 
+	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool ReadSFO(const std::vector<u8> &paramsfo) {
 		if (!paramsfo.empty()) {
 			return ReadSFO(&paramsfo[0], paramsfo.size());
@@ -53,7 +56,8 @@ public:
 		}
 	}
 
-	int GetDataOffset(const u8 *paramsfo, const std::string &dataName);
+	// If not found, returns a negative value.
+	int GetDataOffset(const u8 *paramsfo, const char *dataName);
 
 	void Clear();
 

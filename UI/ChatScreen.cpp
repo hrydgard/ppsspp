@@ -26,7 +26,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #endif
@@ -95,7 +95,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(IOS)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(token_, n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);

@@ -21,6 +21,8 @@
 #include <mutex>
 #include <set>
 #include <unordered_map>
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
@@ -355,7 +357,7 @@ public:
 
 	bool WouldHaveMultiSaveName(const SceUtilitySavedataParam *param);
 
-	void ClearCaches();
+	void ClearSFOCache();
 
 	void DoState(PointerWrap &p);
 
@@ -372,10 +374,12 @@ private:
 	bool LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath);
 	void LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData);
 
-	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
+	int DecryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
-	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
+
+	// data must be zero-padded from len to alignedLen (which should be the next multiply of 16)!
+	int BuildHash(uint8_t *output, const uint8_t *data, unsigned int len, unsigned int alignedLen, int mode, const uint8_t *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
 	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);

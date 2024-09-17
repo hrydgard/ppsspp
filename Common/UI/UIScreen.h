@@ -108,7 +108,9 @@ public:
 	void TriggerFinish(DialogResult result) override;
 
 	void SetPopupOrigin(const UI::View *view);
-	void SetPopupOffset(float y);
+	void SetPopupOffset(float y) { offsetY_ = y; }
+
+	void SetAlignTop(bool alignTop) { alignTop_ = alignTop; }
 
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 
@@ -142,8 +144,9 @@ private:
 	int finishFrame_ = -1;
 	DialogResult finishResult_ = DR_CANCEL;
 	bool hasPopupOrigin_ = false;
-	Point popupOrigin_;
+	Point2D popupOrigin_;
 	float offsetY_ = 0.0f;
+	bool alignTop_ = false;
 
 	bool hasDropShadow_ = true;
 };

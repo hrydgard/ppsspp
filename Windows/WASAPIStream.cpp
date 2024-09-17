@@ -54,7 +54,7 @@ public:
 		}
 
 		if (currentDevice_) {
-			INFO_LOG(SCEAUDIO, "Switching to WASAPI audio device: '%s'", GetDeviceName(currentDevice_).c_str());
+			INFO_LOG(Log::sceAudio, "Switching to WASAPI audio device: '%s'", GetDeviceName(currentDevice_).c_str());
 		}
 
 		deviceChanged_ = false;
@@ -112,7 +112,7 @@ public:
 		}
 
 		deviceChanged_ = true;
-		INFO_LOG(SCEAUDIO, "New default eRender/eConsole WASAPI audio device detected: '%s'", GetDeviceName(pwstrDeviceId).c_str());
+		INFO_LOG(Log::sceAudio, "New default eRender/eConsole WASAPI audio device detected: '%s'", GetDeviceName(pwstrDeviceId).c_str());
 		return S_OK;
 	}
 
@@ -132,7 +132,7 @@ public:
 	}
 
 	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) override {
-		INFO_LOG(SCEAUDIO, "Changed audio device property "
+		INFO_LOG(Log::sceAudio, "Changed audio device property "
 			"{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}#%d",
 			(uint32_t)key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3,
 			key.fmtid.Data4[0], key.fmtid.Data4[1],
@@ -368,14 +368,14 @@ bool WASAPIAudioThread::DetectFormat() {
 			} else {
 				wchar_t guid[256]{};
 				StringFromGUID2(closest->SubFormat, guid, 256);
-				ERROR_LOG_REPORT_ONCE(badfallbackclosest, SCEAUDIO, "WASAPI fallback and closest unsupported (fmt=%04x/%s)", closest->Format.wFormatTag, guid);
+				ERROR_LOG_REPORT_ONCE(badfallbackclosest, Log::sceAudio, "WASAPI fallback and closest unsupported (fmt=%04x/%s)", closest->Format.wFormatTag, guid);
 				CoTaskMemFree(closest);
 				return false;
 			}
 		} else {
 			CoTaskMemFree(closest);
 			if (hr != AUDCLNT_E_DEVICE_INVALIDATED && hr != AUDCLNT_E_SERVICE_NOT_RUNNING)
-				ERROR_LOG_REPORT_ONCE(badfallback, SCEAUDIO, "WASAPI fallback format was unsupported (%08x)", hr);
+				ERROR_LOG_REPORT_ONCE(badfallback, Log::sceAudio, "WASAPI fallback format was unsupported (%08x)", hr);
 			return false;
 		}
 	}
@@ -397,7 +397,7 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 		} else {
 			wchar_t guid[256]{};
 			StringFromGUID2(fmt->SubFormat, guid, 256);
-			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format (%S), expected float!", guid);
+			ERROR_LOG_REPORT_ONCE(unexpectedformat, Log::sceAudio, "Got unexpected WASAPI 0xFFFE stream format (%S), expected float!", guid);
 			if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 				format_ = Format::PCM16;
 			}
@@ -406,7 +406,7 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 		if (fmt->Format.nChannels >= 1)
 			format_ = Format::IEEE_FLOAT;
 	} else {
-		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
+		ERROR_LOG_REPORT_ONCE(unexpectedformat2, Log::sceAudio, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
 		if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 			format_ = Format::PCM16;
 		}
@@ -453,7 +453,7 @@ void WASAPIAudioThread::Run() {
 		return;
 
 	if (!ActivateDefaultDevice()) {
-		ERROR_LOG(SCEAUDIO, "WASAPI: Could not activate default device");
+		ERROR_LOG(Log::sceAudio, "WASAPI: Could not activate default device");
 		return;
 	}
 
@@ -467,17 +467,17 @@ void WASAPIAudioThread::Run() {
 	}
 
 	if (!InitAudioDevice()) {
-		ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
+		ERROR_LOG(Log::sceAudio, "WASAPI: Could not init audio device");
 		return;
 	}
 	if (!PrepareFormat()) {
-		ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
+		ERROR_LOG(Log::sceAudio, "WASAPI: Could not find a suitable audio output format");
 		return;
 	}
 
 	hresult = audioInterface_->Start();
 	if (FAILED(hresult)) {
-		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+		ERROR_LOG(Log::sceAudio, "WASAPI: Failed to start audio stream");
 		return;
 	}
 
@@ -542,23 +542,23 @@ void WASAPIAudioThread::Run() {
 			ShutdownAudioDevice();
 
 			if (!ActivateDefaultDevice()) {
-				ERROR_LOG(SCEAUDIO, "WASAPI: Could not activate default device");
+				ERROR_LOG(Log::sceAudio, "WASAPI: Could not activate default device");
 				// TODO: Return to the old device here?
 				return;
 			}
 			notificationClient_->SetCurrentDevice(device_);
 			if (!InitAudioDevice()) {
-				ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
+				ERROR_LOG(Log::sceAudio, "WASAPI: Could not init audio device");
 				return;
 			}
 			if (!PrepareFormat()) {
-				ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
+				ERROR_LOG(Log::sceAudio, "WASAPI: Could not find a suitable audio output format");
 				return;
 			}
 
 			hresult = audioInterface_->Start();
 			if (FAILED(hresult)) {
-				ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+				ERROR_LOG(Log::sceAudio, "WASAPI: Failed to start audio stream");
 				return;
 			}
 		}
@@ -569,7 +569,7 @@ void WASAPIAudioThread::Run() {
 
 	hresult = audioInterface_->Stop();
 	if (FAILED(hresult)) {
-		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to stop audio stream");
+		ERROR_LOG(Log::sceAudio, "WASAPI: Failed to stop audio stream");
 	}
 }
 

@@ -281,6 +281,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
 
+	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).
+
 	caps_.presentInstantModeChange = true;
 	caps_.presentMaxInterval = 4;
 	caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
@@ -1036,7 +1038,7 @@ void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **dat
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
-		ERROR_LOG(G3D, "Unsupported shader language");
+		ERROR_LOG(Log::G3D, "Unsupported shader language");
 		return nullptr;
 	}
 
@@ -1079,7 +1081,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
+		ERROR_LOG(Log::G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
 		errorMsgs->Release();
 	}
 
@@ -1104,7 +1106,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
 		break;
 	default:
-		ERROR_LOG(G3D, "Unsupported shader stage");
+		ERROR_LOG(Log::G3D, "Unsupported shader stage");
 		result = S_FALSE;
 		break;
 	}
@@ -1484,7 +1486,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		depthViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->depthSRView);
 		if (FAILED(hr)) {
-			WARN_LOG(G3D, "Failed to create SRV for depth buffer.");
+			WARN_LOG(Log::G3D, "Failed to create SRV for depth buffer.");
 			fb->depthSRView = nullptr;
 		}
 	}

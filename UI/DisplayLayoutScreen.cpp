@@ -172,7 +172,7 @@ static std::string PostShaderTranslateName(std::string_view value) {
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
-		return std::string(ps->T(value, info ? info->name : value));
+		return std::string(ps->T(value, info->name));
 	} else {
 		return std::string(value);
 	}
@@ -274,6 +274,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
+		rotation->SetHideTitle(true);
 		rightColumn->Add(rotation);
 
 		Choice *center = new Choice(di->T("Reset"));

@@ -47,11 +47,11 @@ void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+			NOTICE_LOG(Log::MemMap, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
 			std::string formatted;
 			CBreakPoints::EvaluateLogFormat(currentDebugMIPS, logFormat, formatted);
-			NOTICE_LOG(MEMMAP, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
+			NOTICE_LOG(Log::MemMap, "CHK %s%i(%s) at %08x: %s", type, size * 8, reason, addr, formatted.c_str());
 		}
 	}
 }
@@ -323,11 +323,11 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 
 		if (info.result & BREAK_ACTION_LOG) {
 			if (info.logFormat.empty()) {
-				NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+				NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
 			} else {
 				std::string formatted;
 				CBreakPoints::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
-				NOTICE_LOG(JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
+				NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
 			}
 		}
 		if ((info.result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
@@ -686,7 +686,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 
 	size_t pos = 0;
 	while (pos < fmt.size()) {
-		size_t next = fmt.find_first_of("{", pos);
+		size_t next = fmt.find_first_of('{', pos);
 		if (next == fmt.npos) {
 			// End of the string.
 			result += fmt.substr(pos);
@@ -697,7 +697,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 			pos = next;
 		}
 
-		size_t end = fmt.find_first_of("}", next + 1);
+		size_t end = fmt.find_first_of('}', next + 1);
 		if (end == fmt.npos) {
 			// Invalid: every expression needs a { and a }.
 			return false;

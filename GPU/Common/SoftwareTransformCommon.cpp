@@ -125,33 +125,6 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 	return true;
 }
 
-static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
-	if (shadeMode != GE_SHADE_FLAT || clearMode) {
-		return 0;
-	}
-
-	switch (prim) {
-	case GE_PRIM_LINES:
-	case GE_PRIM_LINE_STRIP:
-		return 1;
-
-	case GE_PRIM_TRIANGLES:
-	case GE_PRIM_TRIANGLE_STRIP:
-		return 2;
-
-	case GE_PRIM_TRIANGLE_FAN:
-		return 1;
-
-	case GE_PRIM_RECTANGLES:
-		// We already use BR color when expanding, so no need to offset.
-		return 0;
-
-	default:
-		break;
-	}
-	return 0;
-}
-
 void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale) {
 	memcpy(&projMatrix_.m, mtx, 16 * sizeof(float));
 
@@ -202,11 +175,6 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 		fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
 	}
 
-	int provokeIndOffset = 0;
-	if (params_.provokeFlatFirst) {
-		provokeIndOffset = ColorIndexOffset(prim, gstate.getShadeMode(), gstate.isModeClear());
-	}
-
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	if (throughmode) {
 		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
@@ -221,13 +189,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			vert.pos_w = 1.0f;
 
 			if (hasColor) {
-				if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts) {
-					reader.Goto(index + provokeIndOffset);
-					vert.color0_32 = reader.ReadColor0_8888();
-					reader.Goto(index);
-				} else {
-					vert.color0_32 = reader.ReadColor0_8888();
-				}
+				vert.color0_32 = reader.ReadColor0_8888();
 			} else {
 				vert.color0_32 = materialAmbientRGBA;
 			}
@@ -268,10 +230,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			if (reader.hasUV())
 				reader.ReadUV(ruv);
 
-			// Read all the provoking vertex values here.
 			Vec4f unlitColor;
-			if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts)
-				reader.Goto(index + provokeIndOffset);
 			if (reader.hasColor0())
 				reader.ReadColor0(unlitColor.AsArray());
 			else
@@ -342,36 +301,16 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						// Flat uses the vertex normal, not provoking.
-						if (provokeIndOffset == 0) {
-							source = normal.Normalized(cpu_info.bSSE4_1);
-						} else {
-							reader.Goto(index);
-							if (reader.hasNormal())
-								reader.ReadNrm(source.AsArray());
-							if (gstate.areNormalsReversed())
-								source = -source;
-							source.Normalize();
-						}
+						source = normal.Normalized(cpu_info.bSSE4_1);
 						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
 						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-						// Flat uses the vertex normal, not provoking.
-						if (provokeIndOffset == 0) {
-							source = normal;
-						} else {
-							// Need to read the normal for this vertex and weight it again..
-							reader.Goto(index);
-							if (reader.hasNormal())
-								reader.ReadNrm(source.AsArray());
-							if (gstate.areNormalsReversed())
-								source = -source;
-						}
+						source = normal;
 						if (!reader.hasNormal()) {
-							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							ERROR_LOG_REPORT(Log::G3D, "Normal projection mapping without normal?");
 						}
 						break;
 					}
@@ -409,7 +348,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 			default:
 				// Illegal
-				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
+				ERROR_LOG_REPORT(Log::G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
 
@@ -497,13 +436,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 	if (prim == GE_PRIM_RECTANGLES) {
 		if (!ExpandRectangles(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			result->pixelMapped = false;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
 		// Might want to reconsider the order of things later...
@@ -521,25 +458,20 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	} else if (prim == GE_PRIM_POINTS) {
 		result->pixelMapped = false;
 		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
 		result->pixelMapped = false;
 		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawIndexed = false;
 			result->drawNumTrans = 0;
 			return;
 		}
 		result->drawBuffer = transformedExpanded;
-		result->drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
-		result->drawIndexed = true;
 		result->pixelMapped = false;
 
 		// If we don't support custom cull in the shader, process it here.
@@ -635,7 +567,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		gpuStats.numClears++;
 	}
 
-	result->action = SW_DRAW_PRIMITIVES;
+	result->action = SW_DRAW_INDEXED;
 	result->drawNumTrans = numTrans;
 }
 
@@ -756,6 +688,38 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 	inds = newInds;
 	*pixelMappedExactly = pixelMapped;
 	return true;
+}
+
+// In-place. So, better not be doing this on GPU memory!
+void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize) {
+	switch (prim) {
+	case GE_PRIM_LINES:
+		// Swap every two indices.
+		for (int i = 0; i < indsSize - 1; i += 2) {
+			u16 temp = inds[i];
+			inds[i] = inds[i + 1];
+			inds[i + 1] = temp;
+		}
+		break;
+	case GE_PRIM_TRIANGLES:
+		// Rotate the triangle so the last becomes the first, without changing the winding order.
+		// This could be done with a series of pshufb.
+		for (int i = 0; i < indsSize - 2; i += 3) {
+			u16 temp = inds[i + 2];
+			inds[i + 2] = inds[i + 1];
+			inds[i + 1] = inds[i];
+			inds[i] = temp;
+		}
+		break;
+	case GE_PRIM_POINTS:
+		// Nothing to do,
+		break;
+	case GE_PRIM_RECTANGLES:
+		// Nothing to do, already using the 2nd vertex.
+		break;
+	default:
+		_dbg_assert_msg_(false, "IndexBufferProvokingFirstToLast: Only works with plain indexed primitives, no strips or fans")
+	}
 }
 
 bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {

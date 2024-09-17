@@ -50,6 +50,7 @@ enum class PipelineFlags : u8 {
 	USES_GEOMETRY_SHADER = (1 << 3),
 	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
 	USES_DISCARD = (1 << 5),
+	USES_FLAT_SHADING = (1 << 6),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
@@ -154,9 +155,9 @@ struct VKRStep {
 			VKRRenderPassStoreAction colorStore;
 			VKRRenderPassStoreAction depthStore;
 			VKRRenderPassStoreAction stencilStore;
-			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
+			u8 clearStencil;
 			int numDraws;
 			// Downloads and textures from this pass.
 			int numReads;
@@ -173,20 +174,20 @@ struct VKRStep {
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkOffset2D dstPos;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 		} copy;
 		struct {
 			VKRFramebuffer *src;
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkRect2D dstRect;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 			VkFilter filter;
 		} blit;
 		struct {
-			int aspectMask;
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
+			VkImageAspectFlags aspectMask;
 			bool delayed;
 		} readback;
 		struct {
@@ -289,8 +290,6 @@ private:
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
 	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 
 	VulkanContext *vulkan_;

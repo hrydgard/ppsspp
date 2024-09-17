@@ -1054,9 +1054,9 @@ enum retro_mod
                                             * so the core may decide to skip generating a frame or generating audio.
                                             * This is mainly used for increasing performance.
                                             * Bit 0 (value 1): Enable Video
-                                            * Bit 1 (value 2): Enable Audio
+                                            * Bit 1 (value 2): Enable AUDIO
                                             * Bit 2 (value 4): Use Fast Savestates.
-                                            * Bit 3 (value 8): Hard Disable Audio
+                                            * Bit 3 (value 8): Hard Disable AUDIO
                                             * Other bits are reserved for future use and will default to zero.
                                             * If video is disabled:
                                             * * The frontend wants the core to not generate any video,
@@ -1079,14 +1079,14 @@ enum retro_mod
                                             * * Suggest that the core skips clearing memory.
                                             * * Suggest that the core skips resetting the system.
                                             * * Suggest that the core may skip validation steps.
-                                            * Hard Disable Audio:
+                                            * Hard Disable AUDIO:
                                             * * Used for a secondary core when running ahead.
                                             * * Indicates that the frontend will never need audio from the core.
                                             * * Suggests that the core may stop synthesizing audio, but this should not
                                             *   compromise emulation accuracy.
-                                            * * Audio output for the next frame does not matter, and the frontend will
+                                            * * AUDIO output for the next frame does not matter, and the frontend will
                                             *   never need an accurate audio state in the future.
-                                            * * State will never be saved when using Hard Disable Audio.
+                                            * * State will never be saved when using Hard Disable AUDIO.
                                             */
 #define RETRO_ENVIRONMENT_GET_MIDI_INTERFACE (48 | RETRO_ENVIRONMENT_EXPERIMENTAL)
                                            /* struct retro_midi_interface ** --
@@ -2653,10 +2653,10 @@ struct retro_rumble_interface
 /* Notifies libretro that audio data should be written. */
 typedef void (RETRO_CALLCONV *retro_audio_callback_t)(void);
 
-/* True: Audio driver in frontend is active, and callback is
+/* True: AUDIO driver in frontend is active, and callback is
  * expected to be called regularily.
- * False: Audio driver in frontend is paused or inactive.
- * Audio callback will not be called until set_state has been
+ * False: AUDIO driver in frontend is paused or inactive.
+ * AUDIO callback will not be called until set_state has been
  * called with true.
  * Initial state is false (inactive).
  */

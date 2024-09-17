@@ -125,14 +125,17 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance inst
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR_org(physicalDevice, surface, pSurfaceCapabilities);
 	if (res == VK_SUCCESS) {
-      int w = g_Config.iInternalResolution * 480;
-      int h = g_Config.iInternalResolution * 272;
+		int w = g_Config.iInternalResolution * NATIVEWIDTH;
+		int h = g_Config.iInternalResolution * NATIVEHEIGHT;
 
-      pSurfaceCapabilities->minImageExtent.width = w;
-      pSurfaceCapabilities->minImageExtent.height = h;
-      pSurfaceCapabilities->maxImageExtent.width = w;
-      pSurfaceCapabilities->maxImageExtent.height = h;
-      pSurfaceCapabilities->currentExtent.width = w;
+		if (g_Config.bDisplayCropTo16x9)
+			h -= g_Config.iInternalResolution * 2;
+
+		pSurfaceCapabilities->minImageExtent.width = w;
+		pSurfaceCapabilities->minImageExtent.height = h;
+		pSurfaceCapabilities->maxImageExtent.width = w;
+		pSurfaceCapabilities->maxImageExtent.height = h;
+		pSurfaceCapabilities->currentExtent.width = w;
 		pSurfaceCapabilities->currentExtent.height = h;
 	}
 	return res;
@@ -373,9 +376,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 		return (PFN_vkVoidFunction)vkCreateLibretroSurfaceKHR;
 	}
 
-	PFN_vkVoidFunction fptr = vkGetInstanceProcAddr_org(instance, pName);
+	PFN_vkVoidFunction fptr = vk_init_info.get_instance_proc_addr(instance, pName);
    if (!fptr) {
-      ERROR_LOG(G3D, "Failed to load VK instance function: %s", pName);
+      ERROR_LOG(Log::G3D, "Failed to load VK instance function: %s", pName);
       return fptr;
    }
 
@@ -409,9 +412,13 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 
 	vkGetInstanceProcAddr_org = vkGetInstanceProcAddr;
 	vkGetInstanceProcAddr = vkGetInstanceProcAddr_libretro;
-	vkGetDeviceProcAddr_org = vkGetDeviceProcAddr;
+	vkGetDeviceProcAddr_org = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr");;
 	vkGetDeviceProcAddr = vkGetDeviceProcAddr_libretro;
 	vkCreateInstance = vkCreateInstance_libretro;
+
+	vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceVersion");
+	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceExtensionProperties");
+	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceLayerProperties");
 }
 
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) {

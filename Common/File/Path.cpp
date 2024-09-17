@@ -51,7 +51,7 @@ void Path::Init(std::string_view str) {
 		// and flip it to a NATIVE url and hope for the best.
 		AndroidContentURI uri(str);
 		if (startsWith(uri.FilePath(), "raw:/")) {
-			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			INFO_LOG(Log::System, "Raw path detected: %s", uri.FilePath().c_str());
 			path_ = uri.FilePath().substr(4);
 			type_ = PathType::NATIVE;
 		} else {
@@ -240,6 +240,9 @@ bool Path::FilePathContainsNoCase(std::string_view needle) const {
 }
 
 bool Path::StartsWith(const Path &other) const {
+	if (other.empty()) {
+		return true;
+	}
 	if (type_ != other.type_) {
 		// Bad
 		return false;

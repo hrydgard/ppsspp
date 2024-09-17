@@ -81,7 +81,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	BuildReportingInfo();
@@ -99,7 +99,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		WARN_LOG(G3D, "Shader cache disabled. Not loading.");
+		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		return;
 	}
 
@@ -114,7 +114,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
 	bool result = shaderManagerVulkan_->LoadCacheFlags(f, &drawEngine_);
 	if (!result) {
-		WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache header.");
+		WARN_LOG(Log::G3D, "ShaderManagerVulkan failed to load cache header.");
 	}
 	if (result) {
 		// Reload use flags in case LoadCacheFlags() changed them.
@@ -124,7 +124,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 		gstate_c.SetUseFlags(CheckGPUFeatures());
 		result = shaderManagerVulkan_->LoadCache(f);
 		if (!result) {
-			WARN_LOG(G3D, "ShaderManagerVulkan failed to load cache.");
+			WARN_LOG(Log::G3D, "ShaderManagerVulkan failed to load cache.");
 		}
 	}
 	if (result) {
@@ -134,23 +134,23 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	fclose(f);
 
 	if (!result) {
-		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
+		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
 		File::Delete(filename);
 	} else {
-		INFO_LOG(G3D, "Loaded Vulkan pipeline cache.");
+		INFO_LOG(Log::G3D, "Loaded Vulkan pipeline cache.");
 	}
 }
 
 void GPU_Vulkan::SaveCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+		INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		return;
 	}
 
 	if (!draw_) {
 		// Already got the lost message, we're in shutdown.
-		WARN_LOG(G3D, "Not saving shaders - shutting down from in-game.");
+		WARN_LOG(Log::G3D, "Not saving shaders - shutting down from in-game.");
 		return;
 	}
 
@@ -160,7 +160,7 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
-	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
+	INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
 }
 
@@ -265,7 +265,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
 			features |= GPU_USE_16BIT_FORMATS;
 		} else {
-			INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
+			INFO_LOG(Log::G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 		}
 	}
 
@@ -306,7 +306,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	if (gstate_c.useFlagsChanged) {
 		// TODO: It'd be better to recompile them in the background, probably?
 		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		// TODO: Not all shaders need to be recompiled. In fact, quite few? Of course, depends on
 		// the use flag change.. This is a major frame rate hitch in the start of a race in Outrun.
 		shaderManager_->ClearShaders();
@@ -316,7 +316,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	}
 
 	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		NOTICE_LOG(Log::G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
 		dumpNextFrame_ = false;
 	} else if (dumpThisFrame_) {
@@ -388,7 +388,7 @@ void GPU_Vulkan::FinishDeferred() {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
-	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
+	INFO_LOG(Log::G3D, "GPU_Vulkan::InitDeviceObjects");
 
 	uint32_t hacks = 0;
 	if (PSP_CoreParameter().compat.flags().MGS2AcidHack)
@@ -406,7 +406,7 @@ void GPU_Vulkan::InitDeviceObjects() {
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
-	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
+	INFO_LOG(Log::G3D, "GPU_Vulkan::DestroyDeviceObjects");
 	// Need to turn off hacks when shutting down the GPU. Don't want them running in the menu.
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

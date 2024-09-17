@@ -24,6 +24,7 @@
 
 #include <thread>
 #include <atomic>
+#include <optional>
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/File/Path.h"
@@ -32,6 +33,39 @@ enum class GameManagerState {
 	IDLE,
 	DOWNLOADING,
 	INSTALLING,
+};
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+	TEXTURE_PACK,
+	SAVE_DATA,
+};
+
+struct ZipFileInfo {
+	ZipFileContents contents;
+	int numFiles;
+	int stripChars;  // for PSP game - how much to strip from the path.
+	int isoFileIndex;  // for ISO
+	int textureIniIndex;  // for textures
+	bool ignoreMetaFiles;
+	std::string gameTitle;  // from PARAM.SFO if available
+	std::string savedataTitle;
+	std::string savedataDetails;
+	std::string savedataDir;
+	std::string mTime;
+	s64 totalFileSize;
+
+	std::string contentName;
+};
+
+struct ZipFileTask {
+	std::optional<ZipFileInfo> zipFileInfo;
+	Path url;  // Same as filename if installing from disk. Probably not really useful.
+	Path fileName;
+	Path destination;  // If set, will override the default destination.
+	bool deleteAfter;
 };
 
 struct zip;
@@ -74,16 +108,17 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(const Path &url, const Path &tempFileName, bool deleteAfter);
+	bool InstallZipOnThread(ZipFileTask task);
+
+	// Separate kind of functionality from InstallZipOnThread, so doesn't re-use the task struct.
 	bool UninstallGameOnThread(const std::string &name);
 
 private:
-	// TODO: The return value on this is a bit pointless, we can't get at it.
-	bool InstallGame(const Path &url, const Path &tempFileName, bool deleteAfter);
-	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
-	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
-	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
-	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
+	void InstallZipContents(ZipFileTask task);
+
+	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
+	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info);
+	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir);
 	void UninstallGame(const std::string &name);
 
 	void InstallDone();
@@ -109,20 +144,11 @@ private:
 
 extern GameManager g_GameManager;
 
-enum class ZipFileContents {
-	UNKNOWN,
-	PSP_GAME_DIR,
-	ISO_FILE,
-	TEXTURE_PACK,
-};
+struct zip *ZipOpenPath(Path fileName);
+void ZipClose(zip *z);
 
-struct ZipFileInfo {
-	int numFiles;
-	int stripChars;  // for PSP game
-	int isoFileIndex;  // for ISO
-	int textureIniIndex;  // for textures
-	bool ignoreMetaFiles;
-};
+void DetectZipFileContents(struct zip *z, ZipFileInfo *info);
+bool DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
 
-ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info);
-ZipFileContents DetectZipFileContents(const Path &fileName, ZipFileInfo *info);
+bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data);
+bool CanExtractWithoutOverwrite(struct zip *z, const Path &destination, int maxOkFiles);

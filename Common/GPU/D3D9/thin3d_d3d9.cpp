@@ -375,7 +375,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		break;
 	}
 	if (FAILED(hr)) {
-		ERROR_LOG(G3D, "D3D9 Texture creation failed");
+		ERROR_LOG(Log::G3D, "D3D9 Texture creation failed");
 		return false;
 	}
 
@@ -486,7 +486,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	}
 
 	default:
-		ERROR_LOG(G3D,  "Non-LINEAR2D textures not yet supported");
+		ERROR_LOG(Log::G3D,  "Non-LINEAR2D textures not yet supported");
 		break;
 	}
 }
@@ -733,7 +733,7 @@ static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), device_(device), deviceEx_(deviceEx), adapterId_(adapterId), caps_{} {
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
-		ERROR_LOG(G3D,  "Failed to get adapter identifier: %d", adapterId);
+		ERROR_LOG(Log::G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
 	switch (identifier_.VendorId) {
 	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
@@ -758,7 +758,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	if (SUCCEEDED(result)) {
 		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
-		WARN_LOG(G3D, "Direct3D9: Failed to get the device caps!");
+		WARN_LOG(Log::G3D, "Direct3D9: Failed to get the device caps!");
 		truncate_cpy(shadeLangVersion_, "N/A");
 	}
 
@@ -785,6 +785,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.presentInstantModeChange = false;
 	caps_.presentMaxInterval = 1;
 	caps_.presentModesSupported = PresentMode::FIFO;
+
+	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately (and no way to change it).
 
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
@@ -846,13 +848,13 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage 
 
 Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline %s requires at least one shader", tag);
+		ERROR_LOG(Log::G3D,  "Pipeline %s requires at least one shader", tag);
 		return NULL;
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline();
 	for (auto iter : desc.shaders) {
 		if (!iter) {
-			ERROR_LOG(G3D,  "NULL shader passed to CreateGraphicsPipeline(%s)", tag);
+			ERROR_LOG(Log::G3D,  "NULL shader passed to CreateGraphicsPipeline(%s)", tag);
 			delete pipeline;
 			return NULL;
 		}
@@ -1041,7 +1043,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 
 	HRESULT hr = device->CreateVertexDeclaration(elements, &decl_);
 	if (FAILED(hr)) {
-		ERROR_LOG(G3D,  "Error creating vertex decl");
+		ERROR_LOG(Log::G3D,  "Error creating vertex decl");
 	}
 	delete[] elements;
 }
@@ -1119,7 +1121,7 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 	if (!size)
 		return;
 	if (offset + size > buf->maxSize_) {
-		ERROR_LOG(G3D,  "Can't SubData with bigger size than buffer was created with");
+		ERROR_LOG(Log::G3D,  "Can't SubData with bigger size than buffer was created with");
 		return;
 	}
 	if (buf->vbuffer_) {
@@ -1253,8 +1255,8 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 			error = "D3D9 shader compiler not installed";
 		}
 
-		ERROR_LOG(G3D, "Compile error: %s", error);
-		ERROR_LOG(G3D, "%s", LineNumberString(std::string((const char *)data)).c_str());
+		ERROR_LOG(Log::G3D, "Compile error: %s", error);
+		ERROR_LOG(Log::G3D, "%s", LineNumberString(std::string((const char *)data)).c_str());
 
 		OutputDebugStringA(source);
 		OutputDebugStringA(error);
@@ -1307,7 +1309,7 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 
 	HRESULT rtResult = device_->CreateTexture(desc.width, desc.height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, nullptr);
 	if (FAILED(rtResult)) {
-		ERROR_LOG(G3D,  "Failed to create render target");
+		ERROR_LOG(Log::G3D,  "Failed to create render target");
 		fbo->Release();
 		return NULL;
 	}
@@ -1323,7 +1325,7 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 		dsResult = device_->CreateDepthStencilSurface(desc.width, desc.height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	}
 	if (FAILED(dsResult)) {
-		ERROR_LOG(G3D,  "Failed to create depth buffer");
+		ERROR_LOG(Log::G3D,  "Failed to create depth buffer");
 		fbo->surf->Release();
 		fbo->tex->Release();
 		if (fbo->depthstenciltex) {
@@ -1595,7 +1597,7 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
 	bool result = LoadD3DCompilerDynamic();
 	if (!result) {
-		ERROR_LOG(G3D,  "Failed to load D3DCompiler!");
+		ERROR_LOG(Log::G3D,  "Failed to load D3DCompiler!");
 		return nullptr;
 	}
 	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);

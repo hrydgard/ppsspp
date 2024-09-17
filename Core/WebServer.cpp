@@ -332,7 +332,7 @@ static bool ServeDebuggerFile(const http::ServerRequest &request) {
 		mimeType = "text/css";
 	}
 
-	request.WriteHttpResponseHeader("1.0", 200, (int)size, mimeType);
+	request.WriteHttpResponseHeader("1.0", 200, size, mimeType);
 	request.Out()->Push((char *)data, size);
 
 	delete[] data;
@@ -341,7 +341,7 @@ static bool ServeDebuggerFile(const http::ServerRequest &request) {
 
 static void RedirectToDebugger(const http::ServerRequest &request) {
 	static const std::string payload = "Redirecting to debugger UI...\r\n";
-	request.WriteHttpResponseHeader("1.0", 301, (int)payload.size(), "text/plain", "Location: /debugger/index.html\r\n");
+	request.WriteHttpResponseHeader("1.0", 301, payload.size(), "text/plain", "Location: /debugger/index.html\r\n");
 	request.Out()->Push(payload);
 }
 
@@ -353,7 +353,7 @@ static void HandleFallback(const http::ServerRequest &request) {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		std::string resource = request.resource();
 		Path localPath = LocalFromRemotePath(resource);
-		INFO_LOG(LOADER, "Serving %s from %s", resource.c_str(), localPath.c_str());
+		INFO_LOG(Log::Loader, "Serving %s from %s", resource.c_str(), localPath.c_str());
 		if (!localPath.empty()) {
 			if (File::IsDirectory(localPath)) {
 				HandleListing(request);
@@ -375,7 +375,7 @@ static void HandleFallback(const http::ServerRequest &request) {
 	}
 
 	static const std::string payload = "404 not found\r\n";
-	request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
+	request.WriteHttpResponseHeader("1.0", 404, payload.size(), "text/plain");
 	request.Out()->Push(payload);
 }
 
@@ -415,7 +415,7 @@ static void ExecuteWebServer() {
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
-			ERROR_LOG(FILESYS, "Unable to listen on any port");
+			ERROR_LOG(Log::FileSystem, "Unable to listen on any port");
 			UpdateStatus(ServerStatus::FINISHED);
 			return;
 		}

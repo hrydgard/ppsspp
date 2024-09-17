@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
@@ -548,6 +549,8 @@ protected:
 		return fbBindSeqCount_++;
 	}
 
+	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
+
 	PresentationCommon *presentation_ = nullptr;
 
 	Draw::DrawContext *draw_ = nullptr;
@@ -647,3 +650,6 @@ protected:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 };
+
+// Should probably live elsewhere.
+bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer);

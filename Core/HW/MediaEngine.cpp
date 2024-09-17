@@ -18,6 +18,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
@@ -71,7 +72,7 @@ static AVPixelFormat getSwsFormat(int pspFormat)
 	case GE_CMODE_32BIT_ABGR8888:
 		return AV_PIX_FMT_RGBA;
 	default:
-		ERROR_LOG(ME, "Unknown pixel format");
+		ERROR_LOG(Log::ME, "Unknown pixel format");
 		return (AVPixelFormat)0;
 	}
 }
@@ -96,11 +97,11 @@ void ffmpeg_logger(void *, int level, const char *format, va_list va_args) {
 
 	// Let's color the log line appropriately.
 	if (level <= AV_LOG_PANIC) {
-		ERROR_LOG(ME, "FF: %s", tmp);
+		ERROR_LOG(Log::ME, "FF: %s", tmp);
 	} else if (level >= AV_LOG_VERBOSE) {
-		DEBUG_LOG(ME, "FF: %s", tmp);
+		DEBUG_LOG(Log::ME, "FF: %s", tmp);
 	} else {
-		INFO_LOG(ME, "FF: %s", tmp);
+		INFO_LOG(Log::ME, "FF: %s", tmp);
 	}
 }
 
@@ -128,7 +129,7 @@ static int getPixelFormatBytes(int pspFormat)
 		return 4;
 
 	default:
-		ERROR_LOG(ME, "Unknown pixel format");
+		ERROR_LOG(Log::ME, "Unknown pixel format");
 		return 4;
 	}
 }
@@ -245,13 +246,13 @@ bool MediaEngine::SetupStreams() {
 #ifdef USE_FFMPEG
 	const u32 magic = *(u32_le *)&m_mpegheader[0];
 	if (magic != PSMF_MAGIC) {
-		WARN_LOG_REPORT(ME, "Could not setup streams, bad magic: %08x", magic);
+		WARN_LOG_REPORT(Log::ME, "Could not setup streams, bad magic: %08x", magic);
 		return false;
 	}
 	int numStreams = *(u16_be *)&m_mpegheader[0x80];
 	if (numStreams <= 0 || numStreams > 8) {
 		// Looks crazy.  Let's bail out and let FFmpeg handle it.
-		WARN_LOG_REPORT(ME, "Could not setup streams, unexpected stream count: %d", numStreams);
+		WARN_LOG_REPORT(Log::ME, "Could not setup streams, unexpected stream count: %d", numStreams);
 		return false;
 	}
 
@@ -303,18 +304,20 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	}
 	av_dict_free(&open_opt);
 
-	if (!SetupStreams()) {
+	bool usedFFMPEGFindStreamInfo = false;
+	if (!SetupStreams() || PSP_CoreParameter().compat.flags().UseFFMPEGFindStreamInfo) {
 		// Fallback to old behavior.  Reads too much and corrupts when game doesn't read fast enough.
 		// SetupStreams sometimes work for newer FFmpeg 3.1+ now, but sometimes framerate is missing.
-		WARN_LOG_REPORT_ONCE(setupStreams, ME, "Failed to read valid video stream data from header");
+		WARN_LOG_REPORT_ONCE(setupStreams, Log::ME, "Failed to read valid video stream data from header");
 		if (avformat_find_stream_info(m_pFormatCtx, nullptr) < 0) {
 			closeContext();
 			return false;
 		}
+		usedFFMPEGFindStreamInfo = true;
 	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
-		WARN_LOG_REPORT(ME, "Bad video stream %d", m_videoStream);
+		WARN_LOG_REPORT(Log::ME, "Bad video stream %d", m_videoStream);
 		m_videoStream = -1;
 	}
 
@@ -340,8 +343,13 @@ bool MediaEngine::openContext(bool keepReadPos) {
 		return false;
 
 	setVideoDim();
-	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
+	m_audioContext = CreateAudioDecoder((PSPAudioType)m_audioType);
 	m_isVideoEnd = false;
+
+	if (PSP_CoreParameter().compat.flags().UseFFMPEGFindStreamInfo && usedFFMPEGFindStreamInfo) {
+		m_mpegheaderReadPos++;
+		av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
+	}
 #endif // USE_FFMPEG
 	return true;
 }
@@ -523,13 +531,13 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
-			WARN_LOG_REPORT(ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
+			WARN_LOG_REPORT(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = avcodec_alloc_context3(pCodec);
 		int paramResult = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
 		if (paramResult < 0) {
-			WARN_LOG_REPORT(ME, "Failed to prepare context parameters: %08x", paramResult);
+			WARN_LOG_REPORT(Log::ME, "Failed to prepare context parameters: %08x", paramResult);
 			return false;
 		}
 #else
@@ -841,7 +849,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 
 	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -892,7 +900,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		break;
 
 	default:
-		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
@@ -930,7 +938,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 
 	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -992,12 +1000,12 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		break;
 
 	default:
-		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
 	if (swizzle) {
-		WARN_LOG_REPORT_ONCE(vidswizzle, ME, "Swizzling Video with range");
+		WARN_LOG_REPORT_ONCE(vidswizzle, Log::ME, "Swizzling Video with range");
 
 		const int bxc = videoLineSize / 16;
 		int byc = (height + 7) / 8;
@@ -1054,9 +1062,9 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
-	u8 *buffer = Memory::GetPointerWriteRange(bufferPtr, 8192);
+	int16_t *buffer = (int16_t *)Memory::GetPointerWriteRange(bufferPtr, 8192);
 	if (buffer == nullptr) {
-		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
+		ERROR_LOG_REPORT(Log::ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
 	if (!m_demux) {
 		return 0;
@@ -1068,7 +1076,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	if (frameSize == 0) {
 		return 0;
 	}
-	int outbytes = 0;
+	int outSamples = 0;
 
 	if (m_audioContext != nullptr) {
 		if (headerCode1 == 0x24) {
@@ -1077,11 +1085,13 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			m_audioContext->SetChannels(1);
 		}
 
-		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
-			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
+		int inbytesConsumed = 0;
+		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, 2, buffer, &outSamples)) {
+			ERROR_LOG(Log::ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
+		int outBytes = outSamples * sizeof(int16_t) * 2;
 
-		NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, outbytes, "VideoDecodeAudio");
+		NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, outBytes, "VideoDecodeAudio");
 	}
 
 	return 0x2000;

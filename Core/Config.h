@@ -158,7 +158,9 @@ public:
 	std::string sD3D11Device;  // Windows only
 	std::string sCameraDevice;
 	std::string sMicDevice;
+	bool bCameraMirrorHorizontal;
 	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
+	int iDisplayRefreshRate = 60;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
@@ -209,6 +211,7 @@ public:
 
 	bool bTextureBackoffCache;
 	bool bVertexDecoderJit;
+	int iAppSwitchMode;
 	bool bFullScreen;
 	bool bFullScreenMulti;
 	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
@@ -237,6 +240,7 @@ public:
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
 	bool bReloadCheats;
+	bool bEnablePlugins;
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
@@ -263,6 +267,9 @@ public:
 	bool bRenderDuplicateFrames;
 	bool bRenderMultiThreading;
 
+	// HW debug
+	bool bShowGPOLEDs;
+
 	// Sound
 	bool bEnableSound;
 	int iAudioBackend;
@@ -273,6 +280,11 @@ public:
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;
+	bool bUseNewAtrac;
+
+	// iOS only for now
+	bool bAudioMixWithOthers;
+	bool bAudioRespectSilentMode;
 
 	// UI
 	bool bShowDebuggerOnLoad;
@@ -469,22 +481,20 @@ public:
 	bool bEnableVR;
 	bool bEnable6DoF;
 	bool bEnableStereo;
-	bool bEnableMotions;
+	bool bEnableImmersiveVR;
 	bool bForce72Hz;
+	bool bForceVR;
 	bool bManualForceVR;
 	bool bPassthrough;
 	bool bRescaleHUD;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
+	float fCameraPitch;
 	float fCanvasDistance;
 	float fCanvas3DDistance;
+	float fFieldOfViewPercentage;
 	float fHeadUpDisplayScale;
-	float fMotionLength;
-	float fHeadRotationScale;
-	bool bHeadRotationEnabled;
-	bool bHeadRotationSmoothing;
-	int iCameraPitch;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -522,12 +532,13 @@ public:
 	// Retro Achievement settings
 	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
-	bool bAchievementsChallengeMode;
+	bool bAchievementsHardcoreMode;
 	bool bAchievementsEncoreMode;
 	bool bAchievementsUnofficial;
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 	bool bAchievementsSaveStateInHardcoreMode;
+	bool bAchievementsEnableRAIntegration;
 
 	// Positioning of the various notifications
 	int iAchievementsLeaderboardTrackerPos;
@@ -594,7 +605,7 @@ public:
 
 	bool IsPortrait() const;
 	int NextValidBackend();
-	bool IsBackendEnabled(GPUBackend backend, bool validate = true);
+	bool IsBackendEnabled(GPUBackend backend);
 
 	bool UseFullScreen() const {
 		if (iForceFullScreen != -1)

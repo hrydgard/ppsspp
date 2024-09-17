@@ -223,7 +223,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		VFSFileReference *fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
 		if (!fileRef) {
 			if (i == 0) {
-				INFO_LOG(G3D, "Texture replacement file '%s' not found", desc_.filenames[i].c_str());
+				INFO_LOG(Log::G3D, "Texture replacement file '%s' not found", desc_.filenames[i].c_str());
 				// No file at all. Mark as NOT_FOUND.
 				SetState(ReplacementState::NOT_FOUND);
 				return;
@@ -248,7 +248,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 				fmt = pixelFormat;
 			} else {
 				if (fmt != pixelFormat) {
-					ERROR_LOG(G3D, "Replacement mipmap %d doesn't have the same pixel format as mipmap 0. Stopping.", i);
+					ERROR_LOG(Log::G3D, "Replacement mipmap %d doesn't have the same pixel format as mipmap 0. Stopping.", i);
 					break;
 				}
 			}
@@ -262,7 +262,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		// No replacement found.
 		std::string name = TextureReplacer::HashName(desc_.cachekey, desc_.hash, 0);
 		if (result == LoadLevelResult::LOAD_ERROR) {
-			WARN_LOG(G3D, "Failed to load replacement texture '%s'", name.c_str());
+			WARN_LOG(Log::G3D, "Failed to load replacement texture '%s'", name.c_str());
 		}
 		SetState(ReplacementState::NOT_FOUND);
 		return;
@@ -320,7 +320,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		// Additional quick checks
 		good = good && header.layerCount <= 1;
 	} else if (imageType == ReplacedImageType::BASIS) {
-		WARN_LOG(G3D, "The basis texture format is not supported. Use KTX2 (basisu texture.png -uastc -ktx2 -mipmap)");
+		WARN_LOG(Log::G3D, "The basis texture format is not supported. Use KTX2 (basisu texture.png -uastc -ktx2 -mipmap)");
 
 		// We simply don't support basis files currently.
 		good = false;
@@ -333,7 +333,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		u32 format;
 		if (good && (header.ddspf.dwFlags & DDPF_FOURCC)) {
 			char *fcc = (char *)&header.ddspf.dwFourCC;
-			// INFO_LOG(G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
+			// INFO_LOG(Log::G3D, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
 			if (header.ddspf.dwFourCC == MK_FOURCC("DX10")) {
 				ddsDX10 = true;
 				good = good && vfs_->Read(openFile, &header10, sizeof(header10)) == sizeof(header10);
@@ -342,7 +342,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				case 71: // DXGI_FORMAT_BC1_UNORM
 				case 72: // DXGI_FORMAT_BC1_UNORM_SRGB
 					if (!desc_.formatSupport.bc123) {
-						WARN_LOG(G3D, "BC1 format not supported, skipping texture");
+						WARN_LOG(Log::G3D, "BC1 format not supported, skipping texture");
 						good = false;
 					}
 					*pixelFormat = Draw::DataFormat::BC1_RGBA_UNORM_BLOCK;
@@ -350,7 +350,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				case 74: // DXGI_FORMAT_BC2_UNORM
 				case 75: // DXGI_FORMAT_BC2_UNORM_SRGB
 					if (!desc_.formatSupport.bc123) {
-						WARN_LOG(G3D, "BC2 format not supported, skipping texture");
+						WARN_LOG(Log::G3D, "BC2 format not supported, skipping texture");
 						good = false;
 					}
 					*pixelFormat = Draw::DataFormat::BC2_UNORM_BLOCK;
@@ -358,7 +358,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				case 77: // DXGI_FORMAT_BC3_UNORM
 				case 78: // DXGI_FORMAT_BC3_UNORM_SRGB
 					if (!desc_.formatSupport.bc123) {
-						WARN_LOG(G3D, "BC3 format not supported, skipping texture");
+						WARN_LOG(Log::G3D, "BC3 format not supported, skipping texture");
 						good = false;
 					}
 					*pixelFormat = Draw::DataFormat::BC3_UNORM_BLOCK;
@@ -366,18 +366,18 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				case 98: // DXGI_FORMAT_BC7_UNORM:
 				case 99: // DXGI_FORMAT_BC7_UNORM_SRGB:
 					if (!desc_.formatSupport.bc7) {
-						WARN_LOG(G3D, "BC7 format not supported, skipping texture");
+						WARN_LOG(Log::G3D, "BC7 format not supported, skipping texture");
 						good = false;
 					}
 					*pixelFormat = Draw::DataFormat::BC7_UNORM_BLOCK;
 					break;
 				default:
-					WARN_LOG(G3D, "DXGI pixel format %d not supported.", header10.dxgiFormat);
+					WARN_LOG(Log::G3D, "DXGI pixel format %d not supported.", header10.dxgiFormat);
 					good = false;
 				}
 			} else {
 				if (!desc_.formatSupport.bc123) {
-					WARN_LOG(G3D, "BC1-3 formats not supported");
+					WARN_LOG(Log::G3D, "BC1-3 formats not supported");
 					good = false;
 				}
 				format = header.ddspf.dwFourCC;
@@ -394,12 +394,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 					*pixelFormat = Draw::DataFormat::BC3_UNORM_BLOCK;
 					break;
 				default:
-					ERROR_LOG(G3D, "DDS pixel format not supported.");
+					ERROR_LOG(Log::G3D, "DDS pixel format not supported.");
 					good = false;
 				}
 			}
 		} else if (good) {
-			ERROR_LOG(G3D, "DDS non-fourCC format not supported.");
+			ERROR_LOG(Log::G3D, "DDS non-fourCC format not supported.");
 			good = false;
 		}
 
@@ -427,12 +427,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			level.h = headerPeek.Height();
 			good = true;
 		} else {
-			ERROR_LOG(G3D, "Could not get PNG dimensions: %s (zip)", filename.c_str());
+			ERROR_LOG(Log::G3D, "Could not get PNG dimensions: %s (zip)", filename.c_str());
 			good = false;
 		}
 		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
+		ERROR_LOG(Log::G3D, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
 	// TODO: We no longer really need to have a split in this function, the upper and lower parts can be merged now.
@@ -441,7 +441,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		// If loading a low mip directly (through png most likely), check that the mipmap size is correct.
 		// Can't load mips of the wrong size.
 		if (level.w != std::max(1, (levels_[0].w >> mipLevel)) || level.h != std::max(1, (levels_[0].h >> mipLevel))) {
-			WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d)",
+			WARN_LOG(Log::G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d)",
 				level.w, level.h, levels_[0].w >> mipLevel, levels_[0].h >> mipLevel, mipLevel);
 			good = false;
 		}
@@ -464,7 +464,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
-			WARN_LOG(G3D, "Error reading KTX file");
+			WARN_LOG(Log::G3D, "Error reading KTX file");
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -483,7 +483,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				*pixelFormat = Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK;
 			} else {
 				// Transcode to RGBA8 instead as a fallback. A bit slow and takes a lot of memory, but better than nothing.
-				WARN_LOG(G3D, "Replacement texture format not supported - transcoding to RGBA8888");
+				WARN_LOG(Log::G3D, "Replacement texture format not supported - transcoding to RGBA8888");
 				transcoderFormat = basist::transcoder_texture_format::cTFRGBA32;
 				*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 			}
@@ -499,12 +499,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				*pixelFormat = Draw::DataFormat::ASTC_4x4_UNORM_BLOCK;
 			} else {
 				// Transcode to RGBA8 instead as a fallback. A bit slow and takes a lot of memory, but better than nothing.
-				WARN_LOG(G3D, "Replacement texture format not supported - transcoding to RGBA8888");
+				WARN_LOG(Log::G3D, "Replacement texture format not supported - transcoding to RGBA8888");
 				transcoderFormat = basist::transcoder_texture_format::cTFRGBA32;
 				*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 			}
 		} else {
-			WARN_LOG(G3D, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
+			WARN_LOG(Log::G3D, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -514,7 +514,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		_dbg_assert_(bc || *pixelFormat == Draw::DataFormat::R8G8B8A8_UNORM);
 
 		if (bc && ((level.w & 3) != 0 || (level.h & 3) != 0)) {
-			WARN_LOG(G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
+			WARN_LOG(Log::G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
 		data_.resize(numMips);
@@ -569,7 +569,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		_dbg_assert_(bc);
 
 		if (bc && ((level.w & 3) != 0 || (level.h & 3) != 0)) {
-			WARN_LOG(G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
+			WARN_LOG(Log::G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
 		data_.resize(numMips);
@@ -584,7 +584,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 			size_t read_bytes = vfs_->Read(openFile, &out[0], bytesToRead);
 			if (read_bytes != bytesToRead) {
-				WARN_LOG(G3D, "DDS: Expected %d bytes, got %d", bytesToRead, (int)read_bytes);
+				WARN_LOG(Log::G3D, "DDS: Expected %d bytes, got %d", bytesToRead, (int)read_bytes);
 			}
 
 			levels_.push_back(level);
@@ -601,13 +601,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		auto zim = std::make_unique<uint8_t[]>(fileSize);
 		if (!zim) {
-			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
+			ERROR_LOG(Log::G3D, "Failed to allocate memory for texture replacement");
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
+			ERROR_LOG(Log::G3D, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -618,7 +618,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		// TODO: Zim files can actually hold mipmaps (although no tool has ever been made to create them :P)
 		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
 			if (w > level.w || h > level.h) {
-				ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
+				ERROR_LOG(Log::G3D, "Texture replacement changed since header read: %s", filename.c_str());
 				vfs_->CloseFile(openFile);
 				return LoadLevelResult::LOAD_ERROR;
 			}
@@ -653,12 +653,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
+			ERROR_LOG(Log::G3D, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
-			ERROR_LOG(G3D, "Texture replacement changed since header read: %s", filename.c_str());
+			ERROR_LOG(Log::G3D, "Texture replacement changed since header read: %s", filename.c_str());
 			vfs_->CloseFile(openFile);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -677,7 +677,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		// TODO: Should probably try to handle out-of-memory gracefully here.
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
-			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
+			ERROR_LOG(Log::G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
 			vfs_->CloseFile(openFile);
 			out.resize(0);
 			return LoadLevelResult::LOAD_ERROR;
@@ -697,7 +697,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		vfs_->CloseFile(openFile);
 		return LoadLevelResult::CONTINUE;
 	} else {
-		WARN_LOG(G3D, "Don't know how to load this image type! %d", (int)imageType);
+		WARN_LOG(Log::G3D, "Don't know how to load this image type! %d", (int)imageType);
 		vfs_->CloseFile(openFile);
 	}
 	return LoadLevelResult::LOAD_ERROR;
@@ -708,7 +708,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
 	if (State() != ReplacementState::ACTIVE) {
-		WARN_LOG(G3D, "Init not done yet");
+		WARN_LOG(Log::G3D, "Init not done yet");
 		return false;
 	}
 
@@ -726,7 +726,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 	const std::vector<uint8_t> &data = data_[level];
 
 	if (data.empty()) {
-		WARN_LOG(G3D, "Level %d is empty", level);
+		WARN_LOG(Log::G3D, "Level %d is empty", level);
 		return false;
 	}
 
@@ -735,12 +735,12 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 	int blockSize;
 	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
 		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
-			ERROR_LOG(G3D, "Unexpected linear data format");
+			ERROR_LOG(Log::G3D, "Unexpected linear data format");
 			return false;
 		}
 
 		if (rowPitch < info.w * 4) {
-			ERROR_LOG(G3D, "Replacement rowPitch=%d, but w=%d (level=%d) (too small)", rowPitch, info.w * 4, level);
+			ERROR_LOG(Log::G3D, "Replacement rowPitch=%d, but w=%d (level=%d) (too small)", rowPitch, info.w * 4, level);
 			return false;
 		}
 

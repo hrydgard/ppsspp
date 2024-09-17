@@ -109,7 +109,7 @@ bool AVIDump::CreateAVI() {
 	const char *filename = s_format_context->filename;
 	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", video_file_name.c_str());
 #endif
-	INFO_LOG(COMMON, "Recording Video to: %s", video_file_name.ToVisualString().c_str());
+	INFO_LOG(Log::Common, "Recording Video to: %s", video_file_name.ToVisualString().c_str());
 
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
@@ -168,9 +168,9 @@ bool AVIDump::CreateAVI() {
 		return false;
 #endif
 
-	NOTICE_LOG(G3D, "Opening file %s for dumping", filename);
+	NOTICE_LOG(Log::G3D, "Opening file %s for dumping", filename);
 	if (avio_open(&s_format_context->pb, filename, AVIO_FLAG_WRITE) < 0 || avformat_write_header(s_format_context, nullptr)) {
-		WARN_LOG(G3D, "Could not open %s", filename);
+		WARN_LOG(Log::G3D, "Could not open %s", filename);
 		return false;
 	}
 
@@ -264,10 +264,10 @@ void AVIDump::AddFrame() {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 	av_packet_unref(&pkt);
 	if (error < 0 && error != AVERROR(EAGAIN) && error != AVERROR_EOF)
-		ERROR_LOG(G3D, "Error while encoding video: %d", error);
+		ERROR_LOG(Log::G3D, "Error while encoding video: %d", error);
 #else
 	if (error < 0)
-		ERROR_LOG(G3D, "Error while encoding video: %d", error);
+		ERROR_LOG(Log::G3D, "Error while encoding video: %d", error);
 #endif
 #endif
 	delete[] flipbuffer;
@@ -280,7 +280,7 @@ void AVIDump::Stop() {
 	CloseFile();
 	s_file_index = 0;
 #endif
-	NOTICE_LOG(G3D, "Stopping frame dump");
+	NOTICE_LOG(Log::G3D, "Stopping frame dump");
 }
 
 void AVIDump::CloseFile() {

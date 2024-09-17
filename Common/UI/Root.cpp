@@ -98,7 +98,7 @@ bool IsFocusMovementEnabled() {
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets) {
 	if (!root) {
-		ERROR_LOG(SYSTEM, "Tried to layout a view hierarchy from a zero pointer root");
+		ERROR_LOG(Log::System, "Tried to layout a view hierarchy from a zero pointer root");
 		return;
 	}
 
@@ -378,7 +378,7 @@ void UpdateViewHierarchy(ViewGroup *root) {
 	frameCount++;
 
 	if (!root) {
-		ERROR_LOG(SYSTEM, "Tried to update a view hierarchy from a zero pointer root");
+		ERROR_LOG(Log::System, "Tried to update a view hierarchy from a zero pointer root");
 		return;
 	}
 

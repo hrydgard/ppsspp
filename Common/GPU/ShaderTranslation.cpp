@@ -203,7 +203,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	}
 
 	// DUMPLOG(src.c_str());
-	// INFO_LOG(SYSTEM, "---->");
+	// INFO_LOG(Log::System, "---->");
 	// DUMPLOG(LineNumberString(out.str()).c_str());
 
 	*dest = out.str();

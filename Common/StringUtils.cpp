@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <iomanip>
+#include <cctype>
 
 #include "Common/Buffer.h"
 #include "Common/StringUtils.h"
@@ -91,6 +92,12 @@ long parseLong(std::string s) {
 		value = strtol(s.c_str(),NULL, 10);
 	}
 	return value;
+}
+
+bool containsNoCase(std::string_view haystack, std::string_view needle) {
+	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
+	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
+	return found != haystack.end();
 }
 
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args)
@@ -169,6 +176,14 @@ std::string IndentString(const std::string &str, const std::string &sep, bool sk
 	}
 
 	return output.str();
+}
+
+std::string_view StripPrefix(std::string_view prefix, std::string_view s) {
+	if (startsWith(s, prefix)) {
+		return s.substr(prefix.size(), s.size() - prefix.size());
+	} else {
+		return s;
+	}
 }
 
 void SkipSpace(const char **ptr) {
@@ -334,7 +349,7 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 	}
 }
 
-static std::string ApplyHtmlEscapes(std::string str) {
+static std::string ApplyHtmlEscapes(std::string_view str_view) {
 	struct Repl {
 		const char *a;
 		const char *b;
@@ -345,15 +360,15 @@ static std::string ApplyHtmlEscapes(std::string str) {
 		// Easy to add more cases.
 	};
 
+	std::string str(str_view);
 	for (const Repl &r : replacements) {
 		str = ReplaceAll(str, r.a, r.b);
 	}
-
 	return str;
 }
 
 // Meant for HTML listings and similar, so supports some HTML escapes.
-void GetQuotedStrings(const std::string& str, std::vector<std::string> &output) {
+void GetQuotedStrings(std::string_view str, std::vector<std::string> &output) {
 	size_t next = 0;
 	bool even = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
@@ -372,11 +387,11 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string> &output) 
 	}
 }
 
+// TODO: this is quite inefficient.
 std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest) {
 	size_t pos = 0;
 
 	std::string result(input);
-
 	if (src == dest)
 		return result;
 

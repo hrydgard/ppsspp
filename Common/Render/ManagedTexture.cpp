@@ -32,7 +32,7 @@ public:
 		size_t fileSize;
 		uint8_t *buffer = g_VFS.ReadFile(filename_.c_str(), &fileSize);
 		if (!buffer) {
-			ERROR_LOG(IO, "Failed to read file '%s'", filename_.c_str());
+			WARN_LOG(Log::IO, "Failed to read file '%s'", filename_.c_str());
 			filename_.clear();
 			*state_ = ManagedTexture::LoadState::FAILED;
 			waitable_->Notify();
@@ -90,7 +90,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 		typeSuggestion = DetectImageFileType(data, size);
 	}
 	if (typeSuggestion == ImageFileType::UNKNOWN) {
-		ERROR_LOG(G3D, "File (size: %d) has unknown format", (int)size);
+		ERROR_LOG(Log::G3D, "File (size: %d) has unknown format", (int)size);
 		return false;
 	}
 
@@ -109,11 +109,11 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 			numLevels = 1;
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			if (!levels[0]) {
-				ERROR_LOG(IO, "pngLoadPtr failed (input size = %d)", (int)size);
+				ERROR_LOG(Log::IO, "pngLoadPtr failed (input size = %d)", (int)size);
 				return false;
 			}
 		} else {
-			ERROR_LOG(IO, "PNG load failed");
+			ERROR_LOG(Log::IO, "PNG load failed");
 			return false;
 		}
 		break;
@@ -131,7 +131,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 	}
 
 	default:
-		ERROR_LOG(IO, "Unsupported image format %d", (int)type);
+		ERROR_LOG(Log::IO, "Unsupported image format %d", (int)type);
 		return false;
 	}
 
@@ -144,7 +144,7 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 
 	int numLevels = image.numLevels;
 	if (numLevels < 0 || numLevels >= 16) {
-		ERROR_LOG(IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", numLevels, image.width[0], image.height[0]);
+		ERROR_LOG(Log::IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", numLevels, image.width[0], image.height[0]);
 		numLevels = 1;
 	}
 
@@ -178,7 +178,7 @@ Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filena
 	size_t fileSize;
 	uint8_t *buffer = g_VFS.ReadFile(filename, &fileSize);
 	if (!buffer) {
-		ERROR_LOG(IO, "Failed to read file '%s'", filename);
+		ERROR_LOG(Log::IO, "Failed to read file '%s'", filename);
 		return nullptr;
 	}
 	Draw::Texture *texture = CreateTextureFromFileData(draw, buffer, fileSize, type, generateMips, filename);
@@ -228,7 +228,7 @@ void ManagedTexture::StartLoadTask() {
 }
 
 void ManagedTexture::DeviceLost() {
-	INFO_LOG(G3D, "ManagedTexture::DeviceLost(%s)", filename_.c_str());
+	INFO_LOG(Log::G3D, "ManagedTexture::DeviceLost(%s)", filename_.c_str());
 	if (taskWaitable_) {
 		taskWaitable_->WaitAndRelease();
 		taskWaitable_ = nullptr;
@@ -243,13 +243,13 @@ void ManagedTexture::DeviceLost() {
 }
 
 void ManagedTexture::DeviceRestored(Draw::DrawContext *draw) {
-    INFO_LOG(G3D, "ManagedTexture::DeviceRestored(%s)", filename_.c_str());
+    INFO_LOG(Log::G3D, "ManagedTexture::DeviceRestored(%s)", filename_.c_str());
 
 	draw_ = draw;
 
 	_dbg_assert_(!texture_);
 	if (texture_) {
-		ERROR_LOG(G3D, "ManagedTexture: Unexpected - texture already present: %s", filename_.c_str());
+		ERROR_LOG(Log::G3D, "ManagedTexture: Unexpected - texture already present: %s", filename_.c_str());
 		return;
 	}
 

@@ -250,7 +250,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uintptr_t crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		if (crashHandler != 0) {
 			context->CTX_PC = crashHandler;
-			ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+			ERROR_LOG(Log::MemMap, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
 			inCrashHandler = false;
 			return true;
 		}
@@ -278,7 +278,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		context->CTX_PC += info.instructionSize;
 		g_numReportedBadAccesses++;
 		if (g_numReportedBadAccesses < 100) {
-			ERROR_LOG(MEMMAP, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
 		}
 	} else {
 		std::string infoString = "";
@@ -309,7 +309,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			context->CTX_PC = crashHandler;
 		else
 			handled = false;
-		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
+		ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
 
 	inCrashHandler = false;
@@ -319,7 +319,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #else
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
-	ERROR_LOG(MEMMAP, "Exception handling not supported");
+	ERROR_LOG(Log::MemMap, "Exception handling not supported");
 	return false;
 }
 

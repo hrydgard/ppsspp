@@ -142,7 +142,7 @@ private:
 
 class PSPCustomStick : public PSPStick {
 public:
-	PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams);
+	PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams);
 
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
@@ -252,6 +252,7 @@ namespace CustomKeyData {
 		{ ImageID("I_ARROW_UP"), 0.0f},
 		{ ImageID("I_ARROW_DOWN"), 0.0f},
 		{ ImageID("I_THREE_DOTS"), 0.0f},
+		{ ImageID("I_EMPTY"), 0.0f},
 	};
 
 	// Shape list

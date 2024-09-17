@@ -237,18 +237,18 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: wait not found to pause for callback");
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMbxCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
 void __KernelMbxTimeout(u64 userdata, int cyclesLate)
@@ -298,13 +298,13 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
 	if (!name)
 	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMbx(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	// Accepts 0x000 - 0x0FF, 0x100 - 0x1FF, and 0x400 - 0x4FF.
 	if (((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) & ~0xFF) != 0)
 	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMbx(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -319,16 +319,16 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 	m->nmb.numMessages = 0;
 	m->nmb.packetListHead = 0;
 
-	DEBUG_LOG(SCEKERNEL, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
+	DEBUG_LOG(Log::sceKernel, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
 
 	if (optAddr != 0)
 	{
 		u32 size = Memory::Read_U32(optAddr);
 		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -339,7 +339,7 @@ int sceKernelDeleteMbx(SceUID id)
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (m)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteMbx(%i)", id);
+		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteMbx(%i)", id);
 
 		bool wokeThreads = false;
 		for (size_t i = 0; i < m->waitingThreads.size(); i++)
@@ -351,7 +351,7 @@ int sceKernelDeleteMbx(SceUID id)
 	}
 	else
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelDeleteMbx(%i): invalid mbx id", id);
+		ERROR_LOG(Log::sceKernel, "sceKernelDeleteMbx(%i): invalid mbx id", id);
 	}
 	return kernelObjects.Destroy<Mbx>(id);
 }
@@ -362,14 +362,14 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelSendMbx(%i, %08x): invalid mbx id", id, packetAddr);
+		ERROR_LOG(Log::sceKernel, "sceKernelSendMbx(%i, %08x): invalid mbx id", id, packetAddr);
 		return error;
 	}
 
 	NativeMbxPacket *addPacket = (NativeMbxPacket*)Memory::GetPointer(packetAddr);
 	if (addPacket == 0)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelSendMbx(%i, %08x): invalid packet address", id, packetAddr);
+		ERROR_LOG(Log::sceKernel, "sceKernelSendMbx(%i, %08x): invalid packet address", id, packetAddr);
 		return -1;
 	}
 
@@ -392,7 +392,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 
 			if (wokeThreads)
 			{
-				DEBUG_LOG(SCEKERNEL, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, t.threadID);
+				DEBUG_LOG(Log::sceKernel, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, t.threadID);
 				Memory::Write_U32(packetAddr, t.packetAddr);
 				hleReSchedule("mbx sent");
 
@@ -402,7 +402,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		}
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sceKernelSendMbx(%i, %08x): no threads currently waiting, adding message to queue", id, packetAddr);
+	DEBUG_LOG(Log::sceKernel, "sceKernelSendMbx(%i, %08x): no threads currently waiting, adding message to queue", id, packetAddr);
 
 	if (m->nmb.numMessages == 0)
 		m->AddInitialMessage(packetAddr);
@@ -454,18 +454,18 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 
 	if (!m)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReceiveMbx(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
+		ERROR_LOG(Log::sceKernel, "sceKernelReceiveMbx(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
 		return error;
 	}
 
 	if (m->nmb.numMessages > 0)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbx(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbx(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
 		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
@@ -481,19 +481,19 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 
 	if (!m)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReceiveMbxCB(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
+		ERROR_LOG(Log::sceKernel, "sceKernelReceiveMbxCB(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
 		return error;
 	}
 
 	if (m->nmb.numMessages > 0)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
 		hleCheckCurrentCallbacks();
 		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
@@ -509,18 +509,18 @@ int sceKernelPollMbx(SceUID id, u32 packetAddrPtr)
 
 	if (!m)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelPollMbx(%i, %08x): invalid mbx id", id, packetAddrPtr);
+		ERROR_LOG(Log::sceKernel, "sceKernelPollMbx(%i, %08x): invalid mbx id", id, packetAddrPtr);
 		return error;
 	}
 
 	if (m->nmb.numMessages > 0)
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelPollMbx(%i, %08x): sending first queue message", id, packetAddrPtr);
+		DEBUG_LOG(Log::sceKernel, "sceKernelPollMbx(%i, %08x): sending first queue message", id, packetAddrPtr);
 		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_MBOX_NOMSG=sceKernelPollMbx(%i, %08x): no message in queue", id, packetAddrPtr);
+		DEBUG_LOG(Log::sceKernel, "SCE_KERNEL_ERROR_MBOX_NOMSG=sceKernelPollMbx(%i, %08x): no message in queue", id, packetAddrPtr);
 		return SCE_KERNEL_ERROR_MBOX_NOMSG;
 	}
 }
@@ -532,12 +532,12 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 
 	if (!m)
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelCancelReceiveMbx(%i, %08x): invalid mbx id", id, numWaitingThreadsAddr);
+		ERROR_LOG(Log::sceKernel, "sceKernelCancelReceiveMbx(%i, %08x): invalid mbx id", id, numWaitingThreadsAddr);
 		return error;
 	}
 
 	u32 count = (u32) m->waitingThreads.size();
-	DEBUG_LOG(SCEKERNEL, "sceKernelCancelReceiveMbx(%i, %08x): cancelling %d threads", id, numWaitingThreadsAddr, count);
+	DEBUG_LOG(Log::sceKernel, "sceKernelCancelReceiveMbx(%i, %08x): cancelling %d threads", id, numWaitingThreadsAddr, count);
 
 	bool wokeThreads = false;
 	for (size_t i = 0; i < m->waitingThreads.size(); i++)
@@ -556,13 +556,13 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m) {
-		return hleLogError(SCEKERNEL, error, "invalid mbx id");
+		return hleLogError(Log::sceKernel, error, "invalid mbx id");
 	}
 
 	// Should we crash the thread somehow?
 	auto info = PSPPointer<NativeMbx>::Create(infoAddr);
 	if (!info.IsValid())
-		return hleLogError(SCEKERNEL, -1, "invalid pointer");
+		return hleLogError(Log::sceKernel, -1, "invalid pointer");
 
 	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
 		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);

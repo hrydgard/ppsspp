@@ -150,6 +150,11 @@ private:
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 	UI::EventReturn OnJitDebugTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteDebugger(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerEnabled(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerPathChanged(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerFlushTrace(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerClearJitCache(UI::EventParams &e);
+	UI::EventReturn OnMIPSTracerClearTracer(UI::EventParams &e);
 	UI::EventReturn OnGPUDriverTest(UI::EventParams &e);
 	UI::EventReturn OnFramedumpTest(UI::EventParams &e);
 	UI::EventReturn OnMemstickTest(UI::EventParams &e);
@@ -164,6 +169,10 @@ private:
 		MAYBE,
 	};
 	HasIni hasTexturesIni_ = HasIni::MAYBE;
+
+	bool MIPSTracerEnabled_ = false;
+	std::string MIPSTracerPath_ = "";
+	UI::InfoItem* MIPSTracerPath = nullptr;
 };
 
 class HostnameSelectScreen : public PopupScreen {

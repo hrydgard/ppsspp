@@ -5,7 +5,7 @@
 #include "Common/StringUtils.h"
 
 #if 0 // def _DEBUG
-#define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
+#define VLOG(...) NOTICE_LOG(Log::G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -90,17 +90,17 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan) {
 	case VK_SUBOPTIMAL_KHR:
 		hasAcquired = true;
 		// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
-		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
+		WARN_LOG(Log::G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
 		break;
 	case VK_ERROR_OUT_OF_DATE_KHR:
 	case VK_TIMEOUT:
 	case VK_NOT_READY:
 		// We do not set hasAcquired here!
-		WARN_LOG(G3D, "%s returned from AcquireNextImage - processing the frame, but not presenting", VulkanResultToString(res));
+		WARN_LOG(Log::G3D, "%s returned from AcquireNextImage - processing the frame, but not presenting", VulkanResultToString(res));
 		skipSwap = true;
 		break;
 	case VK_ERROR_SURFACE_LOST_KHR:
-		ERROR_LOG(G3D, "%s returned from AcquireNextImage - ignoring, but this better be during shutdown", VulkanResultToString(res));
+		ERROR_LOG(Log::G3D, "%s returned from AcquireNextImage - ignoring, but this better be during shutdown", VulkanResultToString(res));
 		skipSwap = true;
 		break;
 	default:
@@ -132,13 +132,13 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 
 	if (shared.measurePresentTime) {
 		if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
+			ChainStruct(present, &presentID);
 			presentID.pPresentIds = &frameId;
 			presentID.swapchainCount = 1;
-			present.pNext = &presentID;
 		} else if (vulkan->Extensions().GOOGLE_display_timing) {
+			ChainStruct(present, &presentGOOGLE);
 			presentGOOGLE.pTimes = &presentTimeGOOGLE;
 			presentGOOGLE.swapchainCount = 1;
-			present.pNext = &presentGOOGLE;
 		}
 	}
 
@@ -208,10 +208,11 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 
 		cmdBufs[numCmdBufs++] = presentCmd;
 		hasPresentCommands = false;
+	}
 
-		if (type == FrameSubmitType::FinishFrame) {
-			fenceToTrigger = fence;
-		}
+	if (type == FrameSubmitType::FinishFrame) {
+		_dbg_assert_(!fenceToTrigger);
+		fenceToTrigger = fence;
 	}
 
 	if (!numCmdBufs && fenceToTrigger == VK_NULL_HANDLE) {

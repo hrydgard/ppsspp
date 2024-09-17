@@ -598,6 +598,9 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
 	caps_.logicOpSupported = !gl_extensions.IsGLES;
 
+	// Always the case in GL (which is what we want for PSP flat shade).
+	caps_.provokingVertexLast = true;
+
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
 	// is probably not a good idea.
@@ -843,7 +846,7 @@ static GLuint TypeToTarget(TextureType type) {
 #endif
 	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default:
-		ERROR_LOG(G3D,  "Bad texture type %d", (int)type);
+		ERROR_LOG(Log::G3D,  "Bad texture type %d", (int)type);
 		return GL_NONE;
 	}
 }
@@ -998,30 +1001,30 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(G3D, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
 	default:
-		ERROR_LOG(G3D, "glReadPixels: %08x", error);
+		ERROR_LOG(Log::G3D, "glReadPixels: %08x", error);
 		break;
 	}
 }
@@ -1166,15 +1169,15 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
+		ERROR_LOG(Log::G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
 	if ((uint32_t)desc.prim >= (uint32_t)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ERROR_LOG(G3D, "Invalid primitive type");
+		ERROR_LOG(Log::G3D, "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster) {
-		ERROR_LOG(G3D,  "Incomplete prim desciption");
+		ERROR_LOG(Log::G3D,  "Incomplete prim desciption");
 		return nullptr;
 	}
 
@@ -1184,7 +1187,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
+			ERROR_LOG(Log::G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
 			delete pipeline;
 			return nullptr;
 		}
@@ -1205,7 +1208,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
+		ERROR_LOG(Log::G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
 		delete pipeline;
 		return nullptr;
 	}
@@ -1274,11 +1277,11 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 			if (shader) {
 				linkShaders.push_back(shader);
 			} else {
-				ERROR_LOG(G3D,  "LinkShaders: Bad shader module");
+				ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader module");
 				return false;
 			}
 		} else {
-			ERROR_LOG(G3D,  "LinkShaders: Bad shader in module");
+			ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader in module");
 			return false;
 		}
 	}
@@ -1462,7 +1465,7 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 			break;
 		case DataFormat::UNDEFINED:
 		default:
-			ERROR_LOG(G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+			ERROR_LOG(Log::G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
 			break;
 		}
 

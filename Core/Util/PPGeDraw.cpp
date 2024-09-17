@@ -126,10 +126,13 @@ struct PPGeTextDrawerCacheKey {
 	int align;
 	float wrapWidth;
 };
+
 struct PPGeTextDrawerImage {
+	PPGeTextDrawerImage() : entry(0) {}
 	TextStringEntry entry;
 	u32 ptr;
 };
+
 static std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
 
 void PPGeSetDrawContext(Draw::DrawContext *draw) {
@@ -249,7 +252,7 @@ void __PPGeInit() {
 
 	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
 	if (!skipZIM && !loadedZIM) {
-		ERROR_LOG(SCEGE, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
+		ERROR_LOG(Log::sceGe, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
 	}
 
 	if (loadedZIM) {
@@ -306,7 +309,7 @@ void __PPGeInit() {
 
 	atlasRequiresReset = false;
 
-	INFO_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
+	INFO_LOG(Log::sceGe, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
@@ -467,7 +470,7 @@ void PPGeEnd()
 		gpu->EnableInterrupts(false);
 		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
 		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
-		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
+		DEBUG_LOG(Log::sceGe, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 	}
 }
@@ -785,7 +788,7 @@ void PPGeMeasureText(float *w, float *h, std::string_view text, float scale, int
 		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
 			dtalign |= FLAG_ELLIPSIZE_TEXT;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
-		textDrawer->MeasureStringRect(s2.c_str(), s2.size(), b, &mw, &mh, dtalign);
+		textDrawer->MeasureStringRect(s2, b, &mw, &mh, dtalign);
 
 		if (w)
 			*w = mw;
@@ -914,7 +917,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, const PPGeStyle &s
 		textDrawer->SetFontScale(style.scale, style.scale);
 		Bounds b(0, 0, maxWidth, 272.0f);
 		std::string cleaned = ReplaceAll(text, "\r", "");
-		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign);
+		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign, false);
 
 		int bufwBytes = ((im.entry.bmWidth + 31) / 32) * 16;
 		u32 sz = bufwBytes * (im.entry.bmHeight + 1);
@@ -1119,15 +1122,15 @@ void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidt
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = 0;
 		textDrawer->SetFontScale(style.scale, style.scale);
-		textDrawer->MeasureStringRect(s2.c_str(), s2.size(), b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+		textDrawer->MeasureStringRect(s2, b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
 
 		// Check if we need to scale the text down to fit better.
 		PPGeStyle adjustedStyle = style;
 		if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
 			// Cheap way to get the line height.
 			float oneLine, twoLines;
-			textDrawer->MeasureString("|", 1, &actualWidth, &oneLine);
-			textDrawer->MeasureStringRect("|\n|", 3, Bounds(0, 0, 480, 272), &actualWidth, &twoLines);
+			textDrawer->MeasureString("|", &actualWidth, &oneLine);
+			textDrawer->MeasureStringRect("|\n|", Bounds(0, 0, 480, 272), &actualWidth, &twoLines);
 
 			float lineHeight = twoLines - oneLine;
 			if (actualHeight > wrapHeight * maxScaleDown) {
@@ -1370,7 +1373,7 @@ bool PPGeImage::Load() {
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {
-			WARN_LOG(SCEGE, "PPGeImage cannot load file %s", filename_.c_str());
+			WARN_LOG(Log::sceGe, "PPGeImage cannot load file %s", filename_.c_str());
 			loadFailed_ = true;
 			return false;
 		}
@@ -1378,7 +1381,7 @@ bool PPGeImage::Load() {
 		success = pngLoadPtr((const unsigned char *)&pngData[0], pngData.size(), &width_, &height_, &textureData);
 	}
 	if (!success) {
-		WARN_LOG(SCEGE, "Bad PPGeImage - not a valid png");
+		WARN_LOG(Log::sceGe, "Bad PPGeImage - not a valid png");
 		loadFailed_ = true;
 		return false;
 	}
@@ -1388,7 +1391,7 @@ bool PPGeImage::Load() {
 	texture_ = __PPGeDoAlloc(texSize, true, "Savedata Icon");
 	if (texture_ == 0) {
 		free(textureData);
-		WARN_LOG(SCEGE, "Bad PPGeImage - unable to allocate space for texture");
+		WARN_LOG(Log::sceGe, "Bad PPGeImage - unable to allocate space for texture");
 		// Don't set loadFailed_ here, we'll try again if there's more memory later.
 		return false;
 	}

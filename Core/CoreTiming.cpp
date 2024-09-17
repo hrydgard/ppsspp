@@ -152,7 +152,7 @@ int RegisterEvent(const char *name, TimedCallback callback) {
 }
 
 void AntiCrashCallback(u64 userdata, int cyclesLate) {
-	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(Log::SaveState, "Savestate broken: an unregistered event was called.");
 	Core_EnableStepping(true, "savestate.crash", 0);
 }
 
@@ -366,7 +366,7 @@ void RemoveEvent(int event_type)
 void ProcessEvents() {
 	while (first) {
 		if (first->time <= (s64)GetTicks()) {
-			// INFO_LOG(CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
+			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event *evt = first;
 			first = first->next;
 			if (evt->type >= 0 && evt->type < event_types.size()) {
@@ -425,7 +425,7 @@ void Advance() {
 void LogPendingEvents() {
 	Event *ptr = first;
 	while (ptr) {
-		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
+		//INFO_LOG(Log::CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }
@@ -447,7 +447,7 @@ void Idle(int maxIdle) {
 	if (cyclesDown < 0)
 		cyclesDown = 0;
 
-	// VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	// VERBOSE_LOG(Log::CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;
@@ -499,7 +499,7 @@ void DoState(PointerWrap &p) {
 	int current = n;
 	Do(p, n);
 	if (n > current) {
-		WARN_LOG(SAVESTATE, "Savestate failure: more events than current (can't ever remove an event)");
+		WARN_LOG(Log::SaveState, "Savestate failure: more events than current (can't ever remove an event)");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}

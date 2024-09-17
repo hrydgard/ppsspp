@@ -164,7 +164,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->valid = false;
 
 	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(FILESYS, "ISO looks bogus, expected CD001 signature not present? Giving up...");
+		ERROR_LOG(Log::FileSystem, "ISO looks bogus, expected CD001 signature not present? Giving up...");
 		return;
 	}
 
@@ -190,7 +190,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
 			blockDevice->NotifyReadError();
-			ERROR_LOG(FILESYS, "Error reading block for directory '%s' in sector %d - skipping", root->name.c_str(), secnum);
+			ERROR_LOG(Log::FileSystem, "Error reading block for directory '%s' in sector %d - skipping", root->name.c_str(), secnum);
 			root->valid = true;  // Prevents re-reading
 			return;
 		}
@@ -207,7 +207,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			const int IDENTIFIER_OFFSET = 33;
 			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
 				blockDevice->NotifyReadError();
-				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
+				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
 
@@ -236,18 +236,18 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->startsector = dir.firstDataSector;
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
-			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
+			VERBOSE_LOG(Log::FileSystem, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
 				blockDevice->NotifyReadError();
-				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
+				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
 					blockDevice->NotifyReadError();
-					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
+					ERROR_LOG(Log::FileSystem, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
 				}
 			}
 			root->children.push_back(entry);
@@ -313,7 +313,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 				return entry;
 		} else {
 			if (catchError)
-				ERROR_LOG(FILESYS, "File '%s' not found", path.c_str());
+				ERROR_LOG(Log::FileSystem, "File '%s' not found", path.c_str());
 
 			return 0;
 		}
@@ -326,7 +326,7 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	entry.isBlockSectorMode = false;
 
 	if (access & FILEACCESS_WRITE) {
-		ERROR_LOG(FILESYS, "Can't open file '%s' with write access on an ISO partition", filename.c_str());
+		ERROR_LOG(Log::FileSystem, "Can't open file '%s' with write access on an ISO partition", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
 	}
 
@@ -335,15 +335,15 @@ int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
-			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: '%s', sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
+			WARN_LOG(Log::FileSystem, "Unable to open raw sector, out of range: '%s', sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
 			return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 		else if (sectorStart == blockDevice->GetNumBlocks())
 		{
-			ERROR_LOG(FILESYS, "Should not be able to open the block after the last on disc! %08x", sectorStart);
+			ERROR_LOG(Log::FileSystem, "Should not be able to open the block after the last on disc! %08x", sectorStart);
 		}
 
-		DEBUG_LOG(FILESYS, "Got a raw sector open: '%s', sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
+		DEBUG_LOG(Log::FileSystem, "Got a raw sector open: '%s', sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;
@@ -383,7 +383,7 @@ void ISOFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS, "Hey, what are you doing? Closing non-open files?");
+		ERROR_LOG(Log::FileSystem, "Hey, what are you doing? Closing non-open files?");
 	}
 }
 
@@ -395,7 +395,7 @@ bool ISOFileSystem::OwnsHandle(u32 handle) {
 int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter == entries.end()) {
-		ERROR_LOG(FILESYS, "Ioctl on a bad file handle");
+		ERROR_LOG(Log::FileSystem, "Ioctl on a bad file handle");
 		return SCE_KERNEL_ERROR_BADF;
 	}
 
@@ -405,23 +405,23 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	// Get ISO9660 volume descriptor (from open ISO9660 file.)
 	case 0x01020001:
 		if (e.isBlockSectorMode) {
-			ERROR_LOG(FILESYS, "Unsupported read volume descriptor command on a umd block device");
+			ERROR_LOG(Log::FileSystem, "Unsupported read volume descriptor command on a umd block device");
 			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 
 		if (!Memory::IsValidRange(outdataPtr, 0x800) || outlen < 0x800) {
-			WARN_LOG_REPORT(FILESYS, "sceIoIoctl: Invalid out pointer %08x while reading ISO9660 volume descriptor", outdataPtr);
+			WARN_LOG_REPORT(Log::FileSystem, "sceIoIoctl: Invalid out pointer %08x while reading ISO9660 volume descriptor", outdataPtr);
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 
-		INFO_LOG(SCEIO, "sceIoIoctl: reading ISO9660 volume descriptor read");
+		INFO_LOG(Log::sceIo, "sceIoIoctl: reading ISO9660 volume descriptor read");
 		blockDevice->ReadBlock(16, Memory::GetPointerWriteUnchecked(outdataPtr));
 		return 0;
 
 	// Get ISO9660 path table (from open ISO9660 file.)
 	case 0x01020002:
 		if (e.isBlockSectorMode) {
-			ERROR_LOG(FILESYS, "Unsupported read path table command on a umd block device");
+			ERROR_LOG(Log::FileSystem, "Unsupported read path table command on a umd block device");
 			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 
@@ -479,7 +479,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		OpenFileEntry &e = iter->second;
 
 		if (size < 0) {
-			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
 			return 0;
 		}
 		
@@ -501,7 +501,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			positionOnIso = e.sectorStart * 2048ULL + e.seekPos;
 			fileSize = (s64)e.openSize;
 		} else if (e.file == nullptr) {
-			ERROR_LOG(FILESYS, "File no longer exists (loaded savestate with different ISO?)");
+			ERROR_LOG(Log::FileSystem, "File no longer exists (loaded savestate with different ISO?)");
 			return 0;
 		} else {
 			positionOnIso = e.file->startingPosition + e.seekPos;
@@ -509,7 +509,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		}
 
 		if ((s64)e.seekPos > fileSize) {
-			WARN_LOG(FILESYS, "Read starting outside of file, at %lld / %lld", (s64)e.seekPos, fileSize);
+			WARN_LOG(Log::FileSystem, "Read starting outside of file, at %lld / %lld", (s64)e.seekPos, fileSize);
 			return 0;
 		}
 		if ((s64)e.seekPos + size > fileSize) {
@@ -518,9 +518,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			// Reading beyond the file is really quite normal behavior (if return value handled correctly), so
 			// not doing WARN here. Still, can potentially be useful to see so leaving at INFO.
 			if (newSize == 0) {
-				INFO_LOG(FILESYS, "Attempted read at end of file, 0-size read simulated");
+				INFO_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
 			} else {
-				INFO_LOG(FILESYS, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+				INFO_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
 			}
 			size = newSize;
 		}
@@ -534,7 +534,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		u8 theSector[2048];
 
 		if ((middleSize & 2047) != 0) {
-			ERROR_LOG(FILESYS, "Remaining size should be aligned");
+			ERROR_LOG(Log::FileSystem, "Remaining size should be aligned");
 		}
 
 		const u8 *const start = pointer;
@@ -565,18 +565,18 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		return (size_t)totalBytes;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS, "Hey, what are you doing? Reading non-open files?");
+		ERROR_LOG(Log::FileSystem, "Hey, what are you doing? Reading non-open files?");
 		return 0;
 	}
 }
 
 size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
-	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
+	ERROR_LOG(Log::FileSystem, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
 }
 
 size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
-	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
+	ERROR_LOG(Log::FileSystem, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
 }
 
@@ -602,7 +602,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		return (size_t)e.seekPos;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS, "Hey, what are you doing? Seeking in non-open files?");
+		ERROR_LOG(Log::FileSystem, "Hey, what are you doing? Seeking in non-open files?");
 		return 0;
 	}
 }

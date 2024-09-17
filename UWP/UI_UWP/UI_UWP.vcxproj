@@ -127,6 +127,7 @@
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
+    <ClInclude Include="..\..\UI\JitCompareScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
     <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
@@ -166,6 +167,7 @@
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
+    <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />

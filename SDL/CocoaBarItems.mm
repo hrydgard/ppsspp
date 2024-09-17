@@ -548,7 +548,7 @@ TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
-TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
+TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3, 0))
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
 #undef TOGGLE_METHOD
 
@@ -645,13 +645,11 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 
 -(void)openSystemFileBrowser {
     int g = 0;
-    DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
+    DarwinDirectoryPanelCallback panelCallback = [g] (bool succ, Path thePathChosen) {
         if (succ)
             System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, thePathChosen.c_str());
     };
-    
-    DarwinFileSystemServices services;
-    services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectorites = */ true);
+    DarwinFileSystemServices::presentDirectoryPanel(panelCallback, /* allowFiles = */ true, /* allowDirectorites = */ true);
 }
 
 -(void)openMemstickFolder {

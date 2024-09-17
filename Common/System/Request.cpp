@@ -31,7 +31,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	}
 }
 
-bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int param3) {
+bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int64_t param3, int64_t param4) {
 	if (token == NO_REQUESTER_TOKEN) {
 		_dbg_assert_(!callback);
 		_dbg_assert_(!failedCallback);
@@ -48,25 +48,24 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 		callbackMap_[requestId] = { callback, failedCallback, token };
 	}
 
-	VERBOSE_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
+	VERBOSE_LOG(Log::System, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
 	std::string p1(param1);
 	std::string p2(param2);
 	// TODO: Convert to string_view
-	if (!System_MakeRequest(type, requestId, p1, p2, param3)) {
+	if (!System_MakeRequest(type, requestId, p1, p2, param3, param4)) {
 		if (callback || failedCallback) {
 			std::lock_guard<std::mutex> guard(callbackMutex_);
 			callbackMap_.erase(requestId);
 		}
 		return false;
 	}
-
 	return true;
 }
 
 void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
 	for (auto &iter : callbackMap_) {
 		if (iter.second.token == token) {
-			INFO_LOG(SYSTEM, "Forgetting about requester with token %d", token);
+			INFO_LOG(Log::System, "Forgetting about requester with token %d", token);
 			iter.second.callback = nullptr;
 			iter.second.failedCallback = nullptr;
 		}
@@ -77,7 +76,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(SYSTEM, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
+		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
 		return;
 	}
 
@@ -87,7 +86,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	response.responseString = responseString;
 	response.responseValue = responseValue;
 	pendingSuccesses_.push_back(response);
-	DEBUG_LOG(SYSTEM, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
+	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
 	callbackMap_.erase(iter);
 }
 
@@ -95,11 +94,11 @@ void RequestManager::PostSystemFailure(int requestId) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(SYSTEM, "PostSystemFailure: Unexpected request ID %d", requestId);
+		ERROR_LOG(Log::System, "PostSystemFailure: Unexpected request ID %d", requestId);
 		return;
 	}
 
-	WARN_LOG(SYSTEM, "PostSystemFailure: Request %d failed", requestId);
+	WARN_LOG(Log::System, "PostSystemFailure: Request %d failed", requestId);
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 	PendingFailure response;
@@ -144,4 +143,10 @@ void System_ShowFileInFolder(const Path &path) {
 
 void System_BrowseForFolder(RequesterToken token, std::string_view title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, token, callback, failedCallback, title, initialPath.ToCString(), 0);
+}
+
+void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
+	int64_t castPtr = (int64_t)callback;
+	int64_t castUserData = (int64_t)userdata;
+	g_requestManager.MakeSystemRequest(SystemRequestType::RUN_CALLBACK_IN_WNDPROC, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", castPtr, castUserData);
 }

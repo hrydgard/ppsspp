@@ -84,6 +84,9 @@
     <ClCompile Include="..\rcheevos\src\rhash\md5.c">
       <Filter>rhash</Filter>
     </ClCompile>
+    <ClCompile Include="..\rcheevos\src\rc_client_raintegration.c">
+      <Filter>rcheevos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h">

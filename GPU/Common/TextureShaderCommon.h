@@ -22,12 +22,10 @@
 #include <string>
 
 #include "Common/CommonTypes.h"
-#include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/ShaderCommon.h"
-#include "GPU/Common/DepalettizeShaderCommon.h"
 
 
 class ClutTexture {

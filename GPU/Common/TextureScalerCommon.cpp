@@ -503,7 +503,7 @@ void bilinearH(int factor, const u32 *data, u32 *out, int w, int l, int u) {
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
 	case 4: bilinearHt<4>(data, out, w, l, u); break;
 	case 5: bilinearHt<5>(data, out, w, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
 	}
 }
 // integral bilinear upscaling by factor f, vertical part
@@ -537,7 +537,7 @@ void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;
 	case 4: bilinearVt<4>(data, out, w, gl, gu, l, u); break;
 	case 5: bilinearVt<5>(data, out, w, gl, gu, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
 	}
 }
 
@@ -658,7 +658,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int width, int hei
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height, true);
 		break;
 	default:
-		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
+		ERROR_LOG(Log::G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
 
 	// update values accordingly
@@ -668,7 +668,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int width, int hei
 #ifdef SCALING_MEASURE_TIME
 	if (*scaledWidth* *scaledHeight > 64 * 64 * factor*factor) {
 		double t = time_now_d() - t_start;
-		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
+		NOTICE_LOG(Log::G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
 			*scaledWidth * *scaledHeight, t, (*scaledWidth * *scaledHeight) / (t * 1000 * 1000));
 	}
 #endif
@@ -680,7 +680,7 @@ bool TextureScalerCommon::Scale(u32* &data, int width, int height, int *scaledWi
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if (IsEmptyOrFlat(data, width*height)) {
-		DEBUG_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
+		DEBUG_LOG(Log::G3D, "TextureScaler: early exit -- empty/flat texture");
 		return false;
 	}
 

@@ -163,7 +163,7 @@ void XAudioBackend::PollLoop() {
 		xaudioBuffer.AudioBytes = numBytesRendered;
 
 		if FAILED(xaudioVoice->SubmitSourceBuffer(&xaudioBuffer, NULL)) {
-			WARN_LOG(AUDIO, "XAudioBackend: Failed writing bytes");
+			WARN_LOG(Log::Audio, "XAudioBackend: Failed writing bytes");
 		}
 		cursor_ += numBytesRendered;
 		if (cursor_ >= BUFSIZE) {

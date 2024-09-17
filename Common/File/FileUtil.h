@@ -83,6 +83,8 @@ uint64_t ComputeRecursiveDirectorySize(const Path &path);
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &filename);
 
+void ChangeMTime(const Path &path, time_t mtime);
+
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
 
@@ -119,6 +121,10 @@ bool CreateEmptyFile(const Path &filename);
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
 bool OpenFileInEditor(const Path &fileName);
+
+// Uses some heuristics to determine if this is a folder that we would want to
+// write to.
+bool IsProbablyInDownloadsFolder(const Path &folder);
 
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();

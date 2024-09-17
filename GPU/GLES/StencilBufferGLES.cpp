@@ -102,7 +102,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	using namespace Draw;
 
 	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackStencilbufferSync: bad fbo");
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, Log::sceGe, "ReadbackStencilbufferSync: bad fbo");
 		return false;
 	}
 

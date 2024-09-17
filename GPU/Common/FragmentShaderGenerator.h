@@ -47,6 +47,7 @@ struct FShaderID;
 // Can technically be deduced from the fragment shader ID, but this is safer.
 enum class FragmentShaderFlags : u32 {
 	USES_DISCARD = 2,
+	USES_FLAT_SHADING = 4,
 };
 ENUM_CLASS_BITOPS(FragmentShaderFlags);
 

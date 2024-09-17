@@ -97,15 +97,16 @@ void SingleControlMapper::Refresh() {
 	Clear();
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	std::map<std::string, ImageID> keyImages;
-	keyImages["Circle"] = ImageID("I_CIRCLE");
-	keyImages["Cross"] = ImageID("I_CROSS");
-	keyImages["Square"] = ImageID("I_SQUARE");
-	keyImages["Triangle"] = ImageID("I_TRIANGLE");
-	keyImages["Start"] = ImageID("I_START");
-	keyImages["Select"] = ImageID("I_SELECT");
-	keyImages["L"] = ImageID("I_L");
-	keyImages["R"] = ImageID("I_R");
+	std::map<std::string, ImageID> keyImages = {
+		{ "Circle",   ImageID("I_CIRCLE")   },
+		{ "Cross",    ImageID("I_CROSS")    },
+		{ "Square",   ImageID("I_SQUARE")   },
+		{ "Triangle", ImageID("I_TRIANGLE") },
+		{ "Start",    ImageID("I_START")    },
+		{ "Select",   ImageID("I_SELECT")   },
+		{ "L",        ImageID("I_L")        },
+		{ "R",        ImageID("I_R")        }
+	};
 
 	using namespace UI;
 
@@ -234,6 +235,21 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+
+struct BindingCategory {
+	const char *catName;
+	int firstKey;
+};
+
+// Category name, first input from psp_button_names.
+static const BindingCategory cats[] = {
+	{"Standard PSP controls", CTRL_UP},
+	{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
+	{"Emulator controls", VIRTKEY_FASTFORWARD},
+	{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
+	{},  // sentinel
+};
+
 void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
@@ -278,25 +294,12 @@ void ControlMappingScreen::CreateViews() {
 	size_t numMappableKeys = 0;
 	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
 
-	struct Cat {
-		const char *catName;
-		int firstKey;
-		bool *open;
-	};
-	// Category name, first input from psp_button_names.
-	static const Cat cats[] = {
-		{"Standard PSP controls", CTRL_UP, &categoryToggles_[0]},
-		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW, &categoryToggles_[1]},
-		{"Emulator controls", VIRTKEY_FASTFORWARD, &categoryToggles_[2]},
-		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX, &categoryToggles_[3]},
-	};
-
 	int curCat = -1;
 	CollapsibleSection *curSection = nullptr;
 	for (size_t i = 0; i < numMappableKeys; i++) {
 		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
 			if (curCat >= 0) {
-				curSection->SetOpenPtr(cats[curCat].open);
+				curSection->SetOpenPtr(&categoryToggles_[curCat]);
 			}
 			curCat++;
 			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
@@ -309,8 +312,9 @@ void ControlMappingScreen::CreateViews() {
 		mappers_.push_back(mapper);
 	}
 	if (curCat >= 0 && curSection) {
-		curSection->SetOpenPtr(cats[curCat].open);
+		curSection->SetOpenPtr(&categoryToggles_[curCat]);
 	}
+	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }

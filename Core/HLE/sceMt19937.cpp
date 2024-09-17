@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <string>  // for some reason required for the 'new'.
+
 #include "Common/Data/Random/Rng.h"
+#include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMt19937.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -30,20 +32,20 @@
 static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
 	if (!Memory::IsValidAddress(mt19937Addr))
-		return hleLogError(HLE, -1);
+		return hleLogError(Log::HLE, -1);
 	void *ptr = Memory::GetPointerWriteUnchecked(mt19937Addr);
 	// This is made to match the memory layout of a PSP MT structure exactly.
 	// Let's just construct it in place with placement new. Elite C++ hackery FTW.
 	new (ptr) MersenneTwister(seed);
-	return hleLogSuccessInfoI(HLE, 0);
+	return hleLogSuccessInfoI(Log::HLE, 0);
 }
 
 static u32 sceMt19937UInt(u32 mt19937Addr)
 {
 	if (!Memory::IsValidAddress(mt19937Addr))
-		return hleLogError(HLE, -1);
+		return hleLogError(Log::HLE, -1);
 	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointer(mt19937Addr);
-	return hleLogSuccessVerboseX(HLE, mt->R32());
+	return hleLogSuccessVerboseX(Log::HLE, mt->R32());
 }
 
 const HLEFunction sceMt19937[] =

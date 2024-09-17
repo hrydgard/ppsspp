@@ -30,7 +30,7 @@
 	url = https://github.com/hrydgard/ppsspp-freetype.git
 [submodule "ext/miniupnp"]
 	path = ext/miniupnp
-	url = https://github.com/hrydgard/miniupnp.git
+	url = https://github.com/miniupnp/miniupnp.git
 [submodule "zstd"]
 	path = ext/zstd
 	url = https://github.com/facebook/zstd.git
@@ -59,3 +59,6 @@
 [submodule "ext/OpenXR-SDK"]
 	path = ext/OpenXR-SDK
 	url = https://github.com/KhronosGroup/OpenXR-SDK.git
+[submodule "ios/MoltenVK"]
+	path = ios/MoltenVK
+	url = https://github.com/hrydgard/ppsspp-moltenvk.git

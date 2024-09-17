@@ -25,12 +25,12 @@
 // we don't have to deal with physical Usb connection, so let's just always pass
 
 static int sceUsbAccGetAuthStat() {
-	INFO_LOG(HLE, "UNIMPL sceUsbAccGetAuthStat");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbAccGetAuthStat");
 	return 0;
 }
 
 static int sceUsbAccGetInfo(u32 addr) {
-	INFO_LOG(HLE, "UNIMPL sceUsbAccGetInfo");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbAccGetInfo");
 	return 0;
 }
 

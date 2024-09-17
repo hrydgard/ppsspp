@@ -71,10 +71,10 @@ public:
 	int OffsetFromCodePtr(const u8 *ptr);
 
 	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
-	virtual bool CompileBlock(IRBlock *block, int block_num, bool preload) = 0;
+	virtual bool CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) = 0;
 	virtual void ClearAllBlocks() = 0;
-	virtual void InvalidateBlock(IRBlock *block, int block_num) = 0;
-	void FinalizeBlock(IRBlock *block, int block_num, const JitOptions &jo);
+	virtual void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) = 0;
+	void FinalizeBlock(IRBlockCache *irBlockCache, int block_num, const JitOptions &jo);
 
 	virtual void UpdateFCR31(MIPSState *mipsState) {}
 
@@ -162,10 +162,13 @@ class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
 public:
 	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
 	void Init(const IRNativeBackend *backend);
-	int GetNumBlocks() const;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
-	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
-	void ComputeStats(BlockCacheStats &bcStats) const;
+	int GetNumBlocks() const override;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	JitBlockMeta GetBlockMeta(int blockNum) const override;
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override;
+	void ComputeStats(BlockCacheStats &bcStats) const override;
+	bool IsValidBlock(int blockNum) const override;
 
 private:
 	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;
@@ -182,7 +185,6 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void ClearCache() override;
-	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	bool CodeInRange(const u8 *ptr) const override;
@@ -196,8 +198,8 @@ public:
 
 protected:
 	void Init(IRNativeBackend &backend);
-	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
-	void FinalizeTargetBlock(IRBlock *block, int block_num) override;
+	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
+	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;

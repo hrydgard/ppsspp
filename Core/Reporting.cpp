@@ -131,7 +131,7 @@ namespace Reporting
 				return 0;
 			}
 			if (!blockDevice->ReadBlock(i, block, true)) {
-				ERROR_LOG(FILESYS, "Failed to read block for CRC");
+				ERROR_LOG(Log::FileSystem, "Failed to read block for CRC");
 				g_OSD.RemoveProgressBar("crc", false, 0.0f);
 				return 0;
 			}
@@ -181,7 +181,7 @@ namespace Reporting
 			return;
 		}
 
-		INFO_LOG(SYSTEM, "Starting CRC calculation");
+		INFO_LOG(Log::System, "Starting CRC calculation");
 		crcFilename = gamePath;
 		crcPending = true;
 		crcCancel = false;
@@ -204,7 +204,7 @@ namespace Reporting
 		}
 
 		if (crcThread.joinable()) {
-			INFO_LOG(SYSTEM, "Finished CRC calculation");
+			INFO_LOG(Log::System, "Finished CRC calculation");
 			crcThread.join();
 		}
 		return it->second;
@@ -222,13 +222,13 @@ namespace Reporting
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
 		if (crcPending) {
-			INFO_LOG(SYSTEM, "Cancelling CRC calculation");
+			INFO_LOG(Log::System, "Cancelling CRC calculation");
 			crcCancel = true;
 			while (crcPending) {
 				crcCond.wait(guard);
 			}
 		} else {
-			DEBUG_LOG(SYSTEM, "No CRC pending");
+			DEBUG_LOG(Log::System, "No CRC pending");
 		}
 
 		if (crcThread.joinable())

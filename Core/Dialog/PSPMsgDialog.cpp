@@ -44,7 +44,7 @@ PSPMsgDialog::~PSPMsgDialog() {
 int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -62,7 +62,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
+		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;

@@ -2,6 +2,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
@@ -229,7 +230,7 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 	case DebugOverlay::FRAME_TIMING:
 		DrawFrameTiming(ctx, ctx->GetLayoutBounds());
 		break;
-	case DebugOverlay::AUDIO:
+	case DebugOverlay::Audio:
 		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
 		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
@@ -324,7 +325,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	ctx->PushScissor(Bounds(x, y, columnWidth, height));
 
-	// INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+	// INFO_LOG(Log::System, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
 
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 %s (%s)
@@ -434,21 +435,23 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 
-	char fpsbuf[256]{};
-	if (g_Config.iShowStatusFlags == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f));
+	char fpsbuf[256];
+	fpsbuf[0] = '\0';
+	if ((g_Config.iShowStatusFlags & ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
+		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / ((g_Config.iDisplayRefreshRate / 60.0f * 59.94f) / 100.0f));
 	} else {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
 			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps);
-		}
-		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
-			snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
+		} else if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
+			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f));
 		}
 	}
 
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
 	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
-		snprintf(fpsbuf, sizeof(fpsbuf), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());
+		char temp[256];
+		snprintf(temp, sizeof(temp), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());
+		snprintf(fpsbuf, sizeof(fpsbuf), "%s", temp);
 	}
 #endif
 

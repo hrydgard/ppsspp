@@ -82,7 +82,7 @@ void WindowsInputManager::PollControllers() {
 #ifndef _M_ARM
 		size_t newCount = DinputDevice::getNumPads();
 		if (newCount > numDinputDevices_) {
-			INFO_LOG(SYSTEM, "New controller device detected");
+			INFO_LOG(Log::System, "New controller device detected");
 			for (size_t i = numDinputDevices_; i < newCount; i++) {
 				input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
 			}

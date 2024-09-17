@@ -34,20 +34,6 @@ struct Statistics {
 	int badMemoryAccessCount;
 };
 
-// RAIntegration only exists for Windows, so no point checking it on other platforms.
-#ifdef WITH_RAINTEGRATION
-
-bool IsUsingRAIntegration();
-
-#else
-
-static inline bool IsUsingRAIntegration()
-{
-	return false;
-}
-
-#endif
-
 // Returns true if the user is logged in properly, and everything is set up for playing games with achievements.
 bool IsLoggedIn();
 
@@ -71,7 +57,7 @@ bool IsBlockingExecution();
 bool HardcoreModeActive();
 
 // Same as ChallengeModeActive but comes with a convenient user message. Don't use for every-frame checks or UI enablement,
-// only for shortcut keys and commands. You should look up the message in I18NCat::ACHIEVEMENTS.
+// only for shortcut keys and commands. You should look up the message in I18NCat::Achievements.
 // If no message is specified, a standard "This feature is not available in Hardcore Mode" message will be shown.
 // Also returns true if hardcore mode is active.
 // Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
@@ -79,6 +65,9 @@ bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view messa
 
 // Returns the length of the string. If (size_t)-1, there's no message.
 size_t GetRichPresenceMessage(char *buffer, size_t bufSize);
+
+// Returns true if the user has unsaved RAIntegration changes. Should prompt the user to be sure they want to exit.
+bool RAIntegrationDirty();
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.

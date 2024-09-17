@@ -147,13 +147,6 @@ Path ResolvePBPFile(const Path &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
-class FileLoaderFactory {
-public:
-	virtual ~FileLoaderFactory() {}
-	virtual FileLoader *ConstructFileLoader(const Path &filename) = 0;
-};
-void RegisterFileLoaderFactory(const std::string &prefix, std::unique_ptr<FileLoaderFactory> factory);
-
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
 

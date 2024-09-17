@@ -123,6 +123,9 @@
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSTracer.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -1306,6 +1309,15 @@
     <ClCompile Include="Util\MemStick.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="HW\Atrac3Standalone.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\AtracCtx.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\AtracCtx2.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1336,6 +1348,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSVFPUUtils.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSTracer.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAnalyst.h">
@@ -2087,6 +2102,15 @@
     </ClInclude>
     <ClInclude Include="Util\MemStick.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\Atrac3Standalone.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\AtracCtx.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\AtracCtx2.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

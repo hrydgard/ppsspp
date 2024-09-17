@@ -166,7 +166,7 @@ extern MainUI* emugl;
 
 #ifndef SDL
 
-// Audio
+// AUDIO
 class MainAudio : public QObject {
 	Q_OBJECT
 public:

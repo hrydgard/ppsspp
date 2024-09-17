@@ -553,7 +553,9 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 void PromptScreen::TriggerFinish(DialogResult result) {
-	callback_(result == DR_OK || result == DR_YES);
+	if (callback_) {
+		callback_(result == DR_OK || result == DR_YES);
+	}
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
@@ -976,7 +978,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"",
 		"",
 		cr->T("tools", "Free tools used:"),
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
 #endif
 #if defined(USING_QT_UI)
@@ -988,6 +990,17 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"CMake",
 		"freetype2",
 		"zlib",
+		"rcheevos",
+		"SPIRV-Cross",
+		"armips",
+		"Basis Universal",
+		"cityhash",
+		"zstd",
+		"glew",
+		"libchdr",
+		"minimp3",
+		"xxhash",
+		"naett-http",
 		"PSP SDK",
 		"",
 		"",
@@ -1009,7 +1022,6 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		cr->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
 
-
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -1029,15 +1041,13 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	float t = (float)(time_now_d() - startTime_) * 60.0;
 
 	float y = bounds.y2() - fmodf(t, (float)totalHeight);
-	std::string line;
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			line = credits[i];
-			dc.DrawText(line.c_str(), bounds.centerX(), y, textColor, ALIGN_HCENTER);
+			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;

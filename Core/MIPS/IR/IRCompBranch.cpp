@@ -56,7 +56,7 @@ namespace MIPSComp
 
 void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -123,7 +123,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 
 void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool likely) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -212,7 +212,7 @@ void IRFrontend::Comp_RelBranchRI(MIPSOpcode op) {
 // If likely is set, discard the branch slot if NOT taken.
 void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -266,7 +266,7 @@ void IRFrontend::Comp_FPUBranch(MIPSOpcode op) {
 // If likely is set, discard the branch slot if NOT taken.
 void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -324,7 +324,7 @@ void IRFrontend::Comp_VBranch(MIPSOpcode op) {
 
 void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 
@@ -337,7 +337,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 		if (js.preloading)
 			js.cancel = true;
 		else
-			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
+			ERROR_LOG_REPORT(Log::JIT, "Jump to invalid address: %08x", targetAddr);
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		// Continue so the block gets completed and crashes properly.
 	}
@@ -371,7 +371,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 
 void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG_REPORT(Log::JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	MIPSGPReg rs = _RS;

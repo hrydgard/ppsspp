@@ -421,7 +421,6 @@ public:
 		// an init command, that's for sure.
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::BUFFER_SUBDATA;
-		_dbg_assert_(offset >= 0);
 		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
@@ -835,6 +834,7 @@ public:
 		}
 	}
 
+	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -874,6 +874,7 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
+	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
 	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.

@@ -76,7 +76,7 @@ void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mapping
 		if (!mapping.empty()) {
 			mappings->push_back(mapping.mappings[0]);
 		} else {
-			WARN_LOG(COMMON, "Encountered empty mapping in multi-mapping for button %d", btn);
+			WARN_LOG(Log::Common, "Encountered empty mapping in multi-mapping for button %d", btn);
 		}
 	}
 }
@@ -348,20 +348,12 @@ static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
 	{NKCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
 
-
-	{NKCODE_EXT_MOTION_UP, "MotionUp"},
-	{NKCODE_EXT_MOTION_DOWN, "MotionDown"},
-	{NKCODE_EXT_MOTION_LEFT, "MotionLeft"},
-	{NKCODE_EXT_MOTION_RIGHT, "MotionRight"},
-	{NKCODE_EXT_MOTION_FORWARD, "MotionFwd"},
-	{NKCODE_EXT_ROTATION_UP, "RotationUp"},
-	{NKCODE_EXT_ROTATION_DOWN, "RotationDown"},
-	{NKCODE_EXT_ROTATION_LEFT, "RotationLeft"},
-	{NKCODE_EXT_ROTATION_RIGHT, "RotationRight"},
-
 	{NKCODE_START_QUESTION, "¿"},
 	{NKCODE_LEFTBRACE, "{"},
 	{NKCODE_RIGHTBRACE, "}"},
+
+	{NKCODE_GUIDE, "Guide"},
+	{NKCODE_INFO, "Info"},
 };
 
 static const KeyMap_IntStrPair axis_names[] = {
@@ -741,6 +733,8 @@ void RestoreDefault() {
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
+#elif PPSSPP_PLATFORM(IOS)
+	SetDefaultKeyMap(DEFAULT_MAPPING_IOS_PAD, false);
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
@@ -850,7 +844,7 @@ void AutoConfForPad(const std::string &name) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 
-	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
+	INFO_LOG(Log::System, "Autoconfiguring pad for '%s'", name.c_str());
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (name.find("Xbox") != std::string::npos) {
