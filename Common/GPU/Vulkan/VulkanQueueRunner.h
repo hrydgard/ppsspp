@@ -71,12 +71,12 @@ struct VkRenderData {
 			uint32_t offset;
 		} draw;
 		struct {
-			VkBuffer vbuffer;
-			VkBuffer ibuffer;
 			uint32_t descSetIndex;
 			uint32_t uboOffsets[3];
 			uint16_t numUboOffsets;
 			uint16_t instances;
+			VkBuffer vbuffer;
+			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
