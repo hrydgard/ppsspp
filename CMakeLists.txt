@@ -1031,11 +1031,6 @@ if(USE_FFMPEG)
 	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
 endif(USE_FFMPEG)
 
-find_package(ZLIB)
-if(ZLIB_FOUND AND NOT ANDROID)
-	include_directories(${ZLIB_INCLUDE_DIR})
-	add_definitions(-DSHARED_ZLIB)
-else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
 		ext/zlib/compress.c
@@ -1067,7 +1062,7 @@ else()
 	)
 	include_directories(ext/zlib)
 	set(ZLIB_LIBRARY zlib)
-endif()
+	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-Wall")
 
 add_library(cityhash STATIC
 	ext/cityhash/city.cpp
