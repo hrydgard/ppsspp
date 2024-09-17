@@ -376,14 +376,6 @@ public:
 		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
-	void BeginPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->Begin();
-	}
-
-	void EndPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->End();
-	}
-
 	bool IsInRenderPass() const {
 		return curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER;
 	}

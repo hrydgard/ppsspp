@@ -150,16 +150,16 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 
 void DrawEngineGLES::BeginFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->BeginPushBuffer(frameData.pushIndex);
-	render_->BeginPushBuffer(frameData.pushVertex);
+	frameData.pushIndex->Begin();
+	frameData.pushVertex->Begin();
 
 	lastRenderStepId_ = -1;
 }
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->EndPushBuffer(frameData.pushIndex);
-	render_->EndPushBuffer(frameData.pushVertex);
+	frameData.pushIndex->End();
+	frameData.pushVertex->End();
 	tessDataTransferGLES->EndFrame();
 }
 

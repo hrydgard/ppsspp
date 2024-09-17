@@ -66,7 +66,7 @@ inline int TranslateKeyCodeToAxis(int keyCode, int *direction) {
 
 class InputMapping {
 private:
-	inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
+	static inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
 		return AXIS_BIND_NKCODE_START + axisId * 2 + (direction < 0 ? 1 : 0);
 	}
 public:

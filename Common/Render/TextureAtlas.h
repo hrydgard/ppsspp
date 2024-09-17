@@ -129,7 +129,7 @@ struct AtlasHeader {
 struct Atlas {
 	~Atlas();
 	bool Load(const uint8_t *data, size_t data_size);
-	bool IsMetadataLoaded() {
+	bool IsMetadataLoaded() const {
 		return images != nullptr;
 	}
 

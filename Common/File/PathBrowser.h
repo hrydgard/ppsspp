@@ -23,7 +23,9 @@ public:
 	void Refresh() {
 		HandlePath();
 	}
-	bool IsListingReady();
+	bool IsListingReady() const {
+		return ready_;
+	}
 	bool GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 
 	bool CanNavigateUp();

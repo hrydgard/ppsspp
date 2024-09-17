@@ -204,10 +204,6 @@ void PathBrowser::ResetPending() {
 	pendingPath_.clear();
 }
 
-bool PathBrowser::IsListingReady() {
-	return ready_;
-}
-
 std::string PathBrowser::GetFriendlyPath() const {
 	// Show relative to memstick root if there.
 	if (path_.StartsWith(aliasMatch_)) {

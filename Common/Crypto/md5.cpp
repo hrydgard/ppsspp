@@ -73,7 +73,7 @@ void ppsspp_md5_starts( md5_context *ctx )
     ctx->state[3] = 0x10325476;
 }
 
-static void ppsspp_md5_process( md5_context *ctx, unsigned char data[64] )
+static void ppsspp_md5_process( md5_context *ctx, const unsigned char data[64] )
 {
     unsigned long X[16], A, B, C, D;
 
