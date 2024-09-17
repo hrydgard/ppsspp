@@ -477,7 +477,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		int imm3 = (w >> 10) & 0x7;
 		if (Rd == 31 && sub && S) {
 			// It's a CMP
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %s", "cmp", S ? "s" : "", r, Rn, r, Rm, extendnames[option]);
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %s", "cmp", "s", r, Rn, r, Rm, extendnames[option]);
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d, %s", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm, extendnames[option]);
 		}

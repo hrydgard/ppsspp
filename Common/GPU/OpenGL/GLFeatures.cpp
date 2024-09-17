@@ -200,20 +200,16 @@ bool CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	INFO_LOG(Log::G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor ? cvendor : "N/A", renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+	INFO_LOG(Log::G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor ? cvendor : "N/A", renderer, versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
-	if (renderer) {
-		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
-		gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
-	}
+	strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
+	gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
 	
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
 	{ // Grab the version and attempt to parse.		
 		char buffer[128] = { 0 };
-		if (versionStr) {
-			strncpy(buffer, versionStr, sizeof(buffer) - 1);
-		}
+		strncpy(buffer, versionStr, sizeof(buffer) - 1);
 	
 		int len = (int)strlen(buffer);
 		bool beforeDot = true;
@@ -353,10 +349,8 @@ bool CheckGLExtensions() {
 
 	// Check the desktop extension instead of the OES one. They are very similar.
 	// Also explicitly check those ATI devices that claims to support npot
-	if (renderer) {
-		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
-			&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
-	}
+	gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
+		&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
 
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
