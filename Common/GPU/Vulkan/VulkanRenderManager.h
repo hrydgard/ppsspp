@@ -159,7 +159,7 @@ struct CompileQueueEntry {
 	Type type;
 	VkRenderPass compatibleRenderPass;
 	RenderPassType renderPassType;
-	VKRGraphicsPipeline *graphics = nullptr;
+	VKRGraphicsPipeline* graphics = nullptr;
 	VkSampleCountFlagBits sampleCount;
 };
 
