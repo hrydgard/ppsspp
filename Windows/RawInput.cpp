@@ -443,9 +443,7 @@ namespace WindowsRawInput {
 	}
 
 	void Shutdown() {
-		if (rawInputBuffer) {
-			free(rawInputBuffer);
-		}
+		free(rawInputBuffer);
 		rawInputBuffer = 0;
 	}
 };

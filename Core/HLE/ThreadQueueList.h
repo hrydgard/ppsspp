@@ -160,8 +160,7 @@ struct ThreadQueueList {
 
 	inline void clear() {
 		for (int i = 0; i < NUM_QUEUES; ++i) {
-			if (queues[i].data != nullptr)
-				free(queues[i].data);
+			free(queues[i].data);
 		}
 		memset(queues, 0, sizeof(queues));
 		first = invalid();

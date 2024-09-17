@@ -122,9 +122,7 @@ public:
 		if (program) {
 			glDeleteProgram(program);
 		}
-		if (locData_) {
-			delete locData_;
-		}
+		delete locData_;
 	}
 	struct Semantic {
 		int location;

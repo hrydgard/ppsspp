@@ -96,9 +96,7 @@ void ScreenManager::switchToNext() {
 	}
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-	if (temp.screen) {
-		delete temp.screen;
-	}
+	delete temp.screen;
 	UI::SetFocusedView(nullptr);
 
 	// When will this ever happen? Should handle focus here too?
@@ -404,15 +402,11 @@ void ScreenManager::processFinishDialog() {
 }
 
 void ScreenManager::SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen) {
-	if (backgroundScreen_) {
-		delete backgroundScreen_;
-	}
+	delete backgroundScreen_;
 	backgroundScreen_ = backgroundScreen;
 	backgroundScreen_->setScreenManager(this);
 
-	if (overlayScreen_) {
-		delete overlayScreen_;
-	}
+	delete overlayScreen_;
 	overlayScreen_ = overlayScreen;
 	overlayScreen_->setScreenManager(this);
 }
