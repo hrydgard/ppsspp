@@ -33,7 +33,7 @@ class NoticeView;
 
 class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(const Path &gamePath);
+	GameScreen(const Path &gamePath, bool inGame);
 	~GameScreen();
 
 	void update() override;
@@ -91,4 +91,5 @@ private:
 	std::string CRC32string;
 
 	bool isHomebrew_ = false;
+	bool inGame_ = false;
 };

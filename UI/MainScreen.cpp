@@ -1511,7 +1511,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	restoreFocusGamePath_ = highlightedGamePath_;
 	g_BackgroundAudio.SetGame(path);
 	lockBackgroundAudio_ = true;
-	screenManager()->push(new GameScreen(path));
+	screenManager()->push(new GameScreen(path, false));
 	return UI::EVENT_DONE;
 }
 

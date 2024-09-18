@@ -51,7 +51,7 @@
 #include "UI/SavedataScreen.h"
 #include "Core/Reporting.h"
 
-GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+GameScreen::GameScreen(const Path &gamePath, bool inGame) : UIDialogScreenWithGameBackground(gamePath), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 }
@@ -209,10 +209,16 @@ void GameScreen::CreateViews() {
 
 	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+
 	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
 	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+	if (inGame_)
+		btnDeleteGameConfig_->SetEnabled(false);
+
 	btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
 	btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+	if (inGame_)
+		btnCreateGameConfig_->SetEnabled(false);
 
 	btnGameSettings_->SetVisibility(V_GONE);
 	btnDeleteGameConfig_->SetVisibility(V_GONE);
@@ -224,7 +230,12 @@ void GameScreen::CreateViews() {
 
 	otherChoices_.clear();
 
-	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	// Don't want to be able to delete the game while it's running.
+	Choice *deleteChoice = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))));
+	deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	if (inGame_) {
+		deleteChoice->SetEnabled(false);
+	}
 	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Add([=](UI::EventParams &e) {
 			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
@@ -235,9 +246,15 @@ void GameScreen::CreateViews() {
 			return UI::EVENT_DONE;
 		});
 	}
+
 	if (isRecentGame(gamePath_)) {
-		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
+		Choice *removeButton = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))));
+		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
+		if (inGame_) {
+			removeButton->SetEnabled(false);
+		}
 	}
+
 #if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
