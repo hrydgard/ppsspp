@@ -71,6 +71,8 @@ void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear);
 // X and Y values should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
 // No deadzone filtering is done (but note that this applies to the actual PSP as well.)
 void __CtrlSetAnalogXY(int stick, float x, float y);
+void __CtrlSetAnalogX(int stick, float x);
+void __CtrlSetAnalogY(int stick, float y);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
 void __CtrlSetRapidFire(bool state, int interval);

@@ -177,7 +177,7 @@ namespace MIPSComp {
 			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
-			ERROR_LOG(CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
+			ERROR_LOG(Log::CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
 			break;
 		}
 	}
@@ -969,6 +969,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
+
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
 		int optype = (op >> 16) & 0x1f;
 		if (optype == 0) {
 			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))

@@ -105,7 +105,7 @@ int GLExtensions::GLSLVersion() {
 void ProcessGPUFeatures() {
 	gl_extensions.bugs = 0;
 
-	DEBUG_LOG(G3D, "Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
+	DEBUG_LOG(Log::G3D, "Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
 
 	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		if (!strcmp(gl_extensions.model, "PowerVR SGX 545") ||
@@ -115,11 +115,11 @@ void ProcessGPUFeatures() {
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 530") ||
 				!strcmp(gl_extensions.model, "PowerVR SGX 520") ) {
-			WARN_LOG(G3D, "GL DRIVER BUG: PVR with bad and terrible precision");
+			WARN_LOG(Log::G3D, "GL DRIVER BUG: PVR with bad and terrible precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_TERRIBLE | BUG_PVR_SHADER_PRECISION_BAD;
 		} else {
 			// TODO: I'm not sure if the Rogue series is affected by this.
-			WARN_LOG(G3D, "GL DRIVER BUG: PVR with bad precision");
+			WARN_LOG(Log::G3D, "GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}
 	}
@@ -193,27 +193,23 @@ bool CheckGLExtensions() {
 		} else if (vendor == "Apple Inc." || vendor == "Apple") {
 			gl_extensions.gpuVendor = GPU_VENDOR_APPLE;
 		} else {
-			WARN_LOG(G3D, "Unknown GL vendor: '%s'", vendor.c_str());
+			WARN_LOG(Log::G3D, "Unknown GL vendor: '%s'", vendor.c_str());
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 		}
 	} else {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	INFO_LOG(G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor ? cvendor : "N/A", renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+	INFO_LOG(Log::G3D, "GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor ? cvendor : "N/A", renderer, versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
-	if (renderer) {
-		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
-		gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
-	}
+	strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
+	gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
 	
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
 	{ // Grab the version and attempt to parse.		
 		char buffer[128] = { 0 };
-		if (versionStr) {
-			strncpy(buffer, versionStr, sizeof(buffer) - 1);
-		}
+		strncpy(buffer, versionStr, sizeof(buffer) - 1);
 	
 		int len = (int)strlen(buffer);
 		bool beforeDot = true;
@@ -267,7 +263,7 @@ bool CheckGLExtensions() {
 			gl_extensions.ver[1] = 0;
 		} else if (parsed[0] && (gl_extensions.ver[0] != parsed[0] || gl_extensions.ver[1] != parsed[1])) {
 			// Something going wrong. Possible bug in GL ES drivers. See #9688
-			INFO_LOG(G3D, "GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
+			INFO_LOG(Log::G3D, "GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
 				versionStr ? versionStr : "N/A", parsed[0], parsed[1], gl_extensions.ver[0], gl_extensions.ver[1]);
 			
 			gl_extensions.ver[0] = 2;
@@ -291,7 +287,7 @@ bool CheckGLExtensions() {
 				gl_extensions.GLES3 = true;
 				// Though, let's ban Mali from the GLES 3 path for now, see #4078
 				if (strstr(renderer, "Mali") != 0) {
-					INFO_LOG(G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
+					INFO_LOG(Log::G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
 					gl_extensions.GLES3 = false;
 				}
 			} else {
@@ -312,9 +308,9 @@ bool CheckGLExtensions() {
 
 		if (gl_extensions.GLES3) {
 			if (gl_extensions.ver[1] >= 1) {
-				INFO_LOG(G3D, "OpenGL ES 3.1 support detected!\n");
+				INFO_LOG(Log::G3D, "OpenGL ES 3.1 support detected!\n");
 			} else {
-				INFO_LOG(G3D, "OpenGL ES 3.0 support detected!\n");
+				INFO_LOG(Log::G3D, "OpenGL ES 3.0 support detected!\n");
 			}
 		}
 	}
@@ -353,10 +349,8 @@ bool CheckGLExtensions() {
 
 	// Check the desktop extension instead of the OES one. They are very similar.
 	// Also explicitly check those ATI devices that claims to support npot
-	if (renderer) {
-		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
-			&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
-	}
+	gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
+		&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
 
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
@@ -410,7 +404,7 @@ bool CheckGLExtensions() {
 #ifdef _DEBUG
 		void *invalidAddress = (void *)eglGetProcAddress("InvalidGlCall1");
 		void *invalidAddress2 = (void *)eglGetProcAddress("AnotherInvalidGlCall2");
-		DEBUG_LOG(G3D, "Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
+		DEBUG_LOG(Log::G3D, "Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
 #endif
 
 		// These are all the same.  Let's alias.
@@ -511,7 +505,7 @@ bool CheckGLExtensions() {
 		// The model number comparison should probably be 400 or 500. This causes us to avoid depal-in-shader.
 		// It seems though that this caused large perf regressions on Adreno 5xx, so I've bumped it up to 600.
 		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM && gl_extensions.modelNumber < 600) {
-			WARN_LOG(G3D, "Detected old Adreno - lowering reported int precision for safety");
+			WARN_LOG(Log::G3D, "Detected old Adreno - lowering reported int precision for safety");
 			gl_extensions.range[1][5][0] = 15;
 			gl_extensions.range[1][5][1] = 15;
 		}
@@ -621,7 +615,7 @@ bool CheckGLExtensions() {
 
 	int error = glGetError();
 	if (error)
-		ERROR_LOG(G3D, "GL error in init: %i", error);
+		ERROR_LOG(Log::G3D, "GL error in init: %i", error);
 
 #endif
 	return true;
@@ -646,7 +640,7 @@ void ResetGLExtensions() {
 	g_all_egl_extensions.clear();
 }
 
-static const char *glsl_fragment_prelude =
+static const char * const glsl_fragment_prelude =
 "#ifdef GL_ES\n"
 "precision mediump float;\n"
 "#endif\n";

@@ -35,6 +35,10 @@ public:
 		return !descPool_;
 	}
 
+	void SetTag(const char *tag) {
+		tag_ = tag;
+	}
+
 private:
 	VkResult Recreate(bool grow);
 

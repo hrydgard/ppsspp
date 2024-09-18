@@ -1,0 +1,117 @@
+{
+   <DlWhatever>
+   Memcheck:Addr8
+   ...
+   fun:_dl_catch_exception
+   fun:_dl_map_object_deps
+   fun:dl_open_worker_begin
+   fun:_dl_catch_exception
+   fun:dl_open_worker
+}
+{
+   <DX1>
+   Memcheck:Cond
+   ...
+   fun:DXCoreCreateAdapterFactory
+   ...
+   obj:/*/swrast_dri.so
+}
+{
+   <param>
+   Memcheck:Cond
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_2>
+   Memcheck:Addr1
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_2>
+   Memcheck:Addr8
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_12>
+   Memcheck:Addr16
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12.so
+}
+{
+   <d3d12_1>
+   Memcheck:Addr8
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12.so
+}
+{
+   <d3d12_24>
+   Memcheck:Addr4
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_29>
+   Memcheck:Addr16
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_14>
+   Memcheck:Addr4
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12.so
+}
+{
+   <d3d12_24>
+   Memcheck:Addr2
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_24>
+   Memcheck:Addr1
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12core.so
+}
+{
+   <d3d12_14>
+   Memcheck:Addr2
+   ...
+   obj:/usr/lib/wsl/lib/libd3d12.so
+}
+{
+   <supp1>
+   Memcheck:Addr8
+   ...
+   obj:/usr/lib/wsl/drivers/nvmdig.inf_amd64_e08347d07a4d61e2/libnvwgf2umx.so
+}
+{
+   <supp2>
+   Memcheck:Addr4
+   ...
+   obj:/usr/lib/wsl/drivers/nvmdig.inf_amd64_e08347d07a4d61e2/libnvwgf2umx.so
+}
+{
+   <vk1>
+   Memcheck:Cond
+   obj:/usr/lib/wsl/lib/libdxcore.so
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libvulkan.so.*
+}
+{
+   <vk2>
+   Memcheck:Cond
+   ...
+   obj:/usr/lib/wsl/drivers/nvmdig.inf_amd64_e08347d07a4d61e2/libnvwgf2umx.so
+}
+{
+   <swrast>
+   Memcheck:Addr8
+   fun:memmove
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/dri/swrast_dri.so
+   ...
+}

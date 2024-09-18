@@ -58,7 +58,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;
-	drawEngineCommon_ = &drawEngine_;
 
 	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
@@ -76,7 +75,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	// No need to flush before the tex scale/offset commands if we are baking
@@ -106,18 +105,18 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 					gstate_c.useFlagsChanged = false;
 
 					if (shaderManagerGL_->LoadCache(f))
-						NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
+						NOTICE_LOG(Log::G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
 				}
 			}
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		}
 	}
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation if device is unsupported.
 		if (!drawEngine_.SupportsHWTessellation()) {
-			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 		}
@@ -132,7 +131,7 @@ GPU_GLES::~GPU_GLES() {
 		if (g_Config.bShaderCache) {
 			shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		}
 	}
 	fragmentTestCache_.Clear();
@@ -170,11 +169,9 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
 
-	if (IsVREnabled()) {
+	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
-	}
-	if (IsMultiviewSupported()) {
-		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features &= ~GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (!gl_extensions.GLES3) {
@@ -225,7 +222,7 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	INFO_LOG(G3D, "GPU_GLES: DeviceLost");
+	INFO_LOG(Log::G3D, "GPU_GLES: DeviceLost");
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
@@ -245,27 +242,12 @@ void GPU_GLES::BeginHostFrame() {
 	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();
 
-	if (gstate_c.useFlagsChanged) {
-		// TODO: It'd be better to recompile them in the background, probably?
-		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManager_->ClearShaders();
-		framebufferManager_->ClearAllDepthBuffers();
-		gstate_c.useFlagsChanged = false;
-	}
-}
-
-void GPU_GLES::EndHostFrame() {
-	drawEngine_.EndFrame();
-}
-
-void GPU_GLES::BeginFrame() {
-	GPUCommonHW::BeginFrame();
-
 	textureCache_->StartFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
-	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
+
+	const int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
+	if (shaderCachePath_.Valid() && !(gpuStats.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
 	shaderManagerGL_->DirtyLastShader();
@@ -276,6 +258,18 @@ void GPU_GLES::BeginFrame() {
 	framebufferManager_->BeginFrame();
 
 	fragmentTestCache_.Decimate();
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		shaderManager_->ClearShaders();
+		framebufferManager_->ClearAllDepthBuffers();
+		gstate_c.useFlagsChanged = false;
+	}
+}
+
+void GPU_GLES::EndHostFrame() {
+	drawEngine_.EndFrame();
 }
 
 void GPU_GLES::FinishDeferred() {

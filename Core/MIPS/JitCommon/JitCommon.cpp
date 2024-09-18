@@ -96,9 +96,9 @@ namespace MIPSComp {
 			// For a branch (not a jump), it actually should try the delay slot and take its target potentially.
 			// This is similar to the VFPU case and has not been seen, so just report it.
 			if (!isJump && SignExtend16ToU32(branchInfo.delaySlotOp) != SignExtend16ToU32(branchInfo.op) - 1)
-				ERROR_LOG_REPORT(JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
+				ERROR_LOG_REPORT(Log::JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
 			if (isJump && branchInfo.likely && (branchInfo.delaySlotInfo & (OUT_RA | OUT_RD)) != 0)
-				ERROR_LOG_REPORT(JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
+				ERROR_LOG_REPORT(Log::JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
 	}
 		return notTakenTarget;
 }
@@ -135,6 +135,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 
 	char temp[256];
 	int bkpt_count = 0;
+	lines.reserve(size / 4);
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
 		u32 inst = codePtr[0];
@@ -196,6 +197,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 
 	char temp[256];
 	int bkpt_count = 0;
+	lines.reserve(size / 4);
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
 		uint64_t addr = (intptr_t)codePtr;

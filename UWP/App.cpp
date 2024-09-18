@@ -15,7 +15,7 @@
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"

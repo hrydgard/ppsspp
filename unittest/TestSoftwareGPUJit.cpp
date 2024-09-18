@@ -24,6 +24,7 @@
 #include "GPU/Software/SoftGpu.h"
 
 static bool TestSamplerJit() {
+#if PPSSPP_ARCH(AMD64)
 	using namespace Sampler;
 	SamplerJitCache *cache = new SamplerJitCache();
 	BinManager binner;
@@ -108,9 +109,14 @@ static bool TestSamplerJit() {
 
 	delete cache;
 	return successes == count && !HitAnyAsserts();
+#else
+	// Don't test sampler jit, not supported.
+	return true;
+#endif
 }
 
 static bool TestPixelJit() {
+#if PPSSPP_ARCH(AMD64)
 	using namespace Rasterizer;
 	PixelJitCache *cache = new PixelJitCache();
 	BinManager binner;
@@ -159,6 +165,10 @@ static bool TestPixelJit() {
 	delete [] zb_data;
 	delete cache;
 	return successes == count && !HitAnyAsserts();
+#else
+	// Not yet supported
+	return true;
+#endif
 }
 
 bool TestSoftwareGPUJit() {

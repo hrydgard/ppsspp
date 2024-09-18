@@ -26,7 +26,6 @@ const char *GetDeviceName(int deviceId) {
 	case DEVICE_ID_XINPUT_3: return "x360_4";
 	case DEVICE_ID_ACCELEROMETER: return "accelerometer";
 	case DEVICE_ID_MOUSE: return "mouse";
-	case DEVICE_ID_XR_HMD: return "xr_hmd";
 	case DEVICE_ID_XR_CONTROLLER_LEFT: return "xr_l";
 	case DEVICE_ID_XR_CONTROLLER_RIGHT: return "xr_r";
 	default:
@@ -74,7 +73,7 @@ void SetInfoKeys(const std::vector<InputMapping> &info) {
 	infoKeys = info;
 }
 
-void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId) {
+void SetAnalogFlipY(const std::unordered_map<InputDeviceID, int> &flipYByDeviceId) {
 	uiFlipAnalogY = flipYByDeviceId;
 }
 

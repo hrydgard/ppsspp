@@ -601,7 +601,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format: %d", (int)format);
 			break;
 		}
 	}
@@ -663,7 +663,7 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format to BGRA: %d", (int)format);
 			break;
 		}
 	}
@@ -751,7 +751,8 @@ void ConvertToD16(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t
 
 const char *Bugs::GetBugName(uint32_t bug) {
 	switch (bug) {
-	case NO_DEPTH_CANNOT_DISCARD_STENCIL: return "NO_DEPTH_CANNOT_DISCARD_STENCIL";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO";
 	case DUAL_SOURCE_BLENDING_BROKEN: return "DUAL_SOURCE_BLENDING_BROKEN";
 	case ANY_MAP_BUFFER_RANGE_SLOW: return "ANY_MAP_BUFFER_RANGE_SLOW";
 	case PVR_GENMIPMAP_HEIGHT_GREATER: return "PVR_GENMIPMAP_HEIGHT_GREATER";
@@ -764,6 +765,7 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
 	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
 	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
+	case PVR_BAD_16BIT_TEXFORMATS: return "PVR_BAD_16BIT_TEXFORMATS";
 	default: return "(N/A)";
 	}
 }

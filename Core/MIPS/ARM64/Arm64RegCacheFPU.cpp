@@ -110,9 +110,9 @@ bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) {
 }
 
 ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
-	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
+	// INFO_LOG(Log::JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
 	if (jo_->useASIMDVFPU && mipsReg >= 32) {
-		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
+		ERROR_LOG(Log::JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
 		return S0;
 	}
 
@@ -122,12 +122,12 @@ ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(JIT, "Reg mapping out of sync! MR %i", mipsReg);
+			ERROR_LOG(Log::JIT, "Reg mapping out of sync! MR %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
-		//INFO_LOG(JIT, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
+		//INFO_LOG(Log::JIT, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
 		return (ARM64Reg)(mr[mipsReg].reg + S0);
 	}
 
@@ -151,7 +151,7 @@ allocate:
 			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
 			mr[mipsReg].reg = reg;
-			//INFO_LOG(JIT, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
+			//INFO_LOG(Log::JIT, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
 			return (ARM64Reg)(reg + S0);
 		}
 	}
@@ -175,7 +175,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", js_->compilerPC);
+	ERROR_LOG(Log::JIT, "Out of spillable registers at PC %08x!!!", js_->compilerPC);
 	return INVALID_REG;
 }
 
@@ -289,14 +289,14 @@ void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
 		}
 		if (ar[reg].mipsReg != -1) {
 			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG){
-				//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
+				//INFO_LOG(Log::JIT, "Flushing ARM reg %i", reg);
 				fp_->STR(32, INDEX_UNSIGNED, r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 			}
 			// IMMs won't be in an ARM reg.
 			mr[ar[reg].mipsReg].loc = ML_MEM;
 			mr[ar[reg].mipsReg].reg = INVALID_REG;
 		} else {
-			ERROR_LOG(JIT, "Dirty but no mipsreg?");
+			ERROR_LOG(Log::JIT, "Dirty but no mipsreg?");
 		}
 		ar[reg].mipsReg = -1;
 		ar[reg].isDirty = false;
@@ -312,12 +312,12 @@ void Arm64RegCacheFPU::FlushR(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		// IMM is not allowed for FP (yet).
-		ERROR_LOG(JIT, "Imm in FP register?");
+		ERROR_LOG(Log::JIT, "Imm in FP register?");
 		break;
 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
+			ERROR_LOG(Log::JIT, "FlushR: MipsReg had bad ArmReg");
 		}
 		FlushArmReg((ARM64Reg)(S0 + mr[r].reg));
 		break;
@@ -337,12 +337,12 @@ Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		// IMM is not allowed for FP (yet).
-		ERROR_LOG(JIT, "Imm in FP register?");
+		ERROR_LOG(Log::JIT, "Imm in FP register?");
 		return INVALID_REG;
 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
 			return INVALID_REG;
 		}
 		// No need to flush if it's not dirty.
@@ -355,7 +355,7 @@ Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
 		return INVALID_REG;
 
 	default:
-		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
 		return INVALID_REG;
 	}
 }
@@ -399,7 +399,7 @@ void Arm64RegCacheFPU::FlushAll() {
 
 		if (ar[a].isDirty) {
 			if (m == -1) {
-				INFO_LOG(JIT, "ARM reg %d is dirty but has no mipsreg", a);
+				INFO_LOG(Log::JIT, "ARM reg %d is dirty but has no mipsreg", a);
 				continue;
 			}
 
@@ -422,7 +422,7 @@ void Arm64RegCacheFPU::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%d].mipsReg=%d", i, ar[i].mipsReg);
+			ERROR_LOG(Log::JIT, "Flush fail: ar[%d].mipsReg=%d", i, ar[i].mipsReg);
 		}
 	}
 	pendingFlush = false;
@@ -433,12 +433,12 @@ void Arm64RegCacheFPU::DiscardR(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		// IMM is not allowed for FP (yet).
-		ERROR_LOG(JIT, "Imm in FP register?");
+		ERROR_LOG(Log::JIT, "Imm in FP register?");
 		break;
 		 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
+			ERROR_LOG(Log::JIT, "DiscardR: MipsReg had bad ArmReg");
 		} else {
 			// Note that we DO NOT write it back here. That's the whole point of Discard.
 			ar[mr[r].reg].isDirty = false;
@@ -466,7 +466,7 @@ bool Arm64RegCacheFPU::IsTempX(ARM64Reg r) const {
 
 int Arm64RegCacheFPU::GetTempR() {
 	if (jo_->useASIMDVFPU) {
-		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
+		ERROR_LOG(Log::JIT, "VFP temps not allowed in NEON mode");
 		return 0;
 	}
 	pendingFlush = true;
@@ -477,7 +477,7 @@ int Arm64RegCacheFPU::GetTempR() {
 		}
 	}
 
-	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
+	ERROR_LOG(Log::CPU, "Out of temp regs! Might need to DiscardR() some");
 	_assert_msg_(false, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
 }
@@ -485,7 +485,7 @@ int Arm64RegCacheFPU::GetTempR() {
 int Arm64RegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs", then the VFPU ctrls.
 	if (r < 0 || r > 32 + 128 + NUM_TEMPS) {
-		ERROR_LOG(JIT, "bad mips register %i, out of range", r);
+		ERROR_LOG(Log::JIT, "bad mips register %i, out of range", r);
 		return 0;  // or what?
 	}
 
@@ -519,11 +519,11 @@ ARM64Reg Arm64RegCacheFPU::R(int mipsReg) {
 		return (ARM64Reg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
+			ERROR_LOG(Log::JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
+			ERROR_LOG(Log::JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
+			ERROR_LOG(Log::JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		}
 		return INVALID_REG;  // BAAAD
 	}

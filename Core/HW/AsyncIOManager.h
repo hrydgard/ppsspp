@@ -83,7 +83,7 @@ public:
 	void DoState(PointerWrap &p);
 
 	bool HasOperation(u32 handle);
-	void ScheduleOperation(AsyncIOEvent ev);
+	void ScheduleOperation(const AsyncIOEvent &ev);
 	void Shutdown();
 
 	bool HasResult(u32 handle);
@@ -102,7 +102,7 @@ private:
 	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
 	void Write(u32 handle, const u8 *buf, size_t bytes);
 
-	void EventResult(u32 handle, AsyncIOResult result);
+	void EventResult(u32 handle, const AsyncIOResult &result);
 
 	std::mutex resultsLock_;
 	std::condition_variable resultsWait_;

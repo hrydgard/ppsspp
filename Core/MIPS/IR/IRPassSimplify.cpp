@@ -229,6 +229,15 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 	CONDITIONAL_DISABLE;
 
 	bool logBlocks = false;
+
+	bool letThroughHalves = false;
+	if (opts.optimizeForInterpreter) {
+		// If we're using the interpreter, which can handle these instructions directly,
+		// don't break "half" instructions up.
+		// Of course, we still want to combine if possible.
+		letThroughHalves = true;
+	}
+
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
 		const IRInst &inst = in.GetInstructions()[i];
 
@@ -305,6 +314,11 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 		switch (inst.op) {
 		case IROp::Load32Left:
 			if (!combineOpposite(IROp::Load32Right, -3, IROp::Load32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
+
 				addCommonProlog();
 				// dest &= (0x00ffffff >> shift)
 				// Alternatively, could shift to a wall and back (but would require two shifts each way.)
@@ -339,6 +353,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Load32Right:
 			if (!combineOpposite(IROp::Load32Left, 3, IROp::Load32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE >>= shift
 				out.Write(IROp::Shr, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
@@ -382,6 +400,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Left:
 			if (!combineOpposite(IROp::Store32Right, -3, IROp::Store32, -3)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0xffffff00 << shift
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0xffffff00);
@@ -399,6 +421,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 		case IROp::Store32Right:
 			if (!combineOpposite(IROp::Store32Left, 3, IROp::Store32, 0)) {
+				if (letThroughHalves) {
+					out.Write(inst);
+					break;
+				}
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0x00ffffff << (24 - shift)
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
@@ -1175,16 +1201,21 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IRTEMP_LR_VALUE:
 		case IRTEMP_LR_MASK:
 		case IRTEMP_LR_SHIFT:
-			// Unlike other registers, these don't need to persist between blocks.
-			// So we consider them not read unless proven read.
-			lastWrittenTo[dest] = i;
-			// If this is a copy, we might be able to optimize out the copy.
-			if (inst.op == IROp::Mov) {
-				Check check(dest, i, false);
-				check.srcReg = inst.src1;
-				checks.push_back(check);
+			// Check that it's not a barrier instruction (like CallReplacement). Don't want to even consider optimizing those.
+			if (!(inst.m.flags & IRFLAG_BARRIER)) {
+				// Unlike other registers, these don't need to persist between blocks.
+				// So we consider them not read unless proven read.
+				lastWrittenTo[dest] = i;
+				// If this is a copy, we might be able to optimize out the copy.
+				if (inst.op == IROp::Mov) {
+					Check check(dest, i, false);
+					check.srcReg = inst.src1;
+					checks.push_back(check);
+				} else {
+					checks.push_back(Check(dest, i, false));
+				}
 			} else {
-				checks.push_back(Check(dest, i, false));
+				lastWrittenTo[dest] = i;
 			}
 			break;
 
@@ -2136,11 +2167,136 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			downgrade = true;
 
 		if (downgrade) {
-			//WARN_LOG(JIT, "Vec4 downgrade by: %s", m->name);
+			//WARN_LOG(Log::JIT, "Vec4 downgrade by: %s", m->name);
 		}
 
 		if (!skip)
 			out.Write(inst);
 	}
+	return logBlocks;
+}
+
+// This optimizes away redundant loads-after-stores, which are surprisingly not that uncommon.
+bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		// Just copy the last instruction.
+		if (i == n - 1) {
+			out.Write(inst);
+			break;
+		}
+
+		out.Write(inst);
+
+		IRInst next = in.GetInstructions()[i + 1];
+		switch (inst.op) {
+		case IROp::Store32:
+			if (next.op == IROp::Load32 &&
+				next.constant == inst.constant &&
+				next.dest == inst.dest &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant.
+				// Skip it.
+				i++;
+			}
+			break;
+		case IROp::StoreVec4:
+			if (next.op == IROp::LoadVec4 &&
+				next.constant == inst.constant &&
+				next.dest == inst.dest &&
+				next.src1 == inst.src1) {
+				// The upcoming load is completely redundant. These are common in Wipeout.
+				// Skip it. NOTE: It looks like vector load/stores uses different register assignments, but there's a union between dest and src3.
+				i++;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	return logBlocks;
+}
+
+bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	// We also move the downcount to the top so the interpreter can assume that it's there.
+	bool foundDowncount = false;
+	out.Write(IROp::Downcount);
+
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		bool last = i == n - 1;
+
+		// Specialize some instructions.
+		switch (inst.op) {
+		case IROp::Downcount:
+			if (!foundDowncount) {
+				// Move the value into the initial Downcount.
+				foundDowncount = true;
+				out.ReplaceConstant(0, inst.constant);
+			} else {
+				// Already had a downcount. Let's just re-emit it.
+				out.Write(inst);
+			}
+			break;
+		case IROp::AddConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptAddConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::AndConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptAndConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::OrConst:
+			if (inst.src1 == inst.dest) {
+				inst.op = IROp::OptOrConst;
+			}
+			out.Write(inst);
+			break;
+		case IROp::FMovToGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::ShrImm && next.src2 == 8 && next.src1 == next.dest && next.src1 == inst.dest) {
+					// Heavily used when writing display lists.
+					inst.op = IROp::OptFMovToGPRShr8;
+					i++;  // Skip the next instruction.
+				}
+			}
+			out.Write(inst);
+			break;
+		case IROp::FMovFromGPR:
+			if (!last) {
+				IRInst next = in.GetInstructions()[i + 1];
+				if (next.op == IROp::FCvtSW && next.src1 == inst.dest && next.dest == inst.dest) {
+					inst.op = IROp::OptFCvtSWFromGPR;
+					i++;  // Skip the next
+				}
+			}
+			out.Write(inst);
+			break;
+		default:
+			out.Write(inst);
+			break;
+		}
+	}
+
 	return logBlocks;
 }

@@ -30,7 +30,7 @@
 
 // Not really sure where these belong - is it worth giving them their own file?
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
-	DEBUG_LOG(HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
 	if (!Memory::IsValidAddress(ctx))
 		return -1;
 	void *ptr = Memory::GetPointerWrite(ctx);
@@ -41,7 +41,7 @@ u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
 }
 
 u32 sceKernelUtilsMt19937UInt(u32 ctx) {
-	VERBOSE_LOG(HLE, "sceKernelUtilsMt19937UInt(%08x)", ctx);
+	VERBOSE_LOG(Log::HLE, "sceKernelUtilsMt19937UInt(%08x)", ctx);
 	if (!Memory::IsValidAddress(ctx))
 		return -1;
 	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointerUnchecked(ctx);
@@ -53,7 +53,7 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 static md5_context md5_ctx;
 
 static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
@@ -63,7 +63,7 @@ static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 }
 
 static int sceMd5BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(HLE, "sceMd5BlockInit(%08x)", ctxAddr);
+	DEBUG_LOG(Log::HLE, "sceMd5BlockInit(%08x)", ctxAddr);
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
@@ -75,7 +75,7 @@ static int sceMd5BlockInit(u32 ctxAddr) {
 }
 
 static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
-	DEBUG_LOG(HLE, "sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+	DEBUG_LOG(Log::HLE, "sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 	
@@ -84,7 +84,7 @@ static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 }
 
 static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
@@ -93,7 +93,7 @@ static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 }
 
 int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
@@ -103,7 +103,7 @@ int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
 }
 
 int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockInit(%08x)", ctxAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockInit(%08x)", ctxAddr);
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
@@ -115,7 +115,7 @@ int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
 }
 
 int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
-	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 
@@ -124,7 +124,7 @@ int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
 }
 
 int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
@@ -136,7 +136,7 @@ int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 static sha1_context sha1_ctx;
 
 int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
@@ -146,7 +146,7 @@ int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 }
 
 int sceKernelUtilsSha1BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockInit(%08x)", ctxAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockInit(%08x)", ctxAddr);
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
@@ -159,7 +159,7 @@ int sceKernelUtilsSha1BlockInit(u32 ctxAddr) {
 }
 
 int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
-	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockUpdate(%08x, %08x, %d)", ctxAddr, dataAddr, len);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockUpdate(%08x, %08x, %d)", ctxAddr, dataAddr, len);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataAddr))
 		return -1;
 
@@ -168,7 +168,7 @@ int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
 }
 
 int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockResult(%08x, %08x)", ctxAddr, digestAddr);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 

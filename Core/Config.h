@@ -48,8 +48,8 @@ public:
 	};
 
 	// It's OK to call these redundantly.
-	void Start(std::string gameId);
-	void Stop(std::string gameId);
+	void Start(const std::string &gameId);
+	void Stop(const std::string &gameId);
 
 	void Load(const Section *section);
 	void Save(Section *section);
@@ -97,10 +97,10 @@ public:
 
 	bool bPauseWhenMinimized;
 
-	// Not used on mobile devices.
 	bool bPauseExitsEmulator;
-
 	bool bPauseMenuExitsEmulator;
+
+	bool bRunBehindPauseMenu;
 
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -128,7 +128,10 @@ public:
 	bool bRemoteISOManual;
 	bool bRemoteShareOnStartup;
 	std::string sRemoteISOSubdir;
+	std::string sRemoteISOSharedDir;
+	int iRemoteISOShareType;
 	bool bRemoteDebuggerOnStartup;
+	bool bRemoteTab;
 	bool bMemStickInserted;
 	int iMemStickSizeGB;
 	bool bLoadPlugins;
@@ -146,6 +149,7 @@ public:
 
 	// GFX
 	int iGPUBackend;
+	std::string sCustomDriver;
 	std::string sFailedGPUBackends;
 	std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
@@ -154,6 +158,9 @@ public:
 	std::string sD3D11Device;  // Windows only
 	std::string sCameraDevice;
 	std::string sMicDevice;
+	bool bCameraMirrorHorizontal;
+	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
+	int iDisplayRefreshRate = 60;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
@@ -164,8 +171,10 @@ public:
 
 	// Speedhacks (more will be moved here):
 	bool bSkipBufferEffects;
+	bool bDisableRangeCulling;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
+	bool bSmart2DTexFiltering;
 
 	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
 	int iDisplayFilter;    // 1 = linear, 2 = nearest
@@ -173,6 +182,7 @@ public:
 	float fDisplayOffsetY;
 	float fDisplayScale;   // Relative to the most constraining axis (x or y).
 	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
+	bool bDisplayCropTo16x9;  // Crops to 16:9 if the resolution is very close.
 	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
 
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
@@ -201,6 +211,7 @@ public:
 
 	bool bTextureBackoffCache;
 	bool bVertexDecoderJit;
+	int iAppSwitchMode;
 	bool bFullScreen;
 	bool bFullScreenMulti;
 	int iForceFullScreen = -1; // -1 = nope, 0 = force off, 1 = force on (not saved.)
@@ -229,11 +240,12 @@ public:
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
 	bool bReloadCheats;
-	int iCwCheatRefreshRate;
+	bool bEnablePlugins;
+	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
-	bool bSkipGPUReadbacks;
+	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
@@ -255,15 +267,24 @@ public:
 	bool bRenderDuplicateFrames;
 	bool bRenderMultiThreading;
 
+	// HW debug
+	bool bShowGPOLEDs;
+
 	// Sound
 	bool bEnableSound;
 	int iAudioBackend;
 	int iGlobalVolume;
 	int iReverbVolume;
 	int iAltSpeedVolume;
+	int iAchievementSoundVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;
+	bool bUseNewAtrac;
+
+	// iOS only for now
+	bool bAudioMixWithOthers;
+	bool bAudioRespectSilentMode;
 
 	// UI
 	bool bShowDebuggerOnLoad;
@@ -292,7 +313,7 @@ public:
 	// The deadzone radius of the tilt. Only used in the analog mapping.
 	float fTiltAnalogDeadzoneRadius;
 	float fTiltInverseDeadzone;  // An inverse deadzone for the output, counteracting excessive deadzones applied by games. See #17483.
-	bool bTiltCircularInverseDeadzone;
+	bool bTiltCircularDeadzone;
 	// Type of tilt input currently selected: Defined in TiltEventProcessor.h
 	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
@@ -393,14 +414,19 @@ public:
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
+	// Trigger configuration
+	float fAnalogTriggerThreshold;
+
 	// Sets whether combo mapping is enabled.
 	bool bAllowMappingCombos;
+	bool bStrictComboOrder;
 
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|
 	bool bMouseConfine; // Trap inside the window.
 	float fMouseSensitivity;
 	float fMouseSmoothing;
+	int iMouseWheelUpDelayMs;
 
 	bool bSystemControls;
 	int iRapidFireInterval;
@@ -455,22 +481,20 @@ public:
 	bool bEnableVR;
 	bool bEnable6DoF;
 	bool bEnableStereo;
-	bool bEnableMotions;
+	bool bEnableImmersiveVR;
 	bool bForce72Hz;
+	bool bForceVR;
 	bool bManualForceVR;
 	bool bPassthrough;
 	bool bRescaleHUD;
 	float fCameraDistance;
 	float fCameraHeight;
 	float fCameraSide;
+	float fCameraPitch;
 	float fCanvasDistance;
 	float fCanvas3DDistance;
+	float fFieldOfViewPercentage;
 	float fHeadUpDisplayScale;
-	float fMotionLength;
-	float fHeadRotationScale;
-	bool bHeadRotationEnabled;
-	bool bHeadRotationSmoothing;
-	int iCameraPitch;
 
 	// Debugger
 	int iDisasmWindowX;
@@ -508,12 +532,13 @@ public:
 	// Retro Achievement settings
 	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
-	bool bAchievementsChallengeMode;
+	bool bAchievementsHardcoreMode;
 	bool bAchievementsEncoreMode;
 	bool bAchievementsUnofficial;
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 	bool bAchievementsSaveStateInHardcoreMode;
+	bool bAchievementsEnableRAIntegration;
 
 	// Positioning of the various notifications
 	int iAchievementsLeaderboardTrackerPos;
@@ -580,7 +605,7 @@ public:
 
 	bool IsPortrait() const;
 	int NextValidBackend();
-	bool IsBackendEnabled(GPUBackend backend, bool validate = true);
+	bool IsBackendEnabled(GPUBackend backend);
 
 	bool UseFullScreen() const {
 		if (iForceFullScreen != -1)
@@ -592,7 +617,7 @@ public:
 	bool HasRecentIsos() const;
 	void ClearRecentIsos();
 
-	const std::map<std::string, std::pair<std::string, int>> &GetLangValuesMapping();
+	const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path);
 	void UpdateAfterSettingAutoFrameSkip();
@@ -616,7 +641,7 @@ private:
 	std::string gameId_;
 	std::string gameIdTitle_;
 	std::vector<std::string> recentIsos;
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping_;
+	std::map<std::string, std::pair<std::string, int>, std::less<>> langValuesMapping_;
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
 	Path controllerIniFilename_;

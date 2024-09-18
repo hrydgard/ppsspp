@@ -17,7 +17,9 @@
 
 #pragma once
 
-#ifdef __ANDROID__
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
 #define VK_USE_PLATFORM_ANDROID_KHR
 #elif defined(_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -29,9 +31,13 @@
 #define VK_USE_PLATFORM_METAL_EXT
 #endif
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 #define VK_NO_PROTOTYPES
+#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
+#endif
 
 #include "ext/vulkan/vulkan.h"
+#include <string>
 
 // Hacky X11 header workaround
 #ifdef Opposite
@@ -39,6 +45,7 @@
 #endif
 
 namespace PPSSPP_VK {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 // Putting our own Vulkan function pointers in a namespace ensures that ppsspp_libretro.so doesn't collide with libvulkan.so.
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkDestroyInstance vkDestroyInstance;
@@ -229,15 +236,17 @@ extern PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 extern PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT;
 
 // Assorted other extensions.
-extern PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
-extern PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
+extern PFN_vkGetBufferMemoryRequirements2 vkGetBufferMemoryRequirements2;
+extern PFN_vkGetImageMemoryRequirements2 vkGetImageMemoryRequirements2;
+extern PFN_vkGetPhysicalDeviceProperties2 vkGetPhysicalDeviceProperties2;
+extern PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2;
+extern PFN_vkCreateRenderPass2 vkCreateRenderPass2;
+
 extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
-extern PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
-extern PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
-extern PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
 extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+#endif  // !PPSSPP_PLATFORM(IOS_APP_STORE)
 } // namespace PPSSPP_VK
 
 // For fast extension-enabled checks.
@@ -259,6 +268,7 @@ struct VulkanExtensions {
 	bool KHR_present_id;  // Should probably check the feature flags instead.
 	bool KHR_present_wait;  // Same
 	bool GOOGLE_display_timing;
+	bool EXT_provoking_vertex;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 
@@ -266,9 +276,9 @@ struct VulkanExtensions {
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
-bool VulkanLoad();
-void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions);
-void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions);
+bool VulkanLoad(std::string *errorStr);
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanFree();
 
 const char *VulkanResultToString(VkResult res);

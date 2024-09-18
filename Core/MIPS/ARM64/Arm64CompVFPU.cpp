@@ -99,7 +99,7 @@ namespace MIPSComp {
 			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
-			ERROR_LOG(CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
+			ERROR_LOG(Log::CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
 			break;
 		}
 	}
@@ -134,7 +134,7 @@ namespace MIPSComp {
 				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
-					WARN_LOG(CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(GetCompilerPC()).c_str());
+					WARN_LOG(Log::CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(GetCompilerPC()).c_str());
 					regnum = 0;
 				}
 
@@ -882,7 +882,7 @@ namespace MIPSComp {
 				fp.FDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			default:
-				ERROR_LOG(JIT, "case missing in vfpu vv2op");
+				ERROR_LOG(Log::JIT, "case missing in vfpu vv2op");
 				DISABLE;
 				break;
 			}
@@ -948,6 +948,12 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vh2f(MIPSOpcode op) {
+		// TODO: Fix by porting the general SSE solution to NEON
+		// FCVTL doesn't provide identical results to the PSP hardware, according to the unit test:
+		// O vh2f: 00000000,400c0000,00000000,7ff00000
+		// E vh2f: 00000000,400c0000,00000000,7f800380
+		DISABLE;
+
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1027,7 +1033,7 @@ namespace MIPSComp {
 					}
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
-					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
+					ERROR_LOG(Log::CPU, "mfv - invalid register %i", imm);
 				}
 			}
 			break;
@@ -1910,7 +1916,7 @@ namespace MIPSComp {
 				break;
 			}
 			default:
-				ERROR_LOG(JIT, "Bad what in vrot");
+				ERROR_LOG(Log::JIT, "Bad what in vrot");
 				break;
 			}
 		}
@@ -1941,7 +1947,7 @@ namespace MIPSComp {
 			// Pair of vrot. Let's join them.
 			vd2 = MIPS_GET_VD(nextOp);
 			imm2 = (nextOp >> 16) & 0x1f;
-			// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+			// NOTICE_LOG(Log::JIT, "Joint VFPU at %08x", js.blockStart);
 		}
 		u8 sreg;
 		GetVectorRegs(dregs, sz, vd);

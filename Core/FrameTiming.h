@@ -8,14 +8,23 @@ namespace Draw {
 class DrawContext;
 }
 
-struct FrameTiming {
+class FrameTiming {
+public:
+	void DeferWaitUntil(double until, double *curTimePtr);
+	void PostSubmit();
+	void Reset(Draw::DrawContext *draw);
+
 	// Some backends won't allow changing this willy nilly.
 	Draw::PresentMode presentMode;
 	int presentInterval;
 
-	void Reset(Draw::DrawContext *draw);
+private:
+	double waitUntil_;
+	double *curTimePtr_;
 };
 
 extern FrameTiming g_frameTiming;
 
 Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval);
+
+void WaitUntil(double now, double timestamp);

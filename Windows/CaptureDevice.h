@@ -50,7 +50,7 @@ struct AudioFormatTransform {
 
 enum class CAPTUREDEVIDE_TYPE {
 	VIDEO,
-	AUDIO
+	Audio
 };
 
 enum class CAPTUREDEVIDE_STATE {

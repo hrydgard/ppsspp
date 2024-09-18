@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <wrl/client.h>
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
@@ -36,6 +37,8 @@
 #include "Common/Math/math_util.h"
 
 // NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
+
+using Microsoft::WRL::ComPtr;
 
 Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
@@ -79,7 +82,7 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 		result = device_->GetDeviceCaps(&pCaps);
 	}
 	if (FAILED(result)) {
-		WARN_LOG(G3D, "Failed to get the device caps!");
+		WARN_LOG(Log::G3D, "Failed to get the device caps!");
 		maxAnisotropyLevel = 16;
 	} else {
 		maxAnisotropyLevel = pCaps.MaxAnisotropy;
@@ -90,7 +93,6 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 }
 
 TextureCacheDX9::~TextureCacheDX9() {
-	pFramebufferVertexDecl->Release();
 	Clear(true);
 }
 
@@ -198,7 +200,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		device_->SetTexture(0, nullptr);
 		return;
 	}
-	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
+	IDirect3DBaseTexture9 *texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
@@ -264,7 +266,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (FAILED(hr)) {
-		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
+		INFO_LOG(Log::G3D, "Failed to create D3D texture: %dx%d", tw, th);
 		ReleaseTexture(entry, true);
 		return;
 	}
@@ -284,7 +286,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 			result = ((LPDIRECT3DTEXTURE9)texture)->LockRect(dstLevel, &rect, NULL, lockFlag);
 			if (FAILED(result)) {
-				ERROR_LOG(G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
+				ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
 				return;
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
@@ -297,7 +299,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		D3DLOCKED_BOX box;
 		HRESULT result = ((LPDIRECT3DVOLUMETEXTURE9)texture)->LockBox(0, &box, nullptr, D3DLOCK_DISCARD);
 		if (FAILED(result)) {
-			ERROR_LOG(G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
+			ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
 			return;
 		}
 
@@ -356,15 +358,15 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 
 	ApplyTexture();
 
-	LPDIRECT3DBASETEXTURE9 baseTex;
-	LPDIRECT3DTEXTURE9 tex;
-	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	ComPtr<IDirect3DBaseTexture9> baseTex;
+	ComPtr<IDirect3DTexture9> tex;
+	ComPtr<IDirect3DSurface9> offscreen;
 	HRESULT hr;
 
 	bool success = false;
 	hr = device_->GetTexture(0, &baseTex);
 	if (SUCCEEDED(hr) && baseTex != NULL) {
-		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
+		hr = baseTex.As(&tex);
 		if (SUCCEEDED(hr)) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -374,17 +376,16 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.
 			if (FAILED(hr)) {
-				LPDIRECT3DSURFACE9 renderTarget = nullptr;
+				ComPtr<IDirect3DSurface9> renderTarget;
 				hr = tex->GetSurfaceLevel(level, &renderTarget);
 				if (renderTarget && SUCCEEDED(hr)) {
 					hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 					if (SUCCEEDED(hr)) {
-						hr = device_->GetRenderTargetData(renderTarget, offscreen);
+						hr = device_->GetRenderTargetData(renderTarget.Get(), offscreen.Get());
 						if (SUCCEEDED(hr)) {
 							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 						}
 					}
-					renderTarget->Release();
 				}
 				*isFramebuffer = true;
 			} else {
@@ -425,14 +426,11 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 				}
 				if (offscreen) {
 					offscreen->UnlockRect();
-					offscreen->Release();
 				} else {
 					tex->UnlockRect(level);
 				}
 			}
-			tex->Release();
 		}
-		baseTex->Release();
 	}
 
 	return success;

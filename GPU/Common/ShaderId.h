@@ -102,6 +102,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_STEREO = 58,
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 	FS_BIT_UBERSHADER = 60,
+	FS_BIT_DEPTH_TEST_NEVER = 61,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

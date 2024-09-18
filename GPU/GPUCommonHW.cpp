@@ -124,7 +124,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_COLORWRITEMASK },
 	{ GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_COLORWRITEMASK },
-	{ GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE },
+	{ GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
@@ -367,7 +367,7 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 	for (size_t i = 0; i < ARRAY_SIZE(commonCommandTable); i++) {
 		const u8 cmd = commonCommandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+			ERROR_LOG(Log::G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
@@ -381,7 +381,7 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
+			ERROR_LOG(Log::G3D, "Command missing from table: %02x (%i)", i, i);
 		}
 	}
 
@@ -397,8 +397,10 @@ GPUCommonHW::~GPUCommonHW() {
 	framebufferManager_->DestroyAllFBOs();
 	delete framebufferManager_;
 	delete textureCache_;
-	shaderManager_->ClearShaders();
-	delete shaderManager_;
+	if (shaderManager_) {
+		shaderManager_->ClearShaders();
+		delete shaderManager_;
+	}
 }
 
 // Called once per frame. Might also get called during the pause screen
@@ -501,9 +503,8 @@ void GPUCommonHW::UpdateCmdInfo() {
 	}
 }
 
-void GPUCommonHW::BeginFrame() {
-	GPUCommon::BeginFrame();
-
+void GPUCommonHW::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
 	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
 		sawExactEqualDepth_ = true;
 		gstate_c.SetUseFlags(CheckGPUFeatures());
@@ -518,7 +519,7 @@ void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
+			NOTICE_LOG(Log::G3D, "================ FLUSH ================");
 		}
 		drawEngineCommon_->DispatchFlush();
 	}
@@ -604,7 +605,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
 	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
-	if (canClipOrCull || canDiscardVertex) {
+	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
@@ -915,7 +916,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -974,8 +975,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
-		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG(G3D, "Bad index address %08x!", indexAddr);
+		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
+			ERROR_LOG(Log::G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
@@ -983,7 +985,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 
 	// cull mode
 	int cullMode = gstate.getCullMode();
@@ -1087,7 +1089,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool passCulling = onePassed || PASSES_CULLING;
 			if (!passCulling) {
 				// Do software culling.
-				if (drawEngineCommon_->TestBoundingBox(verts, inds, count, vertexType)) {
+				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
+				if (drawEngineCommon_->TestBoundingBoxFast(verts, count, vertexType)) {
 					passCulling = true;
 				} else {
 					gpuStats.numCulledDraws++;
@@ -1260,7 +1263,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG_REPORT(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -1268,14 +1271,14 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -1307,7 +1310,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
@@ -1332,7 +1335,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	CheckDepthUsage(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		ERROR_LOG_REPORT(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
 	}
 
@@ -1340,14 +1343,14 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	const void *indices = NULL;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -1381,7 +1384,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
@@ -1746,7 +1749,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
-		"Vertices: %d drawn: %d\n"
+		"Vertices: %d dec: %d drawn: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
@@ -1765,6 +1768,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numBBOXJumps,
 		gpuStats.numPlaneUpdates,
 		gpuStats.numVertsSubmitted,
+		gpuStats.numVertsDecoded,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.numFramebufferEvaluations,

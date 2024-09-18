@@ -413,7 +413,7 @@ int kirk_CMD11(u8* outbuff, u8* inbuff, int size)
 // Generate an ECDSA Key pair
 // offset 0 = private key (0x14 len)
 // offset 0x14 = public key point (0x28 len)
-int kirk_CMD12(u8 * outbuff, int outsize) {
+int kirk_CMD12(u8 *outbuff, int outsize) {
   u8 k[0x15];
   KIRK_CMD12_BUFFER * keypair = (KIRK_CMD12_BUFFER *) outbuff;
 
@@ -442,25 +442,30 @@ int kirk_CMD13(u8 * outbuff, int outsize,u8 * inbuff, int insize) {
   return KIRK_OPERATION_SUCCESS;
 }
 
-int kirk_CMD14(u8 * outbuff, int outsize) {
+int kirk_CMD14(u8 *outbuff, int outsize) {
   u8 temp[0x104];
+  // This was added to mollify valgrind.
+  memset(temp, 0xAA, sizeof(temp));
+
   KIRK_SHA1_HEADER *header = (KIRK_SHA1_HEADER *) temp;
   
   // Some randomly selected data for a "key" to add to each randomization
-  u8 key[0x10] = { 0xA7, 0x2E, 0x4C, 0xB6, 0xC3, 0x34, 0xDF, 0x85, 0x70, 0x01, 0x49, 0xFC, 0xC0, 0x87, 0xC4, 0x77 };
+  static const u8 random_data[0x10] = { 0xA7, 0x2E, 0x4C, 0xB6, 0xC3, 0x34, 0xDF, 0x85, 0x70, 0x01, 0x49, 0xFC, 0xC0, 0x87, 0xC4, 0x77 };
   u32 curtime;
   //if(outsize != 0x14) return KIRK_INVALID_SIZE; // Need real error code
   if(outsize <=0) return KIRK_OPERATION_SUCCESS;
     
   memcpy(temp+4, PRNG_DATA,0x14);
   // This uses the standard C time function for portability.
-  curtime=(u32)time(0);
+  curtime = (u32)time(0);
   temp[0x18] = curtime &0xFF;
   temp[0x19] = (curtime>>8) &0xFF;
   temp[0x1A] = (curtime>>16) &0xFF;
   temp[0x1B] = (curtime>>24) &0xFF;
-  memcpy(&temp[0x1C], key, 0x10);
-  //This leaves the remainder of the 0x100 bytes in temp to whatever remains on the stack 
+  memcpy(&temp[0x1C], random_data, 0x10);
+  
+  // WARNING: These next two lines of comments are no longer accurate since I added the memset above.
+  // This leaves the remainder of the 0x100 bytes in temp to whatever remains on the stack 
   // in an uninitialized state. This should add unpredicableness to the results as well
   header->data_size=0x100;
   kirk_CMD11(PRNG_DATA, temp, 0x104);
@@ -666,10 +671,11 @@ int kirk_init()
 
 int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
   u8 temp[0x104];
+  memset(temp, 0xAA, sizeof(temp));
   
   KIRK_SHA1_HEADER *header = (KIRK_SHA1_HEADER *) temp;
   // Another randomly selected data for a "key" to add to each randomization
-  u8 key[0x10] = {0x07, 0xAB, 0xEF, 0xF8, 0x96, 0x8C, 0xF3, 0xD6, 0x14, 0xE0, 0xEB, 0xB2, 0x9D, 0x8B, 0x4E, 0x74};
+  static const u8 key[0x10] = {0x07, 0xAB, 0xEF, 0xF8, 0x96, 0x8C, 0xF3, 0xD6, 0x14, 0xE0, 0xEB, 0xB2, 0x9D, 0x8B, 0x4E, 0x74};
   u32 curtime;
 
   //Set PRNG_DATA initially, otherwise use what ever uninitialized data is in the buffer
@@ -677,7 +683,8 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
     u8 * seedbuf;
     KIRK_SHA1_HEADER *seedheader;
     seedbuf=(u8*)malloc(seed_size+4);
-    seedheader= (KIRK_SHA1_HEADER *) seedbuf;
+    memset(seedbuf, 0, seed_size+4);
+    seedheader = (KIRK_SHA1_HEADER *) seedbuf;
     seedheader->data_size = seed_size;
     kirk_CMD11(PRNG_DATA, seedbuf, seed_size+4);    
     free(seedbuf);

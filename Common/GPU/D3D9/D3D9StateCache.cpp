@@ -1,11 +1,12 @@
 #ifdef _WIN32
 
 #include "Common/GPU/D3D9/D3D9StateCache.h"
+#include <wrl/client.h>
 
 DirectXState dxstate;
 
-LPDIRECT3DDEVICE9 pD3Ddevice9 = nullptr;
-LPDIRECT3DDEVICE9EX pD3DdeviceEx9 = nullptr;
+Microsoft::WRL::ComPtr<IDirect3DDevice9> pD3Ddevice9;
+Microsoft::WRL::ComPtr<IDirect3DDevice9Ex> pD3DdeviceEx9;
 
 int DirectXState::state_count = 0;
 

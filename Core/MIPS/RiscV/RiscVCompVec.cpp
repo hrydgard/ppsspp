@@ -54,56 +54,86 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 			break;
 
 		case Vec4Init::AllONE:
-			LI(SCRATCH1, 1.0f);
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-			for (int i = 1; i < 4; ++i)
-				FMV(32, regs_.F(inst.dest + i), regs_.F(inst.dest));
+			if (CanFLI(32, 1.0f)) {
+				for (int i = 0; i < 4; ++i)
+					FLI(32, regs_.F(inst.dest + i), 1.0f);
+			} else {
+				LI(SCRATCH1, 1.0f);
+				FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
+				for (int i = 1; i < 4; ++i)
+					FMV(32, regs_.F(inst.dest + i), regs_.F(inst.dest));
+			}
 			break;
 
 		case Vec4Init::AllMinusONE:
-			LI(SCRATCH1, -1.0f);
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-			for (int i = 1; i < 4; ++i)
-				FMV(32, regs_.F(inst.dest + i), regs_.F(inst.dest));
+			if (CanFLI(32, -1.0f)) {
+				for (int i = 0; i < 4; ++i)
+					FLI(32, regs_.F(inst.dest + i), -1.0f);
+			} else {
+				LI(SCRATCH1, -1.0f);
+				FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
+				for (int i = 1; i < 4; ++i)
+					FMV(32, regs_.F(inst.dest + i), regs_.F(inst.dest));
+			}
 			break;
 
 		case Vec4Init::Set_1000:
-			LI(SCRATCH1, 1.0f);
+			if (!CanFLI(32, 1.0f))
+				LI(SCRATCH1, 1.0f);
 			for (int i = 0; i < 4; ++i) {
-				if (i == 0)
-					FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
-				else
+				if (i == 0) {
+					if (CanFLI(32, 1.0f))
+						FLI(32, regs_.F(inst.dest + i), 1.0f);
+					else
+						FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+				} else {
 					FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), R_ZERO);
+				}
 			}
 			break;
 
 		case Vec4Init::Set_0100:
-			LI(SCRATCH1, 1.0f);
+			if (!CanFLI(32, 1.0f))
+				LI(SCRATCH1, 1.0f);
 			for (int i = 0; i < 4; ++i) {
-				if (i == 1)
-					FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
-				else
+				if (i == 1) {
+					if (CanFLI(32, 1.0f))
+						FLI(32, regs_.F(inst.dest + i), 1.0f);
+					else
+						FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+				} else {
 					FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), R_ZERO);
+				}
 			}
 			break;
 
 		case Vec4Init::Set_0010:
-			LI(SCRATCH1, 1.0f);
+			if (!CanFLI(32, 1.0f))
+				LI(SCRATCH1, 1.0f);
 			for (int i = 0; i < 4; ++i) {
-				if (i == 2)
-					FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
-				else
+				if (i == 2) {
+					if (CanFLI(32, 1.0f))
+						FLI(32, regs_.F(inst.dest + i), 1.0f);
+					else
+						FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+				} else {
 					FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), R_ZERO);
+				}
 			}
 			break;
 
 		case Vec4Init::Set_0001:
-			LI(SCRATCH1, 1.0f);
+			if (!CanFLI(32, 1.0f))
+				LI(SCRATCH1, 1.0f);
 			for (int i = 0; i < 4; ++i) {
-				if (i == 3)
-					FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
-				else
+				if (i == 3) {
+					if (CanFLI(32, 1.0f))
+						FLI(32, regs_.F(inst.dest + i), 1.0f);
+					else
+						FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+				} else {
 					FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), R_ZERO);
+				}
 			}
 			break;
 		}

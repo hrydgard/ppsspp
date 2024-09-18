@@ -58,7 +58,7 @@ void I18NRepo::Clear() {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto &iter : cats_) {
 		// Initialize with empty categories, so that early lookups don't crash.
-		iter = std::shared_ptr<I18NCategory>(new I18NCategory());
+		iter = std::make_shared<I18NCategory>();
 	}
 }
 
@@ -72,24 +72,32 @@ void I18NCategory::Clear() {
 	missedKeyLog_.clear();
 }
 
-const char *I18NCategory::T(const char *key, const char *def) {
-	if (!key) {
-		return "ERROR";
-	}
-
-	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
-	std::string modifiedKey = key;
-	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
-
-	auto iter = map_.find(modifiedKey);
+std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
+	auto iter = map_.find(key);
 	if (iter != map_.end()) {
 		return iter->second.text.c_str();
 	} else {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
-		if (def)
-			missedKeyLog_[key] = def;
+		std::string missedKey(key);
+		if (!def.empty())
+			missedKeyLog_[missedKey] = def;
 		else
-			missedKeyLog_[key] = modifiedKey;
+			missedKeyLog_[missedKey] = std::string(key);
+		return !def.empty() ? def : key;
+	}
+}
+
+const char *I18NCategory::T_cstr(const char *key, const char *def) {
+	auto iter = map_.find(key);
+	if (iter != map_.end()) {
+		return iter->second.text.c_str();
+	} else {
+		std::lock_guard<std::mutex> guard(missedKeyLock_);
+		std::string missedKey(key);
+		if (def)
+			missedKeyLog_[missedKey] = def;
+		else
+			missedKeyLog_[missedKey] = std::string(key);
 		return def ? def : key;
 	}
 }
@@ -98,9 +106,15 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	for (auto iter = m.begin(); iter != m.end(); ++iter) {
 		if (map_.find(iter->first) == map_.end()) {
 			std::string text = ReplaceAll(iter->second, "\\n", "\n");
+			_dbg_assert_(iter->first.find('\n') == std::string::npos);
 			map_[iter->first] = I18NEntry(text);
 		}
 	}
+}
+
+std::map<std::string, std::string> I18NCategory::Missed() const {
+	std::lock_guard<std::mutex> guard(missedKeyLock_);
+	return missedKeyLog_;
 }
 
 std::shared_ptr<I18NCategory> I18NRepo::GetCategory(I18NCat category) {
@@ -128,7 +142,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 	IniFile ini;
 	Path iniPath;
 
-//	INFO_LOG(SYSTEM, "Loading lang ini %s", iniPath.c_str());
+//	INFO_LOG(Log::System, "Loading lang ini %s", iniPath.c_str());
 	if (!overridePath.empty()) {
 		iniPath = overridePath / (languageID + ".ini");
 	} else {
@@ -160,7 +174,7 @@ void I18NRepo::LogMissingKeys() const {
 	for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
 		auto &cat = cats_[i];
 		for (auto &key : cat->Missed()) {
-			INFO_LOG(SYSTEM, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
+			INFO_LOG(Log::System, "Missing translation [%s]: %s (%s)", g_categoryNames[i], key.first.c_str(), key.second.c_str());
 		}
 	}
 }

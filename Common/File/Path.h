@@ -50,6 +50,9 @@ public:
 	PathType Type() const {
 		return type_;
 	}
+	bool IsLocalType() const {
+		return type_ == PathType::NATIVE || type_ == PathType::CONTENT_URI;
+	}
 
 	bool Valid() const { return !path_.empty(); }
 	bool IsRoot() const { return path_ == "/"; }  // Special value - only path that can end in a slash.
@@ -118,7 +121,7 @@ public:
 		return path_ != other.path_ || type_ != other.type_;
 	}
 
-	bool FilePathContainsNoCase(const std::string &needle) const;
+	bool FilePathContainsNoCase(std::string_view needle) const;
 
 	bool StartsWith(const Path &other) const;
 

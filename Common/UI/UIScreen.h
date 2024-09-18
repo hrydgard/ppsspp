@@ -36,9 +36,7 @@ public:
 	~UIScreen();
 
 	void update() override;
-	void preRender() override;
-	void render() override;
-	void postRender() override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void deviceLost() override;
 	void deviceRestored() override;
 
@@ -61,7 +59,6 @@ public:
 
 protected:
 	virtual void CreateViews() = 0;
-	virtual void DrawBackground(UIContext &dc) {}
 
 	void RecreateViews() override { recreateViews_ = true; }
 	bool UseVerticalLayout() const;
@@ -74,6 +71,10 @@ protected:
 	bool ignoreInput_ = false;
 
 protected:
+	virtual void DrawBackground(UIContext &ui) {}
+	virtual void DrawForeground(UIContext &ui) {}
+
+	void SetupViewport();
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
@@ -96,7 +97,7 @@ private:
 
 class PopupScreen : public UIDialogScreen {
 public:
-	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
+	PopupScreen(std::string_view title, std::string_view button1 = "", std::string_view button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	void CreateViews() override;
@@ -107,9 +108,14 @@ public:
 	void TriggerFinish(DialogResult result) override;
 
 	void SetPopupOrigin(const UI::View *view);
-	void SetPopupOffset(float y);
+	void SetPopupOffset(float y) { offsetY_ = y; }
+
+	void SetAlignTop(bool alignTop) { alignTop_ = alignTop; }
 
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
+
+	// For the postproc param sliders on DisplayLayoutScreen
+	bool wantBrightBackground() const override { return !hasDropShadow_; }
 
 protected:
 	virtual bool FillVertical() const { return false; }
@@ -138,8 +144,9 @@ private:
 	int finishFrame_ = -1;
 	DialogResult finishResult_ = DR_CANCEL;
 	bool hasPopupOrigin_ = false;
-	Point popupOrigin_;
+	Point2D popupOrigin_;
 	float offsetY_ = 0.0f;
+	bool alignTop_ = false;
 
 	bool hasDropShadow_ = true;
 };

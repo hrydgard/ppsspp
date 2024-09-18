@@ -1,0 +1,98 @@
+name: Manual Generate iOS IPA
+on:
+  workflow_dispatch:
+    inputs:
+
+      buildVariant:
+        type: choice
+        description: 'Build Variant'
+        required: true
+        default: 'release'
+        options: 
+        - release
+        - debug
+
+jobs:
+
+  ipa:
+    name: Generate ${{ github.event.inputs.buildVariant }} IPA
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+        
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+
+      - name: Set Env Var(s)
+        run: |
+          echo "GIT_VERSION=$(git describe --always)" >> $GITHUB_ENV
+        
+      - name: Create macOS git-version.cpp & Version.txt
+        run: |
+          echo "const char *PPSSPP_GIT_VERSION = \"${GIT_VERSION}\";" > git-version.cpp
+          echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
+          # Create Version.txt file (should probably do this during building process)
+          mkdir build-ios
+          mkdir build-ios/PPSSPP.app
+          echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
+          # Testing values ...
+          echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
+          echo "count=${{steps.valid-tags.outputs.count}}"
+          echo $(echo $GIT_VERSION | cut -c 2-)
+          # Testing file location ...
+          find . -name "Version.txt"
+          
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@main
+        with:
+          key: ios
+          create-symlink: true
+      
+      - name: Execute build
+        env:
+          CC: clang
+          CXX: clang++
+          USE_CCACHE: 1
+        run: |
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_SLOPPINESS=pch_defines,clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
+          export CCACHE_FILECLONE=true
+          export CCACHE_DEPEND=true
+          export CCACHE_COMPILERCHECK=content
+          ./b.sh --ios --${{ github.event.inputs.buildVariant }}
+      
+      - name: Package build
+        run: |
+          # Testing file location ...
+          find . -name "Version.txt"
+          find . -name "*.app"
+          mkdir ppsspp
+          if [ -e build*/PPSSPP.app ]; then
+            mkdir ppsspp/Payload
+            cp -a build*/PPSSPP.app ppsspp/Payload
+            # GitHub Actions zipping kills symlinks and permissions.
+            cd ppsspp
+            zip -qry PPSSPP.ipa Payload
+            rm -rf Payload
+            cd -
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-${{ github.event.inputs.buildVariant }} build
+          path: ppsspp/

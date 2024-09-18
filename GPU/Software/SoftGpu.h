@@ -30,27 +30,27 @@ struct FormatBuffer {
 		u32 *as32;
 	};
 
-	inline void Set16(int x, int y, int stride, u16 v) {
+	inline void Set16(int x, int y, int stride, u16 v) const {
 		as16[x + y * stride] = v;
 	}
 
-	inline void Set32(int x, int y, int stride, u32 v) {
+	inline void Set32(int x, int y, int stride, u32 v) const {
 		as32[x + y * stride] = v;
 	}
 
-	inline u16 Get16(int x, int y, int stride) {
+	inline u16 Get16(int x, int y, int stride) const {
 		return as16[x + y * stride];
 	}
 
-	inline u32 Get32(int x, int y, int stride) {
+	inline u32 Get32(int x, int y, int stride) const {
 		return as32[x + y * stride];
 	}
 
-	inline u16 *Get16Ptr(int x, int y, int stride) {
+	inline u16 *Get16Ptr(int x, int y, int stride) const {
 		return &as16[x + y * stride];
 	}
 
-	inline u32 *Get32Ptr(int x, int y, int stride) {
+	inline u32 *Get32Ptr(int x, int y, int stride) const {
 		return &as32[x + y * stride];
 	}
 };

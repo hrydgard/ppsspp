@@ -499,7 +499,7 @@ public:
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
 		// However, if we're reusing a lot of verts, we should read and cache them.
 		useCache_ = useIndices_ && vertex_count > (upperBound_ - lowerBound_ + 1);
-		if (useCache_ && cached_.size() < upperBound_ - lowerBound_ + 1)
+		if (useCache_ && (int)cached_.size() < upperBound_ - lowerBound_ + 1)
 			cached_.resize(std::max(128, upperBound_ - lowerBound_ + 1));
 	}
 
@@ -835,7 +835,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		}
 
 	default:
-		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
+		ERROR_LOG(Log::G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
 }
@@ -950,11 +950,11 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
 					// These aren't documented and should be rare.  Let's bounds check each one.
 					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
 					}
 					indices[i] = (u16)inds32[i];
 				}

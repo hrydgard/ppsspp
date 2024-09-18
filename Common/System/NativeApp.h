@@ -20,11 +20,6 @@ class GraphicsContext;
 // This might get called multiple times in some implementations, you must be able to handle that.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version);
 
-// Easy way for the Java side to ask the C++ side for configuration options, such as
-// the rotation lock which must be controlled from Java on Android.
-// It is currently not called on non-Android platforms.
-std::string NativeQueryConfig(std::string query);
-
 // For the back button to work right, this should return true on your main or title screen.
 // Otherwise, just return false.
 bool NativeIsAtTopLevel();

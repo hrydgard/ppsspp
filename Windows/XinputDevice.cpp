@@ -144,7 +144,7 @@ static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
-		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
+		WARN_LOG(Log::sceCtrl, "Failed to load XInput! DLL missing");
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
@@ -165,11 +165,11 @@ int XinputDevice::UpdateState() {
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 		XINPUT_STATE state{};
-		XINPUT_VIBRATION vibration{};
 		if (check_delay[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
+			XINPUT_VIBRATION vibration{};
 			UpdatePad(i, state, vibration);
 			anySuccess = true;
 		} else {

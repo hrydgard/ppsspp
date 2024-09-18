@@ -23,6 +23,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
+#include "Common/Math/CrossSIMD.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -39,13 +40,6 @@
 #else
 #include <arm_neon.h>
 #endif
-#endif
-
-#ifdef __clang__
-// Weird how you can't just use #pragma in a macro.
-#define DO_NOT_VECTORIZE_LOOP _Pragma("clang loop vectorize(disable)")
-#else
-#define DO_NOT_VECTORIZE_LOOP
 #endif
 
 const u8 textureBitsPerPixel[16] = {
@@ -566,10 +560,11 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 
 void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	// 48 bits, 3 bit index per pixel, 12 bits per line.
-	u64 alphadata = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
+	u64 allAlpha = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
 	for (int y = 0; y < height; y++) {
-		int colordata = src->color.lines[y];
+		uint32_t colordata = src->color.lines[y];
+		uint32_t alphadata = allAlpha >> (12 * y);
 		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
 			colordata >>= 2;

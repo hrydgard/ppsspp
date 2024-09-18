@@ -282,7 +282,7 @@ bool TestArm64Emitter() {
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);
 	RET(CheckLast(emitter, "d21c1461 eor x1, x3, #0x3f0000003f0"));
 
-	printf("yay!\n");
+	printf("ARM64 emitter test completed!\n");
 	//emitter.ANDI2R(W1, W3, 0xFF00FF00FF00FF00ULL, INVALID_REG);
 	//RET(CheckLast(emitter, "00000000 and x1, x3, 0xFF00FF00FF00FF00"));
 

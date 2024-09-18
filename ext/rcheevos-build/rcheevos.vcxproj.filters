@@ -7,11 +7,11 @@
     <Filter Include="rcheevos">
       <UniqueIdentifier>{0acc1fc7-94ca-4eee-967e-5a64a884dbf1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="rhash">
-      <UniqueIdentifier>{55ec06aa-6d34-4edf-8b0b-f93f93a064b4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="include">
       <UniqueIdentifier>{9e049d1f-4b83-4aa5-89f3-01a42e1773e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="rhash">
+      <UniqueIdentifier>{e6d16c54-0892-4ed2-8b51-ab2f5bd8e2d3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -72,15 +72,6 @@
     <ClCompile Include="..\rcheevos\src\rcheevos\value.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
-    <ClCompile Include="..\rcheevos\src\rhash\cdreader.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
-    <ClCompile Include="..\rcheevos\src\rhash\hash.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
-    <ClCompile Include="..\rcheevos\src\rhash\md5.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
     <ClCompile Include="..\rcheevos\src\rc_client.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
@@ -88,6 +79,12 @@
       <Filter>rcheevos</Filter>
     </ClCompile>
     <ClCompile Include="..\rcheevos\src\rc_util.c">
+      <Filter>rcheevos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\rcheevos\src\rhash\md5.c">
+      <Filter>rhash</Filter>
+    </ClCompile>
+    <ClCompile Include="..\rcheevos\src\rc_client_raintegration.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
   </ItemGroup>
@@ -137,9 +134,6 @@
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_validate.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
-    <ClInclude Include="..\rcheevos\src\rhash\md5.h">
-      <Filter>rhash</Filter>
-    </ClInclude>
     <ClInclude Include="..\rcheevos\include\rc_client.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -152,8 +146,11 @@
     <ClInclude Include="..\rcheevos\src\rc_compat.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
-    <ClInclude Include="..\rcheevos\src\rc_util.h">
-      <Filter>rcheevos</Filter>
+    <ClInclude Include="..\rcheevos\include\rc_util.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rcheevos\src\rhash\md5.h">
+      <Filter>rhash</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

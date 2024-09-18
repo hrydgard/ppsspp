@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
@@ -485,6 +486,8 @@ public:
 		currentFramebufferCopy_ = nullptr;
 	}
 
+	bool PresentedThisFrame() const;
+
 protected:
 	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
@@ -510,15 +513,15 @@ protected:
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
-	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
+	static void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 
-	bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const;
-	bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const;
+	static bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb);
+	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
@@ -528,7 +531,7 @@ protected:
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 
-	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
+	void UpdateFramebufUsage(VirtualFramebuffer *vfb) const;
 
 	int GetFramebufferLayers() const;
 
@@ -545,6 +548,8 @@ protected:
 	inline int GetBindSeqCount() {
 		return fbBindSeqCount_++;
 	}
+
+	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
 	PresentationCommon *presentation_ = nullptr;
 
@@ -645,3 +650,6 @@ protected:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 };
+
+// Should probably live elsewhere.
+bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer);

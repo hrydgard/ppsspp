@@ -6,26 +6,41 @@
 #include <thread>
 
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Format/PNGLoad.h"
 #include "ShellUtil.h"
 
 #include <shlobj.h>
 #include <commdlg.h>
 #include <cderr.h>
 
-namespace W32Util
-{
-	std::string BrowseForFolder(HWND parent, const char *title)
-	{
+namespace W32Util {
+	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
 		std::wstring titleString = ConvertUTF8ToWString(title);
-		return BrowseForFolder(parent, titleString.c_str());
+		return BrowseForFolder(parent, titleString.c_str(), initialPath);
 	}
 
-	std::string BrowseForFolder(HWND parent, const wchar_t *title)
-	{
+	static int CALLBACK BrowseFolderCallback(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
+		if (uMsg == BFFM_INITIALIZED) {
+			LPCTSTR path = reinterpret_cast<LPCTSTR>(lpData);
+			::SendMessage(hwnd, BFFM_SETSELECTION, true, (LPARAM)path);
+		}
+		return 0;
+	}
+
+	std::string BrowseForFolder(HWND parent, const wchar_t *title, std::string_view initialPath) {
 		BROWSEINFO info{};
 		info.hwndOwner = parent;
 		info.lpszTitle = title;
-		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI;
+		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI | BIF_NEWDIALOGSTYLE;
+
+		std::wstring initialPathW;
+
+		if (!initialPath.empty()) {
+			initialPathW = ConvertUTF8ToWString(initialPath);
+			info.lParam = reinterpret_cast<LPARAM>(initialPathW.c_str());
+			info.lpfn = BrowseFolderCallback;
+		}
 
 		//info.pszDisplayName
 		auto idList = SHBrowseForFolder(&info);
@@ -175,7 +190,7 @@ namespace W32Util
 
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
-HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) {
+static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc, LPCWSTR lpszIcon, int iconIndex) {
 	HRESULT hres;
 	IShellLink *psl = nullptr;
 	hres = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -192,7 +207,9 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 		psl->SetPath(lpszPathObj);
 		psl->SetArguments(lpszArguments);
 		psl->SetDescription(lpszDesc);
-		// psl->SetIconLocation(..)
+		if (lpszIcon) {
+			psl->SetIconLocation(lpszIcon, iconIndex);
+		}
 
 		// Query IShellLink for the IPersistFile interface, used for saving the 
 		// shortcut in persistent storage. 
@@ -210,11 +227,12 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	return hres;
 }
 
-bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitle) {
+bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameTitleStr, const Path &icoFile) {
 	// Get the desktop folder
 	wchar_t *pathbuf = new wchar_t[4096];
 	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
 
+	std::string gameTitle(gameTitleStr);
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
@@ -241,7 +259,7 @@ bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitl
 
 	// Need to flip the slashes in the filename.
 
-	std::string sanitizedArgument = argumentPath;
+	std::string sanitizedArgument(argumentPath);
 	for (size_t i = 0; i < sanitizedArgument.size(); i++) {
 		if (sanitizedArgument[i] == '/') {
 			sanitizedArgument[i] = '\\';
@@ -250,12 +268,69 @@ bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitl
 
 	sanitizedArgument = "\"" + sanitizedArgument + "\"";
 
-	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(sanitizedArgument).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
+	std::wstring icon;
+	if (!icoFile.empty()) {
+		icon = icoFile.ToWString();
+	}
+
+	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(sanitizedArgument).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str(), icon.empty() ? nullptr : icon.c_str(), 0);
 
 	// TODO: Also extract the game icon and convert to .ico, put it somewhere under Memstick, and set it.
 
 	delete[] pathbuf;
 	return false;
+}
+
+// Function to create an icon file from PNG image data (these icons require Windows Vista).
+// The Old New Thing comes to the rescue again! ChatGPT failed miserably.
+// https://devblogs.microsoft.com/oldnewthing/20101018-00/?p=12513
+// https://devblogs.microsoft.com/oldnewthing/20101022-00/?p=12473
+bool CreateICOFromPNGData(const uint8_t *imageData, size_t imageDataSize, const Path &icoPath) {
+	if (imageDataSize <= sizeof(PNGHeaderPeek)) {
+		return false;
+	}
+	// Parse the PNG
+	PNGHeaderPeek pngHeader;
+	memcpy(&pngHeader, imageData, sizeof(PNGHeaderPeek));
+	if (pngHeader.Width() > 256 || pngHeader.Height() > 256) {
+		// Reject the png as an icon.
+		return false;
+	}
+
+	struct IconHeader {
+		uint16_t reservedZero;
+		uint16_t type;  // should be 1
+		uint16_t imageCount;
+	};
+	IconHeader hdr{ 0, 1, 1 };
+	struct IconDirectoryEntry {
+		BYTE  bWidth;
+		BYTE  bHeight;
+		BYTE  bColorCount;
+		BYTE  bReserved;
+		WORD  wPlanes;
+		WORD  wBitCount;
+		DWORD dwBytesInRes;
+		DWORD dwImageOffset;
+	};
+	IconDirectoryEntry entry{};
+	entry.bWidth = pngHeader.Width();
+	entry.bHeight = pngHeader.Height();
+	entry.bColorCount = 0;
+	entry.dwBytesInRes = (DWORD)imageDataSize;
+	entry.wPlanes = 1;
+	entry.wBitCount = 32;
+	entry.dwImageOffset = sizeof(hdr) + sizeof(entry);
+
+	FILE *file = File::OpenCFile(icoPath, "wb");
+	if (!file) {
+		return false;
+	}
+	fwrite(&hdr, sizeof(hdr), 1, file);
+	fwrite(&entry, sizeof(entry), 1, file);
+	fwrite(imageData, 1, imageDataSize, file);
+	fclose(file);
+	return true;
 }
 
 }  // namespace

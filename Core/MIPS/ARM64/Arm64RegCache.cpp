@@ -150,7 +150,7 @@ bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 		return ar[mr[mipsReg].reg].pointerified;
 	} else if (mr[mipsReg].loc == ML_ARMREG_IMM) {
 		if (ar[mr[mipsReg].reg].pointerified) {
-			ERROR_LOG(JIT, "Really shouldn't be pointerified here");
+			ERROR_LOG(Log::JIT, "Really shouldn't be pointerified here");
 		}
 	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 		return true;
@@ -164,7 +164,7 @@ void Arm64RegCache::MarkDirty(ARM64Reg reg) {
 
 void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 	if (reg == INVALID_REG) {
-		ERROR_LOG(JIT, "SetRegImm to invalid register: at %08x", js_->compilerPC);
+		ERROR_LOG(Log::JIT, "SetRegImm to invalid register: at %08x", js_->compilerPC);
 		return;
 	}
 	// On ARM64, at least Cortex A57, good old MOVT/MOVW  (MOVK in 64-bit) is really fast.
@@ -174,7 +174,7 @@ void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 
 void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	if (mr[mipsReg].isStatic) {
-		ERROR_LOG(JIT, "Cannot MapRegTo static register %d", mipsReg);
+		ERROR_LOG(Log::JIT, "Cannot MapRegTo static register %d", mipsReg);
 		return;
 	}
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
@@ -193,7 +193,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 			{
 				int offset = GetMipsRegOffset(mipsReg);
 				ARM64Reg loadReg = reg;
-				// INFO_LOG(JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
+				// INFO_LOG(Log::JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
 				if (mipsReg == MIPS_REG_LO) {
 					loadReg = EncodeRegTo64(loadReg);
 				}
@@ -261,7 +261,7 @@ allocate:
 	}
 
 	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	ERROR_LOG_REPORT(Log::JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
 
@@ -340,12 +340,12 @@ ARM64Reg Arm64RegCache::GetAndLockTempR() {
 // round robin or FIFO or something.
 ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	if (mipsReg == MIPS_REG_HI) {
-		ERROR_LOG_REPORT(JIT, "Cannot map HI in Arm64RegCache");
+		ERROR_LOG_REPORT(Log::JIT, "Cannot map HI in Arm64RegCache");
 		return INVALID_REG;
 	}
 
 	if (mipsReg == MIPS_REG_INVALID) {
-		ERROR_LOG(JIT, "Cannot map invalid register");
+		ERROR_LOG(Log::JIT, "Cannot map invalid register");
 		return INVALID_REG;
 	}
 
@@ -353,7 +353,7 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 
 	if (mr[mipsReg].isStatic) {
 		if (armReg == INVALID_REG) {
-			ERROR_LOG(JIT, "MapReg on statically mapped reg %d failed - armReg got lost", mipsReg);
+			ERROR_LOG(Log::JIT, "MapReg on statically mapped reg %d failed - armReg got lost", mipsReg);
 		}
 		if (mr[mipsReg].loc == ML_IMM) {
 			// Back into the register, with or without the imm value.
@@ -386,7 +386,7 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		if (ar[armReg].mipsReg != mipsReg) {
-			ERROR_LOG_REPORT(JIT, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG_REPORT(Log::JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			// Mapping dirty means the old imm value is invalid.
@@ -450,7 +450,7 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 			ar[a].pointerified = true;
 		}
 	} else {
-		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
+		ERROR_LOG(Log::JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
 	}
 	return retval;
 }
@@ -506,18 +506,18 @@ void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs
 
 void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 	if (r == INVALID_REG) {
-		ERROR_LOG(JIT, "FlushArmReg called on invalid register %d", r);
+		ERROR_LOG(Log::JIT, "FlushArmReg called on invalid register %d", r);
 		return;
 	}
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
 		if (ar[r].isDirty) {
-			ERROR_LOG_REPORT(JIT, "Dirty but no mipsreg?");
+			ERROR_LOG_REPORT(Log::JIT, "Dirty but no mipsreg?");
 		}
 		return;
 	}
 	if (mr[ar[r].mipsReg].isStatic) {
-		ERROR_LOG(JIT, "Cannot FlushArmReg a statically mapped register");
+		ERROR_LOG(Log::JIT, "Cannot FlushArmReg a statically mapped register");
 		return;
 	}
 	auto &mreg = mr[ar[r].mipsReg];
@@ -603,7 +603,7 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
 			return INVALID_REG;
 		}
 		// No need to flush if it's zero or not dirty.
@@ -622,14 +622,14 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 		return INVALID_REG;
 
 	default:
-		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
 		return INVALID_REG;
 	}
 }
 
 void Arm64RegCache::FlushR(MIPSGPReg r) {
 	if (mr[r].isStatic) {
-		ERROR_LOG(JIT, "Cannot flush static reg %d", r);
+		ERROR_LOG(Log::JIT, "Cannot flush static reg %d", r);
 		return;
 	}
 
@@ -683,7 +683,7 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG_REPORT(Log::JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
 	if (r == MIPS_REG_ZERO) {
@@ -753,7 +753,7 @@ void Arm64RegCache::FlushAll() {
 			} else if (mr[i].loc == ML_ARMREG_IMM) {
 				// The register already contains the immediate.
 				if (ar[armReg].pointerified) {
-					ERROR_LOG(JIT, "ML_ARMREG_IMM but pointerified. Wrong.");
+					ERROR_LOG(Log::JIT, "ML_ARMREG_IMM but pointerified. Wrong.");
 					ar[armReg].pointerified = false;
 				}
 				mr[i].loc = ML_ARMREG;
@@ -762,7 +762,7 @@ void Arm64RegCache::FlushAll() {
 				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
-				ERROR_LOG(JIT, "ARM reg of static %i is invalid", i);
+				ERROR_LOG(Log::JIT, "ARM reg of static %i is invalid", i);
 				continue;
 			}
 		} else {
@@ -785,18 +785,18 @@ void Arm64RegCache::FlushAll() {
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg != MIPS_REG_INVALID && mr[ar[i].mipsReg].isStatic == false) {
-			ERROR_LOG_REPORT(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+			ERROR_LOG_REPORT(Log::JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
 }
 
 void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 	if (r == MIPS_REG_HI) {
-		ERROR_LOG_REPORT(JIT, "Cannot set HI imm in Arm64RegCache");
+		ERROR_LOG_REPORT(Log::JIT, "Cannot set HI imm in Arm64RegCache");
 		return;
 	}
 	if (r == MIPS_REG_ZERO && immVal != 0) {
-		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", (u32)immVal, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to set immediate %08x to r0 at %08x", (u32)immVal, compilerPC_);
 		return;
 	}
 
@@ -846,7 +846,7 @@ u64 Arm64RegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO)
 		return 0;
 	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
-		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
+		ERROR_LOG_REPORT(Log::JIT, "Trying to get imm from non-imm register %i", r);
 	}
 	return mr[r].imm;
 }
@@ -864,7 +864,7 @@ int Arm64RegCache::GetMipsRegOffset(MIPSGPReg r) {
 	case MIPS_REG_VFPUCC:
 		return offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]);
 	default:
-		ERROR_LOG_REPORT(JIT, "bad mips register %i", r);
+		ERROR_LOG_REPORT(Log::JIT, "bad mips register %i", r);
 		return 0;  // or what?
 	}
 }
@@ -901,7 +901,7 @@ ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return mr[mipsReg].reg;
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -914,11 +914,11 @@ ARM64Reg Arm64RegCache::RPtr(MIPSGPReg mipsReg) {
 		if (ar[a].pointerified) {
 			return (ARM64Reg)mr[mipsReg].reg;
 		} else {
-			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");
+			ERROR_LOG(Log::JIT, "Tried to use a non-pointer register as a pointer");
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }

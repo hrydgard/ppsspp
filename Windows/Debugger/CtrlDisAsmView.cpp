@@ -277,7 +277,7 @@ std::string trimString(std::string input)
 	return input;
 }
 
-void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
+void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
 	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {
@@ -434,12 +434,12 @@ std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
 		manager.getLine(addr, displaySymbols, line);
 		size_t p = 0, nextp = line.params.find(',');
 		while (nextp != line.params.npos) {
-			args.insert(line.params.substr(p, nextp - p));
+			args.emplace(line.params.substr(p, nextp - p));
 			p = nextp + 1;
 			nextp = line.params.find(',', p);
 		}
 		if (p < line.params.size()) {
-			args.insert(line.params.substr(p));
+			args.emplace(line.params.substr(p));
 		}
 	}
 
@@ -954,6 +954,12 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 	}
 	else if (button == 2)
 	{
+		// We don't want to let the users play with deallocated or uninitialized debugging objects
+		GlobalUIState state = GetUIState();
+		if (state != UISTATE_INGAME && state != UISTATE_PAUSEMENU) {
+			return;
+		}
+		
 		switch (TriggerContextMenu(ContextMenuID::DISASM, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:

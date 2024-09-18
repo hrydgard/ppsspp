@@ -48,7 +48,7 @@ protected:
 	}
 
 private:
-	void DisplayMessage(std::string text1, std::string text2a = "", std::string text2b = "", std::string text3a = "", std::string text3b = "", bool hasYesNo = false, bool hasOK = false);
+	void DisplayMessage(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
 	void DrawIndicator();
 	void DrawLogo();

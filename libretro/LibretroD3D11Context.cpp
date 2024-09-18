@@ -23,18 +23,18 @@ void LibretroD3D11Context::CreateDrawContext() {
 	std::vector<std::string> adapterNames;
 
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&d3d11_) || !d3d11_) {
-		ERROR_LOG(G3D, "Failed to get HW rendering interface!\n");
+		ERROR_LOG(Log::G3D, "Failed to get HW rendering interface!\n");
 		return;
 	}
 
 	if (d3d11_->interface_version != RETRO_HW_RENDER_INTERFACE_D3D11_VERSION) {
-		ERROR_LOG(G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_D3D11_VERSION, d3d11_->interface_version);
+		ERROR_LOG(Log::G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_D3D11_VERSION, d3d11_->interface_version);
 		return;
 	}
 
    // Reject lower feature levels. We have D3D9 for these ancient GPUs.
    if (d3d11_->featureLevel < D3D_FEATURE_LEVEL_10_0) {
-      ERROR_LOG(G3D, "D3D11 featureLevel not high enough - rejecting!\n");
+      ERROR_LOG(Log::G3D, "D3D11 featureLevel not high enough - rejecting!\n");
       return;
    }
 

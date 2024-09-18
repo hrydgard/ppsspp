@@ -13,7 +13,7 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_DESKTOP = 2;
 	public static final int DEVICE_TYPE_VR = 3;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
@@ -56,6 +56,7 @@ public class NativeApp {
 	public static native String queryConfig(String queryName);
 
 	public static native int getSelectedCamera();
+	public static native int getDisplayFramerateMode();
 	public static native void setGpsDataAndroid(long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
 	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
 	public static native void pushCameraImageAndroid(byte[] image);

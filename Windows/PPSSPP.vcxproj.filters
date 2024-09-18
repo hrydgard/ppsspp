@@ -580,6 +580,9 @@
     <ClInclude Include="..\UI\PSPNSApplicationDelegate.h">
       <Filter>Other Platforms\Mac</Filter>
     </ClInclude>
+    <ClInclude Include="..\UI\DarwinFileSystemServices.h">
+      <Filter>Other Platforms\iOS</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -814,6 +817,9 @@
     </None>
     <None Include="..\UI\PSPNSApplicationDelegate.mm">
       <Filter>Other Platforms\Mac</Filter>
+    </None>
+    <None Include="..\UI\DarwinFileSystemServices.mm">
+      <Filter>Other Platforms\iOS</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

@@ -223,10 +223,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 
 	// TODO: Only load these when needed?
-	LI(scratchReg, by128);
-	FMV(FMv::W, FMv::X, by128Reg, scratchReg);
-	LI(scratchReg, by32768);
-	FMV(FMv::W, FMv::X, by32768Reg, scratchReg);
+	QuickFLI(32, by128Reg, by128, scratchReg);
+	QuickFLI(32, by32768Reg, by32768, scratchReg);
 	if (posThroughStep) {
 		LI(scratchReg, const65535);
 		FMV(FMv::W, FMv::X, const65535Reg, scratchReg);
@@ -318,8 +316,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
 			char temp[1024]{};
-			dec.ToString(temp);
-			ERROR_LOG(G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
+			dec.ToString(temp, true);
+			ERROR_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
 			return nullptr;
 		}
 	}
@@ -351,13 +349,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	if (log) {
 		char temp[1024]{};
-		dec.ToString(temp);
-		INFO_LOG(JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
+		dec.ToString(temp, true);
+		INFO_LOG(Log::JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
 		std::vector<std::string> lines = DisassembleRV64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
-			INFO_LOG(JIT, "%s", line.c_str());
+			INFO_LOG(Log::JIT, "%s", line.c_str());
 		}
-		INFO_LOG(JIT, "==========");
+		INFO_LOG(Log::JIT, "==========");
 	}
 
 	*jittedSize = (int)(GetCodePtr() - start);
@@ -1006,7 +1004,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	SRLI(tempReg2, tempReg1, 5);
 	SRLI(tempReg3, tempReg1, 10);
 
-	// Set tempReg3 to -1 if the alpha bit is set.
+	// Set scratchReg to -1 if the alpha bit is set.
 	SLLIW(scratchReg, tempReg1, 16);
 	SRAIW(scratchReg, scratchReg, 31);
 	// Now we can mask the flag.

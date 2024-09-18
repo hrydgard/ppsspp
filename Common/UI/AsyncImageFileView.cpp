@@ -2,6 +2,7 @@
 #include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Render/ManagedTexture.h"
 
 AsyncImageFileView::AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams)
 	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
@@ -78,7 +79,7 @@ void AsyncImageFileView::DeviceRestored(Draw::DrawContext *draw) {
 void AsyncImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
-		texture_ = CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true);
+		texture_ = std::make_unique<ManagedTexture>(dc.GetDrawContext(), filename_.c_str(), ImageFileType::DETECT, true);
 		if (!texture_.get())
 			textureFailed_ = true;
 	}
@@ -95,19 +96,21 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		dc.Flush();
 		dc.RebindTexture();
 		if (!text_.empty()) {
-			dc.DrawText(text_.c_str(), bounds_.centerX() + 1, bounds_.centerY() + 1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(text_, bounds_.centerX() + 1, bounds_.centerY() + 1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(text_, bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 		}
 	} else {
-		if (!filename_.empty()) {
-			// draw a black rectangle to represent the missing screenshot.
-			dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
-		} else {
-			// draw a dark gray rectangle to represent no save state.
-			dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+		if (!texture_ || texture_->Failed()) {
+			if (!filename_.empty()) {
+				// draw a black rectangle to represent the missing screenshot.
+				dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+			} else {
+				// draw a dark gray rectangle to represent no save state.
+				dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+			}
 		}
 		if (!text_.empty()) {
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(text_, bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 		}
 	}
 }

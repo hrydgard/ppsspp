@@ -196,7 +196,7 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
+			WARN_LOG(Log::System, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
 		}
 	}
 
@@ -443,9 +443,7 @@ namespace WindowsRawInput {
 	}
 
 	void Shutdown() {
-		if (rawInputBuffer) {
-			free(rawInputBuffer);
-		}
+		free(rawInputBuffer);
 		rawInputBuffer = 0;
 	}
 };

@@ -26,32 +26,22 @@ class IndexGenerator {
 public:
 	void Setup(u16 *indexptr);
 	void Reset() {
-		prim_ = GE_PRIM_INVALID;
-		seenPrims_ = 0;
-		pureCount_ = 0;
 		this->inds_ = indsBase_;
 	}
 
-	bool PrimCompatible(int prim1, int prim2) {
+	static bool PrimCompatible(int prim1, int prim2) {
 		if (prim1 == GE_PRIM_INVALID || prim2 == GE_PRIM_KEEP_PREVIOUS)
 			return true;
 		return indexedPrimitiveType[prim1] == indexedPrimitiveType[prim2];
 	}
 
-	bool PrimCompatible(int prim) const {
-		if (prim_ == GE_PRIM_INVALID || prim == GE_PRIM_KEEP_PREVIOUS)
-			return true;
-		return indexedPrimitiveType[prim] == prim_;
-	}
-
-	GEPrimitiveType Prim() const { return prim_; }
-	GEPrimitiveType GeneralPrim() const {
-		switch (prim_) {
+	static GEPrimitiveType GeneralPrim(GEPrimitiveType prim) {
+		switch (prim) {
 		case GE_PRIM_LINE_STRIP: return GE_PRIM_LINES; break;
 		case GE_PRIM_TRIANGLE_STRIP:
 		case GE_PRIM_TRIANGLE_FAN: return GE_PRIM_TRIANGLES; break;
 		default:
-			return prim_;
+			return prim;
 		}
 	}
 
@@ -60,15 +50,8 @@ public:
 	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
 
+	// This is really the number of generated indices, or 3x the number of triangles.
 	int VertexCount() const { return inds_ - indsBase_; }
-	int SeenPrims() const { return seenPrims_; }
-	int PureCount() const { return pureCount_; }
-	bool SeenOnlyPurePrims() const {
-		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
-			seenPrims_ == (1 << GE_PRIM_LINES) ||
-			seenPrims_ == (1 << GE_PRIM_POINTS) ||
-			seenPrims_ == (1 << GE_PRIM_TRIANGLE_STRIP);
-	}
 
 private:
 	// Points (why index these? code simplicity)
@@ -84,34 +67,25 @@ private:
 	void AddRectangles(int numVerts, int indexOffset);
 
 	// These translate already indexed lists
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	void TranslatePoints(int numVerts, const ITypeLE *inds, int indexOffset);
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	void TranslateList(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	inline void TranslateLineList(int numVerts, const ITypeLE *inds, int indexOffset);
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	inline void TranslateLineStrip(int numVerts, const ITypeLE *inds, int indexOffset);
 
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	void TranslateStrip(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	void TranslateFan(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
 
-	template <class ITypeLE, int flag>
+	template <class ITypeLE>
 	inline void TranslateRectangles(int numVerts, const ITypeLE *inds, int indexOffset);
-
-	enum {
-		SEEN_INDEX8 = 1 << 16,
-		SEEN_INDEX16 = 1 << 17,
-		SEEN_INDEX32 = 1 << 18,
-	};
 
 	u16 *indsBase_;
 	u16 *inds_;
-	int pureCount_;
-	GEPrimitiveType prim_;
-	int seenPrims_;
 
 	static const u8 indexedPrimitiveType[7];
 };

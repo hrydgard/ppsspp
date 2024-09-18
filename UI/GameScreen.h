@@ -38,7 +38,7 @@ public:
 
 	void update() override;
 
-	void render() override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 
 	const char *tag() const override { return "Game"; }
 
@@ -75,6 +75,7 @@ private:
 	UI::TextView *tvPlayTime_ = nullptr;
 	UI::TextView *tvCRC_ = nullptr;
 	UI::TextView *tvID_ = nullptr;
+	UI::Button *tvCRCCopy_ = nullptr;
 	NoticeView *tvVerified_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;

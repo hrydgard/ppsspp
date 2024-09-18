@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Hello from macbundle.sh"
+echo "SDL macbundle.sh"
 
 PPSSPP="${1}"
 PPSSPP_SHORTNAME="${2}"

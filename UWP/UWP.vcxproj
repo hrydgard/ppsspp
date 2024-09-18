@@ -437,6 +437,10 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\flash0\font\%(Filename)%(Extension)</Link>
     </None>
+    <None Include="..\Assets\redump.csv">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </None>
     <None Include="..\Assets\knownfuncs.ini">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>

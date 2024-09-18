@@ -311,7 +311,7 @@ void GPUDriverTestScreen::CreateViews() {
 	anchor->Add(back);
 }
 
-void GPUDriverTestScreen::DiscardTest() {
+void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 	using namespace UI;
 	using namespace Draw;
 	if (!discardWriteDepthStencil_) {
@@ -440,7 +440,6 @@ void GPUDriverTestScreen::DiscardTest() {
 		rasterNoCull->Release();
 	}
 
-	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
@@ -474,9 +473,9 @@ void GPUDriverTestScreen::DiscardTest() {
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName.c_str(), layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor.c_str(), layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver.c_str(), layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float testW = 170.f;
@@ -529,10 +528,9 @@ void GPUDriverTestScreen::DiscardTest() {
 	dc.Flush();
 }
 
-void GPUDriverTestScreen::ShaderTest() {
+void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 	using namespace Draw;
 
-	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
 
 	if (!adrenoLogicDiscardPipeline_) {
@@ -581,9 +579,9 @@ void GPUDriverTestScreen::ShaderTest() {
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName.c_str(), layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor.c_str(), layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver.c_str(), layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float y = layoutBounds.y + 150;
@@ -618,7 +616,7 @@ void GPUDriverTestScreen::ShaderTest() {
 	// Draw rectangle that should be flat shaded
 	dc.BeginPipeline(flatShadingPipeline_, samplerNearest_);
 	// There is a "provoking vertex" difference here between GL and Vulkan when using flat shading. One gets one color, one gets the other.
-	// Wherever possible we should reconfigure the GL provoking vertex to match Vulkan, probably.
+	// However, we now use the VK_EXT_provoking_vertex extension to make it match up (and match with the PSP).
 	dc.DrawImageVGradient(ImageID("I_ICON"), 0xFFFFFFFF, 0xFF808080, bounds);
 	dc.Flush();
 
@@ -629,17 +627,13 @@ void GPUDriverTestScreen::ShaderTest() {
 	dc.Flush();
 }
 
-
-void GPUDriverTestScreen::render() {
-	using namespace Draw;
-	UIScreen::render();
-
+void GPUDriverTestScreen::DrawForeground(UIContext &dc) {
 	switch (tabHolder_->GetCurrentTab()) {
 	case 0:
-		DiscardTest();
+		DiscardTest(dc);
 		break;
 	case 1:
-		ShaderTest();
+		ShaderTest(dc);
 		break;
 	}
 }

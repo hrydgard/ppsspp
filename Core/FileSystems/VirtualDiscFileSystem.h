@@ -25,6 +25,8 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
+extern const std::string INDEX_FILENAME;
+
 class VirtualDiscFileSystem: public IFileSystem {
 public:
 	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath);

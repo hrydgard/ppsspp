@@ -29,6 +29,7 @@
 #include <shellapi.h>
 #include <commctrl.h>
 #include <string>
+#include <dwmapi.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -71,8 +72,8 @@
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
@@ -112,10 +113,8 @@ static std::wstring windowTitle;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_WHEELRELEASE 3
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
-#define WHEELRELEASE_DELAY_MS 16
 
 namespace MainWindow
 {
@@ -138,6 +137,7 @@ namespace MainWindow
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_isFullscreen = false;
+	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
@@ -160,6 +160,10 @@ namespace MainWindow
 
 	HWND GetDisplayHWND() {
 		return hwndDisplay;
+	}
+
+	void SetKeepScreenBright(bool keepBright) {
+		g_keepScreenBright = keepBright;
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -267,17 +271,6 @@ namespace MainWindow
 		}
 	}
 
-	void ReleaseMouseWheel() {
-		// For simplicity release both wheel events
-		KeyInput key;
-		key.deviceId = DEVICE_ID_MOUSE;
-		key.flags = KEY_UP;
-		key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-		NativeKey(key);
-		key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-		NativeKey(key);
-	}
-
 	static void HandleSizeChange(int newSizingType) {
 		SavePosition();
 		Core_NotifyWindowHidden(false);
@@ -299,7 +292,7 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		DEBUG_LOG(Log::System, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
 			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
@@ -496,6 +489,10 @@ namespace MainWindow
 
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
+
+		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
 
@@ -586,25 +583,21 @@ namespace MainWindow
 
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
-		if (disasmWindow)
-			delete disasmWindow;
+		delete disasmWindow;
 		disasmWindow = nullptr;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
-		if (geDebuggerWindow)
-			delete geDebuggerWindow;
+		delete geDebuggerWindow;
 		geDebuggerWindow = nullptr;
 #endif
 
 		DialogManager::RemoveDlg(memoryWindow);
-		if (memoryWindow)
-			delete memoryWindow;
+		delete memoryWindow;
 		memoryWindow = nullptr;
 
 		DialogManager::RemoveDlg(vfpudlg);
-		if (vfpudlg)
-			delete vfpudlg;
+		delete vfpudlg;
 		vfpudlg = nullptr;
 	}
 
@@ -612,12 +605,6 @@ namespace MainWindow
 		static bool firstErase = true;
 
 		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
-
 		case WM_SIZE:
 			break;
 
@@ -774,7 +761,7 @@ namespace MainWindow
 
 		switch (message) {
 		case WM_CREATE:
-			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+			if (!IsVistaOrHigher()) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}
@@ -783,6 +770,13 @@ namespace MainWindow
 			}
 			break;
 
+		case WM_USER_RUN_CALLBACK:
+		{
+			auto callback = reinterpret_cast<void (*)(void *window, void *userdata)>(wParam);
+			void *userdata = reinterpret_cast<void *>(lParam);
+			callback(hWnd, userdata);
+			break;
+		}
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
@@ -842,9 +836,11 @@ namespace MainWindow
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
+				} else {
+					g_activeWindow = WINDOW_OTHER;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
-					if (pause != Core_IsStepping()) {	// != is xor for bools
+					if (pause != Core_IsStepping()) {
 						if (disasmWindow)
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
@@ -927,10 +923,8 @@ namespace MainWindow
 				} else {
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
-				// There's no separate keyup event for mousewheel events,
-				// so we release it with a slight delay.
+				// There's no release event, but we simulate it in NativeKey/NativeFrame.
 				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
 				NativeKey(key);
 			}
 			break;
@@ -945,11 +939,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
-			case TIMER_WHEELRELEASE:
-				ReleaseMouseWheel();
-				KillTimer(hWnd, TIMER_WHEELRELEASE);
 				return 0;
 			}
 			break;
@@ -1020,19 +1009,19 @@ namespace MainWindow
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
-				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
+				int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
-					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
-				}
-				else
-				{
-					TCHAR filename[512];
-					if (DragQueryFile(hdrop, 0, filename, 512) != 0) {
+					// TODO: Translate? Or just not bother?
+					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
+				} else {
+					TCHAR filename[1024];
+					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
 						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
 						Core_EnableStepping(false);
 					}
 				}
+				DragFinish(hdrop);
 			}
 			break;
 
@@ -1045,7 +1034,6 @@ namespace MainWindow
 		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-			KillTimer(hWnd, TIMER_WHEELRELEASE);
 			// Main window is gone, this tells the message loop to exit.
 			PostQuitMessage(0);
 			return 0;
@@ -1096,20 +1084,32 @@ namespace MainWindow
 			trapMouse = true;
 			break;
 
-		// Turn off the screensaver.
+		// Turn off the screensaver if in-game.
 		// Note that if there's a screensaver password, this simple method
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
-			{
+			// Disable Alt key for menu if it's been mapped.
+			if (wParam == SC_KEYMENU && (lParam >> 16) <= 0) {
+				if (KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_LEFT) || KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_RIGHT)) {
+					return 0;
+				}
+			}
+			if (g_keepScreenBright) {
 				switch (wParam) {
 				case SC_SCREENSAVE:
 					return 0;
 				case SC_MONITORPOWER:
-					return 0;
+					if (lParam == 1 || lParam == 2) {
+						return 0;
+					} else {
+						break;
+					}
+				default:
+					// fall down to DefWindowProc
+					break;
 				}
-				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
-			break;
+			return DefWindowProc(hWnd, message, wParam, lParam);
 		case WM_SETTINGCHANGE:
 			{
 				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
@@ -1158,6 +1158,10 @@ namespace MainWindow
 
 	bool IsFullscreen() {
 		return g_isFullscreen;
+	}
+
+	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
+		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
 	}
 
 }  // namespace

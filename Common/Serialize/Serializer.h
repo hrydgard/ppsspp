@@ -121,6 +121,10 @@ public:
 		}
 	}
 
+	bool Failed() const {
+		return error == ERROR_FAILURE;
+	}
+
 	void RewindForWrite(u8 *writePtr);
 	bool CheckAfterWrite();
 
@@ -156,6 +160,7 @@ public:
 
 private:
 	const char *firstBadSectionTitle_ = nullptr;
+	const char *curTitle_;
 	u8 *ptrStart_;
 	std::vector<SerializeCheckpoint> checkpoints_;
 	size_t curCheckpoint_ = 0;
@@ -269,9 +274,9 @@ public:
 			failureReason->clear();
 			error = LoadPtr(ptr, _class, failureReason);
 			delete [] ptr;
-			INFO_LOG(SAVESTATE, "ChunkReader: Done loading '%s'", filename.c_str());
+			INFO_LOG(Log::SaveState, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
-			WARN_LOG(SAVESTATE, "ChunkReader: Error found during load of '%s'", filename.c_str());
+			WARN_LOG(Log::SaveState, "ChunkReader: Error found during load of '%s'", filename.c_str());
 		}
 		return error;
 	}

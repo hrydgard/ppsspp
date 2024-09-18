@@ -55,10 +55,9 @@
     <ClCompile Include="..\rcheevos\src\rcheevos\trigger.c" />
     <ClCompile Include="..\rcheevos\src\rcheevos\value.c" />
     <ClCompile Include="..\rcheevos\src\rc_client.c" />
+    <ClCompile Include="..\rcheevos\src\rc_client_raintegration.c" />
     <ClCompile Include="..\rcheevos\src\rc_compat.c" />
     <ClCompile Include="..\rcheevos\src\rc_util.c" />
-    <ClCompile Include="..\rcheevos\src\rhash\cdreader.c" />
-    <ClCompile Include="..\rcheevos\src\rhash\hash.c" />
     <ClCompile Include="..\rcheevos\src\rhash\md5.c" />
   </ItemGroup>
   <ItemGroup>
@@ -75,12 +74,12 @@
     <ClInclude Include="..\rcheevos\include\rc_runtime.h" />
     <ClInclude Include="..\rcheevos\include\rc_runtime_types.h" />
     <ClInclude Include="..\rcheevos\include\rc_url.h" />
+    <ClInclude Include="..\rcheevos\include\rc_util.h" />
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h" />
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_internal.h" />
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_validate.h" />
     <ClInclude Include="..\rcheevos\src\rc_client_internal.h" />
     <ClInclude Include="..\rcheevos\src\rc_compat.h" />
-    <ClInclude Include="..\rcheevos\src\rc_util.h" />
     <ClInclude Include="..\rcheevos\src\rc_version.h" />
     <ClInclude Include="..\rcheevos\src\rhash\md5.h" />
   </ItemGroup>
@@ -176,7 +175,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>RC_DISABLE_LUA;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RC_DISABLE_LUA;RC_CLIENT_SUPPORTS_RAINTEGRATION;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>../rcheevos/include</AdditionalIncludeDirectories>
@@ -219,7 +218,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>RC_DISABLE_LUA;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RC_DISABLE_LUA;RC_CLIENT_SUPPORTS_RAINTEGRATION;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>../rcheevos/include</AdditionalIncludeDirectories>
@@ -270,7 +269,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>RC_DISABLE_LUA;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RC_DISABLE_LUA;RC_CLIENT_SUPPORTS_RAINTEGRATION;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>../rcheevos/include</AdditionalIncludeDirectories>
@@ -316,7 +315,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>RC_DISABLE_LUA;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RC_DISABLE_LUA;RC_CLIENT_SUPPORTS_RAINTEGRATION;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>../rcheevos/include</AdditionalIncludeDirectories>

@@ -67,7 +67,6 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
-#include "Common/LogManager.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "GPU/GPUState.h"
@@ -128,17 +127,8 @@ void UpdateUIState(GlobalUIState newState) {
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		System_Notify(SystemNotification::DISASSEMBLY);
-		const char *state = nullptr;
-		switch (globalUIState) {
-		case UISTATE_EXIT: state = "exit";  break;
-		case UISTATE_INGAME: state = "ingame"; break;
-		case UISTATE_MENU: state = "menu"; break;
-		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
-		case UISTATE_EXCEPTION: state = "exception"; break;
-		}
-		if (state) {
-			System_NotifyUIState(state);
-		}
+		System_Notify(SystemNotification::UI_STATE_CHANGED);
+		System_SetKeepScreenBright(globalUIState == UISTATE_INGAME);
 	}
 }
 
@@ -190,6 +180,12 @@ static bool LoadSymbolsIfSupported() {
 		if (!g_symbolMap)
 			return false;
 
+		if (PSP_CoreParameter().fileToStart.Type() == PathType::HTTP) {
+			// We don't support loading symbols over HTTP.
+			g_symbolMap->Clear();
+			return true;
+		}
+
 		bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 		// Load the old-style map file.
 		if (!result1)
@@ -228,7 +224,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	// Fall back to using the filename.
 	std::string filename = path.GetFilename();
 	// Could be more discerning, but hey..
-	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
+	if (filename.size() > 10 && (filename[0] == 'U' || filename[0] == 'N') && filename[9] == '_') {
 		*id = filename.substr(0, 9);
 		return true;
 	} else {
@@ -274,17 +270,17 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
-		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
+		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
 		InitMemoryForGamePBP(loadedFile);
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
-			INFO_LOG(LOADER, "ELF, using full PSP-2000 memory access");
+			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
-		// Try to grab the disc ID from the filenameor GE dump.
+		// Try to grab the disc ID from the filename or GE dump.
 		if (DiscIDFromGEDumpPath(filename, loadedFile, &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
@@ -293,7 +289,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 		break;
 	default:
 		// Can we even get here?
-		WARN_LOG(LOADER, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		WARN_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		break;
 	}
 
@@ -424,11 +420,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 #if defined(_WIN32) && PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(BOOT, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
 #else
-	NOTICE_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
@@ -635,7 +631,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		return;
 	}
 
-	mipsr4k.RunLoopUntil(globalticks);
+	if (coreState != CORE_NEXTFRAME) {  // Can be set by SaveState as well as by sceDisplay
+		mipsr4k.RunLoopUntil(globalticks);
+	}
 }
 
 void PSP_RunLoopFor(int cycles) {
@@ -707,7 +705,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory;
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
-		ERROR_LOG(FILESYS, "Unknown directory type.");
+		ERROR_LOG(Log::FileSystem, "Unknown directory type.");
 		return g_Config.memStickDirectory;
 	}
 }
@@ -720,10 +718,10 @@ bool CreateSysDirectories() {
 #endif
 
 	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
-	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
+	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateDir(pspDir);
 	if (!File::Exists(pspDir)) {
-		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
+		INFO_LOG(Log::IO, "Not a workable memstick directory. Giving up");
 		return false;
 	}
 
@@ -748,6 +746,5 @@ bool CreateSysDirectories() {
 			File::CreateEmptyFile(path / ".nomedia");
 		}
 	}
-
 	return true;
 }

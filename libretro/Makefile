@@ -1,4 +1,4 @@
-DEBUG=0
+DEBUG     := 0
 WITH_DYNAREC := 1
 
 DYNAFLAGS :=

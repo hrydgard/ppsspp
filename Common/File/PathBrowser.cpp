@@ -35,9 +35,9 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 	}
 
 	// Start by requesting the list of files from the server.
-	http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
 		if (http.Connect(2, 20.0, cancel)) {
+			http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 			net::RequestProgress progress(cancel);
 			code = http.GET(req, &result, responseHeaders, &progress);
 			http.Disconnect();
@@ -74,27 +74,36 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 		// Try to extract from an automatic webserver directory listing...
 		GetQuotedStrings(listing, items);
 	} else {
-		ERROR_LOG(IO, "Unsupported Content-Type: %s", contentType.c_str());
+		ERROR_LOG(Log::IO, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
 	}
-
+	Path basePath(baseURL.ToString());
 	for (auto &item : items) {
 		// Apply some workarounds.
 		if (item.empty())
 			continue;
-		if (item.back() == '\r')
+		if (item.back() == '\r') {
 			item.pop_back();
+			if (item.empty())
+				continue;
+		}
 		if (item == baseURL.Resource())
 			continue;
 
 		File::FileInfo info;
+		if (item.back() == '/') {
+			item.pop_back();
+			if (item.empty())
+				continue;
+			info.isDirectory = true;
+		} else {
+			info.isDirectory = false;
+		}
 		info.name = item;
-		info.fullName = Path(baseURL.Relative(item).ToString());
-		info.isDirectory = endsWith(item, "/");
+		info.fullName = basePath / item;
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;
-
 		files.push_back(info);
 	}
 
@@ -102,12 +111,12 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 }
 
 PathBrowser::~PathBrowser() {
-	std::unique_lock<std::mutex> guard(pendingLock_);
-	pendingCancel_ = true;
-	pendingStop_ = true;
-	pendingCond_.notify_all();
-	guard.unlock();
-
+	{
+		std::unique_lock<std::mutex> guard(pendingLock_);
+		pendingCancel_ = true;
+		pendingStop_ = true;
+		pendingCond_.notify_all();
+	}
 	if (pendingThread_.joinable()) {
 		pendingThread_.join();
 	}
@@ -115,7 +124,13 @@ PathBrowser::~PathBrowser() {
 
 void PathBrowser::SetPath(const Path &path) {
 	path_ = path;
+	ApplyRestriction();
 	HandlePath();
+}
+
+void PathBrowser::RestrictToRoot(const Path &root) {
+	INFO_LOG(Log::System, "Restricting to root: %s", root.c_str());
+	restrictedRoot_ = root;
 }
 
 void PathBrowser::HandlePath() {
@@ -153,24 +168,26 @@ void PathBrowser::HandlePath() {
 				break;
 			}
 			lastPath = pendingPath_;
-			bool success = false;
 			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
-				success = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
+				success_ = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
 				guard.lock();
 			} else if (lastPath.empty()) {
 				results.clear();
-				success = true;
+				success_ = true;
 			} else {
 				guard.unlock();
 				results.clear();
-				success = File::GetFilesInDir(lastPath, &results, nullptr);
+				success_ = File::GetFilesInDir(lastPath, &results, nullptr);
+				if (!success_) {
+					WARN_LOG(Log::IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
+				}
 				guard.lock();
 			}
 
 			if (pendingPath_ == lastPath) {
-				if (success && !pendingCancel_) {
+				if (success_ && !pendingCancel_) {
 					pendingFiles_ = results;
 				}
 				pendingPath_.clear();
@@ -187,24 +204,29 @@ void PathBrowser::ResetPending() {
 	pendingPath_.clear();
 }
 
-bool PathBrowser::IsListingReady() {
-	return ready_;
-}
-
 std::string PathBrowser::GetFriendlyPath() const {
-	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
-	if (startsWith(str, aliasMatch_)) {
-		return aliasDisplay_ + str.substr(aliasMatch_.size());
+	if (path_.StartsWith(aliasMatch_)) {
+		std::string p;
+		if (aliasMatch_.ComputePathTo(path_, p)) {
+			return aliasDisplay_ + p;
+		}
+		std::string str = path_.ToString();
+		if (aliasMatch_.size() < str.length()) {
+			return aliasDisplay_ + str.substr(aliasMatch_.size());
+		} else {
+			return aliasDisplay_;
+		}
 	}
 
-#if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
+    std::string str = path_.ToString();
+#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
 	char *home = getenv("HOME");
 	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
-		str = std::string("~") + str.substr(strlen(home));
+		return std::string("~") + str.substr(strlen(home));
 	}
 #endif
-	return str;
+	return path_.ToVisualString();
 }
 
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {
@@ -220,12 +242,24 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	return true;
 }
 
+void PathBrowser::ApplyRestriction() {
+	if (!path_.StartsWith(restrictedRoot_) && !startsWith(path_.ToString(), "!")) {
+		WARN_LOG(Log::System, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
+		path_ = restrictedRoot_;
+	}
+}
+
 bool PathBrowser::CanNavigateUp() {
+	if (path_ == restrictedRoot_) {
+		return false;
+	}
 	return path_.CanNavigateUp();
 }
 
 void PathBrowser::NavigateUp() {
+	_dbg_assert_(CanNavigateUp());
 	path_ = path_.NavigateUp();
+	ApplyRestriction();
 }
 
 // TODO: Support paths like "../../hello"

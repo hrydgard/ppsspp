@@ -90,7 +90,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 			}
 			closeTouch(touchInputData);
 		} else {
-			WARN_LOG(SYSTEM, "Failed to read input data: %s", GetLastErrorMsg().c_str());
+			WARN_LOG(Log::System, "Failed to read input data: %s", GetLastErrorMsg().c_str());
 		}
 		delete [] inputs;
 	}

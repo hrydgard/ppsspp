@@ -246,8 +246,7 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 
 		tempReg = regs_.MapWithFPRTemp(inst);
 		// Prepare the multiplier.
-		LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
-		FCVT(FConv::S, FConv::WU, tempReg, SCRATCH1, rm);
+		QuickFLI(32, tempReg, (float)(1UL << (inst.src2 & 0x1F)), SCRATCH1);
 
 		FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1), tempReg, rm);
 		// NAN and clamping should all be correct.
@@ -264,8 +263,7 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 		FCVT(FConv::S, FConv::W, regs_.F(inst.dest), SCRATCH1);
 
 		// Pre-divide so we can avoid any actual divide.
-		LI(SCRATCH1, 1.0f / (1UL << (inst.src2 & 0x1F)));
-		FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+		QuickFLI(32, tempReg, 1.0f / (1UL << (inst.src2 & 0x1F)), SCRATCH1);
 		FMUL(32, regs_.F(inst.dest), regs_.F(inst.dest), tempReg);
 		break;
 
@@ -292,8 +290,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 		FCVT(FConv::S, FConv::W, tempReg, R_ZERO);
 		// FLE here is intentional to convert -0.0 to +0.0.
 		FLE(32, SCRATCH1, regs_.F(inst.src1), tempReg);
-		LI(SCRATCH2, 1.0f);
-		FMV(FMv::W, FMv::X, tempReg, SCRATCH2);
+		QuickFLI(32, tempReg, 1.0f, SCRATCH2);
 		FLT(32, SCRATCH2, tempReg, regs_.F(inst.src1));
 
 		skipLower = BEQ(SCRATCH1, R_ZERO);
@@ -315,8 +312,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 			FMV(32, regs_.F(inst.dest), regs_.F(inst.src1));
 
 		// First, set SCRATCH1 = clamp to negative, SCRATCH2 = clamp to positive.
-		LI(SCRATCH2, -1.0f);
-		FMV(FMv::W, FMv::X, tempReg, SCRATCH2);
+		QuickFLI(32, tempReg, -1.0f, SCRATCH2);
 		FLT(32, SCRATCH1, regs_.F(inst.src1), tempReg);
 		FNEG(32, tempReg, tempReg);
 		FLT(32, SCRATCH2, tempReg, regs_.F(inst.src1));
@@ -621,8 +617,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		FSQRT(32, regs_.F(inst.dest), regs_.F(inst.src1));
 
 		// Ugh, we can't really avoid a temp here.  Probably not worth a permanent one.
-		LI(SCRATCH1, 1.0f);
-		FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+		QuickFLI(32, tempReg, 1.0f, SCRATCH1);
 		FDIV(32, regs_.F(inst.dest), tempReg, regs_.F(inst.dest));
 		break;
 
@@ -635,8 +630,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 			FDIV(32, regs_.F(inst.dest), regs_.F(inst.dest), regs_.F(inst.src1));
 		} else {
 			tempReg = regs_.MapWithFPRTemp(inst);
-			LI(SCRATCH1, 1.0f);
-			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+			QuickFLI(32, tempReg, 1.0f, SCRATCH1);
 			FDIV(32, regs_.F(inst.dest), tempReg, regs_.F(inst.src1));
 		}
 		break;

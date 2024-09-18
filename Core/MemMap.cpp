@@ -159,7 +159,7 @@ static bool Memory_TryBase(u32 flags) {
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
 			goto bail;
-			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+			DEBUG_LOG(Log::MemMap, "Failed at view %d", i);
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -169,7 +169,7 @@ static bool Memory_TryBase(u32 flags) {
 			*view.out_ptr = (u8*)g_arena.CreateView(
 				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
 			if (!*view.out_ptr) {
-				DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+				DEBUG_LOG(Log::MemMap, "Failed at view %d", i);
 				goto bail;
 			}
 		}
@@ -235,18 +235,18 @@ bool MemoryMap_Setup(u32 flags) {
 		uintptr_t max_base_addr = 0;
 		uintptr_t min_base_addr = 0;
 		uintptr_t stride = 0;
-		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
+		ERROR_LOG(Log::MemMap, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
 		return false;
 #endif
 		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
 			base_attempts++;
 			base = (u8 *)base_addr;
 			if (Memory_TryBase(flags)) {
-				INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
+				INFO_LOG(Log::MemMap, "Found valid memory base at %p after %i tries.", base, base_attempts);
 				return true;
 			}
 		}
-		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
+		ERROR_LOG(Log::MemMap, "MemoryMap_Setup: Failed finding a memory base.");
 		return false;
 	}
 	else
@@ -309,7 +309,7 @@ bool Init() {
 		return false;
 	}
 
-	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+	INFO_LOG(Log::MemMap, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 
 	MemFault_Init();
@@ -400,7 +400,7 @@ void Shutdown() {
 	u32 flags = 0;
 	MemoryMap_Shutdown(flags);
 	base = nullptr;
-	DEBUG_LOG(MEMMAP, "Memory system shut down.");
+	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
 
 bool IsActive() {
@@ -435,13 +435,13 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 			u32 op;
 			if (GetReplacedOpAt(address, &op)) {
 				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(MEMMAP, "WTF 1");
+					ERROR_LOG(Log::MemMap, "WTF 1");
 					return Opcode(op);
 				} else {
 					return Opcode(op);
 				}
 			} else {
-				ERROR_LOG(MEMMAP, "Replacement, but no replacement op? %08x", inst.encoding);
+				ERROR_LOG(Log::MemMap, "Replacement, but no replacement op? %08x", inst.encoding);
 			}
 		}
 		return inst;
@@ -449,7 +449,7 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
 			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(MEMMAP, "WTF 2");
+				ERROR_LOG(Log::MemMap, "WTF 2");
 				return Opcode(op);
 			} else {
 				return Opcode(op);

@@ -20,19 +20,21 @@ typedef std::function<void (bool, Path)> DarwinDirectoryPanelCallback;
 class DarwinFileSystemServices {
 public:
 	/// Present a panel to choose a file or directory.
-	void presentDirectoryPanel(
-		DarwinDirectoryPanelCallback,
+	static void presentDirectoryPanel(
+		DarwinDirectoryPanelCallback panelCallback,
 		bool allowFiles = false,
 		bool allowDirectories = true,
 		BrowseFileType fileType = BrowseFileType::ANY);
 
 	static Path appropriateMemoryStickDirectoryToUse();
 	static void setUserPreferredMemoryStickDirectory(Path);
+
+	static void ClearDelegate();
 private:
 	static Path __defaultMemoryStickPath();
 #if PPSSPP_PLATFORM(IOS)
 	// iOS only, needed for UIDocumentPickerViewController
-	void *__pickerDelegate = NULL;
+	static void *__pickerDelegate;
 #endif // PPSSPP_PLATFORM(IOS)
 };
 

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <wrl/client.h>
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
@@ -40,6 +41,8 @@
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
+
+using Microsoft::WRL::ComPtr;
 
 static const D3DPRIMITIVETYPE d3d_prim[8] = {
 	// Points, which are expanded to triangles.
@@ -97,16 +100,7 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclM
 }
 
 DrawEngineDX9::~DrawEngineDX9() {
-	if (transformedVertexDecl_) {
-		transformedVertexDecl_->Release();
-	}
-
 	DestroyDeviceObjects();
-	vertexDeclMap_.Iterate([&](const uint32_t &key, IDirect3DVertexDeclaration9 *decl) {
-		if (decl) {
-			decl->Release();
-		}
-	});
 	vertexDeclMap_.Clear();
 	delete tessDataTransferDX9;
 }
@@ -155,10 +149,11 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt) {
-	IDirect3DVertexDeclaration9 *vertexDeclCached;
+HRESULT DrawEngineDX9::SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt, IDirect3DVertexDeclaration9 **ppVertextDeclaration) {
+	ComPtr<IDirect3DVertexDeclaration9> vertexDeclCached;
 	if (vertexDeclMap_.Get(pspFmt, &vertexDeclCached)) {
-		return vertexDeclCached;
+		*ppVertextDeclaration = vertexDeclCached.Detach();
+		return S_OK;
 	} else {
 		D3DVERTEXELEMENT9 VertexElements[8];
 		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
@@ -208,16 +203,16 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxForma
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
 
 		// Create declaration
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
+		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
 		HRESULT hr = device_->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
-			ERROR_LOG(G3D, "Failed to create vertex declaration!");
-			pHardwareVertexDecl = nullptr;
+			ERROR_LOG(Log::G3D, "Failed to create vertex declaration!");
 		}
 
 		// Add it to map
 		vertexDeclMap_.Insert(pspFmt, pHardwareVertexDecl);
-		return pHardwareVertexDecl;
+		*ppVertextDeclaration = pHardwareVertexDecl.Detach();
+		return hr;
 	}
 }
 
@@ -258,16 +253,12 @@ void DrawEngineDX9::DoFlush() {
 		LPDIRECT3DVERTEXBUFFER9 vb_ = nullptr;
 		LPDIRECT3DINDEXBUFFER9 ib_ = nullptr;
 
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
 		DecodeVerts(decoded_);
-		DecodeInds();
-
-		bool useElements = !indexGen.SeenOnlyPurePrims();
-		int vertexCount = indexGen.VertexCount();
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
-		}
-		prim = indexGen.Prim();
 
 		_dbg_assert_((int)prim > 0);
 
@@ -286,10 +277,11 @@ void DrawEngineDX9::DoFlush() {
 		ApplyDrawStateLate();
 
 		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType());
+		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
+		SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType(), &pHardwareVertexDecl);
 
 		if (pHardwareVertexDecl) {
-			device_->SetVertexDeclaration(pHardwareVertexDecl);
+			device_->SetVertexDeclaration(pHardwareVertexDecl.Get());
 			if (vb_ == NULL) {
 				if (useElements) {
 					device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, numDecodedVerts_, D3DPrimCount(d3d_prim[prim], vertexCount), decIndex_, D3DFMT_INDEX16, decoded_, dec_->GetDecVtxFmt().stride);
@@ -315,7 +307,8 @@ void DrawEngineDX9::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -323,12 +316,9 @@ void DrawEngineDX9::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
+		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -340,9 +330,15 @@ void DrawEngineDX9::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
-		params.provokeFlatFirst = true;
 		params.flippedY = false;
 		params.usesHalfZ = true;
+
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// We need to rotate the index buffer to simulate a different provoking vertex.
+			// We do this before line expansion etc.
+			int indexCount = RemainingIndices(inds);
+			IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+		}
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
@@ -354,6 +350,7 @@ void DrawEngineDX9::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
+		int maxIndex = numDecodedVerts_;
 		SoftwareTransform swTransform(params);
 
 		// Half pixel offset hack.
@@ -369,17 +366,17 @@ void DrawEngineDX9::DoFlush() {
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
-		if (result.action == SW_NOT_READY) {
-			swTransform.DetectOffsetTexture(numDecodedVerts_);
-		}
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
 			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
 
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -387,7 +384,7 @@ void DrawEngineDX9::DoFlush() {
 
 		VSShader *vshader = shaderManager_->ApplyShader(false, false, dec_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
 
-		if (result.action == SW_DRAW_PRIMITIVES) {
+		if (result.action == SW_DRAW_INDEXED) {
 			if (result.setStencil) {
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS);
 				dxstate.stencilRef.set(result.stencilValue);
@@ -397,12 +394,8 @@ void DrawEngineDX9::DoFlush() {
 			// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 			// Might help for text drawing.
 
-			device_->SetVertexDeclaration(transformedVertexDecl_);
-			if (result.drawIndexed) {
-				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, numDecodedVerts_, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
-			} else {
-				device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], result.drawNumTrans), result.drawBuffer, sizeof(TransformedVertex));
-			}
+			device_->SetVertexDeclaration(transformedVertexDecl_.Get());
+			device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, numDecodedVerts_, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;

@@ -1,12 +1,13 @@
 #pragma once
 
 #include <cstring>
+#include <wrl/client.h>
 
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 
 // TODO: Get rid of these somehow.
-extern LPDIRECT3DDEVICE9 pD3Ddevice9;
-extern LPDIRECT3DDEVICE9EX pD3DdeviceEx9;
+extern Microsoft::WRL::ComPtr<IDirect3DDevice9> pD3Ddevice9;
+extern Microsoft::WRL::ComPtr<IDirect3DDevice9Ex> pD3DdeviceEx9;
 
 class DirectXState {
 private:
@@ -250,7 +251,7 @@ private:
 			pD3Ddevice9->SetRenderState(_state1, p1);
 			pD3Ddevice9->SetRenderState(_state2, p2);
 			pD3Ddevice9->SetRenderState(_state3, p3);
-			pD3Ddevice9->SetRenderState(_state3, p4);
+			pD3Ddevice9->SetRenderState(_state4, p4);
 		}
 	};
 

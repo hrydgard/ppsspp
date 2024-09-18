@@ -12,7 +12,7 @@
 #include "Common/Math/math_util.h"
 
 #if 0 // def _DEBUG
-#define VLOG(...) INFO_LOG(G3D, __VA_ARGS__)
+#define VLOG(...) INFO_LOG(Log::G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -43,7 +43,7 @@ GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY
 }
 
 GLRenderManager::~GLRenderManager() {
-	_dbg_assert_(!run_);
+	_dbg_assert_(!runCompileThread_);
 
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
@@ -59,7 +59,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	renderThreadId = std::this_thread::get_id();
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
 		inflightFrames_ = newInflightFrames_;
 		newInflightFrames_ = -1;
 	}
@@ -99,7 +99,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 }
 
 void GLRenderManager::ThreadEnd() {
-	INFO_LOG(G3D, "ThreadEnd");
+	INFO_LOG(Log::G3D, "ThreadEnd");
 
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("  PULL: Quitting");
@@ -125,7 +125,7 @@ void GLRenderManager::ThreadEnd() {
 //
 // NOTE: If run_ is true, we WILL run a task!
 bool GLRenderManager::ThreadFrame() {
-	if (!run_) {
+	if (!runCompileThread_) {
 		return false;
 	}
 
@@ -171,15 +171,25 @@ bool GLRenderManager::ThreadFrame() {
 
 void GLRenderManager::StopThread() {
 	// There's not really a lot to do here anymore.
-	INFO_LOG(G3D, "GLRenderManager::StopThread()");
-	if (run_) {
-		run_ = false;
+	INFO_LOG(Log::G3D, "GLRenderManager::StopThread()");
+	if (runCompileThread_) {
+		runCompileThread_ = false;
 
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
 		pushCondVar_.notify_one();
 	} else {
-		WARN_LOG(G3D, "GL submission thread was already paused.");
+		WARN_LOG(Log::G3D, "GL submission thread was already paused.");
+	}
+}
+
+void GLRenderManager::StartThread() {
+	// There's not really a lot to do here anymore.
+	INFO_LOG(Log::G3D, "GLRenderManager::StartThread()");
+	if (!runCompileThread_) {
+		runCompileThread_ = true;
+	} else {
+		INFO_LOG(Log::G3D, "GL submission thread was already running.");
 	}
 }
 
@@ -348,6 +358,9 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 	curProgram_ = nullptr;
 #endif
 
+	// Shouldn't call BeginFrame unless we're in a run state.
+	_dbg_assert_(runCompileThread_);
+
 	int curFrame = GetCurFrame();
 
 	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameIdGen_);
@@ -366,10 +379,6 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 			frameData.fenceCondVar.wait(lock);
 		}
 		frameData.readyForFence = false;
-	}
-
-	if (!run_) {
-		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 
 	insideFrame_ = true;

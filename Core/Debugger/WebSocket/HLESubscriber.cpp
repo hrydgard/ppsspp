@@ -68,7 +68,7 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("threads");
-	for (auto th : threads) {
+	for (const auto &th : threads) {
 		json.pushDict();
 		json.writeUint("id", th.id);
 		json.writeString("name", th.name);
@@ -114,7 +114,7 @@ static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
 		return false;
 
 	auto threads = GetThreadsInfo();
-	for (auto t : threads) {
+	for (const auto &t : threads) {
 		if (t.id == threadID) {
 			*result = t;
 			return true;

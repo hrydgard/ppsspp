@@ -65,7 +65,7 @@ void __ImposeDoState(PointerWrap &p)
 
 static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
 		Memory::Write_U32(PSP_IMPOSE_BATTICON_NONE, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
@@ -77,14 +77,14 @@ static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
 	if (language != g_Config.GetPSPLanguage()) {
-		return hleLogWarning(SCEUTILITY, 0, "ignoring requested language");
+		return hleLogWarning(Log::sceUtility, 0, "ignoring requested language");
 	}
-	return hleLogSuccessI(SCEUTILITY, 0);
+	return hleLogSuccessI(Log::sceUtility, 0);
 }
 
 static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
 		Memory::Write_U32(language, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))
@@ -93,24 +93,24 @@ static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 }
 
 static u32 sceImposeSetUMDPopup(int mode) {
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetUMDPopup(%i)", mode);
+	DEBUG_LOG(Log::sceUtility, "sceImposeSetUMDPopup(%i)", mode);
 	umdPopup = mode;
 	return 0;
 }
 
 static u32 sceImposeGetUMDPopup() {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetUMDPopup()");
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetUMDPopup()");
 	return umdPopup;
 }
 
 static u32 sceImposeSetBacklightOffTime(int time) {
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetBacklightOffTime(%i)", time);
+	DEBUG_LOG(Log::sceUtility, "sceImposeSetBacklightOffTime(%i)", time);
 	backlightOffTime = time;
 	return 0;
 }
 
 static u32 sceImposeGetBacklightOffTime() {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetBacklightOffTime()");
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetBacklightOffTime()");
 	return backlightOffTime;
 }
 

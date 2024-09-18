@@ -56,8 +56,10 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	if (!VulkanLoad()) {
-		*error_message = "Failed to load Vulkan driver library";
+	std::string errorStr;
+	if (!VulkanLoad(&errorStr)) {
+		*error_message = "Failed to load Vulkan driver library: ";
+		(*error_message) += errorStr;
 		return false;
 	}
 
@@ -82,8 +84,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 
-	vulkan_->ChooseDevice(deviceNum);
-	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;

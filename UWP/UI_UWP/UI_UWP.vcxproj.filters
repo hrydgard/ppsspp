@@ -37,6 +37,8 @@
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
+    <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
+    <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -75,5 +77,7 @@
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
     <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
+    <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
+    <ClInclude Include="..\..\UI\JitCompareScreen.h" />
   </ItemGroup>
 </Project>

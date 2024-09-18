@@ -11,6 +11,7 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/LogReporting.h"
 
 UIContext::UIContext() {
@@ -22,6 +23,10 @@ UIContext::~UIContext() {
 	sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
+	if (uitexture_)
+		uitexture_->Release();
+	if (fontTexture_)
+		fontTexture_->Release();
 }
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer) {
@@ -40,6 +45,7 @@ void UIContext::setUIAtlas(const std::string &name) {
 }
 
 void UIContext::BeginFrame() {
+	frameStartTime_ = time_now_d();
 	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
 		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
 		lastUIAtlas_ = UIAtlas_;
@@ -53,7 +59,7 @@ void UIContext::BeginFrame() {
 				// Load the smaller ascii font only, like on Android. For debug ui etc.
 				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
 				if (!fontTexture_) {
-					WARN_LOG(SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
+					WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
 				}
 			}
 		}
@@ -87,16 +93,17 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 }
 
 void UIContext::RebindTexture() const {
+	_dbg_assert_(uitexture_);
 	if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::BindFontTexture() const {
 	// Fall back to the UI texture, in case they have an old atlas.
 	if (fontTexture_)
-		draw_->BindTexture(0, fontTexture_->GetTexture());
+		draw_->BindTexture(0, fontTexture_);
 	else if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {
@@ -164,8 +171,7 @@ void UIContext::ActivateTopScissor() {
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
-			// This won't actually report outside a game, but we can try.
-			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
+			DEBUG_LOG(Log::G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
 			if (x < 0) { w += x; x = 0; }
 			if (y < 0) { h += y; y = 0; }
 			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }
@@ -200,41 +206,36 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 	}
 }
 
-void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
-	MeasureTextCount(style, scaleX, scaleY, str, (int)strlen(str), x, y, align);
-}
-
-void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
+void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align) const {
+	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextCount(style.atlasFont, str, count, x, y);
+		Draw()->MeasureText(style.atlasFont, str, x, y);
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureString(str, count, x, y);
+		textDrawer_->MeasureString(str, x, y);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
 
-void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
-	_dbg_assert_(str != nullptr);
+void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align) const {
+	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
-		Draw()->MeasureTextRect(style.atlasFont, str, count, bounds, x, y, align);
+		Draw()->MeasureTextRect(style.atlasFont, str, bounds, x, y, align);
 	} else {
 		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureStringRect(str, count, bounds, x, y, align);
+		textDrawer_->MeasureStringRect(str, bounds, x, y, align);
 		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
 
-void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
-	_dbg_assert_(str != nullptr);
+void UIContext::DrawText(std::string_view str, float x, float y, uint32_t color, int align) {
+	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
 		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
@@ -254,13 +255,13 @@ void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int 
 	RebindTexture();
 }
 
-void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color, int align) {
+void UIContext::DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	DrawText(str, x + 2, y + 2, alpha, align);
 	DrawText(str, x, y, color, align);
 }
 
-void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
 		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
@@ -285,17 +286,17 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 
 static constexpr float MIN_TEXT_SCALE = 0.7f;
 
-float UIContext::CalculateTextScale(const char *text, float availWidth, float availHeight) const {
+float UIContext::CalculateTextScale(std::string_view str, float availWidth, float availHeight) const {
 	float actualWidth, actualHeight;
 	Bounds availBounds(0, 0, availWidth, availHeight);
-	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, text, (int)strlen(text), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
 		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 	}
 	return 1.0f;
 }
 
-void UIContext::DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	float origScaleX = fontScaleX_;
 	float origScaleY = fontScaleY_;
 	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
@@ -305,7 +306,7 @@ void UIContext::DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint3
 	SetFontScale(origScaleX, origScaleY);
 }
 
-void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
 	DrawTextRect(str, shadowBounds, alpha, align);

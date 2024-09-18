@@ -86,7 +86,6 @@ public:
 	// Utility for users of this class, not used internally.
 	enum { INVALID_OFFSET = 0xFFFFFFFF };
 
-private:
 	// Needs context in case of defragment.
 	void Begin() {
 		buf_ = 0;
@@ -105,7 +104,6 @@ private:
 		Unmap();
 	}
 
-public:
 	void Map();
 	void Unmap();
 
@@ -169,7 +167,7 @@ protected:
 	void UnmapDevice();
 
 private:
-	bool AddBuffer();
+	void AddBuffer();  // asserts on failure
 	void NextBuffer(size_t minSize);
 	void Defragment();
 

@@ -6,25 +6,25 @@
 
 static int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr)
 {
-	INFO_LOG(HLE, "call sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
+	INFO_LOG(Log::HLE, "call sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
 	return 0;
 }
 
 static int sceNpDrmClearLicenseeKey()
 {
-	INFO_LOG(HLE, "call sceNpDrmClearLicenseeKey()");
+	INFO_LOG(Log::HLE, "call sceNpDrmClearLicenseeKey()");
 	return 0;
 }
 
 static int sceNpDrmRenameCheck(const char *filename)
 {
-	INFO_LOG(HLE, "call sceNpDrmRenameCheck(%s)", filename);
+	INFO_LOG(Log::HLE, "call sceNpDrmRenameCheck(%s)", filename);
 	return 0;
 }
 
 static int sceNpDrmEdataSetupKey(u32 edataFd)
 {
-	INFO_LOG(HLE, "call sceNpDrmEdataSetupKey %x", edataFd);
+	INFO_LOG(Log::HLE, "call sceNpDrmEdataSetupKey %x", edataFd);
 	int usec = 0;
 	// set PGD offset
 	int retval = __IoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0, usec);
@@ -39,13 +39,13 @@ static int sceNpDrmEdataSetupKey(u32 edataFd)
 
 static int sceNpDrmEdataGetDataSize(u32 edataFd)
 {
-	INFO_LOG(HLE, "call sceNpDrmEdataGetDataSize %x", edataFd);
+	INFO_LOG(Log::HLE, "call sceNpDrmEdataGetDataSize %x", edataFd);
 	return sceIoIoctl(edataFd, 0x04100010, 0, 0, 0, 0);
 }
 
 static int sceNpDrmOpen()
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmOpen");
+	ERROR_LOG(Log::HLE, "UNIMPL sceNpDrmOpen");
 	return 0;
 }
 

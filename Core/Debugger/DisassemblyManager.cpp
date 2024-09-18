@@ -591,6 +591,7 @@ void DisassemblyFunction::addOpcodeSequence(u32 start, u32 end)
 	DisassemblyOpcode* opcode = new DisassemblyOpcode(start,(end-start)/4);
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 	entries[start] = opcode;
+	lineAddresses.reserve((end - start) / 4);
 	for (u32 pos = start; pos < end; pos += 4)
 	{
 		lineAddresses.push_back(pos);
@@ -820,7 +821,7 @@ void DisassemblyMacro::setMacroLi(u32 _immediate, u8 _rt)
 	numOpcodes = 2;
 }
 
-void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize)
+void DisassemblyMacro::setMacroMemory(const std::string &_name, u32 _immediate, u8 _rt, int _dataSize)
 {
 	type = MACRO_MEMORYIMM;
 	name = _name;

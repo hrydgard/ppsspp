@@ -22,7 +22,9 @@ char *Buffer::Append(size_t length) {
 
 void Buffer::Append(const std::string &str) {
 	char *ptr = Append(str.size());
-	memcpy(ptr, str.data(), str.size());
+	if (ptr) {
+		memcpy(ptr, str.data(), str.size());
+	}
 }
 
 void Buffer::Append(const char *str) {
@@ -48,7 +50,7 @@ void Buffer::AppendValue(int value) {
 
 void Buffer::Take(size_t length, std::string *dest) {
 	if (length > data_.size()) {
-		ERROR_LOG(IO, "Truncating length in Buffer::Take()");
+		ERROR_LOG(Log::IO, "Truncating length in Buffer::Take()");
 		length = data_.size();
 	}
 	dest->resize(length);
@@ -77,7 +79,7 @@ int Buffer::TakeLineCRLF(std::string *dest) {
 
 void Buffer::Skip(size_t length) {
 	if (length > data_.size()) {
-		ERROR_LOG(IO, "Truncating length in Buffer::Skip()");
+		ERROR_LOG(Log::IO, "Truncating length in Buffer::Skip()");
 		length = data_.size();
 	}
 	data_.erase(data_.begin(), data_.begin() + length);
@@ -109,10 +111,10 @@ void Buffer::Printf(const char *fmt, ...) {
 	size_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
 	if ((int)retval >= (int)sizeof(buffer)) {
 		// Output was truncated. TODO: Do something.
-		ERROR_LOG(IO, "Buffer::Printf truncated output");
+		ERROR_LOG(Log::IO, "Buffer::Printf truncated output");
 	}
-	if (retval < 0) {
-		ERROR_LOG(IO, "Buffer::Printf failed");
+	if ((int)retval < 0) {
+		ERROR_LOG(Log::IO, "Buffer::Printf failed");
 	}
 	va_end(vl);
 	char *ptr = Append(retval);

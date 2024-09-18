@@ -123,7 +123,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
-		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
+		DEBUG_LOG(Log::FileSystem, "Checking case for path %s", fileName.c_str());
 		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;  // or go on and attempt (for a better error code than just 0?)
@@ -225,7 +225,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			// Success
 			return true;
 		} else {
-			ERROR_LOG(FILESYS, "File::OpenFD returned an error");
+			ERROR_LOG(Log::FileSystem, "File::OpenFD returned an error");
 			// TODO: Need better error codes from OpenFD so we can distinguish
 			// disk full. Just set not found for now.
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
@@ -262,16 +262,14 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			return false;
 		}
 		fullName = GetLocalPath(basePath, fileName);
-		const char *fullNameC = fullName.c_str();
-
-		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
+		DEBUG_LOG(Log::FileSystem, "Case may have been incorrect, second try opening %s (%s)", fullName.c_str(), fileName.c_str());
 
 		// And try again with the correct case this time
 #ifdef _WIN32
-		hFile = CreateFile(fullNameC, desired, sharemode, 0, openmode, 0, 0);
+		hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 		success = hFile != INVALID_HANDLE_VALUE;
 #else
-		hFile = open(fullNameC, flags, 0666);
+		hFile = open(fullName.c_str(), flags, 0666);
 		success = hFile != -1;
 #endif
 	}
@@ -363,7 +361,7 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	MemoryStick_NotifyWrite();
 
 	if (diskFull) {
-		ERROR_LOG(FILESYS, "Disk full");
+		ERROR_LOG(Log::FileSystem, "Disk full");
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Disk full while writing data"));
 		// We only return an error when the disk is actually full.
@@ -384,7 +382,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 		// The actual, underlying file hasn't been truncated (yet.)
 		if (type == FILEMOVE_END) {
 			type = FILEMOVE_BEGIN;
-			position = needsTrunc_ + position;
+			position = (s32)(needsTrunc_ + position);
 		}
 	}
 
@@ -421,12 +419,12 @@ void DirectoryFileHandle::Close()
 #ifdef _WIN32
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
-			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
+			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
 		}
 #elif !PPSSPP_PLATFORM(SWITCH)
 		// Note: it's not great that Switch cannot truncate appropriately...
 		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
-			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
+			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
 		}
 #endif
 	}
@@ -441,7 +439,7 @@ void DirectoryFileHandle::Close()
 
 void DirectoryFileSystem::CloseAll() {
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
-		INFO_LOG(FILESYS, "DirectoryFileSystem::CloseAll(): Force closing %d (%s)", (int)iter->first, iter->second.guestFilename.c_str());
+		INFO_LOG(Log::FileSystem, "DirectoryFileSystem::CloseAll(): Force closing %d (%s)", (int)iter->first, iter->second.guestFilename.c_str());
 		iter->second.hFile.Close();
 	}
 	entries.clear();
@@ -579,7 +577,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		logError = (int)errno;
 #endif
 		if (!(access & FILEACCESS_PPSSPP_QUIET)) {
-			ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile('%s'): FAILED, %d - access = %d '%s'", filename.c_str(), logError, (int)(access & FILEACCESS_PSP_FLAGS), errorString.c_str());
+			ERROR_LOG(Log::FileSystem, "DirectoryFileSystem::OpenFile('%s'): FAILED, %d - access = %d '%s'", filename.c_str(), logError, (int)(access & FILEACCESS_PSP_FLAGS), errorString.c_str());
 		}
 		return err;
 	} else {
@@ -608,7 +606,7 @@ void DirectoryFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot close file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
@@ -634,7 +632,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &use
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		if (size < 0) {
-			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
+			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
 			return 0;
 		}
 
@@ -642,7 +640,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &use
 		return bytesRead;
 	} else {
 		// This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot read file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -659,7 +657,7 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, i
 		return bytesWritten;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot write to file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot write to file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -670,7 +668,7 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		return iter->second.hFile.Seek(position,type);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot seek in file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -699,15 +697,15 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 
 	if (x.type != FILETYPE_DIRECTORY) {
 		x.size = info.size;
-		x.access = info.access;
-		time_t atime = info.atime;
-		time_t ctime = info.ctime;
-		time_t mtime = info.mtime;
-
-		localtime_r((time_t*)&atime, &x.atime);
-		localtime_r((time_t*)&ctime, &x.ctime);
-		localtime_r((time_t*)&mtime, &x.mtime);
 	}
+	x.access = info.access;
+	time_t atime = info.atime;
+	time_t ctime = info.ctime;
+	time_t mtime = info.mtime;
+
+	localtime_r((time_t*)&atime, &x.atime);
+	localtime_r((time_t*)&ctime, &x.ctime);
+	localtime_r((time_t*)&mtime, &x.mtime);
 
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
@@ -737,9 +735,9 @@ static void tmFromFiletime(tm &dest, const FILETIME &src) {
 // Hopefully no PSP games read directories after they create files in them...
 static std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
-	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
-	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
-	static const char *LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+	static const char * const FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
+	static const char * const FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
+	static const char * const LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
 
 	// To avoid logging/comparing, skip all this if it has no lowercase chars to begin with.
 	size_t lowerchar = filename.find_first_of(LOWER_CHARS);
@@ -776,7 +774,7 @@ static std::string SimulateVFATBug(std::string filename) {
 	}
 
 	if (apply_hack) {
-		VERBOSE_LOG(FILESYS, "Applying VFAT hack to filename: %s", filename.c_str());
+		VERBOSE_LOG(Log::FileSystem, "Applying VFAT hack to filename: %s", filename.c_str());
 		// In this situation, NT would write UPPERCASE, and just set a flag to say "actually lowercase".
 		// That VFAT flag isn't read by the PSP firmware, so let's pretend to "not read it."
 		std::transform(filename.begin(), filename.end(), filename.begin(), toupper);
@@ -832,7 +830,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 			entry.name = file.name;
 		}
 		if (hideISOFiles) {
-			if (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso")) {
+			if (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso") || endsWithNoCase(entry.name, ".chd")) {  // chd not really necessary, but let's hide them too.
 				// Workaround for DJ Max Portable, see compat.ini.
 				continue;
 			} else if (file.isDirectory) {
@@ -922,13 +920,13 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			u32 err;
 			bool brokenFile = false;
 			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
-				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
+				ERROR_LOG(Log::FileSystem, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
 				brokenFile = true;
 			}
 			u32 position;
 			Do(p, position);
 			if (position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
-				ERROR_LOG(FILESYS, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
+				ERROR_LOG(Log::FileSystem, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
 				brokenFile = true;
 			}
 			if (s >= 2) {
@@ -966,7 +964,7 @@ VFSFileSystem::~VFSFileSystem() {
 	entries.clear();
 }
 
-std::string VFSFileSystem::GetLocalPath(std::string localPath) {
+std::string VFSFileSystem::GetLocalPath(const std::string &localPath) {
 	return basePath + localPath;
 }
 
@@ -992,18 +990,18 @@ bool VFSFileSystem::RemoveFile(const std::string &filename) {
 
 int VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	if (access != FILEACCESS_READ) {
-		ERROR_LOG(FILESYS, "VFSFileSystem only supports plain reading");
+		ERROR_LOG(Log::FileSystem, "VFSFileSystem only supports plain reading");
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
 	}
 
 	std::string fullName = GetLocalPath(filename);
 	const char *fullNameC = fullName.c_str();
-	VERBOSE_LOG(FILESYS, "VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+	VERBOSE_LOG(Log::FileSystem, "VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
 	u8 *data = g_VFS.ReadFile(fullNameC, &size);
 	if (!data) {
-		ERROR_LOG(FILESYS, "VFSFileSystem failed to open %s", filename.c_str());
+		ERROR_LOG(Log::FileSystem, "VFSFileSystem failed to open %s", filename.c_str());
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
@@ -1042,7 +1040,7 @@ void VFSFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot close file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
@@ -1065,16 +1063,19 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
-	DEBUG_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
+	DEBUG_LOG(Log::FileSystem,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
+		if(iter->second.seekPos + size > iter->second.size)
+			size = iter->second.size - iter->second.seekPos;
+		if(size < 0) size = 0;
 		size_t bytesRead = size;
 		memcpy(pointer, iter->second.fileData + iter->second.seekPos, size);
 		iter->second.seekPos += size;
 		return bytesRead;
 	} else {
-		ERROR_LOG(FILESYS,"Cannot read file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -1100,7 +1101,7 @@ size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		return iter->second.seekPos;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(FILESYS,"Cannot seek in file that hasn't been opened: %08x", handle);
+		ERROR_LOG(Log::FileSystem,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -1124,6 +1125,6 @@ void VFSFileSystem::DoState(PointerWrap &p) {
 
 	if (num != 0) {
 		p.SetError(p.ERROR_WARNING);
-		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
+		ERROR_LOG(Log::FileSystem, "FIXME: Open files during savestate, could go badly.");
 	}
 }

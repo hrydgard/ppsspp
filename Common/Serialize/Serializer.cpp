@@ -46,11 +46,11 @@ bool PointerWrap::CheckAfterWrite() {
 	_assert_(error != ERROR_NONE || mode == MODE_WRITE);
 	size_t offset = Offset();
 	if (measuredSize_ != 0 && offset != measuredSize_) {
-		WARN_LOG(SAVESTATE, "CheckAfterWrite: Size mismatch! %d but expected %d", (int)offset, (int)measuredSize_);
+		WARN_LOG(Log::SaveState, "CheckAfterWrite: Size mismatch! %d but expected %d", (int)offset, (int)measuredSize_);
 		return false;
 	}
 	if (!checkpoints_.empty() && curCheckpoint_ != checkpoints_.size()) {
-		WARN_LOG(SAVESTATE, "Checkpoint count mismatch!");
+		WARN_LOG(Log::SaveState, "Checkpoint count mismatch!");
 		return false;
 	}
 	return true;
@@ -59,6 +59,8 @@ bool PointerWrap::CheckAfterWrite() {
 PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) {
 	char marker[16] = {0};
 	int foundVersion = ver;
+
+	curTitle_ = title;
 
 	// This is strncpy because we rely on its weird non-null-terminating zero-filling truncation behaviour.
 	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
@@ -71,20 +73,20 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	} else if (mode == MODE_WRITE) {
 		if (!checkpoints_.empty()) {
 			if (checkpoints_.size() <= curCheckpoint_) {
-				WARN_LOG(SAVESTATE, "Write: Not enough checkpoints from measure pass (%d). cur section: %s", (int)checkpoints_.size(), title);
+				WARN_LOG(Log::SaveState, "Write: Not enough checkpoints from measure pass (%d). cur section: %s", (int)checkpoints_.size(), title);
 				SetError(ERROR_FAILURE);
 				return PointerWrapSection(*this, -1, title);
 			}
 			if (!checkpoints_[curCheckpoint_].Matches(marker, offset)) {
-				WARN_LOG(SAVESTATE, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, (int)offset, (int)checkpoints_[curCheckpoint_].offset);
+				WARN_LOG(Log::SaveState, "Checkpoint mismatch during write! Section %s but expected %s, offset %d but expected %d", title, marker, (int)offset, (int)checkpoints_[curCheckpoint_].offset);
 				if (curCheckpoint_ > 1) {
-					WARN_LOG(SAVESTATE, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
+					WARN_LOG(Log::SaveState, "Previous checkpoint: %s (%d)", checkpoints_[curCheckpoint_ - 1].title, (int)checkpoints_[curCheckpoint_ - 1].offset);
 				}
 				SetError(ERROR_FAILURE);
 				return PointerWrapSection(*this, -1, title);
 			}
 		} else {
-			WARN_LOG(SAVESTATE, "Writing savestate without checkpoints. This is OK but should be fixed.");
+			WARN_LOG(Log::SaveState, "Writing savestate without checkpoints. This is OK but should be fixed.");
 		}
 		curCheckpoint_++;
 	}
@@ -106,7 +108,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 			firstBadSectionTitle_ = title;
 		}
 		if (mode != MODE_NOOP) {
-			WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
+			WARN_LOG(Log::SaveState, "Savestate failure: wrong version %d found for section '%s'", foundVersion, title);
 			SetError(ERROR_FAILURE);
 		}
 		return PointerWrapSection(*this, -1, title);
@@ -122,6 +124,8 @@ void PointerWrap::SetError(Error error_) {
 		// For the rest of this run, do nothing, to avoid running off the end of memory or something,
 		// and also not logspam like MEASURE will do in an error case.
 		mode = PointerWrap::MODE_NOOP;
+		// Also, remember the bad section.
+		firstBadSectionTitle_ = curTitle_;
 	}
 }
 
@@ -162,7 +166,7 @@ void Do(PointerWrap &p, std::string &x) {
 	Do(p, stringLen);
 
 	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
-		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
 	}
@@ -182,7 +186,7 @@ void Do(PointerWrap &p, std::wstring &x) {
 	Do(p, stringLen);
 
 	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
-		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
 	}
@@ -210,7 +214,7 @@ void Do(PointerWrap &p, std::u16string &x) {
 	Do(p, stringLen);
 
 	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
-		WARN_LOG(SAVESTATE, "Savestate failure: bad stringLen %d", stringLen);
+		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
 	}
@@ -271,7 +275,7 @@ void PointerWrap::DoMarker(const char *prevName, u32 arbitraryNumber) {
 	u32 cookie = arbitraryNumber;
 	Do(*this, cookie);
 	if (mode == PointerWrap::MODE_READ && cookie != arbitraryNumber) {
-		ERROR_LOG(SAVESTATE, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
+		ERROR_LOG(Log::SaveState, "Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
 		SetError(ERROR_FAILURE);
 	}
 }
@@ -284,31 +288,31 @@ PointerWrapSection::~PointerWrapSection() {
 
 CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title) {
 	if (!pFile) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Can't open file for reading");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Can't open file for reading");
 		return ERROR_BAD_FILE;
 	}
 
 	const u64 fileSize = pFile.GetSize();
 	u64 headerSize = sizeof(SChunkHeader);
 	if (fileSize < headerSize) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: File too small");
+		ERROR_LOG(Log::SaveState, "ChunkReader: File too small");
 		return ERROR_BAD_FILE;
 	}
 
 	if (!pFile.ReadArray(&header, 1)) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Bad header size");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Bad header size");
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Revision < REVISION_MIN) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Wrong file revision, got %d expected >= %d", header.Revision, REVISION_MIN);
+		ERROR_LOG(Log::SaveState, "ChunkReader: Wrong file revision, got %d expected >= %d", header.Revision, REVISION_MIN);
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Revision >= REVISION_TITLE) {
 		char titleFixed[128];
 		if (!pFile.ReadArray(titleFixed, sizeof(titleFixed))) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Unable to read title");
+			ERROR_LOG(Log::SaveState, "ChunkReader: Unable to read title");
 			return ERROR_BAD_FILE;
 		}
 
@@ -323,7 +327,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 
 	u32 sz = (u32)(fileSize - headerSize);
 	if (header.ExpectedSize != sz) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Bad file size, got %u expected %u", sz, header.ExpectedSize);
+		ERROR_LOG(Log::SaveState, "ChunkReader: Bad file size, got %u expected %u", sz, header.ExpectedSize);
 		return ERROR_BAD_FILE;
 	}
 
@@ -332,7 +336,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 
 CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std::string *title) {
 	if (!File::Exists(filename)) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
+		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
 		return ERROR_BAD_FILE;
 	}
 
@@ -344,7 +348,7 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
-		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
+		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
 		return ERROR_BAD_FILE;
 	}
 
@@ -360,7 +364,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	u8 *buffer = new u8[sz];
 	if (!pFile.ReadBytes(buffer, sz))
 	{
-		ERROR_LOG(SAVESTATE, "ChunkReader: Error reading file");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
 		delete [] buffer;
 		return ERROR_BAD_FILE;
 	}
@@ -379,16 +383,16 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 				uncomp_size = status;
 			}
 		} else {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Unexpected compression type %d", header.Compress);
+			ERROR_LOG(Log::SaveState, "ChunkReader: Unexpected compression type %d", header.Compress);
 		}
 		if (!success) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed to decompress file");
+			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
 			delete [] uncomp_buffer;
 			delete [] buffer;
 			return ERROR_BAD_FILE;
 		}
 		if ((u32)uncomp_size != header.UncompressedSize) {
-			ERROR_LOG(SAVESTATE, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
+			ERROR_LOG(Log::SaveState, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
 			delete [] uncomp_buffer;
 			delete [] buffer;
 			return ERROR_BAD_FILE;
@@ -411,11 +415,11 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 // Takes ownership of buffer.
 CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz) {
-	INFO_LOG(SAVESTATE, "ChunkReader: Writing %s", filename.c_str());
+	INFO_LOG(Log::SaveState, "ChunkReader: Writing %s", filename.c_str());
 
 	File::IOFile pFile(filename, "wb");
 	if (!pFile) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Error opening file for write");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Error opening file for write");
 		free(buffer);
 		return ERROR_BAD_FILE;
 	}
@@ -438,7 +442,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
 		if (write_len != 0)
-			ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
+			ERROR_LOG(Log::SaveState, "ChunkReader: Unable to allocate compressed buffer");
 		// We'll save uncompressed.  Better than not saving...
 		write_len = sz;
 		usedType = SerializeCompressType::NONE;
@@ -473,7 +477,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 			free(buffer);
 			write_buffer = compressed_buffer;
 		} else {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Compression failed");
+			ERROR_LOG(Log::SaveState, "ChunkReader: Compression failed");
 			free(compressed_buffer);
 
 			// We can still save uncompressed.
@@ -496,25 +500,25 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 
 	// Now let's start writing out the file...
 	if (!pFile.WriteArray(&header, 1)) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing header");
 		free(write_buffer);
 		return ERROR_BAD_FILE;
 	}
 	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing title");
 		free(write_buffer);
 		return ERROR_BAD_FILE;
 	}
 
 	if (!pFile.WriteBytes(write_buffer, write_len)) {
-		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
+		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing compressed data");
 		free(write_buffer);
 		return ERROR_BAD_FILE;
 	} else if (sz != write_len) {
-		INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
+		INFO_LOG(Log::SaveState, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
 	}
 	free(write_buffer);
 
-	INFO_LOG(SAVESTATE, "ChunkReader: Done writing %s", filename.c_str());
+	INFO_LOG(Log::SaveState, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;
 }

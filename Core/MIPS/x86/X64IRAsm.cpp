@@ -39,9 +39,9 @@ static void ShowPC(void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
 		u32 downcount = currentMIPS->downcount;
-		ERROR_LOG(JIT, "[%08x] ShowPC  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
+		ERROR_LOG(Log::JIT, "[%08x] ShowPC  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
 	} else {
-		ERROR_LOG(JIT, "Universe corrupt?");
+		ERROR_LOG(Log::JIT, "Universe corrupt?");
 	}
 	//if (count > 2000)
 	//	exit(0);
@@ -304,7 +304,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #if PPSSPP_ARCH(AMD64)
 		std::vector<std::string> lines = DisassembleX86(disasmStart, (int)(GetCodePtr() - disasmStart));
 		for (auto s : lines) {
-			INFO_LOG(JIT, "%s", s.c_str());
+			INFO_LOG(Log::JIT, "%s", s.c_str());
 		}
 #endif
 	}

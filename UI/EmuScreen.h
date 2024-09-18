@@ -42,12 +42,11 @@ public:
 	const char *tag() const override { return "Emu"; }
 
 	void update() override;
-	void render() override;
-	void preRender() override;
-	void postRender() override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void resized() override;
+	ScreenRenderRole renderRole(bool isTop) const override;
 
 	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
 	// to get minimal latency and full control. We forward to UIScreen when needed.
@@ -59,7 +58,7 @@ public:
 	bool key(const KeyInput &key) override;
 
 protected:
-
+	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
 
 private:
@@ -119,6 +118,8 @@ private:
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
+
+	std::string extraAssertInfoStr_;
 
 	ControlMapper controlMapper_;
 };

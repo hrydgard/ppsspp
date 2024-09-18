@@ -1322,7 +1322,7 @@ void XEmitter::XOR (int bits, const OpArg &a1, const OpArg &a2) {CheckFlags(); W
 void XEmitter::MOV (int bits, const OpArg &a1, const OpArg &a2)
 {
 	if (a1.IsSimpleReg() && a2.IsSimpleReg() && a1.GetSimpleReg() == a2.GetSimpleReg())
-		ERROR_LOG(JIT, "Redundant MOV @ %p - bug in JIT?", code);
+		ERROR_LOG(Log::JIT, "Redundant MOV @ %p - bug in JIT?", code);
 	WriteNormalOp(this, bits, nrmMOV, a1, a2);
 }
 void XEmitter::TEST(int bits, const OpArg &a1, const OpArg &a2) {CheckFlags(); WriteNormalOp(this, bits, nrmTEST, a1, a2);}

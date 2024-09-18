@@ -583,8 +583,7 @@ enum GETexProjMapMode
 	GE_PROJMAP_NORMAL = 3,
 };
 
-enum GEPrimitiveType
-{
+enum GEPrimitiveType : int8_t {
 	GE_PRIM_POINTS = 0,
 	GE_PRIM_LINES = 1,
 	GE_PRIM_LINE_STRIP = 2,

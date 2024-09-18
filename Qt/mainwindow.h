@@ -9,9 +9,12 @@
 #include <QMainWindow>
 #include <QActionGroup>
 
+#include "ppsspp_config.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
-#include "ConsoleListener.h"
+#if PPSSPP_PLATFORM(WINDOWS)
+#include "Common/Log/ConsoleListener.h"
+#endif
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"

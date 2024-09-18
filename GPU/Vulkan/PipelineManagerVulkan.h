@@ -75,6 +75,7 @@ struct VulkanPipeline {
 	bool UsesDepthStencil() const { return (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) != 0; }
 	bool UsesGeometryShader() const { return (pipelineFlags & PipelineFlags::USES_GEOMETRY_SHADER) != 0; }
 	bool UsesDiscard() const { return (pipelineFlags & PipelineFlags::USES_DISCARD) != 0; }
+	bool UsesFlatShading() const { return (pipelineFlags & PipelineFlags::USES_FLAT_SHADING) != 0; }
 
 	u32 GetVariantsBitmask() const;
 };
@@ -95,7 +96,7 @@ public:
 
 	void InvalidateMSAAPipelines();
 
-	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
+	std::string DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type) const;
 
 	// Saves data for faster creation next time.

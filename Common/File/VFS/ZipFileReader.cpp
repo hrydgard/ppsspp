@@ -22,7 +22,7 @@ ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath,
 		int fd = File::OpenFD(zipFile, File::OPEN_READ);
 		if (!fd) {
 			if (logErrors) {
-				ERROR_LOG(IO, "Failed to open FD for '%s' as zip file", zipFile.c_str());
+				ERROR_LOG(Log::IO, "Failed to open FD for '%s' as zip file", zipFile.c_str());
 			}
 			return nullptr;
 		}
@@ -33,7 +33,7 @@ ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath,
 
 	if (!zip_file) {
 		if (logErrors) {
-			ERROR_LOG(IO, "Failed to open %s as a zip file", zipFile.c_str());
+			ERROR_LOG(Log::IO, "Failed to open %s as a zip file", zipFile.c_str());
 		}
 		return nullptr;
 	}
@@ -61,7 +61,7 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
 	zip_file *file = zip_fopen(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
 	if (!file) {
-		ERROR_LOG(IO, "Error opening %s from ZIP", temp_path.c_str());
+		ERROR_LOG(Log::IO, "Error opening %s from ZIP", temp_path.c_str());
 		return 0;
 	}
 	uint8_t *contents = new uint8_t[zstat.size + 1];
@@ -84,7 +84,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	if (filter) {
 		while (*filter) {
 			if (*filter == ':') {
-				filters.insert("." + tmp);
+				filters.emplace("." + tmp);
 				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
@@ -94,7 +94,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	}
 
 	if (tmp.size())
-		filters.insert("." + tmp);
+		filters.emplace("." + tmp);
 
 	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
 	std::set<std::string> files;
@@ -107,8 +107,9 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	listing->clear();
 
-	INFO_LOG(SYSTEM, "Listing %s", orig_path);
+	// INFO_LOG(Log::System, "Zip: Listing '%s'", orig_path);
 
+	listing->reserve(directories.size() + files.size());
 	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
 		File::FileInfo info;
 		info.name = *diter;
@@ -119,7 +120,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 		info.exists = true;
 		info.isWritable = false;
 		info.isDirectory = true;
-		// INFO_LOG(SYSTEM, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::System, "Found file: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -138,7 +139,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 				continue;
 			}
 		}
-		// INFO_LOG(SYSTEM, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
+		// INFO_LOG(Log::System, "Found dir: %s (%s)", info.name.c_str(), info.fullName.c_str());
 		listing->push_back(info);
 	}
 
@@ -174,7 +175,7 @@ bool ZipFileReader::GetZipListings(const std::string &path, std::set<std::string
 				anyPrefixMatched = true;
 				// It's a file.
 				const char *fn = name + path.size();
-				files.insert(std::string(fn));
+				files.emplace(fn);
 			}
 		}
 	}
@@ -278,8 +279,9 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 
 	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
 	if (!openFile->zf) {
-		WARN_LOG(G3D, "File with index %d not found in zip", reference->zi);
+		WARN_LOG(Log::G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
+		delete openFile;
 		return nullptr;
 	}
 

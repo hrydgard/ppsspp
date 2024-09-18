@@ -270,20 +270,6 @@ inline bool IsKernelAndNotVolatileAddress(const u32 address) {
 
 bool IsScratchpadAddress(const u32 address);
 
-// Used for auto-converted char * parameters, which can sometimes legitimately be null -
-// so we don't want to get caught in GetPointer's crash reporting.
-inline const char* GetCharPointer(const u32 address) {
-	if (address) {
-		return (const char *)GetPointer(address);
-	} else {
-		return nullptr;
-	}
-}
-
-inline const char *GetCharPointerUnchecked(const u32 address) {
-	return (const char *)GetPointerUnchecked(address);
-}
-
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
@@ -310,28 +296,76 @@ inline bool IsValidAddress(const u32 address) {
 	}
 }
 
-inline u32 ValidSize(const u32 address, const u32 requested_size) {
-	u32 max_size;
-	if ((address & 0x3E000000) == 0x08000000) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		max_size = 0x04800000 - (address & 0x3FFFFFFF);
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		max_size = 0x00014000 - (address & 0x3FFFFFFF);
+inline bool IsValid4AlignedAddress(const u32 address) {
+	if ((address & 0x3E000003) == 0x08000000) {
+		return true;
+	} else if ((address & 0x3F800003) == 0x04000000) {
+		return true;
+	} else if ((address & 0xBFFFC003) == 0x00010000) {
+		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+		return (address & 3) == 0;
 	} else {
-		max_size = 0;
+		return false;
+	}
+}
+
+
+inline u32 MaxSizeAtAddress(const u32 address){
+	if ((address & 0x3E000000) == 0x08000000) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		return 0x04800000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		return 0x00014000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else {
+		return 0;
+	}
+}
+
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
+}
+
+// NOTE: Unlike the similar IsValidRange/IsValidAddress functions, this one is linear cost vs the size of the string,
+// for hopefully-obvious reasons.
+inline bool IsValidNullTerminatedString(const u32 address) {
+	u32 max_size = MaxSizeAtAddress(address);
+	if (max_size == 0) {
+		return false;
 	}
 
+	const char *c = GetCharPointerUnchecked(address);
+	if (memchr(c, '\0', max_size)) {
+		return true;
+	}
+	return false;
+}
+
+inline u32 ValidSize(const u32 address, const u32 requested_size) {
+	u32 max_size = MaxSizeAtAddress(address);
 	if (requested_size > max_size) {
 		return max_size;
 	}
 	return requested_size;
 }
 
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
 inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
+}
+
+// Used for auto-converted char * parameters, which can sometimes legitimately be null -
+// so we don't want to get caught in GetPointer's crash reporting
+// TODO: This should use IsValidNullTerminatedString, but may be expensive since this is used so much - needs evaluation.
+inline const char *GetCharPointer(const u32 address) {
+	if (address && IsValidAddress(address)) {
+		return GetCharPointerUnchecked(address);
+	} else {
+		return nullptr;
+	}
 }
 
 }  // namespace Memory
@@ -486,7 +520,6 @@ struct PSPPointer
 		return p;
 	}
 };
-
 
 constexpr u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 constexpr u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}

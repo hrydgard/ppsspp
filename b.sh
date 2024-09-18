@@ -72,8 +72,17 @@ do
 		--sanitize) echo "Enabling address-sanitizer if available"
 			CMAKE_ARGS="-DUSE_ASAN=ON ${CMAKE_ARGS}"
 			;;
+		--sanitizeub) echo "Enabling ub-sanitizer if available"
+			CMAKE_ARGS="-DUSE_UBSAN=ON ${CMAKE_ARGS}"
+			;;
 		--gold) echo "Gold build enabled"
 			CMAKE_ARGS="-DGOLD=ON ${CMAKE_ARGS}"
+			;;
+		--alderlake) echo "Alderlake opt"
+			CMAKE_ARGS="-DCMAKE_C_FLAGS=\"-march=alderlake\" -DCMAKE_CPP_FLAGS=\"-march=alderlake\""
+			;;
+		--no_mmap) echo "Disable mmap"
+			CMAKE_ARGS="-DUSE_NO_MMAP=ON ${CMAKE_ARGS}"
 			;;
 		*) MAKE_OPT="$1 ${MAKE_OPT}"
 			;;

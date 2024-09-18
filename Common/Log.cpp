@@ -37,14 +37,19 @@
 
 static bool hitAnyAsserts = false;
 
-std::mutex g_extraAssertInfoMutex;
-std::string g_extraAssertInfo = "menu";
-double g_assertInfoTime = 0.0;
+static std::mutex g_extraAssertInfoMutex;
+static std::string g_extraAssertInfo = "menu";
+static double g_assertInfoTime = 0.0;
+static bool g_exitOnAssert;
 
 void SetExtraAssertInfo(const char *info) {
 	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
 	g_extraAssertInfo = info ? info : "menu";
 	g_assertInfoTime = time_now_d();
+}
+
+void SetCleanExitOnAssert() {
+	g_exitOnAssert = true;
 }
 
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
@@ -65,8 +70,8 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	}
 
 	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "%s", formatted);
-	// Also do a simple printf for good measure, in case logging of SYSTEM is disabled (should we disallow that?)
+	ERROR_LOG(Log::System, "%s", formatted);
+	// Also do a simple printf for good measure, in case logging of System is disabled (should we disallow that?)
 	fprintf(stderr, "%s\n", formatted);
 
 	hitAnyAsserts = true;
@@ -78,8 +83,13 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
 		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + GetCurrentThreadName());
 		OutputDebugString(wtext.c_str());
+		printf("%s\n", formatted);
 		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
-			return false;
+			if (g_exitOnAssert) {
+				// Hard exit.
+				ExitProcess(1);
+				return false;
+			}
 		} else {
 			return true;
 		}

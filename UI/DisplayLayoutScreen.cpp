@@ -117,19 +117,15 @@ private:
 	float startDisplayOffsetY_ = -1.0f;
 };
 
-DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {
-	// Show background at full brightness
-	darkenGameBackground_ = false;
-	forceTransparent_ = true;
-}
+DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
 
 void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
-		// We normally rely on the PSP screen.
-		UIDialogScreenWithGameBackground::DrawBackground(dc);
+		// We normally rely on the PSP screen showing through.
 	} else {
 		// But if it's not present (we're not in game, or skip buffer effects is used),
 		// we have to draw a substitute ourselves.
+		UIContext &dc = *screenManager()->getUIContext();
 
 		// TODO: Clean this up a bit, this GetScreenFrame/CenterDisplay combo is too common.
 		FRect screenFrame = GetScreenFrame(g_display.pixel_xres, g_display.pixel_yres);
@@ -138,6 +134,7 @@ void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
 
 		dc.Flush();
 		ImageID bg = ImageID("I_PSP_DISPLAY");
+		dc.Draw()->DrawImageStretch(bg, dc.GetBounds(), 0x7F000000);
 		dc.Draw()->DrawImageStretch(bg, FRectToBounds(rc), 0x7FFFFFFF);
 	}
 }
@@ -165,19 +162,19 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 	return UI::EVENT_DONE;
 }
 
-static std::string PostShaderTranslateName(const char *value) {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
-	if (!strcmp(value, "Off")) {
+static std::string PostShaderTranslateName(std::string_view value) {
+	if (value == "Off") {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		// Off is a legacy fake item (gonna migrate off it later).
-		return gr->T("Add postprocessing shader");
+		return std::string(gr->T("Add postprocessing shader"));
 	}
 
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
-		return ps->T(value, info ? info->name.c_str() : value);
+		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
+		return std::string(ps->T(value, info->name));
 	} else {
-		return value;
+		return std::string(value);
 	}
 }
 
@@ -277,6 +274,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rotation->SetEnabledFunc([] {
 			return !g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering;
 		});
+		rotation->SetHideTitle(true);
 		rightColumn->Add(rotation);
 
 		Choice *center = new Choice(di->T("Reset"));
@@ -478,7 +476,7 @@ void PostProcScreen::CreateViews() {
 			continue;
 		if (shaders_[i].section == selectedName)
 			selected = (int)indexTranslation_.size();
-		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
 		indexTranslation_.push_back(i);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);

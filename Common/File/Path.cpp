@@ -51,7 +51,7 @@ void Path::Init(std::string_view str) {
 		// and flip it to a NATIVE url and hope for the best.
 		AndroidContentURI uri(str);
 		if (startsWith(uri.FilePath(), "raw:/")) {
-			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			INFO_LOG(Log::System, "Raw path detected: %s", uri.FilePath().c_str());
 			path_ = uri.FilePath().substr(4);
 			type_ = PathType::NATIVE;
 		} else {
@@ -227,20 +227,22 @@ std::string Path::GetDirectory() const {
 	return path_;
 }
 
-bool Path::FilePathContainsNoCase(const std::string &needle) const {
+bool Path::FilePathContainsNoCase(std::string_view needle) const {
 	std::string haystack;
 	if (type_ == PathType::CONTENT_URI) {
 		haystack = AndroidContentURI(path_).FilePath();
 	} else {
 		haystack = path_;
 	}
-
 	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
 	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
 	return found != haystack.end();
 }
 
 bool Path::StartsWith(const Path &other) const {
+	if (other.empty()) {
+		return true;
+	}
 	if (type_ != other.type_) {
 		// Bad
 		return false;
@@ -314,16 +316,15 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
-	}
-	if (path_ == "/" || path_.empty()) {
-		return false;
-	}
-	if (type_ == PathType::HTTP) {
+	} else if (type_ == PathType::HTTP) {
 		size_t rootSlash = path_.find_first_of('/', strlen("https://"));
-		if (rootSlash == path_.npos || path_.size() < rootSlash + 1) {
+		if (rootSlash == path_.npos || path_.size() == rootSlash + 1) {
 			// This means, "http://server" or "http://server/".  Can't go up.
 			return false;
 		}
+	}
+	if (path_ == "/" || path_.empty()) {
+		return false;
 	}
 	return true;
 }

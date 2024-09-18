@@ -81,7 +81,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 		return;
 	}
 
-	INFO_LOG(SYSTEM, "Installing exception handler");
+	INFO_LOG(Log::System, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
 	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, GlobalExceptionHandler);
 }
@@ -89,7 +89,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 void UninstallExceptionHandler() {
 	if (g_vectoredExceptionHandle) {
 		RemoveVectoredExceptionHandler(g_vectoredExceptionHandle);
-		INFO_LOG(SYSTEM, "Removed exception handler");
+		INFO_LOG(Log::System, "Removed exception handler");
 		g_vectoredExceptionHandle = nullptr;
 	}
 	g_badAccessHandler = nullptr;
@@ -186,7 +186,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	}
 	g_badAccessHandler = badAccessHandler;
 
-	INFO_LOG(SYSTEM, "Installing exception handler");
+	INFO_LOG(Log::System, "Installing exception handler");
 	mach_port_t port;
 	CheckKR("mach_port_allocate",
 		mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port));
@@ -290,7 +290,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	// Add some extra room.
 	altStackSize += 65536;
 
-	INFO_LOG(SYSTEM, "Installed exception handler. stack size: %d", (int)altStackSize);
+	INFO_LOG(Log::System, "Installed exception handler. stack size: %d", (int)altStackSize);
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack{};
@@ -323,7 +323,7 @@ void UninstallExceptionHandler() {
 	stack_t signal_stack{};
 	signal_stack.ss_flags = SS_DISABLE;
 	if (0 != sigaltstack(&signal_stack, nullptr)) {
-		ERROR_LOG(SYSTEM, "Could not remove signal altstack");
+		ERROR_LOG(Log::System, "Could not remove signal altstack");
 	}
 	if (altStack) {
 		free(altStack);
@@ -333,7 +333,7 @@ void UninstallExceptionHandler() {
 #ifdef __APPLE__
 	sigaction(SIGBUS, &old_sa_bus, nullptr);
 #endif
-	INFO_LOG(SYSTEM, "Uninstalled exception handler");
+	INFO_LOG(Log::System, "Uninstalled exception handler");
 	g_badAccessHandler = nullptr;
 }
 
@@ -342,7 +342,7 @@ void UninstallExceptionHandler() {
 #else  // !MACHINE_CONTEXT_SUPPORTED
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
-	ERROR_LOG(SYSTEM, "Exception handler not implemented on this platform, can't install");
+	ERROR_LOG(Log::System, "Exception handler not implemented on this platform, can't install");
 }
 void UninstallExceptionHandler() { }
 

@@ -73,7 +73,7 @@ StereoResampler::StereoResampler()
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
 		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
-		INFO_LOG(AUDIO, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
+		INFO_LOG(Log::Audio, "StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
 		m_input_sample_rate = input_sample_rate;
 	}
 
@@ -165,7 +165,13 @@ void StereoResampler::Clear() {
 }
 
 inline int16_t MixSingleSample(int16_t s1, int16_t s2, uint16_t frac) {
-	return s1 + (((s2 - s1) * frac) >> 16);
+	int32_t value = s1 + (((s2 - s1) * frac) >> 16);
+	if (value < -32767)
+		return -32767;
+	else if (value > 32767)
+		return 32767;
+	else
+		return (int16_t)value;
 }
 
 // Executed from sound stream thread, pulling sound out of the buffer.

@@ -47,23 +47,43 @@ enum class ScreenFocusChange {
 	FOCUS_BECAME_TOP,  // Became the top screen again
 };
 
+enum class ScreenRenderMode {
+	DEFAULT = 0,
+	FIRST = 1,
+	BEHIND = 4,
+	TOP = 8,
+};
+ENUM_CLASS_BITOPS(ScreenRenderMode);
+
+enum class ScreenRenderFlags {
+	NONE = 0,
+	HANDLED_THROTTLING = 1,
+};
+ENUM_CLASS_BITOPS(ScreenRenderFlags);
+
+
+enum class ScreenRenderRole {
+	NONE = 0,
+	CAN_BE_BACKGROUND = 1,
+	MUST_BE_FIRST = 2,
+};
+ENUM_CLASS_BITOPS(ScreenRenderRole);
+
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
-	virtual ~Screen() {
-		screenManager_ = nullptr;
-	}
+	virtual ~Screen();
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual void preRender() {}
-	virtual void render() {}
-	virtual void postRender() {}
+	virtual ScreenRenderFlags render(ScreenRenderMode mode) = 0;
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+	virtual ScreenRenderRole renderRole(bool isTop) const { return ScreenRenderRole::NONE; }
+	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
 
@@ -76,11 +96,8 @@ public:
 	virtual void RecreateViews() {}
 
 	ScreenManager *screenManager() { return screenManager_; }
+	const ScreenManager *screenManager() const { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
-
-	// This one is icky to use because you can't know what's in it until you know
-	// what screen it is.
-	virtual void *dialogData() { return 0; }
 
 	virtual const char *tag() const = 0;
 
@@ -89,8 +106,13 @@ public:
 
 	virtual TouchInput transformTouch(const TouchInput &touch) { return touch; }
 
+protected:
+	int GetRequesterToken();
+
 private:
 	ScreenManager *screenManager_;
+	int token_ = -1;
+
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
@@ -123,7 +145,7 @@ public:
 		postRenderUserdata_ = userdata;
 	}
 
-	void render();
+	ScreenRenderFlags render();
 	void resized();
 	void shutdown();
 
@@ -148,12 +170,17 @@ public:
 	// Generic facility for gross hacks :P
 	void sendMessage(UIMessage message, const char *value);
 
-	Screen *topScreen() const;
+	const Screen *topScreen() const {
+		return stack_.empty() ? nullptr : stack_.back().screen;
+	}
+	Screen *topScreen() {
+		return stack_.empty() ? nullptr : stack_.back().screen;
+	}
 
 	void getFocusPosition(float &x, float &y, float &z);
 
 	// Will delete any existing overlay screen.
-	void SetOverlayScreen(Screen *screen);
+	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
 
 	std::recursive_mutex inputLock_;
 
@@ -171,6 +198,7 @@ private:
 	const Screen *dialogFinished_ = nullptr;
 	DialogResult dialogResult_{};
 
+	Screen *backgroundScreen_ = nullptr;
 	Screen *overlayScreen_ = nullptr;
 
 	struct Layer {

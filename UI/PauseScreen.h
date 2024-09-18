@@ -24,6 +24,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/Screen.h"
 
 enum class PauseScreenMode {
 	MAIN,
@@ -36,6 +37,7 @@ public:
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	bool key(const KeyInput &key) override;
 
 	const char *tag() const override { return "GamePause"; }
 
@@ -64,5 +66,8 @@ private:
 
 	// hack
 	bool finishNextFrame_ = false;
+	DialogResult finishNextFrameResult_ = DR_CANCEL;
 	PauseScreenMode mode_ = PauseScreenMode::MAIN;
+
+	UI::Button *playButton_ = nullptr;
 };

@@ -11,9 +11,9 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 }
 
 bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
-	INFO_LOG(G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
+	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	if (!CheckGLExtensions()) {
-		ERROR_LOG(G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
+		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
 		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
@@ -37,7 +37,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 }
 
 void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
-	INFO_LOG(G3D, "AndroidJavaEGLGraphicsContext::Shutdown");
+	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::Shutdown");
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;

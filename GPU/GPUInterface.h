@@ -214,7 +214,7 @@ public:
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
-	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
+	virtual void PSPFrame() = 0;
 	virtual void CopyDisplayToOutput(bool reallyDirty) = 0;
 
 	// Tells the GPU to update the gpuStats structure.
@@ -253,6 +253,7 @@ public:
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
+	virtual bool PresentedThisFrame() const = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
