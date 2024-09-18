@@ -27,9 +27,8 @@ void DoList(PointerWrap &p, std::list<T> &x, T &default_val) {
 	Do(p, list_size);
 	x.resize(list_size, default_val);
 
-	typename std::list<T>::iterator itr, end;
-	for (itr = x.begin(), end = x.end(); itr != end; ++itr)
-		Do(p, *itr);
+	for (T &elem : x)
+		Do(p, elem);
 }
 
 template<class T>

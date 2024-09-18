@@ -958,25 +958,25 @@ void __FontInit() {
 }
 
 void __FontShutdown() {
-	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
-		if (iter->second->IsValid()) {
-			FontLib *fontLib = iter->second->GetFontLib();
+	for (const auto &[_, font] : fontMap) {
+		if (font->IsValid()) {
+			FontLib *fontLib = font->GetFontLib();
 			if (fontLib) {
-				fontLib->CloseFont(iter->second, true);
+				fontLib->CloseFont(font, true);
 			}
 		} else {
 			ERROR_LOG(Log::HLE, "__FontShutdown: Bad entry in fontMap");
 		}
-		delete iter->second;
+		delete font;
 	}
 	fontMap.clear();
-	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
-		delete *iter;
+	for (auto *fontlib : fontLibList) {
+		delete fontlib;
 	}
 	fontLibList.clear();
 	fontLibMap.clear();
-	for (auto iter = internalFonts.begin(); iter != internalFonts.end(); ++iter) {
-		delete *iter;
+	for (auto *font : internalFonts) {
+		delete font;
 	}
 	internalFonts.clear();
 }

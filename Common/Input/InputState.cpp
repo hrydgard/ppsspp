@@ -42,8 +42,8 @@ std::vector<InputMapping> tabRightKeys;
 static std::unordered_map<InputDeviceID, int> uiFlipAnalogY;
 
 static void AppendKeys(std::vector<InputMapping> &keys, const std::vector<InputMapping> &newKeys) {
-	for (auto iter = newKeys.begin(); iter != newKeys.end(); ++iter) {
-		keys.push_back(*iter);
+	for (const auto &key : newKeys) {
+		keys.push_back(key);
 	}
 }
 

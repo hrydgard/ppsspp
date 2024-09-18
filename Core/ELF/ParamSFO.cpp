@@ -236,10 +236,10 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	total_size += sizeof(Header);
 
 	// Get size info
-	for (auto it = values.begin(); it != values.end(); ++it)
+	for (const auto &[k, v] : values)
 	{
-		key_size += it->first.size()+1;
-		data_size += it->second.max_size;
+		key_size += k.size() + 1;
+		data_size += v.max_size;
 
 		header.index_table_entries++;
 	}
@@ -266,42 +266,42 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	u8* key_ptr = data + header.key_table_start;
 	u8* data_ptr = data + header.data_table_start;
 
-	for (auto it = values.begin(); it != values.end(); ++it)
+	for (const auto &[k, v] : values)
 	{
 		u16 offset = (u16)(key_ptr - (data+header.key_table_start));
 		index_ptr->key_table_offset = offset;
 		offset = (u16)(data_ptr - (data+header.data_table_start));
 		index_ptr->data_table_offset = offset;
-		index_ptr->param_max_len = it->second.max_size;
-		if (it->second.type == VT_INT)
+		index_ptr->param_max_len = v.max_size;
+		if (v.type == VT_INT)
 		{
 			index_ptr->param_fmt = 0x0404;
 			index_ptr->param_len = 4;
 
-			*(s32_le *)data_ptr = it->second.i_value;
+			*(s32_le *)data_ptr = v.i_value;
 		}
-		else if (it->second.type == VT_UTF8_SPE)
+		else if (v.type == VT_UTF8_SPE)
 		{
 			index_ptr->param_fmt = 0x0004;
-			index_ptr->param_len = it->second.u_size;
+			index_ptr->param_len = v.u_size;
 
 			memset(data_ptr,0,index_ptr->param_max_len);
-			memcpy(data_ptr,it->second.u_value,index_ptr->param_len);
+			memcpy(data_ptr,v.u_value,index_ptr->param_len);
 		}
-		else if (it->second.type == VT_UTF8)
+		else if (v.type == VT_UTF8)
 		{
 			index_ptr->param_fmt = 0x0204;
-			index_ptr->param_len = (u32)it->second.s_value.size()+1;
+			index_ptr->param_len = (u32)v.s_value.size()+1;
 
-			memcpy(data_ptr,it->second.s_value.c_str(),index_ptr->param_len);
+			memcpy(data_ptr,v.s_value.c_str(),index_ptr->param_len);
 			data_ptr[index_ptr->param_len] = 0;
 		}
 
-		memcpy(key_ptr,it->first.c_str(),it->first.size());
-		key_ptr[it->first.size()] = 0;
+		memcpy(key_ptr,k.c_str(),k.size());
+		key_ptr[k.size()] = 0;
 
 		data_ptr += index_ptr->param_max_len;
-		key_ptr += it->first.size()+1;
+		key_ptr += k.size() + 1;
 		index_ptr++;
 
 	}

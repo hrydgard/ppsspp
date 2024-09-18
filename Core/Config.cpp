@@ -1209,9 +1209,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
-	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
+	for (const auto &[_, value] : pinnedPaths) {
 		// Unpin paths that are deleted automatically.
-		const std::string &path = it->second;
+		const std::string &path = value;
 		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(Path(path))) {
 			vPinnedPaths.push_back(File::ResolvePath(path));
 		}
@@ -1231,8 +1231,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	// Load post process shader values
 	mPostShaderSetting.clear();
-	for (const auto& it : postShaderSetting->ToMap()) {
-		mPostShaderSetting[it.first] = std::stof(it.second);
+	for (const auto &[key, value] : postShaderSetting->ToMap()) {
+		mPostShaderSetting[key] = std::stof(value);
 	}
 
 	// Load post process shader names
@@ -1355,8 +1355,8 @@ bool Config::Save(const char *saveReason) {
 		if (!bGameSpecific) {
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
-			for (auto it = mPostShaderSetting.begin(), end = mPostShaderSetting.end(); it != end; ++it) {
-				postShaderSetting->Set(it->first.c_str(), it->second);
+			for (const auto &[k, v] : mPostShaderSetting) {
+				postShaderSetting->Set(k.c_str(), v);
 			}
 			Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 			postShaderChain->Clear();
@@ -1771,8 +1771,8 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	postShaderSetting->Clear();
-	for (auto it = mPostShaderSetting.begin(), end = mPostShaderSetting.end(); it != end; ++it) {
-		postShaderSetting->Set(it->first.c_str(), it->second);
+	for (const auto &[k, v] : mPostShaderSetting) {
+		postShaderSetting->Set(k.c_str(), v);
 	}
 
 	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
@@ -1804,20 +1804,20 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
-	for (const auto &it : postShaderSetting) {
+	for (const auto &[k, v] : postShaderSetting) {
 		float value = 0.0f;
-		if (sscanf(it.second.c_str(), "%f", &value)) {
-			mPostShaderSetting[it.first] = value;
+		if (sscanf(v.c_str(), "%f", &value)) {
+			mPostShaderSetting[k] = value;
 		} else {
-			WARN_LOG(Log::Loader, "Invalid float value string for param %s: '%s'", it.first.c_str(), it.second.c_str());
+			WARN_LOG(Log::Loader, "Invalid float value string for param %s: '%s'", k.c_str(), v.c_str());
 		}
 	}
 
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
 	vPostShaderNames.clear();
-	for (auto it : postShaderChain) {
-		if (it.second != "Off")
-			vPostShaderNames.push_back(it.second);
+	for (const auto &[_, v] : postShaderChain) {
+		if (v != "Off")
+			vPostShaderNames.push_back(v);
 	}
 
 	IterateSettings(iniFile, [](Section *section, const ConfigSetting &setting) {
@@ -1855,15 +1855,15 @@ void Config::unloadGameConfig() {
 
 		auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 		mPostShaderSetting.clear();
-		for (auto it : postShaderSetting) {
-			mPostShaderSetting[it.first] = std::stof(it.second);
+		for (const auto &[k, v] : postShaderSetting) {
+			mPostShaderSetting[k] = std::stof(v);
 		}
 
 		auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
 		vPostShaderNames.clear();
-		for (auto it : postShaderChain) {
-			if (it.second != "Off")
-				vPostShaderNames.push_back(it.second);
+		for (const auto &[k, v] : postShaderChain) {
+			if (v != "Off")
+				vPostShaderNames.push_back(v);
 		}
 
 		LoadStandardControllerIni();

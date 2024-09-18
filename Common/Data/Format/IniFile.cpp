@@ -191,9 +191,9 @@ void Section::Clear() {
 
 bool Section::GetKeys(std::vector<std::string> &keys) const {
 	keys.clear();
-	for (auto liter = lines_.begin(); liter != lines_.end(); ++liter) {
-		if (!liter->Key().empty())
-			keys.emplace_back(liter->Key());
+	for (const auto &line : lines_) {
+		if (!line.Key().empty())
+			keys.emplace_back(line.Key());
 	}
 	return true;
 }
@@ -303,11 +303,9 @@ void Section::Set(std::string_view key, bool newValue, bool defaultValue)
 void Section::Set(std::string_view key, const std::vector<std::string>& newValues)
 {
 	std::string temp;
-	// Join the strings with , 
-	std::vector<std::string>::const_iterator it;
-	for (it = newValues.begin(); it != newValues.end(); ++it)
-	{
-		temp += (*it) + ",";
+	// Join the strings with ,
+	for (const auto &value : newValues) {
+		temp += value + ",";
 	}
 	// remove last ,
 	if (temp.length())
@@ -668,25 +666,3 @@ bool IniFile::Get(const char* sectionName, const char* key, bool* value, bool de
 		return section->Get(key, value, defaultValue);
 	}
 }
-
-
-// Unit test. TODO: Move to the real unit test framework.
-/*
-   int main()
-   {
-    IniFile ini;
-    ini.Load("my.ini");
-    ini.Set("Hej", "A", "amaskdfl");
-    ini.Set("Mossa", "A", "amaskdfl");
-    ini.Set("Aissa", "A", "amaskdfl");
-    //ini.Read("my.ini");
-    std::string x;
-    ini.Get("Hej", "B", &x, "boo");
-    ini.DeleteKey("Mossa", "A");
-    ini.DeleteSection("Mossa");
-    ini.SortSections();
-    ini.Save("my.ini");
-    //UpdateVars(ini);
-    return 0;
-   }
- */

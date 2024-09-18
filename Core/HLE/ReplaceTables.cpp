@@ -1733,23 +1733,21 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 
 std::map<u32, u32> SaveAndClearReplacements() {
 	std::map<u32, u32> saved;
-	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
-		const u32 addr = it->first;
+	for (const auto &[addr, instr] : replacedInstructions) {
 		// This will not retain jit blocks.
 		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
 		if (MIPS_IS_REPLACEMENT(curInstr)) {
 			saved[addr] = curInstr;
-			Memory::Write_U32(it->second, addr);
+			Memory::Write_U32(instr, addr);
 		}
 	}
 	return saved;
 }
 
 void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
-	for (auto it = saved.begin(), end = saved.end(); it != end; ++it) {
-		const u32 addr = it->first;
+	for (const auto &[addr, instr] : saved) {
 		// Just put the replacements back.
-		Memory::Write_U32(it->second, addr);
+		Memory::Write_U32(instr, addr);
 	}
 }
 

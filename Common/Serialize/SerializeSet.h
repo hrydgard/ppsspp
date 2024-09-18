@@ -54,8 +54,8 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 template <class T>
 void Do(PointerWrap &p, std::set<T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			delete *it;
+		for (T *s : x) {
+			delete s;
 		}
 	}
 	DoSet(p, x);

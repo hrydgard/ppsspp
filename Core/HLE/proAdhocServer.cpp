@@ -1337,15 +1337,15 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 			// Destroy Prepared SQL Statement
 			sqlite3_finalize(statement);
 		}*/
-		for (std::vector<db_crosslink>::iterator it = crosslinks.begin(); it != crosslinks.end(); it++) {
-			if (IsMatch(it->id_from, productid)) {
+		for (const auto &link : crosslinks) {
+			if (IsMatch(link.id_from, productid)) {
 				// Grab Crosslink ID
 				char crosslink[PRODUCT_CODE_LENGTH + 1];
-				strncpy(crosslink, it->id_to, PRODUCT_CODE_LENGTH);
+				strncpy(crosslink, link.id_to, PRODUCT_CODE_LENGTH);
 				crosslink[PRODUCT_CODE_LENGTH] = 0; // null terminated
 
 				// Crosslink Product Code
-				strncpy(product->data, it->id_to, PRODUCT_CODE_LENGTH);
+				strncpy(product->data, link.id_to, PRODUCT_CODE_LENGTH);
 
 				// Log Crosslink
 				INFO_LOG(Log::sceNet, "AdhocServer: Crosslinked %s to %s", productid, crosslink);
@@ -1376,8 +1376,8 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 				// Destroy Prepare SQL Statement
 				sqlite3_finalize(statement);
 			}*/
-			for (std::vector<db_productid>::iterator it = productids.begin(); it != productids.end(); it++) {
-				if (IsMatch(it->id, productid)) {
+			for (const auto &product : productids) {
+				if (IsMatch(product.id, productid)) {
 					// Set Exists Flag
 					exists = 1;
 					break;
@@ -1491,10 +1491,10 @@ void update_status()
 				}*/
 				//db_productid *foundid = NULL;
 				bool found = false;
-				for (std::vector<db_productid>::iterator it = productids.begin(); it != productids.end(); it++) {
-					if (IsMatch(it->id, productid)) {
+				for (const auto &product : productids) {
+					if (IsMatch(product.id, productid)) {
 						// Copy Game Name
-						strcpyxml(displayname, it->name, sizeof(displayname));
+						strcpyxml(displayname, product.name, sizeof(displayname));
 						found = true;
 						break;
 					}
