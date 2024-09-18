@@ -57,6 +57,10 @@
 #include "Core/HLE/sceKernelMemory.h"
 
 static std::thread g_loadingThread;
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in FileUtil.cpp
+extern char *realpath(const char *name, char *resolved);
+#endif
 
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {

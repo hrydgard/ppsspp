@@ -17,7 +17,7 @@ bool LibretroGLCoreContext::Init() {
 
 void LibretroGLCoreContext::CreateDrawContext() {
 	if (!glewInitDone) {
-#if !PPSSPP_PLATFORM(IOS) && !defined(USING_GLES2)
+#if !PPSSPP_PLATFORM(IOS) && !defined(USING_GLES2) && !PPSSPP_PLATFORM(SWITCH)
 		if (glewInit() != GLEW_OK) {
 			ERROR_LOG(Log::G3D, "glewInit() failed.\n");
 			return;

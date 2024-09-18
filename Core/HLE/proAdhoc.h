@@ -90,7 +90,7 @@ inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || er
 #define ESHUTDOWN ENETDOWN
 #endif
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
-inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
+inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ENETDOWN); }
 #endif
 
 #ifndef POLL_ERR

@@ -27,6 +27,9 @@
 
 #if PPSSPP_PLATFORM(SWITCH)
 #define _GNU_SOURCE
+#undef __GNU_VISIBLE
+#define __GNU_VISIBLE 1
+#include <stdio.h>
 #include <cstdio>
 #endif
 

@@ -18,6 +18,8 @@
 #include <string>
 #include <set>
 #include <algorithm>
+#include <strings.h>
+
 #include <cstdio>
 #include <sys/stat.h>
 #include <ctype.h>
@@ -33,12 +35,12 @@
 #define stat64 stat
 #endif
 
-#ifdef HAVE_LIBNX
+#if PPSSPP_PLATFORM(SWITCH)
 // Far from optimal, but I guess it works...
 #define fseeko fseek
 #define ftello ftell
 #define fileno
-#endif // HAVE_LIBNX
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 namespace File {
 
