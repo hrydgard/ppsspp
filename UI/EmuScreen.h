@@ -121,5 +121,7 @@ private:
 
 	std::string extraAssertInfoStr_;
 
+	std::atomic<bool> doFrameAdvance_{};
+
 	ControlMapper controlMapper_;
 };

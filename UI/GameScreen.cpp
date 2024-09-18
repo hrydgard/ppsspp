@@ -205,7 +205,9 @@ void GameScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	if (!inGame_) {
+		rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	}
 
 	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
 	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
