@@ -72,13 +72,13 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	D3DDISPLAYMODE d3ddm;
 	if (FAILED(d3d_->GetAdapterDisplayMode(adapterId_, &d3ddm))) {
 		*error_message = "GetAdapterDisplayMode failed";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
 	if (FAILED(d3d_->GetDeviceCaps(adapterId_, D3DDEVTYPE_HAL, &d3dCaps))) {
 		*error_message = "GetDeviceCaps failed (?)";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
@@ -91,7 +91,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {
 			*error_message = "D24S8 depth/stencil not available";
-			d3d_->Release();
+			d3d_ = nullptr;
 			return false;
 		}
 	}
@@ -131,7 +131,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	if (FAILED(hr)) {
 		*error_message = "Failed to create D3D device";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
@@ -143,12 +143,12 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		// TODO: This makes it slower?
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
-	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, adapterId_, device_, deviceEx_);
+	draw_ = Draw::T3DCreateDX9Context(d3d_.Get(), d3dEx_.Get(), adapterId_, device_.Get(), deviceEx_.Get());
 	SetGPUBackend(GPUBackend::DIRECT3D9);
 	if (!draw_->CreatePresets()) {
 		// Shader compiler not installed? Return an error so we can fall back to GL.
-		device_->Release();
-		d3d_->Release();
+		device_ = nullptr;
+		d3d_ = nullptr;
 		*error_message = "DirectX9 runtime not correctly installed. Please install.";
 		return false;
 	}
@@ -185,8 +185,8 @@ void D3D9Context::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
 	device_->EndScene();
-	device_->Release();
-	d3d_->Release();
+	device_ = nullptr;
+	d3d_ = nullptr;
 	UnloadD3DCompiler();
 	pD3Ddevice9 = nullptr;
 	pD3DdeviceEx9 = nullptr;

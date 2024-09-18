@@ -19,6 +19,8 @@
 
 #include <map>
 #include <cstdint>
+#include <d3d9.h>
+#include <wrl/client.h>
 
 #include "Common/CommonTypes.h"
 #include "GPU/Common/VertexShaderGenerator.h"
@@ -43,7 +45,7 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DPIXELSHADER9 shader = nullptr;
+	Microsoft::WRL::ComPtr<IDirect3DPixelShader9> shader;
 
 protected:	
 	std::string source_;
@@ -63,7 +65,7 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DVERTEXSHADER9 shader = nullptr;
+	Microsoft::WRL::ComPtr<IDirect3DVertexShader9> shader;
 
 protected:	
 	std::string source_;

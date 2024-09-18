@@ -28,6 +28,9 @@
 #include "Common/TimeUtil.h"
 
 #include "Common/Log.h"
+#include <wrl/client.h>
+
+using namespace Microsoft::WRL;
 
 namespace Draw {
 
@@ -227,17 +230,14 @@ class D3D9InputLayout : public InputLayout {
 public:
 	D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc);
 	~D3D9InputLayout() {
-		if (decl_) {
-			decl_->Release();
-		}
 	}
 	int GetStride() const { return stride_; }
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		device->SetVertexDeclaration(decl_);
+		device->SetVertexDeclaration(decl_.Get());
 	}
 
 private:
-	LPDIRECT3DVERTEXDECLARATION9 decl_;
+	ComPtr<IDirect3DVertexDeclaration9> decl_;
 	int stride_;
 };
 
@@ -245,25 +245,21 @@ class D3D9ShaderModule : public ShaderModule {
 public:
 	D3D9ShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {}
 	~D3D9ShaderModule() {
-		if (vshader_)
-			vshader_->Release();
-		if (pshader_)
-			pshader_->Release();
 	}
 	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		if (stage_ == ShaderStage::Fragment) {
-			device->SetPixelShader(pshader_);
+			device->SetPixelShader(pshader_.Get());
 		} else {
-			device->SetVertexShader(vshader_);
+			device->SetVertexShader(vshader_.Get());
 		}
 	}
 	ShaderStage GetStage() const override { return stage_; }
 
 private:
 	ShaderStage stage_;
-	LPDIRECT3DVERTEXSHADER9 vshader_ = nullptr;
-	LPDIRECT3DPIXELSHADER9 pshader_ = nullptr;
+	ComPtr<IDirect3DVertexShader9> vshader_;
+	ComPtr<IDirect3DPixelShader9> pshader_;
 	std::string tag_;
 };
 
@@ -271,12 +267,6 @@ class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline() {}
 	~D3D9Pipeline() {
-		if (vshader) {
-			vshader->Release();
-		}
-		if (pshader) {
-			pshader->Release();
-		}
 	}
 
 	D3D9ShaderModule *vshader = nullptr;
@@ -300,11 +290,11 @@ public:
 	LPDIRECT3DBASETEXTURE9 TexturePtr() const {
 		// TODO: Cleanup
 		if (tex_) {
-			return tex_;
+			return tex_.Get();
 		} else if (volTex_) {
-			return volTex_;
+			return volTex_.Get();
 		} else if (cubeTex_) {
-			return cubeTex_;
+			return cubeTex_.Get();
 		} else {
 			return nullptr;
 		}
@@ -314,13 +304,13 @@ public:
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 	bool Create(const TextureDesc &desc);
-	LPDIRECT3DDEVICE9 device_;
-	LPDIRECT3DDEVICE9EX deviceEx_;
+	ComPtr<IDirect3DDevice9> device_;
+	ComPtr<IDirect3DDevice9Ex> deviceEx_;
 	TextureType type_;
 	D3DFORMAT d3dfmt_;
-	LPDIRECT3DTEXTURE9 tex_ = nullptr;
-	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
-	LPDIRECT3DCUBETEXTURE9 cubeTex_ = nullptr;
+	ComPtr<IDirect3DTexture9> tex_;
+	ComPtr<IDirect3DVolumeTexture9> volTex_;
+	ComPtr<IDirect3DCubeTexture9> cubeTex_;
 };
 
 D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
@@ -329,15 +319,6 @@ D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx,
 }
 
 D3D9Texture::~D3D9Texture() {
-	if (tex_) {
-		tex_->Release();
-	}
-	if (volTex_) {
-		volTex_->Release();
-	}
-	if (cubeTex_) {
-		cubeTex_->Release();
-	}
 }
 
 bool D3D9Texture::Create(const TextureDesc &desc) {
@@ -346,7 +327,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	depth_ = desc.depth;
 	type_ = desc.type;
 	format_ = desc.format;
-	tex_ = NULL;
+	tex_ = nullptr;
 	d3dfmt_ = FormatToD3DFMT(desc.format);
 
 	if (d3dfmt_ == D3DFMT_UNKNOWN) {
@@ -495,15 +476,15 @@ void D3D9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	switch (type_) {
 	case TextureType::LINEAR1D:
 	case TextureType::LINEAR2D:
-		device->SetTexture(sampler, tex_);
+		device->SetTexture(sampler, tex_.Get());
 		break;
 
 	case TextureType::LINEAR3D:
-		device->SetTexture(sampler, volTex_);
+		device->SetTexture(sampler, volTex_.Get());
 		break;
 
 	case TextureType::CUBE:
-		device->SetTexture(sampler, cubeTex_);
+		device->SetTexture(sampler, cubeTex_.Get());
 		break;
 	}
 }
@@ -654,8 +635,8 @@ private:
 	u8 stencilWriteMask_ = 0xFF;
 
 	// Framebuffer state
-	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
-	LPDIRECT3DSURFACE9 deviceDSsurf = 0;
+	ComPtr<IDirect3DSurface9> deviceRTsurf;
+	ComPtr<IDirect3DSurface9> deviceDSsurf;
 	bool supportsINTZ = false;
 
 	// Dynamic state
@@ -1061,16 +1042,10 @@ public:
 		}
 	}
 	~D3D9Buffer() {
-		if (ibuffer_) {
-			ibuffer_->Release();
-		}
-		if (vbuffer_) {
-			vbuffer_->Release();
-		}
 	}
 
-	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
-	LPDIRECT3DINDEXBUFFER9 ibuffer_;
+	ComPtr<IDirect3DVertexBuffer9> vbuffer_;
+	ComPtr<IDirect3DIndexBuffer9> ibuffer_;
 	size_t maxSize_;
 };
 
@@ -1173,7 +1148,7 @@ inline int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 }
 
 void D3D9Context::Draw(int vertexCount, int offset) {
-	device_->SetStreamSource(0, curVBuffer_->vbuffer_, curVBufferOffset_, curPipeline_->inputLayout->GetStride());
+	device_->SetStreamSource(0, curVBuffer_->vbuffer_.Get(), curVBufferOffset_, curPipeline_->inputLayout->GetStride());
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
@@ -1184,8 +1159,8 @@ void D3D9Context::DrawIndexed(int vertexCount, int offset) {
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
-	device_->SetStreamSource(0, curVBuffer_->vbuffer_, curVBufferOffset_, curPipeline_->inputLayout->GetStride());
-	device_->SetIndices(curIBuffer_->ibuffer_);
+	device_->SetStreamSource(0, curVBuffer_->vbuffer_.Get(), curVBufferOffset_, curPipeline_->inputLayout->GetStride());
+	device_->SetIndices(curIBuffer_->ibuffer_.Get());
 	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, D3DPrimCount(curPipeline_->prim, vertexCount));
 }
 
@@ -1241,8 +1216,8 @@ void D3D9Context::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
 	LPD3D_SHADER_MACRO defines = nullptr;
 	LPD3DINCLUDE includes = nullptr;
-	LPD3DBLOB codeBuffer = nullptr;
-	LPD3DBLOB errorBuffer = nullptr;
+	ComPtr<ID3DBlob> codeBuffer;
+	ComPtr<ID3DBlob> errorBuffer;
 	const char *source = (const char *)data;
 	auto compile = [&](const char *profile) -> HRESULT {
 		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
@@ -1260,10 +1235,6 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 
 		OutputDebugStringA(source);
 		OutputDebugStringA(error);
-		if (errorBuffer)
-			errorBuffer->Release();
-		if (codeBuffer) 
-			codeBuffer->Release();
 		return false;
 	}
 
@@ -1276,10 +1247,6 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 		success = SUCCEEDED(result);
 	}
 
-	// There could have been warnings.
-	if (errorBuffer)
-		errorBuffer->Release();
-	codeBuffer->Release();
 	return true;
 }
 
@@ -1292,10 +1259,10 @@ public:
 	~D3D9Framebuffer();
 
 	uint32_t id = 0;
-	LPDIRECT3DSURFACE9 surf = nullptr;
-	LPDIRECT3DSURFACE9 depthstencil = nullptr;
-	LPDIRECT3DTEXTURE9 tex = nullptr;
-	LPDIRECT3DTEXTURE9 depthstenciltex = nullptr;
+	ComPtr<IDirect3DSurface9> surf;
+	ComPtr<IDirect3DSurface9> depthstencil;
+	ComPtr<IDirect3DTexture9> tex;
+	ComPtr<IDirect3DTexture9> depthstenciltex;
 };
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
@@ -1326,11 +1293,9 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	}
 	if (FAILED(dsResult)) {
 		ERROR_LOG(Log::G3D,  "Failed to create depth buffer");
-		fbo->surf->Release();
-		fbo->tex->Release();
-		if (fbo->depthstenciltex) {
-			fbo->depthstenciltex->Release();
-		}
+		fbo->surf = nullptr;
+		fbo->tex = nullptr;
+		fbo->depthstenciltex = nullptr;
 		delete fbo;
 		return NULL;
 	}
@@ -1339,29 +1304,17 @@ Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 D3D9Framebuffer::~D3D9Framebuffer() {
-	if (tex) {
-		tex->Release();
-	}
-	if (surf) {
-		surf->Release();
-	}
-	if (depthstencil) {
-		depthstencil->Release();
-	}
-	if (depthstenciltex) {
-		depthstenciltex->Release();
-	}
 }
 
 void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	if (fbo) {
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-		device_->SetRenderTarget(0, fb->surf);
-		device_->SetDepthStencilSurface(fb->depthstencil);
+		device_->SetRenderTarget(0, fb->surf.Get());
+		device_->SetDepthStencilSurface(fb->depthstencil.Get());
 		curRenderTarget_ = fb;
 	} else {
-		device_->SetRenderTarget(0, deviceRTsurf);
-		device_->SetDepthStencilSurface(deviceDSsurf);
+		device_->SetRenderTarget(0, deviceRTsurf.Get());
+		device_->SetDepthStencilSurface(deviceDSsurf.Get());
 		curRenderTarget_ = nullptr;
 	}
 
@@ -1395,22 +1348,22 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 	if (channelBits & FB_SURFACE_BIT) {
 		switch (channelBits & 7) {
 		case FB_DEPTH_BIT:
-			return (uintptr_t)fb->depthstencil;
+			return (uintptr_t)fb->depthstencil.Get();
 		case FB_STENCIL_BIT:
-			return (uintptr_t)fb->depthstencil;
+			return (uintptr_t)fb->depthstencil.Get();
 		case FB_COLOR_BIT:
 		default:
-			return (uintptr_t)fb->surf;
+			return (uintptr_t)fb->surf.Get();
 		}
 	} else {
 		switch (channelBits & 7) {
 		case FB_DEPTH_BIT:
-			return (uintptr_t)fb->depthstenciltex;
+			return (uintptr_t)fb->depthstenciltex.Get();
 		case FB_STENCIL_BIT:
 			return 0;  // Can't texture from stencil
 		case FB_COLOR_BIT:
 		default:
-			return (uintptr_t)fb->tex;
+			return (uintptr_t)fb->tex.Get();
 		}
 	}
 }
@@ -1422,13 +1375,13 @@ void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChan
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
 		if (fb->depthstenciltex) {
-			device_->SetTexture(binding, fb->depthstenciltex);
+			device_->SetTexture(binding, fb->depthstenciltex.Get());
 		}
 		break;
 	case FB_COLOR_BIT:
 	default:
 		if (fb->tex) {
-			device_->SetTexture(binding, fb->tex);
+			device_->SetTexture(binding, fb->tex.Get());
 		}
 		break;
 	}
@@ -1449,8 +1402,8 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
 	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
 
-	LPDIRECT3DSURFACE9 srcSurf;
-	LPDIRECT3DSURFACE9 dstSurf;
+	ComPtr<IDirect3DSurface9> srcSurf;
+	ComPtr<IDirect3DSurface9> dstSurf;
 	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
 	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
 	if (channelBits == FB_COLOR_BIT) {
@@ -1466,7 +1419,7 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	} else {
 		return false;
 	}
-	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+	return SUCCEEDED(device_->StretchRect(srcSurf.Get(), &srcRect, dstSurf.Get(), &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
 bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
@@ -1495,7 +1448,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 	D3DLOCKED_RECT locked;
 	RECT rect = { (LONG)bx, (LONG)by, (LONG)bw, (LONG)bh };
 
-	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	ComPtr<IDirect3DSurface9> offscreen;
 	HRESULT hr = E_UNEXPECTED;
 	if (channelBits == FB_COLOR_BIT) {
 		if (fb)
@@ -1505,7 +1458,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 
 		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
 		if (SUCCEEDED(hr)) {
-			hr = device_->GetRenderTargetData(fb ? fb->surf : deviceRTsurf, offscreen);
+			hr = device_->GetRenderTargetData(fb ? fb->surf.Get() : deviceRTsurf.Get(), offscreen.Get());
 			if (SUCCEEDED(hr)) {
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			}
@@ -1567,10 +1520,6 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 	if (channelBits != FB_COLOR_BIT) {
 		fb->depthstenciltex->UnlockRect(0);
 	}
-	if (offscreen) {
-		offscreen->UnlockRect();
-		offscreen->Release();
-	}
 
 	return SUCCEEDED(hr);
 }
@@ -1578,10 +1527,6 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {
 	switch (ev) {
 	case Event::LOST_BACKBUFFER:
-		if (deviceRTsurf)
-			deviceRTsurf->Release();
-		if (deviceDSsurf)
-			deviceDSsurf->Release();
 		deviceRTsurf = nullptr;
 		deviceDSsurf = nullptr;
 		break;
