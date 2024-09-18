@@ -106,6 +106,7 @@ struct CompatFlags {
 	bool LoadCLUTFromCurrentFrameOnly;
 	bool ForceUMDReadSpeed;
 	bool AllowDelayedReadbacks;
+	bool KernelGetSystemTimeLowEatMoreCycles;
 	bool TacticsOgreEliminateDebugReadback;
 	bool FramebufferAllowLargeVerticalOffset;
 	bool DisableMemcpySlicing;

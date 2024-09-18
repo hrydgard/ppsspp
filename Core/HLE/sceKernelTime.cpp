@@ -83,6 +83,8 @@ u32 sceKernelGetSystemTimeLow()
 	u64 t = CoreTiming::GetGlobalTimeUs();
 	VERBOSE_LOG(Log::sceKernel,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	hleEatCycles(165);
+	if (PSP_CoreParameter().compat.flags().KernelGetSystemTimeLowEatMoreCycles)
+		hleEatCycles(70000);
 	hleReSchedule("system time");
 	return (u32)t;
 }
