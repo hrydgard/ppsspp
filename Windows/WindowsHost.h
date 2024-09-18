@@ -29,13 +29,6 @@ public:
 	void Init();
 	void PollControllers();
 
-	void AccumulateMouseDeltas(float dx, float dy, float *outX, float *outY) {
-		mouseDeltaX_ += dx;
-		mouseDeltaY_ += dy;
-		*outX = mouseDeltaX_;
-		*outY = mouseDeltaX_;
-	}
-
 private:
 	size_t numDinputDevices_ = 0;
 	std::list<std::unique_ptr<InputDevice>> input;

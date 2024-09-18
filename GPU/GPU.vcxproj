@@ -371,6 +371,7 @@
     <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="Common\VertexDecoderHandwritten.h" />
     <ClInclude Include="Common\VertexShaderGenerator.h" />
     <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />
@@ -511,6 +512,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="Common\VertexDecoderHandwritten.cpp" />
     <ClCompile Include="Common\VertexDecoderRiscV.cpp" />
     <ClCompile Include="Common\VertexDecoderX86.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>

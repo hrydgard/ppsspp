@@ -160,8 +160,7 @@ struct ThreadQueueList {
 
 	inline void clear() {
 		for (int i = 0; i < NUM_QUEUES; ++i) {
-			if (queues[i].data != nullptr)
-				free(queues[i].data);
+			free(queues[i].data);
 		}
 		memset(queues, 0, sizeof(queues));
 		first = invalid();
@@ -187,7 +186,7 @@ struct ThreadQueueList {
 		Do(p, numQueues);
 		if (numQueues != NUM_QUEUES) {
 			p.SetError(p.ERROR_FAILURE);
-			ERROR_LOG(SCEKERNEL, "Savestate loading error: invalid data");
+			ERROR_LOG(Log::sceKernel, "Savestate loading error: invalid data");
 			return;
 		}
 

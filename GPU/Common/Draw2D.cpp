@@ -265,12 +265,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 
 	// verts have positions in 2D clip coordinates.
 	static const InputLayoutDesc desc = {
+		16,
 		{
-			{ 16, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
+			{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
 		},
 	};
 	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
@@ -319,11 +317,17 @@ void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX
 	float dY = 1.0f / (float)dstHeight;
 	float sX = 1.0f / (float)srcWidth;
 	float sY = 1.0f / (float)srcHeight;
+	float xOffset = 0.0f;
+	float yOffset = 0.0f;
+	if (draw_->GetDeviceCaps().requiresHalfPixelOffset) {
+		xOffset = -dX * 0.5f;
+		yOffset = -dY * 0.5f;
+	}
 	Draw2DVertex vtx[4] = {
-		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY1), sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY1), sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY2), sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY2), sX * srcX2, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * dstX1 + xOffset, -(1.0f - 2.0f * dY * dstY1) + yOffset, sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX2 + xOffset, -(1.0f - 2.0f * dY * dstY1) + yOffset, sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX1 + xOffset, -(1.0f - 2.0f * dY * dstY2) + yOffset, sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * dstX2 + xOffset, -(1.0f - 2.0f * dY * dstY2) + yOffset, sX * srcX2, sY * srcY2 },
 	};
 
 	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor);

@@ -148,7 +148,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Color4 diff = (lightDiff * *diffuse) * dot;
 
 		// Real PSP specular
-		Vec3f toViewer(0, 0, 1);
+		static const Vec3f toViewer(0, 0, 1);
 		// Better specular
 		// Vec3f toViewer = (viewer - pos).NormalizedOr001(cpu_info.bSSE4_1);
 

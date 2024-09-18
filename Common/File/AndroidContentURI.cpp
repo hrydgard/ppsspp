@@ -1,14 +1,14 @@
 #include "Common/File/AndroidContentURI.h"
 
-bool AndroidContentURI::Parse(const std::string &path) {
+bool AndroidContentURI::Parse(std::string_view path) {
 	const char *prefix = "content://";
 	if (!startsWith(path, prefix)) {
 		return false;
 	}
 
-	std::string components = path.substr(strlen(prefix));
+	std::string_view components = path.substr(strlen(prefix));
 
-	std::vector<std::string> parts;
+	std::vector<std::string_view> parts;
 	SplitString(components, '/', parts);
 	if (parts.size() == 3) {
 		// Single file URI.
@@ -48,7 +48,7 @@ bool AndroidContentURI::Parse(const std::string &path) {
 
 AndroidContentURI AndroidContentURI::WithRootFilePath(const std::string &filePath) {
 	if (root.empty()) {
-		ERROR_LOG(SYSTEM, "WithRootFilePath cannot be used with single file URIs.");
+		ERROR_LOG(Log::System, "WithRootFilePath cannot be used with single file URIs.");
 		return *this;
 	}
 
@@ -60,7 +60,7 @@ AndroidContentURI AndroidContentURI::WithRootFilePath(const std::string &filePat
 	return uri;
 }
 
-AndroidContentURI AndroidContentURI::WithComponent(const std::string &filePath) {
+AndroidContentURI AndroidContentURI::WithComponent(std::string_view filePath) {
 	AndroidContentURI uri = *this;
 	if (uri.file.empty()) {
 		// Not sure what to do.
@@ -68,16 +68,17 @@ AndroidContentURI AndroidContentURI::WithComponent(const std::string &filePath) 
 	}
 	if (uri.file.back() == ':') {
 		// Special case handling for Document URIs: Treat the ':' as a directory separator too (but preserved in the filename).
-		uri.file = uri.file + filePath;
+		uri.file.append(filePath);
 	} else {
-		uri.file = uri.file + "/" + filePath;
+		uri.file.push_back('/');
+		uri.file.append(filePath);
 	}
 	return uri;
 }
 
-AndroidContentURI AndroidContentURI::WithExtraExtension(const std::string &extension) {
+AndroidContentURI AndroidContentURI::WithExtraExtension(std::string_view extension) {
 	AndroidContentURI uri = *this;
-	uri.file = uri.file + extension;
+	uri.file.append(extension);
 	return uri;
 }
 
@@ -113,9 +114,9 @@ bool AndroidContentURI::CanNavigateUp() const {
 // Only goes downwards in hierarchies. No ".." will ever be generated.
 bool AndroidContentURI::ComputePathTo(const AndroidContentURI &other, std::string &path) const {
 	size_t offset = FilePath().size() + 1;
-	std::string otherFilePath = other.FilePath();
+	const auto &otherFilePath = other.FilePath();
 	if (offset >= otherFilePath.size()) {
-		ERROR_LOG(SYSTEM, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
+		ERROR_LOG(Log::System, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
 		return false;
 	}
 
@@ -124,11 +125,11 @@ bool AndroidContentURI::ComputePathTo(const AndroidContentURI &other, std::strin
 }
 
 std::string AndroidContentURI::GetFileExtension() const {
-	size_t pos = file.rfind(".");
+	size_t pos = file.rfind('.');
 	if (pos == std::string::npos) {
 		return "";
 	}
-	size_t slash_pos = file.rfind("/");
+	size_t slash_pos = file.rfind('/');
 	if (slash_pos != std::string::npos && slash_pos > pos) {
 		// Don't want to detect "df/file" from "/as.df/file"
 		return "";

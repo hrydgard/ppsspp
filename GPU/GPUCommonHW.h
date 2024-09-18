@@ -14,7 +14,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void BeginFrame() override;
+	void BeginHostFrame() override;
 
 	u32 CheckGPUFeatures() const override;
 
@@ -23,7 +23,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-	std::vector<FramebufferInfo> GetFramebufferList() const override;
+	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 

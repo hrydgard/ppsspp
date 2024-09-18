@@ -119,6 +119,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
+		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
+		// might be tricky...
 		inCrashHandler = false;
 		return false;
 	}
@@ -149,19 +151,6 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool success = false;
 
 	MemoryExceptionType type = MemoryExceptionType::NONE;
-
-	std::string infoString = "";
-
-	bool isAtDispatch = false;
-	if (MIPSComp::jit) {
-		std::string desc;
-		if (MIPSComp::jit->DescribeCodePtr(codePtr, desc)) {
-			infoString += desc + "\n";
-		}
-		if (MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
-			isAtDispatch = true;
-		}
-	}
 
 	int instructionSize = 4;
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -249,12 +238,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	}
 #endif
 
-	std::string disassembly;
-	if (DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
-		infoString += disassembly + "\n";
-	}
-
-	if (isAtDispatch) {
+	if (MIPSComp::jit && MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
 		u32 targetAddr = currentMIPS->pc;  // bad approximation
 		// TODO: Do the other archs and platforms.
 #if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS)
@@ -266,7 +250,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uintptr_t crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		if (crashHandler != 0) {
 			context->CTX_PC = crashHandler;
-			ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+			ERROR_LOG(Log::MemMap, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
 			inCrashHandler = false;
 			return true;
 		}
@@ -294,9 +278,19 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		context->CTX_PC += info.instructionSize;
 		g_numReportedBadAccesses++;
 		if (g_numReportedBadAccesses < 100) {
-			ERROR_LOG(MEMMAP, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
 		}
 	} else {
+		std::string infoString = "";
+		std::string temp;
+		if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
+			infoString += temp + "\n";
+		}
+		temp.clear();
+		if (DisassembleNativeAt(codePtr, instructionSize, &temp)) {
+			infoString += temp + "\n";
+		}
+
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
 		// We can't ignore this memory access.
 		uint32_t approximatePC = currentMIPS->pc;
@@ -315,7 +309,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			context->CTX_PC = crashHandler;
 		else
 			handled = false;
-		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
+		ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
 
 	inCrashHandler = false;
@@ -325,7 +319,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #else
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
-	ERROR_LOG(MEMMAP, "Exception handling not supported");
+	ERROR_LOG(Log::MemMap, "Exception handling not supported");
 	return false;
 }
 

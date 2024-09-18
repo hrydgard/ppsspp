@@ -74,7 +74,7 @@ void sha1_starts( sha1_context *ctx )
     ctx->state[4] = 0xC3D2E1F0;
 }
 
-static void sha1_process( sha1_context *ctx, unsigned char data[64] )
+static void sha1_process( sha1_context *ctx, const unsigned char data[64] )
 {
     unsigned long temp, W[16], A, B, C, D, E;
 

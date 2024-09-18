@@ -63,15 +63,7 @@ struct BaseEvent {
 typedef LinkedListItem<BaseEvent> Event;
 
 Event *first;
-Event *tsFirst;
-Event *tsLast;
-
-// event pools
 Event *eventPool = 0;
-Event *eventTsPool = 0;
-int allocatedTsEvents = 0;
-// Optimization to skip MoveEvents when possible.
-std::atomic<u32> hasTsEvents;
 
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
@@ -81,8 +73,6 @@ alignas(16) s64 globalTimer;
 s64 idledCycles;
 s64 lastGlobalTimeTicks;
 s64 lastGlobalTimeUs;
-
-static std::mutex externalEventLock;
 
 std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
@@ -140,29 +130,10 @@ Event* GetNewEvent()
 	return ev;
 }
 
-Event* GetNewTsEvent()
-{
-	allocatedTsEvents++;
-
-	if(!eventTsPool)
-		return new Event;
-
-	Event* ev = eventTsPool;
-	eventTsPool = ev->next;
-	return ev;
-}
-
 void FreeEvent(Event* ev)
 {
 	ev->next = eventPool;
 	eventPool = ev;
-}
-
-void FreeTsEvent(Event* ev)
-{
-	ev->next = eventTsPool;
-	eventTsPool = ev;
-	allocatedTsEvents--;
 }
 
 int RegisterEvent(const char *name, TimedCallback callback) {
@@ -181,7 +152,7 @@ int RegisterEvent(const char *name, TimedCallback callback) {
 }
 
 void AntiCrashCallback(u64 userdata, int cyclesLate) {
-	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(Log::SaveState, "Savestate broken: an unregistered event was called.");
 	Core_EnableStepping(true, "savestate.crash", 0);
 }
 
@@ -222,27 +193,18 @@ void Init()
 	idledCycles = 0;
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
-	hasTsEvents = 0;
 	mhzChangeCallbacks.clear();
 	CPU_HZ = initialHz;
 }
 
 void Shutdown()
 {
-	MoveEvents();
 	ClearPendingEvents();
 	UnregisterAllEvents();
 
 	while (eventPool) {
 		Event *ev = eventPool;
 		eventPool = ev->next;
-		delete ev;
-	}
-
-	std::lock_guard<std::mutex> lk(externalEventLock);
-	while (eventTsPool) {
-		Event *ev = eventTsPool;
-		eventTsPool = ev->next;
 		delete ev;
 	}
 }
@@ -260,39 +222,6 @@ u64 GetTicks()
 u64 GetIdleTicks()
 {
 	return (u64)idledCycles;
-}
-
-
-// This is to be called when outside threads, such as the graphics thread, wants to
-// schedule things to be executed on the main thread.
-void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata)
-{
-	std::lock_guard<std::mutex> lk(externalEventLock);
-	Event *ne = GetNewTsEvent();
-	ne->time = GetTicks() + cyclesIntoFuture;
-	ne->type = event_type;
-	ne->next = 0;
-	ne->userdata = userdata;
-	if(!tsFirst)
-		tsFirst = ne;
-	if(tsLast)
-		tsLast->next = ne;
-	tsLast = ne;
-
-	hasTsEvents.store(1, std::memory_order::memory_order_release);
-}
-
-// Same as ScheduleEvent_Threadsafe(0, ...) EXCEPT if we are already on the CPU thread
-// in which case the event will get handled immediately, before returning.
-void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata)
-{
-	if(false) //Core::IsCPUThread())
-	{
-		std::lock_guard<std::mutex> lk(externalEventLock);
-		event_types[event_type].callback(userdata, 0);
-	}
-	else
-		ScheduleEvent_Threadsafe(0, event_type, userdata);
 }
 
 void ClearPendingEvents()
@@ -380,57 +309,6 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	return result;
 }
 
-s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
-{
-	s64 result = 0;
-	std::lock_guard<std::mutex> lk(externalEventLock);
-	if (!tsFirst)
-		return result;
-	while(tsFirst)
-	{
-		if (tsFirst->type == event_type && tsFirst->userdata == userdata)
-		{
-			result = tsFirst->time - GetTicks();
-
-			Event *next = tsFirst->next;
-			FreeTsEvent(tsFirst);
-			tsFirst = next;
-		}
-		else
-		{
-			break;
-		}
-	}
-	if (!tsFirst)
-	{
-		tsLast = NULL;
-		return result;
-	}
-
-	Event *prev = tsFirst;
-	Event *ptr = prev->next;
-	while (ptr)
-	{
-		if (ptr->type == event_type && ptr->userdata == userdata)
-		{
-			result = ptr->time - GetTicks();
-
-			prev->next = ptr->next;
-			if (ptr == tsLast)
-				tsLast = prev;
-			FreeTsEvent(ptr);
-			ptr = prev->next;
-		}
-		else
-		{
-			prev = ptr;
-			ptr = ptr->next;
-		}
-	}
-
-	return result;
-}
-
 void RegisterMHzChangeCallback(MHzChangeCallback callback) {
 	mhzChangeCallbacks.push_back(callback);
 }
@@ -485,100 +363,22 @@ void RemoveEvent(int event_type)
 	}
 }
 
-void RemoveThreadsafeEvent(int event_type)
-{
-	std::lock_guard<std::mutex> lk(externalEventLock);
-	if (!tsFirst)
-	{
-		return;
-	}
-	while(tsFirst)
-	{
-		if (tsFirst->type == event_type)
-		{
-			Event *next = tsFirst->next;
-			FreeTsEvent(tsFirst);
-			tsFirst = next;
-		}
-		else
-		{
-			break;
-		}
-	}
-	if (!tsFirst)
-	{
-		tsLast = NULL;
-		return;
-	}
-	Event *prev = tsFirst;
-	Event *ptr = prev->next;
-	while (ptr)
-	{
-		if (ptr->type == event_type)
-		{
-			prev->next = ptr->next;
-			if (ptr == tsLast)
-				tsLast = prev;
-			FreeTsEvent(ptr);
-			ptr = prev->next;
-		}
-		else
-		{
-			prev = ptr;
-			ptr = ptr->next;
-		}
-	}
-}
-
-void RemoveAllEvents(int event_type)
-{
-	RemoveThreadsafeEvent(event_type);
-	RemoveEvent(event_type);
-}
-
-//This raise only the events required while the fifo is processing data
-void ProcessFifoWaitEvents()
-{
-	while (first)
-	{
-		if (first->time <= (s64)GetTicks())
-		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ",
-//				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
-			Event* evt = first;
+void ProcessEvents() {
+	while (first) {
+		if (first->time <= (s64)GetTicks()) {
+			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
+			Event *evt = first;
 			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
+			if (evt->type >= 0 && evt->type < event_types.size()) {
+				event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
+			} else {
+				_dbg_assert_msg_(false, "Bad event type %d", evt->type);
+			}
 			FreeEvent(evt);
-		}
-		else
-		{
+		} else {
+			// Caught up to the current time.
 			break;
 		}
-	}
-}
-
-void MoveEvents()
-{
-	hasTsEvents.store(0, std::memory_order::memory_order_release);
-
-	std::lock_guard<std::mutex> lk(externalEventLock);
-	// Move events from async queue into main queue
-	while (tsFirst)
-	{
-		Event *next = tsFirst->next;
-		AddEventToQueue(tsFirst);
-		tsFirst = next;
-	}
-	tsLast = NULL;
-
-	// Move free events to threadsafe pool
-	while(allocatedTsEvents > 0 && eventPool)
-	{
-		Event *ev = eventPool;
-		eventPool = ev->next;
-		ev->next = eventTsPool;
-		eventTsPool = ev;
-		allocatedTsEvents--;
 	}
 }
 
@@ -602,9 +402,7 @@ void Advance() {
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
 
-	if (hasTsEvents.load(std::memory_order_acquire))
-		MoveEvents();
-	ProcessFifoWaitEvents();
+	ProcessEvents();
 
 	if (!first) {
 		// This should never happen in PPSSPP.
@@ -627,7 +425,7 @@ void Advance() {
 void LogPendingEvents() {
 	Event *ptr = first;
 	while (ptr) {
-		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
+		//INFO_LOG(Log::CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }
@@ -649,7 +447,7 @@ void Idle(int maxIdle) {
 	if (cyclesDown < 0)
 		cyclesDown = 0;
 
-	// VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	// VERBOSE_LOG(Log::CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;
@@ -679,8 +477,7 @@ std::string GetScheduledEventsSummary() {
 	return text;
 }
 
-void Event_DoState(PointerWrap &p, BaseEvent *ev)
-{
+void Event_DoState(PointerWrap &p, BaseEvent *ev) {
 	// There may be padding, so do each one individually.
 	Do(p, ev->time);
 	Do(p, ev->userdata);
@@ -688,15 +485,12 @@ void Event_DoState(PointerWrap &p, BaseEvent *ev)
 	usedEventTypes.insert(ev->type);
 }
 
-void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
-{
+void Event_DoStateOld(PointerWrap &p, BaseEvent *ev) {
 	Do(p, *ev);
 	usedEventTypes.insert(ev->type);
 }
 
 void DoState(PointerWrap &p) {
-	std::lock_guard<std::mutex> lk(externalEventLock);
-
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)
 		return;
@@ -705,7 +499,7 @@ void DoState(PointerWrap &p) {
 	int current = n;
 	Do(p, n);
 	if (n > current) {
-		WARN_LOG(SAVESTATE, "Savestate failure: more events than current (can't ever remove an event)");
+		WARN_LOG(Log::SaveState, "Savestate failure: more events than current (can't ever remove an event)");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
@@ -720,11 +514,12 @@ void DoState(PointerWrap &p) {
 	restoredEventTypes.clear();
 
 	if (s >= 3) {
-		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);
-		DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(p, tsFirst, &tsLast);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **)nullptr);
+		// This is here because we previously stored a second queue of "threadsafe" events. Gone now. Remove in the next section version upgrade.
+		DoIgnoreUnusedLinkedList(p);
 	} else {
-		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(p, first, (Event **) NULL);
-		DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoStateOld>(p, tsFirst, &tsLast);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(p, first, (Event **)nullptr);
+		DoIgnoreUnusedLinkedList(p);
 	}
 
 	Do(p, CPU_HZ);

@@ -3,6 +3,7 @@
 #include "ppsspp_config.h"
 
 #include <string>
+#include <string_view>
 
 #if defined(__APPLE__)
 
@@ -36,11 +37,11 @@ enum class PathType {
 
 class Path {
 private:
-	void Init(const std::string &str);
+	void Init(std::string_view str);
 
 public:
 	Path() : type_(PathType::UNDEFINED) {}
-	explicit Path(const std::string &str);
+	explicit Path(std::string_view str);
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	explicit Path(const std::wstring &str);
@@ -48,6 +49,9 @@ public:
 
 	PathType Type() const {
 		return type_;
+	}
+	bool IsLocalType() const {
+		return type_ == PathType::NATIVE || type_ == PathType::CONTENT_URI;
 	}
 
 	bool Valid() const { return !path_.empty(); }
@@ -71,13 +75,13 @@ public:
 	bool IsAbsolute() const;
 
 	// Returns a path extended with a subdirectory.
-	Path operator /(const std::string &subdir) const;
+	Path operator /(std::string_view subdir) const;
 
 	// Navigates down into a subdir.
-	void operator /=(const std::string &subdir);
+	void operator /=(std::string_view subdir);
 
 	// File extension manipulation.
-	Path WithExtraExtension(const std::string &ext) const;
+	Path WithExtraExtension(std::string_view ext) const;
 	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
@@ -117,7 +121,7 @@ public:
 		return path_ != other.path_ || type_ != other.type_;
 	}
 
-	bool FilePathContainsNoCase(const std::string &needle) const;
+	bool FilePathContainsNoCase(std::string_view needle) const;
 
 	bool StartsWith(const Path &other) const;
 
@@ -139,7 +143,7 @@ private:
 };
 
 // Utility function for parsing out file extensions.
-std::string GetExtFromString(const std::string &str);
+std::string GetExtFromString(std::string_view str);
 
 // Utility function for fixing the case of paths. Only present on Unix-like systems.
 

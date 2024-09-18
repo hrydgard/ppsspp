@@ -6,6 +6,7 @@
 //
 
 #import "DisplayManager.h"
+#import "iOSCoreAudio.h"
 #import "ViewController.h"
 #import "AppDelegate.h"
 #include "Common/System/Display.h"
@@ -64,6 +65,9 @@
 	[self setOriginalFrame: [gameWindow frame]];
 	[self setOriginalBounds:[gameWindow bounds]];
 	[self setOriginalTransform:[gameWindow transform]];
+
+	// TODO: From iOS 13, should use UIScreenDidConnectNotification instead of the below.
+
 	// Display connected
 	[[NSNotificationCenter defaultCenter] addObserverForName:UIScreenDidConnectNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull notification) {
 		UIScreen *screen = (UIScreen *) notification.object;
@@ -74,8 +78,7 @@
 			return;
 		}
 		// Ignore mute switch when connected to external display
-		NSError *error = nil;
-		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
+		iOSCoreAudioSetDisplayConnected(true);
 		[self updateScreen:screen];
 	}];
 	// Display disconnected
@@ -89,8 +92,7 @@
 			UIScreen *newScreen = [[self extDisplays] lastObject];
 			[self updateScreen:newScreen];
 		} else {
-			NSError *error = nil;
-			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+			iOSCoreAudioSetDisplayConnected(false);
 			[self updateScreen:[UIScreen mainScreen]];
 		}
 	}];
@@ -133,20 +135,13 @@
 }
 
 - (void)updateResolution:(UIScreen *)screen {
-	float scale = screen.scale;
-	
-	if ([screen respondsToSelector:@selector(nativeScale)]) {
-		scale = screen.nativeScale;
-	}
-	
-	CGSize size = screen.applicationFrame.size;
+	float scale = screen.nativeScale;
+	CGSize size = screen.bounds.size;
 	
 	if (size.height > size.width) {
-		float h = size.height;
-		size.height = size.width;
-		size.width = h;
+		std::swap(size.height, size.width);
 	}
-	
+
 	if (screen == [UIScreen mainScreen]) {
 		g_display.dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 	} else {
@@ -159,19 +154,19 @@
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 	g_display.pixel_xres = size.width * scale;
 	g_display.pixel_yres = size.height * scale;
-	
+
 	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
 	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
-	
+
 	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / (float)g_display.dp_xres;
 	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / (float)g_display.dp_yres;
 	
-	[[sharedViewController view] setContentScaleFactor:scale];
+	[[sharedViewController getView] setContentScaleFactor:scale];
 	
 	// PSP native resize
 	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-	
+
 	NativeResized();
 	
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", g_display.pixel_xres, g_display.pixel_yres, scale);

@@ -138,7 +138,7 @@ private:
 class SasAtrac3 {
 public:
 	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
-	~SasAtrac3() { if (sampleQueue_) delete sampleQueue_; }
+	~SasAtrac3() { delete sampleQueue_; }
 	int setContext(u32 context);
 	void getNextSamples(s16 *outbuf, int wantedSamples);
 	int addStreamData(u32 bufPtr, u32 addbytes);
@@ -332,7 +332,7 @@ public:
 private:
 	SasReverb reverb_;
 	int grainSize = 0;
-	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
+	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 16];  // some extra margin for very high pitches.
 };
 
 const char *ADSRCurveModeAsString(SasADSRCurveMode mode);

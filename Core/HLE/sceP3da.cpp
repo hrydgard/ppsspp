@@ -24,13 +24,13 @@
 
 static u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum)
 {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
 	return 0;
 }
 
 static u32 sceP3daBridgeExit()
 {
-	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeExit()");
+	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceP3daBridgeExit()");
 	return 0;
 }
 
@@ -45,7 +45,7 @@ static inline int getScaleValue(u32 channelsNum) {
 
 static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
-	DEBUG_LOG(SCEAUDIO, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
+	DEBUG_LOG(Log::sceAudio, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
 		int scaleval = getScaleValue(channelsNum);
 		s16_le *outbuf = (s16_le *)Memory::GetPointerWriteUnchecked(outputAddr);

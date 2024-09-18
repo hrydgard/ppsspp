@@ -40,6 +40,7 @@ class MIPSState;
 
 namespace MIPSComp {
 class IRBlock;
+class IRBlockCache;
 struct JitOptions;
 }
 
@@ -153,7 +154,7 @@ public:
 	IRNativeRegCacheBase(MIPSComp::JitOptions *jo);
 	virtual ~IRNativeRegCacheBase() {}
 
-	virtual void Start(MIPSComp::IRBlock *irBlock);
+	virtual void Start(MIPSComp::IRBlockCache *irBlockCache, int blockNum);
 	void SetIRIndex(int index) {
 		irIndex_ = index;
 	}
@@ -248,7 +249,9 @@ protected:
 	bool IsValidFPR(IRReg r) const;
 
 	MIPSComp::JitOptions *jo_;
+	int irBlockNum_ = 0;
 	const MIPSComp::IRBlock *irBlock_ = nullptr;
+	const MIPSComp::IRBlockCache *irBlockCache_ = nullptr;
 	int irIndex_ = 0;
 
 	struct {

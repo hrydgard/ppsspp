@@ -29,6 +29,10 @@ struct QueueProfileContext {
 	double cpuEndTime;
 	double descWriteTime;
 	int descriptorsWritten;
+	int descriptorsDeduped;
+#ifdef _DEBUG
+	int commandCounts[11];
+#endif
 };
 
 class VKRFramebuffer;
@@ -49,10 +53,6 @@ struct CachedReadback {
 };
 
 struct FrameDataShared {
-	// Permanent objects
-	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
-
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
 	bool useMultiThreading;
@@ -65,7 +65,7 @@ struct FrameDataShared {
 enum class FrameSubmitType {
 	Pending,
 	Sync,
-	Present,
+	FinishFrame,
 };
 
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
@@ -77,6 +77,8 @@ struct FrameData {
 	bool readyForFence = true;
 
 	VkFence fence = VK_NULL_HANDLE;
+	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
+	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
@@ -113,14 +115,14 @@ struct FrameData {
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
-	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+	void AcquireNextImage(VulkanContext *vulkan);
 	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
 
 	// Generally called from the main thread, unlike most of the rest.
 	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
-	// This will only submit if we are actually recording init commands.
-	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
+	// Submits pending command buffers.
+	void Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
 
 private:
 	// Metadata for logging etc

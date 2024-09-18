@@ -28,24 +28,24 @@ u32 audioRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
 u32 audioRoutineVolumeMode = AUDIO_ROUTING_SPEAKER_ON;
 
 static int sceAudioRoutingGetMode() {
-	INFO_LOG(SCEAUDIO, "sceAudioRoutingGetMode");
+	INFO_LOG(Log::sceAudio, "sceAudioRoutingGetMode");
 	return 0;
 }
 
 static int sceAudioRoutingSetVolumeMode(int mode) {
-	INFO_LOG(SCEAUDIO, "sceAudioRoutingSetVolumeMode %d", mode);
+	INFO_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode %d", mode);
 	int previousMode = audioRoutineVolumeMode;
 	audioRoutineVolumeMode = audioRoutingMode;
 	return previousMode;
 }
 
 static int sceAudioRoutingGetVolumeMode() {
-	INFO_LOG(SCEAUDIO, "sceAudioRoutingGetMode");
+	INFO_LOG(Log::sceAudio, "sceAudioRoutingGetMode");
 	return 0;
 }
 
 static int sceAudioRoutingSetMode(int mode) {
-	INFO_LOG(SCEAUDIO, "sceAudioRoutingSetMode %d", mode);
+	INFO_LOG(Log::sceAudio, "sceAudioRoutingSetMode %d", mode);
 	int previousMode = audioRoutingMode;
 	audioRoutingMode = mode;
 	return previousMode;

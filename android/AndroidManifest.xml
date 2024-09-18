@@ -27,6 +27,7 @@
     <uses-permission android:name="archos.permission.FULLSCREEN.FULL" />
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission-sdk-23 android:name="android.permission.TRANSMIT_IR" />
     <uses-permission-sdk-23 android:name="android.permission.CAMERA" />
     <uses-permission-sdk-23 android:name="android.permission.RECORD_AUDIO" />
 
@@ -79,6 +80,9 @@
 				<data android:pathPattern=".*\\.cso" />
 				<data android:pathPattern=".*\\..*\\.cso" />
 				<data android:pathPattern=".*\\..*\\..*\\.cso" />
+				<data android:pathPattern=".*\\.chd" />
+				<data android:pathPattern=".*\\..*\\.chd" />
+				<data android:pathPattern=".*\\..*\\..*\\.chd" />
 				<data android:pathPattern=".*\\.elf" />
 				<data android:pathPattern=".*\\..*\\.elf" />
 				<data android:pathPattern=".*\\..*\\..*\\.elf" />
@@ -91,6 +95,9 @@
 				<data android:pathPattern=".*\\.ELF" />
 				<data android:pathPattern=".*\\..*\\.ELF" />
 				<data android:pathPattern=".*\\..*\\..*\\.ELF" />
+				<data android:pathPattern=".*\\.CHD" />
+				<data android:pathPattern=".*\\..*\\.CHD" />
+				<data android:pathPattern=".*\\..*\\..*\\.CHD" />
 				<data android:pathPattern=".*\\.ppdmp" />
 			</intent-filter>
         </activity>

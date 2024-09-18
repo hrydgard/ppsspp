@@ -106,7 +106,7 @@ public:
 	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
+	void BindVertexBuffer(Buffer *buffers, int offset) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
 	void BindPipeline(Pipeline *pipeline) override;
 
@@ -214,12 +214,12 @@ private:
 	ID3D11GeometryShader *curGS_ = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
-	ID3D11Buffer *nextVertexBuffers_[4]{};
-	int nextVertexBufferOffsets_[4]{};
+	ID3D11Buffer *nextVertexBuffer_ = nullptr;
+	UINT nextVertexBufferOffset_ = 0;
 
 	bool dirtyIndexBuffer_ = false;
 	ID3D11Buffer *nextIndexBuffer_ = nullptr;
-	int nextIndexBufferOffset_ = 0;
+	UINT nextIndexBufferOffset_ = 0;
 
 	InvalidationCallback invalidationCallback_;
 	int frameCount_ = FRAME_TIME_HISTORY_LENGTH;
@@ -280,6 +280,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
+
+	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).
 
 	caps_.presentInstantModeChange = true;
 	caps_.presentMaxInterval = 4;
@@ -725,7 +727,7 @@ public:
 	D3D11InputLayout() {}
 	InputLayoutDesc desc;
 	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
-	std::vector<int> strides;
+	UINT stride;  // type to match function parameter
 };
 
 const char *semanticToD3D11(int semantic, UINT *index) {
@@ -752,15 +754,13 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 		D3D11_INPUT_ELEMENT_DESC el;
 		el.AlignedByteOffset = desc.attributes[i].offset;
 		el.Format = dataFormatToD3D11(desc.attributes[i].format);
-		el.InstanceDataStepRate = desc.bindings[desc.attributes[i].binding].instanceRate ? 1 : 0;
-		el.InputSlot = desc.attributes[i].binding;
+		el.InstanceDataStepRate = 0;
+		el.InputSlot = 0;
 		el.SemanticName = semanticToD3D11(desc.attributes[i].location, &el.SemanticIndex);
-		el.InputSlotClass = desc.bindings[desc.attributes[i].binding].instanceRate ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+		el.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 		inputLayout->elements.push_back(el);
 	}
-	for (size_t i = 0; i < desc.bindings.size(); i++) {
-		inputLayout->strides.push_back(desc.bindings[i].stride);
-	}
+	inputLayout->stride = desc.stride;
 	return inputLayout;
 }
 
@@ -1038,7 +1038,7 @@ void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **dat
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
-		ERROR_LOG(G3D, "Unsupported shader language");
+		ERROR_LOG(Log::G3D, "Unsupported shader language");
 		return nullptr;
 	}
 
@@ -1081,7 +1081,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
+		ERROR_LOG(Log::G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
 		errorMsgs->Release();
 	}
 
@@ -1106,7 +1106,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
 		break;
 	default:
-		ERROR_LOG(G3D, "Unsupported shader stage");
+		ERROR_LOG(Log::G3D, "Unsupported shader stage");
 		result = S_FALSE;
 		break;
 	}
@@ -1253,8 +1253,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	}
 
 	if (curPipeline_->input != nullptr) {
-		int numVBs = (int)curPipeline_->input->strides.size();
-		context_->IASetVertexBuffers(0, numVBs, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+		context_->IASetVertexBuffers(0, 1, &nextVertexBuffer_, &curPipeline_->input->stride, &nextVertexBufferOffset_);
 	}
 	if (dirtyIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
@@ -1323,14 +1322,11 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 
-void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) {
-	_assert_(start + count <= ARRAY_SIZE(nextVertexBuffers_));
+void D3D11DrawContext::BindVertexBuffer(Buffer *buffer, int offset) {
 	// Lazy application
-	for (int i = 0; i < count; i++) {
-		D3D11Buffer *buf = (D3D11Buffer *)buffers[i];
-		nextVertexBuffers_[start + i] = buf->buf;
-		nextVertexBufferOffsets_[start + i] = offsets ? offsets[i] : 0;
-	}
+	D3D11Buffer *buf = (D3D11Buffer *)buffer;
+	nextVertexBuffer_ = buf->buf;
+	nextVertexBufferOffset_ = offset;
 }
 
 void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
@@ -1354,10 +1350,10 @@ void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplyCurrentState();
 
-	int byteSize = vertexCount * curPipeline_->input->strides[0];
+	int byteSize = vertexCount * curPipeline_->input->stride;
 
 	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
-	BindVertexBuffers(0, 1, &upBuffer_, nullptr);
+	BindVertexBuffer(upBuffer_, 0);
 	int offset = 0;
 	Draw(vertexCount, offset);
 }
@@ -1490,7 +1486,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		depthViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->depthSRView);
 		if (FAILED(hr)) {
-			WARN_LOG(G3D, "Failed to create SRV for depth buffer.");
+			WARN_LOG(Log::G3D, "Failed to create SRV for depth buffer.");
 			fb->depthSRView = nullptr;
 		}
 	}
@@ -1565,7 +1561,7 @@ void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
 		context_->IASetPrimitiveTopology(curTopology_);
 	}
 	if (curPipeline_ != nullptr) {
-		context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+		context_->IASetVertexBuffers(0, 1, &nextVertexBuffer_, &curPipeline_->input->stride, &nextVertexBufferOffset_);
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
@@ -1885,7 +1881,7 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> adapterNames, int maxInflightFrames) {
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames) {
 	return new D3D11DrawContext(device, context, device1, context1, swapChain, featureLevel, hWnd, adapterNames, maxInflightFrames);
 }
 

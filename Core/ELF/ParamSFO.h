@@ -24,25 +24,30 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 
+class Path;
+
 class ParamSFOData
 {
 public:
-	void SetValue(std::string key, unsigned int value, int max_size);
-	void SetValue(std::string key, std::string value, int max_size);
-	void SetValue(std::string key, const u8 *value, unsigned int size, int max_size);
+	void SetValue(const std::string &key, unsigned int value, int max_size);
+	void SetValue(const std::string &key, const std::string &value, int max_size);
+	void SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size);
 
-	int GetValueInt(std::string key) const;
-	std::string GetValueString(std::string key) const;
-	const u8 *GetValueData(std::string key, unsigned int *size) const;
+	int GetValueInt(const std::string &key) const;
+	std::string GetValueString(const std::string &key) const;
+	bool HasKey(const std::string &key) const;
+	const u8 *GetValueData(const std::string &key, unsigned int *size) const;
 
 	std::vector<std::string> GetKeys() const;
-	std::string GenerateFakeID(std::string filename = "") const;
+	std::string GenerateFakeID(const Path &filename) const;
 
 	std::string GetDiscID();
 
-	bool ReadSFO(const u8 *paramsfo, size_t size);
-	bool WriteSFO(u8 **paramsfo, size_t *size) const;
+	// This allocates a buffer (*paramsfo) using new[], whose size is zero-filled up to a multiple of 16 bytes.
+	// This is required for SavedataParam::BuildHash.
+	void WriteSFO(u8 **paramsfo, size_t *size) const;
 
+	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool ReadSFO(const std::vector<u8> &paramsfo) {
 		if (!paramsfo.empty()) {
 			return ReadSFO(&paramsfo[0], paramsfo.size());
@@ -51,7 +56,8 @@ public:
 		}
 	}
 
-	int GetDataOffset(const u8 *paramsfo, std::string dataName);
+	// If not found, returns a negative value.
+	int GetDataOffset(const u8 *paramsfo, const char *dataName);
 
 	void Clear();
 
@@ -77,8 +83,7 @@ private:
 		void SetData(const u8* data, int size);
 
 		~ValueData() {
-			if (u_value)
-				delete[] u_value;
+			delete[] u_value;
 		}
 	};
 

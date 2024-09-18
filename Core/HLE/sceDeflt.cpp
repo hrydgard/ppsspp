@@ -27,12 +27,12 @@
 // All the decompress functions are identical with only differing window bits.
 static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	if (!Memory::IsValidAddress(OutBuffer) || !Memory::IsValidAddress(InBuffer)) {
-		return hleLogError(HLE, 0, "bad address");
+		return hleLogError(Log::HLE, 0, "bad address");
 	}
 
 	auto crc32Addr = PSPPointer<u32_le>::Create(Crc32Addr);
 	if (Crc32Addr && !crc32Addr.IsValid()) {
-		return hleLogError(HLE, 0, "bad crc32 address");
+		return hleLogError(Log::HLE, 0, "bad crc32 address");
 	}
 
 	z_stream stream{};
@@ -45,13 +45,13 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 
 	int err = inflateInit2(&stream, windowBits);
 	if (err != Z_OK) {
-		return hleLogError(HLE, 0, "inflateInit2 failed %08x", err);
+		return hleLogError(Log::HLE, 0, "inflateInit2 failed %08x", err);
 	}
 	err = inflate(&stream, Z_FINISH);
 	inflateEnd(&stream);
 
 	if (err != Z_STREAM_END) {
-		return hleLogError(HLE, 0, "inflate failed %08x", err);
+		return hleLogError(Log::HLE, 0, "inflate failed %08x", err);
 	}
 	if (crc32Addr.IsValid()) {
 		uLong crc = crc32(0L, Z_NULL, 0);
@@ -65,7 +65,7 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 		NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tagData, tagSize);
 	}
 
-	return hleLogSuccessI(HLE, stream.total_out);
+	return hleLogSuccessI(Log::HLE, stream.total_out);
 }
 
 static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {

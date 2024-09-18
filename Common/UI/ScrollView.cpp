@@ -119,7 +119,7 @@ bool ScrollView::Key(const KeyInput &input) {
 	if (input.flags & KEY_DOWN) {
 		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
 			(input.flags & KEY_HASWHEELDELTA)) {
-			scrollSpeed = (float)(short)(input.flags >> 16) * 1.25f;  // Fudge factor
+			scrollSpeed = (float)(short)(input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
 		}
 
 		switch (input.keyCode) {
@@ -144,7 +144,8 @@ bool ScrollView::Touch(const TouchInput &input) {
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
-			draggingBob_ = internalY >= bob.offset && internalY <= bob.offset + bob.size && input.x >= bounds_.x2() - 20.0f;
+			float bobMargin = 3.0f;  // Add some extra margin for the touch.
+			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - 20.0f;
 			barDragStart_ = bob.offset;
 			barDragOffset_ = internalY - bob.offset;
 		}
@@ -165,11 +166,13 @@ bool ScrollView::Touch(const TouchInput &input) {
 		draggingBob_ = false;
 	}
 
+	// We modify the input2 we send to children, so we can cancel drags if we start scrolling, and stuff like that.
 	TouchInput input2;
 	if (CanScroll()) {
 		if (draggingBob_) {
-			input2 = input;
-			// Skip the gesture, do calculations directly.
+			// Cancel any drags/holds on the children instantly to avoid accidental click-throughs.
+			input2.flags = TOUCH_UP | TOUCH_CANCEL;
+			// Skip the gesture manager, do calculations directly.
 			// Might switch to the gesture later.
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
@@ -216,7 +219,7 @@ ScrollView::Bob ScrollView::ComputeBob() const {
 
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		bob.show = true;
-		bob.thickness = draggingBob_ ? 15.0f : 5.0f;
+		bob.thickness = draggingBob_ ? 15.0f : 6.0f;
 		bob.size = ratio * bounds_.h;
 		bob.offset = (HardClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bob.size);
 		bob.scrollMax = scrollMax;
@@ -285,7 +288,7 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
-NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
 	if (ContainsSubview(view) && views_[0]->IsViewGroup()) {
 		ViewGroup *vg = static_cast<ViewGroup *>(views_[0]);
 		int found = -1;
@@ -312,7 +315,7 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point &target, F
 			}
 
 			// Okay, now where is our ideal target?
-			Point targetPos = view->GetBounds().Center();
+			Point2D targetPos = view->GetBounds().Center();
 			if (orientation_ == ORIENT_VERTICAL)
 				targetPos.y += mult * bounds_.h;
 			else
@@ -496,9 +499,8 @@ void ScrollView::Update() {
 	}
 }
 
-ListView::ListView(ListAdaptor *a, std::set<int> hidden, LayoutParams *layoutParams)
-	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden) {
-
+ListView::ListView(ListAdaptor *a, std::set<int> hidden, std::map<int, ImageID> icons, LayoutParams *layoutParams)
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden), icons_(icons) {
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
 	linLayout_->SetSpacing(0.0f);
 	Add(linLayout_);
@@ -510,7 +512,12 @@ void ListView::CreateAllItems() {
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
 		if (hidden_.find(i) == hidden_.end()) {
-			View *v = linLayout_->Add(adaptor_->CreateItemView(i));
+			ImageID *imageID = nullptr;
+			auto iter = icons_.find(i);
+			if (iter != icons_.end()) {
+				imageID = &iter->second;
+			}
+			View *v = linLayout_->Add(adaptor_->CreateItemView(i, imageID));
 			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, std::placeholders::_1));
 		}
 	}
@@ -538,8 +545,12 @@ EventReturn ListView::OnItemCallback(int num, EventParams &e) {
 	return EVENT_DONE;
 }
 
-View *ChoiceListAdaptor::CreateItemView(int index) {
-	return new Choice(items_[index]);
+View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
+	Choice *choice = new Choice(items_[index]);
+	if (optionalImageID) {
+		choice->SetIcon(*optionalImageID);
+	}
+	return choice;
 }
 
 bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {
@@ -549,8 +560,12 @@ bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(E
 }
 
 
-View *StringVectorListAdaptor::CreateItemView(int index) {
-	return new Choice(items_[index], "", index == selected_);
+View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
+	Choice *choice = new Choice(items_[index], "", index == selected_);
+	if (optionalImageID) {
+		choice->SetIcon(*optionalImageID);
+	}
+	return choice;
 }
 
 bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {

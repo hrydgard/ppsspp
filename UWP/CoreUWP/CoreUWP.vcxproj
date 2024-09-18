@@ -174,6 +174,8 @@
     <ClInclude Include="..\..\Core\Font\PGF.h" />
     <ClInclude Include="..\..\Core\FrameTiming.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
+    <ClInclude Include="..\..\Core\HLE\AtracCtx.h" />
+    <ClInclude Include="..\..\Core\HLE\AtracCtx2.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
     <ClInclude Include="..\..\Core\HLE\FunctionWrappers.h" />
@@ -240,6 +242,7 @@
     <ClInclude Include="..\..\Core\HLE\sceSas.h" />
     <ClInclude Include="..\..\Core\HLE\sceSfmt19937.h" />
     <ClInclude Include="..\..\Core\HLE\sceSha256.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSircs.h" />
     <ClInclude Include="..\..\Core\HLE\sceSsl.h" />
     <ClInclude Include="..\..\Core\HLE\sceUmd.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsb.h" />
@@ -260,6 +263,7 @@
     <ClInclude Include="..\..\Core\HW\MpegDemux.h" />
     <ClInclude Include="..\..\Core\HW\SasAudio.h" />
     <ClInclude Include="..\..\Core\HW\SasReverb.h" />
+    <ClInclude Include="..\..\Core\HW\Atrac3Standalone.h" />
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h" />
     <ClInclude Include="..\..\Core\HW\StereoResampler.h" />
     <ClInclude Include="..\..\Core\KeyMap.h" />
@@ -301,6 +305,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\Jit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\JitSafeMem.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\RegCache.h" />
@@ -319,6 +324,8 @@
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
+    <ClInclude Include="..\..\Core\Util\GameDB.h" />
+    <ClInclude Include="..\..\Core\Util\MemStick.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
@@ -421,6 +428,8 @@
     <ClCompile Include="..\..\Core\Font\PGF.cpp" />
     <ClCompile Include="..\..\Core\FrameTiming.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AtracCtx.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLE.cpp" />
@@ -485,6 +494,7 @@
     <ClCompile Include="..\..\Core\HLE\sceSas.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSfmt19937.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSha256.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSircs.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSsl.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUmd.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsb.cpp" />
@@ -504,6 +514,7 @@
     <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />
     <ClCompile Include="..\..\Core\HW\SasAudio.cpp" />
     <ClCompile Include="..\..\Core\HW\SasReverb.cpp" />
+    <ClCompile Include="..\..\Core\HW\Atrac3Standalone.cpp" />
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
@@ -573,6 +584,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSTracer.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\Asm.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompBranch.cpp" />
@@ -603,6 +615,8 @@
     <ClCompile Include="..\..\Core\System.cpp" />
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
+    <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
+    <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />

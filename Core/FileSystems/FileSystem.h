@@ -83,6 +83,10 @@ public:
 class SequentialHandleAllocator : public IHandleAllocator {
 public:
 	SequentialHandleAllocator() : handle_(1) {}
+
+	SequentialHandleAllocator(SequentialHandleAllocator &) = delete;
+	void operator =(SequentialHandleAllocator &) = delete;
+
 	u32 GetNewHandle() override {
 		u32 res = handle_++;
 		if (handle_ < 0) {

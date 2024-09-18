@@ -23,7 +23,6 @@ namespace Draw {
 }
 
 class Texture;
-class ManagedTexture;
 class DrawBuffer;
 class TextDrawer;
 
@@ -50,7 +49,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer);
 
 	void BeginFrame();
 
@@ -62,6 +61,8 @@ public:
 	void RebindTexture() const;
 	void BindFontTexture() const;
 
+	double FrameStartTime() const { return frameStartTime_; }
+
 	// TODO: Support transformed bounds using stencil
 	void PushScissor(const Bounds &bounds);
 	void PopScissor();
@@ -70,7 +71,6 @@ public:
 	void ActivateTopScissor();
 
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
-	DrawBuffer *DrawTop() const { return uidrawbufferTop_; }
 
 	// Utility methods
 	TextDrawer *Text() const { return textDrawer_; }
@@ -82,17 +82,16 @@ public:
 	void SetFontStyle(const UI::FontStyle &style);
 	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
-	void MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align = 0) const;
-	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align = 0) const;
-	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align = 0) const;
-	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
-	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
+	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, float *x, float *y, int align = 0) const;
+	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 	// Will squeeze the text into the bounds if needed.
-	void DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 
-	float CalculateTextScale(const char *text, float availWidth, float availHeight) const;
+	float CalculateTextScale(std::string_view str, float availWidth, float availHeight) const;
 
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);
@@ -114,16 +113,14 @@ public:
 
 	void setUIAtlas(const std::string &name);
 
-	void SetScreenTag(const char *tag) {
-		screenTag_ = tag;
-	}
-
 	// TODO: Move to private.
 	const UI::Theme *theme;
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	double frameStartTime_ = 0.0;
 
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
@@ -133,17 +130,14 @@ private:
 	Draw::SamplerState *sampler_ = nullptr;
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
-	std::unique_ptr<ManagedTexture> uitexture_;
-	std::unique_ptr<ManagedTexture> fontTexture_;
+	Draw::Texture *uitexture_ = nullptr;
+	Draw::Texture *fontTexture_ = nullptr;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
-	DrawBuffer *uidrawbufferTop_ = nullptr;
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;
 
 	std::string lastUIAtlas_;
 	std::string UIAtlas_ = "ui_atlas.zim";
-
-	const char *screenTag_ = nullptr;
 };

@@ -64,7 +64,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/OpenXR-SDK/include;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -81,7 +81,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../..;../../ext/OpenXR-SDK/include;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -105,6 +105,7 @@
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
+    <ClInclude Include="..\..\Common\Math\CrossSIMD.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
     <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h" />
     <ClInclude Include="..\..\Common\Net\HTTPRequest.h" />
@@ -187,7 +188,8 @@
     <ClInclude Include="..\..\Common\CommonFuncs.h" />
     <ClInclude Include="..\..\Common\CommonTypes.h" />
     <ClInclude Include="..\..\Common\CommonWindows.h" />
-    <ClInclude Include="..\..\Common\ConsoleListener.h" />
+    <ClInclude Include="..\..\Common\Log\ConsoleListener.h" />
+    <ClInclude Include="..\..\Common\Log\StdioListener.h" />
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\Crypto\md5.h" />
     <ClInclude Include="..\..\Common\Crypto\sha1.h" />
@@ -196,7 +198,7 @@
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
-    <ClInclude Include="..\..\Common\LogManager.h" />
+    <ClInclude Include="..\..\Common\Log\LogManager.h" />
     <ClInclude Include="..\..\Common\LogReporting.h" />
     <ClInclude Include="..\..\Common\MemArena.h" />
     <ClInclude Include="..\..\Common\MemoryUtil.h" />
@@ -239,6 +241,17 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3data.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus_data.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\compat.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\fft.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\get_bits.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\intreadwrite.h" />
+    <ClInclude Include="..\..\ext\at3_standalone\mem.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h" />
     <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h" />
@@ -253,6 +266,8 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -328,7 +343,8 @@
     <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\Data\Convert\ColorConv.cpp" />
-    <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
+    <ClCompile Include="..\..\Common\Log\ConsoleListener.cpp" />
+    <ClCompile Include="..\..\Common\Log\StdioListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\Crypto\md5.cpp" />
@@ -336,7 +352,7 @@
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
-    <ClCompile Include="..\..\Common\LogManager.cpp" />
+    <ClCompile Include="..\..\Common\Log\LogManager.cpp" />
     <ClCompile Include="..\..\Common\LogReporting.cpp" />
     <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
     <ClCompile Include="..\..\Common\MemArenaDarwin.cpp" />
@@ -378,6 +394,15 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdec.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdsp.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\compat.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\fft.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\get_bits.cpp" />
+    <ClCompile Include="..\..\ext\at3_standalone\mem.cpp" />
     <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c" />
     <ClCompile Include="..\..\ext\libpng17\pngerror.c" />
@@ -395,6 +420,7 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>
   <ItemGroup>
@@ -418,6 +444,10 @@
     <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">
       <Project>{c249f016-7f82-45cf-bb6e-0642a988c4d3}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\at3_standalone\CMakeLists.txt" />
+    <Text Include="..\..\ext\at3_standalone\README.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

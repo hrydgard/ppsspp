@@ -176,7 +176,7 @@ void InputSink::Fill() {
 		// Whatever isn't valid and follows write_ is what's available.
 		size_t avail = BUFFER_SIZE - std::max(write_, valid_);
 
-		int bytes = recv(fd_, buf_ + write_, (int)avail, MSG_NOSIGNAL);
+		int bytes = recv(fd_, buf_ + write_, avail, MSG_NOSIGNAL);
 		AccountFill(bytes);
 	}
 }
@@ -200,7 +200,7 @@ void InputSink::AccountFill(int bytes) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;
 #endif
-		ERROR_LOG(IO, "Error reading from socket");
+		ERROR_LOG(Log::IO, "Error reading from socket");
 		return;
 	}
 
@@ -220,7 +220,7 @@ void InputSink::AccountDrain(size_t bytes) {
 	}
 }
 
-bool InputSink::Empty() {
+bool InputSink::Empty() const {
 	return valid_ == 0;
 }
 
@@ -266,7 +266,7 @@ size_t OutputSink::PushAtMost(const char *buf, size_t bytes) {
 
 	if (valid_ == 0 && bytes > PRESSURE) {
 		// Special case for pushing larger buffers: let's try to send directly.
-		int sentBytes = send(fd_, buf, (int)bytes, MSG_NOSIGNAL);
+		int sentBytes = send(fd_, buf, bytes, MSG_NOSIGNAL);
 		// If it was 0 or EWOULDBLOCK, that's fine, we'll enqueue as we can.
 		if (sentBytes > 0) {
 			return sentBytes;
@@ -321,10 +321,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	// Okay, did we actually write?
 	if (result >= (int)avail) {
 		// This means the result string was too big for the buffer.
-		ERROR_LOG(IO, "Not enough space to format output.");
+		ERROR_LOG(Log::IO, "Not enough space to format output.");
 		return false;
 	} else if (result < 0) {
-		ERROR_LOG(IO, "vsnprintf failed.");
+		ERROR_LOG(Log::IO, "vsnprintf failed.");
 		return false;
 	}
 
@@ -348,7 +348,7 @@ bool OutputSink::Flush(bool allowBlock) {
 	while (valid_ > 0) {
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
-		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
+		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
 #if !PPSSPP_PLATFORM(WINDOWS)
 		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			bytes = 0;
@@ -380,7 +380,7 @@ void OutputSink::Drain() {
 		// Let's just do contiguous valid.
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
-		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
+		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
 #if !PPSSPP_PLATFORM(WINDOWS)
 		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			bytes = 0;
@@ -407,7 +407,7 @@ void OutputSink::AccountDrain(int bytes) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;
 #endif
-		ERROR_LOG(IO, "Error writing to socket");
+		ERROR_LOG(Log::IO, "Error writing to socket");
 		return;
 	}
 
@@ -418,8 +418,12 @@ void OutputSink::AccountDrain(int bytes) {
 	}
 }
 
-bool OutputSink::Empty() {
+bool OutputSink::Empty() const {
 	return valid_ == 0;
 }
 
-};
+size_t OutputSink::BytesRemaining() const {
+	return valid_;
+}
+
+}  // namespace net

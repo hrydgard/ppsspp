@@ -14,6 +14,7 @@
 #include "Common/UI/Tween.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/Render/DrawBuffer.h"
 
@@ -25,7 +26,7 @@ namespace UI {
 
 static constexpr Size ITEM_HEIGHT = 64.f;
 
-void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
+void ApplyGravity(const Bounds &outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w;
 	inner.h = h;
 
@@ -47,12 +48,12 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
-void ViewGroup::RemoveSubview(View *view) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
+void ViewGroup::RemoveSubview(View *subView) {
+	// loop counter needed, so can't convert loop.
 	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i] == view) {
+		if (views_[i] == subView) {
 			views_.erase(views_.begin() + i);
-			delete view;
+			delete subView;
 			return;
 		}
 	}
@@ -66,18 +67,24 @@ bool ViewGroup::ContainsSubview(const View *view) const {
 	return false;
 }
 
+int ViewGroup::IndexOfSubview(const View *view) const {
+	int index = 0;
+	for (const View *subview : views_) {
+		if (subview == view)
+			return index;
+		index++;
+	}
+	return -1;
+}
+
 void ViewGroup::Clear() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (size_t i = 0; i < views_.size(); i++) {
-		delete views_[i];
-		views_[i] = nullptr;
+	for (View *view : views_) {
+		delete view;
 	}
 	views_.clear();
 }
 
 void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-
 	std::string tag = Tag();
 	if (tag.empty()) {
 		tag = anonId;
@@ -89,12 +96,11 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 }
 
 bool ViewGroup::Touch(const TouchInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool any = false;
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE) {
-			bool touch = (*iter)->Touch(input);
+		if (view->GetVisibility() == V_VISIBLE) {
+			bool touch = view->Touch(input);
 			any = any || touch;
 			if (exclusiveTouch_ && touch && (input.flags & TOUCH_DOWN)) {
 				break;
@@ -111,43 +117,39 @@ bool ViewGroup::Touch(const TouchInput &input) {
 void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
 	if (bounds_.Contains(x, y)) {
 		list.push_back(this);
-		for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-			(*iter)->Query(x, y, list);
+		for (View *view : views_) {
+			view->Query(x, y, list);
 		}
 	}
 }
 
 bool ViewGroup::Key(const KeyInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool ret = false;
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			ret = ret || (*iter)->Key(input);
+		if (view->GetVisibility() == V_VISIBLE)
+			ret = ret || view->Key(input);
 	}
 	return ret;
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			(*iter)->Axis(input);
+		if (view->GetVisibility() == V_VISIBLE)
+			view->Axis(input);
 	}
 }
 
 void ViewGroup::DeviceLost() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		(*iter)->DeviceLost();
+	for (View *view : views_) {
+		view->DeviceLost();
 	}
 }
 
 void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		(*iter)->DeviceRestored(draw);
+	for (View *view : views_) {
+		view->DeviceRestored(draw);
 	}
 }
 
@@ -197,7 +199,7 @@ std::string ViewGroup::DescribeText() const {
 	return ss.str();
 }
 
-std::string ViewGroup::DescribeListUnordered(const char *heading) const {
+std::string ViewGroup::DescribeListUnordered(std::string_view heading) const {
 	std::stringstream ss;
 	ss << heading << "\n";
 
@@ -214,7 +216,7 @@ std::string ViewGroup::DescribeListUnordered(const char *heading) const {
 	return ss.str();
 }
 
-std::string ViewGroup::DescribeListOrdered(const char *heading) const {
+std::string ViewGroup::DescribeListOrdered(std::string_view heading) const {
 	std::stringstream ss;
 	ss << heading << "\n";
 
@@ -245,21 +247,18 @@ void ViewGroup::Update() {
 }
 
 bool ViewGroup::SetFocus() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	if (!CanBeFocused() && !views_.empty()) {
-		for (size_t i = 0; i < views_.size(); i++) {
-			if (views_[i]->SetFocus())
+		for (View *view : views_) {
+			if (view->SetFocus())
 				return true;
 		}
 	}
 	return false;
 }
 
-bool ViewGroup::SubviewFocused(View *view) {
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i] == view)
-			return true;
-		if (views_[i]->SubviewFocused(view))
+bool ViewGroup::SubviewFocused(View *queryView) {
+	for (View *view : views_) {
+		if (view == queryView || view->SubviewFocused(queryView))
 			return true;
 	}
 	return false;
@@ -295,7 +294,7 @@ static float VerticalOverlap(const Bounds &a, const Bounds &b) {
 		return std::min(1.0f, overlap / minH);
 }
 
-float GetTargetScore(const Point &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
+float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
@@ -304,7 +303,7 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
 
-	Point destPos = destination->GetFocusPosition(Opposite(direction));
+	Point2D destPos = destination->GetFocusPosition(Opposite(direction));
 
 	float dx = destPos.x - originPos.x;
 	float dy = destPos.y - originPos.y;
@@ -323,7 +322,7 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 	float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FOCUS_PREV_PAGE && direction != FOCUS_NEXT_PAGE) {
-			INFO_LOG(SYSTEM, "Contain overlap");
+			INFO_LOG(Log::System, "Contain overlap");
 			return 0.0;
 		}
 	}
@@ -380,7 +379,7 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 		break;
 	case FOCUS_PREV:
 	case FOCUS_NEXT:
-		ERROR_LOG(SYSTEM, "Invalid focus direction");
+		ERROR_LOG(Log::System, "Invalid focus direction");
 		break;
 	}
 
@@ -396,13 +395,13 @@ float GetTargetScore(const Point &originPos, int originIndex, const View *origin
 }
 
 static float GetDirectionScore(int originIndex, const View *origin, View *destination, FocusDirection direction) {
-	Point originPos = origin->GetFocusPosition(direction);
+	Point2D originPos = origin->GetFocusPosition(direction);
 	return GetTargetScore(originPos, originIndex, origin, destination, direction);
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
 	if (!IsEnabled()) {
-		INFO_LOG(SCECTRL, "Not enabled");
+		INFO_LOG(Log::sceCtrl, "Not enabled");
 		return result;
 	}
 	if (GetVisibility() != V_VISIBLE) {
@@ -455,7 +454,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		}
 	case FOCUS_PREV_PAGE:
 	case FOCUS_NEXT_PAGE:
-		return FindScrollNeighbor(view, Point(INFINITY, INFINITY), direction, result);
+		return FindScrollNeighbor(view, Point2D(INFINITY, INFINITY), direction, result);
 	case FOCUS_PREV:
 		// If view not found, no neighbor to find.
 		if (num == -1)
@@ -468,12 +467,12 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
 
 	default:
-		ERROR_LOG(SYSTEM, "Bad focus direction %d", (int)direction);
+		ERROR_LOG(Log::System, "Bad focus direction %d", (int)direction);
 		return result;
 	}
 }
 
-NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point &target, FocusDirection direction, NeighborResult best) {
+NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) {
 	if (!IsEnabled())
 		return best;
 	if (GetVisibility() != V_VISIBLE)
@@ -883,7 +882,7 @@ void AnchorLayout::Layout() {
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
 	: ViewGroup(layoutParams), settings_(settings) {
 	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(SYSTEM, "GridLayout: Vertical layouts not yet supported");
+		ERROR_LOG(Log::System, "GridLayout: Vertical layouts not yet supported");
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -961,17 +960,30 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 		tabScroll_->Add(tabStrip_);
 		Add(tabScroll_);
 	} else {
-		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(stripSize, WRAP_CONTENT));
+		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
+		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
-		Add(tabStrip_);
+		tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
+		tabScroll_->Add(tabStrip_);
+		tabContainer_->Add(tabScroll_);
+		Add(tabContainer_);
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
+
+	Add(new Spacer(4.0f))->SetSeparator();
 
 	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	Add(contents_)->SetClip(true);
 }
 
-void TabHolder::AddTabContents(const std::string &title, View *tabContents) {
+void TabHolder::AddBack(UIScreen *parent) {
+	if (tabContainer_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		tabContainer_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
+	}
+}
+
+void TabHolder::AddTabContents(std::string_view title, View *tabContents) {
 	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabs_.push_back(tabContents);
 	tabStrip_->AddChoice(title);
@@ -1013,21 +1025,21 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		// Currently displayed, so let's reset it.
 		if (skipTween) {
 			tabs_[currentTab_]->SetVisibility(V_GONE);
-			tabTweens_[tab]->Reset(Point(0.0f, 0.0f));
+			tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
 			tabTweens_[tab]->Apply(tabs_[tab]);
 		} else {
-			tabTweens_[currentTab_]->Reset(Point(0.0f, 0.0f));
+			tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
 
 			if (orient == ORIENT_HORIZONTAL) {
-				tabTweens_[tab]->Reset(Point(bounds_.w * dir, 0.0f));
-				tabTweens_[currentTab_]->Divert(Point(bounds_.w * -dir, 0.0f));
+				tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
+				tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
 			} else {
-				tabTweens_[tab]->Reset(Point(0.0f, bounds_.h * dir));
-				tabTweens_[currentTab_]->Divert(Point(0.0f, bounds_.h * -dir));
+				tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
+				tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
 			}
 			// Actually move it to the initial position now, just to avoid any flicker.
 			tabTweens_[tab]->Apply(tabs_[tab]);
-			tabTweens_[tab]->Divert(Point(0.0f, 0.0f));
+			tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
 		}
 		tabs_[tab]->SetVisibility(V_VISIBLE);
 
@@ -1073,7 +1085,7 @@ ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	SetSpacing(0.0f);
 }
 
-void ChoiceStrip::AddChoice(const std::string &title) {
+void ChoiceStrip::AddChoice(std::string_view title) {
 	StickyChoice *c = new StickyChoice(title, "",
 			orientation_ == ORIENT_HORIZONTAL ?
 			nullptr :
@@ -1161,16 +1173,6 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 	return ret || ViewGroup::Key(input);
 }
 
-void ChoiceStrip::Draw(UIContext &dc) {
-	ViewGroup::Draw(dc);
-	if (topTabs_) {
-		if (orientation_ == ORIENT_HORIZONTAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-		else if (orientation_ == ORIENT_VERTICAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-	}
-}
-
 std::string ChoiceStrip::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListUnordered(u->T("Choices:"));
@@ -1182,24 +1184,31 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 	return nullptr;
 }
 
-CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
+CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
+	open_ = &localOpen_;
 	SetSpacing(0.0f);
 
-	heading_ = new CollapsibleHeader(&open_, title);
-	views_.push_back(heading_);
-	heading_->OnClick.Add([=](UI::EventParams &) {
+	header_ = new CollapsibleHeader(open_, title);
+	views_.push_back(header_);
+	header_->OnClick.Add([=](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.
-		for (size_t i = 1; i < views_.size(); i++) {
-			views_[i]->SetVisibility(open_ ? V_VISIBLE : V_GONE);
-		}
+		UpdateVisibility();
 		return UI::EVENT_DONE;
 	});
 }
 
 void CollapsibleSection::Update() {
 	ViewGroup::Update();
-	heading_->SetHasSubitems(views_.size() > 1);
+	header_->SetHasSubitems(views_.size() > 1);
+}
+
+void CollapsibleSection::UpdateVisibility() {
+	const bool open = *open_;
+	// Skipping over the header, we start from 1, not 0.
+	for (size_t i = 1; i < views_.size(); i++) {
+		views_[i]->SetVisibility(open ? V_VISIBLE : V_GONE);
+	}
 }
 
 }  // namespace UI

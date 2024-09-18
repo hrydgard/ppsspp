@@ -31,6 +31,7 @@
 struct PspGeListArgs;
 struct GPUgstate;
 class PointerWrap;
+struct VirtualFramebuffer;
 
 enum DisplayListStatus {
 	// The list has been completed
@@ -126,16 +127,6 @@ enum class GPUCopyFlag {
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
 
-// Used for debug
-struct FramebufferInfo {
-	u32 fb_address;
-	u32 z_address;
-	int format;
-	u32 width;
-	u32 height;
-	void* fbo;
-};
-
 struct DisplayListStackEntry {
 	u32 pc;
 	u32 offsetAddr;
@@ -223,7 +214,7 @@ public:
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
-	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
+	virtual void PSPFrame() = 0;
 	virtual void CopyDisplayToOutput(bool reallyDirty) = 0;
 
 	// Tells the GPU to update the gpuStats structure.
@@ -262,6 +253,7 @@ public:
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
+	virtual bool PresentedThisFrame() const = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
@@ -271,7 +263,7 @@ public:
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
 	// TODO: Currently Qt only, needs to be cleaned up.
-	virtual std::vector<FramebufferInfo> GetFramebufferList() const = 0;
+	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
 	virtual s64 GetListTicks(int listid) const = 0;
 
 	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.

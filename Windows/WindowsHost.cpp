@@ -65,9 +65,6 @@ void UpdateConsolePosition() {
 }
 
 void WindowsInputManager::Init() {
-	mouseDeltaX_ = 0;
-	mouseDeltaY_ = 0;
-
 	//add first XInput device to respond
 	input.push_back(std::make_unique<XinputDevice>());
 #ifndef _M_ARM
@@ -80,12 +77,12 @@ void WindowsInputManager::Init() {
 }
 
 void WindowsInputManager::PollControllers() {
-	static const int CHECK_FREQUENCY = 71;
+	static const int CHECK_FREQUENCY = 71;  // Just an arbitrary prime to try to not collide with other periodic checks.
 	if (checkCounter_++ > CHECK_FREQUENCY) {
 #ifndef _M_ARM
 		size_t newCount = DinputDevice::getNumPads();
 		if (newCount > numDinputDevices_) {
-			INFO_LOG(SYSTEM, "New controller device detected");
+			INFO_LOG(Log::System, "New controller device detected");
 			for (size_t i = numDinputDevices_; i < newCount; i++) {
 				input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
 			}
@@ -102,22 +99,7 @@ void WindowsInputManager::PollControllers() {
 
 	// Disabled by default, needs a workaround to map to psp keys.
 	if (g_Config.bMouseControl) {
-		float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-		float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
-
-		float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX_ * scaleFactor_x));
-		float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY_ * scaleFactor_y));
-		AxisInput axis[2];
-		axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-		axis[0].deviceId = DEVICE_ID_MOUSE;
-		axis[0].value = mx;
-		axis[1].axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-		axis[1].deviceId = DEVICE_ID_MOUSE;
-		axis[1].value = my;
-
-		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-			NativeAxis(axis, 2);
-		}
+		NativeMouseDelta(mouseDeltaX_, mouseDeltaY_);
 	}
 
 	mouseDeltaX_ *= g_Config.fMouseSmoothing;

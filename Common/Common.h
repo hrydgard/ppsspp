@@ -47,6 +47,13 @@
 	} \
 	static inline bool operator &(const T &lhs, const T &rhs) { \
 		return ((int)lhs & (int)rhs) != 0; \
+	} \
+	static inline T &operator &= (T &lhs, const T &rhs) { \
+		lhs = (T)((int)lhs & (int)rhs); \
+		return lhs; \
+	} \
+	static inline T operator ~(const T &rhs) { \
+		return (T)(~((int)rhs)); \
 	}
 #endif
 

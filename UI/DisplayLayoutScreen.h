@@ -32,11 +32,11 @@ public:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void onFinish(DialogResult reason) override;
 
-	void DrawBackground(UIContext &dc) override;
-
 	void resized() override {
 		RecreateViews();
 	}
+
+	bool wantBrightBackground() const override { return true; }
 
 	const char *tag() const override { return "DisplayLayout"; }
 	
@@ -44,6 +44,7 @@ protected:
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 
 	void sendMessage(UIMessage message, const char *value) override;
+	void DrawBackground(UIContext &dc) override;
 
 private:
 	UI::ChoiceStrip *mode_ = nullptr;
@@ -54,7 +55,7 @@ private:
 
 class PostProcScreen : public UI::ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title, int id, bool showStereoShaders) 
+	PostProcScreen(std::string_view title, int id, bool showStereoShaders)
 		: ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }
 
 	void CreateViews() override;

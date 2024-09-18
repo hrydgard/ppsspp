@@ -41,7 +41,9 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
+#include "Core/MIPS/MIPSTracer.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -100,6 +102,15 @@ void Core_Stop() {
 	for (auto func : stopFuncs) {
 		func();
 	}
+}
+
+bool Core_ShouldRunBehind() {
+	// Enforce run-behind if ad-hoc connected
+	return g_Config.bRunBehindPauseMenu || Core_MustRunBehind();
+}
+
+bool Core_MustRunBehind() {
+	return __NetAdhocConnected();
 }
 
 bool Core_IsStepping() {
@@ -324,6 +335,9 @@ bool Core_Run(GraphicsContext *ctx) {
 
 void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
 	if (step) {
+		// Stop the tracer
+		mipsTracer.stop_tracing();
+
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");
@@ -394,16 +408,16 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x)", desc, address, accessSize);
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x)", desc, address, accessSize);
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
 		// Try to fetch a call stack, to start with.
 		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
 		std::string stackTrace = FormatStackTrace(stackFrames);
-		WARN_LOG(MEMMAP, "\n%s", stackTrace.c_str());
+		WARN_LOG(Log::MemMap, "\n%s", stackTrace.c_str());
 
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
@@ -418,20 +432,20 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport) {
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x). %s", desc, address, accessSize, additionalInfo.c_str());
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x). %.*s", desc, address, accessSize, (int)additionalInfo.length(), additionalInfo.data());
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %.*s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], (int)additionalInfo.length(), additionalInfo.data());
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
 		// Try to fetch a call stack, to start with.
 		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
 		std::string stackTrace = FormatStackTrace(stackFrames);
-		WARN_LOG(MEMMAP, "\n%s", stackTrace.c_str());
+		WARN_LOG(Log::MemMap, "\n%s", stackTrace.c_str());
 
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
@@ -449,7 +463,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExcepti
 // Can't be ignored
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(MEMMAP, "%s: Invalid exec address %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};
@@ -465,7 +479,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 }
 
 void Core_Break(u32 pc) {
-	ERROR_LOG(CPU, "BREAK!");
+	ERROR_LOG(Log::CPU, "BREAK!");
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};

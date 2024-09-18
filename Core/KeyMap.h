@@ -74,13 +74,11 @@ enum {
 	VIRTKEY_PREVIOUS_SLOT = 0x40000027,
 	VIRTKEY_TOGGLE_WLAN = 0x40000028,
 	VIRTKEY_EXIT_APP = 0x40000029,
+	VIRTKEY_TOGGLE_MOUSE = 0x40000030,
+	VIRTKEY_TOGGLE_TOUCH_CONTROLS =  0x40000031,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
-
-const float AXIS_BIND_THRESHOLD = 0.75f;
-const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
-const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 struct MappedAnalogAxis {
 	int axisId;
@@ -114,9 +112,8 @@ namespace KeyMap {
 			mappings.push_back(mapping);
 		}
 		
-		static MultiInputMapping FromConfigString(const std::string &str);
+		static MultiInputMapping FromConfigString(std::string_view str);
 		std::string ToConfigString() const;
-
 		std::string ToVisualString() const;
 
 		bool operator <(const MultiInputMapping &other) {
@@ -149,7 +146,7 @@ namespace KeyMap {
 			return false;
 		}
 
-		FixedTinyVec<InputMapping, 3> mappings;
+		FixedVec<InputMapping, 3> mappings;
 	};
 
 	typedef std::map<int, std::vector<MultiInputMapping>> KeyMapping;
@@ -173,7 +170,7 @@ namespace KeyMap {
 	const char *GetVirtKeyName(int vkey);
 	const char *GetPspButtonNameCharPointer(int btn);
 
-	std::vector<KeyMap_IntStrPair> GetMappableKeys();
+	const KeyMap_IntStrPair *GetMappableKeys(size_t *count);
 
 	// Use to translate input mappings to and from PSP buttons. You should have already translated
 	// your platform's keys to InputMapping keys.
@@ -182,6 +179,11 @@ namespace KeyMap {
 	bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons);
 	bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *keys, bool ignoreMouse);
 
+	// Careful with these.
+	bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *keys, bool ignoreMouse);
+	void LockMappings();
+	void UnlockMappings();
+
 	// Simplified check.
 	bool PspButtonHasMappings(int btn);
 
@@ -189,7 +191,7 @@ namespace KeyMap {
 	// Any configuration will be saved to the Core config.
 	void SetInputMapping(int psp_key, const MultiInputMapping &key, bool replace);
 	// Return false if bind was a duplicate and got removed
-	bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key);
+	bool ReplaceSingleKeyMapping(int btn, int index, const MultiInputMapping &key);
 
 	MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId);
 
@@ -220,4 +222,13 @@ namespace KeyMap {
 	bool IsKeyMapped(InputDeviceID device, int key);
 
 	bool HasChanged(int &prevGeneration);
-}
+
+	// Used for setting thresholds. Technically we could allow a setting per axis, but this is a reasonable compromise.
+	enum class AxisType {
+		TRIGGER,
+		STICK,
+		OTHER,
+	};
+
+	AxisType GetAxisType(InputAxis axis);
+}  // namespace KeyMap

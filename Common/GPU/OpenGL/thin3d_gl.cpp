@@ -421,12 +421,9 @@ public:
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
-		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
-		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];
-			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
-		}
+	void BindVertexBuffer(Buffer *buffer, int offset) override {
+		curVBuffer_ = (OpenGLBuffer *)buffer;
+		curVBufferOffset_ = offset;
 	}
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
 		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
@@ -505,9 +502,9 @@ private:
 	const GLRTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 
 	AutoRef<OpenGLPipeline> curPipeline_;
-	AutoRef<OpenGLBuffer> curVBuffers_[4]{};
-	int curVBufferOffsets_[4]{};
+	AutoRef<OpenGLBuffer> curVBuffer_;
 	AutoRef<OpenGLBuffer> curIBuffer_;
+	int curVBufferOffset_ = 0;
 	int curIBufferOffset_ = 0;
 	AutoRef<Framebuffer> curRenderTarget_;
 
@@ -600,6 +597,9 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 
 	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
 	caps_.logicOpSupported = !gl_extensions.IsGLES;
+
+	// Always the case in GL (which is what we want for PSP flat shade).
+	caps_.provokingVertexLast = true;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
@@ -768,7 +768,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			shaderLanguageDesc_.lastFragData = gl_extensions.GLES3 ? "fragColor0" : "gl_LastFragData[0]";
+			shaderLanguageDesc_.lastFragData = "fragColor0";
 		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
@@ -799,12 +799,12 @@ OpenGLContext::~OpenGLContext() {
 void OpenGLContext::BeginFrame(DebugFlags debugFlags) {
 	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.BeginPushBuffer(frameData.push);
+	frameData.push->Begin();
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
+	frameData.push->End();  // upload the data!
 	renderManager_.Finish();
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
@@ -846,7 +846,7 @@ static GLuint TypeToTarget(TextureType type) {
 #endif
 	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default:
-		ERROR_LOG(G3D,  "Bad texture type %d", (int)type);
+		ERROR_LOG(Log::G3D,  "Bad texture type %d", (int)type);
 		return GL_NONE;
 	}
 }
@@ -1001,30 +1001,30 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(G3D, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
 	default:
-		ERROR_LOG(G3D, "glReadPixels: %08x", error);
+		ERROR_LOG(Log::G3D, "glReadPixels: %08x", error);
 		break;
 	}
 }
@@ -1169,15 +1169,15 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
+		ERROR_LOG(Log::G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
 	if ((uint32_t)desc.prim >= (uint32_t)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ERROR_LOG(G3D, "Invalid primitive type");
+		ERROR_LOG(Log::G3D, "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster) {
-		ERROR_LOG(G3D,  "Incomplete prim desciption");
+		ERROR_LOG(Log::G3D,  "Incomplete prim desciption");
 		return nullptr;
 	}
 
@@ -1187,7 +1187,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
+			ERROR_LOG(Log::G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
 			delete pipeline;
 			return nullptr;
 		}
@@ -1208,7 +1208,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
+		ERROR_LOG(Log::G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
 		delete pipeline;
 		return nullptr;
 	}
@@ -1277,11 +1277,11 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 			if (shader) {
 				linkShaders.push_back(shader);
 			} else {
-				ERROR_LOG(G3D,  "LinkShaders: Bad shader module");
+				ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader module");
 				return false;
 			}
 		} else {
-			ERROR_LOG(G3D,  "LinkShaders: Bad shader in module");
+			ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader in module");
 			return false;
 		}
 	}
@@ -1306,10 +1306,12 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	int samplersToCheck;
 	if (!samplers_.is_empty()) {
-		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
+		int size = std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
+		queries.reserve(size);
+		for (int i = 0; i < size; i++) {
 			queries.push_back({ &locs_->samplerLocs_[i], samplers_[i].name, true });
 		}
-		samplersToCheck = (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
+		samplersToCheck = size;
 	} else {
 		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
 		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });
@@ -1318,6 +1320,7 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
+	queries.reserve(dynamicUniforms.uniforms.size());
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &locs_->dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
@@ -1370,20 +1373,20 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
-	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curPipeline_->prim, offset, vertexCount);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffer_->buffer_, curVBufferOffset_, curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
 	renderManager_.DrawIndexed(
 		curPipeline_->inputLayout->inputLayout_,
-		curVBuffers_[0]->buffer_, curVBufferOffsets_[0],
+		curVBuffer_->buffer_, curVBufferOffset_,
 		curIBuffer_->buffer_, curIBufferOffset_ + offset * sizeof(uint32_t),
 		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT);
 }
@@ -1432,13 +1435,12 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
-	stride = desc.bindings.empty() ? 0 : (GLsizei)desc.bindings[0].stride;
+	stride = desc.stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;
-		entry.stride = (GLsizei)desc.bindings[attr.binding].stride;
 		entry.offset = attr.offset;
 		switch (attr.format) {
 		case DataFormat::R32G32_FLOAT:
@@ -1463,14 +1465,14 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 			break;
 		case DataFormat::UNDEFINED:
 		default:
-			ERROR_LOG(G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+			ERROR_LOG(Log::G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
 			break;
 		}
 
 		entries.push_back(entry);
 	}
 	if (!entries.empty()) {
-		inputLayout_ = render_->CreateInputLayout(entries);
+		inputLayout_ = render_->CreateInputLayout(entries, stride);
 	} else {
 		inputLayout_ = nullptr;
 	}

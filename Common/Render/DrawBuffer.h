@@ -14,11 +14,6 @@
 struct Atlas;
 
 enum {
-	// Enough?
-	MAX_VERTS = 65536,
-};
-
-enum {
 	ALIGN_LEFT = 0,
 	ALIGN_RIGHT = 16,
 	ALIGN_TOP = 0,
@@ -32,11 +27,6 @@ enum {
 	ALIGN_TOPRIGHT = ALIGN_TOP | ALIGN_RIGHT,
 	ALIGN_BOTTOMLEFT = ALIGN_BOTTOM | ALIGN_LEFT,
 	ALIGN_BOTTOMRIGHT = ALIGN_BOTTOM | ALIGN_RIGHT,
-
-	// Only for text drawing
-	ROTATE_90DEG_LEFT = 256,
-	ROTATE_90DEG_RIGHT = 512,
-	ROTATE_180DEG = 1024,
 
 	// For "uncachable" text like debug log.
 	// Avoids using system font drawing as it's too slow.
@@ -136,15 +126,13 @@ public:
 	// This is only 6 triangles, much cheaper.
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
-	void MeasureText(FontID font, const char *text, float *w, float *h);
+	void MeasureText(FontID font, std::string_view text, float *w, float *h);
 
-	// NOTE: Count is in plain chars not utf-8 chars!
-	void MeasureTextCount(FontID font, const char *text, int count, float *w, float *h);
-	void MeasureTextRect(FontID font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align = 0);
+	void MeasureTextRect(FontID font, std::string_view text, const Bounds &bounds, float *w, float *h, int align = 0);
 
-	void DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
-	void DrawText(FontID font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
-	void DrawTextShadow(FontID font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextRect(FontID font, std::string_view text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawText(FontID font, std::string_view text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextShadow(FontID font, std::string_view text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;
@@ -185,6 +173,11 @@ public:
 		tint_ = tint;
 		saturation_ = saturation;
 	}
+
+	enum {
+		// TODO: Can probably shrink this. Currently consumes 1.5MB.
+		MAX_VERTS = 65536,
+	};
 
 private:
 	struct Vertex {

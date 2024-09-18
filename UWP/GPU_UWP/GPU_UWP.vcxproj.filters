@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\GPU\Common\VertexDecoderArm.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderArm64.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderHandwritten.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderX86.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp" />
@@ -86,6 +87,7 @@
     <ClInclude Include="..\..\GPU\Common\TextureScalerCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\VertexDecoderCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\VertexDecoderHandwritten.h" />
     <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h" />
     <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h" />

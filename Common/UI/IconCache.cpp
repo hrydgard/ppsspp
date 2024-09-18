@@ -105,7 +105,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		entry.format = entryHeader.format;
 		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
 		entry.usedTimeStamp = now;
-		cache_.insert(std::pair<std::string, Entry>(key, entry));
+		cache_.emplace(key, entry);
 	}
 
 	return true;
@@ -172,6 +172,7 @@ void IconCache::Decimate(int64_t maxSize) {
 	};
 
 	std::vector<SortEntry> sortEntries;
+	sortEntries.reserve(cache_.size());
 	for (auto iter : cache_) {
 		sortEntries.push_back({ iter.first, iter.second.usedTimeStamp, iter.second.data.size() });
 	}
@@ -241,7 +242,7 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 
 	if (data.empty()) {
 		_dbg_assert_(false);
-		ERROR_LOG(G3D, "Can't insert empty data into icon cache");
+		ERROR_LOG(Log::G3D, "Can't insert empty data into icon cache");
 		return false;
 	}
 
@@ -252,7 +253,7 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	}
 
 	if (data.size() > 1024 * 512) {
-		WARN_LOG(G3D, "Unusually large icon inserted in icon cache: %s (%d bytes)", key.c_str(), (int)data.size());
+		WARN_LOG(Log::G3D, "Unusually large icon inserted in icon cache: %s (%d bytes)", key.c_str(), (int)data.size());
 	}
 
 	pending_.erase(key);
@@ -298,7 +299,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 			&height, &buffer);
 
 		if (result != 1) {
-			ERROR_LOG(G3D, "IconCache: Failed to load png (%d bytes) for key %s", (int)iter->second.data.size(), key.c_str());
+			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %s", (int)iter->second.data.size(), key.c_str());
 			iter->second.badData = true;
 			return nullptr;
 		}

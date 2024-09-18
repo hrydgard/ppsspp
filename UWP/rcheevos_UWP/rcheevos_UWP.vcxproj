@@ -40,12 +40,13 @@
     <ClInclude Include="..\..\ext\rcheevos\include\rc_runtime.h" />
     <ClInclude Include="..\..\ext\rcheevos\include\rc_runtime_types.h" />
     <ClInclude Include="..\..\ext\rcheevos\include\rc_url.h" />
+    <ClInclude Include="..\..\ext\rcheevos\include\rc_util.h" />
     <ClInclude Include="..\..\ext\rcheevos\src\rapi\rc_api_common.h" />
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_client_internal.h" />
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_compat.h" />
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_client_internal.h" />
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_compat.h" />
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_version.h" />
     <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_internal.h" />
     <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_validate.h" />
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_version.h" />
     <ClInclude Include="..\..\ext\rcheevos\src\rhash\md5.h" />
   </ItemGroup>
   <ItemGroup>
@@ -55,7 +56,6 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rapi\rc_api_runtime.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rapi\rc_api_user.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\alloc.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\compat.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\condition.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\condset.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\consoleinfo.c" />
@@ -63,15 +63,15 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\lboard.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\memref.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\operand.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\rc_client.c" />
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_compat.c" />
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_client.c" />
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_util.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\rc_validate.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\richpresence.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\runtime.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\runtime_progress.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\trigger.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\value.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\cdreader.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -98,8 +98,10 @@
     <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings"></ImportGroup>
-  <ImportGroup Label="Shared"></ImportGroup>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>

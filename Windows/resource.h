@@ -61,7 +61,7 @@
 #define IDD_GEDBG_TAB_MATRICES          255
 #define IDD_GEDBG_STEPCOUNT             256
 #define IDD_CPUWATCH                    257
-#define IDD_EDITSYMBOLS                  258
+#define IDD_EDITSYMBOLS                 258
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -123,12 +123,12 @@
 #define IDC_SHOWOFFSETS                 1200
 #define IDC_GEDBG_PRIMCOUNTER           1201
 #define IDC_BUTTON_SEARCH               1204
-#define IDC_EDITSYMBOLS_SCAN             1205
-#define IDC_EDITSYMBOLS_REMOVE           1206
-#define IDC_EDITSYMBOLS_ADDRESS          1207
-#define IDC_EDITSYMBOLS_SIZE             1208
-#define IDC_EDITSYMBOLS_OK               1209
-#define IDC_EDITSYMBOLS_CANCEL           1210
+#define IDC_EDITSYMBOLS_SCAN            1205
+#define IDC_EDITSYMBOLS_REMOVE          1206
+#define IDC_EDITSYMBOLS_ADDRESS         1207
+#define IDC_EDITSYMBOLS_SIZE            1208
+#define IDC_EDITSYMBOLS_OK              1209
+#define IDC_EDITSYMBOLS_CANCEL          1210
 
 #define ID_FILE_EXIT                     40000
 #define ID_DEBUG_SAVEMAPFILE             40001
@@ -162,6 +162,7 @@
 #define IDC_STEPHLE                      40032
 #define ID_OPTIONS_LINEARFILTERING       40033
 #define ID_OPTIONS_AUTOMAXQUALITYFILTERING 40043
+#define ID_OPTIONS_SMART2DTEXTUREFILTERING 40003
 #define ID_FILE_QUICKSAVESTATE           40034
 #define ID_FILE_QUICKLOADSTATE           40035
 #define ID_FILE_QUICKSAVESTATE_HC        40036
@@ -189,6 +190,7 @@
 #define ID_HELP_OPENFORUM                40064
 #define ID_OPTIONS_VSYNC                 40065
 #define ID_DEBUG_TAKESCREENSHOT          40066
+#define ID_DEBUG_RESTARTGRAPHICS         40070
 #define ID_OPTIONS_TEXTUREFILTERING_AUTO 40067
 #define ID_OPTIONS_NEARESTFILTERING      40068
 #define ID_DISASM_DISASSEMBLETOFILE      40069
@@ -352,7 +354,7 @@
 #define IDC_DISASM_FMT_INT               40233
 #define IDC_DISASM_FMT_FLOAT             40234
 #define IDC_DISASM_FMT_STR               40235
-#define ID_DISASM_EDITSYMBOLS             40236
+#define ID_DISASM_EDITSYMBOLS            40236
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.

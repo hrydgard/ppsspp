@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 

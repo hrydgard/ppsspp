@@ -69,7 +69,7 @@ private:
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(MultiInputMapping key);
+	void MappedCallback(const MultiInputMapping &key);
 
 	enum Action {
 		NONE,
@@ -97,15 +97,16 @@ void SingleControlMapper::Refresh() {
 	Clear();
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	std::map<std::string, ImageID> keyImages;
-	keyImages["Circle"] = ImageID("I_CIRCLE");
-	keyImages["Cross"] = ImageID("I_CROSS");
-	keyImages["Square"] = ImageID("I_SQUARE");
-	keyImages["Triangle"] = ImageID("I_TRIANGLE");
-	keyImages["Start"] = ImageID("I_START");
-	keyImages["Select"] = ImageID("I_SELECT");
-	keyImages["L"] = ImageID("I_L");
-	keyImages["R"] = ImageID("I_R");
+	std::map<std::string, ImageID> keyImages = {
+		{ "Circle",   ImageID("I_CIRCLE")   },
+		{ "Cross",    ImageID("I_CROSS")    },
+		{ "Square",   ImageID("I_SQUARE")   },
+		{ "Triangle", ImageID("I_TRIANGLE") },
+		{ "Start",    ImageID("I_START")    },
+		{ "Select",   ImageID("I_SELECT")   },
+		{ "L",        ImageID("I_L")        },
+		{ "R",        ImageID("I_R")        }
+	};
 
 	using namespace UI;
 
@@ -163,7 +164,7 @@ void SingleControlMapper::Refresh() {
 	}
 }
 
-void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
+void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
 	if (kdf.empty()) {
 		// Don't want to try to add this.
 		return;
@@ -234,6 +235,21 @@ UI::EventReturn SingleControlMapper::OnDelete(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+
+struct BindingCategory {
+	const char *catName;
+	int firstKey;
+};
+
+// Category name, first input from psp_button_names.
+static const BindingCategory cats[] = {
+	{"Standard PSP controls", CTRL_UP},
+	{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW},
+	{"Emulator controls", VIRTKEY_FASTFORWARD},
+	{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX},
+	{},  // sentinel
+};
+
 void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
@@ -262,6 +278,7 @@ void ControlMappingScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	leftColumn->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
@@ -274,14 +291,30 @@ void ControlMappingScreen::CreateViews() {
 	root_->Add(leftColumn);
 	root_->Add(rightScroll_);
 
-	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
-	for (size_t i = 0; i < mappableKeys.size(); i++) {
-		SingleControlMapper *mapper = rightColumn->Add(
+	size_t numMappableKeys = 0;
+	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
+
+	int curCat = -1;
+	CollapsibleSection *curSection = nullptr;
+	for (size_t i = 0; i < numMappableKeys; i++) {
+		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
+			if (curCat >= 0) {
+				curSection->SetOpenPtr(&categoryToggles_[curCat]);
+			}
+			curCat++;
+			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
+			curSection->SetSpacing(6.0f);
+		}
+		SingleControlMapper *mapper = curSection->Add(
 			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
 	}
+	if (curCat >= 0 && curSection) {
+		curSection->SetOpenPtr(&categoryToggles_[curCat]);
+	}
+	_dbg_assert_(curCat == ARRAY_SIZE(cats) - 2);  // count the sentinel
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
 }
@@ -324,7 +357,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10, 0))));
+	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + std::string(mc->T(pspButtonName)), new LinearLayoutParams(Margins(10, 0))));
 	parent->Add(new TextView(std::string(mapping_.ToVisualString()), new LinearLayoutParams(Margins(10, 0))));
 
 	comboMappingsNotEnabled_ = parent->Add(new NoticeView(NoticeLevel::WARN, km->T("Combo mappings are not enabled"), "", new LinearLayoutParams(Margins(10, 0))));
@@ -403,34 +436,22 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 
-		MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
-
 		TriggerFinish(DR_YES);
 		g_Config.bMapMouse = false;
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
 			callback_(kdf);
+		}
 	}
 	return true;
 }
 
-static bool IgnoreAxisForMapping(int axis) {
-	switch (axis) {
-	case JOYSTICK_AXIS_ACCELEROMETER_X:
-	case JOYSTICK_AXIS_ACCELEROMETER_Y:
-	case JOYSTICK_AXIS_ACCELEROMETER_Z:
-		// Ignore the accelerometer for mapping for now.
-		// We use tilt control for these.
-		return true;
-
-	default:
-		return false;
-	}
-}
+// Only used during the bind process. In other places, it's configurable for some types of axis, like trigger.
+const float AXIS_BIND_THRESHOLD = 0.75f;
+const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
 
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (time_now_d() < delayUntil_)
-		return;
-	if (IgnoreAxisForMapping(axis.axisId))
 		return;
 	if (ignoreInput_)
 		return;
@@ -439,7 +460,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
@@ -448,7 +470,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
@@ -468,23 +491,23 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
 		return;
-	if (IgnoreAxisForMapping(axis.axisId))
-		return;
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 		TriggerFinish(DR_YES);
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 			callback_(kdf);
+		}
 	}
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 		TriggerFinish(DR_YES);
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 			callback_(kdf);
+		}
 	}
 }
 
@@ -583,224 +606,9 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void TouchTestScreen::touch(const TouchInput &touch) {
-	UIDialogScreenWithGameBackground::touch(touch);
-	if (touch.flags & TOUCH_DOWN) {
-		bool found = false;
-		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-			if (touches_[i].id == touch.id) {
-				WARN_LOG(SYSTEM, "Double touch");
-				touches_[i].x = touch.x;
-				touches_[i].y = touch.y;
-				found = true;
-			}
-		}
-		if (!found) {
-			for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-				if (touches_[i].id == -1) {
-					touches_[i].id = touch.id;
-					touches_[i].x = touch.x;
-					touches_[i].y = touch.y;
-					break;
-				}
-			}
-		}
-	}
-	if (touch.flags & TOUCH_MOVE) {
-		bool found = false;
-		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-			if (touches_[i].id == touch.id) {
-				touches_[i].x = touch.x;
-				touches_[i].y = touch.y;
-				found = true;
-			}
-		}
-		if (!found) {
-			WARN_LOG(SYSTEM, "Move without touch down: %d", touch.id);
-		}
-	}
-	if (touch.flags & TOUCH_UP) {
-		bool found = false;
-		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-			if (touches_[i].id == touch.id) {
-				found = true;
-				touches_[i].id = -1;
-				break;
-			}
-		}
-		if (!found) {
-			WARN_LOG(SYSTEM, "Touch release without touch down");
-		}
-	}
-}
-
-// TODO: Move this screen out into its own file.
-void TouchTestScreen::CreateViews() {
-	using namespace UI;
-
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	root_ = new LinearLayout(ORIENT_VERTICAL);
-	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
-
-	lastKeyEvents_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-
-	root_->Add(theTwo);
-
-#if !PPSSPP_PLATFORM(UWP)
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
-	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
-	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
-
-	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
-		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
-	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
-		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-	root_->Add(new Choice(gr->T("Recreate Activity")))->OnClick.Handle(this, &TouchTestScreen::OnRecreateActivity);
-#endif
-	root_->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &TouchTestScreen::OnImmersiveModeChange);
-	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-}
-
-void TouchTestScreen::UpdateLogView() {
-	while (keyEventLog_.size() > 8) {
-		keyEventLog_.erase(keyEventLog_.begin());
-	}
-
-	std::string text;
-	for (auto &iter : keyEventLog_) {
-		text += iter + "\n";
-	}
-
-	if (lastKeyEvents_) {
-		lastKeyEvents_->SetText(text);
-	}
-}
-
-bool TouchTestScreen::key(const KeyInput &key) {
-	UIScreen::key(key);
-	char buf[512];
-	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
-		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
-		(key.flags & KEY_UP) ? "UP" : "",
-		(key.flags & KEY_DOWN) ? "DOWN" : "",
-		(key.flags & KEY_CHAR) ? "CHAR" : "");
-	keyEventLog_.push_back(buf);
-	UpdateLogView();
-	return true;
-}
-
-void TouchTestScreen::axis(const AxisInput &axis) {
-	// This just filters out accelerometer events. We show everything else.
-	if (IgnoreAxisForMapping(axis.axisId))
-		return;
-
-	char buf[512];
-	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
-		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);
-
-	keyEventLog_.push_back(buf);
-	if (keyEventLog_.size() > 8) {
-		keyEventLog_.erase(keyEventLog_.begin());
-	}
-	UpdateLogView();
-}
-
-void TouchTestScreen::render() {
-	UIDialogScreenWithGameBackground::render();
-	UIContext *ui_context = screenManager()->getUIContext();
-	Bounds bounds = ui_context->GetLayoutBounds();
-
-	ui_context->BeginNoTex();
-	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-		if (touches_[i].id != -1) {
-			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
-		}
-	}
-	ui_context->Flush();
-
-	ui_context->Begin();
-
-	char buffer[4096];
-	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
-		if (touches_[i].id != -1) {
-			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
-			snprintf(buffer, sizeof(buffer), "%0.1fx%0.1f", touches_[i].x, touches_[i].y);
-			ui_context->DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
-		}
-	}
-
-	char extra_debug[2048]{};
-
-#if PPSSPP_PLATFORM(ANDROID)
-	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
-#endif
-
-	snprintf(buffer, sizeof(buffer),
-#if PPSSPP_PLATFORM(ANDROID)
-		"display_res: %dx%d\n"
-#endif
-		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"g_dpi: %0.3f g_dpi_scale: %0.3fx%0.3f\n"
-		"g_dpi_scale_real: %0.3fx%0.3f\n%s",
-#if PPSSPP_PLATFORM(ANDROID)
-		System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
-#endif
-		g_display.dp_xres, g_display.dp_yres,
-		g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi,
-		g_display.dpi_scale_x, g_display.dpi_scale_y,
-		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y, extra_debug);
-
-	// On Android, also add joystick debug data.
-
-
-	ui_context->DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-	ui_context->Flush();
-}
-
-void RecreateActivity() {
-	const int SYSTEM_JELLYBEAN = 16;
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
-		INFO_LOG(SYSTEM, "Sending recreate");
-		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
-		INFO_LOG(SYSTEM, "Got back from recreate");
-	} else {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		System_Toast(gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
-	}
-}
-
-UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
-	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
-	if (g_Config.iAndroidHwScale != 0) {
-		RecreateActivity();
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
-	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_RestartApp("--touchscreentest");
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
-	RecreateActivity();
-	return UI::EVENT_DONE;
-}
-
 class Backplate : public UI::InertView {
 public:
-	Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {
-	}
+	Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {}
 
 	void Draw(UIContext &dc) override {
 		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {
@@ -1195,7 +1003,7 @@ UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void VisualMappingScreen::HandleKeyMapping(MultiInputMapping key) {
+void VisualMappingScreen::HandleKeyMapping(const KeyMap::MultiInputMapping &key) {
 	KeyMap::SetInputMapping(nextKey_, key, replace_);
 	KeyMap::UpdateNativeMenuKeys();
 

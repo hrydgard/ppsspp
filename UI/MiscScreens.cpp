@@ -39,6 +39,8 @@
 #include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Render/ManagedTexture.h"
+
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -74,7 +76,7 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-static std::unique_ptr<ManagedTexture> bgTexture;
+static Draw::Texture *bgTexture;
 
 class Animation {
 public:
@@ -96,7 +98,7 @@ public:
 			return;
 
 		dc.Flush();
-		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, bgTexture);
 		Bounds bounds = dc.GetBounds();
 
 		x = std::min(std::max(x/bounds.w, 0.0f), 1.0f) * XFAC;
@@ -238,7 +240,7 @@ private:
 			}
 
 			std::shared_ptr<GameInfo> ginfo = GetInfo(dc, index);
-			if (ginfo && ginfo->pending) {
+			if (ginfo && !ginfo->Ready(GameInfoFlags::BG)) {
 				// Wait for it to load.  It might be the next one.
 				break;
 			}
@@ -259,7 +261,7 @@ private:
 		const auto recentIsos = g_Config.RecentIsos();
 		if (index >= (int)recentIsos.size())
 			return nullptr;
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
@@ -269,7 +271,7 @@ private:
 		if (!pic)
 			return;
 
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(amount) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
 		dc.Flush();
@@ -287,22 +289,25 @@ private:
 
 static BackgroundAnimation g_CurBackgroundAnimation = BackgroundAnimation::OFF;
 static std::unique_ptr<Animation> g_Animation;
-static bool bgTextureInited = false;
+static bool bgTextureInited = false;  // Separate variable because init could fail.
 
 void UIBackgroundInit(UIContext &dc) {
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		const Path &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
-		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), DETECT, true);
+		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), ImageFileType::DETECT, true);
 	}
 }
 
 void UIBackgroundShutdown() {
-	bgTexture.reset(nullptr);
+	if (bgTexture) {
+		bgTexture->Release();
+		bgTexture = nullptr;
+	}
+	bgTextureInited = false;
 	g_Animation.reset(nullptr);
 	g_CurBackgroundAnimation = BackgroundAnimation::OFF;
-	bgTextureInited = false;
 }
 
 void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
@@ -336,7 +341,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	if (bgTexture != nullptr) {
 		dc.Flush();
 		dc.Begin();
-		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, bgTexture);
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, bgColor);
 
 		dc.Flush();
@@ -368,44 +373,19 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool transparent, bool darkenBackground) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	using namespace Draw;
 	using namespace UI;
-
-	if (transparent && PSP_IsInited() && !g_Config.bSkipBufferEffects) {
-		gpu->CheckDisplayResized();
-		gpu->CheckConfigChanged();
-		gpu->CopyDisplayToOutput(true);
-
-		DrawContext *draw = dc.GetDrawContext();
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = g_display.pixel_xres;
-		viewport.Height = g_display.pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewport(viewport);
-		dc.BeginFrame();
-		dc.RebindTexture();
-		dc.Begin();
-
-		if (darkenBackground) {
-			uint32_t color = GetBackgroundColorWithAlpha(dc);
-			dc.FillRect(UI::Drawable(color), dc.GetBounds());
-			dc.Flush();
-		}
-		return;
-	}
-
-	std::shared_ptr<GameInfo> ginfo;
-	if (!gamePath.empty())
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
-	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
+	std::shared_ptr<GameInfo> ginfo;
+	if (!gamePath.empty()) {
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::BG);
+	}
+
+	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::BG)) ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 		dc.Flush();
@@ -455,21 +435,45 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	}
 }
 
-void UIScreenWithBackground::DrawBackground(UIContext &dc) {
+ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
+	if (mode & ScreenRenderMode::FIRST) {
+		SetupViewport();
+	} else {
+		_dbg_assert_(false);
+	}
+
+	UIContext *uiContext = screenManager()->getUIContext();
+
+	uiContext->PushTransform({ translation_, scale_, alpha_ });
+
+	uiContext->Begin();
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, 1.0f, x, y, z);
-	dc.Flush();
+
+	if (!gamePath_.empty()) {
+		::DrawGameBackground(*uiContext, gamePath_, x, y, z);
+	} else {
+		::DrawBackground(*uiContext, 1.0f, x, y, z);
+	}
+
+	uiContext->Flush();
+
+	uiContext->PopTransform();
+
+	return ScreenRenderFlags::NONE;
 }
 
-void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
-	} else {
-		::DrawBackground(dc, 1.0f, x, y, z);
-		dc.Flush();
+void BackgroundScreen::sendMessage(UIMessage message, const char *value) {
+	switch (message) {
+	case UIMessage::GAME_SELECTED:
+		if (value && strlen(value)) {
+			gamePath_ = Path(value);
+		} else {
+			gamePath_.clear();
+		}
+		break;
+	default:
+		break;
 	}
 }
 
@@ -478,19 +482,6 @@ void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *valu
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else {
 		UIScreenWithBackground::sendMessage(message, value);
-	}
-}
-
-void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	using namespace UI;
-	using namespace Draw;
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
-	} else {
-		::DrawBackground(dc, 1.0f, x, y, z);
-		dc.Flush();
 	}
 }
 
@@ -506,13 +497,6 @@ void UIScreenWithBackground::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
-void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, 1.0f, x, y, z);
-	dc.Flush();
-}
-
 void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -523,11 +507,11 @@ void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *va
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
-PromptScreen::PromptScreen(const Path &gamePath, std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
+PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
 	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	yesButtonText_ = di->T(yesButtonText.c_str());
-	noButtonText_ = di->T(noButtonText.c_str());
+	yesButtonText_ = di->T(yesButtonText);
+	noButtonText_ = di->T(noButtonText);
 }
 
 void PromptScreen::CreateViews() {
@@ -569,11 +553,13 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 void PromptScreen::TriggerFinish(DialogResult result) {
-	callback_(result == DR_OK || result == DR_YES);
+	if (callback_) {
+		callback_(result == DR_OK || result == DR_YES);
+	}
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
+TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScreen(title) {}
 
 void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
@@ -584,7 +570,7 @@ void TextureShaderScreen::CreateViews() {
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
-		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 
@@ -597,7 +583,7 @@ void TextureShaderScreen::OnCompleted(DialogResult result) {
 	g_Config.sTextureShaderName = shaders_[listView_->GetSelected()].section;
 }
 
-NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
+NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
@@ -756,11 +742,8 @@ void LogoScreen::touch(const TouchInput &touch) {
 	}
 }
 
-void LogoScreen::render() {
+void LogoScreen::DrawForeground(UIContext &dc) {
 	using namespace Draw;
-
-	UIScreen::render();
-	UIContext &dc = *screenManager()->getUIContext();
 
 	const Bounds &bounds = dc.GetBounds();
 
@@ -776,15 +759,11 @@ void LogoScreen::render() {
 		alphaText = 3.0f - t;
 	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
 
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, alpha, x, y, z);
-
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
-	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T_cstr("created", "Created by"), 0xC3, 0xA5);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		dc.Draw()->DrawImage(ImageID("I_ICONGOLD"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
 	} else {
@@ -795,7 +774,7 @@ void LogoScreen::render() {
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
-	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
+	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
 
 	int ppsspp_org_y = bounds.h / 2 + 130;
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
@@ -808,7 +787,7 @@ void LogoScreen::render() {
 	// Add some emoji for testing.
 	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
-	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
+	dc.DrawText(gr->T_cstr(apiName.c_str()), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
 	dc.Flush();
@@ -856,7 +835,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/#!/PPSSPP_emu");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");
 	return UI::EVENT_DONE;
 }
 
@@ -895,9 +874,7 @@ void CreditsScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 }
 
-void CreditsScreen::render() {
-	UIScreen::render();
-
+void CreditsScreen::DrawForeground(UIContext &dc) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	std::string specialthanksMaxim = "Maxim ";
@@ -922,7 +899,7 @@ void CreditsScreen::render() {
 	specialthankssolarmystic += cr->T("testing");
 	specialthankssolarmystic += ')';
 
-	const char *credits[] = {
+	std::string_view credits[] = {
 		System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold" : "PPSSPP",
 		"",
 		cr->T("title", "A fast and portable PSP emulator"),
@@ -1001,7 +978,7 @@ void CreditsScreen::render() {
 		"",
 		"",
 		cr->T("tools", "Free tools used:"),
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
 #endif
 #if defined(USING_QT_UI)
@@ -1013,6 +990,17 @@ void CreditsScreen::render() {
 		"CMake",
 		"freetype2",
 		"zlib",
+		"rcheevos",
+		"SPIRV-Cross",
+		"armips",
+		"Basis Universal",
+		"cityhash",
+		"zstd",
+		"glew",
+		"libchdr",
+		"minimp3",
+		"xxhash",
+		"naett-http",
 		"PSP SDK",
 		"",
 		"",
@@ -1034,7 +1022,6 @@ void CreditsScreen::render() {
 		cr->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
 
-
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -1044,7 +1031,6 @@ void CreditsScreen::render() {
 	}
 	credits[0] = (const char *)temp;
 
-	UIContext &dc = *screenManager()->getUIContext();
 	dc.Begin();
 	const Bounds &bounds = dc.GetLayoutBounds();
 
@@ -1079,14 +1065,16 @@ SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayou
 	Add(new UI::Spacer(10.0f));
 }
 
-void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) {
+void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
 	if (refView) {
 		Bounds b = refView->GetBounds();
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		if (lp) {
+			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+			} else {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			}
 		}
 	}
 	text_->SetText(text);
@@ -1115,7 +1103,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	text_->SetTextColor(whiteAlpha(alpha));
+	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time
 }

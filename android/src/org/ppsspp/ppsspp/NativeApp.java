@@ -13,7 +13,7 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_DESKTOP = 2;
 	public static final int DEVICE_TYPE_VR = 3;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
@@ -41,7 +41,7 @@ public class NativeApp {
 	public static native boolean keyDown(int deviceId, int key, boolean isRepeat);
 	public static native boolean keyUp(int deviceId, int key);
 
-	public static native void joystickAxis(int deviceId, int axis, float value);
+	public static native void joystickAxis(int deviceId, int []axis, float []value, int count);
 
 	public static native boolean mouseWheelEvent(float x, float y);
 
@@ -50,11 +50,13 @@ public class NativeApp {
 
 	public static native void accelerometer(float x, float y, float z);
 
+	public static native void mouseDelta(float x, float y);
 	public static native void sendMessageFromJava(String msg, String arg);
 	public static native void sendRequestResult(int seqID, boolean result, String value, int iValue);
 	public static native String queryConfig(String queryName);
 
 	public static native int getSelectedCamera();
+	public static native int getDisplayFramerateMode();
 	public static native void setGpsDataAndroid(long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
 	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
 	public static native void pushCameraImageAndroid(byte[] image);

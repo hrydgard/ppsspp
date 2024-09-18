@@ -10,6 +10,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
+#include "ext/rcheevos/include/rc_client.h"
+
 // Lists the achievements and leaderboards for one game.
 class RetroAchievementsListScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
@@ -89,12 +91,6 @@ enum class AchievementRenderStyle {
 
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h);
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus);
-
-void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h);
-void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha);
-
-void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h);
-void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha);
 
 class AchievementView : public UI::ClickableItem {
 public:

@@ -17,9 +17,10 @@
 // even be directly JIT-ed, but the gains will probably be tiny over our older direct
 // MIPS->target JITs.
 
-enum class IROp : uint8_t {
-	Nop,
+// Ops beginning with "OI" are specialized for IR Interpreter use. These will not be produced
+// for the IR JITs.
 
+enum class IROp : uint8_t {
 	SetConst,
 	SetConstF,
 
@@ -35,11 +36,14 @@ enum class IROp : uint8_t {
 	Xor,
 
 	AddConst,
+	OptAddConst,
 	SubConst,
 
 	AndConst,
 	OrConst,
 	XorConst,
+	OptAndConst,
+	OptOrConst,
 
 	Shl,
 	Shr,
@@ -134,7 +138,9 @@ enum class IROp : uint8_t {
 	FCvtScaledSW,
 
 	FMovFromGPR,
+	OptFCvtSWFromGPR,
 	FMovToGPR,
+	OptFMovToGPRShr8,
 
 	FSat0_1,
 	FSatMinus1_1,
@@ -230,6 +236,12 @@ enum class IROp : uint8_t {
 	ValidateAddress16,
 	ValidateAddress32,
 	ValidateAddress128,
+
+	// Tracing support.
+	LogIRBlock,
+
+	Nop,
+	Bad,
 };
 
 enum IRComparison {
@@ -358,7 +370,7 @@ struct IRInst {
 };
 
 // Returns the new PC.
-u32 IRInterpret(MIPSState *ms, const IRInst *inst, int count);
+u32 IRInterpret(MIPSState *ms, const IRInst *inst);
 
 // Each IR block gets a constant pool.
 class IRWriter {
@@ -391,6 +403,7 @@ public:
 	void Clear() {
 		insts_.clear();
 	}
+	void ReplaceConstant(size_t instNumber, u32 newConstant);
 
 	const std::vector<IRInst> &GetInstructions() const { return insts_; }
 
@@ -405,6 +418,7 @@ struct IROptions {
 	bool unalignedLoadStoreVec4;
 	bool preferVec4;
 	bool preferVec4Dot;
+	bool optimizeForInterpreter;
 };
 
 const IRMeta *GetIRMeta(IROp op);

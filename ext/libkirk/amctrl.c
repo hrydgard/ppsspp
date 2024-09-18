@@ -608,7 +608,7 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	u8 *fkey;
 	int retv;
 
-	//DEBUG_LOG(HLE, "Open PGD ...");
+	//DEBUG_LOG(Log::HLE, "Open PGD ...");
 
 	pgd = (PGD_DESC*)malloc(sizeof(PGD_DESC));
 	memset(pgd, 0, sizeof(PGD_DESC));
@@ -637,7 +637,7 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	if(pgd_flag&1)
 		fkey = (u8*)dnas_key1AA0;
 	if(fkey==NULL){
-		//ERROR_LOG(HLE, "pgd_open: invalid pgd_flag! %08x\n", pgd_flag);
+		//ERROR_LOG(Log::HLE, "pgd_open: invalid pgd_flag! %08x\n", pgd_flag);
 		free(pgd);
 		return NULL;
 	}
@@ -647,7 +647,7 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	sceDrmBBMacUpdate(&mkey, pgd_buf+0x00, 0x80);
 	retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x80, fkey);
 	if(retv){
-		//ERROR_LOG(HLE, "pgd_open: MAC_80 check failed!: %08x(%d)\n", retv, retv);
+		//ERROR_LOG(Log::HLE, "pgd_open: MAC_80 check failed!: %08x(%d)\n", retv, retv);
 		free(pgd);
 		return NULL;
 	}
@@ -659,7 +659,7 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 		// use given vkey
 		retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x70, pgd_vkey);
 		if(retv){
-			//ERROR_LOG(HLE, "pgd_open: MAC_70 check failed!: %08x(%d)\n", retv, retv);
+			//ERROR_LOG(Log::HLE, "pgd_open: MAC_70 check failed!: %08x(%d)\n", retv, retv);
 			free(pgd);
 			return NULL;
 		}else{

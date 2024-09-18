@@ -11,7 +11,7 @@
 class AT3PlusReader;
 
 struct Sample {
-	// data must be new-ed.
+	// data must be new[]-ed.
 	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
 	~Sample() {
 		delete[] data_;
@@ -67,7 +67,8 @@ private:
 	void Clear(bool hard);
 
 	enum {
-		BUFSIZE = 44100,
+		// 0.5 ms buffer at 44.1 khz should be enough.
+		BUFSIZE = 22050,
 	};
 
 	std::mutex mutex_;

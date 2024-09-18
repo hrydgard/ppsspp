@@ -145,5 +145,5 @@ private:
 	std::string basePath;
 	IHandleAllocator *hAlloc;
 
-	std::string GetLocalPath(std::string localpath);
+	std::string GetLocalPath(const std::string &localpath);
 };

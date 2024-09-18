@@ -65,15 +65,15 @@ namespace Spline { struct Weight2D; }
 class TessellationDataTransfer {
 public:
 	virtual ~TessellationDataTransfer() {}
-	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
+	static void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
 	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
 };
 
-// Culling plane.
-struct Plane {
-	float x, y, z, w;
-	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+// Culling plane, group of 8.
+struct alignas(16) Plane8 {
+	float x[8], y[8], z[8], w[8];
+	void Set(int i, float _x, float _y, float _z, float _w) { x[i] = _x; y[i] = _y; z[i] = _z; w[i] = _w; }
+	float Test(int i, const float f[3]) const { return x[i] * f[0] + y[i] * f[1] + z[i] * f[2] + w[i]; }
 };
 
 class DrawEngineCommon {
@@ -104,6 +104,10 @@ public:
 
 	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
+	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
+	// Doesn't support indexing.
+	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
+
 	void FlushSkin() {
 		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
 		if (applySkin) {
@@ -113,12 +117,14 @@ public:
 
 	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
 	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead);
+	void SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
+
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
-	void ClearSplineBezierWeights();
+	static void ClearSplineBezierWeights();
 
-	bool CanUseHardwareTransform(int prim);
-	bool CanUseHardwareTessellation(GEPatchPrimType prim);
+	bool CanUseHardwareTransform(int prim) const;
+	bool CanUseHardwareTessellation(GEPatchPrimType prim) const;
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
@@ -132,11 +138,7 @@ public:
 		everUsedExactEqualDepth_ = v;
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		if (decJitCache_)
-			return decJitCache_->IsInSpace(ptr);
-		return false;
-	}
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) const;
 	int GetNumDrawCalls() const {
 		return numDrawVerts_;
 	}
@@ -150,11 +152,7 @@ protected:
 	void UpdatePlanes();
 
 	void DecodeVerts(u8 *dest);
-	void DecodeInds();
-
-	int MaxIndex() const {
-		return decodedVerts_;
-	}
+	int DecodeInds();
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
@@ -163,7 +161,7 @@ protected:
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
-	inline int IndexSize(u32 vtype) const {
+	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
 		if (indexType == GE_VTYPE_IDX_16BIT) {
 			return 2;
@@ -196,14 +194,17 @@ protected:
 		gpuStats.numDrawCalls += numDrawInds_;
 		gpuStats.numVertexDecodes += numDrawVerts_;
 		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
+		gpuStats.numVertsDecoded += numDecodedVerts_;
 
 		indexGen.Reset();
-		decodedVerts_ = 0;
+		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
 		decodeIndsCounter_ = 0;
 		decodeVertsCounter_ = 0;
+		seenPrims_ = 0;
+		anyCCWOrIndexed_ = false;
 		gstate_c.vertexFullAlpha = true;
 
 		// Now seems as good a time as any to reset the min/max coords, which we may examine later.
@@ -213,7 +214,37 @@ protected:
 		gstate_c.vertBounds.maxV = 0;
 	}
 
-	uint32_t ComputeDrawcallsHash() const;
+	inline bool CollectedPureDraw() const {
+		switch (seenPrims_) {
+		case 1 << GE_PRIM_TRIANGLE_STRIP:
+			return !anyCCWOrIndexed_ && numDrawInds_ == 1;
+		case 1 << GE_PRIM_LINES:
+		case 1 << GE_PRIM_POINTS:
+		case 1 << GE_PRIM_TRIANGLES:
+			return !anyCCWOrIndexed_;
+		default:
+			return false;
+		}
+	}
+
+	inline void DecodeIndsAndGetData(GEPrimitiveType *prim, int *numVerts, int *maxIndex, bool *useElements, bool forceIndexed) {
+		if (!forceIndexed && CollectedPureDraw()) {
+			*prim = drawInds_[0].prim;
+			*numVerts = numDecodedVerts_;
+			*maxIndex = numDecodedVerts_;
+			*useElements = false;
+		} else {
+			int vertexCount = DecodeInds();
+			*numVerts = vertexCount;
+			*maxIndex = numDecodedVerts_;
+			*prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
+			*useElements = true;
+		}
+	}
+
+	inline int RemainingIndices(const uint16_t *inds) const {
+		return DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t) - (inds - decIndex_);
+	}
 
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
@@ -229,9 +260,7 @@ protected:
 	u16 *decIndex_ = nullptr;
 
 	// Cached vertex decoders
-	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	DenseHashMap<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;
 	VertexDecoderOptions decOptions_{};
 
@@ -241,10 +270,10 @@ protected:
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredVerts {
 		const void *verts;
+		UVScale uvScale;
 		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
-		UVScale uvScale;
 	};
 
 	struct DeferredInds {
@@ -252,7 +281,7 @@ protected:
 		u32 vertexCount;
 		u8 vertDecodeIndex;  // index into the drawVerts_ array to look up the vertexOffset.
 		u8 indexType;
-		s8 prim;
+		GEPrimitiveType prim;
 		bool clockwise;
 		u16 offset;
 	};
@@ -263,6 +292,8 @@ protected:
 	uint32_t drawVertexOffsets_[MAX_DEFERRED_DRAW_VERTS];
 	DeferredInds drawInds_[MAX_DEFERRED_DRAW_INDS];
 
+	VertexDecoder *dec_ = nullptr;
+	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	int numDrawVerts_ = 0;
 	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
@@ -270,9 +301,13 @@ protected:
 	int decodeVertsCounter_ = 0;
 	int decodeIndsCounter_ = 0;
 
+	int seenPrims_ = 0;
+	bool anyCCWOrIndexed_ = 0;
+	bool anyIndexed_ = 0;
+
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int decodedVerts_ = 0;
+	int numDecodedVerts_ = 0;
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
@@ -287,7 +322,8 @@ protected:
 	TessellationDataTransfer *tessDataTransfer;
 
 	// Culling
-	Plane planes_[6];
+	Plane8 planes_;
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
+	bool offsetOutsideEdge_;
 };

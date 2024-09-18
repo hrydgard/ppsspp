@@ -31,7 +31,7 @@ T TaskHandler(std::function<concurrency::task<T>()> wtask, T def)
 	    }
 	    catch (Platform::Exception^ exception_)
 	    {
-			ERROR_LOG(FILESYS, FromPlatformString(exception_->Message).c_str());
+			ERROR_LOG(Log::FileSystem, FromPlatformString(exception_->Message).c_str());
 	    }
 		done = true;
 	});

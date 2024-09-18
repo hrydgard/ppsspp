@@ -145,26 +145,26 @@ public:
 		return Type;
 	}
 	Operand2() {} 
-	Operand2(u32 imm, OpType type = TYPE_IMM)
+	Operand2(u32 imm, OpType type = TYPE_IMM) : IndexOrShift(), Shift()
 	{ 
 		Type = type; 
 		Value = imm; 
 		Rotation = 0;
 	}
 
-	Operand2(FakeReg Reg)
+	Operand2(FakeReg Reg) : IndexOrShift(), Shift()
 	{
 		Type = TYPE_REG;
 		Value = Reg;
 		Rotation = 0;
 	}
-	Operand2(u8 imm, u8 rotation)
+	Operand2(u8 imm, u8 rotation) : IndexOrShift(), Shift()
 	{
 		Type = TYPE_IMM;
 		Value = imm;
 		Rotation = rotation;
 	}
-	Operand2(FakeReg base, ShiftType type, FakeReg shift) // RSR
+	Operand2(FakeReg base, ShiftType type, FakeReg shift) : Rotation(0) // RSR
 	{
 		Type = TYPE_RSR;
 		_assert_msg_(type != ST_RRX, "Invalid Operand2: RRX does not take a register shift amount");
@@ -173,7 +173,7 @@ public:
 		Value = base;
 	}
 
-	Operand2(FakeReg base, ShiftType type, u8 shift)// For IMM shifted register
+	Operand2(FakeReg base, ShiftType type, u8 shift) : Rotation(0) // For IMM shifted register
 	{
 		if(shift == 32) shift = 0;
 		switch (type)

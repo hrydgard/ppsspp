@@ -122,9 +122,7 @@ public:
 		if (program) {
 			glDeleteProgram(program);
 		}
-		if (locData_) {
-			delete locData_;
-		}
+		delete locData_;
 	}
 	struct Semantic {
 		int location;
@@ -190,10 +188,10 @@ public:
 		int count;
 		GLenum type;
 		GLboolean normalized;
-		int stride;
 		intptr_t offset;
 	};
 	std::vector<Entry> entries;
+	int stride;
 	int semanticsMask_ = 0;
 };
 
@@ -331,11 +329,12 @@ public:
 		return step.create_program.program;
 	}
 
-	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries) {
+	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries, int stride) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_INPUT_LAYOUT;
 		step.create_input_layout.inputLayout = new GLRInputLayout();
 		step.create_input_layout.inputLayout->entries = entries;
+		step.create_input_layout.inputLayout->stride = stride;
 		for (auto &iter : step.create_input_layout.inputLayout->entries) {
 			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
 		}
@@ -377,14 +376,6 @@ public:
 		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
-	void BeginPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->Begin();
-	}
-
-	void EndPushBuffer(GLPushBuffer *pushbuffer) {
-		pushbuffer->End();
-	}
-
 	bool IsInRenderPass() const {
 		return curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER;
 	}
@@ -420,7 +411,6 @@ public:
 		// an init command, that's for sure.
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::BUFFER_SUBDATA;
-		_dbg_assert_(offset >= 0);
 		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
@@ -834,6 +824,7 @@ public:
 		}
 	}
 
+	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -873,7 +864,8 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
-	bool run_ = true;
+	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
+	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.
 	GLQueueRunner queueRunner_;

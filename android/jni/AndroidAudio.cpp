@@ -45,42 +45,42 @@ AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, int optimalF
 
 bool AndroidAudio_Recording_SetSampleRate(AndroidAudioState *state, int sampleRate) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "AndroidAudioState not initialized, cannot set recording sample rate");
+		ERROR_LOG(Log::Audio, "AndroidAudioState not initialized, cannot set recording sample rate");
 		return false;
 	}
 	state->input_sample_rate = sampleRate;
-	INFO_LOG(AUDIO, "AndroidAudio_Recording_SetSampleRate=%d", sampleRate);
+	INFO_LOG(Log::Audio, "AndroidAudio_Recording_SetSampleRate=%d", sampleRate);
 	return true;
 }
 
 bool AndroidAudio_Recording_Start(AndroidAudioState *state) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "AndroidAudioState not initialized, cannot start recording!");
+		ERROR_LOG(Log::Audio, "AndroidAudioState not initialized, cannot start recording!");
 		return false;
 	}
 	state->input_enable = 1;
 	if (!state->ctx) {
-		ERROR_LOG(AUDIO, "OpenSLContext not initialized, cannot start recording!");
+		ERROR_LOG(Log::Audio, "OpenSLContext not initialized, cannot start recording!");
 		return false;
 	}
 	state->ctx->AudioRecord_Start(state->input_sample_rate);
-	INFO_LOG(AUDIO, "AndroidAudio_Recording_Start");
+	INFO_LOG(Log::Audio, "AndroidAudio_Recording_Start");
 	return true;
 }
 
 bool AndroidAudio_Recording_Stop(AndroidAudioState *state) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "AndroidAudioState not initialized, cannot stop recording!");
+		ERROR_LOG(Log::Audio, "AndroidAudioState not initialized, cannot stop recording!");
 		return false;
 	}
 	if (!state->ctx) {
-		ERROR_LOG(AUDIO, "OpenSLContext not initialized, cannot stop recording!");
+		ERROR_LOG(Log::Audio, "OpenSLContext not initialized, cannot stop recording!");
 		return false;
 	}
 	state->input_enable = 0;
 	state->input_sample_rate = 0;
 	state->ctx->AudioRecord_Stop();
-	INFO_LOG(AUDIO, "AndroidAudio_Recording_Stop");
+	INFO_LOG(Log::Audio, "AndroidAudio_Recording_Stop");
 	return true;
 }
 
@@ -93,13 +93,13 @@ bool AndroidAudio_Recording_State(AndroidAudioState *state) {
 
 bool AndroidAudio_Resume(AndroidAudioState *state) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "Audio was shutdown, cannot resume!");
+		ERROR_LOG(Log::Audio, "Audio was shutdown, cannot resume!");
 		return false;
 	}
 	if (!state->ctx) {
-		INFO_LOG(AUDIO, "Calling OpenSLWrap_Init_T...");
+		INFO_LOG(Log::Audio, "Calling OpenSLWrap_Init_T...");
 		state->ctx = new OpenSLContext(state->callback, state->frames_per_buffer, state->sample_rate);
-		INFO_LOG(AUDIO, "Returned from OpenSLWrap_Init_T");
+		INFO_LOG(Log::Audio, "Returned from OpenSLWrap_Init_T");
 		bool init_retval = state->ctx->Init();
 		if (!init_retval) {
 			delete state->ctx;
@@ -115,14 +115,14 @@ bool AndroidAudio_Resume(AndroidAudioState *state) {
 
 bool AndroidAudio_Pause(AndroidAudioState *state) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "Audio was shutdown, cannot pause!");
+		ERROR_LOG(Log::Audio, "Audio was shutdown, cannot pause!");
 		return false;
 	}
 	if (state->ctx) {
-		INFO_LOG(AUDIO, "Calling OpenSLWrap_Shutdown_T...");
+		INFO_LOG(Log::Audio, "Calling OpenSLWrap_Shutdown_T...");
 		delete state->ctx;
 		state->ctx = nullptr;
-		INFO_LOG(AUDIO, "Returned from OpenSLWrap_Shutdown_T ...");
+		INFO_LOG(Log::Audio, "Returned from OpenSLWrap_Shutdown_T ...");
 		return true;
 	}
 	return false;
@@ -130,15 +130,15 @@ bool AndroidAudio_Pause(AndroidAudioState *state) {
 
 bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	if (!state) {
-		ERROR_LOG(AUDIO, "Audio already shutdown!");
+		ERROR_LOG(Log::Audio, "Audio already shutdown!");
 		return false;
 	}
 	if (state->ctx) {
-		ERROR_LOG(AUDIO, "Should not shut down when playing! Something is wrong!");
+		ERROR_LOG(Log::Audio, "Should not shut down when playing! Something is wrong!");
 		return false;
 	}
 	delete state;
-	INFO_LOG(AUDIO, "OpenSLWrap completely unloaded.");
+	INFO_LOG(Log::Audio, "OpenSLWrap completely unloaded.");
 	return true;
 }
 

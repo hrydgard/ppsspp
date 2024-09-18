@@ -18,13 +18,12 @@
 #include "Common/DirectXHelper.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
-#include "Common/OSVersion.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
@@ -65,6 +64,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	app_(app),
 	m_deviceResources(deviceResources)
 {
+	TimeInit();
+
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 
@@ -241,8 +242,10 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	KeyInput keyInput{};
 	keyInput.keyCode = key;
 	keyInput.deviceId = DEVICE_ID_MOUSE;
-	keyInput.flags = KEY_DOWN | KEY_UP;
+	keyInput.flags = KEY_DOWN;
 	NativeKey(keyInput);
+
+	// KEY_UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
 }
 
 bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
@@ -310,7 +313,9 @@ std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
-		return GetWindowsVersion();
+		return GetSystemName();
+	case SYSPROP_SYSTEMBUILD:
+		return GetWindowsBuild();
 	case SYSPROP_LANGREGION:
 		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
@@ -352,7 +357,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
@@ -400,10 +405,11 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	}
 }
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_TEXT_CLIPBOARD:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	{
 		return !IsXBox();
@@ -416,6 +422,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_ACCELEROMETER:
+		return IsMobile();
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -433,6 +441,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
+	case SYSPROP_OK_BUTTON_LEFT:
+		return true;
 	default:
 		return false;
 	}
@@ -454,7 +464,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 
 	case SystemRequestType::EXIT_APP:
@@ -472,7 +482,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
 		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
 			// Shutdown
-			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3);
+			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3, param4);
 		}
 		return true;
 	}
@@ -496,22 +506,25 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::vector<std::string> supportedExtensions = {};
 		switch ((BrowseFileType)param3) {
 		case BrowseFileType::BOOTABLE:
-			supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip" };
+			supportedExtensions = { ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
 			break;
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
+			break;
+		case BrowseFileType::ZIP:
+			supportedExtensions = { ".zip" };
 			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			supportedExtensions = { ".wav" };
+			supportedExtensions = { ".wav", ".mp3" };
 			break;
 		case BrowseFileType::ANY:
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned
 			break;
 		default:
-			ERROR_LOG(FILESYS, "Unexpected BrowseFileType: %d", param3);
+			ERROR_LOG(Log::FileSystem, "Unexpected BrowseFileType: %d", param3);
 			return false;
 		}
 
@@ -539,21 +552,23 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			});
 		return true;
 	}
-	case SystemRequestType::NOTIFY_UI_STATE:
+	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
-		if (!param1.empty()) {
-			if (!strcmp(param1.c_str(), "menu")) {
-				CloseLaunchItem();
-			}
-			else if (!strcmp(param1.c_str(), "popup_closed")) {
-				DeactivateTextEditInput();
-			}
-			else if (!strcmp(param1.c_str(), "text_gotfocus")) {
-				ActivateTextEditInput(true);
-			}
-			else if (!strcmp(param1.c_str(), "text_lostfocus")) {
-				DeactivateTextEditInput(true);
-			}
+		switch ((UIEventNotification)param3) {
+		case UIEventNotification::MENU_RETURN:
+			CloseLaunchItem();
+			break;
+		case UIEventNotification::POPUP_CLOSED:
+			DeactivateTextEditInput();
+			break;
+		case UIEventNotification::TEXT_GOTFOCUS:
+			ActivateTextEditInput(true);
+			break;
+		case UIEventNotification::TEXT_LOSTFOCUS:
+			DeactivateTextEditInput(true);
+			break;
+		default:
+			break;
 		}
 		return true;
 	}
@@ -641,7 +656,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		INFO_LOG(SYSTEM, "%s", what);
+		INFO_LOG(Log::System, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -663,7 +678,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			INFO_LOG(SYSTEM, "%s", what);
+			INFO_LOG(Log::System, "%s", what);
 		}
 	}
 

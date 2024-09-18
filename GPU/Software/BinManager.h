@@ -277,7 +277,7 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
-	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item);
+	static bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

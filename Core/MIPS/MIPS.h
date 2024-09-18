@@ -194,7 +194,8 @@ public:
 
 	// Register-allocated JIT Temps don't get flushed so we don't reserve space for them.
 	// However, the IR interpreter needs some temps that can stick around between ops.
-	// Can be indexed through r[] using indices 192+.
+	// Can be indexed through r[] using indices 192+, thanks to predictable struct layout.
+	// Unfortunately, UBSAN isn't too happy about these.
 	u32 t[16];     //192
 
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
@@ -219,7 +220,7 @@ public:
 	};
 
 	u32 nextPC;
-	int downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
+	int downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the JITs without additional pointers.
 
 	bool inDelaySlot;
 	int llBit;  // ll/sc
@@ -261,7 +262,6 @@ public:
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
 	void InvalidateICache(u32 address, int length = 4);
-
 	void ClearJitCache();
 
 	void ProcessPendingClears();
@@ -270,7 +270,6 @@ public:
 	volatile bool insideJit = false;
 	volatile bool hasPendingClears = false;
 };
-
 
 class MIPSDebugInterface;
 

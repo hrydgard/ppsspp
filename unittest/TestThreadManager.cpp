@@ -1,5 +1,6 @@
 #include <thread>
 #include <vector>
+#include <cstdio>
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -118,7 +119,7 @@ bool TestMultithreadedScheduling() {
 
 	threads.clear();
 
-	printf("Stress test elapsed: %0.2f", start.Elapsed());
+	printf("Stress test elapsed: %0.2f", start.ElapsedSeconds());
 
 	return true;
 }

@@ -17,10 +17,13 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
-	-I$(EXTDIR)/openxr \
+	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
+	-I$(EXTDIR)/libadrenotools/include \
+	-I$(EXTDIR)/OpenXR-SDK/include \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
+	-I$(EXTDIR)/minimp3 \
 	-I$(EXTDIR)/zlib \
 	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
@@ -169,6 +172,9 @@ endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
+SOURCES_CXX += \
+	$(EXTDIR)/minimp3/minimp3.cpp
+
 SOURCES_C += \
 	$(EXTDIR)/libkirk/AES.c \
 	$(EXTDIR)/libkirk/amctrl.c \
@@ -204,7 +210,6 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
 	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/compat.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
@@ -212,15 +217,15 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/rc_client.c \
+	$(EXTDIR)/rcheevos/src/rc_client.c \
+	$(EXTDIR)/rcheevos/src/rc_util.c \
+	$(EXTDIR)/rcheevos/src/rc_compat.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
-	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
-	$(EXTDIR)/rcheevos/src/rhash/hash.c \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
 
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
@@ -254,6 +259,19 @@ SOURCES_C += \
 	$(EXTDIR)/libchdr/src/libchdr_chd.c \
 	$(EXTDIR)/libchdr/src/libchdr_flac.c \
 	$(EXTDIR)/libchdr/src/libchdr_huffman.c
+
+INCFLAGS += -I$(EXTDIR)/at3_standalone
+
+SOURCES_CXX += \
+	${EXTDIR}/at3_standalone/atrac.cpp \
+	${EXTDIR}/at3_standalone/atrac3.cpp \
+	${EXTDIR}/at3_standalone/atrac3plus.cpp \
+	${EXTDIR}/at3_standalone/atrac3plusdec.cpp \
+	${EXTDIR}/at3_standalone/atrac3plusdsp.cpp \
+	${EXTDIR}/at3_standalone/get_bits.cpp \
+	${EXTDIR}/at3_standalone/compat.cpp \
+	${EXTDIR}/at3_standalone/fft.cpp \
+	${EXTDIR}/at3_standalone/mem.cpp
 
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
@@ -415,11 +433,12 @@ SOURCES_CXX += \
 	$(COMMONDIR)/ArmCPUDetect.cpp \
 	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
-	$(COMMONDIR)/ConsoleListener.cpp \
+	$(COMMONDIR)/Log/ConsoleListener.cpp \
+	$(COMMONDIR)/Log/StdioListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FakeCPUDetect.cpp \
 	$(COMMONDIR)/Log.cpp \
-	$(COMMONDIR)/LogManager.cpp \
+	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/MipsCPUDetect.cpp \
@@ -445,6 +464,7 @@ SOURCES_C +=\
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/Draw2D.cpp \
 	$(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
+	$(GPUCOMMONDIR)/VertexDecoderHandwritten.cpp \
 	$(GPUCOMMONDIR)/GPUStateUtils.cpp \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
@@ -565,6 +585,14 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
+
+ifeq ($(TARGET_ARCH),arm64)
+SOURCES_CXX += \
+	  $(EXTDIR)/libadrenotools/src/driver.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+endif
+
 SOURCES_CXX += \
            $(COMMONDIR)/Render/Text/draw_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
@@ -616,11 +644,14 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/KUBridge.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
+	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \
 	       $(COREDIR)/HLE/ReplaceTables.cpp \
 	       $(COREDIR)/HLE/HLEHelperThread.cpp \
 	       $(COREDIR)/HLE/HLETables.cpp \
+	       $(COREDIR)/HLE/AtracCtx.cpp \
+	       $(COREDIR)/HLE/AtracCtx2.cpp \
 	       $(COREDIR)/HLE/sceAdler.cpp \
 	       $(COREDIR)/HLE/sceAtrac.cpp \
 	       $(COREDIR)/HLE/sceAudio.cpp \
@@ -689,13 +720,13 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
+	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \
 	       $(COREDIR)/HW/MediaEngine.cpp \
 	       $(COREDIR)/HW/MpegDemux.cpp \
 	       $(COREDIR)/HW/MemoryStick.cpp \
 	       $(COREDIR)/HW/SasAudio.cpp \
 	       $(COREDIR)/HW/SasReverb.cpp \
-	       $(COREDIR)/HW/StereoResampler.cpp \
 	       $(COREDIR)/Compatibility.cpp \
 	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
@@ -727,6 +758,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUFallbacks.cpp \
+	       $(COREDIR)/MIPS/MIPSTracer.cpp \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
@@ -739,6 +771,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
+	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
@@ -862,23 +895,23 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
-INCFLAGS += -I$(EXTDIR)/miniupnp-build
+INCFLAGS += -I$(EXTDIR)/miniupnp-build -I$(EXTDIR)/miniupnp/miniupnpc/include -I$(EXTDIR)/miniupnp/miniupnpc/src
 SOURCES_C += \
-    $(EXTDIR)/miniupnp/miniupnpc/addr_is_reserved.c \
-    $(EXTDIR)/miniupnp/miniupnpc/connecthostport.c \
-    $(EXTDIR)/miniupnp/miniupnpc/igd_desc_parse.c \
-    $(EXTDIR)/miniupnp/miniupnpc/minisoap.c \
-    $(EXTDIR)/miniupnp/miniupnpc/minissdpc.c \
-    $(EXTDIR)/miniupnp/miniupnpc/miniupnpc.c \
-    $(EXTDIR)/miniupnp/miniupnpc/miniwget.c \
-    $(EXTDIR)/miniupnp/miniupnpc/minixml.c \
-    $(EXTDIR)/miniupnp/miniupnpc/minixmlvalid.c \
-    $(EXTDIR)/miniupnp/miniupnpc/portlistingparse.c \
-    $(EXTDIR)/miniupnp/miniupnpc/receivedata.c \
-    $(EXTDIR)/miniupnp/miniupnpc/upnpcommands.c \
-    $(EXTDIR)/miniupnp/miniupnpc/upnpdev.c \
-    $(EXTDIR)/miniupnp/miniupnpc/upnperrors.c \
-    $(EXTDIR)/miniupnp/miniupnpc/upnpreplyparse.c
+    $(EXTDIR)/miniupnp/miniupnpc/src/addr_is_reserved.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/connecthostport.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/igd_desc_parse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/minisoap.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/minissdpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/miniupnpc.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/miniwget.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/minixml.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/minixmlvalid.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/portlistingparse.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/receivedata.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/upnpcommands.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/upnpdev.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/upnperrors.c \
+    $(EXTDIR)/miniupnp/miniupnpc/src/upnpreplyparse.c
 
 SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \

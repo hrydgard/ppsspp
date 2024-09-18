@@ -163,7 +163,7 @@ void __AudioDoState(PointerWrap &p) {
 	Do(p, chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
-		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
+		ERROR_LOG(Log::sceAudio, "Savestate failure: different number of audio channels.");
 		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
@@ -292,7 +292,7 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
 		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
 		if (waitInfo.numSamples <= 0 && waitID != 0) {
-			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
+			// DEBUG_LOG(Log::sceAudio, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
 			wokeThreads = true;
@@ -315,9 +315,9 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 
 void __AudioSetOutputFrequency(int freq) {
 	if (freq != 44100) {
-		WARN_LOG_REPORT(SCEAUDIO, "Switching audio frequency to %i", freq);
+		WARN_LOG_REPORT(Log::sceAudio, "Switching audio frequency to %i", freq);
 	} else {
-		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+		DEBUG_LOG(Log::sceAudio, "Switching audio frequency to %i", freq);
 	}
 	mixFrequency = freq;
 }
@@ -328,7 +328,7 @@ void __AudioSetSRCFrequency(int freq) {
 
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
-	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
+	// AUDIO throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
@@ -348,7 +348,7 @@ void __AudioUpdate(bool resetRecording) {
 		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
 		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
 		if (sz > chanSampleQueues[i].size()) {
-			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
+			ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;
@@ -424,7 +424,7 @@ void __AudioUpdate(bool resetRecording) {
 			__StopLogAudio();
 			std::string discID = g_paramSFO.GetDiscID();
 			Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
-			INFO_LOG(COMMON, "Restarted audio recording to: %s", audio_file_name.c_str());
+			INFO_LOG(Log::Common, "Restarted audio recording to: %s", audio_file_name.c_str());
 			if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
 				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
 			File::CreateEmptyFile(audio_file_name);
@@ -435,7 +435,7 @@ void __AudioUpdate(bool resetRecording) {
 				// Use gameID_EmulatedTimestamp for filename
 				std::string discID = g_paramSFO.GetDiscID();
 				Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str());
-				INFO_LOG(COMMON,"Recording audio to: %s", audio_file_name.c_str());
+				INFO_LOG(Log::Common,"Recording audio to: %s", audio_file_name.c_str());
 				// Create the path just in case it doesn't exist
 				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
 					File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
@@ -462,9 +462,9 @@ void __StartLogAudio(const Path& filename) {
 		m_logAudio = true;
 		g_wave_writer.Start(filename, 44100);
 		g_wave_writer.SetSkipSilence(false);
-		NOTICE_LOG(SCEAUDIO, "Starting Audio logging");
+		NOTICE_LOG(Log::sceAudio, "Starting Audio logging");
 	} else {
-		WARN_LOG(SCEAUDIO, "Audio logging has already been started");
+		WARN_LOG(Log::sceAudio, "Audio logging has already been started");
 	}
 }
 
@@ -472,9 +472,9 @@ void __StopLogAudio() {
 	if (m_logAudio)	{
 		m_logAudio = false;
 		g_wave_writer.Stop();
-		NOTICE_LOG(SCEAUDIO, "Stopping Audio logging");
+		NOTICE_LOG(Log::sceAudio, "Stopping Audio logging");
 	} else {
-		WARN_LOG(SCEAUDIO, "Audio logging has already been stopped");
+		WARN_LOG(Log::sceAudio, "Audio logging has already been stopped");
 	}
 }
 #endif

@@ -92,7 +92,7 @@ protected:
 // Really an asynchronous request.
 class HTTPRequest : public Request {
 public:
-	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
 	~HTTPRequest();
 
 	void Start() override;
@@ -121,7 +121,7 @@ public:
 private:
 	void Do();  // Actually does the download. Runs on thread.
 	int Perform(const std::string &url);
-	std::string RedirectLocation(const std::string &baseUrl);
+	std::string RedirectLocation(const std::string &baseUrl) const;
 	void SetFailed(int code);
 
 	std::string postData_;

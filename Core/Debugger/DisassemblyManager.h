@@ -120,7 +120,7 @@ public:
 	DisassemblyMacro(u32 _address): address(_address) { }
 
 	void setMacroLi(u32 _immediate, u8 _rt);
-	void setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize);
+	void setMacroMemory(const std::string &_name, u32 _immediate, u8 _rt, int _dataSize);
 
 	void recheck() override { };
 	int getNumLines() override { return 1; };

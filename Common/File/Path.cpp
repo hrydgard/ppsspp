@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #endif
 
-Path::Path(const std::string &str) {
+Path::Path(std::string_view str) {
 	Init(str);
 }
 
@@ -33,7 +33,7 @@ Path::Path(const std::wstring &str) {
 }
 #endif
 
-void Path::Init(const std::string &str) {
+void Path::Init(std::string_view str) {
 	if (str.empty()) {
 		type_ = PathType::UNDEFINED;
 		path_.clear();
@@ -51,7 +51,7 @@ void Path::Init(const std::string &str) {
 		// and flip it to a NATIVE url and hope for the best.
 		AndroidContentURI uri(str);
 		if (startsWith(uri.FilePath(), "raw:/")) {
-			INFO_LOG(SYSTEM, "Raw path detected: %s", uri.FilePath().c_str());
+			INFO_LOG(Log::System, "Raw path detected: %s", uri.FilePath().c_str());
 			path_ = uri.FilePath().substr(4);
 			type_ = PathType::NATIVE;
 		} else {
@@ -81,7 +81,7 @@ void Path::Init(const std::string &str) {
 
 // We always use forward slashes internally, we convert to backslash only when
 // converted to a wstring.
-Path Path::operator /(const std::string &subdir) const {
+Path Path::operator /(std::string_view subdir) const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
 		return Path(uri.WithComponent(subdir).ToString());
@@ -104,18 +104,18 @@ Path Path::operator /(const std::string &subdir) const {
 	return Path(fullPath);
 }
 
-void Path::operator /=(const std::string &subdir) {
+void Path::operator /=(std::string_view subdir) {
 	*this = *this / subdir;
 }
 
-Path Path::WithExtraExtension(const std::string &ext) const {
+Path Path::WithExtraExtension(std::string_view ext) const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
 		return Path(uri.WithExtraExtension(ext).ToString());
 	}
 
 	_dbg_assert_(!ext.empty() && ext[0] == '.');
-	return Path(path_ + ext);
+	return Path(path_ + std::string(ext));
 }
 
 Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
@@ -161,7 +161,7 @@ std::string Path::GetFilename() const {
 	return path_;
 }
 
-std::string GetExtFromString(const std::string &str) {
+std::string GetExtFromString(std::string_view str) {
 	size_t pos = str.rfind(".");
 	if (pos == std::string::npos) {
 		return "";
@@ -171,7 +171,7 @@ std::string GetExtFromString(const std::string &str) {
 		// Don't want to detect "df/file" from "/as.df/file"
 		return "";
 	}
-	std::string ext = str.substr(pos);
+	std::string ext(str.substr(pos));
 	for (size_t i = 0; i < ext.size(); i++) {
 		ext[i] = tolower(ext[i]);
 	}
@@ -227,20 +227,22 @@ std::string Path::GetDirectory() const {
 	return path_;
 }
 
-bool Path::FilePathContainsNoCase(const std::string &needle) const {
+bool Path::FilePathContainsNoCase(std::string_view needle) const {
 	std::string haystack;
 	if (type_ == PathType::CONTENT_URI) {
 		haystack = AndroidContentURI(path_).FilePath();
 	} else {
 		haystack = path_;
 	}
-
 	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
 	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
 	return found != haystack.end();
 }
 
 bool Path::StartsWith(const Path &other) const {
+	if (other.empty()) {
+		return true;
+	}
 	if (type_ != other.type_) {
 		// Bad
 		return false;
@@ -314,16 +316,15 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
-	}
-	if (path_ == "/" || path_.empty()) {
-		return false;
-	}
-	if (type_ == PathType::HTTP) {
+	} else if (type_ == PathType::HTTP) {
 		size_t rootSlash = path_.find_first_of('/', strlen("https://"));
-		if (rootSlash == path_.npos || path_.size() < rootSlash + 1) {
+		if (rootSlash == path_.npos || path_.size() == rootSlash + 1) {
 			// This means, "http://server" or "http://server/".  Can't go up.
 			return false;
 		}
+	}
+	if (path_ == "/" || path_.empty()) {
+		return false;
 	}
 	return true;
 }

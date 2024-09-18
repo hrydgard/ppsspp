@@ -82,11 +82,14 @@ public:
 		// A promise should have been fulfilled before it's destroyed.
 		_assert_(ready_);
 		_assert_(!rx_);
+		sentinel_ = 0xeeeeeeee;
 	}
 
 	// Returns T if the data is ready, nullptr if it's not.
 	// Obviously, can only be used if T is nullable, otherwise it won't compile.
 	T Poll() {
+		uint32_t sentinel = sentinel_;
+		_assert_msg_(sentinel == 0xffc0ffee, "%08x", sentinel);
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
@@ -103,6 +106,8 @@ public:
 	}
 
 	T BlockUntilReady() {
+		uint32_t sentinel = sentinel_;
+		_assert_msg_(sentinel == 0xffc0ffee, "%08x", sentinel);
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
@@ -128,4 +133,5 @@ private:
 	bool ready_ = false;
 	std::mutex readyMutex_;
 	Mailbox<T> *rx_ = nullptr;
+	uint32_t sentinel_ = 0xffc0ffee;
 };

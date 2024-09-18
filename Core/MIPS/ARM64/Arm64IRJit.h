@@ -40,9 +40,9 @@ public:
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
+	bool CompileBlock(IRBlockCache *irBlockCache, int block_num, bool preload) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlock *block, int block_num) override;
+	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	void UpdateFCR31(MIPSState *mipsState) override;
 

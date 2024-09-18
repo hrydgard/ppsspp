@@ -17,7 +17,7 @@
 
 #include <algorithm>
 #include <mutex>
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 

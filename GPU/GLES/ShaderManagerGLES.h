@@ -40,7 +40,7 @@ public:
 	LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading = false);
 	~LinkedShader();
 
-	void use(const ShaderID &VSID);
+	void use(const ShaderID &VSID) const;
 	void UpdateUniforms(const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
 	void Delete();
 
@@ -181,7 +181,7 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
-	bool LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine);
+	static bool LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine);
 	bool LoadCache(File::IOFile &f);
 	void SaveCache(const Path &filename, DrawEngineGLES *drawEngine);
 

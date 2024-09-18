@@ -2,15 +2,39 @@
 #include "Common/StringUtils.h"
 #include "Common/Net/URL.h"
 
-const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
-const char *UrlEncoder::hexChars = "0123456789ABCDEF";
-
 int MultipartFormDataEncoder::seq = 0;
+
+void UrlEncoder::AppendEscaped(const std::string &value)
+{
+	static const char * const unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+	static const char * const hexChars = "0123456789ABCDEF";
+
+	for (size_t lastEnd = 0; lastEnd < value.length(); )
+	{
+		size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
+		if (pos == value.npos)
+		{
+			data += value.substr(lastEnd);
+			break;
+		}
+
+		if (pos != lastEnd)
+			data += value.substr(lastEnd, pos - lastEnd);
+		lastEnd = pos;
+
+		// Encode the reserved character.
+		char c = value[pos];
+		data += '%';
+		data += hexChars[(c >> 4) & 15];
+		data += hexChars[(c >> 0) & 15];
+		++lastEnd;
+	}
+}
 
 void Url::Split() {
 	size_t colonSlashSlash = url_.find("://");
 	if (colonSlashSlash == std::string::npos) {
-		ERROR_LOG(IO, "Invalid URL: %s", url_.c_str());
+		ERROR_LOG(Log::IO, "Invalid URL: %s", url_.c_str());
 		return;
 	}
 
@@ -18,12 +42,14 @@ void Url::Split() {
 
 	size_t sep = url_.find('/', colonSlashSlash + 3);
 	if (sep == std::string::npos) {
-		valid_ = false;
-		return;
+		sep = url_.size();
 	}
 
 	host_ = url_.substr(colonSlashSlash + 3, sep - colonSlashSlash - 3);
 	resource_ = url_.substr(sep);  // include the slash!
+	if (resource_.empty()) {
+		resource_ = "/";  // Assume what was meant was the root.
+	}
 
 	size_t portsep = host_.rfind(':');
 	if (portsep != host_.npos) {
@@ -115,13 +141,13 @@ const char HEX2DEC[256] =
 	/* F */ N1,N1,N1,N1, N1,N1,N1,N1, N1,N1,N1,N1, N1,N1,N1,N1
 };
 
-std::string UriDecode(const std::string & sSrc)
+std::string UriDecode(std::string_view sSrc)
 {
 	// Note from RFC1630:  "Sequences which start with a percent sign
 	// but are not followed by two hexadecimal characters (0-9, A-F) are reserved
 	// for future extension"
 
-	const unsigned char * pSrc = (const unsigned char *)sSrc.c_str();
+	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 	const unsigned char * const SRC_LAST_DEC = SRC_END - 2;   // last decodable '%' 
@@ -129,14 +155,10 @@ std::string UriDecode(const std::string & sSrc)
 	char * const pStart = new char[SRC_LEN];  // Output will be shorter.
 	char * pEnd = pStart;
 
-	while (pSrc < SRC_LAST_DEC)
-	{
-		if (*pSrc == '%')
-		{
+	while (pSrc < SRC_LAST_DEC) {
+		if (*pSrc == '%') {
 			char dec1, dec2;
-			if (N1 != (dec1 = HEX2DEC[*(pSrc + 1)])
-				&& N1 != (dec2 = HEX2DEC[*(pSrc + 2)]))
-			{
+			if (N1 != (dec1 = HEX2DEC[*(pSrc + 1)]) && N1 != (dec2 = HEX2DEC[*(pSrc + 2)])) {
 				*pEnd++ = (dec1 << 4) + dec2;
 				pSrc += 3;
 				continue;
@@ -156,8 +178,7 @@ std::string UriDecode(const std::string & sSrc)
 }
 
 // Only alphanum and underscore is safe.
-const char SAFE[256] =
-{
+static const char SAFE[256] = {
 	/*      0 1 2 3  4 5 6 7  8 9 A B  C D E F */
 	/* 0 */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 1 */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -180,21 +201,18 @@ const char SAFE[256] =
 	/* F */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
 };
 
-std::string UriEncode(const std::string & sSrc)
-{
+std::string UriEncode(std::string_view sSrc) {
 	const char DEC2HEX[16 + 1] = "0123456789ABCDEF";
-	const unsigned char * pSrc = (const unsigned char *)sSrc.c_str();
+	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	unsigned char * const pStart = new unsigned char[SRC_LEN * 3];
 	unsigned char * pEnd = pStart;
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 
-	for (; pSrc < SRC_END; ++pSrc)
-	{
-		if (SAFE[*pSrc]) 
+	for (; pSrc < SRC_END; ++pSrc) {
+		if (SAFE[*pSrc]) {
 			*pEnd++ = *pSrc;
-		else
-		{
+		} else {
 			// escape this char
 			*pEnd++ = '%';
 			*pEnd++ = DEC2HEX[*pSrc >> 4];

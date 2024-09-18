@@ -30,24 +30,13 @@ class GamepadView : public UI::View {
 public:
 	GamepadView(const char *key, UI::LayoutParams *layoutParams);
 
-	bool Touch(const TouchInput &input) override;
 	bool Key(const KeyInput &input) override {
 		return false;
 	}
-	void Update() override;
 	std::string DescribeText() const override;
 
-	void SetForceVisible(bool visible) {
-		forceVisible_ = visible;
-	}
-
 protected:
-	virtual float GetButtonOpacity();
-
 	std::string key_;
-	double lastFrameTime_;
-	float secondsWithoutTouch_ = 0.0;
-	bool forceVisible_ = false;
 };
 
 class MultiTouchButton : public GamepadView {
@@ -153,7 +142,7 @@ private:
 
 class PSPCustomStick : public PSPStick {
 public:
-	PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams);
+	PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams);
 
 	bool Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
@@ -263,6 +252,7 @@ namespace CustomKeyData {
 		{ ImageID("I_ARROW_UP"), 0.0f},
 		{ ImageID("I_ARROW_DOWN"), 0.0f},
 		{ ImageID("I_THREE_DOTS"), 0.0f},
+		{ ImageID("I_EMPTY"), 0.0f},
 	};
 
 	// Shape list
@@ -284,6 +274,7 @@ namespace CustomKeyData {
 		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
 		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
 		{ ImageID("I_SQUARE_SHAPE"), ImageID("I_SQUARE_SHAPE_LINE"), 0.0f, false, false },
+		{ ImageID("I_EMPTY"), ImageID("I_EMPTY"), 0.0f, false, false },
 	};
 
 	// Button list
@@ -378,3 +369,7 @@ namespace GestureKey {
 		VIRTKEY_AXIS_Y_MAX,
 	};
 }
+
+void GamepadTouch(bool reset = false);
+void GamepadUpdateOpacity(float force = -1.0f);
+float GamepadGetOpacity();

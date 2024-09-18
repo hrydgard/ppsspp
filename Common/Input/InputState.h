@@ -32,7 +32,6 @@ enum InputDeviceID {
 	DEVICE_ID_XINPUT_2 = 22,
 	DEVICE_ID_XINPUT_3 = 23,
 	DEVICE_ID_ACCELEROMETER = 30,  // no longer used
-	DEVICE_ID_XR_HMD = 39,
 	DEVICE_ID_XR_CONTROLLER_LEFT = 40,
 	DEVICE_ID_XR_CONTROLLER_RIGHT = 41,
 	DEVICE_ID_TOUCH = 42,
@@ -67,7 +66,7 @@ inline int TranslateKeyCodeToAxis(int keyCode, int *direction) {
 
 class InputMapping {
 private:
-	inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
+	static inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
 		return AXIS_BIND_NKCODE_START + axisId * 2 + (direction < 0 ? 1 : 0);
 	}
 public:
@@ -79,7 +78,7 @@ public:
 		_dbg_assert_(direction != 0);
 	}
 
-	static InputMapping FromConfigString(const std::string &str);
+	static InputMapping FromConfigString(std::string_view str);
 	std::string ToConfigString() const;
 
 	InputDeviceID deviceId;
@@ -191,13 +190,15 @@ struct AxisInput {
 extern std::vector<InputMapping> dpadKeys;
 extern std::vector<InputMapping> confirmKeys;
 extern std::vector<InputMapping> cancelKeys;
+extern std::vector<InputMapping> infoKeys;
 extern std::vector<InputMapping> tabLeftKeys;
 extern std::vector<InputMapping> tabRightKeys;
 void SetDPadKeys(const std::vector<InputMapping> &leftKey, const std::vector<InputMapping> &rightKey,
 		const std::vector<InputMapping> &upKey, const std::vector<InputMapping> &downKey);
 void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::vector<InputMapping> &cancel);
 void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight);
+void SetInfoKeys(const std::vector<InputMapping> &info);
 
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
-void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId);
+void SetAnalogFlipY(const std::unordered_map<InputDeviceID, int> &flipYByDeviceId);
 int GetAnalogYDirection(InputDeviceID deviceId);

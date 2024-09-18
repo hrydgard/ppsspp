@@ -460,10 +460,10 @@ inline bool IsTextureFormat16Bit(GETextureFormat tfmt) {
 
 inline int BufferFormatBytesPerPixel(GEBufferFormat format) {
 	switch (format) {
-	case GE_FORMAT_8888: return 4;  // applies to depth as well.
+	case GE_FORMAT_8888: return 4;
 	case GE_FORMAT_CLUT8: return 1;
 	default:
-		return 2;
+		return 2;  // works for depth as well as the 16-bit color formats.
 	}
 }
 
@@ -583,8 +583,7 @@ enum GETexProjMapMode
 	GE_PROJMAP_NORMAL = 3,
 };
 
-enum GEPrimitiveType
-{
+enum GEPrimitiveType : int8_t {
 	GE_PRIM_POINTS = 0,
 	GE_PRIM_LINES = 1,
 	GE_PRIM_LINE_STRIP = 2,

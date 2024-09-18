@@ -44,6 +44,11 @@ VK_DEFINE_HANDLE(VmaAllocation);
 
 std::string VulkanVendorString(uint32_t vendorId);
 
+template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
+	newStruct->pNext = root.pNext;
+	root.pNext = newStruct;
+}
+
 // Not all will be usable on all platforms, of course...
 enum WindowSystem {
 #ifdef _WIN32
@@ -138,6 +143,10 @@ public:
 	void Take(VulkanDeleteList &del);
 	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
 
+	int GetLastDeleteCount() const {
+		return deleteCount_;
+	}
+
 private:
 	std::vector<VkCommandPool> cmdPools_;
 	std::vector<VkDescriptorPool> descPools_;
@@ -157,6 +166,7 @@ private:
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<VkQueryPool> queryPools_;
 	std::vector<Callback> callbacks_;
+	int deleteCount_ = 0;
 };
 
 // VulkanContext manages the device and swapchain, and deferred deletion of objects.
@@ -175,11 +185,18 @@ public:
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice();
-	int GetPhysicalDeviceByName(std::string name);
-	void ChooseDevice(int physical_device);
-	bool EnableInstanceExtension(const char *extension);
-	bool EnableDeviceExtension(const char *extension);
-	VkResult CreateDevice();
+	int GetPhysicalDeviceByName(const std::string &name);
+
+	// Convenience method to avoid code duplication.
+	// If it returns false, delete the context.
+	bool CreateInstanceAndDevice(const CreateInfo &info);
+
+	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
+	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
+	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
+
+	// Was previously two functions, ChooseDevice and CreateDevice.
+	VkResult CreateDevice(int physical_device);
 
 	const std::string &InitError() const { return init_error_; }
 
@@ -267,6 +284,7 @@ public:
 		VkPhysicalDeviceMultiviewFeatures multiview;
 		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
 		VkPhysicalDevicePresentIdFeaturesKHR presentId;
+		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
@@ -392,6 +410,10 @@ public:
 		return availablePresentModes_;
 	}
 
+	int GetLastDeleteCount() const {
+		return frame_[curFrame_].deleteList.GetLastDeleteCount();
+	}
+
 private:
 	bool ChooseQueue();
 
@@ -407,7 +429,7 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_;
+	WindowSystem winsys_{};
 
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
@@ -419,6 +441,7 @@ private:
 	VkDevice device_ = VK_NULL_HANDLE;
 	VkQueue gfx_queue_ = VK_NULL_HANDLE;
 	VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+	u32 vulkanApiVersion_ = 0;
 
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
@@ -470,7 +493,7 @@ private:
 	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
-	VkFormat swapchainFormat_;
+	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
 	uint32_t queue_count = 0;
 
@@ -479,19 +502,13 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
-	VkPresentModeKHR presentMode_;
+	VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
 	std::vector<VkPresentModeKHR> availablePresentModes_;
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
 };
-
-// Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
 
 // GLSL compiler
 void init_glslang();
@@ -508,6 +525,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
 const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 

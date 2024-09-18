@@ -119,36 +119,36 @@ static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
 		config->micParam = *param;
 		param.NotifyRead("UsbCamSetupMic");
 	}
-	return hleLogSuccessInfoI(SCEMISC, 0);
+	return hleLogSuccessInfoI(Log::sceMisc, 0);
 }
 
 static int sceUsbCamStartMic() {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamStartMic");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamStartMic");
 	return 0;
 }
 
 static int sceUsbCamStopMic() {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamStopMic");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamStopMic");
 	return 0;
 }
 
 static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE,"sceUsbCamReadMicBlocking(%08x, %d): invalid addresses", bufAddr, size);
+		ERROR_LOG(Log::HLE,"sceUsbCamReadMicBlocking(%08x, %d): invalid addresses", bufAddr, size);
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceUsbCamReadMicBlocking: size: %d", size);
+	INFO_LOG(Log::HLE, "sceUsbCamReadMicBlocking: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, CAMERAMIC);
 }
 
 static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(HLE, "sceUsbCamReadMic(%08x, %d): invalid addresses", bufAddr, size);
+		ERROR_LOG(Log::HLE, "sceUsbCamReadMic(%08x, %d): invalid addresses", bufAddr, size);
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceUsbCamReadMic: size: %d", size);
+	INFO_LOG(Log::HLE, "sceUsbCamReadMic: size: %d", size);
 	return __MicInput(size >> 1, config->micParam.frequency, bufAddr, CAMERAMIC, false);
 }
 
@@ -222,12 +222,12 @@ static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
 }
 
 static int sceUsbCamPollReadVideoFrameEnd() {
-	VERBOSE_LOG(HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
+	VERBOSE_LOG(Log::HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
 	return nextVideoFrame;
 }
 
 static int sceUsbCamSetupStill(u32 paramAddr) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupStill");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamSetupStill");
 	auto param = PSPPointer<PspUsbCamSetupStillParam>::Create(paramAddr);
 	if (param.IsValid()) {
 		config->stillParam = *param;
@@ -238,7 +238,7 @@ static int sceUsbCamSetupStill(u32 paramAddr) {
 }
 
 static int sceUsbCamSetupStillEx(u32 paramAddr) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupStillEx");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamSetupStillEx");
 	auto param = PSPPointer<PspUsbCamSetupStillExParam>::Create(paramAddr);
 	if (param.IsValid()) {
 		config->stillExParam = *param;
@@ -249,17 +249,17 @@ static int sceUsbCamSetupStillEx(u32 paramAddr) {
 }
 
 static int sceUsbCamAutoImageReverseSW(int on) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamAutoImageReverseSW: %d", on);
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamAutoImageReverseSW: %d", on);
 	return 0;
 }
 
 static int sceUsbCamGetLensDirection() {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamGetLensDirection");
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamGetLensDirection");
 	return 0;
 }
 
 static int sceUsbCamSetReverseMode(int reverseflags) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetReverseMode %d", reverseflags);
+	INFO_LOG(Log::HLE, "UNIMPL sceUsbCamSetReverseMode %d", reverseflags);
 	return 0;
 }
 
@@ -345,7 +345,7 @@ std::vector<std::string> Camera::getDeviceList() {
 int Camera::startCapture() {
 	int width, height;
 	getCameraResolution(config->type, &width, &height);
-	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
+	INFO_LOG(Log::HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
 	#ifdef HAVE_WIN32_CAMERA
@@ -365,13 +365,13 @@ int Camera::startCapture() {
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_startCapture(width, height);
 	#else
-		ERROR_LOG(HLE, "%s not implemented", __FUNCTION__);
+		ERROR_LOG(Log::HLE, "%s not implemented", __FUNCTION__);
 	#endif
 	return 0;
 }
 
 int Camera::stopCapture() {
-	INFO_LOG(HLE, "%s", __FUNCTION__);
+	INFO_LOG(Log::HLE, "%s", __FUNCTION__);
 	#ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
@@ -381,7 +381,7 @@ int Camera::stopCapture() {
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_stopCapture();
 	#else
-		ERROR_LOG(HLE, "%s not implemented", __FUNCTION__);
+		ERROR_LOG(Log::HLE, "%s not implemented", __FUNCTION__);
 	#endif
 	config->mode = Camera::Mode::Unused;
 	return 0;
@@ -402,7 +402,7 @@ void Camera::pushCameraImage(long long length, unsigned char* image) {
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
 	if (length > VIDEO_BUFFER_SIZE) {
 		videoBufferLength = 0;
-		ERROR_LOG(HLE, "pushCameraImage: length error: %lld > %d", length, VIDEO_BUFFER_SIZE);
+		ERROR_LOG(Log::HLE, "pushCameraImage: length error: %lld > %d", length, VIDEO_BUFFER_SIZE);
 	} else {
 		videoBufferLength = length;
 		memcpy(videoBuffer, image, length);

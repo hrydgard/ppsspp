@@ -253,7 +253,7 @@ void MIPSEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
 	}
 }
 
-FixupBranch MIPSEmitter::MakeFixupBranch(FixupBranchType type) {
+FixupBranch MIPSEmitter::MakeFixupBranch(FixupBranchType type) const {
 	FixupBranch b;
 	b.ptr = code_;
 	b.type = type;

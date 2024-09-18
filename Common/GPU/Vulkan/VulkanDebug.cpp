@@ -62,31 +62,42 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 			return false;
 		break;
 
-	case 606910136:
-	case -392708513:
-	case -384083808:
-		// VUID-vkCmdDraw-None-02686
-		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
-		// See https://github.com/hrydgard/ppsspp/pull/16354
-		return false;
 	case -375211665:
 		// VUID-vkAllocateMemory-pAllocateInfo-01713
 		// Can happen when VMA aggressively tries to allocate aperture memory for upload. It gracefully
 		// falls back to regular video memory, so we just ignore this. I'd argue this is a VMA bug, actually.
 		return false;
-	case 181611958:
-		// Extended validation.
-		// UNASSIGNED-BestPractices-vkCreateDevice-deprecated-extension
-		// Doing what this one says doesn't seem very reliable - if I rely strictly on the Vulkan version, I don't get some function pointers? Like createrenderpass2.
-		return false;
 	case 657182421:
 		// Extended validation (ARM best practices)
 		// Non-fifo validation not recommended
+		return false;
+	case 672904502:
+		// ARM best practices: index buffer usage warning (too few indices used compared to value range).
+		// This should be looked into more - happens even in moppi-flower which is weird.
 		return false;
 	case 337425955:
 		// False positive
 		// https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/3615
 		return false;
+	case 227275665:
+		// PowerVR (and all other) best practices: LOAD_OP_LOAD used in render pass.
+		return false;
+	case 1835555994: // [AMD] [NVIDIA] Performance warning : Pipeline VkPipeline 0xa808d50000000033[global_texcolor] was bound twice in the frame.
+		// Benign perf warnings.
+		return false;
+
+	case 1243445977:
+		// Clear value but no LOAD_OP_CLEAR. Not worth fixing right now.
+		return false;
+
+	case 1544472022:
+		// MSAA depth resolve write-after-write??
+		return false;
+
+	case -1306653903:
+		// ARM complaint about non-fifo swapchain
+		return false;
+
 	default:
 		break;
 	}
@@ -110,7 +121,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		count = g_errorCount[messageCode]++;
 	}
 	if (count == MAX_SAME_ERROR_COUNT) {
-		WARN_LOG(G3D, "Too many validation messages with message %d, stopping", messageCode);
+		WARN_LOG(Log::G3D, "Too many validation messages with message %d, stopping", messageCode);
 	}
 	if (count >= MAX_SAME_ERROR_COUNT) {
 		return false;
@@ -155,9 +166,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 #endif
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		ERROR_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		ERROR_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	} else {
-		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		WARN_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	}
 
 	// false indicates that layer should not bail-out of an

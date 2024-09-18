@@ -1,18 +1,21 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 class WordWrapper {
 public:
-	WordWrapper(const char *str, float maxW, int flags)
+	WordWrapper(std::string_view str, float maxW, int flags)
 		: str_(str), maxW_(maxW), flags_(flags) {
 	}
 	virtual ~WordWrapper() {}
 
+	// TODO: This should return a vector of std::string_view for the lines, instead of building up a new string.
 	std::string Wrapped();
 
 protected:
-	virtual float MeasureWidth(const char *str, size_t bytes) = 0;
+	virtual float MeasureWidth(std::string_view str) = 0;
+
 	void Wrap();
 	bool WrapBeforeWord();
 	void AppendWord(int endIndex, int lastChar, bool addNewline);
@@ -26,7 +29,7 @@ protected:
 		return IsSpace(c) || IsShy(c);
 	}
 
-	const char *const str_;
+	const std::string_view str_;
 	const float maxW_;
 	const int flags_;
 	std::string out_;

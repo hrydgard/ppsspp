@@ -36,7 +36,12 @@ enum GpsStatus {
 	GPS_STATE_ON = 3,
 };
 
+constexpr int AUTO_UPDATE_GPSTIME = 10;
+
 GpsStatus gpsStatus = GPS_STATE_OFF;
+GpsData gpsData;
+SatData satData;
+time_t lastGPSTime;
 
 void __UsbGpsInit() {
 	gpsStatus = GPS_STATE_OFF;
@@ -48,6 +53,10 @@ void __UsbGpsDoState(PointerWrap &p) {
 		return;
 
 	Do(p, gpsStatus);
+	if (gpsStatus == GPS_STATE_ON) {
+		GPS::init();
+		System_GPSCommand("open");
+	}
 }
 
 void __UsbGpsShutdown() {
@@ -67,7 +76,6 @@ static int sceUsbGpsGetState(u32 stateAddr) {
 }
 
 static int sceUsbGpsOpen() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbGpsOpen");
 	GPS::init();
 	gpsStatus = GPS_STATE_ON;
 	System_GPSCommand("open");
@@ -75,13 +83,21 @@ static int sceUsbGpsOpen() {
 }
 
 static int sceUsbGpsClose() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbGpsClose");
 	gpsStatus = GPS_STATE_OFF;
 	System_GPSCommand("close");
 	return 0;
 }
 
 static int sceUsbGpsGetData(u32 gpsDataAddr, u32 satDataAddr) {
+	time_t currentTime;
+	time(&currentTime);
+	if (difftime(currentTime, lastGPSTime) > AUTO_UPDATE_GPSTIME)
+	{
+		/* Simulate fresh updates to satisfy MAPLUS 1/2 apps
+		 * when real GPS data isn't available */
+		GPS::setGpsTime(&currentTime);
+	}
+
 	auto gpsData = PSPPointer<GpsData>::Create(gpsDataAddr);
 	if (gpsData.IsValid()) {
 		*gpsData = *GPS::getGpsData();
@@ -117,9 +133,6 @@ void Register_sceUsbGps()
 	RegisterModule("sceUsbGps", ARRAY_SIZE(sceUsbGps), sceUsbGps);
 }
 
-GpsData gpsData;
-SatData satData;
-
 void GPS::init() {
 	time_t currentTime;
 	time(&currentTime);
@@ -131,14 +144,15 @@ void GPS::init() {
 	gpsData.altitude  = 19.0f;
 	gpsData.speed     = 3.0f;
 	gpsData.bearing   = 35.0f;
+	gpsData.garbage2  = 513;
 
-	satData.satellites_in_view = 6;
+	satData.satellites_in_view = 12;
 	for (unsigned char i = 0; i < satData.satellites_in_view; i++) {
 		satData.satInfo[i].id = i + 1; // 1 .. 32
-		satData.satInfo[i].elevation = i * 10;
-		satData.satInfo[i].azimuth = i * 50;
-		satData.satInfo[i].snr = 0;
-		satData.satInfo[i].good = 1;
+		satData.satInfo[i].elevation = 20;
+		satData.satInfo[i].azimuth = i * (360/satData.satellites_in_view);
+		satData.satInfo[i].snr = 45;
+		satData.satInfo[i].good = !!(i % 3);
 	}
 }
 
@@ -155,6 +169,7 @@ void GPS::setGpsTime(time_t *time) {
 }
 
 void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longitude, float altitude, float speed, float bearing) {
+	lastGPSTime = gpsTime;
 	setGpsTime((time_t*)&gpsTime);
 
 	gpsData.hdop      = hdop;

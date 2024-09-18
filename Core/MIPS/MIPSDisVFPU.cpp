@@ -49,7 +49,7 @@
 #define MtxOff 4
 
 inline std::string VNStr(int v, VectorSize size) {
-	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+	static const char * const vfpuCtrlNames[VFPU_CTRL_MAX] = {
 		"SPFX",
 		"TPFX",
 		"DPFX",
@@ -156,8 +156,8 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		size_t outpos = snprintf(out, outSize, "%s\t[", name);
 
-		static const char *regnam[4] = {"X","Y","Z","W"};
-		static const char *constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
+		static const char * const regnam[4] = {"X","Y","Z","W"};
+		static const char * const constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
 		for (int i=0; i<4; i++)
 		{
 			int regnum = (data>>(i*2)) & 3;
@@ -192,7 +192,7 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		size_t outpos = snprintf(out, outSize, "%s\t[", name);
 
-		static const char *satNames[4] = {"", "0:1", "X", "-1:1"};
+		static const char * const satNames[4] = {"", "0:1", "X", "-1:1"};
 		for (int i=0; i<4; i++)
 		{
 			int sat = (data>>i*2)&3;
@@ -228,7 +228,7 @@ namespace MIPSDis
 		int conNum = (op>>16) & 0x1f;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		static const char *constants[32] = 
+		static const char * const constants[32] =
 		{
 			"(undef)",
 			"MaxFloat",

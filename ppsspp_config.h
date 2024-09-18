@@ -11,6 +11,7 @@
 #if defined(_M_IX86) || defined(__i386__) || defined (__EMSCRIPTEN__)
     #define PPSSPP_ARCH_X86 1
     #define PPSSPP_ARCH_32BIT 1
+    #define PPSSPP_ARCH_SSE2 1
     //TODO: Remove this compat define
     #ifndef _M_IX86
         #define _M_IX86 600
@@ -19,6 +20,7 @@
 
 #if (defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)) && !defined(__EMSCRIPTEN__)
     #define PPSSPP_ARCH_AMD64 1
+    #define PPSSPP_ARCH_SSE2 1
     #if defined(__ILP32__)
         #define PPSSPP_ARCH_32BIT 1
     #else
@@ -57,7 +59,7 @@
 #if defined(__aarch64__) || defined(_M_ARM64)
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
-    #define PPSSPP_ARCH_ARM_NEON 1
+    #define PPSSPP_ARCH_ARM_NEON 1  // Applies to both ARM32 and ARM64
     #define PPSSPP_ARCH_ARM64_NEON 1
 #endif
 
@@ -75,7 +77,7 @@
     #define PPSSPP_ARCH_64BIT 1
 #endif
 
-#if defined(__loongarch64)
+#if defined(__loongarch_lp64)
     //https://github.com/gcc-mirror/gcc/blob/master/gcc/config/loongarch/loongarch-c.cc
     #define PPSSPP_ARCH_LOONGARCH64 1
     #define PPSSPP_ARCH_64BIT 1

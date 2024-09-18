@@ -672,7 +672,9 @@ bool CtrlStackTraceView::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 
 void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 {
-	if (row < 0 || row >= (int)frames.size()) {
+	// We should have emptied the list if g_symbolMap is nullptr, but apparently we don't,
+	// so let's have a sanity check here.
+	if (row < 0 || row >= (int)frames.size() || !g_symbolMap) {
 		return;
 	}
 

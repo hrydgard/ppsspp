@@ -24,21 +24,27 @@
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/TabbedDialogScreen.h"
 
-class RemoteISOScreen : public UIDialogScreenWithGameBackground {
+class RemoteISOScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	RemoteISOScreen(const Path &filename);
 
 	const char *tag() const override { return "RemoteISO"; }
+	void CreateTabs() override;
 
 protected:
+	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
+
+	void CreateConnectTab(UI::ViewGroup *viewGroup);
+	void CreateSettingsTab(UI::ViewGroup *viewGroup);
+	bool ShowSearchControls() const override { return false; }
+
 	void update() override;
-	void CreateViews() override;
 
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
 	UI::EventReturn HandleBrowse(UI::EventParams &e);
-	UI::EventReturn HandleSettings(UI::EventParams &e);
 
 	UI::TextView *firewallWarning_ = nullptr;
 	bool serverRunning_ = false;
@@ -85,7 +91,8 @@ protected:
 
 class RemoteISOBrowseScreen : public MainScreen {
 public:
-	RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games);
+	RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games)
+		: url_(url), games_(games) {}
 
 	const char *tag() const override { return "RemoteISOBrowse"; }
 
@@ -96,17 +103,5 @@ protected:
 	std::vector<Path> games_;
 };
 
-class RemoteISOSettingsScreen : public UIDialogScreenWithBackground {
-public:
-	RemoteISOSettingsScreen();
-
-	const char *tag() const override { return "RemoteISOSettings"; }
-
-protected:
-	void update() override;
-	void CreateViews() override;
-
-	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
-
-	bool serverRunning_ = false;
-};
+std::string RemoteSubdir();
+std::string FormatRemoteISOUrl(const char *host, int port, const char *subdir);

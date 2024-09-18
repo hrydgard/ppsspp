@@ -101,7 +101,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
-		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
+		ERROR_LOG_REPORT(Log::G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
 
 		regCache_.Reset(false);
 		EndWrite();

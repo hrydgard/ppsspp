@@ -59,13 +59,13 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 
 		if (!errorMessage.empty()) {
 			if (success) {
-				ERROR_LOG(G3D, "Warnings in shader compilation!");
+				ERROR_LOG(Log::G3D, "Warnings in shader compilation!");
 			} else {
-				ERROR_LOG(G3D, "Error in shader compilation!");
+				ERROR_LOG(Log::G3D, "Error in shader compilation!");
 			}
 			std::string numberedSource = LineNumberString(code);
-			ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-			ERROR_LOG(G3D, "Shader source:\n%s", numberedSource.c_str());
+			ERROR_LOG(Log::G3D, "Messages: %s", errorMessage.c_str());
+			ERROR_LOG(Log::G3D, "Shader source:\n%s", numberedSource.c_str());
 #if PPSSPP_PLATFORM(WINDOWS)
 			OutputDebugStringA("Error messages:\n");
 			OutputDebugStringA(errorMessage.c_str());
@@ -91,8 +91,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			if (tag)
-				delete tag;
+			delete tag;
 		}
 		return shaderModule;
 	};
@@ -116,7 +115,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), new std::string(FragmentShaderDesc(id)));
-	VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
+	VERBOSE_LOG(Log::G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
@@ -148,7 +147,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, Vert
 	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id)));
-	VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
+	VERBOSE_LOG(Log::G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 }
 
 VulkanVertexShader::~VulkanVertexShader() {
@@ -180,7 +179,7 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_GEOMETRY_BIT, source_.c_str(), new std::string(GeometryShaderDesc(id).c_str()));
-	VERBOSE_LOG(G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
+	VERBOSE_LOG(Log::G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
 }
 
 VulkanGeometryShader::~VulkanGeometryShader() {
@@ -393,32 +392,26 @@ std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType 
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
-	{
 		vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *shader) {
 			std::string idstr;
 			id.ToString(&idstr);
 			ids.push_back(idstr);
 		});
 		break;
-	}
 	case SHADER_TYPE_FRAGMENT:
-	{
 		fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *shader) {
 			std::string idstr;
 			id.ToString(&idstr);
 			ids.push_back(idstr);
 		});
 		break;
-	}
 	case SHADER_TYPE_GEOMETRY:
-	{
 		gsCache_.Iterate([&](const GShaderID &id, VulkanGeometryShader *shader) {
 			std::string idstr;
 			id.ToString(&idstr);
 			ids.push_back(idstr);
 		});
 		break;
-	}
 	default:
 		break;
 	}
@@ -507,7 +500,7 @@ enum class VulkanCacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 49
+#define CACHE_VERSION 51
 
 struct VulkanCacheHeader {
 	uint32_t magic;
@@ -526,11 +519,11 @@ bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) 
 	// We'll read it again later, this is just to check the flags.
 	success = success && fseek(f, pos, SEEK_SET) == 0;
 	if (!success || header.magic != CACHE_HEADER_MAGIC) {
-		WARN_LOG(G3D, "Shader cache magic mismatch");
+		WARN_LOG(Log::G3D, "Shader cache magic mismatch");
 		return false;
 	}
 	if (header.version != CACHE_VERSION) {
-		WARN_LOG(G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
+		WARN_LOG(Log::G3D, "Shader cache version mismatch, %d, expected %d", header.version, CACHE_VERSION);
 		return false;
 	}
 
@@ -549,7 +542,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	if (header.useFlags != gstate_c.GetUseFlags()) {
 		// This can simply be a result of sawExactEqualDepth_ having been flipped to true in the previous run.
 		// Let's just keep going.
-		WARN_LOG(G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
+		WARN_LOG(Log::G3D, "Shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
 	} else {
 		// We're compiling shaders now, so they haven't changed anymore.
 		gstate_c.useFlagsChanged = false;
@@ -561,7 +554,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated (in VertexShaders)");
+			ERROR_LOG(Log::G3D, "Vulkan shader cache truncated (in VertexShaders)");
 			return false;
 		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
@@ -570,7 +563,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		uint64_t uniformMask = 0;
 		VertexShaderFlags flags;
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString)) {
-			ERROR_LOG(G3D, "Failed to generate vertex shader during cache load");
+			ERROR_LOG(Log::G3D, "Failed to generate vertex shader during cache load");
 			// We just ignore this one and carry on.
 			failCount++;
 			continue;
@@ -587,14 +580,14 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated (in FragmentShaders)");
+			ERROR_LOG(Log::G3D, "Vulkan shader cache truncated (in FragmentShaders)");
 			return false;
 		}
 		std::string genErrorString;
 		uint64_t uniformMask = 0;
 		FragmentShaderFlags flags;
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
-			ERROR_LOG(G3D, "Failed to generate fragment shader during cache load");
+			ERROR_LOG(Log::G3D, "Failed to generate fragment shader during cache load");
 			// We just ignore this one and carry on.
 			failCount++;
 			continue;
@@ -611,12 +604,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		for (int i = 0; i < header.numGeometryShaders; i++) {
 			GShaderID id;
 			if (fread(&id, sizeof(id), 1, f) != 1) {
-				ERROR_LOG(G3D, "Vulkan shader cache truncated (in GeometryShaders)");
+				ERROR_LOG(Log::G3D, "Vulkan shader cache truncated (in GeometryShaders)");
 				return false;
 			}
 			std::string genErrorString;
 			if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
-				ERROR_LOG(G3D, "Failed to generate geometry shader during cache load");
+				ERROR_LOG(Log::G3D, "Failed to generate geometry shader during cache load");
 				// We just ignore this one and carry on.
 				failCount++;
 				continue;
@@ -629,7 +622,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 	}
 
-	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
+	NOTICE_LOG(Log::G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
 	return true;
 }
 
@@ -655,8 +648,8 @@ void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	if (writeFailed) {
-		ERROR_LOG(G3D, "Failed to write Vulkan shader cache, disk full?");
+		ERROR_LOG(Log::G3D, "Failed to write Vulkan shader cache, disk full?");
 	} else {
-		NOTICE_LOG(G3D, "Saved %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+		NOTICE_LOG(Log::G3D, "Saved %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
 	}
 }

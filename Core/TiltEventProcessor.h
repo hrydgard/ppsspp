@@ -16,3 +16,10 @@ extern float rawTiltAnalogX;
 extern float rawTiltAnalogY;
 
 }  // namespace
+
+namespace MouseEventProcessor {
+
+void ProcessDelta(double now, float dx, float dy);
+void MouseDeltaToAxes(double now, float *mx, float *my);
+
+}  // namespace

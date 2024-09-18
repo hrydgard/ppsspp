@@ -16,13 +16,20 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <deque>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <set>
 #include <cstdlib>
 #include <cstdarg>
+
+// for crc32
+extern "C" {
+#include "zlib.h"
+}
 
 #include "Core/Reporting.h"
 #include "Common/File/VFS/VFS.h"
@@ -30,6 +37,12 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -37,18 +50,15 @@
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
-#include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "Common/Net/HTTPClient.h"
-#include "Common/Net/Resolve.h"
-#include "Common/Net/URL.h"
-#include "Common/Thread/ThreadUtil.h"
 
 namespace Reporting
 {
@@ -104,9 +114,34 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static Path crcFilename;
 	static std::map<Path, u32> crcResults;
-	static volatile bool crcPending = false;
-	static volatile bool crcCancel = false;
+	static std::atomic<bool> crcPending{};
+	static std::atomic<bool> crcCancel{};
 	static std::thread crcThread;
+
+	static u32 CalculateCRC(BlockDevice *blockDevice, std::atomic<bool> *cancel) {
+		auto ga = GetI18NCategory(I18NCat::GAME);
+
+		u32 crc = crc32(0, Z_NULL, 0);
+
+		u8 block[2048];
+		u32 numBlocks = blockDevice->GetNumBlocks();
+		for (u32 i = 0; i < numBlocks; ++i) {
+			if (cancel && *cancel) {
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			if (!blockDevice->ReadBlock(i, block, true)) {
+				ERROR_LOG(Log::FileSystem, "Failed to read block for CRC");
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			crc = crc32(crc, block, 2048);
+			g_OSD.SetProgressBar("crc", std::string(ga->T("Calculate CRC")), 0.0f, (float)numBlocks, (float)i, 0.5f);
+		}
+
+		g_OSD.RemoveProgressBar("crc", true, 0.0f);
+		return crc;
+	}
 
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
@@ -118,7 +153,7 @@ namespace Reporting
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC(&crcCancel);
+			crc = CalculateCRC(blockDevice, &crcCancel);
 		}
 
 		delete blockDevice;
@@ -146,7 +181,7 @@ namespace Reporting
 			return;
 		}
 
-		INFO_LOG(SYSTEM, "Starting CRC calculation");
+		INFO_LOG(Log::System, "Starting CRC calculation");
 		crcFilename = gamePath;
 		crcPending = true;
 		crcCancel = false;
@@ -168,8 +203,10 @@ namespace Reporting
 			it = crcResults.find(gamePath);
 		}
 
-		if (crcThread.joinable())
+		if (crcThread.joinable()) {
+			INFO_LOG(Log::System, "Finished CRC calculation");
 			crcThread.join();
+		}
 		return it->second;
 	}
 
@@ -185,13 +222,13 @@ namespace Reporting
 	static void PurgeCRC() {
 		std::unique_lock<std::mutex> guard(crcLock);
 		if (crcPending) {
-			INFO_LOG(SYSTEM, "Cancelling CRC calculation");
+			INFO_LOG(Log::System, "Cancelling CRC calculation");
 			crcCancel = true;
 			while (crcPending) {
 				crcCond.wait(guard);
 			}
 		} else {
-			DEBUG_LOG(SYSTEM, "No CRC pending");
+			DEBUG_LOG(Log::System, "No CRC pending");
 		}
 
 		if (crcThread.joinable())
@@ -466,8 +503,9 @@ namespace Reporting
 	void AddScreenshotData(MultipartFormDataEncoder &postdata, const Path &filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::ReadFileToString(false, filename, data))
+		if (!filename.empty() && File::ReadBinaryFileToString(filename, &data)) {
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
+		}
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
 		std::vector<u8> iconData;
@@ -551,7 +589,7 @@ namespace Reporting
 		// Disabled when using certain hacks, because they make for poor reports.
 		if (CheatsInEffect() || HLEPlugins::HasEnabled())
 			return false;
-		if (g_Config.iLockedCPUSpeed != 0)
+		if (GetLockedCPUSpeedMhz() != 0)
 			return false;
 		if (g_Config.uJitDisableFlags != 0)
 			return false;
@@ -588,7 +626,7 @@ namespace Reporting
 		return true;
 	}
 
-	bool Enable(bool flag, std::string host)
+	bool Enable(bool flag, const std::string &host)
 	{
 		if (IsSupported() && IsEnabled() != flag)
 		{

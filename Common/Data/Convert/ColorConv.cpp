@@ -617,6 +617,7 @@ void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, u32 numPixels) {
 	u32 i = 0;
 #endif
 
+	// TODO: Add a 64-bit loop too.
 	const u32 *src32 = (const u32 *)src;
 	u32 *dst32 = (u32 *)dst;
 	for (; i < numPixels / 2; i++) {

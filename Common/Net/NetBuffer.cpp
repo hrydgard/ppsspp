@@ -44,14 +44,14 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 				return false;
 			ready = fd_util::WaitUntilReady(sock, CANCEL_INTERVAL, true);
 			if (!ready && time_now_d() > endTimeout) {
-				ERROR_LOG(IO, "FlushSocket timed out");
+				ERROR_LOG(Log::IO, "FlushSocket timed out");
 				return false;
 			}
 		}
-		int sent = send(sock, &data_[pos], (int)(end - pos), MSG_NOSIGNAL);
+		int sent = send(sock, &data_[pos], end - pos, MSG_NOSIGNAL);
 		// TODO: Do we need some retry logic here, instead of just giving up?
 		if (sent < 0) {
-			ERROR_LOG(IO, "FlushSocket failed to send: %d", errno);
+			ERROR_LOG(Log::IO, "FlushSocket failed to send: %d", errno);
 			return false;
 		}
 		pos += sent;
@@ -85,7 +85,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 			ready = fd_util::WaitUntilReady(fd, CANCEL_INTERVAL, false);
 		}
 
-		int retval = recv(fd, &buf[0], (int)buf.size(), MSG_NOSIGNAL);
+		int retval = recv(fd, &buf[0], buf.size(), MSG_NOSIGNAL);
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
@@ -94,7 +94,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 #else
 			if (errno != EWOULDBLOCK) {
 #endif
-				ERROR_LOG(IO, "Error reading from buffer: %i", retval);
+				ERROR_LOG(Log::IO, "Error reading from buffer: %i", retval);
 				return false;
 			}
 
@@ -116,7 +116,7 @@ int Buffer::Read(int fd, size_t sz) {
 	char buf[1024];
 	int retval;
 	size_t received = 0;
-	while ((retval = recv(fd, buf, (int)std::min(sz, sizeof(buf)), MSG_NOSIGNAL)) > 0) {
+	while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), MSG_NOSIGNAL)) > 0) {
 		if (retval < 0) {
 			return retval;
 		}

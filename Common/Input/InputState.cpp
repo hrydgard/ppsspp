@@ -26,7 +26,6 @@ const char *GetDeviceName(int deviceId) {
 	case DEVICE_ID_XINPUT_3: return "x360_4";
 	case DEVICE_ID_ACCELEROMETER: return "accelerometer";
 	case DEVICE_ID_MOUSE: return "mouse";
-	case DEVICE_ID_XR_HMD: return "xr_hmd";
 	case DEVICE_ID_XR_CONTROLLER_LEFT: return "xr_l";
 	case DEVICE_ID_XR_CONTROLLER_RIGHT: return "xr_r";
 	default:
@@ -37,6 +36,7 @@ const char *GetDeviceName(int deviceId) {
 std::vector<InputMapping> dpadKeys;
 std::vector<InputMapping> confirmKeys;
 std::vector<InputMapping> cancelKeys;
+std::vector<InputMapping> infoKeys;
 std::vector<InputMapping> tabLeftKeys;
 std::vector<InputMapping> tabRightKeys;
 static std::unordered_map<InputDeviceID, int> uiFlipAnalogY;
@@ -69,7 +69,11 @@ void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::ve
 	tabRightKeys = tabRight;
 }
 
-void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId) {
+void SetInfoKeys(const std::vector<InputMapping> &info) {
+	infoKeys = info;
+}
+
+void SetAnalogFlipY(const std::unordered_map<InputDeviceID, int> &flipYByDeviceId) {
 	uiFlipAnalogY = flipYByDeviceId;
 }
 
@@ -81,11 +85,12 @@ int GetAnalogYDirection(InputDeviceID deviceId) {
 }
 
 // NOTE: Changing the format of FromConfigString/ToConfigString breaks controls.ini backwards compatibility.
-InputMapping InputMapping::FromConfigString(const std::string &str) {
-	std::vector<std::string> parts;
+InputMapping InputMapping::FromConfigString(const std::string_view str) {
+	std::vector<std::string_view> parts;
 	SplitString(str, '-', parts);
-	InputDeviceID deviceId = (InputDeviceID)(atoi(parts[0].c_str()));
-	InputKeyCode keyCode = (InputKeyCode)atoi(parts[1].c_str());
+	// We only convert to std::string here to add null terminators for atoi.
+	InputDeviceID deviceId = (InputDeviceID)(atoi(std::string(parts[0]).c_str()));
+	InputKeyCode keyCode = (InputKeyCode)atoi(std::string(parts[1]).c_str());
 
 	InputMapping mapping;
 	mapping.deviceId = deviceId;

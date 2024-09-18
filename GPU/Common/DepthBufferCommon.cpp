@@ -76,7 +76,7 @@ void GenerateDepthDownloadVs(ShaderWriter &writer) {
 	writer.EndVSMain(varyings);
 }
 
-static const char *stencil_dl_fs = R"(
+static const char * const stencil_dl_fs = R"(
 #ifdef GL_ES
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -99,7 +99,7 @@ void main() {
 }
 )";
 
-static const char *stencil_vs = R"(
+static const char * const stencil_vs = R"(
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -131,12 +131,10 @@ Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag,
 	ShaderModule *readbackVs = draw->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vs, strlen(vs), vsTag);
 	_assert_(readbackFs && readbackVs);
 
-	InputLayoutDesc desc = {
+	static const InputLayoutDesc desc = {
+		8,
 		{
-			{ 8, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
 		},
 	};
 	InputLayout *inputLayout = draw->CreateInputLayout(desc);
@@ -168,7 +166,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 	using namespace Draw;
 
 	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: bad fbo");
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, Log::sceGe, "ReadbackDepthbufferSync: bad fbo");
 		return false;
 	}
 	// Old desktop GL can download depth, but not upload.

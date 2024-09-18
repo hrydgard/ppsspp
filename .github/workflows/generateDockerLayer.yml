@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
   
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Extract DOCKER_TAG using tag name
       if: startsWith(github.ref, 'refs/tags/')
@@ -25,13 +25,13 @@ jobs:
         echo "DOCKER_TAG=latest" >> $GITHUB_ENV
       
     - name: Login to Github registry
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: ghcr.io
     
-    - uses: docker/build-push-action@v3
+    - uses: docker/build-push-action@v6
       with:
         push: true
         tags: ghcr.io/${{ github.repository }}:${{ env.DOCKER_TAG }}

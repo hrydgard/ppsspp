@@ -12,12 +12,29 @@ OnScreenDisplay g_OSD;
 // Effectively forever.
 constexpr double forever_s = 10000000000.0;
 
+OnScreenDisplay::~OnScreenDisplay() {
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	double now = time_now_d();
+	for (auto &iter : entries_) {
+		if (iter.clickCallback) {
+			// Wasn't clicked, but let it free any data.
+			iter.clickCallback(false, iter.clickUserData);
+		}
+	}
+}
+
 void OnScreenDisplay::Update() {
 	std::lock_guard<std::mutex> guard(mutex_);
 
 	double now = time_now_d();
 	for (auto iter = entries_.begin(); iter != entries_.end(); ) {
 		if (now >= iter->endTime) {
+			if (iter->clickCallback) {
+				// Wasn't clicked, but let it free any data.
+				iter->clickCallback(false, iter->clickUserData);
+				iter->clickCallback = nullptr;
+			}
 			iter = entries_.erase(iter);
 		} else {
 			iter++;
@@ -41,14 +58,17 @@ float OnScreenDisplay::SidebarAlpha() const {
 	return saturatef(1.0f - ((float)timeSinceNudge - 0.1f) * 4.0f);
 }
 
-void OnScreenDisplay::DismissEntry(size_t index, double now) {
+void OnScreenDisplay::ClickEntry(size_t index, double now) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (index < entries_.size() && entries_[index].type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
 		entries_[index].endTime = std::min(now + FadeoutTime(), entries_[index].endTime);
+		if (entries_[index].clickCallback) {
+			entries_[index].clickCallback(true, entries_[index].clickUserData);
+		}
 	}
 }
 
-void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s, const char *id) {
+void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s, const char *id) {
 	// Automatic duration based on type.
 	if (duration_s <= 0.0f) {
 		switch (type) {
@@ -90,7 +110,7 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 		}
 	}
 
-	Entry msg;
+	Entry msg{};
 	msg.text = text;
 	msg.text2 = text2;
 	msg.iconName = icon;
@@ -103,9 +123,12 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 	entries_.insert(entries_.begin(), msg);
 }
 
-void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
+void OnScreenDisplay::ShowOnOff(std::string_view message, bool on, float duration_s) {
+	std::string msg(message);
+	msg += ": ";
+	msg += on ? "on" : "off";
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
-	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
+	Show(OSDType::MESSAGE_INFO, msg, duration_s);
 }
 
 void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
@@ -113,7 +136,7 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 
 	double duration_s = 5.0;
 
-	Entry msg;
+	Entry msg{};
 	msg.numericID = achievementID;
 	msg.type = OSDType::ACHIEVEMENT_UNLOCKED;
 	msg.startTime = now;
@@ -146,7 +169,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	}
 
 	// OK, let's make a new side-entry.
-	Entry entry;
+	Entry entry{};
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
 	entry.startTime = now;
@@ -172,7 +195,7 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	}
 
 	// OK, let's make a new side-entry.
-	Entry entry;
+	Entry entry{};
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
 	entry.startTime = now;
@@ -205,7 +228,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	}
 
 	// OK, let's make a new side-entry.
-	Entry entry;
+	Entry entry{};
 	entry.numericID = leaderboardTrackerID;
 	entry.type = OSDType::LEADERBOARD_TRACKER;
 	entry.startTime = now;
@@ -224,7 +247,7 @@ void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const s
 	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
 }
 
-void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
+void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay) {
 	_dbg_assert_(!my_isnanorinf(progress));
 	_dbg_assert_(!my_isnanorinf(minValue));
 	_dbg_assert_(!my_isnanorinf(maxValue));
@@ -244,10 +267,10 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 		}
 	}
 
-	Entry bar;
+	Entry bar{};
 	bar.id = id;
 	bar.type = OSDType::PROGRESS_BAR;
-	bar.text = std::move(message);
+	bar.text = message;
 	bar.minValue = minValue;
 	bar.maxValue = maxValue;
 	bar.progress = progress;
@@ -256,22 +279,22 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 	entries_.push_back(bar);
 }
 
-void OnScreenDisplay::RemoveProgressBar(std::string id, bool success, float delay_s) {
+void OnScreenDisplay::RemoveProgressBar(const std::string &id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	for (auto iter = entries_.begin(); iter != entries_.end(); iter++) {
-		if (iter->type == OSDType::PROGRESS_BAR && iter->id == id) {
+	for (auto &ent : entries_) {
+		if (ent.type == OSDType::PROGRESS_BAR && ent.id == id) {
 			if (success) {
 				// Quickly shoot up to max, if we weren't there.
-				if (iter->maxValue != 0.0f) {
-					iter->progress = iter->maxValue;
+				if (ent.maxValue != 0.0f) {
+					ent.progress = ent.maxValue;
 				} else {
 					// Fake a full progress
-					iter->minValue = 0;
-					iter->maxValue = 1;
-					iter->progress = 1;
+					ent.minValue = 0;
+					ent.maxValue = 1;
+					ent.progress = 1;
 				}
 			}
-			iter->endTime = time_now_d() + delay_s + FadeoutTime();
+			ent.endTime = time_now_d() + delay_s + FadeoutTime();
 			break;
 		}
 	}
@@ -292,6 +315,17 @@ void OnScreenDisplay::ClearAchievementStuff() {
 			break;
 		default:
 			break;
+		}
+	}
+}
+
+void OnScreenDisplay::SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata) {
+	_dbg_assert_(callback != nullptr);
+	for (auto &ent : entries_) {
+		// protect against dupes.
+		if (ent.id == id && !ent.clickCallback) {
+			ent.clickCallback = callback;
+			ent.clickUserData = userdata;
 		}
 	}
 }

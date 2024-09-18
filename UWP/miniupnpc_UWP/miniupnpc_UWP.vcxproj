@@ -67,7 +67,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;MINIUPNP_STATICLIB;_WINSOCK_DEPRECATED_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../ext/miniupnpc;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../ext/miniupnp-build;../../ext/miniupnp/miniupnpc/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -89,7 +89,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;MINIUPNP_STATICLIB;_WINSOCK_DEPRECATED_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../ext/miniupnpc;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../ext/miniupnp-build;../../ext/miniupnp/miniupnpc/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;MINIUPNP_STATICLIB;_WINSOCK_DEPRECATED_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../ext/miniupnpc;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../ext/miniupnp-build;../../ext/miniupnp/miniupnpc/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,41 +127,39 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\connecthostport.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\igd_desc_parse.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\minisoap.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\minissdpc.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\miniupnpc.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\miniwget.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\minixml.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\portlistingparse.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\receivedata.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpcommands.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpdev.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnperrors.h" />
-    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\upnpreplyparse.h" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\addr_is_reserved.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\connecthostport.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\igd_desc_parse.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\minisoap.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\minissdpc.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\miniupnpc.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\miniwget.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\minixml.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\minixmlvalid.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\portlistingparse.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\receivedata.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\upnpcommands.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\upnpdev.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\upnperrors.c" />
-    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\upnpreplyparse.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\addr_is_reserved.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\connecthostport.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\igd_desc_parse.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\minisoap.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\minissdpc.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\miniupnpc.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\miniwget.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\minixml.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\minixmlvalid.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\portlistingparse.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\receivedata.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\upnpcommands.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\upnpdev.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\upnperrors.c" />
+    <ClCompile Include="..\..\ext\miniupnp\miniupnpc\src\upnpreplyparse.c" />
     <ClCompile Include="pch.c">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\miniupnp\miniupnpc\msvc\genminiupnpcstrings.vbs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\addr_is_reserved.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\codelength.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\connecthostport.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\minisoap.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\minissdpc.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\miniupnpc_socketdef.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\miniwget_private.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\minixml.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\receivedata.h" />
+    <ClInclude Include="..\..\ext\miniupnp\miniupnpc\src\win32_snprintf.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

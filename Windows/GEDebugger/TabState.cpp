@@ -17,6 +17,7 @@
 
 #include "Common/CommonWindows.h"
 #include <commctrl.h>
+#include <array>
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -727,7 +728,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_TEXLEVEL:
 		{
-			const char *mipLevelModes[] = {
+			static constexpr std::array<const char*, 3> mipLevelModes = {
 				"auto + bias",
 				"bias",
 				"slope + bias",
@@ -768,13 +769,13 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_TEXMAPMODE:
 		{
-			const char *uvGenModes[] = {
+			static constexpr std::array<const char*, 4> uvGenModes = {
 				"tex coords",
 				"tex matrix",
 				"tex env map",
 				"unknown (tex coords?)",
 			};
-			const char *uvProjModes[] = {
+			static constexpr std::array<const char*, 4> uvProjModes = {
 				"pos",
 				"uv",
 				"normalized normal",
@@ -812,13 +813,13 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_LIGHTTYPE:
 		{
-			const char *lightComputations[] = {
+			static constexpr std::array<const char*, 4> lightComputations = {
 				"diffuse",
 				"diffuse + spec",
 				"pow(diffuse)",
 				"unknown (diffuse?)",
 			};
-			const char *lightTypes[] = {
+			static constexpr std::array<const char*, 4> lightTypes = {
 				"directional",
 				"point",
 				"spot",

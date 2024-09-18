@@ -43,7 +43,7 @@ bool free_disk_space(const Path &path, int64_t &space) {
 #else
 	if (path.Type() == PathType::CONTENT_URI) {
 		space = Android_GetFreeSpaceByContentUri(path.ToString());
-		INFO_LOG(COMMON, "Free space at '%s': %" PRIu64, path.c_str(), space);
+		INFO_LOG(Log::Common, "Free space at '%s': %" PRIu64, path.c_str(), space);
 		return space >= 0;
 	}
 

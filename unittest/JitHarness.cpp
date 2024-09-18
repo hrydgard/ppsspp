@@ -41,7 +41,7 @@
 void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -84,7 +84,7 @@ double ExecCPUTest(bool clearCache = true) {
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
 		if (cache) {
 			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);
-			WARN_LOG(JIT, "Executed %d target instrs, %d IR, for %d orig", (int)block.targetDisasm.size(), (int)block.irDisasm.size(), (int)block.origDisasm.size());
+			WARN_LOG(Log::JIT, "Executed %d target instrs, %d IR, for %d orig", (int)block.targetDisasm.size(), (int)block.irDisasm.size(), (int)block.origDisasm.size());
 		}
 
 		if (clearCache)
@@ -197,8 +197,10 @@ bool TestJit() {
 		ir_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		jit_speed = ExecCPUTest();
+#if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);
+#endif
 
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();

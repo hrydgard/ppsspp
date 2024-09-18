@@ -2,7 +2,6 @@
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/LibretroGLContext.h"
 #include "libretro/LibretroGLCoreContext.h"
-#include "libretro/libretro.h"
 #include "libretro/LibretroVulkanContext.h"
 #ifdef _WIN32
 #include "libretro/LibretroD3D11Context.h"
@@ -26,9 +25,9 @@ static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->Cont
 bool LibretroHWRenderContext::Init(bool cache_context) {
 	hw_render_.cache_context = cache_context;
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_))
-      return false;
-   libretro_get_proc_address = hw_render_.get_proc_address;
-   return true;
+		return false;
+	libretro_get_proc_address = hw_render_.get_proc_address;
+	return true;
 }
 
 LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor) {
@@ -41,12 +40,14 @@ LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_t
 }
 
 void LibretroHWRenderContext::ContextReset() {
-	INFO_LOG(G3D, "Context reset");
+	INFO_LOG(Log::G3D, "Context reset");
 
-	// needed to restart the thread
-	// TODO: find a way to move this to ContextDestroy.
-	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED) {
-		DestroyDrawContext();
+	if (gpu && Libretro::useEmuThread) {
+		Libretro::EmuThreadPause();
+	}
+
+	if (gpu) {
+		gpu->DeviceLost();
 	}
 
 	if (!draw_) {
@@ -60,17 +61,25 @@ void LibretroHWRenderContext::ContextReset() {
 	if (gpu) {
 		gpu->DeviceRestore(draw_);
 	}
+
+	if (gpu && Libretro::useEmuThread) {
+		Libretro::EmuThreadStart();
+	}
 }
 
 void LibretroHWRenderContext::ContextDestroy() {
-	INFO_LOG(G3D, "Context destroy");
+	INFO_LOG(Log::G3D, "Context destroy");
 
 	if (Libretro::useEmuThread) {
-#if 0
-		Libretro::EmuThreadPause();
-#else
 		Libretro::EmuThreadStop();
-#endif
+	}
+
+	if (gpu) {
+		gpu->DeviceLost();
+	}
+
+	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED) {
+		DestroyDrawContext();
 	}
 
 	if (!hw_render_.cache_context && !Libretro::useEmuThread) {
@@ -88,6 +97,9 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	retro_hw_context_type preferred;
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred))
 		preferred = RETRO_HW_CONTEXT_DUMMY;
+
+	if (Libretro::backend != RETRO_HW_CONTEXT_DUMMY)
+		preferred = Libretro::backend;
 
 #ifndef USING_GLES2
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
@@ -130,7 +142,6 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 
 		ctx = new LibretroD3D9Context();
-
 		if (ctx->Init()) {
 			return ctx;
 		}
@@ -139,6 +150,64 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 #endif
 
 	ctx = new LibretroSoftwareContext();
-   ctx->Init();
-   return ctx;
+	ctx->Init();
+	return ctx;
+}
+
+std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
+	// If the output was small, act like everything outside was 0.
+	// This can happen depending on viewport parameters.
+	u32 safeW = std::min(stride, buffer->GetStride());
+	u32 safeH = std::min(h, buffer->GetHeight());
+
+	std::vector<u32> data;
+	data.resize(stride * h, 0);
+
+	const u32 *pixels32 = (const u32 *)buffer->GetData();
+	const u16 *pixels16 = (const u16 *)buffer->GetData();
+	int outStride = buffer->GetStride();
+#if 0
+	if (!buffer->GetFlipped()) {
+		// Bitmaps are flipped, so we have to compare backwards in this case.
+		int toLastRow = outStride * (h > buffer->GetHeight() ? buffer->GetHeight() - 1 : h - 1);
+		pixels32 += toLastRow;
+		pixels16 += toLastRow;
+		outStride = -outStride;
+	}
+#endif
+	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	u32 *dst = &data[0];
+	if (safeH < h) {
+		dst += (h - safeH) * stride;
+	}
+
+	for (u32 y = 0; y < safeH; ++y) {
+		switch (buffer->GetFormat()) {
+		case GPU_DBG_FORMAT_8888:
+			ConvertBGRA8888ToRGBA8888(&dst[y * stride], pixels32, safeW);
+			break;
+		case GPU_DBG_FORMAT_8888_BGRA:
+			memcpy(&dst[y * stride], pixels32, safeW * sizeof(u32));
+			break;
+
+		case GPU_DBG_FORMAT_565:
+			ConvertRGB565ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_5551:
+			ConvertRGBA5551ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_4444:
+			ConvertRGBA4444ToBGRA8888(&dst[y * stride], pixels16, safeW);
+			break;
+
+		default:
+			data.resize(0);
+			return data;
+		}
+
+		pixels32 += outStride;
+		pixels16 += outStride;
+	}
+
+	return data;
 }

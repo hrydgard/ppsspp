@@ -92,8 +92,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	if (!VulkanLoad()) {
-		*error_message = "Failed to load Vulkan driver library";
+	std::string errorStr;
+	if (!VulkanLoad(&errorStr)) {
+		*error_message = "Failed to load Vulkan driver library: ";
+		(*error_message) += errorStr;
 		return false;
 	}
 
@@ -116,8 +118,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 
-	vulkan_->ChooseDevice(deviceNum);
-	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;

@@ -40,7 +40,7 @@
     <ClInclude Include="..\..\ext\rcheevos\src\rapi\rc_api_common.h">
       <Filter>rapi</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_compat.h">
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_compat.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_internal.h">
@@ -49,13 +49,16 @@
     <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_validate.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_version.h">
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_version.h">
       <Filter>rcheevos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\rcheevos\include\rc_util.h">
+      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\rcheevos\src\rhash\md5.h">
       <Filter>rhash</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_client_internal.h">
+    <ClInclude Include="..\..\ext\rcheevos\src\rc_client_internal.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\rcheevos\include\rc_client.h">
@@ -95,7 +98,7 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\alloc.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\compat.c">
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_compat.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\condition.c">
@@ -137,16 +140,13 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\value.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\cdreader.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c">
       <Filter>rhash</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\rc_client.c">
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_client.c">
+      <Filter>rcheevos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\rcheevos\src\rc_util.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
   </ItemGroup>

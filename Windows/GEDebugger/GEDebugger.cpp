@@ -87,6 +87,8 @@ static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosi
 	DisplayList list;
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		view->setDisplayList(list);
+	} else {
+		view->clearDisplayList();
 	}
 }
 
@@ -291,13 +293,16 @@ void CGEDebugger::SetupPreviews() {
 				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, primaryTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
-				PreviewExport(primaryBuffer_);
+				if (primaryBuffer_)
+					PreviewExport(primaryBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(primaryBuffer_, false);
+				if (primaryBuffer_)
+					PreviewToClipboard(primaryBuffer_, false);
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
-				PreviewToClipboard(primaryBuffer_, true);
+				if (primaryBuffer_)
+					PreviewToClipboard(primaryBuffer_, true);
 				break;
 			case ID_GEDBG_TRACK_PIXEL:
 				primaryTrackX_ = x;
@@ -305,7 +310,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				primaryTrackX_ = 0xFFFFFFFF;
-				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -336,13 +341,16 @@ void CGEDebugger::SetupPreviews() {
 				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, secondTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
-				PreviewExport(secondBuffer_);
+				if (secondBuffer_)
+					PreviewExport(secondBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(secondBuffer_, false);
+				if (secondBuffer_)
+					PreviewToClipboard(secondBuffer_, false);
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
-				PreviewToClipboard(secondBuffer_, true);
+				if (secondBuffer_)
+					PreviewToClipboard(secondBuffer_, true);
 				break;
 			case ID_GEDBG_TRACK_PIXEL:
 				secondTrackX_ = x;
@@ -350,7 +358,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				secondTrackX_ = 0xFFFFFFFF;
-				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -1065,6 +1073,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_ACTIVATE:
 		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 			g_activeWindow = WINDOW_GEDEBUGGER;
+		} else {
+			g_activeWindow = WINDOW_OTHER;
 		}
 		break;
 

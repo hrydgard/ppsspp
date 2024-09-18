@@ -258,6 +258,9 @@
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HW\Atrac3Standalone.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -552,6 +555,9 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\MIPSTracer.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Dialog\PSPDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
@@ -788,7 +794,7 @@
     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64IRCompALU.cpp">
       <Filter>MIPS\ARM64</Filter>
     </ClCompile>
-     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64IRCompBranch.cpp">
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64IRCompBranch.cpp">
       <Filter>MIPS\ARM64</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64IRCompFPU.cpp">
@@ -1189,6 +1195,19 @@
     <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
     <ClCompile Include="..\..\Core\RetroAchievements.cpp" />
     <ClCompile Include="..\..\Core\FrameTiming.cpp" />
+    <ClCompile Include="..\..\Core\Util\GameDB.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceSircs.cpp" />
+    <ClCompile Include="..\..\Core\Util\MemStick.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\AtracCtx.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1297,6 +1316,9 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HW\Atrac3Standalone.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HW\StereoResampler.h">
@@ -1605,6 +1627,9 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Core\Dialog\PSPDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
@@ -1862,6 +1887,19 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
     <ClInclude Include="..\..\Core\RetroAchievements.h" />
     <ClInclude Include="..\..\Core\FrameTiming.h" />
+    <ClInclude Include="..\..\Core\Util\GameDB.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceSircs.h" />
+    <ClInclude Include="..\..\Core\Util\MemStick.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\AtracCtx.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\AtracCtx2.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

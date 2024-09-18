@@ -12,7 +12,7 @@
 
 namespace http {
 
-HTTPSRequest::HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+HTTPSRequest::HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, std::string_view name)
 	: Request(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
@@ -60,7 +60,7 @@ void HTTPSRequest::Join() {
 		res_ = nullptr;
 		req_ = nullptr;
 	} else {
-		ERROR_LOG(IO, "HTTPSDownload::Join not implemented");
+		ERROR_LOG(Log::IO, "HTTPSDownload::Join not implemented");
 	}
 }
 
@@ -77,41 +77,41 @@ bool HTTPSRequest::Done() {
 
 	// -1000 is a code specified by us to represent cancellation, that is unlikely to ever collide with naett error codes.
 	resultCode_ = IsCancelled() ? -1000 : naettGetStatus(res_);
+	int bodyLength;
+	const void *body = naettGetBody(res_, &bodyLength);
+	char *dest = buffer_.Append(bodyLength);
+	memcpy(dest, body, bodyLength);
 	if (resultCode_ < 0) {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {
 		case naettConnectionError:  // -1
-			ERROR_LOG(IO, "Connection error");
+			ERROR_LOG(Log::IO, "Connection error");
 			break;
 		case naettProtocolError:  // -2
-			ERROR_LOG(IO, "Protocol error");
+			ERROR_LOG(Log::IO, "Protocol error");
 			break;
 		case naettReadError:  // -3
-			ERROR_LOG(IO, "Read error");
+			ERROR_LOG(Log::IO, "Read error");
 			break;
 		case naettWriteError:  // -4
-			ERROR_LOG(IO, "Write error");
+			ERROR_LOG(Log::IO, "Write error");
 			break;
 		case naettGenericError:  // -5
-			ERROR_LOG(IO, "Generic error");
+			ERROR_LOG(Log::IO, "Generic error");
 			break;
 		default:
-			ERROR_LOG(IO, "Unhandled naett error %d", resultCode_);
+			ERROR_LOG(Log::IO, "Unhandled naett error %d", resultCode_);
 			break;
 		}
 		failed_ = true;
-		progress_.Update(0, 0, true);
+		progress_.Update(bodyLength, bodyLength, true);
 	} else if (resultCode_ == 200) {
-		int bodyLength;
-		const void *body = naettGetBody(res_, &bodyLength);
-		char *dest = buffer_.Append(bodyLength);
-		memcpy(dest, body, bodyLength);
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-			ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
+			ERROR_LOG(Log::IO, "Failed writing download to '%s'", outfile_.c_str());
 		}
 		progress_.Update(bodyLength, bodyLength, true);
 	} else {
-		WARN_LOG(IO, "Naett request failed: %d", resultCode_);
+		WARN_LOG(Log::IO, "Naett request failed: %d", resultCode_);
 		failed_ = true;
 		progress_.Update(0, 0, true);
 	}

@@ -35,10 +35,10 @@ typedef struct _pspChnnlsvContext2 {
 } pspChnnlsvContext2;
 
 int sceSdSetIndex_(pspChnnlsvContext1& ctx, int value);
-int sceSdRemoveValue_(pspChnnlsvContext1& ctx, u8* data, int length);
-int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, u8* cryptkey);
+int sceSdRemoveValue_(pspChnnlsvContext1& ctx, const u8* data, int length);
+int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, const u8* cryptkey);
 int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen);
 int sceSdCleanList_(pspChnnlsvContext2& ctx);
-int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, u8* in_key);
+int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key);
 
 void Register_sceChnnlsv();

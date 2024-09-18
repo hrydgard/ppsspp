@@ -102,7 +102,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #if !PPSSPP_PLATFORM(SWITCH)
 	case GPUCORE_VULKAN:
 		if (!ctx) {
-			ERROR_LOG(G3D, "Unable to init Vulkan GPU backend, no context");
+			ERROR_LOG(Log::G3D, "Unable to init Vulkan GPU backend, no context");
 			break;
 		}
 		SetGPU(new GPU_Vulkan(ctx, draw));

@@ -308,7 +308,7 @@ private:
 	void Memcpy(u32 ptr, u32 sz);
 	void Texture(int level, u32 ptr, u32 sz);
 	void Framebuf(int level, u32 ptr, u32 sz);
-	void Display(u32 ptr, u32 sz);
+	void Display(u32 ptr, u32 sz, bool allowFlip);
 	void EdramTrans(u32 ptr, u32 sz);
 
 	u32 execMemcpyDest = 0;
@@ -355,7 +355,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 			execListBuf = 0;
 		}
 		if (execListBuf == 0) {
-			ERROR_LOG(SYSTEM, "Unable to allocate for display list");
+			ERROR_LOG(Log::System, "Unable to allocate for display list");
 			return false;
 		}
 
@@ -369,7 +369,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		gpu->EnableInterrupts(true);
 	}
 
-	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
+	u32 pendingSize = (u32)execListQueue.size() * sizeof(u32);
 	// Validate space for jump.
 	u32 allocSize = pendingSize + sz + 8;
 	if (execListPos + allocSize >= execListBuf + LIST_BUF_SIZE) {
@@ -462,7 +462,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
+		ERROR_LOG(Log::System, "Unable to allocate for vertices");
 		return;
 	}
 
@@ -476,7 +476,7 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 void DumpExecute::Indices(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
+		ERROR_LOG(Log::System, "Unable to allocate for indices");
 		return;
 	}
 
@@ -513,7 +513,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 	} else {
 		u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 		if (psp == 0) {
-			ERROR_LOG(SYSTEM, "Unable to allocate for clut");
+			ERROR_LOG(Log::System, "Unable to allocate for clut");
 			return;
 		}
 
@@ -525,7 +525,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
+		ERROR_LOG(Log::System, "Unable to allocate for transfer");
 		return;
 	}
 
@@ -569,7 +569,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
+		ERROR_LOG(Log::System, "Unable to allocate for texture");
 		return;
 	}
 
@@ -616,7 +616,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	}
 }
 
-void DumpExecute::Display(u32 ptr, u32 sz) {
+void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
 		int linesize, pixelFormat;
@@ -628,7 +628,9 @@ void DumpExecute::Display(u32 ptr, u32 sz) {
 	SyncStall();
 
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
-	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
+	if (allowFlip) {
+		__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
+	}
 }
 
 void DumpExecute::EdramTrans(u32 ptr, u32 sz) {
@@ -657,7 +659,8 @@ bool DumpExecute::Run() {
 	if (gpu)
 		gpu->SetAddrTranslation(0x400);
 
-	for (const Command &cmd : commands_) {
+	for (size_t i = 0; i < commands_.size(); i++) {
+		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
 			Init(cmd.ptr, cmd.sz);
@@ -726,11 +729,11 @@ bool DumpExecute::Run() {
 			break;
 
 		case CommandType::DISPLAY:
-			Display(cmd.ptr, cmd.sz);
+			Display(cmd.ptr, cmd.sz, i == commands_.size() - 1);
 			break;
 
 		default:
-			ERROR_LOG(SYSTEM, "Unsupported GE dump command: %d", (int)cmd.type);
+			ERROR_LOG(Log::System, "Unsupported GE dump command: %d", (int)cmd.type);
 			return false;
 		}
 	}
@@ -785,7 +788,7 @@ bool RunMountedReplay(const std::string &filename) {
 		version = header.version;
 
 		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
-			ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+			ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
 			pspFileSystem.CloseFile(fp);
 			return false;
 		}
@@ -814,7 +817,7 @@ bool RunMountedReplay(const std::string &filename) {
 		pspFileSystem.CloseFile(fp);
 
 		if (truncated) {
-			ERROR_LOG(SYSTEM, "Truncated GE dump");
+			ERROR_LOG(Log::System, "Truncated GE dump");
 			return false;
 		}
 

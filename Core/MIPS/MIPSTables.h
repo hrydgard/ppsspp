@@ -92,6 +92,8 @@
 
 #define OUT_VD          0x100000000000ULL
 
+#define IS_SYSCALL      0x200000000000ULL
+
 #ifndef CDECL
 #define CDECL
 #endif

@@ -196,7 +196,7 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
+			WARN_LOG(Log::System, "Unable to register raw input devices: %s", GetLastErrorMsg().c_str());
 		}
 	}
 
@@ -317,11 +317,7 @@ namespace WindowsRawInput {
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
-		float mx, my;
-		g_inputManager.AccumulateMouseDeltas(raw->data.mouse.lLastX, raw->data.mouse.lLastY, &mx, &my);
-
-		HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mx;
-		HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = my;
+		NativeMouseDelta(raw->data.mouse.lLastX, raw->data.mouse.lLastY);
 
 		static const int rawInputDownID[5] = {
 			RI_MOUSE_LEFT_BUTTON_DOWN,
@@ -447,9 +443,7 @@ namespace WindowsRawInput {
 	}
 
 	void Shutdown() {
-		if (rawInputBuffer) {
-			free(rawInputBuffer);
-		}
+		free(rawInputBuffer);
 		rawInputBuffer = 0;
 	}
 };

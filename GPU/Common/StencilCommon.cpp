@@ -119,7 +119,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
 
-	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO)) {
 		writer.C("layout (depth_unchanged) out float gl_FragDepth;\n");
 	}
 
@@ -137,7 +137,7 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 		writer.C("  if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
 	}
 
-	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+	if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO)) {
 		writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
@@ -166,7 +166,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	using namespace Draw;
 
 	addr &= 0x3FFFFFFF;
-	if (!MayIntersectFramebuffer(addr)) {
+	if (!MayIntersectFramebufferColor(addr)) {
 		return false;
 	}
 
@@ -230,11 +230,9 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		_assert_(stencilUploadFs && stencilUploadVs);
 
 		InputLayoutDesc desc = {
+			8,
 			{
-				{ 8, false },
-			},
-			{
-				{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+				{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
 			},
 		};
 		InputLayout *inputLayout = draw_->CreateInputLayout(desc);

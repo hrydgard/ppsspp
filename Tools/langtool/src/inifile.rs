@@ -120,12 +120,9 @@ impl IniFile {
     }
 
     pub fn get_section_mut(&mut self, section_name: &str) -> Option<&mut Section> {
-        for section in &mut self.sections {
-            if section.name == section_name {
-                return Some(section);
-            }
-        }
-        None
+        self.sections
+            .iter_mut()
+            .find(|section| section.name == section_name)
     }
 }
 

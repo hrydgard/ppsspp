@@ -149,6 +149,26 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_THUMBL;
 	case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
 		return NKCODE_BUTTON_THUMBR;
+
+	// Found these limits by checking out the SDL2 branch of the SDL repo, doing git blame, then `git tag --contains (commit)` etc.
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+	case SDL_CONTROLLER_BUTTON_MISC1:
+		return NKCODE_BUTTON_11;
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 28)
+	case SDL_CONTROLLER_BUTTON_PADDLE1:
+		return NKCODE_BUTTON_12;
+	case SDL_CONTROLLER_BUTTON_PADDLE2:
+		return NKCODE_BUTTON_13;
+	case SDL_CONTROLLER_BUTTON_PADDLE3:
+		return NKCODE_BUTTON_14;
+	case SDL_CONTROLLER_BUTTON_PADDLE4:
+		return NKCODE_BUTTON_15;
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 14)
+	case SDL_CONTROLLER_BUTTON_TOUCHPAD:
+		return NKCODE_BUTTON_16;
+#endif
 	case SDL_CONTROLLER_BUTTON_INVALID:
 	default:
 		return NKCODE_UNKNOWN;
@@ -182,15 +202,28 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 		}
 		break;
 	case SDL_CONTROLLERAXISMOTION:
-		AxisInput axis;
-		// TODO: Can we really cast axis events like that? Do they match?
-		axis.axisId = (InputAxis)event.caxis.axis;
-		axis.value = event.caxis.value / 32767.0f;
-		if (axis.value > 1.0f) axis.value = 1.0f;
-		if (axis.value < -1.0f) axis.value = -1.0f;
-		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
-		NativeAxis(&axis, 1);
+	{
+		InputDeviceID deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
+		// TODO: Can we really cast axis IDs like that? Do they match?
+		InputAxis axisId = (InputAxis)event.caxis.axis;
+		float value = event.caxis.value * (1.f / 32767.f);
+		if (value > 1.0f) value = 1.0f;
+		if (value < -1.0f) value = -1.0f;
+		// Filter duplicate axis values.
+		auto key = std::pair<InputDeviceID, InputAxis>(deviceId, axisId);
+		auto iter = prevAxisValue_.find(key);
+		if (iter == prevAxisValue_.end()) {
+			prevAxisValue_[key] = value;
+		} else if (iter->second != value) {
+			iter->second = value;
+			AxisInput axis;
+			axis.axisId = axisId;
+			axis.value = value;
+			axis.deviceId = deviceId;
+			NativeAxis(&axis, 1);
+		}  // else ignore event.
 		break;
+	}
 	case SDL_CONTROLLERDEVICEREMOVED:
 		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED
 		for (auto it = controllers.begin(); it != controllers.end(); ++it) {

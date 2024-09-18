@@ -27,6 +27,8 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/W32Util/ContextMenu.h"
 
+#include "Core/System.h"
+
 const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
 
 using namespace Lin;
@@ -114,7 +116,7 @@ void SimpleGLWindow::SetupGL() {
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
 
-#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(COMMON, "SimpleGLWindow: %s (%08x)", msg, (uint32_t)GetLastError()); return; } }
+#define ENFORCE(x, msg) { if (!(x)) { ERROR_LOG(Log::Common, "SimpleGLWindow: %s (%08x)", msg, (uint32_t)GetLastError()); return; } }
 
 	ENFORCE(hDC_ = GetDC(hWnd_), "Unable to create DC.");
 	ENFORCE(pixelFormat = ChoosePixelFormat(hDC_, &pfd), "Unable to match pixel format.");
@@ -198,9 +200,10 @@ void SimpleGLWindow::GenerateChecker() {
 		return;
 	}
 
-	const static u8 checkerboard[] = {
-		255,255,255,255, 195,195,195,255,
-		195,195,195,255, 255,255,255,255,
+	// 2x2 RGBA bitmap
+	static const u8 checkerboard[] = {
+		192,192,192,255, 128,128,128,255,
+		128,128,128,255, 192,192,192,255,
 	};
 
 	wglMakeCurrent(hDC_, hGLRC_);
@@ -591,6 +594,13 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	POINT pos = PosFromMouse(mouseX, mouseY);
 
 	rightClickCallback_(0, pos.x, pos.y);
+
+	// We don't want to let the users play with deallocated or uninitialized debugging objects
+	GlobalUIState state = GetUIState();
+	if (state != UISTATE_INGAME && state != UISTATE_PAUSEMENU) {
+		return true;
+	}
+
 	int result = TriggerContextMenu(rightClickMenu_, hWnd_, ContextPoint::FromClient(pt));
 	if (result > 0) {
 		rightClickCallback_(result, pos.x, pos.y);

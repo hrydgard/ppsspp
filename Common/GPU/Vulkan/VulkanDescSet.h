@@ -25,10 +25,18 @@ public:
 	// Use only for the current frame.
 	bool Allocate(VkDescriptorSet *descriptorSets, int count, const VkDescriptorSetLayout *layouts);
 	void Reset();
+
+	// This queues up destruction.
 	void Destroy();
+	// This actually destroys immediately.
+	void DestroyImmediately();
 
 	bool IsDestroyed() const {
 		return !descPool_;
+	}
+
+	void SetTag(const char *tag) {
+		tag_ = tag;
 	}
 
 private:

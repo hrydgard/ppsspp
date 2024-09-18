@@ -39,13 +39,11 @@ void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
 	using namespace Draw;
 	InputLayoutDesc desc = {
+		sizeof(Vertex),
 		{
-			{ sizeof(Vertex), false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+			{ SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
+			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
+			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 
@@ -71,7 +69,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 	if (!pipeline_) {
-		ERROR_LOG(G3D, "DrawBuffer: No program set, skipping flush!");
+		ERROR_LOG(Log::G3D, "DrawBuffer: No program set, skipping flush!");
 		count_ = 0;
 		return;
 	}
@@ -448,34 +446,31 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 class AtlasWordWrapper : public WordWrapper {
 public:
 	// Note: maxW may be height if rotated.
-	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW, int flags) : WordWrapper(str, maxW, flags), atlasfont_(atlasfont), scale_(scale) {
+	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, std::string_view str, float maxW, int flags)
+		: WordWrapper(str, maxW, flags), atlasfont_(atlasfont), scale_(scale) {
 	}
 
 protected:
-	float MeasureWidth(const char *str, size_t bytes) override;
+	float MeasureWidth(std::string_view str) override;
 
 	const AtlasFont &atlasfont_;
 	const float scale_;
 };
 
-float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+float AtlasWordWrapper::MeasureWidth(std::string_view str) {
 	float w = 0.0f;
-	for (UTF8 utf(str); utf.byteIndex() < (int)bytes; ) {
+	for (UTF8 utf(str); !utf.end(); ) {
 		uint32_t c = utf.next();
-		if (c == '&') {
-			// Skip ampersand prefixes ("&&" is an ampersand.)
-			c = utf.next();
-		}
 		const AtlasChar *ch = atlasfont_.getChar(c);
-		if (!ch)
+		if (!ch) {
 			ch = atlasfont_.getChar('?');
-
+		}
 		w += ch->wx * scale_;
 	}
 	return w;
 }
 
-void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, float *w, float *h) {
+void DrawBuffer::MeasureText(FontID font, std::string_view text, float *w, float *h) {
 	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
 	if (!atlasfont)
 		atlasfont = atlas->getFont(font);
@@ -493,7 +488,7 @@ void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, floa
 	while (true) {
 		if (utf.end())
 			break;
-		if (utf.byteIndex() >= count)
+		if (utf.byteIndex() >= text.length())
 			break;
 		cval = utf.next();
 		// Translate non-breaking space to space.
@@ -519,14 +514,14 @@ void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, floa
 	if (h) *h = atlasfont->height * fontscaley * lines;
 }
 
-void DrawBuffer::MeasureTextRect(FontID font_id, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
-	if (!text || font_id.isInvalid()) {
+void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bounds &bounds, float *w, float *h, int align) {
+	if (text.empty() || font_id.isInvalid()) {
 		*w = 0.0f;
 		*h = 0.0f;
 		return;
 	}
 
-	std::string toMeasure = std::string(text, count);
+	std::string toMeasure = std::string(text);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		const AtlasFont *font = fontAtlas_->getFont(font_id);
@@ -537,17 +532,13 @@ void DrawBuffer::MeasureTextRect(FontID font_id, const char *text, int count, co
 			*h = 0.0f;
 			return;
 		}
-		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure.c_str(), bounds.w, wrap);
+		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, bounds.w, wrap);
 		toMeasure = wrapper.Wrapped();
 	}
-	MeasureTextCount(font_id, toMeasure.c_str(), (int)toMeasure.length(), w, h);
+	MeasureText(font_id, toMeasure, w, h);
 }
 
-void DrawBuffer::MeasureText(FontID font, const char *text, float *w, float *h) {
-	return MeasureTextCount(font, text, (int)strlen(text), w, h);
-}
-
-void DrawBuffer::DrawTextShadow(FontID font, const char *text, float x, float y, Color color, int flags) {
+void DrawBuffer::DrawTextShadow(FontID font, std::string_view text, float x, float y, Color color, int flags) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	DrawText(font, text, x + 2, y + 2, alpha, flags);
 	DrawText(font, text, x, y, color, flags);
@@ -558,15 +549,10 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 	if (flags & ALIGN_RIGHT) *x -= *w;
 	if (flags & ALIGN_VCENTER) *y -= *h / 2;
 	if (flags & ALIGN_BOTTOM) *y -= *h;
-	if (flags & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) {
-		std::swap(*w, *h);
-		std::swap(*x, *y);
-	}
 }
 
-
 // TODO: Actually use the rect properly, take bounds.
-void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color, int align) {
+void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float y, float w, float h, Color color, int align) {
 	if (align & ALIGN_HCENTER) {
 		x += w / 2;
 	} else if (align & ALIGN_RIGHT) {
@@ -578,18 +564,18 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 		y += h;
 	}
 
-	std::string toDraw = text;
+	std::string toDraw(text);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
 	if (!atlasfont)
 		atlasfont = atlas->getFont(font);
 	if (wrap && atlasfont) {
-		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
+		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw, w, wrap);
 		toDraw = wrapper.Wrapped();
 	}
 
 	float totalWidth, totalHeight;
-	MeasureTextRect(font, toDraw.c_str(), (int)toDraw.size(), Bounds(x, y, w, h), &totalWidth, &totalHeight, align);
+	MeasureTextRect(font, toDraw, Bounds(x, y, w, h), &totalWidth, &totalHeight, align);
 
 	std::vector<std::string> lines;
 	SplitString(toDraw, '\n', lines);
@@ -608,21 +594,22 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 		DrawText(font, line.c_str(), x, baseY, color, align);
 
 		float tw, th;
-		MeasureText(font, line.c_str(), &tw, &th);
+		MeasureText(font, line, &tw, &th);
 		baseY += th;
 	}
 }
 
 // ROTATE_* doesn't yet work right.
-void DrawBuffer::DrawText(FontID font, const char *text, float x, float y, Color color, int align) {
+void DrawBuffer::DrawText(FontID font, std::string_view text, float x, float y, Color color, int align) {
 	// rough estimate
-	size_t textLen = strlen(text);
+	int textLen = (int)text.length();
 	if (count_ + textLen * 6 > MAX_VERTS) {
 		Flush(true);
 		if (textLen * 6 >= MAX_VERTS) {
 			textLen = std::min(MAX_VERTS / 6 - 10, (int)textLen);
 		}
 	}
+	text = text.substr(0, textLen);
 
 	const AtlasFont *atlasfont = fontAtlas_->getFont(font);
 	if (!atlasfont)
@@ -636,12 +623,8 @@ void DrawBuffer::DrawText(FontID font, const char *text, float x, float y, Color
 		DoAlign(align, &x, &y, &w, &h);
 	}
 
-	if (align & ROTATE_90DEG_LEFT) {
-		x -= atlasfont->ascend * fontscaley;
-		// y += h;
-	} else {
-		y += atlasfont->ascend * fontscaley;
-	}
+	y += atlasfont->ascend * fontscaley;
+
 	float sx = x;
 	UTF8 utf(text);
 	for (size_t i = 0; i < textLen; i++) {
@@ -667,27 +650,17 @@ void DrawBuffer::DrawText(FontID font, const char *text, float x, float y, Color
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;
-			if (align & ROTATE_90DEG_LEFT) {
-				cy1 = y - c.ox * fontscalex;
-				cx1 = x + c.oy * fontscaley;
-				cy2 = y - (c.ox + c.pw) * fontscalex;
-				cx2 = x + (c.oy + c.ph) * fontscaley;
-			} else {
-				cx1 = x + c.ox * fontscalex;
-				cy1 = y + c.oy * fontscaley;
-				cx2 = x + (c.ox + c.pw) * fontscalex;
-				cy2 = y + (c.oy + c.ph) * fontscaley;
-			}
+			cx1 = x + c.ox * fontscalex;
+			cy1 = y + c.oy * fontscaley;
+			cx2 = x + (c.ox + c.pw) * fontscalex;
+			cy2 = y + (c.oy + c.ph) * fontscaley;
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy1, color, c.ex, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy2, color, c.sx, c.ey);
-			if (align & ROTATE_90DEG_LEFT)
-				y -= c.wx * fontscalex;
-			else
-				x += c.wx * fontscalex;
+			x += c.wx * fontscalex;
 		}
 	}
 }

@@ -81,10 +81,6 @@ public:
 	}
 
 protected:
-	float GetButtonOpacity() override {
-		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-		return std::max(0.5f, opacity);
-	}
 	const Bounds &screenBounds_;
 	float &theScale_;
 	float &x_, &y_;
@@ -116,8 +112,9 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
@@ -244,8 +241,9 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
@@ -286,8 +284,9 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t downBg = colorAlpha(0x00FFFFFF, GetButtonOpacity() * 0.5f);
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
 
 		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
@@ -371,8 +370,8 @@ public:
 	int mode_ = 0;
 };
 
-static Point ClampTo(const Point &p, const Bounds &b) {
-	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
+static Point2D ClampTo(const Point2D &p, const Bounds &b) {
+	return Point2D(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
 }
 
 bool ControlLayoutView::Touch(const TouchInput &touch) {
@@ -394,7 +393,7 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			//validRange.y += controlBounds.h * 0.5f;
 			//validRange.h -= controlBounds.h;
 
-			Point newPos;
+			Point2D newPos;
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
 			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
@@ -447,6 +446,8 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 }
 
 void ControlLayoutView::Draw(UIContext& dc) {
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+	GamepadUpdateOpacity(std::max(0.5f, opacity));
 	using namespace UI;
 	dc.FillRect(Drawable(0x80000000), bounds_);
 	dc.Flush();
@@ -513,6 +514,8 @@ void ControlLayoutView::CreateViews() {
 	auto addDragCustomKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;
 		if (pos.show) {
+
+
 			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyImages[cfg.image].i, bounds);
 			b->FlipImageH(customKeyShapes[cfg.shape].f);
 			b->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
@@ -522,6 +525,14 @@ void ControlLayoutView::CreateViews() {
 	};
 
 	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		// Similar to GamepadEmu, we sanitize the images for valid values.
+		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
+			g_Config.CustomButton[i].shape = 0;
+		}
+		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
+			g_Config.CustomButton[i].image = 0;
+		}
+
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i);
 		addDragCustomKey(g_Config.touchCustom[i], temp, g_Config.CustomButton[i]);
@@ -572,7 +583,7 @@ UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	INFO_LOG(G3D, "Resetting touch control layout");
+	INFO_LOG(Log::G3D, "Resetting touch control layout");
 	g_Config.ResetControlLayout();
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);

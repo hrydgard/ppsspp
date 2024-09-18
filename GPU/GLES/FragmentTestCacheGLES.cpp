@@ -85,7 +85,7 @@ void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	cache_[id] = item;
 }
 
-FragmentTestID FragmentTestCacheGLES::GenerateTestID() const {
+FragmentTestID FragmentTestCacheGLES::GenerateTestID() {
 	FragmentTestID id;
 	// Let's just keep it simple, it's all in here.
 	id.alpha = gstate.isAlphaTestEnabled() ? gstate.alphatest : 0;

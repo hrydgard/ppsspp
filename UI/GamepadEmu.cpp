@@ -39,40 +39,17 @@ const float TOUCH_SCALE_FACTOR = 1.5f;
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
-static u32 GetButtonColor() {
-	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
-}
+static float g_gamepadOpacity;
+static double g_lastTouch;
 
-GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {
-	lastFrameTime_ = time_now_d();
-}
-
-bool GamepadView::Touch(const TouchInput &input) {
-	secondsWithoutTouch_ = 0.0f;
-	return true;
-}
-
-void GamepadView::Update() {
-	const double now = time_now_d();
-	float delta = now - lastFrameTime_;
-	if (delta > 0) {
-		secondsWithoutTouch_ += delta;
+void GamepadUpdateOpacity(float force) {
+	if (force >= 0.0f) {
+		g_gamepadOpacity = force;
+		return;
 	}
-	lastFrameTime_ = now;
-}
-
-std::string GamepadView::DescribeText() const {
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	return co->T(key_);
-}
-
-float GamepadView::GetButtonOpacity() {
-	if (forceVisible_) {
-		return 1.0f;
-	}
-
 	if (coreState != CORE_RUNNING) {
-		return 0.0f;
+		g_gamepadOpacity = 0.0f;
+		return;
 	}
 
 	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
@@ -80,16 +57,36 @@ float GamepadView::GetButtonOpacity() {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 	float multiplier = 1.0f;
-	if (secondsWithoutTouch_ >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
-		if (secondsWithoutTouch_ >= fadeAfterSeconds + fadeTransitionSeconds) {
+	float secondsWithoutTouch = time_now_d() - g_lastTouch;
+	if (secondsWithoutTouch >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
+		if (secondsWithoutTouch >= fadeAfterSeconds + fadeTransitionSeconds) {
 			multiplier = 0.0f;
 		} else {
-			float secondsIntoFade = secondsWithoutTouch_ - fadeAfterSeconds;
+			float secondsIntoFade = secondsWithoutTouch - fadeAfterSeconds;
 			multiplier = 1.0f - (secondsIntoFade / fadeTransitionSeconds);
 		}
 	}
 
-	return opacity * multiplier;
+	g_gamepadOpacity = opacity * multiplier;
+}
+
+void GamepadTouch(bool reset) {
+	g_lastTouch = reset ? 0.0f : time_now_d();
+}
+
+float GamepadGetOpacity() {
+	return g_gamepadOpacity;
+}
+
+static u32 GetButtonColor() {
+	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
+}
+
+GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
+
+std::string GamepadView::DescribeText() const {
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	return std::string(co->T(key_));
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -127,7 +124,7 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -371,7 +368,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 }
 
 void PSPDpad::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -421,7 +418,7 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void PSPStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -524,12 +521,12 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
-PSPCustomStick::PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams)
-	: PSPStick(bgImg, key, stickImg, stickDownImg, -1, scale, layoutParams) {
+PSPCustomStick::PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
+	: PSPStick(bgImg, key, stickImg, stickDownImg, stick, scale, layoutParams) {
 }
 
 void PSPCustomStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -610,7 +607,7 @@ bool PSPCustomStick::Touch(const TouchInput &input) {
 
 void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 	static const int buttons[] = {0, CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
-
+	static const int analogs[] = {VIRTKEY_AXIS_RIGHT_Y_MAX, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX, VIRTKEY_AXIS_Y_MAX, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX};
 	u32 press = 0;
 	u32 release = 0;
 
@@ -622,6 +619,71 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 			press |= buttons[config];
 		else
 			release |= buttons[config];
+	};
+
+	auto analog = [&](float dx, float dy) {
+		if (g_Config.bRightAnalogDisableDiagonal) {
+			if (fabs(dx) > fabs(dy)) {
+				dy = 0.0f;
+			} else {
+				dx = 0.0f;
+			}
+		}
+
+		auto assign = [&](int config, float value) {
+			if (config < ARRAY_SIZE(buttons) || config >= ARRAY_SIZE(buttons) + ARRAY_SIZE(analogs)) {
+				return;
+			}
+			switch(analogs[config - ARRAY_SIZE(buttons)]) {
+			case VIRTKEY_AXIS_Y_MAX:
+				__CtrlSetAnalogY(0, value);
+				break;
+			case VIRTKEY_AXIS_Y_MIN:
+				__CtrlSetAnalogY(0, value * -1.0f);
+				break;
+			case VIRTKEY_AXIS_X_MIN:
+				__CtrlSetAnalogX(0, value * -1.0f);
+				break;
+			case VIRTKEY_AXIS_X_MAX:
+				__CtrlSetAnalogX(0, value);
+				break;
+			case VIRTKEY_AXIS_RIGHT_Y_MAX:
+				__CtrlSetAnalogY(1, value);
+				break;
+			case VIRTKEY_AXIS_RIGHT_Y_MIN:
+				__CtrlSetAnalogY(1, value * -1.0f);
+				break;
+			case VIRTKEY_AXIS_RIGHT_X_MIN:
+				__CtrlSetAnalogX(1, value * -1.0f);
+				break;
+			case VIRTKEY_AXIS_RIGHT_X_MAX:
+				__CtrlSetAnalogX(1, value);
+				break;
+			}
+		};
+
+		// if/when we ever get iLeftAnalog settings, check stick_ for the config to use
+		// let 0.0f through during centering
+		if (dy >= 0.0f) {
+			// down
+			assign(g_Config.iRightAnalogUp, 0.0f);
+			assign(g_Config.iRightAnalogDown, dy);
+		}
+		if (dy <= 0.0f) {
+			// up
+			assign(g_Config.iRightAnalogDown, 0.0f);
+			assign(g_Config.iRightAnalogUp, dy * -1.0f);
+		}
+		if (dx <= 0.0f) {
+			// left
+			assign(g_Config.iRightAnalogRight, 0.0f);
+			assign(g_Config.iRightAnalogLeft, dx * -1.0f);
+		}
+		if (dx >= 0.0f) {
+			// right
+			assign(g_Config.iRightAnalogLeft, 0.0f);
+			assign(g_Config.iRightAnalogRight, dx);
+		}
 	};
 
 	if (down && centerX_ >= 0.0f) {
@@ -639,6 +701,8 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		toggle(g_Config.iRightAnalogDown, dy > 0.5f, fabs(dx) <= fabs(dy));
 		toggle(g_Config.iRightAnalogPress, true);
 
+		analog(dx, dy);
+
 		posX_ = dx;
 		posY_ = dy;
 
@@ -648,6 +712,8 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		toggle(g_Config.iRightAnalogUp, false);
 		toggle(g_Config.iRightAnalogDown, false);
 		toggle(g_Config.iRightAnalogPress, false);
+
+		analog(0.0f, 0.0f);
 
 		posX_ = 0.0f;
 		posY_ = 0.0f;
@@ -715,16 +781,23 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 		bottom_key_spacing *= 0.8f;
 	}
 
+// On IOS, nudge the bottom button up a little to avoid the task switcher.
+#if PPSSPP_PLATFORM(IOS)
+	const float bottom_button_Y = 80.0f;
+#else
+	const float bottom_button_Y = 60.0f;
+#endif
+
 	int start_key_X = halfW + bottom_key_spacing * scale;
-	int start_key_Y = yres - 60 * scale;
+	int start_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchStartKey, start_key_X, start_key_Y);
 
 	int select_key_X = halfW;
-	int select_key_Y = yres - 60 * scale;
+	int select_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchSelectKey, select_key_X, select_key_Y);
 
 	int fast_forward_key_X = halfW - bottom_key_spacing * scale;
-	int fast_forward_key_Y = yres - 60 * scale;
+	int fast_forward_key_Y = yres - bottom_button_Y * scale;
 	initTouchPos(g_Config.touchFastForwardKey, fast_forward_key_X, fast_forward_key_Y);
 
 	// L and R------------------------------------------------------------
@@ -791,7 +864,6 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	const ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	const ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
 	const ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
-	const ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 	const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 
@@ -810,6 +882,10 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
 		using namespace CustomKeyData;
 		if (touch.show) {
+			_dbg_assert_(cfg.shape < ARRAY_SIZE(customKeyShapes));
+			_dbg_assert_(cfg.image < ARRAY_SIZE(customKeyImages));
+
+			// Note: cfg.shape and cfg.image are bounds-checked elsewhere.
 			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
 					g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyShapes[cfg.shape].i,
 					customKeyImages[cfg.image].i, touch.scale, customKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
@@ -853,20 +929,30 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	if (rTrigger)
 		rTrigger->FlipImageH(true);
 
-	if (g_Config.touchDpad.show)
+	if (g_Config.touchDpad.show) {
+		const ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 		root->Add(new PSPDpad(dirImage, "D-pad", ImageID("I_DIR"), ImageID("I_ARROW"), g_Config.touchDpad.scale, g_Config.fDpadSpacing, buttonLayoutParams(g_Config.touchDpad)));
+	}
 
 	if (g_Config.touchAnalogStick.show)
 		root->Add(new PSPStick(stickBg, "Left analog stick", stickImage, ImageID("I_STICK"), 0, g_Config.touchAnalogStick.scale, buttonLayoutParams(g_Config.touchAnalogStick)));
 
 	if (g_Config.touchRightAnalogStick.show) {
 		if (g_Config.bRightAnalogCustom)
-			root->Add(new PSPCustomStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+			root->Add(new PSPCustomStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 		else
 			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
+	// Sanitize custom button images, while adding them.
 	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
+			g_Config.CustomButton[i].shape = 0;
+		}
+		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
+			g_Config.CustomButton[i].image = 0;
+		}
+
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i + 1);
 		addCustomButton(g_Config.CustomButton[i], temp, g_Config.touchCustom[i]);
@@ -954,7 +1040,6 @@ void GestureGamepad::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }
-
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;

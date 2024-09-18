@@ -13,7 +13,7 @@
 #include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
 #include "DebuggerShared.h"
-#include "LogManager.h"
+#include "Common/Log.h"
 #include "winnt.h"
 #include <WindowsX.h>
 #include <algorithm>
@@ -115,7 +115,7 @@ void CMemoryDlg::Update(void)
 	}	
 }
 
-void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
+void CMemoryDlg::searchBoxRedraw(const std::vector<u32> &results) {
 	wchar_t temp[256]{};
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);

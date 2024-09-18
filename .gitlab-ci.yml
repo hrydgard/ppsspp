@@ -103,6 +103,8 @@ libretro-build-linux-i686:
 libretro-build-osx-x64:
   tags:
     - macosx-packaging
+  variables:
+    CORE_ARGS: -DLIBRETRO=ON -DUSE_SYSTEM_LIBPNG=OFF
   extends:
     - .libretro-osx-cmake-x86_64
     - .core-defs
@@ -158,4 +160,4 @@ libretro-build-tvos-arm64:
     - .core-defs
     - .cmake-defs
   variables:
-    CORE_ARGS: -DIOS_PLATFORM=TVOS -DUSE_FFMPEG=NO -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+    CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON

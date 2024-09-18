@@ -30,27 +30,27 @@ struct FormatBuffer {
 		u32 *as32;
 	};
 
-	inline void Set16(int x, int y, int stride, u16 v) {
+	inline void Set16(int x, int y, int stride, u16 v) const {
 		as16[x + y * stride] = v;
 	}
 
-	inline void Set32(int x, int y, int stride, u32 v) {
+	inline void Set32(int x, int y, int stride, u32 v) const {
 		as32[x + y * stride] = v;
 	}
 
-	inline u16 Get16(int x, int y, int stride) {
+	inline u16 Get16(int x, int y, int stride) const {
 		return as16[x + y * stride];
 	}
 
-	inline u32 Get32(int x, int y, int stride) {
+	inline u32 Get32(int x, int y, int stride) const {
 		return as32[x + y * stride];
 	}
 
-	inline u16 *Get16Ptr(int x, int y, int stride) {
+	inline u16 *Get16Ptr(int x, int y, int stride) const {
 		return &as16[x + y * stride];
 	}
 
-	inline u32 *Get32Ptr(int x, int y, int stride) {
+	inline u32 *Get32Ptr(int x, int y, int stride) const {
 		return &as32[x + y * stride];
 	}
 };
@@ -138,7 +138,7 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	std::vector<FramebufferInfo> GetFramebufferList() const override { return std::vector<FramebufferInfo>(); }
+	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;

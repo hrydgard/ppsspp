@@ -50,14 +50,10 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 
 	case IROp::SetConstF:
 		regs_.Map(inst);
-		if (inst.constant == 0) {
+		if (inst.constant == 0)
 			FCVT(FConv::S, FConv::W, regs_.F(inst.dest), R_ZERO);
-		} else {
-			// TODO: In the future, could use FLI if it's approved.
-			// Also, is FCVT faster?
-			LI(SCRATCH1, (int32_t)inst.constant);
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-		}
+		else
+			QuickFLI(32, regs_.F(inst.dest), inst.constant, SCRATCH1);
 		break;
 
 	case IROp::Downcount:
@@ -220,6 +216,13 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
+
+		regs_.Map(inst);
+		SRAIW(regs_.R(inst.dest), X10, 31);
+
+		// Absolute value trick: if neg, abs(x) == (x ^ -1) + 1.
+		XOR(X10, X10, regs_.R(inst.dest));
+		SUBW(X10, X10, regs_.R(inst.dest));
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
 		break;
 

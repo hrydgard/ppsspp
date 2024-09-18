@@ -54,8 +54,6 @@ protected:
 private:
 	void BuildReportingInfo() override;
 
-	void BeginFrame() override;
-
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;
 	DrawEngineGLES drawEngine_;

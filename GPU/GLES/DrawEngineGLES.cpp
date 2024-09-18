@@ -101,14 +101,14 @@ void DrawEngineGLES::InitDeviceObjects() {
 		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024, "game_index");
 	}
 
-	int vertexSize = sizeof(TransformedVertex);
+	int stride = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, x) });
-	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, u) });
-	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color0) });
-	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color1) });
-	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, fog) });
-	softwareInputLayout_ = render_->CreateInputLayout(entries);
+	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, x) });
+	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, u) });
+	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color0) });
+	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color1) });
+	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, fog) });
+	softwareInputLayout_ = render_->CreateInputLayout(entries, stride);
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineGLES::Invalidate, this, std::placeholders::_1));
 }
@@ -150,16 +150,16 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 
 void DrawEngineGLES::BeginFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->BeginPushBuffer(frameData.pushIndex);
-	render_->BeginPushBuffer(frameData.pushVertex);
+	frameData.pushIndex->Begin();
+	frameData.pushVertex->Begin();
 
 	lastRenderStepId_ = -1;
 }
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->EndPushBuffer(frameData.pushIndex);
-	render_->EndPushBuffer(frameData.pushVertex);
+	frameData.pushIndex->End();
+	frameData.pushVertex->End();
 	tessDataTransferGLES->EndFrame();
 }
 
@@ -187,7 +187,7 @@ static const GlTypeInfo GLComp[] = {
 	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
 };
 
-static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset, std::vector<GLRInputLayout::Entry> &entries) {
+static inline void VertexAttribSetup(int attrib, int fmt, int offset, std::vector<GLRInputLayout::Entry> &entries) {
 	if (fmt) {
 		const GlTypeInfo &type = GLComp[fmt];
 		GLRInputLayout::Entry entry;
@@ -195,7 +195,6 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 		entry.location = attrib;
 		entry.normalized = type.normalized;
 		entry.type = type.type;
-		entry.stride = stride;
 		entry.count = type.count;
 		entries.push_back(entry);
 	}
@@ -210,15 +209,16 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	}
 
 	std::vector<GLRInputLayout::Entry> entries;
-	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, decFmt.w0off, entries);
-	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, decFmt.w1off, entries);
-	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, decFmt.uvoff, entries);
-	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
-	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
-	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, decFmt.nrmoff, entries);
-	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.stride, decFmt.posoff, entries);
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.w0off, entries);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.w1off, entries);
+	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.uvoff, entries);
+	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.c0off, entries);
+	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.c1off, entries);
+	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.nrmoff, entries);
+	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.posoff, entries);
 
-	inputLayout = render_->CreateInputLayout(entries);
+	int stride = decFmt.stride;
+	inputLayout = render_->CreateInputLayout(entries, stride);
 	inputLayoutMap_.Insert(key, inputLayout);
 	return inputLayout;
 }
@@ -242,7 +242,7 @@ void DrawEngineGLES::DoFlush() {
 		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad.");
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
 		indexGen.Reset();
-		decodedVerts_ = 0;
+		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
@@ -274,7 +274,7 @@ void DrawEngineGLES::DoFlush() {
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
-			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			uint32_t size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);
 		} else {
@@ -283,19 +283,20 @@ void DrawEngineGLES::DoFlush() {
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
 			DecodeVerts(dest);
 		}
-		DecodeInds();
 
-		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-		// there is no need for the index buffer we built. We can then use glDrawArrays instead
-		// for a very minor speed boost. TODO: We can probably detect this case earlier, like before
-		// actually doing any vertex decoding (unless we're doing soft skinning and pre-decode on submit).
-		bool useElements = !indexGen.SeenOnlyPurePrims();
-		int vertexCount = indexGen.VertexCount();
-		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		DecodeVerts(decoded_);
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+
+		if (useElements) {
+			uint32_t esz = sizeof(uint16_t) * vertexCount;
+			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
+			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
+			// Of course, minding the maximum value of 65535...
+			memcpy(dest, decIndex_, esz);
 		}
-		prim = indexGen.Prim();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -315,11 +316,6 @@ void DrawEngineGLES::DoFlush() {
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
-			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
-			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
-			// Of course, minding the maximum value of 65535...
-			memcpy(dest, decIndex_, esz);
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
 				indexBuffer, indexBufferOffset,
@@ -337,7 +333,7 @@ void DrawEngineGLES::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -346,11 +342,8 @@ void DrawEngineGLES::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -363,7 +356,6 @@ void DrawEngineGLES::DoFlush() {
 		params.texCache = textureCache_;
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
-		params.provokeFlatFirst = false;
 		params.flippedY = framebufferManager_->UseBufferedRendering();
 		params.usesHalfZ = false;
 
@@ -376,14 +368,13 @@ void DrawEngineGLES::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor_);
 		}
 
-		int maxIndex = MaxIndex();
-		int vertexCount = indexGen.VertexCount();
+		int maxIndex = numDecodedVerts_;
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
 			constexpr int vertexCountLimit = 0x10000 / 3;
 			if (vertexCount > vertexCountLimit) {
-				WARN_LOG_REPORT_ONCE(manyVerts, G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+				WARN_LOG_REPORT_ONCE(manyVerts, Log::G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
 				vertexCount = vertexCountLimit;
 			}
 		}
@@ -395,22 +386,23 @@ void DrawEngineGLES::DoFlush() {
 		const bool invertedY = gstate_c.vpHeight * (params.flippedY ? 1.0 : -1.0f) < 0;
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
 
-		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		swTransform.Transform(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, &result);
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
-		if (result.action == SW_NOT_READY)
-			swTransform.DetectOffsetTexture(maxIndex);
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
 			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -422,18 +414,12 @@ void DrawEngineGLES::DoFlush() {
 			goto bail;
 		}
 
-		if (result.action == SW_DRAW_PRIMITIVES) {
-			if (result.drawIndexed) {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
-				render_->DrawIndexed(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
-					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
-			} else {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
-				render_->Draw(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
-			}
+		if (result.action == SW_DRAW_INDEXED) {
+			vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vertexBuffer);
+			indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
+			render_->DrawIndexed(
+				softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
+				glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
@@ -471,7 +457,7 @@ bail:
 }
 
 // TODO: Refactor this to a single USE flag.
-bool DrawEngineGLES::SupportsHWTessellation() const {
+bool DrawEngineGLES::SupportsHWTessellation() {
 	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
 	return hasTexelFetch && gstate_c.UseAll(GPU_USE_VERTEX_TEXTURE_FETCH | GPU_USE_TEXTURE_FLOAT | GPU_USE_INSTANCE_RENDERING);
 }

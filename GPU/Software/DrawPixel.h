@@ -66,7 +66,7 @@ public:
 
 	// Returns a pointer to the code to run.
 	SingleFunc GetSingle(const PixelFuncID &id, BinManager *binner);
-	SingleFunc GenericSingle(const PixelFuncID &id);
+	static SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear() override;
 	void Flush();
 

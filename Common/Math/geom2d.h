@@ -2,19 +2,19 @@
 
 #include <cmath>
 
-struct Point {
-	Point() : x(0.0f), y(0.0f) {}
-	Point(float x_, float y_) : x(x_), y(y_) {}
+struct Point2D {
+	Point2D() : x(0.0f), y(0.0f) {}
+	Point2D(float x_, float y_) : x(x_), y(y_) {}
 
 	float x;
 	float y;
 
-	float distanceTo(const Point &other) const {
+	float distanceTo(const Point2D &other) const {
 		float dx = other.x - x, dy = other.y - y;
 		return sqrtf(dx*dx + dy*dy);
 	}
 
-	bool operator ==(const Point &other) const {
+	bool operator ==(const Point2D &other) const {
 		return x == other.x && y == other.y;
 	}
 
@@ -60,8 +60,8 @@ struct Bounds {
 	float y2() const { return y + h; }
 	float centerX() const { return x + w * 0.5f; }
 	float centerY() const { return y + h * 0.5f; }
-	Point Center() const {
-		return Point(centerX(), centerY());
+	Point2D Center() const {
+		return Point2D(centerX(), centerY());
 	}
 	Bounds Expand(float amount) const {
 		return Bounds(x - amount, y - amount, w + amount * 2, h + amount * 2);
