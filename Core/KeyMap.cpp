@@ -423,6 +423,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_SPEED_CUSTOM2, "Alt speed 2"},
 	{VIRTKEY_SPEED_ANALOG, "Analog speed"},
 	{VIRTKEY_PAUSE, "Pause"},
+	{VIRTKEY_RESET_EMULATION, "Reset"},
 	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
 #if !defined(MOBILE_DEVICE)
 	{VIRTKEY_RECORD, "Audio/Video Recording" },

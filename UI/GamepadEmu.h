@@ -315,6 +315,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_ANALOG_ROTATE_CW },
 		{ ImageID::invalid(), VIRTKEY_ANALOG_ROTATE_CCW },
 		{ ImageID::invalid(), VIRTKEY_PAUSE },
+		{ ImageID::invalid(), VIRTKEY_RESET_EMULATION },
 		{ ImageID::invalid(), VIRTKEY_DEVMENU },
 #ifndef MOBILE_DEVICE
 		{ ImageID::invalid(), VIRTKEY_RECORD },
