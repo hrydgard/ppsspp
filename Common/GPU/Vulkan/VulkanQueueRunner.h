@@ -6,9 +6,11 @@
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
+#include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
@@ -17,6 +19,7 @@ class VKRFramebuffer;
 struct VKRGraphicsPipeline;
 struct VKRComputePipeline;
 struct VKRImage;
+struct VKRPipelineLayout;
 struct FrameData;
 
 enum {
@@ -28,7 +31,6 @@ enum {
 enum class VKRRenderCommand : uint8_t {
 	REMOVED,
 	BIND_GRAPHICS_PIPELINE,  // async
-	BIND_COMPUTE_PIPELINE,  // async
 	STENCIL,
 	BLEND,
 	VIEWPORT,
@@ -37,9 +39,7 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
-	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
-	BIND_DESCRIPTOR_SET,
 	NUM_RENDER_COMMANDS,
 };
 
@@ -47,62 +47,22 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_INPUT_ATTACHMENT = (1 << 3),
-	USES_GEOMETRY_SHADER = (1 << 4),
-	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
+	USES_GEOMETRY_SHADER = (1 << 3),
+	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
+	USES_DISCARD = (1 << 5),
+	USES_FLAT_SHADING = (1 << 6),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
-
-// Pipelines need to be created for the right type of render pass.
-// TODO: Rename to RenderPassFlags?
-// When you add more flags, don't forget to update rpTypeDebugNames[].
-enum class RenderPassType {
-	DEFAULT = 0,
-	// These eight are organized so that bit 0 is DEPTH and bit 1 is INPUT and bit 2 is MULTIVIEW, so
-	// they can be OR-ed together in MergeRPTypes.
-	HAS_DEPTH = 1,
-	COLOR_INPUT = 2,  // input attachment
-	MULTIVIEW = 4,
-
-	// This is the odd one out, and gets special handling in MergeRPTypes.
-	// If this flag is set, none of the other flags can be set.
-	// For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible
-	// so we don't bother with a non-depth version.
-	BACKBUFFER = 8,
-
-	TYPE_COUNT = BACKBUFFER + 1,
-};
-ENUM_CLASS_BITOPS(RenderPassType);
-
-inline bool RenderPassTypeHasDepth(RenderPassType type) {
-	return (type & RenderPassType::HAS_DEPTH) || type == RenderPassType::BACKBUFFER;
-}
-
-inline bool RenderPassTypeHasInput(RenderPassType type) {
-	return (type & RenderPassType::COLOR_INPUT) != 0;
-}
-
-inline bool RenderPassTypeHasMultiView(RenderPassType type) {
-	return (type & RenderPassType::MULTIVIEW) != 0;
-}
 
 struct VkRenderData {
 	VKRRenderCommand cmd;
 	union {
 		struct {
-			VkPipeline pipeline;
-			VkPipelineLayout pipelineLayout;
-		} pipeline;
-		struct {
 			VKRGraphicsPipeline *pipeline;
-			VkPipelineLayout pipelineLayout;
+			VKRPipelineLayout *pipelineLayout;
 		} graphics_pipeline;
 		struct {
-			VKRComputePipeline *pipeline;
-			VkPipelineLayout pipelineLayout;
-		} compute_pipeline;
-		struct {
-			VkDescriptorSet ds;
+			uint32_t descSetIndex;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
 			VkBuffer vbuffer;
@@ -111,16 +71,15 @@ struct VkRenderData {
 			uint32_t offset;
 		} draw;
 		struct {
-			VkDescriptorSet ds;
-			int numUboOffsets;
+			uint32_t descSetIndex;
 			uint32_t uboOffsets[3];
+			uint16_t numUboOffsets;
+			uint16_t instances;
 			VkBuffer vbuffer;
 			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
-			int16_t instances;
-			int16_t indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
@@ -152,9 +111,7 @@ struct VkRenderData {
 			const char *annotation;
 		} debugAnnotation;
 		struct {
-			int setNumber;
-			VkDescriptorSet set;
-			VkPipelineLayout pipelineLayout;
+			int setIndex;
 		} bindDescSet;
 	};
 };
@@ -166,18 +123,6 @@ enum class VKRStepType : uint8_t {
 	BLIT,
 	READBACK,
 	READBACK_IMAGE,
-};
-
-// Must be the same order as Draw::RPAction
-enum class VKRRenderPassLoadAction : uint8_t {
-	KEEP,  // default. avoid when possible.
-	CLEAR,
-	DONT_CARE,
-};
-
-enum class VKRRenderPassStoreAction : uint8_t {
-	STORE,  // default. avoid when possible.
-	DONT_CARE,
 };
 
 struct TransitionRequest {
@@ -197,7 +142,7 @@ struct VKRStep {
 	~VKRStep() {}
 
 	VKRStepType stepType;
-	std::vector<VkRenderData> commands;
+	FastVec<VkRenderData> commands;
 	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
@@ -210,9 +155,9 @@ struct VKRStep {
 			VKRRenderPassStoreAction colorStore;
 			VKRRenderPassStoreAction depthStore;
 			VKRRenderPassStoreAction stencilStore;
-			u8 clearStencil;
 			uint32_t clearColor;
 			float clearDepth;
+			u8 clearStencil;
 			int numDraws;
 			// Downloads and textures from this pass.
 			int numReads;
@@ -229,20 +174,21 @@ struct VKRStep {
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkOffset2D dstPos;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 		} copy;
 		struct {
 			VKRFramebuffer *src;
 			VKRFramebuffer *dst;
 			VkRect2D srcRect;
 			VkRect2D dstRect;
-			int aspectMask;
+			VkImageAspectFlags aspectMask;
 			VkFilter filter;
 		} blit;
 		struct {
-			int aspectMask;
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
+			VkImageAspectFlags aspectMask;
+			bool delayed;
 		} readback;
 		struct {
 			VkImage image;
@@ -252,41 +198,17 @@ struct VKRStep {
 	};
 };
 
-struct RPKey {
-	// Only render-pass-compatibility-volatile things can be here.
-	VKRRenderPassLoadAction colorLoadAction;
-	VKRRenderPassLoadAction depthLoadAction;
-	VKRRenderPassLoadAction stencilLoadAction;
-	VKRRenderPassStoreAction colorStoreAction;
-	VKRRenderPassStoreAction depthStoreAction;
-	VKRRenderPassStoreAction stencilStoreAction;
-};
-
-class VKRRenderPass {
-public:
-	VKRRenderPass(const RPKey &key) : key_(key) {}
-
-	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType);
-	void Destroy(VulkanContext *vulkan) {
-		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			if (pass[i]) {
-				vulkan->Delete().QueueDeleteRenderPass(pass[i]);
-			}
-		}
-	}
-
-private:
-	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
-	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
-	RPKey key_;
-};
-
 // These are enqueued from the main thread,
 // and the render thread pops them off
 struct VKRRenderThreadTask {
+	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
 	std::vector<VKRStep *> steps;
-	int frame;
+	int frame = -1;
 	VKRRunType runType;
+
+	// Avoid copying these by accident.
+	VKRRenderThreadTask(VKRRenderThreadTask &) = delete;
+	VKRRenderThreadTask &operator =(VKRRenderThreadTask &) = delete;
 };
 
 class VulkanQueueRunner {
@@ -299,17 +221,17 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
+	void RunSteps(std::vector<VKRStep *> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
-	std::string StepToString(const VKRStep &step) const;
+	static std::string StepToString(VulkanContext *vulkan, const VKRStep &step);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
 
 	// Swapchain
 	void DestroyBackBuffers();
-	bool CreateSwapchain(VkCommandBuffer cmdInit);
+	bool CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers);
 
 	bool HasBackbuffers() const {
 		return !framebuffers_.empty();
@@ -325,7 +247,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	// src == 0 means to copy from the sync readback buffer.
+	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 
@@ -344,24 +267,15 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
-	void NotifyCompileDone() {
-		compileDone_.notify_all();
-	}
-
-	void WaitForCompileNotification() {
-		std::unique_lock<std::mutex> lock(compileDoneMutex_);
-		compileDone_.wait(lock);
-	}
-
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd, FrameData &frameData);
 	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
 
 	void LogRenderPass(const VKRStep &pass, bool verbose);
@@ -370,17 +284,13 @@ private:
 	void LogReadback(const VKRStep &pass);
 	void LogReadbackImage(const VKRStep &pass);
 
-	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+	void ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize);
 
-	void ApplyMGSHack(std::vector<VKRStep *> &steps);
-	void ApplySonicHack(std::vector<VKRStep *> &steps);
-	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
+	static void ApplyMGSHack(std::vector<VKRStep *> &steps);
+	static void ApplySonicHack(std::vector<VKRStep *> &steps);
+	static void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-
-	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
+	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 
 	VulkanContext *vulkan_;
 
@@ -392,26 +302,19 @@ private:
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// Each VKRRenderPass contains all compatibility classes (which attachments they have, etc).
-	DenseHashMap<RPKey, VKRRenderPass *, nullptr> renderPasses_;
+	DenseHashMap<RPKey, VKRRenderPass *> renderPasses_;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
-	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
-	VkDeviceSize readbackBufferSize_ = 0;
-	bool readbackBufferIsCoherent_ = false;
+	CachedReadback syncReadback_{};
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;
 
-	// Compile done notifications.
-	std::mutex compileDoneMutex_;
-	std::condition_variable compileDone_;
-
 	// Image barrier helper used during command buffer record (PerformRenderPass etc).
 	// Stored here to help reuse the allocation.
 
-	VulkanBarrier recordBarrier_;
+	VulkanBarrierBatch recordBarrier_;
 
 	// Swap chain management
 	struct SwapchainImageData {
@@ -429,3 +332,5 @@ private:
 	};
 	DepthBufferInfo depth_;
 };
+
+const char *VKRRenderCommandToString(VKRRenderCommand cmd);

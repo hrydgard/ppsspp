@@ -21,7 +21,7 @@
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/SoftGpu.h"
@@ -42,11 +42,12 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		RegCache::GEN_ARG_ID,
 	});
 
-	BeginWrite();
+	BeginWrite(64);
 	Describe("Init");
 	WriteConstantPool(id);
 
 	const u8 *resetPos = AlignCode16();
+	EndWrite();
 	bool success = true;
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -100,7 +101,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
-		ERROR_LOG_REPORT(G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
+		ERROR_LOG_REPORT(Log::G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
 
 		regCache_.Reset(false);
 		EndWrite();

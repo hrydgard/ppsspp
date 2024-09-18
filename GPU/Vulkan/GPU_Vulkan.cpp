@@ -25,6 +25,7 @@
 #include "Common/GraphicsContext.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -45,14 +46,9 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-#include "Core/MIPS/MIPS.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
-
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
-	gstate_c.useFlags = CheckGPUFeatures();
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw) {
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 	drawEngine_.InitDeviceObjects();
 
 	VulkanContext *vulkan = (VulkanContext *)gfxCtx->GetAPIContext();
@@ -76,7 +72,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	framebufferManagerVulkan_->Init();
+	framebufferManagerVulkan_->Init(msaaLevel_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
@@ -85,12 +81,10 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	BuildReportingInfo();
-	// Update again after init to be sure of any silly driver problems.
-	UpdateVsyncInterval(true);
 
 	textureCache_->NotifyConfigChanged();
 
@@ -99,29 +93,13 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
-		shaderCacheLoaded_ = false;
-
-		std::thread th([&] {
-			LoadCache(shaderCachePath_);
-			shaderCacheLoaded_ = true;
-		});
-		th.detach();
-	} else {
-		shaderCacheLoaded_ = true;
+		LoadCache(shaderCachePath_);
 	}
-}
-
-bool GPU_Vulkan::IsReady() {
-	return shaderCacheLoaded_;
-}
-
-void GPU_Vulkan::CancelReady() {
-	pipelineManager_->CancelCache();
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		return;
 	}
 
@@ -134,59 +112,90 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
-	bool result = shaderManagerVulkan_->LoadCache(f);
+	bool result = shaderManagerVulkan_->LoadCacheFlags(f, &drawEngine_);
+	if (!result) {
+		WARN_LOG(Log::G3D, "ShaderManagerVulkan failed to load cache header.");
+	}
 	if (result) {
-		// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
+		// Reload use flags in case LoadCacheFlags() changed them.
+		if (drawEngineCommon_->EverUsedExactEqualDepth()) {
+			sawExactEqualDepth_ = true;
+		}
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+		result = shaderManagerVulkan_->LoadCache(f);
+		if (!result) {
+			WARN_LOG(Log::G3D, "ShaderManagerVulkan failed to load cache.");
+		}
+	}
+	if (result) {
+		// WARNING: See comment in LoadPipelineCache if you are tempted to flip the second parameter to true.
+		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
+
 	if (!result) {
-		WARN_LOG(G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
+		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
 		// Bad cache file for this GPU/Driver/etc. Delete it.
 		File::Delete(filename);
 	} else {
-		INFO_LOG(G3D, "Loaded Vulkan pipeline cache.");
+		INFO_LOG(Log::G3D, "Loaded Vulkan pipeline cache.");
 	}
 }
 
 void GPU_Vulkan::SaveCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
-		INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+		INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		return;
 	}
 
 	if (!draw_) {
 		// Already got the lost message, we're in shutdown.
-		WARN_LOG(G3D, "Not saving shaders - shutting down from in-game.");
+		WARN_LOG(Log::G3D, "Not saving shaders - shutting down from in-game.");
 		return;
 	}
 
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return;
-	shaderManagerVulkan_->SaveCache(f);
+	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
-	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_, draw_);
-	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
+	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
+	INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
+	if (draw_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		// This now also does a hard sync with the render thread, so that we can safely delete our pipeline layout below.
+		rm->StopThreads();
+		rm->CheckNothingPending();
+	}
+
 	SaveCache(shaderCachePath_);
+
+	// StopThreads should have ensured that no pipelines are queued to compile at this point. So we can tear it down.
+	delete pipelineManager_;
+	pipelineManager_ = nullptr;
+
 	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
-	framebufferManagerVulkan_->DestroyAllFBOs();
 	drawEngine_.DeviceLost();
-	delete textureCacheVulkan_;
-	delete pipelineManager_;
-	delete shaderManagerVulkan_;
-	delete framebufferManagerVulkan_;
+	shaderManager_->ClearShaders();
+
+	// other managers are deleted in ~GPUCommonHW.
+	if (draw_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->StartThreads();
+	}
 }
 
 u32 GPU_Vulkan::CheckGPUFeatures() const {
-	uint32_t features = GPUCommon::CheckGPUFeatures();
+	uint32_t features = GPUCommonHW::CheckGPUFeatures();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
+	// Could simplify this, but it's good as documentation.
 	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
@@ -202,18 +211,25 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 		// NOTE: Galaxy S8 has version 16 but still seems to have some problems with accurate depth.
 
+		// TODO: Move this check to thin3d_vulkan.
+
 		bool driverTooOld = IsHashMaliDriverVersion(vulkan->GetPhysicalDeviceProperties().properties)
 			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
 
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_USE_ACCURATE_DEPTH;
+		} else {
+			features &= ~GPU_USE_ACCURATE_DEPTH;
 		}
 		break;
 	}
+	case VULKAN_VENDOR_IMGTEC:
+		// We ignore the disable flag on IMGTec. Another reverse-Z bug (plus, not really any reason to bother). See #17044
+		features |= GPU_USE_ACCURATE_DEPTH;
+		break;
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
-			features |= GPU_USE_ACCURATE_DEPTH;
-		}
+		// On other GPUs we'll just assume we don't need inaccurate depth, leaving ARM Mali as the odd one out.
+		features |= GPU_USE_ACCURATE_DEPTH;
 		break;
 	}
 
@@ -227,13 +243,9 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	auto &enabledFeatures = vulkan->GetDeviceFeatures().enabled.standard;
-	if (enabledFeatures.depthClamp) {
-		features |= GPU_USE_DEPTH_CLAMP;
-	}
-
 	// Fall back to geometry shader culling if we can't do vertex range culling.
-	if (enabledFeatures.geometryShader) {
+	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
+	if (draw_->GetDeviceCaps().geometryShaderSupported && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
 		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
@@ -243,35 +255,17 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	// These are VULKAN_4444_FORMAT and friends.
-	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
-	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
-
-	// Note that we are (accidentally) using B5G6R5 instead of the mandatory R5G6B5.
-	// Support is almost as widespread, but not quite. So let's just not use any 16-bit formats
-	// if it's not available, for simplicity.
-	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16);
-	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
-		features |= GPU_USE_16BIT_FORMATS;
-	} else {
-		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
-	}
-
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
-	if (!prefer16) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else {
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			}
-		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-			features |= GPU_ROUND_DEPTH_TO_16BIT;
+	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {
+		// These are VULKAN_4444_FORMAT and friends.
+		// Note that we are now using the correct set of formats - the only cases where some may be missing
+		// are non-conformant implementations like MoltenVK.
+		uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
+		uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
+		uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
+		if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
+			features |= GPU_USE_16BIT_FORMATS;
+		} else {
+			INFO_LOG(Log::G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
 		}
 	}
 
@@ -279,7 +273,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
 
-		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
 		if (features & GPU_USE_GS_CULLING) {
 			// Many devices that support stereo and GS don't support GS during stereo.
 			features &= ~GPU_USE_GS_CULLING;
@@ -287,40 +280,43 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	return features;
+	// Attempt to workaround #17386
+	if (draw_->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
+		features &= ~GPU_USE_LIGHT_UBERSHADER;
+	}
+
+	features |= GPU_USE_FRAMEBUFFER_ARRAYS;
+	return CheckGPUFeaturesLate(features);
 }
 
 void GPU_Vulkan::BeginHostFrame() {
+	GPUCommonHW::BeginHostFrame();
+
 	drawEngine_.BeginFrame();
-	UpdateCmdInfo();
-
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		// In case the GPU changed.
-		BuildReportingInfo();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		resized_ = false;
-	}
-
-	textureCacheVulkan_->StartFrame();
+	textureCache_->StartFrame();
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	int curFrame = vulkan->GetCurFrame();
-	FrameData &frame = frameData_[curFrame];
 
-	frame.push_->Reset();
-	frame.push_->Begin(vulkan);
+	framebufferManager_->BeginFrame();
 
-	framebufferManagerVulkan_->BeginFrame();
-	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
-
-	shaderManagerVulkan_->DirtyShader();
+	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		// TODO: Not all shaders need to be recompiled. In fact, quite few? Of course, depends on
+		// the use flag change.. This is a major frame rate hitch in the start of a race in Outrun.
+		shaderManager_->ClearShaders();
+		pipelineManager_->Clear();
+		framebufferManager_->ClearAllDepthBuffers();
+		gstate_c.useFlagsChanged = false;
+	}
+
 	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		NOTICE_LOG(Log::G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
 		dumpNextFrame_ = false;
 	} else if (dumpThisFrame_) {
@@ -330,14 +326,10 @@ void GPU_Vulkan::BeginHostFrame() {
 
 void GPU_Vulkan::EndHostFrame() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	int curFrame = vulkan->GetCurFrame();
-	FrameData &frame = frameData_[curFrame];
-	frame.push_->End();
 
 	drawEngine_.EndFrame();
-	textureCacheVulkan_->EndFrame();
 
-	draw_->InvalidateCachedState();
+	GPUCommonHW::EndHostFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -391,69 +383,13 @@ void GPU_Vulkan::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void GPU_Vulkan::Reinitialize() {
-	GPUCommon::Reinitialize();
-}
-
-void GPU_Vulkan::InitClear() {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		// TODO?
-	}
-}
-
-void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	drawEngine_.Flush();
-
-	shaderManagerVulkan_->DirtyLastShader();
-
-	framebufferManagerVulkan_->CopyDisplayToOutput(reallyDirty);
-
-	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
 void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-inline void GPU_Vulkan::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
-void GPU_Vulkan::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
-void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
-}
-
 void GPU_Vulkan::InitDeviceObjects() {
-	INFO_LOG(G3D, "GPU_Vulkan::InitDeviceObjects");
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	// Initialize framedata
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		_assert_(!frameData_[i].push_);
-		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan, "gpuPush", 256 * 1024, usage, PushBufferType::CPU_TO_GPU);
-	}
+	INFO_LOG(Log::G3D, "GPU_Vulkan::InitDeviceObjects");
 
-	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	uint32_t hacks = 0;
 	if (PSP_CoreParameter().compat.flags().MGS2AcidHack)
 		hacks |= QUEUE_HACK_MGS2_ACID;
@@ -464,21 +400,13 @@ void GPU_Vulkan::InitDeviceObjects() {
 	hacks |= QUEUE_HACK_RENDERPASS_MERGE;
 
 	if (hacks) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->GetQueueRunner()->EnableHacks(hacks);
 	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
-	INFO_LOG(G3D, "GPU_Vulkan::DestroyDeviceObjects");
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		if (frameData_[i].push_) {
-			VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-			frameData_[i].push_->Destroy(vulkan);
-			delete frameData_[i].push_;
-			frameData_[i].push_ = nullptr;
-		}
-	}
-
+	INFO_LOG(Log::G3D, "GPU_Vulkan::DestroyDeviceObjects");
 	// Need to turn off hacks when shutting down the GPU. Don't want them running in the menu.
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -487,36 +415,44 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 	}
 }
 
-void GPU_Vulkan::DeviceLost() {
-	CancelReady();
-	while (!IsReady()) {
-		sleep_ms(10);
+void GPU_Vulkan::CheckRenderResized() {
+	if (renderResized_) {
+		GPUCommonHW::CheckRenderResized();
+		pipelineManager_->InvalidateMSAAPipelines();
+		framebufferManager_->ReleasePipelines();
 	}
+}
+
+void GPU_Vulkan::DeviceLost() {
+	// draw_ is normally actually still valid here in Vulkan. But we null it out in GPUCommonHW::DeviceLost so we don't try to use it again.
+	// So, we have to save it here to be able to call ReleaseCompileQueue().
+	Draw::DrawContext *draw = draw_;
+	if (draw) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->StopThreads();
+	}
+
 	if (shaderCachePath_.Valid()) {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();
-	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
-	textureCacheVulkan_->DeviceLost();
-	shaderManagerVulkan_->DeviceLost();
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
+
+	if (draw) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->StartThreads();
+	}
 }
 
-void GPU_Vulkan::DeviceRestore() {
-	GPUCommon::DeviceRestore();
-	InitDeviceObjects();
-
-	gstate_c.useFlags = CheckGPUFeatures();
-	BuildReportingInfo();
-	UpdateCmdInfo();
+void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	drawEngine_.DeviceRestore(draw_);
 	pipelineManager_->DeviceRestore(vulkan);
-	textureCacheVulkan_->DeviceRestore(draw_);
-	shaderManagerVulkan_->DeviceRestore(draw_);
+
+	InitDeviceObjects();
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
@@ -530,73 +466,35 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
 	snprintf(buffer, bufsize,
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
+		"Pushbuffer space used: Vtx %d, Idx %d\n"
 		"%s\n",
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
-		drawStats.pushUBOSpaceUsed,
 		drawStats.pushVertexSpaceUsed,
 		drawStats.pushIndexSpaceUsed,
 		texStats
 	);
 }
 
-void GPU_Vulkan::ClearCacheNextFrame() {
-	textureCacheVulkan_->ClearNextFrame();
-}
-
-void GPU_Vulkan::ClearShaderCache() {
-	// TODO
-}
-
-void GPU_Vulkan::DoState(PointerWrap &p) {
-	GPUCommon::DoState(p);
-
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	// In Freeze-Frame mode, we don't want to do any of this.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_->Clear(true);
-
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManager_->DestroyAllFBOs();
-	}
-}
-
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	} else if (type == SHADER_TYPE_PIPELINE) {
+	switch (type) {
+	case SHADER_TYPE_PIPELINE:
 		return pipelineManager_->DebugGetObjectIDs(type);
-	} else if (type == SHADER_TYPE_TEXTURE) {
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
-		return shaderManagerVulkan_->DebugGetShaderIDs(type);
-	} else if (type == SHADER_TYPE_SAMPLER) {
+	case SHADER_TYPE_SAMPLER:
 		return textureCacheVulkan_->DebugGetSamplerIDs();
-	} else {
-		return std::vector<std::string>();
+	default:
+		return GPUCommonHW::DebugGetShaderIDs(type);
 	}
 }
 
 std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	} else if (type == SHADER_TYPE_PIPELINE) {
-		return pipelineManager_->DebugGetObjectString(id, type, stringType);
-	} else if (type == SHADER_TYPE_TEXTURE) {
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	} else if (type == SHADER_TYPE_SAMPLER) {
+	switch (type) {
+	case SHADER_TYPE_PIPELINE:
+		return pipelineManager_->DebugGetObjectString(id, type, stringType, shaderManagerVulkan_);
+	case SHADER_TYPE_SAMPLER:
 		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
-	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT || type == SHADER_TYPE_GEOMETRY) {
-		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
-	} else {
-		return std::string();
+	default:
+		return GPUCommonHW::DebugGetShaderString(id, type, stringType);
 	}
-}
-
-std::string GPU_Vulkan::GetGpuProfileString() {
-	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	return rm->GetGpuProfileString();
 }

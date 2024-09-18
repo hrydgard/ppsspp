@@ -1,5 +1,5 @@
 plugins {
-	id 'com.gladed.androidgitversion' version '0.4.5'
+	id 'com.gladed.androidgitversion' version '0.4.14'
 }
 apply plugin: 'com.android.application'
 
@@ -11,6 +11,7 @@ androidGitVersion {
 }
 
 dependencies {
+	// 1.2.0 is the newest version we can use that won't complain about minSdk version.
 	def appcompat_version = "1.2.0"
 
 	implementation "androidx.appcompat:appcompat:$appcompat_version"
@@ -21,8 +22,8 @@ dependencies {
 }
 
 android {
-	flavorDimensions "variant"
-
+	flavorDimensions += "variant"
+	namespace 'org.ppsspp.ppsspp'
 	signingConfigs {
 		debug {
 			storeFile file("debug.keystore")
@@ -44,25 +45,36 @@ android {
 			}
 		}
 	}
-	compileSdkVersion 32
+
+	compileSdk 35
 	ndkVersion "21.4.7075529"
 
 	defaultConfig {
+		/*
+		configurations.all {
+			resolutionStrategy {
+				// Newer versions are not compatible with our minsdk. Should find a way to exclude it entirely
+				// since we have no use for this transitive dependency.
+				force 'androidx.emoji2:emoji2-views-helper:1.0.0'
+			}
+		}
+		*/
+
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
 			// Start using automatic Android version numbers from version 1.4.
-			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 			versionName androidGitVersion.name()
 			versionCode androidGitVersion.code()
 		} else {
-			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code()
 		}
 
 		new File("versionname.txt").write(androidGitVersion.name())
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
-		minSdkVersion 9
-		targetSdkVersion 32
+		minSdk 9
+		targetSdk 35
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
@@ -91,6 +103,9 @@ android {
 			path '../CMakeLists.txt'
 		}
 	}
+	packagingOptions {
+		jniLibs.useLegacyPackaging = true
+	}
 	sourceSets {
 		main {
 			manifest.srcFile 'AndroidManifest.xml'
@@ -105,11 +120,11 @@ android {
 		gold {
 			res.srcDirs = ['gold/res']
 		}
-		vr_pico {
-			manifest.srcFile 'PicoManifest.xml'
+		vr {
+			manifest.srcFile 'VRManifest.xml'
 		}
-		vr_quest {
-			manifest.srcFile 'QuestManifest.xml'
+		legacy {
+			res.srcDirs = ['legacy/res']
 		}
 	}
 	productFlavors {
@@ -123,12 +138,11 @@ android {
 							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE'
+							'-DANDROID_STL=c++_static'
 				}
 			}
 			ndk {
-				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
 			}
 		}
 		gold {
@@ -147,32 +161,32 @@ android {
 				}
 			}
 			ndk {
-				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
 			}
 		}
-		vr_pico {
-			applicationId 'org.ppsspp.ppsspp'
+		legacy {
+			applicationId 'org.ppsspp.ppsspplegacy'
 			dimension "variant"
+			targetSdkVersion 29  // This is the point of legacy.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-16',
-							'-DANDROID_TOOLCHAIN=clang',
-							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR_PLATFORM_PICO=TRUE',
-							'-DOPENXR=TRUE'
+						'-DANDROID_PLATFORM=android-16',
+						'-DANDROID_TOOLCHAIN=clang',
+						'-DANDROID_CPP_FEATURES=',
+						'-DANDROID_STL=c++_static',
+						'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
-				abiFilters 'arm64-v8a'
+				abiFilters 'armeabi-v7a', 'arm64-v8a'
 			}
 		}
-		vr_quest {
-			applicationId 'org.ppsspp.ppsspp'
+		vr {
+			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
+			targetSdkVersion 29  // Do not upgrade this, we depend on not requiring scoped storage on Oculus.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
@@ -182,8 +196,8 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DOPENXR_PLATFORM_QUEST=TRUE',
-							'-DOPENXR=TRUE'
+							'-DOPENXR=TRUE',
+							'-DANDROID_LEGACY=TRUE'
 				}
 			}
 			ndk {
@@ -191,20 +205,26 @@ android {
 			}
 		}
 	}
+	// TODO: This is deprecated and needs a replacement. See https://stackoverflow.com/questions/67330818/android-gradle-plugin7-0-0-alpha15-removed-variantfilter-property-how-to-rest
+	// Though, not really that important.
 	variantFilter { variant ->
 		def needed = variant.name in [
-			'normalDebug',		// for debugging
-			'normalOptimized',	// for testing
-			'normalRelease',	// for Google Play releases
-			'goldRelease',		// for Google Play releases
-			'vr_picoDebug',    	// for VR debugging on Pico
-			'vr_picoOptimized',	// for VR testing on Pico
-			'vr_picoRelease',  	// for VR releases on Pico
-			'vr_questDebug',    // for VR debugging on Quest
-			'vr_questOptimized',// for VR testing on Quest
-			'vr_questRelease',  // for VR releases on Quest
+			'normalDebug',      // for debugging
+			'normalOptimized',  // for testing/user build
+			'normalRelease',    // for Google Play releases
+			'goldRelease',      // for Google Play releases
+			'vrDebug',          // for VR debugging
+			'vrOptimized',      // for VR testing
+			'vrRelease',        // for VR releases
+			'legacyDebug',      // for legacy debugging
+			'legacyOptimized',  // for legacy testing/user build
+			'legacyRelease',    // for buildbot releases
 		]
 		variant.setIgnore(!needed)
+	}
+	buildFeatures {
+		aidl true
+		buildConfig true
 	}
 }
 afterEvaluate {

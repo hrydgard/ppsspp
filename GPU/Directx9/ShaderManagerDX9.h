@@ -19,6 +19,8 @@
 
 #include <map>
 #include <cstdint>
+#include <d3d9.h>
+#include <wrl/client.h>
 
 #include "Common/CommonTypes.h"
 #include "GPU/Common/VertexShaderGenerator.h"
@@ -43,7 +45,7 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DPIXELSHADER9 shader = nullptr;
+	Microsoft::WRL::ComPtr<IDirect3DPixelShader9> shader;
 
 protected:	
 	std::string source_;
@@ -63,7 +65,7 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	LPDIRECT3DVERTEXSHADER9 shader = nullptr;
+	Microsoft::WRL::ComPtr<IDirect3DVertexShader9> shader;
 
 protected:	
 	std::string source_;
@@ -77,16 +79,18 @@ public:
 	ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device);
 	~ShaderManagerDX9();
 
-	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState);
-	void DirtyShader();
+	void ClearShaders() override;
+	VSShader *ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState);
 	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	void DeviceLost() override { draw_ = nullptr; }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 private:
 	void PSUpdateUniforms(u64 dirtyUniforms);
@@ -104,7 +108,8 @@ private:
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
 	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
-	void VSSetFloatUniform4(int creg, float data[4]);
+	void VSSetFloat24Uniform3Normalized(int creg, const u32 data[3]);
+	void VSSetFloatUniform4(int creg, const float data[4]);
 
 	void Clear();
 

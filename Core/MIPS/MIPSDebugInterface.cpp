@@ -22,11 +22,13 @@
 #include <strings.h>
 #endif
 
+#include "Common/StringUtils.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -45,6 +47,8 @@ enum ReferenceIndexType {
 	REF_INDEX_HLE      = 0x10000,
 	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
 	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
+	REF_INDEX_USEC     = REF_INDEX_HLE | 2,
+	REF_INDEX_TICKS    = REF_INDEX_HLE | 3,
 };
 
 
@@ -58,20 +62,20 @@ public:
 		for (int i = 0; i < 32; i++)
 		{
 			char reg[8];
-			sprintf(reg, "r%d", i);
+			snprintf(reg, sizeof(reg), "r%d", i);
 
-			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i)) == 0)
+			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i).c_str()) == 0)
 			{
 				referenceIndex = i;
 				return true;
 			}
-			else if (strcasecmp(str, cpu->GetRegName(1, i)) == 0)
+			else if (strcasecmp(str, cpu->GetRegName(1, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU | i;
 				return true;
 			}
 
-			sprintf(reg, "fi%d", i);
+			snprintf(reg, sizeof(reg), "fi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU_INT | i;
@@ -81,14 +85,14 @@ public:
 
 		for (int i = 0; i < 128; i++)
 		{
-			if (strcasecmp(str, cpu->GetRegName(2, i)) == 0)
+			if (strcasecmp(str, cpu->GetRegName(2, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU | i;
 				return true;
 			}
 
 			char reg[8];
-			sprintf(reg, "vi%d", i);
+			snprintf(reg, sizeof(reg), "vi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU_INT | i;
@@ -122,6 +126,14 @@ public:
 			referenceIndex = REF_INDEX_MODULE;
 			return true;
 		}
+		if (strcasecmp(str, "usec") == 0) {
+			referenceIndex = REF_INDEX_USEC;
+			return true;
+		}
+		if (strcasecmp(str, "ticks") == 0) {
+			referenceIndex = REF_INDEX_TICKS;
+			return true;
+		}
 
 		return false;
 	}
@@ -145,6 +157,10 @@ public:
 			return __KernelGetCurThread();
 		if (referenceIndex == REF_INDEX_MODULE)
 			return __KernelGetCurThreadModuleId();
+		if (referenceIndex == REF_INDEX_USEC)
+			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
+		if (referenceIndex == REF_INDEX_TICKS)
+			return (uint32_t)CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
@@ -159,24 +175,27 @@ public:
 		return EXPR_TYPE_UINT;
 	}
 	
-	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override {
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, std::string *error) override {
 		// We allow, but ignore, bad access.
 		// If we didn't, log/condition statements that reference registers couldn't be configured.
-		bool valid = Memory::IsValidRange(address, size);
+		uint32_t valid = Memory::ValidSize(address, size);
+		uint8_t buf[4]{};
+		if (valid != 0)
+			memcpy(buf, Memory::GetPointerUnchecked(address), valid);
 
 		switch (size) {
 		case 1:
-			dest = valid ? Memory::Read_U8(address) : 0;
+			dest = buf[0];
 			return true;
 		case 2:
-			dest = valid ? Memory::Read_U16(address) : 0;
+			dest = (buf[1] << 8) | buf[0];
 			return true;
 		case 4:
-			dest = valid ? Memory::Read_U32(address) : 0;
+			dest = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 			return true;
 		}
 
-		sprintf(error, "Unexpected memory access size %d", size);
+		*error = StringFromFormat("Unexpected memory access size %d", size);
 		return false;
 	}
 
@@ -186,19 +205,17 @@ private:
 
 
 
-const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
-{
-	static char mojs[256];
-	if (Memory::IsValidAddress(address))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(address), address, mojs);
+void MIPSDebugInterface::DisAsm(u32 pc, char *out, size_t outSize) {
+	if (Memory::IsValidAddress(pc))
+		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
 	else
-		strcpy(mojs, "-");
-	return mojs;
+		truncate_cpy(out, outSize, "-");
 }
 
-unsigned int MIPSDebugInterface::readMemory(unsigned int address)
-{
-	return Memory::Read_Instruction(address).encoding;
+unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
+	if (Memory::IsValidRange(address, 4))
+		return Memory::ReadUnchecked_Instruction(address).encoding;
+	return 0;
 }
 
 bool MIPSDebugInterface::isAlive()
@@ -260,10 +277,8 @@ const char *MIPSDebugInterface::GetName()
 	return ("R4");
 }
 
-
-const char *MIPSDebugInterface::GetRegName(int cat, int index)
-{
-	static const char *regName[32] = {
+std::string MIPSDebugInterface::GetRegName(int cat, int index) {
+	static const char * const regName[32] = {
 		"zero",  "at",    "v0",    "v1",
 		"a0",    "a1",    "a2",    "a3",
 		"t0",    "t1",    "t2",    "t3",
@@ -273,26 +288,20 @@ const char *MIPSDebugInterface::GetRegName(int cat, int index)
 		"t8",    "t9",    "k0",    "k1",
 		"gp",    "sp",    "fp",    "ra"
 	};
+	static const char * const fpRegName[32] = {
+		"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
+		"f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+		"f16", "f16", "f18", "f19", "f20", "f21", "f22", "f23",
+		"f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+	};
 
-	// really nasty hack so that this function can be called several times on one line of c++.
-	static int access=0;
-	access++;
-	access &= 3;
-	static char temp[4][16];
-
-	if (cat == 0)
+	if (cat == 0 && (unsigned)index < sizeof(regName)) {
 		return regName[index];
-	else if (cat == 1)
-	{
-		sprintf(temp[access],"f%i",index);
-		return temp[access];
+	} else if (cat == 1 && (unsigned)index < sizeof(fpRegName)) {
+		return fpRegName[index];
+	} else if (cat == 2) {
+		return GetVectorNotation(index, V_Single);
 	}
-	else if (cat == 2)
-	{
-		sprintf(temp[access],"v%03x",index);
-		return temp[access];
-	}
-	else
-		return "???";
+	return "???";
 }
 

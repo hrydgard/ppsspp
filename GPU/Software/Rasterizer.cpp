@@ -27,7 +27,6 @@
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
@@ -47,15 +46,26 @@ namespace Rasterizer {
 
 // Only OK on x64 where our stack is aligned
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+static inline __m128 InterpolateF(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
 	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
 	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
 	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
 	return _mm_mul_ps(v, _mm_set_ps1(wsum));
 }
 
-static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
-	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+static inline __m128i InterpolateI(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(InterpolateF(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#elif PPSSPP_ARCH(ARM64_NEON)
+static inline float32x4_t InterpolateF(const float32x4_t &c0, const float32x4_t &c1, const float32x4_t &c2, int w0, int w1, int w2, float wsum) {
+	float32x4_t v = vmulq_f32(c0, vcvtq_f32_s32(vdupq_n_s32(w0)));
+	v = vaddq_f32(v, vmulq_f32(c1, vcvtq_f32_s32(vdupq_n_s32(w1))));
+	v = vaddq_f32(v, vmulq_f32(c2, vcvtq_f32_s32(vdupq_n_s32(w2))));
+	return vmulq_f32(v, vdupq_n_f32(wsum));
+}
+
+static inline int32x4_t InterpolateI(const int32x4_t &c0, const int32x4_t &c1, const int32x4_t &c2, int w0, int w1, int w2, float wsum) {
+	return vcvtq_s32_f32(InterpolateF(vcvtq_f32_s32(c0), vcvtq_f32_s32(c1), vcvtq_f32_s32(c2), w0, w1, w2, wsum));
 }
 #endif
 
@@ -63,16 +73,16 @@ static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __
 // Not sure if that should be regarded as a bug or if casting to float is a valid fix.
 
 static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#if (defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)) && !PPSSPP_ARCH(X86)
+	return Vec4<int>(InterpolateI(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
 #endif
 }
 
 static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#if (defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)) && !PPSSPP_ARCH(X86)
+	return Vec3<int>(InterpolateI(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
 #else
 	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
 #endif
@@ -84,6 +94,11 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	v = _mm_add_ps(v, _mm_mul_ps(w1.vec, _mm_set1_ps(c1)));
 	v = _mm_add_ps(v, _mm_mul_ps(w2.vec, _mm_set1_ps(c2)));
 	return _mm_mul_ps(v, wsum_recip.vec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t v = vmulq_f32(w0.vec, vdupq_n_f32(c0));
+	v = vaddq_f32(v, vmulq_f32(w1.vec, vdupq_n_f32(c1)));
+	v = vaddq_f32(v, vmulq_f32(w2.vec, vdupq_n_f32(c2)));
+	return vmulq_f32(v, wsum_recip.vec);
 #else
 	return (w0 * c0 + w1 * c1 + w2 * c2) * wsum_recip;
 #endif
@@ -93,15 +108,15 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state) {
+void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID);
+		state->linear = Sampler::GetLinearFunc(state->samplerID, binner);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID, binner);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -132,13 +147,18 @@ void ComputeRasterizerState(RasterizerState *state) {
 		state->textureProj = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		if (state->textureProj) {
 			// We may be able to optimize this off.  This is actually kinda common.
-			if (gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f && gstate.tgenMatrix[8] == 0.0f && gstate.tgenMatrix[11] == 1.0f) {
+			const bool qZeroST = gstate.tgenMatrix[2] == 0.0f && gstate.tgenMatrix[5] == 0.0f;
+			const bool qZeroQ = gstate.tgenMatrix[8] == 0.0f;
+
+			// Two common cases: the source q factor is zero, OR source is UV.
+			const bool qFactorZero = gstate.getUVProjMode() == GE_PROJMAP_UV;
+			if (qZeroST && (qZeroQ || qFactorZero) && gstate.tgenMatrix[11] == 1.0f) {
 				state->textureProj = false;
 			}
 		}
 	}
 
-	state->shadeGouraud = gstate.getShadeMode() == GE_SHADE_GOURAUD;
+	state->shadeGouraud = !gstate.isModeClear() && gstate.getShadeMode() == GE_SHADE_GOURAUD;
 	state->throughMode = gstate.isModeThrough();
 	state->antialiasLines = gstate.isAntiAliasEnabled();
 
@@ -150,66 +170,340 @@ void ComputeRasterizerState(RasterizerState *state) {
 #endif
 }
 
-RasterizerState OptimizeFlatRasterizerState(RasterizerState state, const VertexData &v1) {
-	uint8_t alpha = v1.color0 >> 24;
+static inline void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, bool useColor) {
+	if (useColor) {
+		if ((v0.color0 & 0x00FFFFFF) != 0x00FFFFFF)
+			state->flags |= RasterizerStateFlags::VERTEX_NON_FULL_WHITE;
+		uint8_t alpha = v0.color0 >> 24;
+		if (alpha != 0)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO;
+		if (alpha != 0xFF)
+			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
+	}
+	if (!(v0.fogdepth >= 1.0f))
+		state->flags |= RasterizerStateFlags::VERTEX_HAS_FOG;
+}
 
-	bool changedPixelID = false;
-	bool changedSamplerID = false;
-	if (!state.pixelID.clearMode) {
-		auto &pixelID = state.pixelID;
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
+	CalculateRasterStateFlags(state, v0, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat) {
+	CalculateRasterStateFlags(state, v0, !forceFlat && state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, true);
+}
+
+void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	CalculateRasterStateFlags(state, v0, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v1, state->shadeGouraud);
+	CalculateRasterStateFlags(state, v2, true);
+}
+
+static inline int OptimizePixelIDFlags(const RasterizerStateFlags &flags) {
+	return (int)flags & (int)RasterizerStateFlags::OPTIMIZED_PIXELID;
+}
+
+static inline int OptimizeSamplerIDFlags(const RasterizerStateFlags &flags) {
+	return (int)flags & (int)RasterizerStateFlags::OPTIMIZED_SAMPLERID;
+}
+
+static inline int OptimizeAllFlags(const RasterizerStateFlags &flags) {
+	return OptimizePixelIDFlags(flags) | OptimizeSamplerIDFlags(flags);
+}
+
+static inline RasterizerStateFlags ClearFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &mask) {
+	int clearBits = (int)flags & (int)mask;
+	return (RasterizerStateFlags)((int)flags & ~clearBits);
+}
+
+static inline RasterizerStateFlags ReplacePixelIDFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &replace) {
+	RasterizerStateFlags updated = ClearFlags(flags, RasterizerStateFlags::OPTIMIZED_PIXELID);
+	return updated | (RasterizerStateFlags)OptimizePixelIDFlags(replace);
+}
+
+static inline RasterizerStateFlags ReplaceSamplerIDFlags(const RasterizerStateFlags &flags, const RasterizerStateFlags &replace) {
+	RasterizerStateFlags updated = ClearFlags(flags, RasterizerStateFlags::OPTIMIZED_SAMPLERID);
+	return updated | (RasterizerStateFlags)OptimizeSamplerIDFlags(replace);
+}
+
+static bool CheckClutAlphaFull(RasterizerState *state) {
+	// We only need to check it once.
+	if (state->flags & RasterizerStateFlags::CLUT_ALPHA_CHECKED)
+		return !(state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_FULL);
+	// For now, let's keep things simple.
+	const SamplerID &samplerID = state->samplerID;
+	if (samplerID.hasClutOffset || !samplerID.useSharedClut)
+		return false;
+
+	uint32_t count = samplerID.TexFmt() == GE_TFMT_CLUT4 ? 16 : 256;
+	if (samplerID.hasClutMask)
+		count = std::min(count, ((samplerID.cached.clutFormat >> 8) & 0xFF) + 1);
+
+	u32 alphaSum = 0xFFFFFFFF;
+	if (samplerID.ClutFmt() == GE_CMODE_32BIT_ABGR8888) {
+		CheckMask32((const uint32_t *)samplerID.cached.clut, count, &alphaSum);
+	} else {
+		CheckMask16((const uint16_t *)samplerID.cached.clut, count, &alphaSum);
+	}
+
+	bool onlyFull = true;
+	switch (samplerID.ClutFmt()) {
+	case GE_CMODE_16BIT_BGR5650:
+		break;
+
+	case GE_CMODE_16BIT_ABGR5551:
+		onlyFull = (alphaSum & 0x8000) != 0;
+		break;
+
+	case GE_CMODE_16BIT_ABGR4444:
+		onlyFull = (alphaSum & 0xF000) == 0xF000;
+		break;
+
+	case GE_CMODE_32BIT_ABGR8888:
+		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
+		break;
+	}
+
+	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
+	if (alphaSum != 0)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
+	if (!onlyFull)
+		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
+	state->flags |= RasterizerStateFlags::CLUT_ALPHA_CHECKED;
+
+	return onlyFull;
+}
+
+static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
+	// Note: all optimizations must be undoable.
+	RasterizerStateFlags optimize = RasterizerStateFlags::NONE;
+	auto &pixelID = state->pixelID;
+	auto &samplerID = state->samplerID;
+
+	bool alphaZero = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_ZERO);
+	bool alphaFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+	bool needTextureAlpha = state->enableTextures && samplerID.useTextureAlpha;
+
+	if (!pixelID.clearMode) {
 		auto &cached = pixelID.cached;
 
-		bool useTextureAlpha = state.enableTextures && state.samplerID.useTextureAlpha;
-		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && !useTextureAlpha) {
+		bool alphaBlend = pixelID.alphaBlend || (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF);
+		if (needTextureAlpha && alphaBlend && alphaFull) {
+			bool usesClut = (samplerID.texfmt & 4) != 0;
+			if (usesClut && CheckClutAlphaFull(state))
+				needTextureAlpha = false;
+		}
+
+		if (alphaBlend && !needTextureAlpha) {
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
 			// Okay, we may be able to convert this to a fixed value.
-			if (alpha == 0) {
-				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ZERO;
-				changedPixelID = true;
-			} else if (alpha == 0xFF) {
-				pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::ONE;
-				changedPixelID = true;
+			if (alphaZero || alphaFull) {
+				// If it was already set and we still can, set it again.
+				if (src == PixelBlendFactor::SRCALPHA)
+					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_SRC;
+				if (dst == PixelBlendFactor::INVSRCALPHA)
+					optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_DST;
+			}
+			if (alphaFull && (src == PixelBlendFactor::SRCALPHA || src == PixelBlendFactor::ONE) && (dst == PixelBlendFactor::INVSRCALPHA || dst == PixelBlendFactor::ZERO)) {
+				optimize |= RasterizerStateFlags::OPTIMIZED_BLEND_OFF;
 			}
 		}
-		if (pixelID.alphaBlend && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA && !useTextureAlpha) {
-			if (alpha == 0) {
-				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ONE;
-				changedPixelID = true;
-			} else if (alpha == 0xFF) {
-				pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::ZERO;
-				changedPixelID = true;
+
+		if (alphaBlend && (needTextureAlpha || !alphaFull)) {
+			// Okay, we're blending, and we need to.  Are we alpha testing?
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
+
+			PixelBlendFactor src = pixelID.AlphaBlendSrc();
+			PixelBlendFactor dst = pixelID.AlphaBlendDst();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+				src = PixelBlendFactor::SRCALPHA;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+				dst = PixelBlendFactor::INVSRCALPHA;
+
+			if (alphaTestFunc == GE_COMP_ALWAYS && src == PixelBlendFactor::SRCALPHA && dst == PixelBlendFactor::INVSRCALPHA) {
+				bool usesClut = (samplerID.texfmt & 4) != 0;
+				bool couldHaveZeroTexAlpha = true;
+				if (usesClut && CheckClutAlphaFull(state))
+					couldHaveZeroTexAlpha = false;
+				if (state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO)
+					couldHaveZeroTexAlpha = false;
+
+				// Blending is expensive, since we read the target.  Force alpha testing on.
+				if (!pixelID.depthWrite && !pixelID.stencilTest && couldHaveZeroTexAlpha)
+					optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON;
 			}
 		}
-		if (pixelID.alphaBlend && pixelID.AlphaBlendSrc() == PixelBlendFactor::ONE && pixelID.AlphaBlendDst() == PixelBlendFactor::ZERO) {
-			if (pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
-				pixelID.alphaBlend = false;
-				changedPixelID = true;
-			}
+
+		bool applyFog = pixelID.applyFog || (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF);
+		if (applyFog) {
+			bool hasFog = state->flags & RasterizerStateFlags::VERTEX_HAS_FOG;
+			if (!hasFog)
+				optimize |= RasterizerStateFlags::OPTIMIZED_FOG_OFF;
 		}
 	}
-	if (state.enableTextures) {
-		if (v1.color0 == 0xFFFFFFFF) {
+
+	if (state->enableTextures) {
+		bool colorFull = !(state->flags & RasterizerStateFlags::VERTEX_NON_FULL_WHITE);
+		if (colorFull && (!needTextureAlpha || alphaFull)) {
 			// Modulate is common, sometimes even with a fixed color.  Replace is cheaper.
-			if (state.samplerID.TexFunc() == GE_TEXFUNC_MODULATE) {
-				state.samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
-				changedSamplerID = true;
+			GETexFunc texFunc = samplerID.TexFunc();
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+				texFunc = GE_TEXFUNC_MODULATE;
+
+			if (texFunc == GE_TEXFUNC_MODULATE)
+				optimize |= RasterizerStateFlags::OPTIMIZED_TEXREPLACE;
+		}
+
+		bool usesClut = (samplerID.texfmt & 4) != 0;
+		if (usesClut && alphaFull && samplerID.useTextureAlpha) {
+			GEComparison alphaTestFunc = pixelID.AlphaTestFunc();
+			// We optimize > 0 to != 0, so this is especially common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+				alphaTestFunc = GE_COMP_NOTEQUAL;
+			// > 16, 8, or similar are also very common.
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+				alphaTestFunc = GE_COMP_GREATER;
+			if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON)
+				alphaTestFunc = GE_COMP_ALWAYS;
+
+			bool alphaTest = (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) && pixelID.alphaTestRef < 0xFF && !state->pixelID.hasAlphaTestMask;
+			if (alphaTest) {
+				bool canSkipAlphaTest = CheckClutAlphaFull(state);
+				if ((state->flags & RasterizerStateFlags::CLUT_ALPHA_NON_ZERO) && pixelID.alphaTestRef == 0)
+					canSkipAlphaTest = true;
+				if (canSkipAlphaTest)
+					optimize |= alphaTestFunc == GE_COMP_NOTEQUAL ? RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE : RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT;
 			}
 		}
 	}
 
-	if (changedPixelID)
-		state.drawPixel = Rasterizer::GetSingleFunc(state.pixelID);
-	if (changedSamplerID) {
-		state.linear = Sampler::GetLinearFunc(state.samplerID);
-		state.nearest = Sampler::GetNearestFunc(state.samplerID);
+	return optimize;
+}
 
-		// Since the definitions are the same, just force this setting using the func pointer.
-		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
-			state.nearest = state.linear;
-		else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST)
-			state.linear = state.nearest;
+static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStateFlags &optimize) {
+	bool changed = false;
+
+	// Check if we can compile the new funcs before replacing.
+	if (OptimizePixelIDFlags(state->flags) != OptimizePixelIDFlags(optimize)) {
+		bool canFull = !(state->flags & RasterizerStateFlags::VERTEX_ALPHA_NON_FULL);
+
+		PixelFuncID pixelID = state->pixelID;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_OFF)
+			pixelID.alphaBlend = false;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_OFF)
+			pixelID.alphaBlend = true;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+			pixelID.alphaBlendSrc = (uint8_t)(canFull ? PixelBlendFactor::ONE : PixelBlendFactor::ZERO);
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_SRC)
+			pixelID.alphaBlendSrc = (uint8_t)PixelBlendFactor::SRCALPHA;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+			pixelID.alphaBlendDst = (uint8_t)(canFull ? PixelBlendFactor::ZERO : PixelBlendFactor::ONE);
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_BLEND_DST)
+			pixelID.alphaBlendDst = (uint8_t)PixelBlendFactor::INVSRCALPHA;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = false;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_FOG_OFF)
+			pixelID.applyFog = true;
+		if (optimize & (RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE | RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT))
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_NE)
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_OFF_GT)
+			pixelID.alphaTestFunc = GE_COMP_GREATER;
+		else if (optimize & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_NOTEQUAL;
+			pixelID.alphaTestRef = 0;
+			pixelID.hasAlphaTestMask = false;
+		} else if (state->flags & RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON) {
+			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
+		}
+
+		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
+		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
+		if (drawPixel) {
+			state->drawPixel = drawPixel;
+			memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
+			state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+			changed = true;
+		}
 	}
 
-	return state;
+	if (OptimizeSamplerIDFlags(state->flags) != OptimizeSamplerIDFlags(optimize)) {
+		SamplerID samplerID = state->samplerID;
+		if (optimize & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+			samplerID.texFunc = (uint8_t)GE_TEXFUNC_REPLACE;
+		else if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
+			samplerID.texFunc = (uint8_t)GE_TEXFUNC_MODULATE;
+
+		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID, nullptr);
+		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID, nullptr);
+		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
+		if (linear && nearest) {
+			// Since the definitions are the same, just force this setting using the func pointer.
+			if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+				state->nearest = linear;
+				state->linear = linear;
+			} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+				state->nearest = nearest;
+				state->linear = nearest;
+			} else {
+				state->nearest = nearest;
+				state->linear = linear;
+			}
+			memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
+			state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+			changed = true;
+		}
+	}
+
+	state->lastFlags = state->flags;
+	return changed;
+}
+
+bool OptimizeRasterState(RasterizerState *state) {
+	if (state->flags == state->lastFlags)
+		return false;
+
+	RasterizerStateFlags optimize = DetectStateOptimizations(state);
+
+	// If it was optimized before, just revert and don't churn.
+	if ((state->flags & RasterizerStateFlags::OPTIMIZED) && OptimizeAllFlags(state->flags) != OptimizeAllFlags(optimize)) {
+		optimize = RasterizerStateFlags::NONE;
+	} else if (optimize == RasterizerStateFlags::NONE && !(state->flags & RasterizerStateFlags::OPTIMIZED)) {
+		state->lastFlags = state->flags;
+		return false;
+	}
+
+	return ApplyStateOptimizations(state, optimize);
+}
+
+RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, const VertexData &v1) {
+	uint8_t alpha = v1.color0 >> 24;
+	RasterizerState state = origState;
+
+	// Sometimes, a particular draw can do better than the overall state.
+	state.flags = ClearFlags(state.flags, RasterizerStateFlags::VERTEX_FLAT_RESET);
+	CalculateRasterStateFlags(&state, v1, true);
+
+	RasterizerStateFlags optimize = DetectStateOptimizations(&state);
+	if (OptimizeAllFlags(state.flags) != OptimizeAllFlags(optimize)) {
+		ApplyStateOptimizations(&state, optimize);
+		return state;
+	}
+
+	return origState;
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
@@ -249,9 +543,7 @@ static inline void GetTextureCoordinatesProj(const VertexData& v0, const VertexD
 	float wq0 = p * q0;
 	float wq1 = (1.0f - p) * q1;
 
-	float q_recip = 1.0f / (wq0 + wq1);
-	float q = (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1) * q_recip;
-	q_recip *= 1.0f / q;
+	float q_recip = 1.0f / (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1);
 
 	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
@@ -280,9 +572,9 @@ static inline void GetTextureCoordinatesProj(const VertexData &v0, const VertexD
 	Vec4<float> wq1 = w1.Cast<float>() * q1;
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
-	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
-	Vec4<float> q = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, q_recip);
-	q_recip = q_recip * q.Reciprocal();
+	// Here, Interpolate() is a bit suboptimal, since
+	// there's no need to multiply by 1.0f.
+	Vec4<float> q_recip = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, Vec4<float>::AssignToAll(1.0f)).Reciprocal();
 
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
@@ -393,6 +685,101 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	}
 }
 
+static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
+	// Skip the depth buffer read if we're masked already.
+#if defined(_M_SSE)
+	__m128i result = SAFE_M128I(mask.ivec);
+	int maskbits = _mm_movemask_epi8(result);
+	if (maskbits >= 0xFFFF)
+		return mask;
+#else
+	Vec4<int> result = mask;
+	if (mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
+		return result;
+#endif
+
+	// Read in the existing depth values.
+#if defined(_M_SSE)
+	// Tried using flags from maskbits to skip dwords... seemed neutral.
+	__m128i refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
+	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
+	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+#else
+	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
+#endif
+
+	switch (func) {
+	case GE_COMP_NEVER:
+#if defined(_M_SSE)
+		result = _mm_set1_epi32(-1);
+#else
+		result = Vec4<int>::AssignToAll(-1);
+#endif
+		break;
+
+	case GE_COMP_ALWAYS:
+		break;
+
+	case GE_COMP_EQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_xor_si128(_mm_cmpeq_epi32(z.ivec, refz), _mm_set1_epi32(-1)));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] != refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_NOTEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] == refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LESS:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] >= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] > refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GREATER:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] <= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] < refz[i] ? -1 : 0;
+#endif
+		break;
+	}
+
+	return result;
+}
+
 template <bool useSSE4>
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
@@ -434,7 +821,7 @@ Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoord
 	stepY = Vec4<int>::AssignToAll(yf * SCREEN_SCALE_FACTOR * 2);
 
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
+	if constexpr (useSSE4)
 		return TriangleEdgeStartSSE4(initX.ivec, initY.ivec, xf, yf, c);
 #endif
 	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
@@ -444,6 +831,8 @@ template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepX(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepX.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, stepX.ivec);
 #else
 	return w + stepX;
 #endif
@@ -453,6 +842,8 @@ template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepY.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, stepY.ivec);
 #else
 	return w + stepY;
 #endif
@@ -473,11 +864,14 @@ template <bool useSSE4>
 void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
 	int wmax;
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4) {
+	if constexpr (useSSE4) {
 		wmax = MaxWeightSSE4(w.ivec);
 	} else {
 		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 	}
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x2_t wmax_temp = vpmax_s32(vget_low_s32(w.ivec), vget_high_s32(w.ivec));
+	wmax = vget_lane_s32(vpmax_s32(wmax_temp, wmax_temp), 0);
 #else
 	wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
 #endif
@@ -508,8 +902,10 @@ static inline __m128i SOFTRAST_CALL StepTimesSSE4(__m128i w, __m128i step, int c
 template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
+	if constexpr (useSSE4)
 		return StepTimesSSE4(w.ivec, stepX.ivec, c);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	return vaddq_s32(w.ivec, vmulq_s32(vdupq_n_s32(c), stepX.ivec));
 #endif
 	return w + stepX * c;
 }
@@ -521,6 +917,12 @@ static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const
 	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
 
 	return _mm_or_si128(_mm_or_si128(biased0, _mm_or_si128(biased1, biased2)), scissor.ivec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t biased0 = vaddq_s32(w0.ivec, bias0.ivec);
+	int32x4_t biased1 = vaddq_s32(w1.ivec, bias1.ivec);
+	int32x4_t biased2 = vaddq_s32(w2.ivec, bias2.ivec);
+
+	return vorrq_s32(vorrq_s32(biased0, vorrq_s32(biased1, biased2)), scissor.ivec);
 #else
 	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2) | scissor;
 #endif
@@ -539,15 +941,15 @@ static inline bool SOFTRAST_CALL AnyMaskSSE4(__m128i mask) {
 template <bool useSSE4>
 static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4) {
+	if constexpr (useSSE4) {
 		return AnyMaskSSE4(mask.ivec);
 	}
 
-	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
-	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
-	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
-	// Now we only need to check one sign bit.
-	return _mm_cvtsi128_si32(low1) >= 0;
+	// Source: https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/#comment-6676
+	return _mm_movemask_ps(_mm_castsi128_ps(mask.ivec)) != 15;
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int64x2_t sig = vreinterpretq_s64_s32(vshrq_n_s32(mask.ivec, 31));
+	return vgetq_lane_s64(sig, 0) != -1 || vgetq_lane_s64(sig, 1) != -1;
 #else
 	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
 #endif
@@ -558,6 +960,9 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
 	// _mm_rcp_ps loses too much precision.
 	return _mm_div_ps(_mm_set1_ps(1.0f), _mm_cvtepi32_ps(wsum));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	int32x4_t wsum = vaddq_s32(w0.ivec, vaddq_s32(w1.ivec, w2.ivec));
+	return vdivq_f32(vdupq_n_f32(1.0f), vcvtq_f32_s32(wsum));
 #else
 	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
@@ -586,10 +991,13 @@ void DrawTriangleSlice(
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
 
+	// The sum of weights should remain constant as we move toward/away from the edges.
+	const Vec4<float> wsum_recip = EdgeRecip(w0_base, w1_base, w2_base);
+
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
-	const bool flatColorAll = clearMode || !state.shadeGouraud;
+	const bool flatColorAll = !state.shadeGouraud;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
 	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
@@ -611,6 +1019,12 @@ void DrawTriangleSlice(
 	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
 	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
+
+	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
+	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
+	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
+	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
@@ -648,32 +1062,29 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (AnyMask<useSSE4>(mask)) {
-				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
-
 				Vec4<int> z;
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
 					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					Vec4<float> zfloats = w0.Cast<float>() * v0_z4 + w1.Cast<float>() * v1_z4 + w2.Cast<float>() * v2_z4;
 					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
 				if (pixelID.earlyZChecks) {
-					for (int i = 0; i < 4; ++i) {
-						if (pixelID.applyDepthRange) {
-							if (z[i] < pixelID.cached.minz || z[i] > pixelID.cached.maxz)
+					if (pixelID.applyDepthRange) {
+#if defined(_M_SSE)
+						mask.ivec = _mm_or_si128(mask.ivec, _mm_or_si128(_mm_cmplt_epi32(z.ivec, minz.ivec), _mm_cmpgt_epi32(z.ivec, maxz.ivec)));
+#else
+						for (int i = 0; i < 4; ++i) {
+							if (z[i] < minz[i] || z[i] > maxz[i])
 								mask[i] = -1;
 						}
-						if (mask[i] < 0)
-							continue;
-
-						int x = p.x + (i & 1);
-						int y = p.y + (i / 2);
-						if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z[i])) {
-							mask[i] = -1;
-						}
+#endif
 					}
+					mask = CheckDepthTestPassed4(mask, pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z);
+					if (!AnyMask<useSSE4>(mask))
+						continue;
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.
@@ -700,38 +1111,45 @@ void DrawTriangleSlice(
 					}
 				}
 
-				if (state.enableTextures && !clearMode) {
-					Vec4<float> s, t;
-					if (state.throughMode) {
-						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
-						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
+				if (state.enableTextures) {
+					if constexpr (!clearMode) {
+						Vec4<float> s, t;
+						if (state.throughMode) {
+							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
+											w2, wsum_recip);
+							t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
+											w2, wsum_recip);
 
-						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
-						s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
-						t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
-					} else if (state.textureProj) {
-						// Texture coordinate interpolation must definitely be perspective-correct.
-						GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-					} else {
-						// Texture coordinate interpolation must definitely be perspective-correct.
-						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-					}
+							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
+							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
+						} else if (state.textureProj) {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						} else {
+							// Texture coordinate interpolation must definitely be perspective-correct.
+							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						}
 
-					if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
-						// Not sure what's right, but we need one value for the slope.
-						float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
-						ApplyTexturing(state, prim_color, mask, s, t, clipw);
-					} else {
-						ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
+							// Not sure what's right, but we need one value for the slope.
+							float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+							ApplyTexturing(state, prim_color, mask, s, t, clipw);
+						} else {
+							ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						}
 					}
 				}
 
-				if (!clearMode) {
+				if constexpr (!clearMode) {
 					for (int i = 0; i < 4; ++i) {
 #if defined(_M_SSE)
 						// TODO: Tried making Vec4 do this, but things got slower.
 						const __m128i sec = _mm_and_si128(sec_color[i].ivec, _mm_set_epi32(0, -1, -1, -1));
 						prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+						int32x4_t sec = vsetq_lane_s32(0, sec_color[i].ivec, 3);
+						prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
 #else
 						prim_color[i] += Vec4<int>(sec_color[i], 0);
 #endif
@@ -892,15 +1310,15 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
-		DrawingCoords p = TransformUnit::ScreenToDrawing(range.x1, curY);
+	for (int64_t curY = minY; curY < maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
 		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - SCREEN_SCALE_FACTOR, scissorY2, (maxX - minX - SCREEN_SCALE_FACTOR) | scissorY2);
 		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
 		Vec2f st = rowST;
 
-		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = minX; curX < maxX; curX += SCREEN_SCALE_FACTOR * 2,
 			st += stx,
 			scissor_mask += scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
@@ -938,6 +1356,9 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 					// TODO: Tried making Vec4 do this, but things got slower.
 					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
 					prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+#elif PPSSPP_ARCH(ARM64_NEON)
+					int32x4_t sec = vsetq_lane_s32(0, sec_color.ivec, 3);
+					prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
 #else
 					prim_color[i] += Vec4<int>(sec_color, 0);
 #endif
@@ -985,7 +1406,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = Vec4<int>::FromRGBA(v0.color0);
-	Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1025,8 +1445,10 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
-	if (!pixelID.clearMode)
+	if (!pixelID.clearMode) {
+		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 		prim_color += Vec4<int>(sec_color, 0);
+	}
 
 	u8 fog = 255;
 	if (pixelID.applyFog) {
@@ -1068,7 +1490,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		minY += SCREEN_SCALE_FACTOR;
 
 	const DrawingCoords pprime = TransformUnit::ScreenToDrawing(minX, minY);
-	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX, maxY);
+	// Only include the end pixel when it's >= 0.5.
+	const DrawingCoords pend = TransformUnit::ScreenToDrawing(maxX - SCREEN_SCALE_FACTOR / 2, maxY - SCREEN_SCALE_FACTOR / 2);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -1245,7 +1668,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
-	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v0.screenpos.z);
+	Vec3<int> b(v1.screenpos.x, v1.screenpos.y, v1.screenpos.z);
 
 	int dx = b.x - a.x;
 	int dy = b.y - a.y;
@@ -1417,7 +1840,14 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
+	// Slight annoyance, we may have to force a compile.
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, nullptr);
+	if (!sampler) {
+		Sampler::FlushJit();
+		sampler = Sampler::GetFetchFunc(id, nullptr);
+		if (!sampler)
+			return false;
+	}
 
 	u8 *texptr = Memory::GetPointerWrite(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

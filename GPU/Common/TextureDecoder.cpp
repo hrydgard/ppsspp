@@ -23,6 +23,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
+#include "Common/Math/CrossSIMD.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -41,12 +42,24 @@
 #endif
 #endif
 
-#ifdef __clang__
-// Weird how you can't just use #pragma in a macro.
-#define DO_NOT_VECTORIZE_LOOP _Pragma("clang loop vectorize(disable)")
-#else
-#define DO_NOT_VECTORIZE_LOOP
-#endif
+const u8 textureBitsPerPixel[16] = {
+	16,  //GE_TFMT_5650,
+	16,  //GE_TFMT_5551,
+	16,  //GE_TFMT_4444,
+	32,  //GE_TFMT_8888,
+	4,   //GE_TFMT_CLUT4,
+	8,   //GE_TFMT_CLUT8,
+	16,  //GE_TFMT_CLUT16,
+	32,  //GE_TFMT_CLUT32,
+	4,   //GE_TFMT_DXT1,
+	8,   //GE_TFMT_DXT3,
+	8,   //GE_TFMT_DXT5,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+};
 
 #ifdef _M_SSE
 
@@ -224,8 +237,13 @@ static u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		static const u16 cursor2_initial[8] = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
 		union u32x4_u16x8 {
+#if defined(__GNUC__)
+			uint32_t x32 __attribute__((vector_size(16)));
+			uint16_t x16 __attribute__((vector_size(16)));
+#else
 			u32 x32[4];
 			u16 x16[8];
+#endif
 		};
 		u32x4_u16x8 cursor{};
 		u32x4_u16x8 cursor2;
@@ -421,9 +439,9 @@ class DXTDecoder {
 public:
 	inline void DecodeColors(const DXT1Block *src, bool ignore1bitAlpha);
 	inline void DecodeAlphaDXT5(const DXT5Block *src);
-	inline void WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height);
-	inline void WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height);
-	inline void WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height);
+	inline void WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int width, int height);
+	inline void WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int width, int height);
+	inline void WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height);
 
 	bool AnyNonFullAlpha() const { return anyNonFullAlpha_; }
 
@@ -507,11 +525,11 @@ void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
 	}
 }
 
-void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int width, int height) {
 	bool anyColor3 = false;
 	for (int y = 0; y < height; y++) {
 		int colordata = src->lines[y];
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < width; x++) {
 			int col = colordata & 3;
 			if (col == 3) {
 				anyColor3 = true;
@@ -527,11 +545,11 @@ void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int 
 	}
 }
 
-void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int width, int height) {
 	for (int y = 0; y < height; y++) {
 		int colordata = src->color.lines[y];
 		u32 alphadata = src->alphaLines[y];
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alphadata << 28);
 			colordata >>= 2;
 			alphadata >>= 4;
@@ -540,13 +558,14 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 	}
 }
 
-void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height) {
+void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	// 48 bits, 3 bit index per pixel, 12 bits per line.
-	u64 alphadata = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
+	u64 allAlpha = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
 	for (int y = 0; y < height; y++) {
-		int colordata = src->color.lines[y];
-		for (int x = 0; x < 4; x++) {
+		uint32_t colordata = src->color.lines[y];
+		uint32_t alphadata = allAlpha >> (12 * y);
+		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
 			colordata >>= 2;
 			alphadata >>= 3;
@@ -619,38 +638,34 @@ uint32_t GetDXT5Texel(const DXT5Block *src, int x, int y) {
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, u32 *alpha) {
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int width, int height, u32 *alpha) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(src, false);
-	dxt.WriteColorsDXT1(dst, src, pitch, height);
+	dxt.WriteColorsDXT1(dst, src, pitch, width, height);
 	*alpha &= dxt.AnyNonFullAlpha() ? 0 : 1;
 }
 
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height) {
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int width,  int height) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(&src->color, true);
-	dxt.WriteColorsDXT3(dst, src, pitch, height);
+	dxt.WriteColorsDXT3(dst, src, pitch, width, height);
 }
 
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	DXTDecoder dxt;
 	dxt.DecodeColors(&src->color, true);
 	dxt.DecodeAlphaDXT5(src);
-	dxt.WriteColorsDXT5(dst, src, pitch, height);
+	dxt.WriteColorsDXT5(dst, src, pitch, width, height);
 }
 
 #ifdef _M_SSE
 inline u32 SSEReduce32And(__m128i value) {
-	// TODO: Should use a shuffle instead of slri, probably.
-	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
-	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
+	value = _mm_and_si128(value, _mm_shuffle_epi32(value, _MM_SHUFFLE(1, 0, 3, 2)));
+	value = _mm_and_si128(value, _mm_shuffle_epi32(value, _MM_SHUFFLE(1, 1, 1, 1)));
 	return _mm_cvtsi128_si32(value);
 }
 inline u32 SSEReduce16And(__m128i value) {
-	// TODO: Should use a shuffle instead of slri, probably.
-	value = _mm_and_si128(value, _mm_srli_si128(value, 64));
-	value = _mm_and_si128(value, _mm_srli_si128(value, 32));
-	u32 mask = _mm_cvtsi128_si32(value);
+	u32 mask = SSEReduce32And(value);
 	return mask & (mask >> 16);
 }
 #endif

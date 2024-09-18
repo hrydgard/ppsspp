@@ -51,14 +51,11 @@ public:
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 	}
-	void InvalidateLastTexture() override {
-		lastBoundTexture = nullptr;
-	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
@@ -70,7 +67,7 @@ protected:
 
 private:
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
-	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	static Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;
 
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void BuildTexture(TexCacheEntry *const entry) override;

@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
@@ -51,11 +51,12 @@ void WebSocketGameReset(DebuggerRequest &req) {
 
 	std::string resetError;
 	if (!PSP_Reboot(&resetError)) {
-		ERROR_LOG(BOOT, "Error resetting: %s", resetError.c_str());
+		ERROR_LOG(Log::Boot, "Error resetting: %s", resetError.c_str());
 		return req.Fail("Could not reset");
 	}
-	host->BootDone();
-	host->UpdateDisassembly();
+
+	System_Notify(SystemNotification::BOOT_DONE);
+	System_Notify(SystemNotification::DISASSEMBLY);
 
 	req.Respond();
 }
@@ -95,6 +96,17 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 //  - version: string, typically starts with "v" and may have git build info.
 void WebSocketVersion(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
+
+	std::string version = req.client->version;
+	if (!req.ParamString("version", &version, DebuggerParamType::OPTIONAL_LOOSE))
+		return;
+	std::string name = req.client->name;
+	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL_LOOSE))
+		return;
+
+	req.client->version = version;
+	req.client->name = name;
+
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);
 }

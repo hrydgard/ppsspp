@@ -38,8 +38,8 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			x[first] = second;
 			--number;
 		}
+		break;
 	}
-	break;
 	case PointerWrap::MODE_WRITE:
 	case PointerWrap::MODE_MEASURE:
 	case PointerWrap::MODE_VERIFY:
@@ -52,8 +52,10 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			--number;
 			++itr;
 		}
+		break;
 	}
-	break;
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 
@@ -61,8 +63,7 @@ template<class K, class T>
 void Do(PointerWrap &p, std::map<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+			delete it->second;
 		}
 	}
 	T *dv = nullptr;
@@ -79,8 +80,7 @@ template<class K, class T>
 void Do(PointerWrap &p, std::unordered_map<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+			delete it->second;
 		}
 	}
 	T *dv = nullptr;
@@ -109,8 +109,8 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			x.insert(std::make_pair(first, second));
 			--number;
 		}
+		break;
 	}
-	break;
 	case PointerWrap::MODE_WRITE:
 	case PointerWrap::MODE_MEASURE:
 	case PointerWrap::MODE_VERIFY:
@@ -122,8 +122,10 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 			--number;
 			++itr;
 		}
+		break;
 	}
-	break;
+	case PointerWrap::MODE_NOOP:
+		break;
 	}
 }
 
@@ -131,8 +133,7 @@ template<class K, class T>
 void Do(PointerWrap &p, std::multimap<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+			delete it->second;
 		}
 	}
 	T *dv = nullptr;
@@ -149,8 +150,7 @@ template<class K, class T>
 void Do(PointerWrap &p, std::unordered_multimap<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+			delete it->second;
 		}
 	}
 	T *dv = nullptr;

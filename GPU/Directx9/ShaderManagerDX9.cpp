@@ -29,15 +29,15 @@
 #include "Common/Math/math_util.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Display.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -61,12 +61,12 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 
 	if (!errorMessage.empty()) {
 		if (success) {
-			ERROR_LOG(G3D, "Warnings in shader compilation!");
+			ERROR_LOG(Log::G3D, "Warnings in shader compilation!");
 		} else {
-			ERROR_LOG(G3D, "Error in shader compilation!");
+			ERROR_LOG(Log::G3D, "Error in shader compilation!");
 		}
-		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
+		ERROR_LOG(Log::G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(Log::G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
@@ -74,18 +74,14 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
+		shader = nullptr;
 		return;
 	} else {
-		VERBOSE_LOG(G3D, "Compiled pixel shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(Log::G3D, "Compiled pixel shader:\n%s\n", (const char *)code);
 	}
 }
 
 PSShader::~PSShader() {
-	if (shader)
-		shader->Release();
 }
 
 std::string PSShader::GetShaderString(DebugShaderStringType type) const {
@@ -110,12 +106,12 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 	success = CompileVertexShaderD3D9(device, code, &shader, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
-			ERROR_LOG(G3D, "Warnings in shader compilation!");
+			ERROR_LOG(Log::G3D, "Warnings in shader compilation!");
 		} else {
-			ERROR_LOG(G3D, "Error in shader compilation!");
+			ERROR_LOG(Log::G3D, "Error in shader compilation!");
 		}
-		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		ERROR_LOG(Log::G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(Log::G3D, "Shader source:\n%s", code);
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
@@ -123,18 +119,14 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
+		shader = nullptr;
 		return;
 	} else {
-		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(Log::G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 	}
 }
 
 VSShader::~VSShader() {
-	if (shader)
-		shader->Release();
 }
 
 std::string VSShader::GetShaderString(DebugShaderStringType type) const {
@@ -197,13 +189,19 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, const float data[4]) {
 	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	float f[4];
 	ExpandFloat24x3ToFloat4(f, data);
+	device_->SetVertexShaderConstantF(creg, f, 1);
+}
+
+void ShaderManagerDX9::VSSetFloat24Uniform3Normalized(int creg, const u32 data[3]) {
+	float f[4];
+	ExpandFloat24x3ToFloat4AndNormalize(f, data);
 	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
@@ -261,7 +259,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_MIPBIAS;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -279,7 +277,15 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
 		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
-
+	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		// NOTE: Reversed value, more efficient in shader.
+		float noAlphaMul[2] = { doTextureAlpha ? 0.0f : 1.0f, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f };
+		PSSetFloatArray(CONST_PS_TEX_NO_ALPHA_MUL, noAlphaMul, 2);
+	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
 		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());
@@ -422,12 +428,16 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
-		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-		const int w = gstate.getTextureWidth(0);
-		const int h = gstate.getTextureHeight(0);
-		const float widthFactor = (float)w * invW;
-		const float heightFactor = (float)h * invH;
+		float widthFactor = 1.0f;
+		float heightFactor = 1.0f;
+		if (gstate_c.textureIsFramebuffer) {
+			const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+			const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+			const int w = gstate.getTextureWidth(0);
+			const int h = gstate.getTextureHeight(0);
+			widthFactor = (float)w * invW;
+			heightFactor = (float)h * invH;
+		}
 		float uvscaleoff[4];
 		uvscaleoff[0] = widthFactor;
 		uvscaleoff[1] = heightFactor;
@@ -442,16 +452,21 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = InfToZero(gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f);
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
-		float reverseScale = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		float viewZCenter = minz;
+		float reverseScale = InfToZero(gstate_c.vpDepthScale != 0.0f ? 2.0f * (1.0f / gstate_c.vpDepthScale) : 0.0f);
 		float reverseTranslate = gstate_c.vpZOffset * 0.5f + 0.5f;
 
 		float data[4] = { viewZScale, viewZCenter, reverseTranslate, reverseScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+
+		if (draw_->GetDeviceCaps().clipPlanesSupported >= 1) {
+			float clip[4] = { 0.0f, 0.0f, reverseScale, 1.0f - reverseTranslate * reverseScale };
+			// Well, not a uniform, but we treat it as one like other backends.
+			device_->SetClipPlane(0, clip);
+		}
 	}
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
 		float minValues[4], maxValues[4];
@@ -479,21 +494,11 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
+				VSSetFloat24Uniform3Normalized(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 			} else {
 				VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 			}
-			VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
+			VSSetFloat24Uniform3Normalized(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
 			VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
 			float angle_spotCoef[4] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
 			VSSetFloatUniform4(CONST_VS_LIGHTANGLE_SPOTCOEF + i, angle_spotCoef);
@@ -522,33 +527,28 @@ void ShaderManagerDX9::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	DirtyShader();
+	DirtyLastShader();
 }
 
-void ShaderManagerDX9::ClearCache(bool deleteThem) {
+void ShaderManagerDX9::ClearShaders() {
 	Clear();
 }
 
-
-void ShaderManagerDX9::DirtyShader() {
+void ShaderManagerDX9::DirtyLastShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
+	// TODO: Probably not necessary to dirty uniforms here on DX9.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
-	lastVShader_ = nullptr;
-	lastPShader_ = nullptr;
-}
-
-VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -581,23 +581,24 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		std::string genErrorString;
 		uint32_t attrMask;
 		uint64_t uniformMask;
-		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, nullptr, &genErrorString)) {
+		VertexShaderFlags flags;
+		if (GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString)) {
 			vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 		}
 		if (!vs || vs->Failed()) {
-			auto gr = GetI18NCategory("Graphics");
 			if (!vs) {
 				// TODO: Report this?
-				ERROR_LOG(G3D, "Shader generation failed, falling back to software transform");
+				ERROR_LOG(Log::G3D, "Shader generation failed, falling back to software transform");
 			} else {
-				ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+				ERROR_LOG(Log::G3D, "Shader compilation failed, falling back to software transform");
 			}
 			if (!g_Config.bHideSlowWarnings) {
-				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, vertType, false, false, weightsAsFloat, useSkinInDecode);
+			ComputeVertexShaderID(&VSID, decoder, false, false, weightsAsFloat, useSkinInDecode);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
@@ -606,7 +607,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 			// Can still work with software transform.
 			uint32_t attrMask;
 			uint64_t uniformMask;
-			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, nullptr, &genErrorString);
+			bool success = GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString);
 			_assert_(success);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
@@ -623,7 +624,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		// Fragment shader not in cache. Let's compile it.
 		std::string errorString;
 		uint64_t uniformMask;
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, nullptr, &errorString);
+		FragmentShaderFlags flags;
+		bool success = GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString);
 		// We're supposed to handle all possible cases.
 		_assert_(success);
 		fs = new PSShader(device_, FSID, codeBuffer_);
@@ -643,8 +645,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		gstate_c.CleanUniforms();
 	}
 
-	device_->SetPixelShader(fs->shader);
-	device_->SetVertexShader(vs->shader);
+	device_->SetPixelShader(fs->shader.Get());
+	device_->SetVertexShader(vs->shader.Get());
 
 	lastPShader_ = fs;
 	lastVShader_ = vs;
@@ -656,21 +658,17 @@ std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType typ
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
-	{
 		for (auto iter : vsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);
 		}
-	}
-	break;
+		break;
 	case SHADER_TYPE_FRAGMENT:
-	{
 		for (auto iter : fsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);
 		}
-	}
-	break;
+		break;
 	}
 	return ids;
 }

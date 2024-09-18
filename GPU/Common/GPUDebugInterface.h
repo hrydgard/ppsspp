@@ -190,6 +190,7 @@ struct GPUDebugVertex {
 
 class GPUDebugInterface {
 public:
+	virtual ~GPUDebugInterface() {}
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
 	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
 	virtual void ResetListPC(int listID, u32 pc) = 0;
@@ -251,11 +252,6 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 		return false;
 	}
-
-	// TODO:
-	// cached framebuffers / textures / vertices?
-	// get content of specific framebuffer / texture?
-	// vertex / texture decoding?
 };
 
 bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp);

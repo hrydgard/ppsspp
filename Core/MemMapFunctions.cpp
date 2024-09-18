@@ -16,13 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
+#include "Common/LogReporting.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Host.h"
-#include "Core/Reporting.h"
 
 #include "Core/MIPS/MIPS.h"
 
@@ -40,7 +39,9 @@ u8 *GetPointerWrite(const u32 address) {
 			Reporting::ReportMessage("Unknown GetPointerWrite %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+
+		// Size is not known, we pass 0 to signal that.
+		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
 		return nullptr;
 	}
 }
@@ -57,7 +58,40 @@ const u8 *GetPointer(const u32 address) {
 			Reporting::ReportMessage("Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+		// Size is not known, we pass 0 to signal that.
+		Core_MemoryException(address, 0, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+		return nullptr;
+	}
+}
+
+u8 *GetPointerWriteRange(const u32 address, const u32 size) {
+	u8 *ptr = GetPointerWrite(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, size, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
+		}
+	} else {
+		// Error was reported in GetPointerWrite already, if we're not ignoring errors.
+		return nullptr;
+	}
+}
+
+const u8 *GetPointerRange(const u32 address, const u32 size) {
+	const u8 *ptr = GetPointer(address);
+	if (ptr) {
+		if (ValidSize(address, size) != size) {
+			// That's a memory exception! TODO: Adjust reported address to the end of the range?
+			Core_MemoryException(address, size, currentMIPS->pc, MemoryExceptionType::READ_BLOCK);
+			return nullptr;
+		} else {
+			return ptr;
+		}
+	} else {
+		// Error was reported in GetPointer already, if we're not ignoring errors.
 		return nullptr;
 	}
 }
@@ -83,7 +117,7 @@ inline void ReadFromHardware(T &var, const u32 address) {
 			Reporting::ReportMessage("ReadFromHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_WORD);
+		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::READ_WORD);
 		var = 0;
 	}
 }
@@ -108,7 +142,7 @@ inline void WriteToHardware(u32 address, const T data) {
 			Reporting::ReportMessage("WriteToHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
+		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
 	}
 }
 

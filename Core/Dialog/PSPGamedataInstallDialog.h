@@ -36,15 +36,15 @@ struct SceUtilityGamedataInstallParam {
 class PSPGamedataInstallDialog: public PSPDialog {
 public:
 	PSPGamedataInstallDialog(UtilityDialogType type);
-	virtual ~PSPGamedataInstallDialog();
+	~PSPGamedataInstallDialog();
 
-	virtual int Init(u32 paramAddr);
-	virtual int Update(int animSpeed) override;
-	virtual int Shutdown(bool force = false) override;
-	virtual void DoState(PointerWrap &p) override;
+	int Init(u32 paramAddr);
+	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
 
 	int Abort();
-	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
+	std::string GetGameDataInstallFileName(const SceUtilityGamedataInstallParam *param, const std::string &filename);
 
 protected:
 	// TODO: Manage status correctly.
@@ -54,6 +54,7 @@ protected:
 
 private:
 	void UpdateProgress();
+	void RenderProgress(int percentage);
 	void OpenNextFile();
 	void CopyCurrentFileData();
 	void CloseCurrentFile();

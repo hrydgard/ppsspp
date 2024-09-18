@@ -18,36 +18,18 @@
 #pragma once
 
 #include "Common/GPU/thin3d.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-
-class TextureCacheGLES;
-class DrawEngineGLES;
-class ShaderManagerGLES;
-class GLRProgram;
+#include "GPU/Common/GPUDebugInterface.h"
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
 	FramebufferManagerGLES(Draw::DrawContext *draw);
-	~FramebufferManagerGLES();
 
-	void Resized() override;
-	void DeviceLost() override;
+	void NotifyDisplayResized() override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
-	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) override;
-	bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride) override;
-
-private:
-	u8 *convBuf_ = nullptr;
-	u32 convBufSize_ = 0;
-
-	GLRProgram *depthDownloadProgram_ = nullptr;
-	int u_depthDownloadTex = -1;
-	int u_depthDownloadFactor = -1;
-	int u_depthDownloadShift = -1;
-	int u_depthDownloadTo8 = -1;
+	bool ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) override;
 };

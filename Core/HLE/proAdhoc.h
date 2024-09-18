@@ -39,17 +39,13 @@
 #endif
 
 #include <atomic>
-#include <climits>
 #include <mutex>
 #include <thread>
+#include <climits>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
-
-#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
@@ -84,7 +80,7 @@
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
 #define EOPNOTSUPP WSAEOPNOTSUPP
-inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
+inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY || errcode == WSAEINVAL); } // WSAEINVAL should be treated as WSAEALREADY during connect for backward-compatibility with Winsock 1.1 
 inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
@@ -109,6 +105,10 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #endif
 #ifndef POLLPRI
 #define POLLPRI POLL_PRI
+#endif
+
+#ifndef SD_RECEIVE
+#define SD_RECEIVE SHUT_RD //0x00
 #endif
 
 #ifndef SD_BOTH
@@ -1017,7 +1017,7 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac = nul
 std::string ip2str(in_addr in, bool maskPublicIP = true);
 
 // Convert MAC address to string
-std::string mac2str(SceNetEtherAddr* mac);
+std::string mac2str(const SceNetEtherAddr *mac);
 
 /*
  * Matching Members
@@ -1038,7 +1038,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 * Send chat or get that
 * @param std::string ChatString 
 */
-void sendChat(std::string chatString);
+void sendChat(const std::string &chatString);
 std::vector<std::string> getChatLog();
 int GetChatChangeID();
 int GetChatMessageCount();

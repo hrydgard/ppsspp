@@ -138,8 +138,8 @@ static int Replace_memcpy() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
-		const u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
 
 		if (!dst || !src) {
 			// Already logged.
@@ -159,15 +159,19 @@ static int Replace_memcpy() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
-
 		// It's pretty common that games will copy video data.
-		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
-			if (bytes == 512 * 272 * 4) {
+		// Detect that by manually reading the tag when the size looks right.
+		if (bytes == 512 * 272 * 4) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+			NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+
+			if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
+		} else {
+			NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy/");
 		}
 	}
 
@@ -178,23 +182,33 @@ static int Replace_memcpy_jak() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	bool skip = false;
+
 	if (bytes == 0) {
 		RETURN(destPtr);
 		return 5;
 	}
+
+	bool skip = false;
+	bool sliced = false;
+	static constexpr uint32_t SLICE_SIZE = 32768;
+
 	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	if (!skip && bytes > SLICE_SIZE && bytes != 512 * 272 * 4 && !PSP_CoreParameter().compat.flags().DisableMemcpySlicing) {
+		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
+		// Avoiding exactly 512 * 272 * 4 to detect videos, though.
+		bytes = SLICE_SIZE;
+		sliced = true;
+	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
-		const u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
 
-		if (!dst || !src) {
-		} else {
+		if (dst && src) {
 			// Jak style overlap.
 			for (u32 i = 0; i < bytes; i++) {
 				dst[i] = src[i];
@@ -202,27 +216,42 @@ static int Replace_memcpy_jak() {
 		}
 	}
 
-	// Jak relies on more registers coming out right than the ABI specifies.
-	// See the disassembly of the function for the explanations for these...
-	currentMIPS->r[MIPS_REG_T0] = 0;
-	currentMIPS->r[MIPS_REG_A0] = -1;
-	currentMIPS->r[MIPS_REG_A2] = 0;
-	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
-	RETURN(destPtr);
+	if (sliced) {
+		currentMIPS->r[MIPS_REG_A0] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A1] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A2] -= SLICE_SIZE;
+	} else {
+		// Jak relies on more registers coming out right than the ABI specifies.
+		// See the disassembly of the function for the explanations for these...
+		currentMIPS->r[MIPS_REG_T0] = 0;
+		currentMIPS->r[MIPS_REG_A0] = -1;
+		currentMIPS->r[MIPS_REG_A2] = 0;
+		// Even after slicing, this ends up correct.
+		currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
+		RETURN(destPtr);
+	}
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
-
 		// It's pretty common that games will copy video data.
-		if (tag == "ReplaceMemcpy/VideoDecode" || tag == "ReplaceMemcpy/VideoDecodeRange") {
-			if (bytes == 512 * 272 * 4) {
+		// Detect that by manually reading the tag when the size looks right.
+		if (bytes == 512 * 272 * 4) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+			NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+
+			if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
+		} else {
+			NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy/");
 		}
 	}
 
+	if (sliced) {
+		// Negative causes the function to be run again for the next slice.
+		return 5 + bytes * -8 + 2;
+	}
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
 
@@ -241,8 +270,8 @@ static int Replace_memcpy16() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
-		const u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -250,9 +279,7 @@ static int Replace_memcpy16() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpy16/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy16/");
 	}
 
 	return 10 + bytes / 4;  // approximation
@@ -268,8 +295,8 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformReadbackToMemory(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointerWrite(destPtr);
-	const u8 *srcp = Memory::GetPointer(srcPtr);
+	u8 *dstp = Memory::GetPointerWriteRange(destPtr, pitch * h);
+	const u8 *srcp = Memory::GetPointerRange(srcPtr, pitch * h);
 
 	if (dstp && srcp) {
 		const u8 *ysrcp = srcp;
@@ -291,9 +318,7 @@ static int Replace_memcpy_swizzled() {
 	RETURN(0);
 
 	if (MemBlockInfoDetailed(pitch * h)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemcpySwizzle/", srcPtr, pitch * h);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(destPtr, srcPtr, pitch * h, "ReplaceMemcpySwizzle/");
 	}
 
 	return 10 + (pitch * h) / 4;  // approximation
@@ -313,8 +338,8 @@ static int Replace_memmove() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
-		const u8 *src = Memory::GetPointer(srcPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -322,9 +347,7 @@ static int Replace_memmove() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		const std::string tag = GetMemWriteTagAt("ReplaceMemmove/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tag.c_str(), tag.size());
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tag.c_str(), tag.size());
+		NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemmove/");
 	}
 
 	return 10 + bytes / 4;  // approximation
@@ -339,7 +362,7 @@ static int Replace_memset() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -362,39 +385,68 @@ static int Replace_memset_jak() {
 	}
 
 	bool skip = false;
+	bool sliced = false;
+	static constexpr uint32_t SLICE_SIZE = 32768;
 	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
+	if (!skip && bytes > SLICE_SIZE && !PSP_CoreParameter().compat.flags().DisableMemcpySlicing) {
+		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
+		bytes = SLICE_SIZE;
+		sliced = true;
+	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWrite(destPtr);
+		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
 	}
 
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
+
+	if (sliced) {
+		currentMIPS->r[MIPS_REG_A0] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A2] -= SLICE_SIZE;
+
+		// This is approximate, and must be a negative value.
+		// Negative causes the function to be run again for the next slice.
+		return 5 + (int)SLICE_SIZE * -6 + 2;
+	}
+
+	// Even after slicing, this ends up correct.
 	currentMIPS->r[MIPS_REG_T0] = destPtr + bytes;
 	currentMIPS->r[MIPS_REG_A2] = -1;
 	currentMIPS->r[MIPS_REG_A3] = -1;
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
+	return 5 + bytes * 6 + 2;  // approximation
+}
 
-	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
+static uint32_t SafeStringLen(const uint32_t ptr, uint32_t maxLen = 0x07FFFFFF) {
+	maxLen = Memory::ValidSize(ptr, 0x07FFFFFF);
+	const uint8_t *p = Memory::GetPointerRange(ptr, maxLen);
+	if (!p)
+		return 0;
+	const uint8_t *end = (const uint8_t *)memchr(p, '\0', maxLen);
+	if (!end)
+		return 0;
+	return (uint32_t)(end - p);
 }
 
 static int Replace_strlen() {
 	u32 srcPtr = PARAM(0);
-	const char *src = (const char *)Memory::GetPointer(srcPtr);
-	u32 len = src ? (u32)strlen(src) : 0UL;
+	u32 len = SafeStringLen(srcPtr);
 	RETURN(len);
 	return 7 + len * 4;  // approximation
 }
 
 static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointer(destPtr);
-	const char *src = (const char *)Memory::GetPointer(PARAM(1));
-	if (dst && src) {
+	u32 srcPtr = PARAM(1);
+	u32 len = SafeStringLen(srcPtr);
+	char *dst = (char *)Memory::GetPointerWriteRange(destPtr, len);
+	const char *src = (const char *)Memory::GetPointerRange(srcPtr, len);
+	if (dst && src && len != 0) {
 		strcpy(dst, src);
 	}
 	RETURN(destPtr);
@@ -403,9 +455,11 @@ static int Replace_strcpy() {
 
 static int Replace_strncpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointer(destPtr);
-	const char *src = (const char *)Memory::GetPointer(PARAM(1));
+	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
+	char *dst = (char *)Memory::GetPointerRange(destPtr, bytes);
+	u32 srcLen = SafeStringLen(srcPtr, bytes);
+	const char *src = (const char *)Memory::GetPointerRange(srcPtr, srcLen == 0 ? bytes : srcLen);
 	if (dst && src && bytes != 0) {
 		strncpy(dst, src, bytes);
 	}
@@ -414,9 +468,11 @@ static int Replace_strncpy() {
 }
 
 static int Replace_strcmp() {
-	const char *a = (const char *)Memory::GetPointer(PARAM(0));
-	const char *b = (const char *)Memory::GetPointer(PARAM(1));
-	if (a && b) {
+	u32 aLen = SafeStringLen(PARAM(0));
+	const char *a = (const char *)Memory::GetPointerRange(PARAM(0), aLen);
+	u32 bLen = SafeStringLen(PARAM(1));
+	const char *b = (const char *)Memory::GetPointerRange(PARAM(1), bLen);
+	if (a && b && aLen != 0 && bLen != 0) {
 		RETURN(strcmp(a, b));
 	} else {
 		RETURN(0);
@@ -425,9 +481,11 @@ static int Replace_strcmp() {
 }
 
 static int Replace_strncmp() {
-	const char *a = (const char *)Memory::GetPointer(PARAM(0));
-	const char *b = (const char *)Memory::GetPointer(PARAM(1));
 	u32 bytes = PARAM(2);
+	u32 aLen = SafeStringLen(PARAM(0), bytes);
+	const char *a = (const char *)Memory::GetPointerRange(PARAM(0), aLen == 0 ? bytes : aLen);
+	u32 bLen = SafeStringLen(PARAM(1), bytes);
+	const char *b = (const char *)Memory::GetPointerRange(PARAM(1), bLen == 0 ? bytes : bLen);
 	if (a && b && bytes != 0) {
 		RETURN(strncmp(a, b, bytes));
 	} else {
@@ -442,9 +500,9 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float_le *out = (float_le *)Memory::GetPointer(PARAM(0));
-	const float_le *a = (const float_le *)Memory::GetPointer(PARAM(1));
-	const float_le *b = (const float_le *)Memory::GetPointer(PARAM(2));
+	float_le *out = (float_le *)Memory::GetPointerRange(PARAM(0), 16 * 4);
+	const float_le *a = (const float_le *)Memory::GetPointerRange(PARAM(1), 16 * 4);
+	const float_le *b = (const float_le *)Memory::GetPointerRange(PARAM(2), 16 * 4);
 
 	// TODO: Actually use an optimized matrix multiply here...
 	if (out && b && a) {
@@ -469,8 +527,8 @@ static int Replace_vmmul_q_transp() {
 // a1 = matrix
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
-	u32_le *ptr = (u32_le *)Memory::GetPointer(PARAM(0));
-	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
+	u32_le *ptr = (u32_le *)Memory::GetPointerWriteRange(PARAM(0), 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerRange(PARAM(2), 16);
 	u32 matrix = PARAM(1) << 24;
 
 	if (!ptr || !src) {
@@ -478,7 +536,7 @@ static int Replace_gta_dl_write_matrix() {
 		return 38;
 	}
 
-	u32_le *dest = (u32_le *)Memory::GetPointer(ptr[0]);
+	u32_le *dest = (u32_le *)Memory::GetPointerWriteRange(ptr[0], 12 * 4);
 	if (!dest) {
 		RETURN(0);
 		return 38;
@@ -528,16 +586,10 @@ static int Replace_gta_dl_write_matrix() {
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
-	u32_le *dlStruct = (u32_le *)Memory::GetPointer(PARAM(0));
-	u32_le *src = (u32_le *)Memory::GetPointer(PARAM(2));
+	u32_le *dlStruct = (u32_le *)Memory::GetPointerWriteRange(PARAM(0), 3 * 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerRange(PARAM(2), 16 * 4);
 
 	if (!dlStruct || !src) {
-		RETURN(0);
-		return 60;
-	}
-
-	u32_le *dest = (u32_le *)Memory::GetPointer(dlStruct[2]);
-	if (!dest) {
 		RETURN(0);
 		return 60;
 	}
@@ -558,6 +610,12 @@ static int Replace_dl_write_matrix() {
 		matrix = 0x3E000000;
 		count = 16;
 		break;
+	}
+
+	u32_le *dest = (u32_le *)Memory::GetPointerWriteRange(dlStruct[2], 4 + count * 4);
+	if (!dest) {
+		RETURN(0);
+		return 60;
 	}
 	
 	*dest++ = matrix;
@@ -637,7 +695,7 @@ static int Replace_dl_write_matrix() {
 #endif
 	}
 
-	NotifyMemInfo(MemBlockFlags::READ, PARAM(2), count * sizeof(float), "ReplaceDLWriteMatrix");
+	NotifyMemInfo(MemBlockFlags::READ, PARAM(2), 16 * sizeof(float), "ReplaceDLWriteMatrix");
 	NotifyMemInfo(MemBlockFlags::WRITE, PARAM(0) + 2 * sizeof(u32), sizeof(u32), "ReplaceDLWriteMatrix");
 	NotifyMemInfo(MemBlockFlags::WRITE, dlStruct[2], (count + 1) * sizeof(u32), "ReplaceDLWriteMatrix");
 
@@ -711,7 +769,7 @@ static int Hook_godseaterburst_depthmask_5551() {
 		// This is added to read from the linearized mirror.
 		uint32_t depthMirror = depthBuffer + 0x00200000;
 		// Depth download required, or it won't work and will be transparent.
-		gpu->PerformMemoryCopy(depthMirror, depthMirror, size, GPUCopyFlag::FORCE_DST_MEM | GPUCopyFlag::DEPTH_REQUESTED);
+		gpu->PerformMemoryCopy(depthMirror, depthMirror, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
 		NotifyMemInfo(MemBlockFlags::WRITE, depthMirror, size, "godseaterburst_depthmask_5551");
 	}
 
@@ -746,7 +804,7 @@ static int Hook_starocean_write_stencil() {
 static int Hook_topx_create_saveicon() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
+		gpu->PerformMemoryCopy(fb_address, fb_address, 0x00044000, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DISALLOW_CREATE_VFB);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "topx_create_saveicon");
 	}
 	return 0;
@@ -797,7 +855,7 @@ static int Hook_growlanser_create_saveicon() {
 	const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP]);
 	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
 	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
-		gpu->PerformReadbackToMemory(fb_address, sz);
+		gpu->PerformMemoryCopy(fb_address, fb_address, sz, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DISALLOW_CREATE_VFB);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, sz, "growlanser_create_saveicon");
 	}
 	return 0;
@@ -1018,7 +1076,7 @@ static int Hook_kumonohatateni_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00088000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "kumonohatateni_download_frame");
-}
+	}
 	return 0;
 }
 
@@ -1027,7 +1085,7 @@ static int Hook_otomenoheihou_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00088000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00088000, "otomenoheihou_download_frame");
-}
+	}
 	return 0;
 }
 
@@ -1054,7 +1112,7 @@ static int Hook_toheart2_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "toheart2_download_frame");
-}
+	}
 	return 0;
 }
 
@@ -1319,7 +1377,7 @@ static int Hook_starocean_clear_framebuf_after() {
 		int y = (s16)Memory::Read_U16(y_address);
 		int h = (s16)Memory::Read_U16(h_address);
 
-		DEBUG_LOG(HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
+		DEBUG_LOG(Log::HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
 		// TODO: This is always clearing to 0, actually, which could be faster than an upload.
 		gpu->PerformWriteColorFromMemory(framebuf + 512 * y * 4, 512 * h * 4);
 	}
@@ -1377,12 +1435,26 @@ static int Hook_soltrigger_render_ucschar() {
 }
 
 static int Hook_gow_fps_hack() {
-	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60 || PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
-		if (PSP_CoreParameter().compat.flags().GoWFramerateHack30) {
+	if (PSP_CoreParameter().compat.flags().GoWFramerateHack60 || PSP_CoreParameter().compat.flags().FramerateHack30) {
+		if (PSP_CoreParameter().compat.flags().FramerateHack30) {
 			__DisplayWaitForVblanks("vblank start waited", 2);
 		} else {
 			__DisplayWaitForVblanks("vblank start waited", 1);
 		}
+	}
+	return 0;
+}
+
+static int Hook_blitz_fps_hack() {
+	if (PSP_CoreParameter().compat.flags().FramerateHack30) {
+		__DisplayWaitForVblanks("vblank start waited", 1);
+	}
+	return 0;
+}
+
+static int Hook_brian_lara_fps_hack() {
+	if (PSP_CoreParameter().compat.flags().FramerateHack30) {
+		__DisplayWaitForVblanks("vblank start waited", 1);
 	}
 	return 0;
 }
@@ -1429,12 +1501,12 @@ static const ReplacementTableEntry entries[] = {
 	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
 
 	{ "memcpy", &Replace_memcpy, 0, 0 },
-	{ "memcpy_jak", &Replace_memcpy_jak, 0, 0 },
+	{ "memcpy_jak", &Replace_memcpy_jak, 0, REPFLAG_SLICED },
 	{ "memcpy16", &Replace_memcpy16, 0, 0 },
 	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
 	{ "memmove", &Replace_memmove, 0, 0 },
 	{ "memset", &Replace_memset, 0, 0 },
-	{ "memset_jak", &Replace_memset_jak, 0, 0 },
+	{ "memset_jak", &Replace_memset_jak, 0, REPFLAG_SLICED },
 	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
 	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
@@ -1526,6 +1598,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
 	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOKENTER, 0xC4 },
+	{ "blitz_fps_hack", &Hook_blitz_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
+	{ "brian_lara_fps_hack", &Hook_brian_lara_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{}
 };
 
@@ -1567,7 +1641,10 @@ std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize) {
 	return emptyResult;
 }
 
-const ReplacementTableEntry *GetReplacementFunc(int i) {
+const ReplacementTableEntry *GetReplacementFunc(size_t i) {
+	if (i >= ARRAY_SIZE(entries)) {
+		return nullptr;
+	}
 	return &entries[i];
 }
 
@@ -1578,13 +1655,13 @@ static bool WriteReplaceInstruction(u32 address, int index) {
 		if (prevIndex == index) {
 			return false;
 		}
-		WARN_LOG(HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
+		WARN_LOG(Log::HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
 		// Make sure we don't save the old replacement.
 		prevInstr = replacedInstructions[address];
 	}
 
 	if (MIPS_IS_RUNBLOCK(Memory::Read_U32(address))) {
-		WARN_LOG(HLE, "Replacing jitted func address %08x", address);
+		WARN_LOG(Log::HLE, "Replacing jitted func address %08x", address);
 	}
 	replacedInstructions[address] = prevInstr;
 	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
@@ -1595,7 +1672,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	for (int index : indexes) {
 		bool didReplace = false;
-		auto entry = GetReplacementFunc(index);
+		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
@@ -1617,7 +1694,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 		}
 
 		if (didReplace) {
-			INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+			INFO_LOG(Log::HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
 		}
 	}
 }
@@ -1626,9 +1703,9 @@ void RestoreReplacedInstruction(u32 address) {
 	const u32 curInstr = Memory::Read_U32(address);
 	if (MIPS_IS_REPLACEMENT(curInstr)) {
 		Memory::Write_U32(replacedInstructions[address], address);
-		NOTICE_LOG(HLE, "Restored replaced func at %08x", address);
+		NOTICE_LOG(Log::HLE, "Restored replaced func at %08x", address);
 	} else {
-		NOTICE_LOG(HLE, "Replaced func changed at %08x", address);
+		NOTICE_LOG(Log::HLE, "Replaced func changed at %08x", address);
 	}
 	replacedInstructions.erase(address);
 }
@@ -1650,7 +1727,7 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 			++restored;
 		}
 	}
-	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
+	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
 	replacedInstructions.erase(start, end);
 }
 
@@ -1711,11 +1788,11 @@ bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSiz
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 	*entry = GetReplacementFunc(index);
 	if (!*entry) {
-		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
+		ERROR_LOG(Log::HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
 		return false;
 	}
 
-	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED | REPFLAG_SLICED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
 		return false;
 	}

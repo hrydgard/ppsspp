@@ -98,7 +98,6 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice p
 	for (unsigned i = 0; i < vk_init_info.num_required_device_extensions; i++)
 		add_name_unique(EnabledExtensionNames, vk_init_info.required_device_extensions[i]);
 
-	add_name_unique(EnabledExtensionNames, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
 	for (unsigned i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
 		if (((VkBool32 *)vk_init_info.required_features)[i])
 			((VkBool32 *)&EnabledFeatures)[i] = VK_TRUE;
@@ -126,14 +125,17 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance inst
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR_org(physicalDevice, surface, pSurfaceCapabilities);
 	if (res == VK_SUCCESS) {
-      int w = g_Config.iInternalResolution * 480;
-      int h = g_Config.iInternalResolution * 272;
+		int w = g_Config.iInternalResolution * NATIVEWIDTH;
+		int h = g_Config.iInternalResolution * NATIVEHEIGHT;
 
-      pSurfaceCapabilities->minImageExtent.width = w;
-      pSurfaceCapabilities->minImageExtent.height = h;
-      pSurfaceCapabilities->maxImageExtent.width = w;
-      pSurfaceCapabilities->maxImageExtent.height = h;
-      pSurfaceCapabilities->currentExtent.width = w;
+		if (g_Config.bDisplayCropTo16x9)
+			h -= g_Config.iInternalResolution * 2;
+
+		pSurfaceCapabilities->minImageExtent.width = w;
+		pSurfaceCapabilities->minImageExtent.height = h;
+		pSurfaceCapabilities->maxImageExtent.width = w;
+		pSurfaceCapabilities->maxImageExtent.height = h;
+		pSurfaceCapabilities->currentExtent.width = w;
 		pSurfaceCapabilities->currentExtent.height = h;
 	}
 	return res;
@@ -208,7 +210,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 		chain.images[i].retro_image.create_info.image = chain.images[i].handle;
 		chain.images[i].retro_image.create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		chain.images[i].retro_image.create_info.format = pCreateInfo->imageFormat;
-		chain.images[i].retro_image.create_info.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+		chain.images[i].retro_image.create_info.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 		chain.images[i].retro_image.create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		chain.images[i].retro_image.create_info.subresourceRange.layerCount = 1;
 		chain.images[i].retro_image.create_info.subresourceRange.levelCount = 1;
@@ -355,6 +357,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 #ifdef __ANDROID__
 		 || !strcmp(pName, "vkCreateAndroidSurfaceKHR")
 #endif
+#ifdef VK_USE_PLATFORM_METAL_EXT
+		 || !strcmp(pName, "vkCreateMetalSurfaceEXT")
+#endif
 #ifdef VK_USE_PLATFORM_XLIB_KHR
 		 || !strcmp(pName, "vkCreateXlibSurfaceKHR")
 #endif
@@ -371,9 +376,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 		return (PFN_vkVoidFunction)vkCreateLibretroSurfaceKHR;
 	}
 
-	PFN_vkVoidFunction fptr = vkGetInstanceProcAddr_org(instance, pName);
+	PFN_vkVoidFunction fptr = vk_init_info.get_instance_proc_addr(instance, pName);
    if (!fptr) {
-      ERROR_LOG(G3D, "Failed to load VK instance function: %s", pName);
+      ERROR_LOG(Log::G3D, "Failed to load VK instance function: %s", pName);
       return fptr;
    }
 
@@ -407,9 +412,13 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 
 	vkGetInstanceProcAddr_org = vkGetInstanceProcAddr;
 	vkGetInstanceProcAddr = vkGetInstanceProcAddr_libretro;
-	vkGetDeviceProcAddr_org = vkGetDeviceProcAddr;
+	vkGetDeviceProcAddr_org = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr");;
 	vkGetDeviceProcAddr = vkGetDeviceProcAddr_libretro;
 	vkCreateInstance = vkCreateInstance_libretro;
+
+	vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceVersion");
+	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceExtensionProperties");
+	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceLayerProperties");
 }
 
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) {

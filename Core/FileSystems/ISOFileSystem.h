@@ -25,7 +25,7 @@
 
 #include "BlockDevices.h"
 
-bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize);
+bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize);
 
 class ISOFileSystem : public IFileSystem {
 public:
@@ -60,6 +60,9 @@ private:
 	struct TreeEntry {
 		~TreeEntry();
 
+		// Recursive function that reconstructs the path by looking at the parent pointers.
+		std::string BuildPath();
+
 		std::string name;
 		u32 flags = 0;
 		u32 startingPosition = 0;
@@ -84,7 +87,7 @@ private:
 		u32 openSize;
 	};
 
-	typedef std::map<u32,OpenFileEntry> EntryMap;
+	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;

@@ -9,20 +9,21 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/StdioListener.h"
 #include "Common/Input/InputState.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -31,17 +32,20 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
+#include "Core/CwCheat.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+
+#include "UI/AudioCommon.h"
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
@@ -58,14 +62,18 @@
 #define DIR_SEP_CHRS "/"
 #endif
 
+#ifdef HAVE_LIBRETRO_VFS
+#include "streams/file_stream.h"
+#endif
+
 #define SAMPLERATE 44100
 
-#define AUDIO_RING_BUFFER_SIZE      (1 << 16)
-#define AUDIO_RING_BUFFER_SIZE_MASK (AUDIO_RING_BUFFER_SIZE - 1)
-// An alpha factor of 1/180 is *somewhat* equivalent
-// to calculating the average for the last 180
-// frames, or 3 seconds of runtime...
-#define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
+/* AUDIO output buffer */
+static struct {
+   int16_t *data;
+   int32_t size;
+   int32_t capacity;
+} output_audio_buffer = {NULL, 0, 0};
 
 // Calculated swap interval is 'stable' if the same
 // value is recorded for a number of retro_run()
@@ -92,15 +100,15 @@ namespace Libretro
 {
    LibretroGraphicsContext *ctx;
    retro_environment_t environ_cb;
+   retro_hw_context_type backend = RETRO_HW_CONTEXT_DUMMY;
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
-} // namespace Libretro
+   static retro_log_printf_t log_cb;
 
-namespace Libretro
-{
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
+   static bool softwareRenderInitHack = false;
 
    static s64 expectedTimeUsPerRun = 0;
    static uint32_t vsyncSwapInterval = 1;
@@ -110,6 +118,59 @@ namespace Libretro
    static double fpsTimeLast = 0.0;
    static float runSpeed = 0.0f;
    static s64 runTicksLast = 0;
+
+   static void ensure_output_audio_buffer_capacity(int32_t capacity)
+   {
+      if (capacity <= output_audio_buffer.capacity) {
+         return;
+      }
+
+      output_audio_buffer.data = (int16_t*)realloc(output_audio_buffer.data, capacity * sizeof(*output_audio_buffer.data));
+      output_audio_buffer.capacity = capacity;
+      log_cb(RETRO_LOG_DEBUG, "Output audio buffer capacity set to %d\n", capacity);
+   }
+
+   static void init_output_audio_buffer(int32_t capacity)
+   {
+      output_audio_buffer.data = NULL;
+      output_audio_buffer.size = 0;
+      output_audio_buffer.capacity = 0;
+      ensure_output_audio_buffer_capacity(capacity);
+   }
+
+   static void free_output_audio_buffer()
+   {
+      free(output_audio_buffer.data);
+      output_audio_buffer.data = NULL;
+      output_audio_buffer.size = 0;
+      output_audio_buffer.capacity = 0;
+   }
+
+   static void upload_output_audio_buffer()
+   {
+      audio_batch_cb(output_audio_buffer.data, output_audio_buffer.size / 2);
+      output_audio_buffer.size = 0;
+   }
+
+
+   /**
+    * Clamp a value to a given range.
+    *
+    * This implementation was taken from `RGBAUtil.cpp` to allow building when `std::clamp()` is unavailable.
+    *
+    * @param f The value to clamp.
+    * @param low The lower bound of the range.
+    * @param high The upper bound of the range.
+    * @return The clamped value.
+    */
+   template <typename T>
+   static T clamp(T f, T low, T high) {
+      if (f < low)
+         return low;
+      if (f > high)
+         return high;
+      return f;
+   }
 
    static void VsyncSwapIntervalReset()
    {
@@ -230,172 +291,7 @@ namespace Libretro
    }
 } // namespace Libretro
 
-namespace Libretro
-{
-   static std::mutex audioSampleLock_;
-   static int16_t audioRingBuffer[AUDIO_RING_BUFFER_SIZE] = {0};
-   static uint32_t audioRingBufferBase = 0;
-   static uint32_t audioRingBufferIndex = 0;
-
-   static int16_t *audioOutBuffer = NULL;
-   static uint32_t audioOutBufferSize = 0;
-   static float audioOutFramesAvg = 0.0f;
-   // Set this to an arbitrarily large value,
-   // it will be fine tuned in AudioUploadSamples()
-   static uint32_t audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-   static void AudioBufferFlush()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      audioRingBufferBase = 0;
-      audioRingBufferIndex = 0;
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-   }
-
-   static void AudioBufferInit()
-   {
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-      audioOutBufferSize = ((uint32_t)audioOutFramesAvg + 1) * 2;
-      audioOutBuffer = (int16_t *)malloc(audioOutBufferSize * sizeof(int16_t));
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static void AudioBufferDeinit()
-   {
-      if (audioOutBuffer)
-         free(audioOutBuffer);
-      audioOutBuffer = NULL;
-      audioOutBufferSize = 0;
-      audioOutFramesAvg = 0.0f;
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static uint32_t AudioBufferOccupancy()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t occupancy = (audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK;
-      return occupancy >> 1;
-   }
-
-   static void AudioBufferWrite(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t frameIndex;
-      uint32_t bufferIndex = audioRingBufferIndex;
-
-      for (frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         audioRingBuffer[audioRingBufferIndex]     = *(audio++);
-         audioRingBuffer[audioRingBufferIndex + 1] = *(audio++);
-         audioRingBufferIndex = (audioRingBufferIndex + 2) % AUDIO_RING_BUFFER_SIZE;
-      }
-   }
-
-   static uint32_t AudioBufferRead(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t framesAvailable = ((audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK) >> 1;
-      uint32_t frameIndex;
-
-      if (frames > framesAvailable)
-         frames = framesAvailable;
-
-      for(frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         uint32_t bufferIndex = (audioRingBufferBase + (frameIndex << 1)) &
-               AUDIO_RING_BUFFER_SIZE_MASK;
-         *(audio++) = audioRingBuffer[bufferIndex];
-         *(audio++) = audioRingBuffer[bufferIndex + 1];
-      }
-
-      audioRingBufferBase += frames << 1;
-      audioRingBufferBase &= AUDIO_RING_BUFFER_SIZE_MASK;
-
-      return frames;
-   }
-
-   static void AudioUploadSamples()
-   {
-
-      // - If 'Detect Frame Rate Changes' is disabled, then
-      //   the  core specifies a fixed frame rate of (60.0f / 1.001f)
-      // - At the audio sample rate of 44100, this means the
-      //   frontend expects exactly 735.735 sample frames per call of
-      //   retro_run()
-      // - If g_Config.bRenderDuplicateFrames is enabled and
-      //   frameskip is disabled, the mean of the buffer occupancy
-      //   willapproximate to this value in most cases
-      uint32_t framesAvailable = AudioBufferOccupancy();
-
-      if (framesAvailable > 0)
-      {
-         // Update 'running average' of buffer occupancy.
-         // Note that this is not a true running
-         // average, but just a leaky-integrator/
-         // exponential moving average, used because
-         // it is simple and fast (i.e. requires no
-         // window of samples).
-         audioOutFramesAvg = (AUDIO_FRAMES_MOVING_AVG_ALPHA * (float)framesAvailable) +
-               ((1.0f - AUDIO_FRAMES_MOVING_AVG_ALPHA) * audioOutFramesAvg);
-         uint32_t frames = (uint32_t)audioOutFramesAvg;
-
-         if (audioOutBufferSize < (frames << 1))
-         {
-            audioOutBufferSize = (frames << 1);
-            audioOutBuffer     = (int16_t *)realloc(audioOutBuffer,
-                  audioOutBufferSize * sizeof(int16_t));
-         }
-
-         frames = AudioBufferRead(audioOutBuffer, frames);
-
-         int16_t *audioOutBufferPtr = audioOutBuffer;
-         while (frames > 0)
-         {
-            uint32_t framesToWrite = (frames > audioBatchFramesMax) ?
-                  audioBatchFramesMax : frames;
-            uint32_t framesWritten = audio_batch_cb(audioOutBufferPtr,
-                  framesToWrite);
-
-            if ((framesWritten < framesToWrite) &&
-                (framesWritten > 0))
-               audioBatchFramesMax = framesWritten;
-
-            frames -= framesToWrite;
-            audioOutBufferPtr += framesToWrite << 1;
-         }
-      }
-   }
-} // namespace Libretro
-
 using namespace Libretro;
-
-class LibretroHost : public Host
-{
-   public:
-      LibretroHost() {}
-      bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-      void ShutdownGraphics() override {}
-      void InitSound() override {}
-      void UpdateSound() override
-      {
-         int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
-         const int blockSizeMax = 512;
-         static int16_t audio[blockSizeMax * 2];
-         assert(hostAttemptBlockSize <= blockSizeMax);
-
-         int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
-         AudioBufferWrite(audio, samples);
-      }
-      void ShutdownSound() override {}
-      bool IsDebuggingEnabled() override { return false; }
-      bool AttemptLoadSymbolMap() override { return false; }
-};
 
 class PrintfLogger : public LogListener
 {
@@ -405,22 +301,22 @@ class PrintfLogger : public LogListener
       {
          switch (message.level)
          {
-            case LogTypes::LVERBOSE:
-            case LogTypes::LDEBUG:
+            case LogLevel::LVERBOSE:
+            case LogLevel::LDEBUG:
                log_(RETRO_LOG_DEBUG, "[%s] %s",
                      message.log, message.msg.c_str());
                break;
 
-            case LogTypes::LERROR:
+            case LogLevel::LERROR:
                log_(RETRO_LOG_ERROR, "[%s] %s",
                      message.log, message.msg.c_str());
                break;
-            case LogTypes::LNOTICE:
-            case LogTypes::LWARNING:
+            case LogLevel::LNOTICE:
+            case LogLevel::LWARNING:
                log_(RETRO_LOG_WARN, "[%s] %s",
                      message.log, message.msg.c_str());
                break;
-            case LogTypes::LINFO:
+            case LogLevel::LINFO:
             default:
                log_(RETRO_LOG_INFO, "[%s] %s",
                      message.log, message.msg.c_str());
@@ -513,6 +409,12 @@ void retro_set_environment(retro_environment_t cb)
    struct retro_core_options_update_display_callback update_display_cb;
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
+   #ifdef HAVE_LIBRETRO_VFS
+      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
+      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+         filestream_vfs_init(&vfs_iface_info);
+   #endif
 }
 
 static int get_language_auto(void)
@@ -585,6 +487,13 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
+   if (g_Config.bForceLagSync)
+   {
+      bool isFastForwarding;
+      if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+          coreParam.fastForward = isFastForwarding;
+   }
+
    bool updated = false;
 
    if (     coreState != CoreState::CORE_POWERUP
@@ -597,6 +506,8 @@ static void check_variables(CoreParameter &coreParam)
    int iInternalResolution_prev;
    int iTexScalingType_prev;
    int iTexScalingLevel_prev;
+   int iMultiSampleLevel_prev;
+   bool bDisplayCropTo16x9_prev;
 
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -629,16 +540,27 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
    }
 
+#ifndef __EMSCRIPTEN__
    var.key = "ppsspp_cpu_core";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "JIT"))
          g_Config.iCpuCore = (int)CPUCore::JIT;
       else if (!strcmp(var.value, "IR JIT"))
-         g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+         g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
       else if (!strcmp(var.value, "Interpreter"))
          g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
    }
+
+   if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
+       // Just gonna force it to the IR interpreter on startup.
+       // We don't hide the option, but we make sure it's off on bootup. In case someone wants
+       // to experiment in future iOS versions or something...
+       g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
+   }
+#else
+   g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+#endif
 
    var.key = "ppsspp_fast_memory";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -667,6 +589,8 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iIOTimingMethod = IOTIMING_HOST;
       else if (!strcmp(var.value, "Simulate UMD delays"))
          g_Config.iIOTimingMethod = IOTIMING_REALISTIC;
+      else if (!strcmp(var.value, "Simulate UMD slow reading speed"))
+         g_Config.iIOTimingMethod = IOTIMING_UMDSLOWREALISTIC;
    }
 
    var.key = "ppsspp_force_lag_sync";
@@ -718,6 +642,24 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
    }
 
+   var.key = "ppsspp_analog_is_circular";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bAnalogIsCircular = false;
+      else
+         g_Config.bAnalogIsCircular = true;
+   }
+
+   var.key = "ppsspp_memstick_inserted";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bMemStickInserted = false;
+      else
+         g_Config.bMemStickInserted = true;
+   }
+
    var.key = "ppsspp_internal_resolution";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -743,24 +685,54 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 9;
       else if (!strcmp(var.value, "4800x2720"))
          g_Config.iInternalResolution = 10;
+
+      // Force resolution to 1x without hardware context
+      if (backend == RETRO_HW_CONTEXT_NONE)
+         g_Config.iInternalResolution = 1;
    }
 
-   var.key = "ppsspp_skip_buffer_effects";
+   var.key = "ppsspp_software_rendering";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipBufferEffects = false;
-      else
-         g_Config.bSkipBufferEffects = true;
+      if (!PSP_IsInited())
+      {
+         if (!strcmp(var.value, "disabled") && backend != RETRO_HW_CONTEXT_NONE)
+            g_Config.bSoftwareRendering = false;
+         else
+            g_Config.bSoftwareRendering = true;
+      }
+
+      // Force resolution to 1x with software rendering
+      if (g_Config.bSoftwareRendering)
+         g_Config.iInternalResolution = 1;
    }
 
-   var.key = "ppsspp_skip_gpu_readbacks";
+#if 0 // see issue #16786
+   var.key = "ppsspp_mulitsample_level";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
+      iMultiSampleLevel_prev = g_Config.iMultiSampleLevel;
+
+      if (!strcmp(var.value, "Disabled"))
+         g_Config.iMultiSampleLevel = 0;
+      else if (!strcmp(var.value, "x2"))
+         g_Config.iMultiSampleLevel = 1;
+      else if (!strcmp(var.value, "x4"))
+         g_Config.iMultiSampleLevel = 2;
+      else if (!strcmp(var.value, "x8"))
+         g_Config.iMultiSampleLevel = 3;
+   }
+#endif
+
+   var.key = "ppsspp_cropto16x9";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      bDisplayCropTo16x9_prev = g_Config.bDisplayCropTo16x9;
+
       if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipGPUReadbacks = false;
+         g_Config.bDisplayCropTo16x9 = false;
       else
-         g_Config.bSkipGPUReadbacks = true;
+         g_Config.bDisplayCropTo16x9 = true;
    }
 
    var.key = "ppsspp_frameskip";
@@ -814,31 +786,31 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInflightFrames = 2;
    }
 
-   var.key = "ppsspp_gpu_hardware_transform";
+   var.key = "ppsspp_skip_buffer_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bHardwareTransform = false;
+         g_Config.bSkipBufferEffects = false;
       else
-         g_Config.bHardwareTransform = true;
+         g_Config.bSkipBufferEffects = true;
    }
 
-   var.key = "ppsspp_software_skinning";
+   var.key = "ppsspp_disable_range_culling";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bSoftwareSkinning = false;
+         g_Config.bDisableRangeCulling = false;
       else
-         g_Config.bSoftwareSkinning = true;
+         g_Config.bDisableRangeCulling = true;
    }
 
-   var.key = "ppsspp_vertex_cache";
+   var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bVertexCache = false;
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
       else
-         g_Config.bVertexCache = true;
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
    }
 
    var.key = "ppsspp_lazy_texture_caching";
@@ -859,6 +831,24 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iSplineBezierQuality = 1;
       else if (!strcmp(var.value, "High"))
          g_Config.iSplineBezierQuality = 2;
+   }
+
+   var.key = "ppsspp_gpu_hardware_transform";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bHardwareTransform = false;
+      else
+         g_Config.bHardwareTransform = true;
+   }
+
+   var.key = "ppsspp_software_skinning";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bSoftwareSkinning = false;
+      else
+         g_Config.bSoftwareSkinning = true;
    }
 
    var.key = "ppsspp_hardware_tesselation";
@@ -965,6 +955,15 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iTexFiltering = 3;
       else if (!strcmp(var.value, "Auto max quality"))
          g_Config.iTexFiltering = 4;
+   }
+
+   var.key = "ppsspp_smart_2d_texture_filtering";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bSmart2DTexFiltering = false;
+      else
+         g_Config.bSmart2DTexFiltering = true;
    }
 
    var.key = "ppsspp_texture_replacement";
@@ -1077,13 +1076,21 @@ static void check_variables(CoreParameter &coreParam)
    if (changeProAdhocServer == "IP address")
    {
       g_Config.proAdhocServer = "";
+      bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
+         {
             g_Config.proAdhocServer += '.';
+            leadingZero = true;
+         }
 
          int addressPt = ppsspp_pro_ad_hoc_ipv4[i];
-         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+         if (addressPt || i % 3 == 2)
+            leadingZero = false; // We are either non-zero or the last digit of a byte
+
+         if (! leadingZero)
+            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
@@ -1095,15 +1102,14 @@ static void check_variables(CoreParameter &coreParam)
          || g_Config.iTexScalingLevel != iTexScalingLevel_prev
          || g_Config.sTextureShaderName != sTextureShaderName_prev))
    {
-      gpu->ClearCacheNextFrame();
-      gpu->Resized();
+      gpu->NotifyConfigChanged();
    }
 
    if (g_Config.iLanguage < 0)
       g_Config.iLanguage = get_language_auto();
 
    g_Config.sLanguageIni = map_psp_language_to_i18n_locale(g_Config.iLanguage);
-   i18nrepo.LoadIni(g_Config.sLanguageIni);
+   g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    // Cannot detect refresh rate changes if:
    // > Frame skipping is enabled
@@ -1114,16 +1120,18 @@ static void check_variables(CoreParameter &coreParam)
          !g_Config.bRenderDuplicateFrames;
 
    bool updateAvInfo = false;
+   bool updateGeometry = false;
+
    if (!detectVsyncSwapInterval && (vsyncSwapInterval != 1))
    {
       vsyncSwapInterval = 1;
       updateAvInfo = true;
    }
 
-   if (g_Config.iInternalResolution != iInternalResolution_prev && !PSP_IsInited())
+   if (g_Config.iInternalResolution != iInternalResolution_prev && backend != RETRO_HW_CONTEXT_NONE)
    {
-      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * 480;
-      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
+      coreParam.pixelWidth  = coreParam.renderWidth  = g_Config.iInternalResolution * NATIVEWIDTH;
+      coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * NATIVEHEIGHT;
 
       if (gpu)
       {
@@ -1131,9 +1139,26 @@ static void check_variables(CoreParameter &coreParam)
          retro_get_system_av_info(&avInfo);
          environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
          updateAvInfo = false;
-         gpu->Resized();
+         gpu->NotifyDisplayResized();
       }
    }
+
+   if (g_Config.bDisplayCropTo16x9 != bDisplayCropTo16x9_prev && PSP_IsInited())
+   {
+      updateGeometry = true;
+      if (gpu)
+         gpu->NotifyDisplayResized();
+   }
+
+#if 0 // see issue #16786
+   if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
+   {
+      if (gpu)
+      {
+         gpu->NotifyRenderResized();
+      }
+   }
+#endif
 
    if (updateAvInfo)
    {
@@ -1141,9 +1166,12 @@ static void check_variables(CoreParameter &coreParam)
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
    }
-
-   bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
-   coreParam.fastForward = isFastForwarding;
+   else if (updateGeometry)
+   {
+      retro_system_av_info avInfo;
+      retro_get_system_av_info(&avInfo);
+      environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &avInfo);
+   }
 
    set_variable_visibility();
 }
@@ -1153,12 +1181,36 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { (void)cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { input_poll_cb = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
+static const struct retro_controller_description psp_controllers[] =
+{
+   { "PSP", RETRO_DEVICE_JOYPAD },
+   { NULL, 0 }
+};
+
+static const struct retro_controller_info ports[] =
+{
+   { psp_controllers, 1 },
+   { NULL, 0 }
+};
+
 void retro_init(void)
 {
-   VsyncSwapIntervalReset();
-   AudioBufferInit();
+   TimeInit();
 
-   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+   struct retro_log_callback log;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
+   {
+      log_cb = log.log;
+      LogManager::Init(&g_Config.bEnableLogging);
+      printfLogger = new PrintfLogger(log);
+      LogManager* logman = LogManager::GetInstance();
+      logman->RemoveListener(logman->GetStdioListener());
+      logman->RemoveListener(logman->GetDebuggerListener());
+      logman->ChangeFileLog(nullptr);
+      logman->AddListener(printfLogger);
+   }
+
+   VsyncSwapIntervalReset();
 
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left" },
@@ -1180,25 +1232,16 @@ void retro_init(void)
       { 0 },
    };
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
+   environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
-   struct retro_log_callback log;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
-   {
-      LogManager::Init(&g_Config.bEnableLogging);
-      printfLogger = new PrintfLogger(log);
-      LogManager* logman = LogManager::GetInstance();
-      logman->RemoveListener(logman->GetConsoleListener());
-      logman->RemoveListener(logman->GetDebuggerListener());
-      logman->ChangeFileLog(nullptr);
-      logman->AddListener(printfLogger);
-      logman->SetAllLogLevels(LogTypes::LINFO);
-   }
-
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
+
+   // Log levels must be set after g_Config.Load
+   LogManager::GetInstance()->SetAllLogLevels(LogLevel::LINFO);
 
    const char* nickname = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
@@ -1223,27 +1266,28 @@ void retro_init(void)
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordPresence = false;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
+   g_VFS.Register("", new DirectoryReader(retro_base_dir));
 
-   host = new LibretroHost();
+   g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
+   init_output_audio_buffer(2048);
 }
 
 void retro_deinit(void)
 {
    g_threadManager.Teardown();
    LogManager::Shutdown();
+   log_cb = NULL;
 
    delete printfLogger;
    printfLogger = nullptr;
-
-   delete host;
-   host = nullptr;
 
    libretro_supports_bitmasks = false;
    libretro_supports_option_categories = false;
 
    VsyncSwapIntervalReset();
-   AudioBufferDeinit();
+
+   free_output_audio_buffer();
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -1258,7 +1302,7 @@ void retro_get_system_info(struct retro_system_info *info)
    info->library_name     = "PPSSPP";
    info->library_version  = PPSSPP_GIT_VERSION;
    info->need_fullpath    = true;
-   info->valid_extensions = "elf|iso|cso|prx|pbp";
+   info->valid_extensions = "elf|iso|cso|prx|pbp|chd";
 }
 
 void retro_get_system_av_info(struct retro_system_av_info *info)
@@ -1267,11 +1311,23 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    info->timing.fps            = (60.0 / 1.001) / (double)vsyncSwapInterval;
    info->timing.sample_rate    = SAMPLERATE;
 
-   info->geometry.base_width   = g_Config.iInternalResolution * 480;
-   info->geometry.base_height  = g_Config.iInternalResolution * 272;
-   info->geometry.max_width    = g_Config.iInternalResolution * 480;
-   info->geometry.max_height   = g_Config.iInternalResolution * 272;
-   info->geometry.aspect_ratio = 480.0 / 272.0;  // Not 16:9! But very, very close.
+   info->geometry.base_width   = g_Config.iInternalResolution * NATIVEWIDTH;
+   info->geometry.base_height  = g_Config.iInternalResolution * NATIVEHEIGHT;
+   info->geometry.max_width    = g_Config.iInternalResolution * NATIVEWIDTH;
+   info->geometry.max_height   = g_Config.iInternalResolution * NATIVEHEIGHT;
+
+   if (g_Config.bDisplayCropTo16x9)
+      info->geometry.base_height -= g_Config.iInternalResolution * 2;
+
+   info->geometry.aspect_ratio = (float)info->geometry.base_width / (float)info->geometry.base_height;
+
+   PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
+   PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
+
+   /* Must reset context to resize render area properly while running,
+    * but not necessary with software, and not working with Vulkan.. (TODO) */
+   if (PSP_IsInited() && ctx && backend != RETRO_HW_CONTEXT_NONE && ctx->GetGPUCore() != GPUCORE_VULKAN)
+      ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset();
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
@@ -1286,7 +1342,7 @@ namespace Libretro
    {
       ctx->SetRenderTarget();
       if (ctx->GetDrawContext())
-         ctx->GetDrawContext()->BeginFrame();
+         ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
 
       gpu->BeginHostFrame();
 
@@ -1295,8 +1351,10 @@ namespace Libretro
 
       gpu->EndHostFrame();
 
-      if (ctx->GetDrawContext())
+      if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->EndFrame();
+         ctx->GetDrawContext()->Present(Draw::PresentMode::FIFO, 1);
+      }
    }
 
    static void EmuThreadFunc()
@@ -1349,7 +1407,7 @@ namespace Libretro
 
       // Need to keep eating frames to allow the EmuThread to exit correctly.
       while (ctx->ThreadFrame())
-         AudioBufferFlush();
+         ;
 
       emuThread.join();
       emuThread = std::thread();
@@ -1364,7 +1422,6 @@ namespace Libretro
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       ctx->ThreadFrame(); // Eat 1 frame
-      AudioBufferFlush();
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1);
@@ -1372,42 +1429,91 @@ namespace Libretro
 
 } // namespace Libretro
 
+static void retro_check_backend(void)
+{
+   struct retro_variable var = {0};
+
+   var.key = "ppsspp_backend";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "auto"))
+         backend = RETRO_HW_CONTEXT_DUMMY;
+      else if (!strcmp(var.value, "opengl"))
+         backend = RETRO_HW_CONTEXT_OPENGL;
+      else if (!strcmp(var.value, "vulkan"))
+         backend = RETRO_HW_CONTEXT_VULKAN;
+      else if (!strcmp(var.value, "d3d11"))
+         backend = RETRO_HW_CONTEXT_DIRECT3D;
+      else if (!strcmp(var.value, "none"))
+         backend = RETRO_HW_CONTEXT_NONE;
+   }
+}
+
 bool retro_load_game(const struct retro_game_info *game)
 {
    retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
    {
-      ERROR_LOG(SYSTEM, "XRGB8888 is not supported.\n");
+      ERROR_LOG(Log::System, "XRGB8888 is not supported.\n");
       return false;
    }
 
+   retro_check_backend();
+
    coreState = CORE_POWERUP;
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
-   INFO_LOG(SYSTEM, "Using %s backend", ctx->Ident());
+   INFO_LOG(Log::System, "Using %s backend", ctx->Ident());
 
    Core_SetGraphicsContext(ctx);
    SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 
    useEmuThread              = ctx->GetGPUCore() == GPUCORE_GLES;
 
+   // default to interpreter to allow startup in platforms w/o JIT capability
+   g_Config.iCpuCore         = (int)CPUCore::INTERPRETER;
+
    CoreParameter coreParam   = {};
    coreParam.enableSound     = true;
    coreParam.fileToStart     = Path(std::string(game->path));
    coreParam.mountIso.clear();
    coreParam.startBreak      = false;
-   coreParam.printfEmuLog    = true;
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
-   coreParam.cpuCore         = (CPUCore)g_Config.iCpuCore;
    check_variables(coreParam);
+
+   // TODO: OpenGL goes black when inited with software rendering,
+   // therefore start without, set back after init, and reset.
+   softwareRenderInitHack    = ctx->GetGPUCore() == GPUCORE_GLES && g_Config.bSoftwareRendering;
+   if (softwareRenderInitHack)
+      g_Config.bSoftwareRendering = false;
+
+   // set cpuCore from libretro setting variable
+   coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
    if (!PSP_InitStart(coreParam, &error_string))
    {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
+      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       return false;
    }
+
+   struct retro_core_option_display option_display;
+
+   // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) ? true : false;
+#if 0 // see issue #16786
+   option_display.key = "ppsspp_mulitsample_level";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+#endif
+   option_display.key = "ppsspp_texture_shader";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+
+   // Show/hide 'Buffered Frames' option, Vulkan/GL only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
+         g_Config.iGPUBackend == (int)GPUBackend::OPENGL) ? true : false;
+   option_display.key = "ppsspp_inflight_frames";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
    set_variable_visibility();
 
@@ -1420,7 +1526,7 @@ void retro_unload_game(void)
 		Libretro::EmuThreadStop();
 
 	PSP_Shutdown();
-	VFSShutdown();
+	g_VFS.Clear();
 
 	delete ctx;
 	ctx = nullptr;
@@ -1435,7 +1541,7 @@ void retro_reset(void)
 
    if (!PSP_Init(PSP_CoreParameter(), &error_string))
    {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
+      ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
    }
 }
@@ -1483,11 +1589,11 @@ static void retro_input(void)
 
       if (pressed)
       {
-         __CtrlButtonDown(map[i].sceCtrl);
+         __CtrlUpdateButtons(map[i].sceCtrl, 0);
       }
       else
       {
-         __CtrlButtonUp(map[i].sceCtrl);
+         __CtrlUpdateButtons(0, map[i].sceCtrl);
       }
    }
 
@@ -1495,6 +1601,31 @@ static void retro_input(void)
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
    float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+
+   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
+
+   // Analog circle vs square gate compensation
+   // copied from ControlMapper.cpp's ConvertAnalogStick function
+   const bool isCircular = g_Config.bAnalogIsCircular;
+
+   float norm = std::max(fabsf(x_left), fabsf(y_left));
+
+   if (norm == 0.0f)
+      return;
+
+   if (isCircular) {
+      float newNorm = sqrtf(x_left * x_left + y_left * y_left);
+      float factor = newNorm / norm;
+      x_left *= factor;
+      y_left *= factor;
+      norm = newNorm;
+   }
+
+   float mappedNorm = norm;
+   x_left = Libretro::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
+   y_left = Libretro::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
+
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
@@ -1509,9 +1640,17 @@ void retro_run(void)
 
       if (!PSP_IsInited())
       {
-         ERROR_LOG(BOOT, "%s", error_string.c_str());
+         ERROR_LOG(Log::Boot, "%s", error_string.c_str());
          environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
          return;
+      }
+
+      if (softwareRenderInitHack)
+      {
+         log_cb(RETRO_LOG_DEBUG, "Software rendering init hack for opengl triggered.\n");
+         softwareRenderInitHack = false;
+         g_Config.bSoftwareRendering = true;
+         retro_reset();
       }
    }
 
@@ -1521,11 +1660,10 @@ void retro_run(void)
 
    if (useEmuThread)
    {
-      if(   emuThreadState == EmuThreadState::PAUSED ||
+      if (  emuThreadState == EmuThreadState::PAUSED ||
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          ctx->SwapBuffers();
          return;
       }
@@ -1536,7 +1674,6 @@ void retro_run(void)
       if (!ctx->ThreadFrame())
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          return;
       }
    }
@@ -1544,8 +1681,8 @@ void retro_run(void)
       EmuFrame();
 
    VsyncSwapIntervalDetect();
-   AudioUploadSamples();
    ctx->SwapBuffers();
+   upload_output_audio_buffer();
 }
 
 unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
@@ -1562,35 +1699,31 @@ namespace SaveState
 
 size_t retro_serialize_size(void)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
-   }
 
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause();
 
-   return (CChunkFileReader::MeasurePtr(state) + 0x800000)
-      & ~0x7FFFFF; // We don't unpause intentionally
+   return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
+   // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size)
 {
-   if(!gpu) { // The HW renderer isn't ready on first pass.
+   if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
-   }
 
-   bool retVal;
-   SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   size_t measured = CChunkFileReader::MeasurePtr(state);
-   assert(measured <= size);
-   auto err = CChunkFileReader::SavePtr((u8 *)data, state, measured);
-   retVal = err == CChunkFileReader::ERROR_NONE;
+   size_t measuredSize;
+   SaveState::SaveStart state;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
+   bool retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
    {
@@ -1598,21 +1731,21 @@ bool retro_serialize(void *data, size_t size)
       sleep_ms(4);
    }
 
-   AudioBufferFlush();
-
    return retVal;
 }
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   bool retVal;
-   SaveState::SaveStart state;
+   if (!gpu) // The HW renderer isn't ready on first pass.
+      return false;
+
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
    std::string errorString;
-   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
+   SaveState::SaveStart state;
+   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
@@ -1620,8 +1753,6 @@ bool retro_unserialize(const void *data, size_t size)
       EmuThreadStart();
       sleep_ms(4);
    }
-
-   AudioBufferFlush();
 
    return retVal;
 }
@@ -1640,11 +1771,88 @@ size_t retro_get_memory_size(unsigned id)
 	return 0;
 }
 
-void retro_cheat_reset(void) {}
+void retro_cheat_reset(void) {
+   // Init Cheat Engine
+   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   Path file=cheatEngine->CheatFilename();
 
-void retro_cheat_set(unsigned index, bool enabled, const char *code) { }
+   // Output cheats to cheat file
+   std::ofstream outFile;
+   outFile.open(file.c_str());
+   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
+   outFile.close();
 
-int System_GetPropertyInt(SystemProperty prop)
+   g_Config.bReloadCheats = true;
+
+   // Parse and Run the Cheats
+   cheatEngine->ParseCheats();
+   if (cheatEngine->HasCheats()) {
+      cheatEngine->Run();
+   }
+
+}
+
+void retro_cheat_set(unsigned index, bool enabled, const char *code) {
+   // Initialize Cheat Engine
+   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   cheatEngine->CreateCheatFile();
+   Path file=cheatEngine->CheatFilename();
+
+   // Read cheats file
+   std::vector<std::string> cheats;
+   std::ifstream cheat_content(file.c_str());
+   std::stringstream buffer;
+   buffer << cheat_content.rdbuf();
+   std::string existing_cheats=ReplaceAll(buffer.str(), std::string("\n_C"), std::string("|"));
+   SplitString(existing_cheats, '|', cheats);
+
+   // Generate Cheat String
+   std::stringstream cheat("");
+   cheat << (enabled ? "1 " : "0 ") << index << std::endl;
+   std::string code_str(code);
+   std::vector<std::string> codes;
+   code_str=ReplaceAll(code_str, std::string(" "), std::string("+"));
+   SplitString(code_str, '+', codes);
+   int part=0;
+   for (int i=0; i < codes.size(); i++) {
+      if (codes[i].size() <= 2) {
+         // _L _M ..etc
+         // Assume _L
+      } else if (part == 0) {
+         cheat << "_L " << codes[i] << " ";
+         part++;
+      } else {
+         cheat << codes[i] << std::endl;
+         part=0;
+      }
+   }
+
+   // Add or Replace the Cheat
+   if (index + 1 < cheats.size()) {
+      cheats[index + 1]=cheat.str();
+   } else {
+      cheats.push_back(cheat.str());
+   }
+
+   // Output cheats to cheat file
+   std::ofstream outFile;
+   outFile.open(file.c_str());
+   outFile << "_S " << g_paramSFO.GetDiscID() << std::endl;
+   for (int i=1; i < cheats.size(); i++) {
+      outFile << "_C" << cheats[i] << std::endl;
+   }
+   outFile.close();
+
+   g_Config.bReloadCheats = true;
+
+   // Parse and Run the Cheats
+   cheatEngine->ParseCheats();
+   if (cheatEngine->HasCheats()) {
+      cheatEngine->Run();
+   }
+}
+
+int64_t System_GetPropertyInt(SystemProperty prop)
 {
    switch (prop)
    {
@@ -1671,11 +1879,7 @@ float System_GetPropertyFloat(SystemProperty prop)
    switch (prop)
    {
       case SYSPROP_DISPLAY_REFRESH_RATE:
-         // Have to lie here and report 60 Hz instead
-         // of (60.0 / 1.001), otherwise the internal
-         // stereo resampler will output at the wrong
-         // frequency...
-         return 60.0f;
+         return 60.0f / 1.001f;
       case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
       case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
       case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -1693,7 +1897,12 @@ bool System_GetPropertyBool(SystemProperty prop)
    switch (prop)
    {
    case SYSPROP_CAN_JIT:
+#if PPSSPP_PLATFORM(IOS)
+      bool can_jit;
+      return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
+#else
       return true;
+#endif
    default:
       return false;
    }
@@ -1702,17 +1911,58 @@ bool System_GetPropertyBool(SystemProperty prop)
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
-void System_SendMessage(const char *command, const char *parameter) {}
-void NativeUpdate() {}
-void NativeRender(GraphicsContext *graphicsContext) {}
+void System_Notify(SystemNotification notification) {
+   switch (notification) {
+   default:
+      break;
+   }
+}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
+void System_PostUIMessage(UIMessage message, const std::string &param) {}
+void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
+
+inline int16_t Clamp16(int32_t sample) {
+   if (sample < -32767) return -32767;
+   if (sample > 32767) return 32767;
+   return sample;
+}
+
+void System_AudioPushSamples(const int32_t *audio, int numSamples) {
+   // Convert to 16-bit audio for further processing.
+   int16_t buffer[1024 * 2];
+   int origSamples = numSamples * 2;
+
+   while (numSamples > 0) {
+      int blockSize = std::min(1024, numSamples);
+      for (int i = 0; i < blockSize; i++) {
+         buffer[i * 2] = Clamp16(audio[i * 2]);
+         buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
+      }
+
+      numSamples -= blockSize;
+   }
+
+   if (output_audio_buffer.capacity - output_audio_buffer.size < origSamples)
+      ensure_output_audio_buffer_capacity((output_audio_buffer.capacity + origSamples) * 1.5);
+   memcpy(output_audio_buffer.data + output_audio_buffer.size, buffer, origSamples * sizeof(*output_audio_buffer.data));
+   output_audio_buffer.size += origSamples;
+}
+
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) { return false; }
+std::string NativeLoadSecret(const char *nameOfSecret) {
+   return "";
+}

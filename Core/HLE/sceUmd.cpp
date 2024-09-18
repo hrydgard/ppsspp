@@ -17,13 +17,13 @@
 
 #include <vector>
 
+#include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -34,6 +34,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/RetroAchievements.h"
 
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -54,7 +55,7 @@ static int umdInsertChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
-bool UMDReplacePermit = false;
+bool g_UMDReplacePermit = false;
 bool UMDInserted = true;
 
 struct PspUmdInfo {
@@ -79,6 +80,7 @@ void __UmdInit()
 	driveCBId = 0;
 	umdWaitingThreads.clear();
 	umdPausedWaits.clear();
+	g_UMDReplacePermit = false;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
@@ -103,9 +105,10 @@ void __UmdDoState(PointerWrap &p)
 	Do(p, umdPausedWaits);
 
 	if (s > 1) {
-		Do(p, UMDReplacePermit);
-		if (UMDReplacePermit)
-			host->UpdateUI();
+		Do(p, g_UMDReplacePermit);
+		if (g_UMDReplacePermit) {
+			System_Notify(SystemNotification::UI);
+		}
 	}
 	if (s > 2) {
 		Do(p, umdInsertChangeEvent);
@@ -176,7 +179,7 @@ static void __KernelUmdActivate()
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
-	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	CoreTiming::RemoveEvent(umdStatChangeEvent);
 	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, 1);
 }
 
@@ -186,7 +189,7 @@ static void __KernelUmdDeactivate()
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
-	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	CoreTiming::RemoveEvent(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
 }
 
@@ -210,10 +213,10 @@ static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
+		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
 	}
 	else
-		WARN_LOG_REPORT(SCEIO, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(Log::sceIo, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
 }
 
 static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -224,7 +227,7 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	u32 stat = __KernelGetWaitValue(threadID, error);
 	if (umdPausedWaits.find(pauseKey) == umdPausedWaits.end())
 	{
-		WARN_LOG_REPORT(SCEIO, "__UmdEndCallback(): UMD paused wait missing");
+		WARN_LOG_REPORT(Log::sceIo, "__UmdEndCallback(): UMD paused wait missing");
 
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -251,23 +254,23 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 		umdWaitingThreads.push_back(threadID);
 
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB: Resuming lock wait for callback");
+		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatCB: Resuming lock wait for callback");
 	}
 }
 
 static int sceUmdCheckMedium()
 {
 	if (UMDInserted) {
-		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
+		DEBUG_LOG(Log::sceIo, "1=sceUmdCheckMedium()");
 		return 1; //non-zero: disc in drive
 	}
-	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
+	DEBUG_LOG(Log::sceIo, "0=sceUmdCheckMedium()");
 	return 0;
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
 {
-	DEBUG_LOG(SCEIO, "sceUmdGetDiscInfo(%08x)", infoAddr);
+	DEBUG_LOG(Log::sceIo, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
 	if (Memory::IsValidAddress(infoAddr)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
@@ -282,14 +285,14 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr)
 
 static int sceUmdActivate(u32 mode, const char *name) {
 	if (mode < 1 || mode > 2)
-		return hleLogWarning(SCEIO, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogWarning(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
 
 	__KernelUmdActivate();
 
 	if (mode != 1) {
-		return hleLogError(SCEIO, 0, "UNTESTED");
+		return hleLogError(Log::sceIo, 0, "UNTESTED");
 	}
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::sceIo, 0);
 }
 
 static int sceUmdDeactivate(u32 mode, const char *name)
@@ -301,9 +304,9 @@ static int sceUmdDeactivate(u32 mode, const char *name)
 	__KernelUmdDeactivate();
 
 	if (mode == 1) {
-		DEBUG_LOG(SCEIO, "0=sceUmdDeactivate(%d, %s)", mode, name);
+		DEBUG_LOG(Log::sceIo, "0=sceUmdDeactivate(%d, %s)", mode, name);
 	} else {
-		ERROR_LOG(SCEIO, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
+		ERROR_LOG(Log::sceIo, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
 	}
 
 	return 0;
@@ -320,7 +323,7 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		// There's only ever one.
 		driveCBId = cbId;
 	}
-	DEBUG_LOG(SCEIO, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
+	DEBUG_LOG(Log::sceIo, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
 	return retVal;
 }
 
@@ -338,20 +341,20 @@ static int sceUmdUnRegisterUMDCallBack(int cbId)
 		}
 		driveCBId = 0;
 	}
-	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
+	DEBUG_LOG(Log::sceIo, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
 	return retVal;
 }
 
 static u32 sceUmdGetDriveStat()
 {
 	if (!UMDInserted) {
-		WARN_LOG(SCEIO, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
+		WARN_LOG(Log::sceIo, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
 		return PSP_UMD_NOT_PRESENT;
 	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	// This one can be very spammy.
-	VERBOSE_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
+	VERBOSE_LOG(Log::sceIo,"0x%02x=sceUmdGetDriveStat()", retVal);
 	return retVal;
 }
 
@@ -388,40 +391,40 @@ static void __UmdWaitStat(u32 timeout)
 */
 static int sceUmdWaitDriveStat(u32 stat) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
+		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
 		return 0;
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::sceIo, 0);
 }
 
 static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
+		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
@@ -430,24 +433,24 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 		hleReSchedule("umd stat checked");
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::sceIo, 0);
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	if ((stat & UMD_STAT_ALLOW_WAIT) == 0) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad status");
 	}
 	if (!__KernelIsDispatchEnabled()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 	if (__IsInInterrupt()) {
-		return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 	}
 
 	hleEatCycles(520);
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
+		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
 		if (timeout == 0) {
 			timeout = 8000;
 		}
@@ -459,12 +462,12 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 		hleReSchedule("umd stat waited");
 	}
 
-	return hleLogSuccessI(SCEIO, 0);
+	return hleLogSuccessI(Log::sceIo, 0);
 }
 
 static u32 sceUmdCancelWaitDriveStat()
 {
-	DEBUG_LOG(SCEIO, "0=sceUmdCancelWaitDriveStat()");
+	DEBUG_LOG(Log::sceIo, "0=sceUmdCancelWaitDriveStat()");
 
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		const SceUID threadID = umdWaitingThreads[i];
@@ -478,16 +481,19 @@ static u32 sceUmdCancelWaitDriveStat()
 
 static u32 sceUmdGetErrorStat()
 {
-	DEBUG_LOG(SCEIO,"%i=sceUmdGetErrorStat()", umdErrorStat);
+	DEBUG_LOG(Log::sceIo,"%i=sceUmdGetErrorStat()", umdErrorStat);
 	return umdErrorStat;
 }
 
-void __UmdReplace(Path filepath) {
+void __UmdReplace(const Path &filepath) {
 	std::string error = "";
-	if (!UmdReplace(filepath, error)) {
-		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
+	FileLoader *fileLoader;
+	if (!UmdReplace(filepath, &fileLoader, error)) {
+		ERROR_LOG(Log::sceIo, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
+
+	Achievements::ChangeUMD(filepath, fileLoader);
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.
@@ -501,25 +507,27 @@ void __UmdReplace(Path filepath) {
 }
 
 bool getUMDReplacePermit() {
-	return UMDReplacePermit;
+	return g_UMDReplacePermit;
 }
 
 static u32 sceUmdReplaceProhibit()
 {
-	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
-	if (UMDReplacePermit) {
-		UMDReplacePermit = false;
-		host->NotifySwitchUMDUpdated();
+	DEBUG_LOG(Log::sceIo, "sceUmdReplaceProhibit()");
+	if (g_UMDReplacePermit) {
+		INFO_LOG(Log::sceIo, "sceUmdReplaceProhibit() - prohibited");
+		g_UMDReplacePermit = false;
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }
 
 static u32 sceUmdReplacePermit()
 {
-	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
-	if (!UMDReplacePermit) {
-		UMDReplacePermit = true;
-		host->NotifySwitchUMDUpdated();
+	DEBUG_LOG(Log::sceIo, "sceUmdReplacePermit()");
+	if (!g_UMDReplacePermit) {
+		INFO_LOG(Log::sceIo, "sceUmdReplacePermit() - permitted");
+		g_UMDReplacePermit = true;
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }

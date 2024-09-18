@@ -36,7 +36,7 @@ static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 
 	if (decryptResult < 0)
 	{
-		ERROR_LOG(HLE, "Pauth decryption failed 0x%08X", decryptResult);
+		ERROR_LOG(Log::HLE, "Pauth decryption failed 0x%08X", decryptResult);
 		return decryptResult;
 	}
 
@@ -53,7 +53,7 @@ static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 
 	if (decryptResult < 0)
 	{
-		ERROR_LOG(HLE, "Pauth decryption failed 0x%08X", decryptResult);
+		ERROR_LOG(Log::HLE, "Pauth decryption failed 0x%08X", decryptResult);
 		return decryptResult;
 	}
 

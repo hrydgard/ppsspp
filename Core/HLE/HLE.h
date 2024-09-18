@@ -130,13 +130,11 @@ u64 hleDelayResult(u64 result, const char *reason, int usec);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
-inline int hleDelayResult(int result, const char *reason, int usec)
-{
+inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }
 
-inline s64 hleDelayResult(s64 result, const char *reason, int usec)
-{
+inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 	return hleDelayResult((u64) result, reason, usec);
 }
 
@@ -157,11 +155,11 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
-void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
+void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
 
 template <typename T>
-T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
-	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
+	if ((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
 	}
 
@@ -188,8 +186,8 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 }
 
 template <typename T>
-T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask) {
-	if ((level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask) {
+	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
 		return res;
 	}
 
@@ -218,7 +216,7 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 #define HLE_LOG_LVERBOSE LVERBOSE
 #endif
 
-#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
+#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(t, LogLevel::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
 #define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
 #define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
@@ -230,7 +228,6 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 #define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'i', ##__VA_ARGS__)
 
-#define hleReportError(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportWarning(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportError(t, res, ...) hleDoLog(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportWarning(t, res, ...) hleDoLog(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportDebug(t, res, ...) hleDoLog(t, LogLevel::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)

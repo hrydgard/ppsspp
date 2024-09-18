@@ -5,11 +5,12 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/UI.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/proAdhoc.h"
@@ -17,7 +18,7 @@
 
 void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -25,7 +26,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #endif
@@ -46,7 +47,6 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	using namespace UI;
 
-	auto n = GetI18NCategory("Networking");
 	float width = 550.0f;
 
 	switch (g_Config.iChatScreenPosition) {
@@ -79,6 +79,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 		box_->SetBG(UI::Drawable(0x99303030));
 		box_->SetHasDropShadow(false);
 
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		View *title = new PopupHeader(n->T("Chat"));
 		box_->Add(title);
 
@@ -89,14 +90,14 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || (defined(SDL) && !PPSSPP_PLATFORM(SWITCH))
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif PPSSPP_PLATFORM(ANDROID)
-	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Chat"), "", [](bool result, const std::string &value) {
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(IOS)
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	System_InputBoxGetString(token_, n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif
@@ -140,7 +141,6 @@ void ChatMenu::UpdateChat() {
 
 			std::string name = g_Config.sNickName;
 			std::string displayname = i.substr(0, i.find(':'));
-			std::string chattext = i.substr(displayname.length());
 			
 			if (name.substr(0, 8) == displayname) {
 				namecolor = 0xE53935;
@@ -155,6 +155,7 @@ void ChatMenu::UpdateChat() {
 				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
 
+				std::string chattext = i.substr(displayname.length());
 				TextView *chatView = line->Add(new TextView(chattext, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 				chatView->SetTextColor(0xFF000000 | textcolor);
 			}
@@ -164,8 +165,6 @@ void ChatMenu::UpdateChat() {
 }
 
 void ChatMenu::Update() {
-	auto n = GetI18NCategory("Networking");
-
 	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {
 		toBottom_ = false;
@@ -179,11 +178,10 @@ void ChatMenu::Update() {
 
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
-			if (result) {
-				sendChat(value);
-			}
+		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
+			sendChat(value);
 		});
 		promptInput_ = false;
 	}

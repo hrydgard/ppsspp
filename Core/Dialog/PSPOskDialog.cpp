@@ -22,7 +22,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Serialize/Serializer.h"
 
 #include "Core/Dialog/PSPOskDialog.h"
@@ -44,10 +44,10 @@
 const static int OSK_INIT_DELAY_US = 300000;
 const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
-static std::map<std::string, std::pair<std::string, int>> languageMapping;
+static std::map<std::string, std::pair<std::string, int>, std::less<>> languageMapping;
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
+const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
+const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
 // Japanese (Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -63,16 +63,16 @@ static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉ�
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean (Hangul) vowel Combination key
-const int kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
+const uint8_t kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
 
 // Korean (Hangul) last consonant(diacritics)
 static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
 
 // Korean (Hangul) last consonant Combination key
-const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
+const uint8_t kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
 // Korean (Hangul) last consonant Separation key
-const int kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
+const uint8_t kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
 
 static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 {
@@ -147,7 +147,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 };
 
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
-int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
+static const int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
@@ -158,7 +158,7 @@ int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_SYMBOL,
 };
-int defaultInputFlagsMap[OSK_KEYBOARD_COUNT] = {
+static const int defaultInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL,
 	PSP_UTILITY_OSK_INPUTTYPE_JAPANESE_HIRAGANA,
@@ -261,7 +261,7 @@ static void FindValidKeyboard(s32 inputType, int direction, OskKeyboardLanguage 
 		return;
 	}
 	// We use direction = 0 for default, but we actually move "forward".
-	int *matchMap = allowedInputFlagsMap;
+	const int *matchMap = allowedInputFlagsMap;
 	if (direction == 0) {
 		direction = 1;
 		matchMap = defaultInputFlagsMap;
@@ -298,32 +298,32 @@ static bool IsKeyboardShiftValid(s32 inputType, OskKeyboardLanguage lang, OskKey
 int PSPOskDialog::Init(u32 oskPtr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid status");
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	// Seems like this should crash?
 	if (!Memory::IsValidAddress(oskPtr)) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
 
 	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
 	if (!oskParams->fields.IsValid())
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
 	if (oskParams->unk_60 != 0)
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
 	if (oskParams->fieldCount != 1)
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
 
 	ChangeStatusInit(OSK_INIT_DELAY_US);
 	selectedChar = 0;
@@ -346,10 +346,11 @@ int PSPOskDialog::Init(u32 oskPtr) {
 			inputChars += c;
 	}
 
-	languageMapping = GetLangValuesMapping();
+	languageMapping = g_Config.GetLangValuesMapping();
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
+	InitCommon();
 
 	std::lock_guard<std::mutex> guard(nativeMutex_);
 	nativeStatus_ = PSPOskNativeStatus::IDLE;
@@ -367,7 +368,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
-	if(inputChars.size() == 0) {
+	if (inputChars.size() == 0) {
 		wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
 
 		if (inputChars.size() < FieldMaxLength()) {
@@ -771,6 +772,11 @@ u32 PSPOskDialog::FieldMaxLength()
 
 void PSPOskDialog::RenderKeyboard()
 {
+	// Sanity check that a valid keyboard is selected.
+	if ((int)currentKeyboard < 0 || (int)currentKeyboard >= OSK_KEYBOARD_COUNT) {
+		return;
+	}
+
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
@@ -891,22 +897,33 @@ int PSPOskDialog::NativeKeyboard() {
 			defaultText.assign(u"VALUE");
 
 		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
-		System_InputBoxGetString(::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), [&](bool result, const std::string &value) {
-			std::lock_guard<std::mutex> guard(nativeMutex_);
-			if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
-				return;
+		System_InputBoxGetString(NON_EPHEMERAL_TOKEN, ::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText),
+			[&](const std::string &value, int) {
+				// Success callback
+				std::lock_guard<std::mutex> guard(nativeMutex_);
+				if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
+					return;
+				}
+				nativeValue_ = value;
+				nativeStatus_ = PSPOskNativeStatus::SUCCESS;
+			},
+			[&]() {
+				// Failure callback
+				std::lock_guard<std::mutex> guard(nativeMutex_);
+				if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
+					return;
+				}
+				nativeValue_ = "";
+				nativeStatus_ = PSPOskNativeStatus::FAILURE;
 			}
-
-			nativeValue_ = value;
-			nativeStatus_ = result ? PSPOskNativeStatus::SUCCESS : PSPOskNativeStatus::FAILURE;
-		});
+		);
 	} else if (nativeStatus_ == PSPOskNativeStatus::SUCCESS) {
 		inputChars = ConvertUTF8ToUCS2(nativeValue_);
 		nativeValue_.clear();
 
 		u32 maxLength = FieldMaxLength();
 		if (inputChars.length() > maxLength) {
-			ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
+			ERROR_LOG(Log::sceUtility, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
 			inputChars.erase(maxLength, std::string::npos);
 		}
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
@@ -941,8 +958,9 @@ int PSPOskDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	int cancelButton = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
-	int confirmButton = cancelButton == CTRL_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	int cancelButton = GetCancelButton();
+	int confirmButton = GetConfirmButton();
+
 	static int cancelBtnFramesHeld = 0;
 	static int confirmBtnFramesHeld = 0;
 	static int leftBtnFramesHeld = 0;
@@ -953,10 +971,11 @@ int PSPOskDialog::Update(int animSpeed) {
 	const int framesHeldRepeatRate = 5;
 
 	UpdateButtons();
+	UpdateCommon();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
@@ -971,7 +990,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 	RenderKeyboard();
 
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle actionStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
 	PPGeStyle guideStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.6f);
@@ -979,7 +998,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, guideStyle);
 	PPGeDrawText(di->T("Space"), 390, 222, actionStyle);
 
-	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
+	if (GetConfirmButton() != CTRL_CIRCLE) {
 		PPGeDrawImage(ImageID("I_CROSS"), 45, 222, 16, 16, guideStyle);
 		PPGeDrawImage(ImageID("I_CIRCLE"), 45, 247, 16, 16, guideStyle);
 	} else {
@@ -1158,6 +1177,8 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	auto s = p.Section("PSPOskDialog", 1, 2);
 	if (!s)
 		return;
+
+	// TODO: Should we save currentKeyboard/currentKeyboardLanguage?
 
 	Do(p, oskParams);
 	Do(p, oskDesc);

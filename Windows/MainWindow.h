@@ -15,12 +15,11 @@ namespace MainWindow
 	enum {
 		WM_USER_SAVESTATE_FINISH = WM_USER + 100,
 		WM_USER_UPDATE_UI = WM_USER + 101,
-		WM_USER_BROWSE_BG_DONE = WM_USER + 102,
 		WM_USER_WINDOW_TITLE_CHANGED = WM_USER + 103,
-		WM_USER_BROWSE_BOOT_DONE = WM_USER + 104,
 		WM_USER_TOGGLE_FULLSCREEN = WM_USER + 105,
 		WM_USER_RESTART_EMUTHREAD = WM_USER + 106,
-		WM_USER_SWITCHUMD_UPDATED = WM_USER + 107
+		WM_USER_SWITCHUMD_UPDATED = WM_USER + 107,
+		WM_USER_RUN_CALLBACK = WM_USER + 108,
 	};
 
 	enum {
@@ -81,6 +80,8 @@ namespace MainWindow
 	void ToggleDebugConsoleVisibility();
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
+	void RunCallbackInWndProc(void (*callback)(void *window, void *userdata), void *userdata);
+	void SetKeepScreenBright(bool keepBright);
 }
 
 #endif

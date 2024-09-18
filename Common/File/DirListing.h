@@ -2,10 +2,8 @@
 
 #include <string>
 #include <vector>
-
 #include <cstdio>
-
-#include <inttypes.h>
+#include <cstdint>
 
 #include "Common/File/Path.h"
 

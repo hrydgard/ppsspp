@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\GPU\Common\VertexDecoderArm.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderArm64.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderHandwritten.cpp" />
     <ClCompile Include="..\..\GPU\Common\VertexDecoderX86.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp" />
@@ -60,6 +61,10 @@
     <ClCompile Include="..\..\GPU\Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="..\..\GPU\Common\Draw2D.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureShaderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\DepthBufferCommon.cpp" />
+    <ClCompile Include="..\..\GPU\GPUCommonHW.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ReplacedTexture.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureReplacer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -82,6 +87,7 @@
     <ClInclude Include="..\..\GPU\Common\TextureScalerCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\VertexDecoderCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\VertexDecoderHandwritten.h" />
     <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h" />
     <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h" />
@@ -122,5 +128,8 @@
     <ClInclude Include="..\..\GPU\Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="..\..\GPU\Common\Draw2D.h" />
     <ClInclude Include="..\..\GPU\Common\TextureShaderCommon.h" />
+    <ClInclude Include="..\..\GPU\GPUCommonHW.h" />
+    <ClInclude Include="..\..\GPU\Common\ReplacedTexture.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureReplacer.h" />
   </ItemGroup>
 </Project>

@@ -138,9 +138,8 @@ void SHAInit(SHA_CTX *shsInfo)
 
    Note that this corrupts the shsInfo->data area */
 
-static void SHSTransform( digest, data )
-     UINT4 *digest, *data ;
-    {
+static void SHSTransform( UINT4 *digest, UINT4 *data )
+{
     UINT4 A, B, C, D, E;     /* Local vars */
     UINT4 eData[ 16 ];       /* Expanded data */
 
@@ -357,7 +356,7 @@ void SHAFinal(BYTE *output, SHA_CTX *shsInfo)
 	SHAtoByte(output, shsInfo->digest, SHS_DIGESTSIZE);
 
 	/* Zeroise sensitive stuff */
-	memset((POINTER)shsInfo, 0, sizeof(shsInfo));
+	memset((POINTER)shsInfo, 0, sizeof(*shsInfo));
 }
 
 static void SHAtoByte(BYTE *output, UINT4 *input, unsigned int len)

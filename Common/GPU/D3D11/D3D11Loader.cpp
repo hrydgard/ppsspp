@@ -11,7 +11,6 @@ static HMODULE g_D3DCompileModule;
 
 LPCREATEDXGIFACTORY ptr_CreateDXGIFactory;
 LPD3D11CREATEDEVICE ptr_D3D11CreateDevice;
-LPD3D11CREATEDEVICEANDSWAPCHAIN ptr_D3D11CreateDeviceAndSwapChain;
 pD3DCompile ptr_D3DCompile;
 
 LoadD3D11Error LoadD3D11() {
@@ -22,7 +21,6 @@ LoadD3D11Error LoadD3D11() {
 	g_D3D11Module = LoadLibrary(L"d3d11.dll");
 	if (g_D3D11Module) {
 		ptr_D3D11CreateDevice = (LPD3D11CREATEDEVICE)GetProcAddress(g_D3D11Module, "D3D11CreateDevice");
-		ptr_D3D11CreateDeviceAndSwapChain = (LPD3D11CREATEDEVICEANDSWAPCHAIN)GetProcAddress(g_D3D11Module, "D3D11CreateDeviceAndSwapChain");
 	} else {
 		return LoadD3D11Error::FAIL_NO_D3D11;
 	}

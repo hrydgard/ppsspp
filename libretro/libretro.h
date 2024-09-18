@@ -1054,9 +1054,9 @@ enum retro_mod
                                             * so the core may decide to skip generating a frame or generating audio.
                                             * This is mainly used for increasing performance.
                                             * Bit 0 (value 1): Enable Video
-                                            * Bit 1 (value 2): Enable Audio
+                                            * Bit 1 (value 2): Enable AUDIO
                                             * Bit 2 (value 4): Use Fast Savestates.
-                                            * Bit 3 (value 8): Hard Disable Audio
+                                            * Bit 3 (value 8): Hard Disable AUDIO
                                             * Other bits are reserved for future use and will default to zero.
                                             * If video is disabled:
                                             * * The frontend wants the core to not generate any video,
@@ -1079,14 +1079,14 @@ enum retro_mod
                                             * * Suggest that the core skips clearing memory.
                                             * * Suggest that the core skips resetting the system.
                                             * * Suggest that the core may skip validation steps.
-                                            * Hard Disable Audio:
+                                            * Hard Disable AUDIO:
                                             * * Used for a secondary core when running ahead.
                                             * * Indicates that the frontend will never need audio from the core.
                                             * * Suggests that the core may stop synthesizing audio, but this should not
                                             *   compromise emulation accuracy.
-                                            * * Audio output for the next frame does not matter, and the frontend will
+                                            * * AUDIO output for the next frame does not matter, and the frontend will
                                             *   never need an accurate audio state in the future.
-                                            * * State will never be saved when using Hard Disable Audio.
+                                            * * State will never be saved when using Hard Disable AUDIO.
                                             */
 #define RETRO_ENVIRONMENT_GET_MIDI_INTERFACE (48 | RETRO_ENVIRONMENT_EXPERIMENTAL)
                                            /* struct retro_midi_interface ** --
@@ -1764,6 +1764,39 @@ enum retro_mod
                                             * Tells the core about the context the frontend is asking for savestate.
                                             * (see enum retro_savestate_context)
                                             */
+
+#define RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT (73 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+                                            /* struct retro_hw_render_context_negotiation_interface * --
+                                             * Before calling SET_HW_RNEDER_CONTEXT_NEGOTIATION_INTERFACE, a core can query
+                                             * which version of the interface is supported.
+                                             *
+                                             * Frontend looks at interface_type and returns the maximum supported
+                                             * context negotiation interface version.
+                                             * If the interface_type is not supported or recognized by the frontend, a version of 0
+                                             * must be returned in interface_version and true is returned by frontend.
+                                             *
+                                             * If this environment call returns true with interface_version greater than 0,
+                                             * a core can always use a negotiation interface version larger than what the frontend returns, but only
+                                             * earlier versions of the interface will be used by the frontend.
+                                             * A frontend must not reject a negotiation interface version that is larger than
+                                             * what the frontend supports. Instead, the frontend will use the older entry points that it recognizes.
+                                             * If this is incompatible with a particular core's requirements, it can error out early.
+                                             *
+                                             * Backwards compatibility note:
+                                             * This environment call was introduced after Vulkan v1 context negotiation.
+                                             * If this environment call is not supported by frontend - i.e. the environment call returns false -
+                                             * only Vulkan v1 context negotiation is supported (if Vulkan HW rendering is supported at all).
+                                             * If a core uses Vulkan negotiation interface with version > 1, negotiation may fail unexpectedly.
+                                             * All future updates to the context negotiation interface implies that frontend must support
+                                             * this environment call to query support.
+                                             */
+
+#define RETRO_ENVIRONMENT_GET_JIT_CAPABLE 74
+                                           /* bool * --
+                                            * Result is set to true if the frontend has already verified JIT can be
+                                            * used, mainly for use iOS/tvOS. On other platforms the result is true.
+                                            */
+
 
 /* VFS functionality */
 
@@ -2620,10 +2653,10 @@ struct retro_rumble_interface
 /* Notifies libretro that audio data should be written. */
 typedef void (RETRO_CALLCONV *retro_audio_callback_t)(void);
 
-/* True: Audio driver in frontend is active, and callback is
+/* True: AUDIO driver in frontend is active, and callback is
  * expected to be called regularily.
- * False: Audio driver in frontend is paused or inactive.
- * Audio callback will not be called until set_state has been
+ * False: AUDIO driver in frontend is paused or inactive.
+ * AUDIO callback will not be called until set_state has been
  * called with true.
  * Initial state is false (inactive).
  */

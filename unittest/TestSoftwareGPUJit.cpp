@@ -18,28 +18,31 @@
 #include "Common/Data/Random/Rng.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
 
 static bool TestSamplerJit() {
+#if PPSSPP_ARCH(AMD64)
 	using namespace Sampler;
 	SamplerJitCache *cache = new SamplerJitCache();
+	BinManager binner;
 
 	auto GetLinear = [&](SamplerID &id) {
 		id.linear = true;
 		id.fetch = false;
-		return cache->GetLinear(id);
+		return cache->GetLinear(id, &binner);
 	};
 	auto GetNearest = [&](SamplerID &id) {
 		id.linear = false;
 		id.fetch = false;
-		return cache->GetNearest(id);
+		return cache->GetNearest(id, &binner);
 	};
 	auto GetFetch = [&](SamplerID &id) {
 		id.linear = false;
 		id.fetch = true;
-		return cache->GetFetch(id);
+		return cache->GetFetch(id, &binner);
 	};
 
 	GMRng rng;
@@ -106,11 +109,17 @@ static bool TestSamplerJit() {
 
 	delete cache;
 	return successes == count && !HitAnyAsserts();
+#else
+	// Don't test sampler jit, not supported.
+	return true;
+#endif
 }
 
 static bool TestPixelJit() {
+#if PPSSPP_ARCH(AMD64)
 	using namespace Rasterizer;
 	PixelJitCache *cache = new PixelJitCache();
+	BinManager binner;
 
 	GMRng rng;
 	int successes = 0;
@@ -134,7 +143,7 @@ static bool TestPixelJit() {
 			continue;
 		i++;
 
-		SingleFunc func = cache->GetSingle(id);
+		SingleFunc func = cache->GetSingle(id, &binner);
 		SingleFunc genericFunc = cache->GenericSingle(id);
 		if (func != genericFunc) {
 			successes++;
@@ -156,6 +165,10 @@ static bool TestPixelJit() {
 	delete [] zb_data;
 	delete cache;
 	return successes == count && !HitAnyAsserts();
+#else
+	// Not yet supported
+	return true;
+#endif
 }
 
 bool TestSoftwareGPUJit() {

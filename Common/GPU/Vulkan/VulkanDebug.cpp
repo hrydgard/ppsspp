@@ -17,35 +17,113 @@
 
 #include <string>
 #include <sstream>
+#include <map>
+#include <mutex>
 
 #include "Common/Log.h"
+#include "Common/System/System.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
+
+const int MAX_SAME_ERROR_COUNT = 10;
+
+// Used to stop outputting the same message over and over.
+static std::map<int, int> g_errorCount;
+std::mutex g_errorCountMutex;
+
+// TODO: Call this when launching games in some clean way.
+void VulkanClearValidationErrorCounts() {
+	std::lock_guard<std::mutex> lock(g_errorCountMutex);
+	g_errorCount.clear();
+}
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT                  messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
-	void*                                            pUserData) {
+	const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+	void *pUserData) {
 	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	std::ostringstream message;
 
 	const char *pMessage = pCallbackData->pMessage;
 
 	int messageCode = pCallbackData->messageIdNumber;
-	if (messageCode == 101294395) {
+	switch (messageCode) {
+	case 101294395:
 		// UNASSIGNED-CoreValidation-Shader-OutputNotConsumed - benign perf warning
 		return false;
-	}
-	if (messageCode == 1303270965) {
+	case 1303270965:
 		// Benign perf warning, image blit using GENERAL layout.
-		// UNASSIGNED
+		// TODO: Oops, turns out we filtered out a bit too much here!
+		// We really need that performance flag check to sort out the stuff that matters.
+		// Will enable it soon, but it'll take some fixing.
+		//
+		if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+			return false;
+		break;
+
+	case -375211665:
+		// VUID-vkAllocateMemory-pAllocateInfo-01713
+		// Can happen when VMA aggressively tries to allocate aperture memory for upload. It gracefully
+		// falls back to regular video memory, so we just ignore this. I'd argue this is a VMA bug, actually.
 		return false;
+	case 657182421:
+		// Extended validation (ARM best practices)
+		// Non-fifo validation not recommended
+		return false;
+	case 672904502:
+		// ARM best practices: index buffer usage warning (too few indices used compared to value range).
+		// This should be looked into more - happens even in moppi-flower which is weird.
+		return false;
+	case 337425955:
+		// False positive
+		// https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/3615
+		return false;
+	case 227275665:
+		// PowerVR (and all other) best practices: LOAD_OP_LOAD used in render pass.
+		return false;
+	case 1835555994: // [AMD] [NVIDIA] Performance warning : Pipeline VkPipeline 0xa808d50000000033[global_texcolor] was bound twice in the frame.
+		// Benign perf warnings.
+		return false;
+
+	case 1243445977:
+		// Clear value but no LOAD_OP_CLEAR. Not worth fixing right now.
+		return false;
+
+	case 1544472022:
+		// MSAA depth resolve write-after-write??
+		return false;
+
+	case -1306653903:
+		// ARM complaint about non-fifo swapchain
+		return false;
+
+	default:
+		break;
 	}
-	if (messageCode == 606910136 || messageCode == -392708513) {
-		// VUID-vkCmdDraw-None-02686
-		// Kinda false positive, or at least very unnecessary, now that I solved the real issue.
-		// See https://github.com/hrydgard/ppsspp/pull/16354
+
+	/*
+	// Can be used to temporarily turn errors into info for easier debugging.
+	switch (messageCode) {
+	case 1544472022:
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+			messageSeverity = (VkDebugUtilsMessageSeverityFlagBitsEXT)((messageSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT);
+		}
+		break;
+	default:
+		break;
+	}
+	*/
+
+	int count;
+	{
+		std::lock_guard<std::mutex> lock(g_errorCountMutex);
+		count = g_errorCount[messageCode]++;
+	}
+	if (count == MAX_SAME_ERROR_COUNT) {
+		WARN_LOG(Log::G3D, "Too many validation messages with message %d, stopping", messageCode);
+	}
+	if (count >= MAX_SAME_ERROR_COUNT) {
 		return false;
 	}
 
@@ -73,7 +151,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 #ifdef _WIN32
 	OutputDebugStringA(msg.c_str());
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		if (options->breakOnError && IsDebuggerPresent()) {
+		if (options->breakOnError && System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 			DebugBreak();
 		}
 		if (options->msgBoxOnError) {
@@ -81,17 +159,18 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		}
 	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
 		// Don't break on perf warnings for now, even with a debugger. We log them at least.
-		if (options->breakOnWarning && IsDebuggerPresent() && 0 == (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) {
+		if (options->breakOnWarning && System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT) && 0 == (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) {
 			DebugBreak();
 		}
 	}
 #endif
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		ERROR_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		ERROR_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	} else {
-		WARN_LOG(G3D, "VKDEBUG: %s", msg.c_str());
+		WARN_LOG(Log::G3D, "VKDEBUG: %s", msg.c_str());
 	}
+
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the
 	// app dies inside the driver due to invalid parameter(s).

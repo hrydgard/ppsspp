@@ -294,7 +294,7 @@ struct Bucket {
 			printf("PACKING FAIL : height=%i", (int)dest.dat.size());
 			exit(1);
 		}
-		dest.resize(image_width, NextPowerOf2((int)dest.dat.size()));
+		dest.resize(image_width, (int)dest.dat.size());
 
 		// Output the glyph data.
 		vector<Data> dats;

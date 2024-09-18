@@ -64,12 +64,22 @@ void DoClass(PointerWrap &p, T &x) {
 template<class T>
 void DoClass(PointerWrap &p, T *&x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		if (x != nullptr)
-			delete x;
+		delete x;
 		x = new T();
 	}
 	x->DoState(p);
 }
+
+template<class T, class S>
+void DoSubClass(PointerWrap &p, T *&x) {
+	if (p.mode == PointerWrap::MODE_READ) {
+		if (x != nullptr)
+			delete x;
+		x = new S();
+	}
+	x->DoState(p);
+}
+
 
 template<class T>
 void DoArray(PointerWrap &p, T *x, int count) {
@@ -85,7 +95,8 @@ template<class T>
 void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	u32 vec_size = (u32)x.size();
 	Do(p, vec_size);
-	x.resize(vec_size, default_val);
+	if (vec_size != x.size())
+		x.resize(vec_size, default_val);
 	if (vec_size > 0)
 		DoArray(p, &x[0], vec_size);
 }

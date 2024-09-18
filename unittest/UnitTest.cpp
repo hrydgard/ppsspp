@@ -26,9 +26,15 @@
 //
 // To use, set command line parameter to one or more of the tests below, or "all".
 // Search for "availableTests".
+//
+// Example of how to run with CMake:
+//
+// ./b.sh --unittest
+// build/unittest EscapeMenuString
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -41,6 +47,8 @@
 #endif
 
 #include "Common/Data/Collections/TinySet.h"
+#include "Common/Data/Collections/FastVec.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -50,18 +58,27 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Format/IniFile.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Common/Data/Convert/ColorConv.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
+#include "Core/KeyMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/GPUStateUtils.h"
 
-#include "android/jni/AndroidContentURI.h"
+#include "Common/File/AndroidContentURI.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -70,7 +87,7 @@
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
 float System_GetPropertyFloat(SystemProperty prop) {
@@ -84,6 +101,17 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;
 	}
 }
+void System_Notify(SystemNotification notification) {}
+void System_PostUIMessage(UIMessage message, const std::string &param) {}
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
+void System_AudioPushSamples(const s32 *audio, int numSamples) {}
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) { return false; }
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	return "";
+}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -94,8 +122,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 #ifndef M_PI_2
@@ -347,9 +375,51 @@ bool TestTinySet() {
 	return true;
 }
 
+bool TestFastVec() {
+	FastVec<int> a;
+	EXPECT_EQ_INT((int)a.size(), 0);
+	a.push_back(1);
+	EXPECT_EQ_INT((int)a.size(), 1);
+	a.push_back(2);
+	EXPECT_EQ_INT((int)a.size(), 2);
+	FastVec<int> b;
+	b.push_back(8);
+	b.push_back(9);
+	b.push_back(10);
+	EXPECT_EQ_INT((int)b.size(), 3);
+	for (int i = 0; i < 100; i++) {
+		b.push_back(33);
+	}
+	EXPECT_EQ_INT((int)b.size(), 103);
+
+	int items[4] = { 50, 60, 70, 80 };
+	b.insert(b.begin() + 1, items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 60);
+	EXPECT_EQ_INT(b[3], 70);
+	EXPECT_EQ_INT(b[4], 80);
+	EXPECT_EQ_INT(b[5], 9);
+
+	b.resize(2);
+	b.insert(b.end(), items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 50);
+	EXPECT_EQ_INT(b[3], 60);
+	EXPECT_EQ_INT(b[4], 70);
+	EXPECT_EQ_INT(b[5], 80);
+
+
+	return true;
+}
+
 bool TestVFPUSinCos() {
 	float sine, cosine;
-	InitVFPUSinCos();
+	// Needed for VFPU tables.
+	// There might be a better place to invoke it, but whatever.
+	g_VFS.Register("", new DirectoryReader(Path("assets")));
+	InitVFPU();
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
 	EXPECT_EQ_FLOAT(cosine, 1.0f);
@@ -410,7 +480,7 @@ bool TestMatrixTranspose() {
 }
 
 void TestGetMatrix(int matrix, MatrixSize sz) {
-	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz));
+	INFO_LOG(Log::System, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
 	u8 fullMatrix[16];
 
 	u8 cols[4];
@@ -428,8 +498,8 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 		// int rowName = GetRowName(matrix, sz, i, 0);
 		int colName = cols[i];
 		int rowName = rows[i];
-		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz));
-		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz));
+		INFO_LOG(Log::System, "Column %i: %s", i, GetVectorNotation(colName, vsz).c_str());
+		INFO_LOG(Log::System, "Row %i: %s", i, GetVectorNotation(rowName, vsz).c_str());
 
 		u8 colRegs[4];
 		u8 rowRegs[4];
@@ -450,12 +520,12 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 			c << (int)fullMatrix[j * 4 + i] << " ";
 			d << (int)rowRegs[j] << " ";
 		}
-		INFO_LOG(SYSTEM, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		INFO_LOG(Log::System, "Col: %s vs %s", a.str().c_str(), b.str().c_str());
 		if (a.str() != b.str())
-			INFO_LOG(SYSTEM, "WRONG!");
-		INFO_LOG(SYSTEM, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
+			INFO_LOG(Log::System, "WRONG!");
+		INFO_LOG(Log::System, "Row: %s vs %s", c.str().c_str(), d.str().c_str());
 		if (c.str() != d.str())
-			INFO_LOG(SYSTEM, "WRONG!");
+			INFO_LOG(Log::System, "WRONG!");
 	}
 }
 
@@ -660,6 +730,9 @@ static bool TestPath() {
 	EXPECT_TRUE(Path("/").ComputePathTo(Path("/home/foo/bar"), computedPath));
 	EXPECT_EQ_STR(computedPath, std::string("home/foo/bar"));
 
+	EXPECT_TRUE(Path("/a/b").ComputePathTo(Path("/a/b"), computedPath));
+	EXPECT_EQ_STR(computedPath, std::string());
+
 	return true;
 }
 
@@ -668,7 +741,7 @@ static bool TestAndroidContentURI() {
 	static const char *directoryURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO";
 	static const char *fileTreeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
 	static const char *fileNonTreeString = "content://com.android.externalstorage.documents/document/primary%3APSP%2Fcrash_bad_execaddr.prx";
-
+	static const char *downloadURIString = "content://com.android.providers.downloads.documents/document/msf%3A10000000006";
 
 	AndroidContentURI treeURI;
 	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
@@ -688,7 +761,7 @@ static bool TestAndroidContentURI() {
 	EXPECT_TRUE(fileTreeURI.CanNavigateUp());
 	fileTreeURI.NavigateUp();
 	EXPECT_FALSE(fileTreeURI.CanNavigateUp());
-	
+
 	EXPECT_EQ_STR(fileTreeURI.FilePath(), fileTreeURI.RootPath());
 
 	EXPECT_EQ_STR(fileTreeURI.ToString(), std::string(directoryURIString));
@@ -698,22 +771,34 @@ static bool TestAndroidContentURI() {
 	EXPECT_EQ_STR(diff, std::string("Tekken 6.iso"));
 
 	EXPECT_EQ_STR(fileURI.GetFileExtension(), std::string(".prx"));
-	EXPECT_FALSE(fileURI.CanNavigateUp());
+	EXPECT_TRUE(fileURI.CanNavigateUp());  // Can now virtually navigate up one step from these.
 
+	// These are annoying because they hide the actual filename, and we can't get at a parent folder.
+	// Decided to handle the ':' as a directory separator for navigation purposes, which fixes the problem (though not the extension thing).
+	AndroidContentURI downloadURI;
+	EXPECT_TRUE(downloadURI.Parse(std::string(downloadURIString)));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("10000000006"));
+	EXPECT_TRUE(downloadURI.CanNavigateUp());
+	EXPECT_TRUE(downloadURI.NavigateUp());
+	// While this is not an openable valid content URI, we can still get something that we can concatenate a filename on top of.
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3A"));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("msf:"));
+	downloadURI = downloadURI.WithComponent("myfile");
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3Amyfile"));
 	return true;
 }
 
 class UnitTestWordWrapper : public WordWrapper {
 public:
-	UnitTestWordWrapper(const char *str, float maxW, int flags)
+	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
 		: WordWrapper(str, maxW, flags) {
 	}
 
 protected:
-	float MeasureWidth(const char *str, size_t bytes) override {
+	float MeasureWidth(std::string_view str) override {
 		// Simple case for unit testing.
 		int w = 0;
-		for (UTF8 utf(str); !utf.end() && (size_t)utf.byteIndex() < bytes; ) {
+		for (UTF8 utf(str); !utf.end(); ) {
 			uint32_t c = utf.next();
 			switch (c) {
 			case ' ':
@@ -782,6 +867,172 @@ static bool TestWrapText() {
 	return true;
 }
 
+static bool TestSmallDataConvert() {
+	float f[4] = { 1.0f / 255.0f, 2.0f / 255.0f, 3.0f / 255.0f, 4.0f / 255.f };
+	uint32_t result = Float4ToUint8x4_NoClamp(f);
+	EXPECT_EQ_HEX(result, 0x04030201);
+	result = Float4ToUint8x4(f);
+	EXPECT_EQ_HEX(result, 0x04030201);
+	return true;
+}
+
+float DepthSliceFactor(u32 useFlags);
+
+static bool TestDepthMath() {
+	// These are in normalized space.
+	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
+
+	// Flag combinations that can happen (any combination not included here is invalid, see comment
+	// over in GPUStateUtils.cpp):
+	static const u32 useFlagsArray[] = {
+		0,
+		GPU_USE_ACCURATE_DEPTH,
+		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
+		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
+		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
+	};
+	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
+	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
+
+	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
+
+	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
+		u32 useFlags = useFlagsArray[j];
+		printf("j: %d useflags: %d\n", j, useFlags);
+		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
+
+		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
+		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
+		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
+
+		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
+			float testValue = testValues[i] * 65535.0f;
+
+			float encoded = factors.EncodeFromU16(testValue);
+			float decodedU16 = factors.DecodeToU16(encoded);
+			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
+		}
+	}
+
+	return true;
+}
+
+bool TestInputMapping() {
+	InputMapping mapping;
+	mapping.deviceId = DEVICE_ID_PAD_0;
+	mapping.keyCode = 20;
+	InputMapping mapping2;
+	mapping2.deviceId = DEVICE_ID_PAD_8;
+	mapping2.keyCode = 38;
+	std::string cfg = mapping.ToConfigString();
+
+	InputMapping parsedMapping = InputMapping::FromConfigString(cfg);
+	EXPECT_EQ_INT(parsedMapping.deviceId, mapping.deviceId);
+	EXPECT_EQ_INT(parsedMapping.keyCode, mapping.keyCode);
+
+	using KeyMap::MultiInputMapping;
+	MultiInputMapping multi(mapping);
+
+	EXPECT_EQ_STR(multi.ToConfigString(), mapping.ToConfigString());
+
+	multi.mappings.push_back(mapping2);
+	EXPECT_FALSE(multi.EqualsSingleMapping(mapping));
+	EXPECT_TRUE(multi.mappings.contains(mapping2));
+	EXPECT_TRUE(multi.mappings.contains(mapping));
+
+	std::string cfgMulti = multi.ToConfigString();
+
+	EXPECT_EQ_STR(cfgMulti, std::string("10-20:18-38"));
+
+	MultiInputMapping parsedMulti = MultiInputMapping::FromConfigString(cfgMulti);
+
+	EXPECT_EQ_INT((int)parsedMulti.mappings.size(), 2);
+
+	// OK, both single and multiple mappings parse. Let's now see if the old parsing can handle a multimapping.
+	// This is a requirement for the new format.
+
+	InputMapping parsedMultiSingle = InputMapping::FromConfigString(cfgMulti);  // yes this is an intentional mismatch
+	// We should get the first mapping.
+	EXPECT_TRUE(parsedMultiSingle == mapping);
+	return true;
+}
+
+bool TestEscapeMenuString() {
+	char c;
+	std::string temp = UnescapeMenuString("&File", &c);
+	EXPECT_EQ_INT((int)c, (int)'F');
+	EXPECT_EQ_STR(temp, std::string("File"));
+	temp = UnescapeMenuString("U&til", &c);
+	EXPECT_EQ_INT((int)c, (int)'t');
+	EXPECT_EQ_STR(temp, std::string("Util"));
+	temp = UnescapeMenuString("Ed&it", nullptr);
+	EXPECT_EQ_STR(temp, std::string("Edit"));
+	temp = UnescapeMenuString("Cut && Paste", nullptr);
+	EXPECT_EQ_STR(temp, std::string("Cut & Paste"));
+	temp = UnescapeMenuString("&A&B", &c);
+	EXPECT_EQ_STR(temp, std::string("AB"));
+	EXPECT_EQ_INT((int)c, (int)'A');
+	return true;
+}
+
+bool TestSubstitutions() {
+	std::string output = ApplySafeSubstitutions("%3 %2 %1", "a", "b", "c");
+	EXPECT_EQ_STR(output, std::string("c b a"));
+	return true;
+}
+
+bool TestIniFile() {
+	const std::string testLine = "adsf\\#asdf = jkl\\# # comment";
+	const std::string testLine2 = "# Just a comment";
+
+	std::string temp;
+	ParsedIniLine line;
+	line.ParseFrom(testLine);
+	line.Reconstruct(&temp);
+	EXPECT_EQ_STR(testLine, temp);
+
+	temp.clear();
+	line.ParseFrom(testLine2);
+	line.Reconstruct(&temp);
+
+	EXPECT_EQ_STR(testLine2, temp);
+	return true;
+}
+
+inline u32 ReferenceRGBA5551ToRGBA8888(u16 src) {
+	u8 r = Convert5To8((src >> 0) & 0x1F);
+	u8 g = Convert5To8((src >> 5) & 0x1F);
+	u8 b = Convert5To8((src >> 10) & 0x1F);
+	u8 a = (src >> 15) & 0x1;
+	a = (a) ? 0xff : 0;
+	return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+inline u32 ReferenceRGB565ToRGBA8888(u16 src) {
+	u8 r = Convert5To8((src >> 0) & 0x1F);
+	u8 g = Convert6To8((src >> 5) & 0x3F);
+	u8 b = Convert5To8((src >> 11) & 0x1F);
+	u8 a = 0xFF;
+	return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+bool TestColorConv() {
+	// Can exhaustively test the 16->32 conversions.
+	for (int i = 0; i < 65536; i++) {
+		u16 col16 = i;
+
+		u32 reference = ReferenceRGBA5551ToRGBA8888(col16);
+		u32 value = RGBA5551ToRGBA8888(col16);
+		EXPECT_EQ_INT(reference, value);
+
+		reference = ReferenceRGB565ToRGBA8888(col16);
+		value = RGB565ToRGBA8888(col16);
+		EXPECT_EQ_INT(reference, value);
+	}
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -798,6 +1049,7 @@ bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
+bool TestVFS();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -832,9 +1084,25 @@ TestItem availableTests[] = {
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
+	TEST_ITEM(FastVec),
+	TEST_ITEM(SmallDataConvert),
+	TEST_ITEM(DepthMath),
+	TEST_ITEM(InputMapping),
+	TEST_ITEM(EscapeMenuString),
+	TEST_ITEM(VFS),
+	TEST_ITEM(Substitutions),
+	TEST_ITEM(IniFile),
+	TEST_ITEM(ColorConv),
 };
 
 int main(int argc, const char *argv[]) {
+	SetCurrentThreadName("UnitTest");
+	TimeInit();
+
+	printf("CPU name: %s\n", cpu_info.cpu_string);
+	printf("ABI: %s\n", GetCompilerABI());
+
+	// In case we're on ARM, assume these are available.
 	cpu_info.bNEON = true;
 	cpu_info.bVFP = true;
 	cpu_info.bVFPv3 = true;
@@ -870,10 +1138,11 @@ int main(int argc, const char *argv[]) {
 			printf("%d tests passed.\n", passes);
 		}
 		if (fails > 0) {
+			printf("%d tests failed!\n", fails);
 			return 2;
 		}
 	} else if (testFunc == nullptr) {
-		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "You may select a test to run by passing an argument, either \"all\" or one or more of the below.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Available tests:\n");
 		for (auto f : availableTests) {

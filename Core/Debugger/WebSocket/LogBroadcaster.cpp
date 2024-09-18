@@ -17,7 +17,7 @@
 
 #include <algorithm>
 #include <mutex>
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -95,7 +95,7 @@ struct DebuggerLogEvent {
 		j.writeString("timestamp", l.timestamp);
 		j.writeString("header", l.header);
 		j.writeString("message", l.msg);
-		j.writeInt("level", l.level);
+		j.writeInt("level", (int)l.level);
 		j.writeString("channel", l.log);
 		j.end();
 		return j.str();

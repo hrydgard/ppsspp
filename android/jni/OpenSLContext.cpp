@@ -10,7 +10,6 @@
 #include <SLES/OpenSLES_Android.h>
 
 #include "Common/Log.h"
-#include "Common/StringUtils.h"
 #include "OpenSLContext.h"
 #include "Core/HLE/sceUsbMic.h"
 
@@ -46,11 +45,11 @@ void OpenSLContext::bqPlayerCallbackWrap(SLAndroidSimpleBufferQueueItf bq, void 
 
 void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 	if (bq != bqPlayerBufferQueue) {
-		ERROR_LOG(AUDIO, "OpenSL: Wrong bq!");
+		ERROR_LOG(Log::Audio, "OpenSL: Wrong bq!");
 		return;
 	}
 
-	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer);
+	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer, SampleRate());
 
 	int sizeInBytes = framesPerBuffer * 2 * sizeof(short);
 	int byteCount = (framesPerBuffer - renderedFrames) * 4;
@@ -58,12 +57,14 @@ void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 		memset(buffer[curBuffer] + renderedFrames * 2, 0, byteCount);
 	}
 	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
-	CheckResult(result, StringFromFormat("Failed to enqueue: %d %d", renderedFrames, sizeInBytes).c_str());
+	
+	// TODO: get rid of this snprintf too
+	CheckResult(result, "Failed to enqueue");
 	// Comment from sample code:
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error
 	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
+		ERROR_LOG(Log::Audio, "OpenSL: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
 	}
 
 	curBuffer += 1; // Switch buffer
@@ -130,7 +131,7 @@ bool OpenSLContext::Init() {
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk,
 			sizeof(ids)/sizeof(ids[0]), ids, req);
 	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL: CreateAudioPlayer failed: %d", (int)result);
+		ERROR_LOG(Log::Audio, "OpenSL: CreateAudioPlayer failed: %d", (int)result);
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = nullptr;
 
@@ -268,13 +269,13 @@ bool OpenSLContext::AudioRecord_Stop() {
 // shut down the native audio system
 OpenSLContext::~OpenSLContext() {
 	if (bqPlayerPlay) {
-		INFO_LOG(AUDIO, "OpenSL: Shutdown - stopping playback");
+		INFO_LOG(Log::Audio, "OpenSL: Shutdown - stopping playback");
 		SLresult result;
 		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
 		CheckResult(result, "SetPlayState(stopped) failed");
 	}
 
-	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting player object");
+	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting player object");
 
 	if (bqPlayerObject) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
@@ -284,7 +285,7 @@ OpenSLContext::~OpenSLContext() {
 		bqPlayerVolume = nullptr;
 	}
 
-	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting mix object");
+	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting mix object");
 
 	if (outputMixObject) {
 		(*outputMixObject)->Destroy(outputMixObject);
@@ -292,7 +293,7 @@ OpenSLContext::~OpenSLContext() {
 	}
 	AudioRecord_Stop();
 
-	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting engine object");
+	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting engine object");
 
 	if (engineObject) {
 		(*engineObject)->Destroy(engineObject);
@@ -304,12 +305,12 @@ OpenSLContext::~OpenSLContext() {
 		delete[] buffer[i];
 		buffer[i] = nullptr;
 	}
-	INFO_LOG(AUDIO, "OpenSL: Shutdown - finished");
+	INFO_LOG(Log::Audio, "OpenSL: Shutdown - finished");
 }
 
 bool OpenSLContext::CheckResult(SLresult result, const char *str) {
 	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL failure (%s): %d", str, result);
+		ERROR_LOG(Log::Audio, "OpenSL failure (%s): %d", str, result);
 		SetErrorString(str);
 		return false;
 	} else {
@@ -319,7 +320,7 @@ bool OpenSLContext::CheckResult(SLresult result, const char *str) {
 
 bool OpenSLContext::CheckResultStatic(SLresult result, const char *str) {
 	if (result != SL_RESULT_SUCCESS) {
-		ERROR_LOG(AUDIO, "OpenSL failure (%s): %d", str, result);
+		ERROR_LOG(Log::Audio, "OpenSL failure (%s): %d", str, result);
 		return false;
 	} else {
 		return true;

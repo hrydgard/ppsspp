@@ -28,7 +28,6 @@
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
@@ -161,7 +160,7 @@ static const JitLookup jitLookup[] = {
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
 	dec_ = &dec;
-	BeginWrite();
+	BeginWrite(4096);
 	const u8 *start = AlignCode16();
 
 	bool prescaleStep = false;
@@ -191,7 +190,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		MOVP2R(R3, &gstate_c.uv);
 		VLD1(F_32, neonUVScaleReg, R3, 2, ALIGN_NONE);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			VMOV_neon(F_32, neonScratchReg, by128);
@@ -250,7 +248,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOV(fullAlphaReg, 0xFF);
 	}
 
-	JumpTarget loopStart = GetCodePtr();
+	JumpTarget loopStart = NopAlignCode16();
 	// Preload data cache ahead of reading. This offset seems pretty good.
 	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -259,8 +257,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			// Reset the code ptr and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
 			char temp[1024] = {0};
-			dec.ToString(temp);
-			INFO_LOG(G3D, "Could not compile vertex decoder: %s", temp);
+			dec.ToString(temp, true);
+			INFO_LOG(Log::G3D, "Could not compile vertex decoder: %s", temp);
 			return 0;
 		}
 	}
@@ -287,8 +285,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	/*
 	DisassembleArm(start, GetCodePtr() - start);
 	char temp[1024] = {0};
-	dec.ToString(temp);
-	INFO_LOG(G3D, "%s", temp);
+	dec.ToString(temp, true);
+	INFO_LOG(Log::G3D, "%s", temp);
 	*/
 
 	*jittedSize = GetCodePtr() - start;

@@ -149,6 +149,9 @@
     <ClCompile Include="glslang\SPIRV\SpvTools.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\SpirvIntrinsics.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -326,7 +329,7 @@
     <ClInclude Include="glslang\glslang\MachineIndependent\pch.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="glslang\glslang\build_info.h">
+    <ClInclude Include="glslang\glslang\Include\SpirvIntrinsics.h">
       <Filter>glslang</Filter>
     </ClInclude>
   </ItemGroup>
@@ -334,5 +337,6 @@
     <None Include="glslang\glslang\MachineIndependent\glslang.y">
       <Filter>glslang</Filter>
     </None>
+    <None Include="glslang-build\Android.mk" />
   </ItemGroup>
 </Project>

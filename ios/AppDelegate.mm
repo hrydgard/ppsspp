@@ -1,5 +1,8 @@
 #import "AppDelegate.h"
+#import "ViewControllerCommon.h"
 #import "ViewController.h"
+#import "ViewControllerMetal.h"
+#import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
 #import "Core/System.h"
@@ -16,67 +19,66 @@
 // for AVAudioSessionInterruptionNotification
 -(void) handleAudioSessionInterruption:(NSNotification *)notification {
 	NSNumber *interruptionType = notification.userInfo[AVAudioSessionInterruptionTypeKey];
-	
+
 	// Sanity check in case it's somehow not an NSNumber
 	if (![interruptionType respondsToSelector:@selector(unsignedIntegerValue)]) {
 		return;  // Lets not crash
 	}
-	
+
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
-			INFO_LOG(SYSTEM, "ios audio session interruption beginning");
+			INFO_LOG(Log::System, "ios audio session interruption beginning");
 			if (g_Config.bEnableSound) {
-				Audio_Shutdown();
+				iOSCoreAudioShutdown();
 			}
 			break;
-			
+
 		case AVAudioSessionInterruptionTypeEnded:
-			INFO_LOG(SYSTEM, "ios audio session interruption ending");
+			INFO_LOG(Log::System, "ios audio session interruption ending");
 			if (g_Config.bEnableSound) {
-				/* 
+				/*
 				 * Only try to reinit audio if in the foreground, otherwise
 				 * it may fail. Instead, trust that applicationDidBecomeActive
 				 * will do it later.
 				 */
-				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) { 
-					Audio_Init();
+				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+					iOSCoreAudioInit();
 				}
 			}
 			break;
-			
+
 		default:
 			break;
 	};
 }
 
-// This will be called when the iOS's shared media process was reset 
+// This will be called when the iOS's shared media process was reset
 // Registered in application:didFinishLaunchingWithOptions:
 // for AVAudioSessionMediaServicesWereResetNotification
 -(void) handleMediaServicesWereReset:(NSNotification *)notification {
-	INFO_LOG(SYSTEM, "ios media services were reset - reinitializing audio");
-	
+	INFO_LOG(Log::System, "ios media services were reset - reinitializing audio");
+
 	/*
 	 When media services were reset, Apple recommends:
-	 1) Dispose of orphaned audio objects (such as players, recorders, 
+	 1) Dispose of orphaned audio objects (such as players, recorders,
 	    converters, or audio queues) and create new ones
-	 2) Reset any internal audio states being tracked, including all 
+	 2) Reset any internal audio states being tracked, including all
 	    properties of AVAudioSession
-	 3) When appropriate, reactivate the AVAudioSession instance using the 
+	 3) When appropriate, reactivate the AVAudioSession instance using the
 	    setActive:error: method
 	 We accomplish this by shutting down and reinitializing audio
 	 */
-	
+
 	if (g_Config.bEnableSound) {
-		Audio_Shutdown();
-		Audio_Init();
+		iOSCoreAudioShutdown();
+		iOSCoreAudioInit();
 	}
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-
 	int argc = 1;
-	char *argv[3] = { 0 };
-	NSURL* nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
+	char *argv[5]{};
+	NSURL *nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
 
 	if (nsUrl != nullptr && nsUrl.isFileURL) {
 		NSString *nsString = nsUrl.path;
@@ -84,46 +86,86 @@
 		argv[argc++] = (char*)string;
 	}
 
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+
+	return [self launchPPSSPP:argc argv:argv];
+}
+
+- (BOOL)launchPPSSPP:(int)argc argv:(char**)argv;
+{
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
 
-
 	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-	self.viewController = [[ViewController alloc] init];
-	
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-	
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
-	
-	self.window.rootViewController = self.viewController;
+
+	// Choose viewcontroller depending on backend.
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		PPSSPPViewControllerMetal *vc = [[PPSSPPViewControllerMetal alloc] init];
+
+		self.viewController = vc;
+		self.window.rootViewController = vc;
+
+	} else {
+		PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
+		// Here we can switch viewcontroller depending on backend.
+		self.viewController = vc;
+		self.window.rootViewController = vc;
+	}
+
 	[self.window makeKeyAndVisible];
-	
+
 	return YES;
 }
 
--(void) dealloc {
+- (void)dealloc {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
--(void) applicationWillResignActive:(UIApplication *)application {
-	if (g_Config.bEnableSound) {
-		Audio_Shutdown();
-	}
-	
-	NativeMessageReceived("lost_focus", "");	
+- (void)restart:(const char*)restartArgs {
+	INFO_LOG(Log::G3D, "Restart requested: %s", restartArgs);
+	[self.viewController willResignActive];
+	[self.viewController shutdown];
+	self.window.rootViewController = nil;
+	self.viewController = nil;
+
+	// App was requested to restart, probably.
+	INFO_LOG(Log::G3D, "viewController nilled");
+
+	NativeShutdown();
+
+	// TODO: Ignoring the command line for now.
+	// Hoping that overwriting the viewController works as expected...
+	[self launchPPSSPP:0 argv:nullptr];
+	[self.viewController didBecomeActive];
 }
 
--(void) applicationDidBecomeActive:(UIApplication *)application {
+- (void)applicationWillResignActive:(UIApplication *)application {
+	INFO_LOG(Log::G3D, "willResignActive");
+
+	[self.viewController willResignActive];
+
 	if (g_Config.bEnableSound) {
-		Audio_Init();
+		iOSCoreAudioShutdown();
 	}
-	
-	NativeMessageReceived("got_focus", "");	
+
+	System_PostUIMessage(UIMessage::LOST_FOCUS);
+}
+
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+	INFO_LOG(Log::G3D, "didBecomeActive");
+	if (g_Config.bEnableSound) {
+		iOSCoreAudioInit();
+	}
+
+	System_PostUIMessage(UIMessage::GOT_FOCUS);
+	[self.viewController didBecomeActive];
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {
-	exit(0);
+	// Seems like a bad idea.
+	// exit(0);
 }
 
 @end

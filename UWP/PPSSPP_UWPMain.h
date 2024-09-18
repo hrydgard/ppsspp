@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <mutex>
 
@@ -19,8 +19,6 @@ public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
 
 	void Shutdown() override;
-	void SwapInterval(int interval) override;
-	void SwapBuffers() override {}
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
 		return draw_;
@@ -36,6 +34,7 @@ public:
 	PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~PPSSPP_UWPMain();
 	void CreateWindowSizeDependentResources();
+	void UpdateScreenState();
 	bool Render();
 
 	// IDeviceNotify
@@ -46,6 +45,7 @@ public:
 	// Not sure whether this abstraction is worth it.
 	void OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount);
 	void OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey);
+	void OnCharacterReceived(int scanCode,unsigned int keyCode);
 
 	void OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp);
 
@@ -58,8 +58,6 @@ public:
 	// Save state fast if we can!
 	void OnSuspend();
 	void Close();
-
-	void LoadStorageFile(Windows::Storage::StorageFile ^file);
 
 private:
 	App ^app_;

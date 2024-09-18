@@ -31,7 +31,7 @@ class DiskCachingFileLoaderCache;
 class DiskCachingFileLoader : public ProxiedFileLoader {
 public:
 	DiskCachingFileLoader(FileLoader *backend);
-	~DiskCachingFileLoader() override;
+	~DiskCachingFileLoader();
 
 	bool Exists() override;
 	bool ExistsFast() override;
@@ -95,7 +95,7 @@ private:
 
 	struct BlockInfo;
 	bool ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size);
-	void WriteBlockData(BlockInfo &info, u8 *src);
+	void WriteBlockData(BlockInfo &info, const u8 *src);
 	void WriteIndexData(u32 indexPos, BlockInfo &info);
 	s64 GetBlockOffset(u32 block);
 

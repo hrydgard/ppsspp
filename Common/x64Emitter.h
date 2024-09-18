@@ -406,6 +406,10 @@ public:
 	const u8 *AlignCode4();
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
+
+	// Nops until the code pointer is 16-byte aligned. Good for loops.
+	const u8 *NopAlignCode16();
+
 	u8 *GetWritableCodePtr();
 
 	void LockFlags() { flags_locked = true; }
@@ -680,11 +684,13 @@ public:
 
 	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
 	void DPPD(X64Reg dest, OpArg src, u8 arg);
-
-	// These are probably useful for VFPU emulation.
-	void INSERTPS(X64Reg dest, OpArg src, u8 arg);
-	void EXTRACTPS(OpArg dest, X64Reg src, u8 arg);
 #endif
+
+	// SSE4: Insert and extract for floats.
+	// Note: insert from memory or an XMM.
+	void INSERTPS(X64Reg dest, OpArg arg, u8 dstsubreg, u8 srcsubreg = 0, u8 zmask = 0);
+	// Extract to memory or GPR.
+	void EXTRACTPS(OpArg dest, X64Reg arg, u8 subreg);
 
 	// SSE3: Horizontal operations in SIMD registers. Very slow! shufps-based code beats it handily on Ivy.
 	void HADDPS(X64Reg dest, OpArg src);
@@ -741,6 +747,10 @@ public:
 	void MOVQ_xmm(X64Reg dest, OpArg arg);
 	void MOVD_xmm(const OpArg &arg, X64Reg src);
 	void MOVQ_xmm(OpArg arg, X64Reg src);
+
+	// SSE3: Some additional moves.
+	void MOVSHDUP(X64Reg regOp1, OpArg arg);
+	void MOVSLDUP(X64Reg regOp1, OpArg arg);
 
 	// SSE/SSE2: Generates a mask from the high bits of the components of the packed register in question.
 	void MOVMSKPS(X64Reg dest, OpArg arg);
@@ -1032,7 +1042,7 @@ public:
 	// Can only extract from the low 128 bits.
 	void VEXTRACTPS(OpArg arg, X64Reg regOp1, u8 subreg);
 	// Can only insert into the low 128 bits, zeros upper bits.  Inserts from XMM.
-	void VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg);
+	void VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 dstsubreg, u8 srcsubreg = 0, u8 zmask = 0);
 	void VLDDQU(int bits, X64Reg regOp1, OpArg arg);
 	void VMOVAPS(int bits, X64Reg regOp1, OpArg arg);
 	void VMOVAPD(int bits, X64Reg regOp1, OpArg arg);

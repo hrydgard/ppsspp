@@ -18,11 +18,13 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 #define REAL_CPUDETECT_AVAIL 1
-#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#elif (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !defined(__EMSCRIPTEN__)
 #define REAL_CPUDETECT_AVAIL 1
 #elif PPSSPP_ARCH(MIPS) || PPSSPP_ARCH(MIPS64)
 #define REAL_CPUDETECT_AVAIL 1
 #elif PPSSPP_ARCH(RISCV64)
+#define REAL_CPUDETECT_AVAIL 1
+#elif PPSSPP_ARCH(LOONGARCH64)
 #define REAL_CPUDETECT_AVAIL 1
 #endif
 
@@ -53,11 +55,20 @@ void CPUInfo::Detect()
 	logical_cpu_count = 2;
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+	return features;
+}
+
 // Turn the cpu info into a string we can show
-std::string CPUInfo::Summarize()
-{
+std::string CPUInfo::Summarize() {
 	std::string sum;
 	sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
+
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 #endif

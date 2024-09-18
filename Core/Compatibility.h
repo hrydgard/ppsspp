@@ -22,7 +22,7 @@
 #include <set>
 
 // Compatibility flags are controlled by assets/compat.ini.
-// Alternatively, if PSP/SYSTEM/compat.ini exists, it is merged on top, to enable editing
+// Alternatively, if PSP/System/compat.ini exists, it is merged on top, to enable editing
 // the file on Android for tests.
 //
 // This file is not meant to be user-editable, although is kept as a separate ini
@@ -53,6 +53,7 @@ struct CompatFlags {
 	bool ClearToRAM;
 	bool Force04154000Download;
 	bool DrawSyncEatCycles;
+	bool DrawSyncInstant;
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
@@ -66,7 +67,7 @@ struct CompatFlags {
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
 	bool GoWFramerateHack60;
-	bool GoWFramerateHack30;
+	bool FramerateHack30;
 	bool JitInvalidationHack;
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;
@@ -87,13 +88,37 @@ struct CompatFlags {
 	bool DeswizzleDepth;
 	bool SplitFramebufferMargin;
 	bool ForceLowerResolutionForEffectsOn;
+	bool ForceLowerResolutionForEffectsOff;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
 	bool SecondaryTextureCache;
+	bool EnglishOrJapaneseOnly;
+	bool OldAdrenoPixelDepthRoundingGL;
+	bool ForceCircleButtonConfirm;
+	bool DisallowFramebufferAtOffset;
+	bool RockmanDash2SoundFix;
+	bool ReadbackDepth;
+	bool BlockTransferDepth;
+	bool DaxterRotatedAnalogStick;
+	bool ForceMaxDepthResolution;
+	bool SOCOMClut8Replacement;
+	bool Fontltn12Hack;
+	bool LoadCLUTFromCurrentFrameOnly;
+	bool ForceUMDReadSpeed;
+	bool AllowDelayedReadbacks;
+	bool TacticsOgreEliminateDebugReadback;
+	bool FramebufferAllowLargeVerticalOffset;
+	bool DisableMemcpySlicing;
+	bool ForceEnableGPUReadback;
+	bool UseFFMPEGFindStreamInfo;
 };
 
 struct VRCompat {
+	bool ForceMono;
+	bool ForceFlatScreen;
 	bool IdentityViewHack;
+	int MirroringVariant;
+	bool ProjectionHack;
 	bool Skyplane;
 	float UnitsPerMeter;
 };
@@ -119,6 +144,7 @@ private:
 	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};

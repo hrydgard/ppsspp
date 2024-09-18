@@ -22,12 +22,12 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/System/OSD.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
-#include "Core/Host.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/OnScreenDisplay.h"
@@ -39,7 +39,7 @@
 // Currently, just compile time for debugging.  May be NVIDIA only.
 static const int simulateGLES = false;
 
-void WindowsGLContext::SwapBuffers() {
+void WindowsGLContext::Poll() {
 	// We no longer call RenderManager::Swap here, it's handled by the render thread, which
 	// we're not on here.
 
@@ -49,7 +49,7 @@ void WindowsGLContext::SwapBuffers() {
 		resumeRequested = true;
 		DWORD result = WaitForSingleObject(resumeEvent, INFINITE);
 		if (result == WAIT_TIMEOUT) {
-			ERROR_LOG(G3D, "Wait for resume timed out. Resuming rendering");
+			ERROR_LOG(Log::G3D, "Wait for resume timed out. Resuming rendering");
 		}
 		pauseRequested = false;
 	}
@@ -66,7 +66,7 @@ void WindowsGLContext::Pause() {
 	pauseRequested = true;
 	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
 	if (result == WAIT_TIMEOUT) {
-		ERROR_LOG(G3D, "Wait for pause timed out");
+		ERROR_LOG(Log::G3D, "Wait for pause timed out");
 	}
 	// OK, we now know the rendering thread is paused.
 }
@@ -80,7 +80,7 @@ void WindowsGLContext::Resume() {
 	}
 
 	if (!resumeRequested) {
-		ERROR_LOG(G3D, "Not waiting to get resumed");
+		ERROR_LOG(Log::G3D, "Not waiting to get resumed");
 	} else {
 		SetEvent(resumeEvent);
 	}
@@ -90,7 +90,7 @@ void WindowsGLContext::Resume() {
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
 													GLuint id, GLenum severity, const char *msg) {
 
-	char sourceStr[32];
+	char sourceStr[32]{};
 	const char *sourceFmt;
 	switch(source) {
 	case GL_DEBUG_SOURCE_API_ARB:             sourceFmt = "API"; break;
@@ -103,7 +103,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	}
 	snprintf(sourceStr, sizeof(sourceStr), sourceFmt, source);
 
-	char typeStr[32];
+	char typeStr[32]{};
 	const char *typeFmt;
 	switch(type) {
 	case GL_DEBUG_TYPE_ERROR_ARB:               typeFmt = "ERROR"; break;
@@ -116,7 +116,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	}
 	snprintf(typeStr, sizeof(typeStr), typeFmt, type);
 
-	char severityStr[32];
+	char severityStr[32]{};
 	const char *severityFmt;
 	switch (severity) {
 	case GL_DEBUG_SEVERITY_HIGH_ARB:   severityFmt = "HIGH"; break;
@@ -130,7 +130,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 }
 
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
-											GLsizei length, const GLchar *message, GLvoid *userParam) {
+                      GLsizei length, const GLchar *message, GLvoid *userParam) {
 	// Ignore buffer mapping messages from NVIDIA
 	if (source == GL_DEBUG_SOURCE_API_ARB && type == GL_DEBUG_TYPE_OTHER_ARB && id == 131185) {
 		return;
@@ -156,18 +156,18 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	case GL_DEBUG_TYPE_ERROR_ARB:
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
-		ERROR_LOG(G3D, "GL: %s", finalMessage);
+		ERROR_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 
 	case GL_DEBUG_TYPE_PORTABILITY_ARB:
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		NOTICE_LOG(G3D, "GL: %s", finalMessage);
+		NOTICE_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
 		// These are just performance warnings.
-		VERBOSE_LOG(G3D, "GL: %s", finalMessage);
+		VERBOSE_LOG(Log::G3D, "GL: %s", finalMessage);
 		break;
 	}
 }
@@ -241,8 +241,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	// GL_VERSION                        GL_VENDOR        GL_RENDERER
 	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
-	auto err = GetI18NCategory("Error");
-
 	std::string glVersion = (const char *)glGetString(GL_VERSION);
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
 	const std::string openGL_1 = "1.";
@@ -262,6 +260,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 			"DirectX is currently compatible with less games, but on your GPU it may be the only choice.\n\n"
 			"Visit the forums at https://forums.ppsspp.org for more information.\n\n";
 
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		std::wstring versionDetected = ConvertUTF8ToWString(glVersion + "\n\n");
 		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver", defaultError));
 		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
@@ -384,21 +383,21 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 			glGetError();
 			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to register a debug log callback");
+				ERROR_LOG(Log::G3D, "Failed to register a debug log callback");
 			}
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+				ERROR_LOG(Log::G3D, "Failed to enable synchronous debug output");
 			}
 		} else if (glewIsSupported("GL_ARB_debug_output")) {
 			glGetError();
 			glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to register a debug log callback");
+				ERROR_LOG(Log::G3D, "Failed to register a debug log callback");
 			}
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 			if (glGetError()) {
-				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+				ERROR_LOG(Log::G3D, "Failed to enable synchronous debug output");
 			}
 
 			// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
@@ -412,7 +411,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	resumeRequested = false;
 
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(wglSwapIntervalEXT != nullptr);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
 	if (!success) {
 		delete draw_;
@@ -422,7 +421,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 
 	draw_->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
 	}, nullptr);
 
 	// These are auto-reset events.
@@ -441,11 +440,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
-}
-
-void WindowsGLContext::SwapInterval(int interval) {
-	// Delegate to the render manager to make sure it's done on the right thread.
-	renderManager_->SwapInterval(interval);
 }
 
 void WindowsGLContext::Shutdown() {
@@ -500,6 +494,5 @@ void WindowsGLContext::ThreadEnd() {
 }
 
 void WindowsGLContext::StopThread() {
-	renderManager_->WaitUntilQueueIdle();
 	renderManager_->StopThread();
 }

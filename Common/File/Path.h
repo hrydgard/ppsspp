@@ -3,6 +3,7 @@
 #include "ppsspp_config.h"
 
 #include <string>
+#include <string_view>
 
 #if defined(__APPLE__)
 
@@ -36,11 +37,11 @@ enum class PathType {
 
 class Path {
 private:
-	void Init(const std::string &str);
+	void Init(std::string_view str);
 
 public:
 	Path() : type_(PathType::UNDEFINED) {}
-	explicit Path(const std::string &str);
+	explicit Path(std::string_view str);
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	explicit Path(const std::wstring &str);
@@ -48,6 +49,9 @@ public:
 
 	PathType Type() const {
 		return type_;
+	}
+	bool IsLocalType() const {
+		return type_ == PathType::NATIVE || type_ == PathType::CONTENT_URI;
 	}
 
 	bool Valid() const { return !path_.empty(); }
@@ -71,28 +75,34 @@ public:
 	bool IsAbsolute() const;
 
 	// Returns a path extended with a subdirectory.
-	Path operator /(const std::string &subdir) const;
+	Path operator /(std::string_view subdir) const;
 
 	// Navigates down into a subdir.
-	void operator /=(const std::string &subdir);
+	void operator /=(std::string_view subdir);
 
 	// File extension manipulation.
-	Path WithExtraExtension(const std::string &ext) const;
+	Path WithExtraExtension(std::string_view ext) const;
 	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
-	// Removes the last component.
 	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory. Includes the extension.
 	std::string GetFileExtension() const;  // Always lowercase return. Includes the dot.
+	// Removes the last component.
 	std::string GetDirectory() const;
 
 	const std::string &ToString() const;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	std::wstring ToWString() const;
+	std::string ToCString() const;  // Flips the slashes back to Windows standard, but string still UTF-8.
+#else
+	std::string ToCString() const {
+		return ToString();
+	}
 #endif
 
-	std::string ToVisualString() const;
+	// Pass in a relative root to turn the path into a relative path - if it is one!
+	std::string ToVisualString(const char *relativeRoot = nullptr) const;
 
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;
@@ -111,12 +121,15 @@ public:
 		return path_ != other.path_ || type_ != other.type_;
 	}
 
-	bool FilePathContainsNoCase(const std::string &needle) const;
+	bool FilePathContainsNoCase(std::string_view needle) const;
 
 	bool StartsWith(const Path &other) const;
 
 	bool operator <(const Path &other) const {
 		return path_ < other.path_;
+	}
+	bool operator >(const Path &other) const {
+		return path_ > other.path_;
 	}
 
 private:
@@ -129,6 +142,8 @@ private:
 	PathType type_;
 };
 
+// Utility function for parsing out file extensions.
+std::string GetExtFromString(std::string_view str);
 
 // Utility function for fixing the case of paths. Only present on Unix-like systems.
 

@@ -24,7 +24,6 @@ public:
 	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
 	void StopThread() override {
-		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
 

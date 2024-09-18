@@ -3,8 +3,6 @@
 #include <cstring>
 
 #include "Common/GPU/Shader.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUCommon.h"
 #include "Common/Data/Collections/Slice.h"
 
 #include "Common/GPU/thin3d.h"
@@ -86,6 +84,7 @@ public:
 
 	void ConstFloat(const char *name, float value);
 	void SetFlags(ShaderWriterFlags flags) { flags_ |= flags; }
+	ShaderWriterFlags Flags() const { return flags_; }
 	void SetTexBindingBase(int base) { texBindingBase_ = base; }
 
 	ShaderWriter &SampleTexture2D(const char *texName, const char *uv);

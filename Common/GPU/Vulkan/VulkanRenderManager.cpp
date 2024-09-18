@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <map>
 #include <sstream>
 
 #include "Common/Log.h"
@@ -11,11 +12,12 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
+#include "Common/LogReporting.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #if 0 // def _DEBUG
-#define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
+#define VLOG(...) NOTICE_LOG(Log::G3D, __VA_ARGS__)
 #else
 #define VLOG(...)
 #endif
@@ -27,15 +29,42 @@
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
-bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType) {
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
+	// Good torture test to test the shutdown-while-precompiling-shaders issue on PC where it's normally
+	// hard to catch because shaders compile so fast.
+	// sleep_ms(200);
+
+	bool multisample = RenderPassTypeHasMultisample(rpType);
+	if (multisample) {
+		if (sampleCount_ != VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM) {
+			_assert_(sampleCount == sampleCount_);
+		} else {
+			sampleCount_ = sampleCount;
+		}
+	}
+
+	// Sanity check.
+	// Seen in crash reports from PowerVR GE8320, presumably we failed creating some shader modules.
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing vs/fs shader module pointers!");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		return false;
+	}
+
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
 	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
 
 	if (!vs || !fs || (!gs && desc->geometryShader)) {
-		ERROR_LOG(G3D, "Failed creating graphics pipeline - missing shader modules");
-		// We're kinda screwed here?
+		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing shader modules");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
+		return false;
+	}
+
+	if (!compatibleRenderPass) {
+		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - compatible render pass was nullptr");
+		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
 	}
 
@@ -69,14 +98,25 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.pDepthStencilState = &desc->dss;
 	pipe.pRasterizationState = &desc->rs;
 
+	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+	ms.rasterizationSamples = multisample ? sampleCount : VK_SAMPLE_COUNT_1_BIT;
+	if (multisample && (flags_ & PipelineFlags::USES_DISCARD)) {
+		// Extreme quality
+		ms.sampleShadingEnable = true;
+		ms.minSampleShading = 1.0f;
+	}
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+	inputAssembly.topology = desc->topology;
+
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &desc->vis;
 	pipe.pViewportState = &desc->views;
 	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &desc->ds;
-	pipe.pInputAssemblyState = &desc->inputAssembly;
-	pipe.pMultisampleState = &desc->ms;
-	pipe.layout = desc->pipelineLayout;
+	pipe.pInputAssemblyState = &inputAssembly;
+	pipe.pMultisampleState = &ms;
+	pipe.layout = desc->pipelineLayout->pipelineLayout;
 	pipe.basePipelineHandle = VK_NULL_HANDLE;
 	pipe.basePipelineIndex = 0;
 	pipe.subpass = 0;
@@ -85,7 +125,17 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	VkPipeline vkpipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &pipe, nullptr, &vkpipeline);
 
-	INFO_LOG(G3D, "Pipeline creation time: %0.2f ms", (time_now_d() - start) * 1000.0);
+	double now = time_now_d();
+	double taken_ms_since_scheduling = (now - scheduleTime) * 1000.0;
+	double taken_ms = (now - start) * 1000.0;
+
+	if (taken_ms < 0.1) {
+		DEBUG_LOG(Log::G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	} else {
+		INFO_LOG(Log::G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
+			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
+	}
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
@@ -94,18 +144,18 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		//
 		// At least create a null placeholder to avoid creating over and over if something is broken.
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
-		ERROR_LOG(G3D, "Failed creating graphics pipeline! VK_INCOMPLETE");
+		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline! VK_INCOMPLETE");
 		LogCreationFailure();
 		success = false;
 	} else if (result != VK_SUCCESS) {
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
-		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		LogCreationFailure();
 		success = false;
 	} else {
 		// Success!
-		if (!tag.empty()) {
-			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag.c_str());
+		if (!tag_.empty()) {
+			vulkan->SetDebugName(vkpipeline, VK_OBJECT_TYPE_PIPELINE, tag_.c_str());
 		}
 		pipeline[(size_t)rpType]->Post(vkpipeline);
 	}
@@ -113,18 +163,56 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	return success;
 }
 
-void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
+void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) {
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!this->pipeline[i])
 			continue;
+		if (msaaOnly && (i & (int)RenderPassType::MULTISAMPLE) == 0)
+			continue;
+
 		VkPipeline pipeline = this->pipeline[i]->BlockUntilReady();
 		// pipeline can be nullptr here, if it failed to compile before.
 		if (pipeline) {
 			vulkan->Delete().QueueDeletePipeline(pipeline);
 		}
+		this->pipeline[i] = nullptr;
 	}
-	vulkan->Delete().QueueCallback([](void *p) {
+	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
+}
+
+void VKRGraphicsPipeline::DestroyVariantsInstant(VkDevice device) {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			vkDestroyPipeline(device, pipeline[i]->BlockUntilReady(), nullptr);
+			delete pipeline[i];
+			pipeline[i] = nullptr;
+		}
+	}
+}
+
+VKRGraphicsPipeline::~VKRGraphicsPipeline() {
+	// This is called from the callbacked queued in QueueForDeletion.
+	// When we reach here, we should already be empty, so let's assert on that.
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		_assert_(!pipeline[i]);
+	}
+	if (desc)
+		desc->Release();
+}
+
+void VKRGraphicsPipeline::BlockUntilCompiled() {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			pipeline[i]->BlockUntilReady();
+		}
+	}
+}
+
+void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
+	// Can't destroy variants here, the pipeline still lives for a while.
+	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
 		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
+		pipeline->DestroyVariantsInstant(vulkan->GetDevice());
 		delete pipeline;
 	}, this);
 }
@@ -140,245 +228,78 @@ u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 }
 
 void VKRGraphicsPipeline::LogCreationFailure() const {
-	ERROR_LOG(G3D, "vs: %s\n[END VS]", desc->vertexShaderSource.c_str());
-	ERROR_LOG(G3D, "fs: %s\n[END FS]", desc->fragmentShaderSource.c_str());
+	ERROR_LOG(Log::G3D, "vs: %s\n[END VS]", desc->vertexShaderSource.c_str());
+	ERROR_LOG(Log::G3D, "fs: %s\n[END FS]", desc->fragmentShaderSource.c_str());
 	if (desc->geometryShader) {
-		ERROR_LOG(G3D, "gs: %s\n[END GS]", desc->geometryShaderSource.c_str());
+		ERROR_LOG(Log::G3D, "gs: %s\n[END GS]", desc->geometryShaderSource.c_str());
 	}
 	// TODO: Maybe log various other state?
-	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
+	ERROR_LOG(Log::G3D, "======== END OF PIPELINE ==========");
 }
 
-bool VKRComputePipeline::Create(VulkanContext *vulkan) {
-	if (!desc) {
-		// Already failed to create this one.
-		return false;
+struct SinglePipelineTask {
+	VKRGraphicsPipeline *pipeline;
+	VkRenderPass compatibleRenderPass;
+	RenderPassType rpType;
+	VkSampleCountFlagBits sampleCount;
+	double scheduleTime;
+	int countToCompile;
+};
+
+class CreateMultiPipelinesTask : public Task {
+public:
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
+		tasksInFlight_.fetch_add(1);
 	}
-	VkPipeline vkpipeline;
-	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
+	~CreateMultiPipelinesTask() {}
 
-	bool success = true;
-	if (result != VK_SUCCESS) {
-		pipeline->Post(VK_NULL_HANDLE);
-		ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
-		success = false;
-	} else {
-		pipeline->Post(vkpipeline);
-	}
-
-	delete desc;
-	desc = nullptr;
-	return success;
-}
-
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, bool createDepthStencilBuffer, const char *tag)
-	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
-
-	_dbg_assert_(tag);
-
-	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
-	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+	TaskType Type() const override {
+		return TaskType::CPU_COMPUTE;
 	}
 
-	UpdateTag(tag);
-
-	// We create the actual framebuffer objects on demand, because some combinations might not make sense.
-	// Framebuffer objects are just pointers to a set of images, so no biggie.
-}
-
-void VKRFramebuffer::UpdateTag(const char *newTag) {
-	char name[128];
-	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
-	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
-	vulkan_->SetDebugName(color.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	if (depth.image) {
-		snprintf(name, sizeof(name), "fb_depth_%s", tag_.c_str());
-		vulkan_->SetDebugName(depth.image, VK_OBJECT_TYPE_IMAGE, name);
-		vulkan_->SetDebugName(depth.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	TaskPriority Priority() const override {
+		return TaskPriority::HIGH;
 	}
-	for (size_t rpType = 0; rpType < (size_t)RenderPassType::TYPE_COUNT; rpType++) {
-		if (framebuf[rpType]) {
-			snprintf(name, sizeof(name), "fb_%s", tag_.c_str());
-			vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, name);
+
+	void Run() override {
+		for (auto &task : tasks_) {
+			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
 		}
+		tasksInFlight_.fetch_sub(1);
+	}
+
+	VulkanContext *vulkan_;
+	std::vector<SinglePipelineTask> tasks_;
+
+	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
+	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
+	static void WaitForAll();
+	static std::atomic<int> tasksInFlight_;
+};
+
+void CreateMultiPipelinesTask::WaitForAll() {
+	while (tasksInFlight_.load() > 0) {
+		sleep_ms(2);
 	}
 }
 
-VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType) {
-	bool multiview = RenderPassTypeHasMultiView(rpType);
+std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
 
-	if (framebuf[(int)rpType]) {
-		return framebuf[(int)rpType];
-	}
-
-	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	VkImageView views[2]{};
-
-	bool hasDepth = RenderPassTypeHasDepth(rpType);
-	views[0] = color.rtView;  // 2D array texture if multilayered.
-	if (hasDepth) {
-		views[1] = depth.rtView;
-	}
-	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType);
-	fbci.attachmentCount = hasDepth ? 2 : 1;
-	fbci.pAttachments = views;
-	fbci.width = width;
-	fbci.height = height;
-	fbci.layers = 1;  // With multiview, this should be set as 1.
-
-	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf[(int)rpType]);
-	_assert_(res == VK_SUCCESS);
-
-	if (!tag_.empty() && vulkan_->Extensions().EXT_debug_utils) {
-		vulkan_->SetDebugName(framebuf[(int)rpType], VK_OBJECT_TYPE_FRAMEBUFFER, StringFromFormat("fb_%s", tag_.c_str()).c_str());
-	}
-
-	return framebuf[(int)rpType];
-}
-
-VKRFramebuffer::~VKRFramebuffer() {
-	// Get rid of the views first, feels cleaner (but in reality doesn't matter).
-	if (color.rtView)
-		vulkan_->Delete().QueueDeleteImageView(color.rtView);
-	if (depth.rtView)
-		vulkan_->Delete().QueueDeleteImageView(depth.rtView);
-	if (color.texAllLayersView)
-		vulkan_->Delete().QueueDeleteImageView(color.texAllLayersView);
-	if (depth.texAllLayersView)
-		vulkan_->Delete().QueueDeleteImageView(depth.texAllLayersView);
-	for (int i = 0; i < 2; i++) {
-		if (color.texLayerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(color.texLayerViews[i]);
-		}
-		if (depth.texLayerViews[i]) {
-			vulkan_->Delete().QueueDeleteImageView(depth.texLayerViews[i]);
-		}
-	}
-
-	if (color.image) {
-		_dbg_assert_(color.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(color.image, color.alloc);
-	}
-	if (depth.image) {
-		_dbg_assert_(depth.alloc);
-		vulkan_->Delete().QueueDeleteImageAllocation(depth.image, depth.alloc);
-	}
-	for (auto &fb : framebuf) {
-		if (fb) {
-			vulkan_->Delete().QueueDeleteFramebuffer(fb);
-		}
-	}
-}
-
-void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
-	// We don't support more exotic layer setups for now. Mono or stereo.
-	_dbg_assert_(numLayers == 1 || numLayers == 2);
-
-	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	ici.arrayLayers = numLayers;
-	ici.mipLevels = 1;
-	ici.extent.width = width;
-	ici.extent.height = height;
-	ici.extent.depth = 1;
-	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	ici.imageType = VK_IMAGE_TYPE_2D;
-	ici.samples = VK_SAMPLE_COUNT_1_BIT;
-	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
-	ici.format = format;
-	// Strictly speaking we don't yet need VK_IMAGE_USAGE_SAMPLED_BIT for depth buffers since we do not yet sample depth buffers.
-	ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	if (color) {
-		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-	} else {
-		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	}
-
-	VmaAllocationCreateInfo allocCreateInfo{};
-	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	VmaAllocationInfo allocInfo{};
-
-	VkResult res = vmaCreateImage(vulkan->Allocator(), &ici, &allocCreateInfo, &img.image, &img.alloc, &allocInfo);
-	_dbg_assert_(res == VK_SUCCESS);
-
-	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-
-	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
-	ivci.format = ici.format;
-	ivci.image = img.image;
-	ivci.viewType = numLayers == 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-	ivci.subresourceRange.aspectMask = aspects;
-	ivci.subresourceRange.layerCount = numLayers;
-	ivci.subresourceRange.levelCount = 1;
-	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.rtView);
-	vulkan->SetDebugName(img.rtView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
-
-	_dbg_assert_(res == VK_SUCCESS);
-
-	// Separate view for texture sampling all layers together.
-	if (!color) {
-		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-	}
-
-	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;  // layered for consistency, even if single image.
-	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texAllLayersView);
-	vulkan->SetDebugName(img.texAllLayersView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
-
-	// Create 2D views for both layers.
-	// Useful when multipassing shaders that don't yet exist in a single-pass-stereo version.
-	for (int i = 0; i < numLayers; i++) {
-		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		ivci.subresourceRange.layerCount = 1;
-		ivci.subresourceRange.baseArrayLayer = i;
-		res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texLayerViews[i]);
-		if (vulkan->DebugLayerEnabled()) {
-			char temp[128];
-			snprintf(temp, sizeof(temp), "%s_layer%d", tag, i);
-			vulkan->SetDebugName(img.texLayerViews[i], VK_OBJECT_TYPE_IMAGE_VIEW, temp);
-		}
-		_dbg_assert_(res == VK_SUCCESS);
-	}
-
-	VkPipelineStageFlags dstStage;
-	VkAccessFlagBits dstAccessMask;
-	switch (initialLayout) {
-	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		break;
-	default:
-		Crash();
-		return;
-	}
-
-	TransitionImageLayout2(cmd, img.image, 0, 1, numLayers, aspects,
-		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage,
-		0, dstAccessMask);
-	img.layout = initialLayout;
-	img.format = format;
-	img.tag = tag ? tag : "N/A";
-	img.numLayers = numLayers;
-}
-
-VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
+VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
 	totalGPUTimeMs_("totalGPUTimeMs"),
-	renderCPUTimeMs_("renderCPUTimeMs")
+	renderCPUTimeMs_("renderCPUTimeMs"),
+	descUpdateTimeMs_("descUpdateCPUTimeMs"),
+	useRenderThread_(useThread),
+	frameTimeHistory_(frameTimeHistory)
 {
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
-	frameDataShared_.Init(vulkan);
+	// For present timing experiments. Disabled for now.
+	measurePresentTime_ = false;
+
+	frameDataShared_.Init(vulkan, useThread, measurePresentTime_);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		frameData_[i].Init(vulkan, i);
@@ -389,14 +310,13 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
 
 bool VulkanRenderManager::CreateBackbuffers() {
 	if (!vulkan_->GetSwapchain()) {
-		ERROR_LOG(G3D, "No swapchain - can't create backbuffers");
+		ERROR_LOG(Log::G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
 
-
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!queueRunner_.CreateSwapchain(cmdInit)) {
+	if (!queueRunner_.CreateSwapchain(cmdInit, &postInitBarrier_)) {
 		return false;
 	}
 
@@ -408,42 +328,65 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	}
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
 		vulkan_->UpdateInflightFrames(newInflightFrames_);
 		newInflightFrames_ = -1;
 	}
 
 	outOfDateFrames_ = 0;
 
-	// Start the thread.
-	if (HasBackbuffers()) {
-		run_ = true;  // For controlling the compiler thread's exit
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+		auto &frameData = frameData_[i];
+		frameData.readyForFence = true;  // Just in case.
+	}
 
-		INFO_LOG(G3D, "Starting Vulkan submission thread");
-		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
-		INFO_LOG(G3D, "Starting Vulkan compiler thread");
-		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
+	// Start the thread(s).
+	if (HasBackbuffers()) {
+		StartThreads();
 	}
 	return true;
 }
 
-// Called from main thread.
-void VulkanRenderManager::StopThread() {
+void VulkanRenderManager::StartThreads() {
 	{
-		// Tell the render thread to quit when it's done.
-		VKRRenderThreadTask task;
-		task.frame = vulkan_->GetCurFrame();
-		task.runType = VKRRunType::EXIT;
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
-		pushCondVar_.notify_one();
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
 	}
 
-	// Compiler thread still relies on this.
-	run_ = false;
+	runCompileThread_ = true;  // For controlling the compiler thread's exit
 
-	// Stop the thread.
-	thread_.join();
+	if (useRenderThread_) {
+		INFO_LOG(Log::G3D, "Starting Vulkan submission thread");
+		renderThread_ = std::thread(&VulkanRenderManager::RenderThreadFunc, this);
+	}
+	INFO_LOG(Log::G3D, "Starting Vulkan compiler thread");
+	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
+
+	if (measurePresentTime_ && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
+		INFO_LOG(Log::G3D, "Starting Vulkan present wait thread");
+		presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+	}
+}
+
+// Called from main thread.
+void VulkanRenderManager::StopThreads() {
+	// Not sure this is a sensible check - should be ok even if not.
+	// _dbg_assert_(steps_.empty());
+
+	if (useRenderThread_) {
+		_dbg_assert_(renderThread_.joinable());
+		// Tell the render thread to quit when it's done.
+		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
+		task->frame = vulkan_->GetCurFrame();
+		{
+			std::unique_lock<std::mutex> lock(pushMutex_);
+			renderThreadQueue_.push(task);
+		}
+		pushCondVar_.notify_one();
+		// Once the render thread encounters the above exit task, it'll exit.
+		renderThread_.join();
+		INFO_LOG(Log::G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		auto &frameData = frameData_[i];
@@ -451,52 +394,60 @@ void VulkanRenderManager::StopThread() {
 		frameData.profile.timestampDescriptions.clear();
 	}
 
-	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
-
-	compileCond_.notify_all();
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
+		_assert_(compileThread_.joinable());
+		compileCond_.notify_one();
+	}
 	compileThread_.join();
-	INFO_LOG(G3D, "Vulkan compiler thread joined.");
 
-	// Eat whatever has been queued up for this frame if anything.
-	Wipe();
+	if (presentWaitThread_.joinable()) {
+		presentWaitThread_.join();
+	}
 
-	// Clean out any remaining queued data, which might refer to things that might not be valid
-	// when we restart the thread...
+	INFO_LOG(Log::G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
+	CreateMultiPipelinesTask::WaitForAll();
 
-	// Not sure if this is still needed
-	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-		auto &frameData = frameData_[i];
-		if (frameData.hasInitCommands) {
-			// Clear 'em out.  This can happen on restart sometimes.
-			vkEndCommandBuffer(frameData.initCmd);
-			frameData.hasInitCommands = false;
-		}
-		if (frameData.hasMainCommands) {
-			vkEndCommandBuffer(frameData.mainCmd);
-			frameData.hasMainCommands = false;
-		}
-		if (frameData.hasPresentCommands) {
-			vkEndCommandBuffer(frameData.presentCmd);
-			frameData.hasPresentCommands = false;
-		}
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
 	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	StopThread();
+	StopThreads();
 	vulkan_->WaitUntilQueueIdle();
 
 	queueRunner_.DestroyBackBuffers();
 }
 
-VulkanRenderManager::~VulkanRenderManager() {
-	INFO_LOG(G3D, "VulkanRenderManager destructor");
+void VulkanRenderManager::CheckNothingPending() {
+	_assert_(pipelinesToCheck_.empty());
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+}
 
-	_dbg_assert_(!run_);  // StopThread should already have been called from DestroyBackbuffers.
+VulkanRenderManager::~VulkanRenderManager() {
+	INFO_LOG(Log::G3D, "VulkanRenderManager destructor");
+
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
+	if (useRenderThread_) {
+		_dbg_assert_(!renderThread_.joinable());
+	}
+
+	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
 	vulkan_->WaitUntilQueueIdle();
 
-	DrainCompileQueue();
+	_dbg_assert_(pipelineLayouts_.empty());
+
 	VkDevice device = vulkan_->GetDevice();
 	frameDataShared_.Destroy(vulkan_);
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
@@ -508,53 +459,79 @@ VulkanRenderManager::~VulkanRenderManager() {
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
 	while (true) {
+		bool exitAfterCompile = false;
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			if (compileQueue_.empty()) {
+			while (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
 			compileQueue_.clear();
-		}
-		if (!run_) {
-			break;
-		}
-
-		if (!toCompile.empty()) {
-			INFO_LOG(G3D, "Compilation thread has %d pipelines to create", (int)toCompile.size());
+			if (!runCompileThread_) {
+				exitAfterCompile = true;
+			}
 		}
 
-		// TODO: Here we can sort the pending pipelines by vertex and fragment shaders,
-		// and split up further.
-		// Those with the same pairs of shaders should be on the same thread.
+		int countToCompile = (int)toCompile.size();
+
+		// Here we sort the pending pipelines by vertex and fragment shaders,
+		std::map<std::pair<Promise<VkShaderModule> *, Promise<VkShaderModule> *>, std::vector<SinglePipelineTask>> map;
+
+		double scheduleTime = time_now_d();
+
+		// Here we sort pending graphics pipelines by vertex and fragment shaders, and split up further.
+		// Those with the same pairs of shaders should be on the same thread, at least on NVIDIA.
+		// I don't think PowerVR cares though, it doesn't seem to reuse information between the compiles,
+		// so we might want a different splitting algorithm there.
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				entry.graphics->Create(vulkan_, entry.compatibleRenderPass, entry.renderPassType);
-				break;
-			case CompileQueueEntry::Type::COMPUTE:
-				entry.compute->Create(vulkan_);
+			{
+				map[std::make_pair(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
+					SinglePipelineTask{
+						entry.graphics,
+						entry.compatibleRenderPass,
+						entry.renderPassType,
+						entry.sampleCount,
+						scheduleTime,    // these two are for logging purposes.
+						countToCompile,
+					}
+				);
 				break;
 			}
+			}
 		}
-		queueRunner_.NotifyCompileDone();
-	}
-}
 
-void VulkanRenderManager::DrainCompileQueue() {
+		for (auto iter : map) {
+			auto &shaders = iter.first;
+			auto &entries = iter.second;
+
+			// NOTICE_LOG(Log::G3D, "For this shader pair, we have %d pipelines to create", (int)entries.size());
+
+			Task *task = new CreateMultiPipelinesTask(vulkan_, entries);
+			g_threadManager.EnqueueTask(task);
+		}
+
+		if (exitAfterCompile) {
+			break;
+		}
+
+		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
+		sleep_ms(1);
+	}
+
 	std::unique_lock<std::mutex> lock(compileMutex_);
-	compileCond_.notify_all();
-	while (!compileQueue_.empty()) {
-		queueRunner_.WaitForCompileNotification();
-	}
+	_assert_(compileQueue_.empty());
 }
 
-void VulkanRenderManager::ThreadFunc() {
-	SetCurrentThreadName("RenderMan");
+void VulkanRenderManager::RenderThreadFunc() {
+	SetCurrentThreadName("VulkanRenderMan");
 	while (true) {
+		_dbg_assert_(useRenderThread_);
+
 		// Pop a task of the queue and execute it.
-		VKRRenderThreadTask task;
+		VKRRenderThreadTask *task = nullptr;
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
@@ -566,33 +543,87 @@ void VulkanRenderManager::ThreadFunc() {
 
 		// Oh, we got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
-		if (task.runType == VKRRunType::EXIT) {
+		if (task->runType == VKRRunType::EXIT) {
 			// Oh, host wanted out. Let's leave.
+			delete task;
+			// In this case, there should be no more tasks.
 			break;
 		}
 
-		Run(task);
+		Run(*task);
+		delete task;
 	}
 
 	// Wait for the device to be done with everything, before tearing stuff down.
-	// TODO: Do we need this?
+	// TODO: Do we really need this? It's probably a good idea, though.
 	vkDeviceWaitIdle(vulkan_->GetDevice());
-
 	VLOG("PULL: Quitting");
 }
 
+void VulkanRenderManager::PresentWaitThreadFunc() {
+	SetCurrentThreadName("PresentWait");
+
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	_dbg_assert_(vkWaitForPresentKHR != nullptr);
+
+	uint64_t waitedId = frameIdGen_;
+	while (runCompileThread_) {
+		const uint64_t timeout = 1000000000ULL;  // 1 sec
+		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
+			frameTimeHistory_[waitedId].actualPresent = time_now_d();
+			frameTimeHistory_[waitedId].waitCount++;
+			waitedId++;
+		} else {
+			// We caught up somehow, which is a bad sign (we should have blocked, right?). Maybe we should break out of the loop?
+			sleep_ms(1);
+			frameTimeHistory_[waitedId].waitCount++;
+		}
+		_dbg_assert_(waitedId <= frameIdGen_);
+	}
+#endif
+
+	INFO_LOG(Log::G3D, "Leaving PresentWaitThreadFunc()");
+}
+
+void VulkanRenderManager::PollPresentTiming() {
+	// For VK_GOOGLE_display_timing, we need to poll.
+
+	// Poll for information about completed frames.
+	// NOTE: We seem to get the information pretty late! Like after 6 frames, which is quite weird.
+	// Tested on POCO F4.
+	// TODO: Getting validation errors that this should be called from the thread doing the presenting.
+	// Probably a fair point. For now, we turn it off.
+	if (measurePresentTime_ && vulkan_->Extensions().GOOGLE_display_timing) {
+		uint32_t count = 0;
+		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
+		if (count > 0) {
+			VkPastPresentationTimingGOOGLE *timings = new VkPastPresentationTimingGOOGLE[count];
+			vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, timings);
+			for (uint32_t i = 0; i < count; i++) {
+				uint64_t presentId = timings[i].presentID;
+				frameTimeHistory_[presentId].actualPresent = from_time_raw(timings[i].actualPresentTime);
+				frameTimeHistory_[presentId].desiredPresentTime = from_time_raw(timings[i].desiredPresentTime);
+				frameTimeHistory_[presentId].earliestPresentTime = from_time_raw(timings[i].earliestPresentTime);
+				double presentMargin = from_time_raw_relative(timings[i].presentMargin);
+				frameTimeHistory_[presentId].presentMargin = presentMargin;
+			}
+			delete[] timings;
+		}
+	}
+}
+
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
+	double frameBeginTime = time_now_d()
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-
 	VLOG("PUSH: Fencing %d", curFrame);
 
 	// Makes sure the submission from the previous time around has happened. Otherwise
 	// we are not allowed to wait from another thread here..
-	{
+	if (useRenderThread_) {
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
 		while (!frameData.readyForFence) {
 			frameData.fenceCondVar.wait(lock);
@@ -607,14 +638,29 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	uint64_t frameId = frameIdGen_++;
+
+	PollPresentTiming();
+
+	ResetDescriptorLists(curFrame);
+
+	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+
+	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameId);
+	frameTimeData.frameId = frameId;
+	frameTimeData.frameBegin = frameBeginTime;
+	frameTimeData.afterFenceWait = time_now_d();
+
 	// Can't set this until after the fence.
-	frameData.profilingEnabled_ = enableProfiling;
+	frameData.profile.enabled = enableProfiling;
+	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
+	frameData.frameId = frameId;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
-	if (frameData.profilingEnabled_) {
+	if (enableProfiling) {
 		// Pull the profiling results from last time and produce a summary!
-		if (!frameData.profile.timestampDescriptions.empty()) {
+		if (!frameData.profile.timestampDescriptions.empty() && frameData.profile.timestampsEnabled) {
 			int numQueries = (int)frameData.profile.timestampDescriptions.size();
 			VkResult res = vkGetQueryPoolResults(
 				vulkan_->GetDevice(),
@@ -622,7 +668,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				VK_QUERY_RESULT_64_BIT);
 			if (res == VK_SUCCESS) {
 				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
 				std::stringstream str;
 
@@ -632,6 +677,13 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				str << line;
 				renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
 				renderCPUTimeMs_.Format(line, sizeof(line));
+				str << line;
+				descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
+				descUpdateTimeMs_.Format(line, sizeof(line));
+				str << line;
+				snprintf(line, sizeof(line), "Descriptors written: %d (dedup: %d)\n", frameData.profile.descriptorsWritten, frameData.profile.descriptorsDeduped);
+				str << line;
+				snprintf(line, sizeof(line), "Resource deletions: %d\n", vulkan_->GetLastDeleteCount());
 				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
@@ -653,9 +705,33 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				frameData.profile.profileSummary = "(error getting GPU profile - not ready?)";
 			}
 		} else {
-			frameData.profile.profileSummary = "(no GPU profile data collected)";
+			std::stringstream str;
+			char line[256];
+			renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+			renderCPUTimeMs_.Format(line, sizeof(line));
+			str << line;
+			descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
+			descUpdateTimeMs_.Format(line, sizeof(line));
+			str << line;
+			snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+			str << line;
+			frameData.profile.profileSummary = str.str();
 		}
+
+#ifdef _DEBUG
+		std::string cmdString;
+		for (int i = 0; i < ARRAY_SIZE(frameData.profile.commandCounts); i++) {
+			if (frameData.profile.commandCounts[i] > 0) {
+				cmdString += StringFromFormat("%s: %d\n", VKRRenderCommandToString((VKRRenderCommand)i), frameData.profile.commandCounts[i]);
+			}
+		}
+		memset(frameData.profile.commandCounts, 0, sizeof(frameData.profile.commandCounts));
+		frameData.profile.profileSummary += cmdString;
+#endif
 	}
+
+	frameData.profile.descriptorsWritten = 0;
+	frameData.profile.descriptorsDeduped = 0;
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
@@ -663,10 +739,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	insideFrame_ = true;
 	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
-	renderStepOffset_ = 0;
-
 	frameData.profile.timestampDescriptions.clear();
-	if (frameData.profilingEnabled_) {
+	if (frameData.profile.timestampsEnabled) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
 		// unless we want to limit ourselves to only measure the main cmd buffer.
 		// Later versions of Vulkan have support for clearing queries on the CPU timeline, but we don't want to rely on that.
@@ -682,18 +756,36 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, const char *tag) {
-	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
-	_dbg_assert_(desc->vertexShader);
-	_dbg_assert_(desc->fragmentShader);
+void VulkanRenderManager::ReportBadStateForDraw() {
+	const char *cause1 = "";
+	char cause2[256];
+	cause2[0] = '\0';
+	if (!curRenderStep_) {
+		cause1 = "No current render step";
+	}
+	if (curRenderStep_ && curRenderStep_->stepType != VKRStepType::RENDER) {
+		cause1 = "Not a render step: ";
+		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
+		truncate_cpy(cause2, str.c_str());
+	}
+	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
+}
+
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
+	if (!desc->vertexShader || !desc->fragmentShader) {
+		ERROR_LOG(Log::G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
+		return nullptr;
+	}
+
+	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
 	pipeline->desc = desc;
-	pipeline->tag = tag;
-	if (curRenderStep_) {
-		// The common case
+	pipeline->desc->AddRef();
+	if (curRenderStep_ && !cacheLoad) {
+		// The common case during gameplay.
 		pipelinesToCheck_.push_back(pipeline);
 	} else {
 		if (!variantBitmask) {
-			WARN_LOG(G3D, "WARNING: Will not compile any variants of pipeline, not in renderpass and empty variantBitmask");
+			WARN_LOG(Log::G3D, "WARNING: Will not compile any variants of pipeline, not in renderpass and empty variantBitmask");
 		}
 		// Presumably we're in initialization, loading the shader cache.
 		// Look at variantBitmask to see what variants we should queue up.
@@ -702,7 +794,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		compileMutex_.lock();
+		std::unique_lock<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -710,37 +802,27 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			RenderPassType rpType = (RenderPassType)i;
 
 			// Sanity check - don't compile incompatible types (could be caused by corrupt caches, changes in data structures, etc).
-			if (pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) {
-				if (!RenderPassTypeHasDepth(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
-					continue;
-				}
+			if ((pipelineFlags & PipelineFlags::USES_DEPTH_STENCIL) && !RenderPassTypeHasDepth(rpType)) {
+				WARN_LOG(Log::G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
+				continue;
 			}
-			if (pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) {
-				if (!RenderPassTypeHasInput(rpType)) {
-					WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
-					continue;
-				}
+			// Shouldn't hit this, these should have been filtered elsewhere. However, still a good check to do.
+			if (sampleCount == VK_SAMPLE_COUNT_1_BIT && RenderPassTypeHasMultisample(rpType)) {
+				WARN_LOG(Log::G3D, "Not compiling single sample pipeline for a multisampled render pass type");
+				continue;
+			}
+
+			if (rpType == RenderPassType::BACKBUFFER) {
+				sampleCount = VK_SAMPLE_COUNT_1_BIT;
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType), rpType));
+			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 			needsCompile = true;
 		}
 		if (needsCompile)
 			compileCond_.notify_one();
-		compileMutex_.unlock();
 	}
-	return pipeline;
-}
-
-VKRComputePipeline *VulkanRenderManager::CreateComputePipeline(VKRComputePipelineDesc *desc) {
-	VKRComputePipeline *pipeline = new VKRComputePipeline();
-	pipeline->desc = desc;
-	compileMutex_.lock();
-	compileQueue_.push_back(CompileQueueEntry(pipeline));
-	compileCond_.notify_one();
-	compileMutex_.unlock();
 	return pipeline;
 }
 
@@ -757,32 +839,43 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
 	bool depthStencil = (curPipelineFlags_ & PipelineFlags::USES_DEPTH_STENCIL) != 0;
 	RenderPassType rpType = depthStencil ? RenderPassType::HAS_DEPTH : RenderPassType::DEFAULT;
+
+	if (curRenderStep_->render.framebuffer && (rpType & RenderPassType::HAS_DEPTH) && !curRenderStep_->render.framebuffer->HasDepth()) {
+		WARN_LOG(Log::G3D, "Trying to render with a depth-writing pipeline to a framebuffer without depth: %s", curRenderStep_->render.framebuffer->Tag());
+		rpType = RenderPassType::DEFAULT;
+	}
+
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RenderPassType::BACKBUFFER;
 	} else {
-		if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
-			// Not allowed on backbuffers.
-			rpType = depthStencil ? (RenderPassType::HAS_DEPTH | RenderPassType::COLOR_INPUT) : RenderPassType::COLOR_INPUT;
-		}
 		// Framebuffers can be stereo, and if so, will control the render pass type to match.
 		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
 		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
 		if (curRenderStep_->render.framebuffer->numLayers > 1) {
 			rpType = (RenderPassType)(rpType | RenderPassType::MULTIVIEW);
 		}
-	}
 
-	// TODO: Also add render pass types for depth/stencil-less.
+		if (curRenderStep_->render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+			rpType = (RenderPassType)(rpType | RenderPassType::MULTISAMPLE);
+		}
+	}
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
 	curRenderStep_->render.renderPassType = rpType;
 
+	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
+
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
+		if (!pipeline) {
+			// Not good, but let's try not to crash.
+			continue;
+		}
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType), rpType));
+			_assert_(renderPass);
+			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
 			needsCompile = true;
 		}
 	}
@@ -805,13 +898,9 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curPipelineFlags_ = (PipelineFlags)0;
 }
 
-void VulkanRenderManager::BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits) {
-	_dbg_assert_(curRenderStep_);
-	curRenderStep_->commands.push_back(VkRenderData{ VKRRenderCommand::SELF_DEPENDENCY_BARRIER });
-}
-
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		u32 clearMask = 0;
@@ -856,6 +945,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 	}
 
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	// More redundant bind elimination.
 	if (curRenderStep_) {
 		if (curRenderStep_->commands.empty()) {
@@ -870,6 +963,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 
 		EndCurRenderStep();
+	}
+
+	// Sanity check that we don't have binds to the backbuffer before binds to other buffers. It must always be bound last.
+	if (steps_.size() >= 1 && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == nullptr && fb != nullptr) {
+		_dbg_assert_(false);
 	}
 
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
@@ -904,6 +1002,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numReads = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	step->render.finalDepthStencilLayout = !fb ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+	// pipelineFlags, renderArea and renderPassType get filled in when we finalize the step. Do not read from them before that.
 	step->tag = tag;
 	steps_.push_back(step);
 
@@ -925,7 +1024,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	} else {
 		curWidthRaw_ = vulkan_->GetBackbufferWidth();
 		curHeightRaw_ = vulkan_->GetBackbufferHeight();
-		if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+		if (g_display.rotation == DisplayRotation::ROTATE_90 ||
+			g_display.rotation == DisplayRotation::ROTATE_270) {
 			curWidth_ = curHeightRaw_;
 			curHeight_ = curWidthRaw_;
 		} else {
@@ -947,10 +1047,15 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		data.clear.clearMask = lateClearMask;
 		curRenderStep_->commands.push_back(data);
 	}
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
+	}
 }
 
-bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
+bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -965,11 +1070,14 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	step->readback.src = src;
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
+	step->readback.delayed = mode == Draw::ReadbackMode::OLD_DATA_OK;
 	step->dependencies.insert(src);
 	step->tag = tag;
 	steps_.push_back(step);
 
-	FlushSync();
+	if (mode == Draw::ReadbackMode::BLOCK) {
+		FlushSync();
+	}
 
 	Draw::DataFormat srcFormat = Draw::DataFormat::UNDEFINED;
 	if (aspectBits & VK_IMAGE_ASPECT_COLOR_BIT) {
@@ -981,7 +1089,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 		} else {
 			// Backbuffer.
 			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
-				ERROR_LOG(G3D, "Copying from backbuffer not supported, can't take screenshots");
+				ERROR_LOG(Log::G3D, "Copying from backbuffer not supported, can't take screenshots");
 				return false;
 			}
 			switch (vulkan_->GetSwapchainFormat()) {
@@ -989,7 +1097,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			// NOTE: If you add supported formats here, make sure to also support them in VulkanQueueRunner::CopyReadbackBuffer.
 			default:
-				ERROR_LOG(G3D, "Unsupported backbuffer format for screenshots");
+				ERROR_LOG(Log::G3D, "Unsupported backbuffer format for screenshots");
 				return false;
 			}
 		}
@@ -1008,8 +1116,8 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, VkIma
 	}
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
-	return true;
+	return queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
+		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -1028,10 +1136,10 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	FlushSync();
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
-static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
+static void RemoveDrawCommands(FastVec<VkRenderData> *cmds) {
 	// Here we remove any DRAW type commands when we hit a CLEAR.
 	for (auto &c : *cmds) {
 		if (c.cmd == VKRRenderCommand::DRAW || c.cmd == VKRRenderCommand::DRAW_INDEXED) {
@@ -1040,7 +1148,7 @@ static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 	}
 }
 
-static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
+static void CleanupRenderCommands(FastVec<VkRenderData> *cmds) {
 	size_t lastCommand[(int)VKRRenderCommand::NUM_RENDER_COMMANDS];
 	memset(lastCommand, -1, sizeof(lastCommand));
 
@@ -1095,6 +1203,7 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 	_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 	if (!clearMask)
 		return;
+
 	// If this is the first drawing command or clears everything, merge it into the pass.
 	int allAspects = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	if (curRenderStep_->render.numDraws == 0 || clearMask == allAspects) {
@@ -1106,7 +1215,11 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		curRenderStep_->render.stencilLoad = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassLoadAction::CLEAR : VKRRenderPassLoadAction::KEEP;
 
 		if (clearMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-			curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+			if (curRenderStep_->render.framebuffer && !curRenderStep_->render.framebuffer->HasDepth()) {
+				WARN_LOG(Log::G3D, "Trying to clear depth/stencil on a non-depth framebuffer: %s", curRenderStep_->render.framebuffer->Tag());
+			} else {
+				curPipelineFlags_ |= PipelineFlags::USES_DEPTH_STENCIL;
+			}
 		}
 
 		// In case there were commands already.
@@ -1125,6 +1238,10 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag) {
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
 	_dbg_assert_msg_(srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
 	_dbg_assert_msg_(srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
@@ -1189,6 +1306,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
 	_dbg_assert_msg_(srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
 	_dbg_assert_msg_(srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
@@ -1216,8 +1337,19 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+	// Sanity check. Added an assert to try to gather more info.
+	// Got this assert in NPJH50443 FINAL FANTASY TYPE-0, but pretty rare. Moving back to debug assert.
+	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_dbg_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_dbg_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
 
+		if (!src->depth.image || !dst->depth.image) {
+			// Something has gone wrong, but let's try to stumble along.
+			return;
+		}
+	}
+
+	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
@@ -1283,6 +1415,7 @@ void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
 	// Let's do just a bit of cleanup on render commands now.
+	// TODO: Should look into removing this.
 	for (auto &step : steps_) {
 		if (step->stepType == VKRStepType::RENDER) {
 			CleanupRenderCommands(&step->commands);
@@ -1292,27 +1425,46 @@ void VulkanRenderManager::Finish() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
-	{
-		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::PRESENT;
+	if (!postInitBarrier_.empty()) {
+		VkCommandBuffer buffer = frameData.GetInitCmd(vulkan_);
+		postInitBarrier_.Flush(buffer);
+	}
+
+	VLOG("PUSH: Frame[%d]", curFrame);
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SUBMIT);
+	task->frame = curFrame;
+	if (useRenderThread_) {
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
+	} else {
+		// Just do it!
+		task->steps = std::move(steps_);
+		Run(*task);
+		delete task;
 	}
 
 	steps_.clear();
-	vulkan_->EndFrame();
-	insideFrame_ = false;
 }
 
-void VulkanRenderManager::Wipe() {
-	for (auto step : steps_) {
-		delete step;
+void VulkanRenderManager::Present() {
+	int curFrame = vulkan_->GetCurFrame();
+
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
+	task->frame = curFrame;
+	if (useRenderThread_) {
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+		pushCondVar_.notify_one();
+	} else {
+		// Just do it!
+		Run(*task);
+		delete task;
 	}
-	steps_.clear();
+
+	vulkan_->EndFrame();
+	insideFrame_ = false;
 }
 
 // Called on the render thread.
@@ -1321,8 +1473,41 @@ void VulkanRenderManager::Wipe() {
 void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FrameData &frameData = frameData_[task.frame];
 
+	if (task.runType == VKRRunType::PRESENT) {
+		if (!frameData.skipSwap) {
+			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
+			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
+			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
+				// Do the increment.
+				outOfDateFrames_++;
+			} else if (res == VK_SUBOPTIMAL_KHR) {
+				outOfDateFrames_++;
+			} else if (res != VK_SUCCESS) {
+				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
+			} else {
+				// Success
+				outOfDateFrames_ = 0;
+			}
+		} else {
+			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
+			outOfDateFrames_++;
+			frameData.skipSwap = false;
+		}
+		return;
+	}
+
 	_dbg_assert_(!frameData.hasPresentCommands);
-	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
+
+	if (!frameTimeHistory_[frameData.frameId].firstSubmit) {
+		frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
+	}
+	frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared_);
+
+	// Flush descriptors.
+	double descStart = time_now_d();
+	FlushDescriptors(task.frame);
+	frameData.profile.descWriteTime = time_now_d() - descStart;
 
 	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
@@ -1345,43 +1530,23 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, frameData, frameDataShared_, i < passes - 1);
+			queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_, i < passes - 1);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+		queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
 	}
 
 	switch (task.runType) {
-	case VKRRunType::PRESENT:
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
-
-		if (!frameData.skipSwap) {
-			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
-			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
-				// Do the increment.
-				outOfDateFrames_++;
-			} else if (res == VK_SUBOPTIMAL_KHR) {
-				outOfDateFrames_++;
-			} else if (res != VK_SUCCESS) {
-				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
-			} else {
-				// Success
-				outOfDateFrames_ = 0;
-			}
-		} else {
-			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
-			outOfDateFrames_++;
-			frameData.skipSwap = false;
-		}
+	case VKRRunType::SUBMIT:
+		frameData.Submit(vulkan_, FrameSubmitType::FinishFrame, frameDataShared_);
 		break;
 
 	case VKRRunType::SYNC:
 		// The submit will trigger the readbackFence, and also do the wait for it.
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
+		frameData.Submit(vulkan_, FrameSubmitType::Sync, frameDataShared_);
 
-		{
+		if (useRenderThread_) {
 			std::unique_lock<std::mutex> lock(syncMutex_);
 			syncCondVar_.notify_one();
 		}
@@ -1400,30 +1565,49 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 // Called from main thread.
 void VulkanRenderManager::FlushSync() {
-	renderStepOffset_ += (int)steps_.size();
+	_dbg_assert_(!curRenderStep_);
+
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::COMMAND_BUFFER_STATE);
+	}
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	
-	{
-		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::SYNC;
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
-		pushCondVar_.notify_one();
+
+	if (!postInitBarrier_.empty()) {
+		VkCommandBuffer buffer = frameData.GetInitCmd(vulkan_);
+		postInitBarrier_.Flush(buffer);
 	}
 
-	{
-		std::unique_lock<std::mutex> lock(syncMutex_);
-		// Wait for the flush to be hit, since we're syncing.
-		while (!frameData.syncDone) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
-			syncCondVar_.wait(lock);
+	if (useRenderThread_) {
+		{
+			VLOG("PUSH: Frame[%d]", curFrame);
+			VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
+			task->frame = curFrame;
+			{
+				std::unique_lock<std::mutex> lock(pushMutex_);
+				renderThreadQueue_.push(task);
+				renderThreadQueue_.back()->steps = std::move(steps_);
+				pushCondVar_.notify_one();
+			}
+			steps_.clear();
 		}
-		frameData.syncDone = false;
+
+		{
+			std::unique_lock<std::mutex> lock(syncMutex_);
+			// Wait for the flush to be hit, since we're syncing.
+			while (!frameData.syncDone) {
+				VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
+				syncCondVar_.wait(lock);
+			}
+			frameData.syncDone = false;
+		}
+	} else {
+		VKRRenderThreadTask task(VKRRunType::SYNC);
+		task.frame = curFrame;
+		task.steps = std::move(steps_);
+		Run(task);
+		steps_.clear();
 	}
 }
 
@@ -1431,4 +1615,261 @@ void VulkanRenderManager::ResetStats() {
 	initTimeMs_.Reset();
 	totalGPUTimeMs_.Reset();
 	renderCPUTimeMs_.Reset();
+}
+
+VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, bool geoShadersEnabled, const char *tag) {
+	VKRPipelineLayout *layout = new VKRPipelineLayout();
+	layout->SetTag(tag);
+	layout->bindingTypesCount = (uint32_t)bindingTypesCount;
+
+	_dbg_assert_(bindingTypesCount <= ARRAY_SIZE(layout->bindingTypes));
+	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingTypesCount);
+
+	VkDescriptorSetLayoutBinding bindings[VKRPipelineLayout::MAX_DESC_SET_BINDINGS];
+	for (int i = 0; i < bindingTypesCount; i++) {
+		bindings[i].binding = i;
+		bindings[i].descriptorCount = 1;
+		bindings[i].pImmutableSamplers = nullptr;
+
+		switch (bindingTypes[i]) {
+		case BindingType::COMBINED_IMAGE_SAMPLER:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+			break;
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+			break;
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+			if (geoShadersEnabled) {
+				bindings[i].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
+			}
+			break;
+		case BindingType::STORAGE_BUFFER_VERTEX:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+			break;
+		case BindingType::STORAGE_BUFFER_COMPUTE:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		case BindingType::STORAGE_IMAGE_COMPUTE:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+	}
+
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	dsl.bindingCount = (uint32_t)bindingTypesCount;
+	dsl.pBindings = bindings;
+	VkResult res = vkCreateDescriptorSetLayout(vulkan_->GetDevice(), &dsl, nullptr, &layout->descriptorSetLayout);
+	_assert_(VK_SUCCESS == res && layout->descriptorSetLayout);
+
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	VkDescriptorSetLayout setLayouts[1] = { layout->descriptorSetLayout };
+	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
+	pl.pSetLayouts = setLayouts;
+	res = vkCreatePipelineLayout(vulkan_->GetDevice(), &pl, nullptr, &layout->pipelineLayout);
+	_assert_(VK_SUCCESS == res && layout->pipelineLayout);
+
+	vulkan_->SetDebugName(layout->descriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, tag);
+	vulkan_->SetDebugName(layout->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, tag);
+
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		// Some games go beyond 1024 and end up having to resize like GTA, but most stay below so we start there.
+		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
+	}
+
+	pipelineLayouts_.push_back(layout);
+	return layout;
+}
+
+void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
+	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
+		if (*iter == layout) {
+			pipelineLayouts_.erase(iter);
+			break;
+		}
+	}
+	vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *userdata) {
+		VKRPipelineLayout *layout = (VKRPipelineLayout *)userdata;
+		for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+			layout->frameData[i].pool.DestroyImmediately();
+		}
+		vkDestroyPipelineLayout(vulkan->GetDevice(), layout->pipelineLayout, nullptr);
+		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), layout->descriptorSetLayout, nullptr);
+
+		delete layout;
+	}, layout);
+}
+
+void VulkanRenderManager::FlushDescriptors(int frame) {
+	for (auto iter : pipelineLayouts_) {
+		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
+	}
+}
+
+void VulkanRenderManager::ResetDescriptorLists(int frame) {
+	for (auto iter : pipelineLayouts_) {
+		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
+
+		data.flushedDescriptors_ = 0;
+		data.descSets_.clear();
+		data.descData_.clear();
+	}
+}
+
+VKRPipelineLayout::~VKRPipelineLayout() {
+	_assert_(frameData[0].pool.IsDestroyed());
+}
+
+void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile) {
+	_dbg_assert_(frame < VulkanContext::MAX_INFLIGHT_FRAMES);
+
+	FrameData &data = frameData[frame];
+
+	VulkanDescSetPool &pool = data.pool;
+	FastVec<PackedDescriptor> &descData = data.descData_;
+	FastVec<PendingDescSet> &descSets = data.descSets_;
+
+	pool.Reset();
+
+	VkDescriptorSet setCache[8];
+	VkDescriptorSetLayout layoutsForAlloc[ARRAY_SIZE(setCache)];
+	for (int i = 0; i < ARRAY_SIZE(setCache); i++) {
+		layoutsForAlloc[i] = descriptorSetLayout;
+	}
+	int setsUsed = ARRAY_SIZE(setCache);  // To allocate immediately.
+
+	// This will write all descriptors.
+	// Initially, we just do a simple look-back comparing to the previous descriptor to avoid sequential dupes.
+	// In theory, we could multithread this. Gotta be a lot of descriptors for that to be worth it though.
+
+	// Initially, let's do naive single desc set writes.
+	VkWriteDescriptorSet writes[MAX_DESC_SET_BINDINGS];
+	VkDescriptorImageInfo imageInfo[MAX_DESC_SET_BINDINGS];  // just picked a practical number
+	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
+
+	// Preinitialize fields that won't change.
+	for (size_t i = 0; i < ARRAY_SIZE(writes); i++) {
+		writes[i].descriptorCount = 1;
+		writes[i].dstArrayElement = 0;
+		writes[i].pTexelBufferView = nullptr;
+		writes[i].pNext = nullptr;
+		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	}
+
+	size_t start = data.flushedDescriptors_;
+	int writeCount = 0, dedupCount = 0;
+
+	for (size_t index = start; index < descSets.size(); index++) {
+		auto &d = descSets[index];
+
+		// This is where we look up to see if we already have an identical descriptor previously in the array.
+		// We could do a simple custom hash map here that doesn't handle collisions, since those won't matter.
+		// Instead, for now we just check history one item backwards. Good enough, it seems.
+		if (index > start + 1) {
+			if (descSets[index - 1].count == d.count) {
+				if (!memcmp(descData.data() + d.offset, descData.data() + descSets[index - 1].offset, d.count * sizeof(PackedDescriptor))) {
+					d.set = descSets[index - 1].set;
+					dedupCount++;
+					continue;
+				}
+			}
+		}
+
+		if (setsUsed < ARRAY_SIZE(setCache)) {
+			d.set = setCache[setsUsed++];
+		} else {
+			// Allocate in small batches.
+			bool success = pool.Allocate(setCache, ARRAY_SIZE(setCache), layoutsForAlloc);
+			_dbg_assert_(success);
+			d.set = setCache[0];
+			setsUsed = 1;
+		}
+
+		// TODO: Build up bigger batches of writes.
+		const PackedDescriptor *data = descData.begin() + d.offset;
+		int numWrites = 0;
+		int numBuffers = 0;
+		int numImages = 0;
+		for (int i = 0; i < d.count; i++) {
+			if (!data[i].image.view) {  // This automatically also checks for an null buffer due to the union.
+				continue;
+			}
+			switch (this->bindingTypes[i]) {
+			case BindingType::COMBINED_IMAGE_SAMPLER:
+				_dbg_assert_(data[i].image.sampler != VK_NULL_HANDLE);
+				_dbg_assert_(data[i].image.view != VK_NULL_HANDLE);
+				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo[numImages].imageView = data[i].image.view;
+				imageInfo[numImages].sampler = data[i].image.sampler;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				writes[numWrites].pImageInfo = &imageInfo[numImages];
+				writes[numWrites].pBufferInfo = nullptr;
+				numImages++;
+				break;
+			case BindingType::STORAGE_IMAGE_COMPUTE:
+				_dbg_assert_(data[i].image.view != VK_NULL_HANDLE);
+				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				imageInfo[numImages].imageView = data[i].image.view;
+				imageInfo[numImages].sampler = VK_NULL_HANDLE;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+				writes[numWrites].pImageInfo = &imageInfo[numImages];
+				writes[numWrites].pBufferInfo = nullptr;
+				numImages++;
+				break;
+			case BindingType::STORAGE_BUFFER_VERTEX:
+			case BindingType::STORAGE_BUFFER_COMPUTE:
+				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
+				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
+				bufferInfo[numBuffers].range = data[i].buffer.range;
+				bufferInfo[numBuffers].offset = data[i].buffer.offset;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
+				writes[numWrites].pImageInfo = nullptr;
+				numBuffers++;
+				break;
+			case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
+			case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
+				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
+				bufferInfo[numBuffers].range = data[i].buffer.range;
+				bufferInfo[numBuffers].offset = 0;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
+				writes[numWrites].pImageInfo = nullptr;
+				numBuffers++;
+				break;
+			}
+			writes[numWrites].dstBinding = i;
+			writes[numWrites].dstSet = d.set;
+			numWrites++;
+		}
+
+		vkUpdateDescriptorSets(vulkan->GetDevice(), numWrites, writes, 0, nullptr);
+
+		writeCount++;
+	}
+
+	data.flushedDescriptors_ = (int)descSets.size();
+	profile->descriptorsWritten += writeCount;
+	profile->descriptorsDeduped += dedupCount;
+}
+
+void VulkanRenderManager::SanityCheckPassesOnAdd() {
+#if _DEBUG
+	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
+	for (int i = 0; i < steps_.size(); i++) {
+		if (steps_[i]->stepType == VKRStepType::RENDER) {
+			_dbg_assert_(steps_[i]->render.framebuffer != nullptr);
+		}
+	}
+#endif
 }

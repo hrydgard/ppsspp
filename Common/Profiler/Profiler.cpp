@@ -146,7 +146,7 @@ int internal_profiler_enter(const char *category_name, int *out_thread_id) {
 		}
 		internal_profiler_resume(thread_id, category, now);
 	} else {
-		DEBUG_LOG(SYSTEM, "profiler: recursive enter (%i - %s)", category, category_name);
+		DEBUG_LOG(Log::System, "profiler: recursive enter (%i - %s)", category, category_name);
 	}
 
 	depth++;
@@ -163,7 +163,7 @@ void internal_profiler_leave(int thread_id, int category) {
 
 	int &depth = profiler.depth[thread_id];
 	if (category < 0 || category >= MAX_CATEGORIES) {
-		ERROR_LOG(SYSTEM, "Bad category index %d", category);
+		ERROR_LOG(Log::System, "Bad category index %d", category);
 		depth--;
 		return;
 	}

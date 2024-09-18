@@ -117,11 +117,13 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
+	bool IsStarted();
+
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
 	static ClipCoords ViewToClip(const ViewCoords& coords);
-	static ScreenCoords ClipToScreen(const ClipCoords& coords);
+	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
 		// When offset > coord, this is negative and force-scissors.
@@ -137,7 +139,7 @@ public:
 	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 	void SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine);
 
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void Flush(const char *reason);
 	void FlushIfOverlap(const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h);
@@ -149,7 +151,7 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	ClipVertexData ReadVertex(VertexReader &vreader, const TransformState &state);
+	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
 
 	u8 *decoded_ = nullptr;
@@ -171,9 +173,12 @@ public:
 	SoftwareDrawEngine();
 	~SoftwareDrawEngine();
 
+	void DeviceLost() override {}
+	void DeviceRestore(Draw::DrawContext *draw) override {}
+
 	void NotifyConfigChanged() override;
 	void DispatchFlush() override;
-	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
+	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, bool clockwise, int *bytesRead) override;
 	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
@@ -191,5 +196,5 @@ public:
 #endif
 
 protected:
-	bool UpdateUseHWTessellation(bool enable) override { return false; }
+	bool UpdateUseHWTessellation(bool enable) const override { return false; }
 };

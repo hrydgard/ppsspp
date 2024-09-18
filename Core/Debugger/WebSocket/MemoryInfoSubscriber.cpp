@@ -27,7 +27,7 @@ class WebSocketMemoryInfoState : public DebuggerSubscriber {
 public:
 	WebSocketMemoryInfoState() {
 	}
-	~WebSocketMemoryInfoState() override {
+	~WebSocketMemoryInfoState() {
 		UpdateOverride(false);
 	}
 

@@ -19,12 +19,15 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/OSD.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
+#include "Common/Data/Text/I18n.h"
+#include "UI/OnScreenDisplay.h"
 
 std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 
@@ -36,6 +39,8 @@ const static u32 GAMEDATA_BYTES_PER_READ = 32768;
 // If this is too high, some games (e.g. Senjou no Valkyria 3) will lag.
 const static u32 GAMEDATA_READS_PER_UPDATE = 20;
 
+const u32 PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS = 1;
+
 const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_REMOVED = 0x80111901;
 const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
 const u32 ERROR_UTILITY_GAMEDATA_INVALID_MODE = 0x80111908;
@@ -44,9 +49,10 @@ static const std::string SFO_FILENAME = "PARAM.SFO";
 
 namespace
 {
-	std::vector<std::string> GetPSPFileList (std::string dirpath) {
+	std::vector<std::string> GetPSPFileList (const std::string &dirpath) {
 		std::vector<std::string> FileList;
 		auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
+		FileList.reserve(Fileinfos.size());
 
 		for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
 			std::string info = (*it).name;
@@ -64,7 +70,7 @@ PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "A game install request is already running, not starting a new one");
+		ERROR_LOG_REPORT(Log::sceUtility, "A game install request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -83,20 +89,21 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	if (allFilesSize == 0) {
-		ERROR_LOG_REPORT(SCEUTILITY, "Game install with no files / data");
+		ERROR_LOG_REPORT(Log::sceUtility, "Game install with no files / data");
 		// TODO: What happens here?
 		return -1;
 	}
 
 	int size = Memory::Read_U32(paramAddr);
 	if (size != 1424 && size != 1432) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceGamedataInstallInitStart: invalid param size %d", size);
+		ERROR_LOG_REPORT(Log::sceUtility, "sceGamedataInstallInitStart: invalid param size %d", size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size, "sceGamedataInstallInitStart");
+	InitCommon();
 
 	ChangeStatusInit(GAMEDATA_INIT_DELAY_US);
 	return 0;
@@ -110,9 +117,11 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		param->common.result = ERROR_UTILITY_GAMEDATA_INVALID_MODE;
 		param.NotifyWrite("DialogResult");
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
+		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
 		return 0;
 	}
+
+	UpdateCommon();
 
 	// TODO: param->mode == 1 should show a prompt to confirm, then a progress bar.
 	// Any other mode (i.e. 0 or negative) should proceed and show no UI.
@@ -149,7 +158,7 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentInputFile = pspFileSystem.OpenFile(inputFileName, FILEACCESS_READ);
 	if (currentInputFile < 0) {
 		// TODO: Generate an error code?
-		ERROR_LOG_REPORT(SCEUTILITY, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
+		ERROR_LOG_REPORT(Log::sceUtility, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
 		++readFiles;
 		currentInputFile = 0;
 		return;
@@ -157,7 +166,7 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentOutputFile = pspFileSystem.OpenFile(outputFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 	if (currentOutputFile < 0) {
 		// TODO: Generate an error code?
-		ERROR_LOG(SCEUTILITY, "Unable to write to install file: %s", inFileNames[readFiles].c_str());
+		ERROR_LOG(Log::sceUtility, "Unable to write to install file: %s", inFileNames[readFiles].c_str());
 		pspFileSystem.CloseFile(currentInputFile);
 		currentInputFile = 0;
 		currentOutputFile = 0;
@@ -250,7 +259,7 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 	return PSPDialog::Shutdown(force);
 }
 
-std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename){
+std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(const SceUtilityGamedataInstallParam *param, const std::string &filename) {
 	if (!param)
 		return "";
 	std::string GameDataInstallPath = saveBasePath + param->gameName + param->dataName + "/";
@@ -268,8 +277,35 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 	else 
 		progressValue = 100;
 
+	if (param->mode == PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS) {
+		RenderProgress(progressValue);
+	}
+
 	param->progress = progressValue;
 	param.NotifyWrite("DialogResult");
+}
+
+void PSPGamedataInstallDialog::RenderProgress(int percentage) {
+	StartDraw();
+
+	float barWidth = 380;
+	float barX = (480 - barWidth) / 2;
+	float barWidthDone = barWidth * percentage / 100;
+	float barH = 10.0;
+	float barY = 272 / 2 - barH / 2;
+
+	PPGeDrawRect(barX - 3, barY - 3, barX + barWidth + 3, barY + barH + 3, 0x30000000);
+	PPGeDrawRect(barX, barY, barX + barWidth, barY + barH, 0xFF707070);
+	PPGeDrawRect(barX, barY, barX + barWidthDone, barY + barH, 0xFFE0E0E0);
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	fadeValue = 255;
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.6f);
+
+	PPGeDrawText(di->T("Installing..."), 480 / 2, barY + barH + 10, textStyle);
+
+	EndDraw();
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {

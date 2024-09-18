@@ -24,13 +24,13 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/UIScreen.h"
-
+#include "UI/TabbedDialogScreen.h"
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
 class DevMenuScreen : public PopupScreen {
 public:
-	DevMenuScreen(std::shared_ptr<I18NCategory> i18n) : PopupScreen(i18n->T("Dev Tools")) {}
+	DevMenuScreen(const Path &gamePath, I18NCat cat) : PopupScreen(T(cat, "Dev Tools")), gamePath_(gamePath) {}
 
 	const char *tag() const override { return "DevMenu"; }
 
@@ -42,11 +42,11 @@ protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnShaderView(UI::EventParams &e);
-	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
-	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
 	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
+
+private:
+	Path gamePath_;
 };
 
 class JitDebugScreen : public UIDialogScreenWithBackground {
@@ -78,7 +78,6 @@ private:
 
 class LogScreen : public UIDialogScreenWithBackground {
 public:
-	LogScreen() : toBottom_(false) {}
 	void CreateViews() override;
 	void update() override;
 
@@ -87,15 +86,16 @@ public:
 private:
 	void UpdateLog();
 	UI::EventReturn OnSubmit(UI::EventParams &e);
-	UI::TextEdit *cmdLine_;
-	UI::LinearLayout *vert_;
-	UI::ScrollView *scroll_;
-	bool toBottom_;
+
+	UI::TextEdit *cmdLine_ = nullptr;
+	UI::LinearLayout *vert_ = nullptr;
+	UI::ScrollView *scroll_ = nullptr;
+	bool toBottom_ = false;
 };
 
-class LogLevelScreen : public ListPopupScreen {
+class LogLevelScreen : public UI::ListPopupScreen {
 public:
-	LogLevelScreen(const std::string &title);
+	LogLevelScreen(std::string_view title);
 
 	const char *tag() const override { return "LogLevel"; }
 
@@ -103,70 +103,27 @@ private:
 	void OnCompleted(DialogResult result) override;
 };
 
-class SystemInfoScreen : public UIDialogScreenWithBackground {
+class SystemInfoScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
+	SystemInfoScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
+
 	const char *tag() const override { return "SystemInfo"; }
 
-	void CreateViews() override;
+	void CreateTabs() override;
+	void update() override;
+
+protected:
+	bool ShowSearchControls() const override { return false; }
+	void CreateInternalsTab(UI::ViewGroup *internals);
 };
 
-class AddressPromptScreen : public PopupScreen {
+class GPIGPOScreen : public PopupScreen {
 public:
-	AddressPromptScreen(const std::string &title) : PopupScreen(title, "OK", "Cancel"), addrView_(NULL), addr_(0) {
-		memset(buttons_, 0, sizeof(buttons_));
-	}
-
-	const char *tag() const override { return "AddressPrompt"; }
-
-	bool key(const KeyInput &key) override;
-
-	UI::Event OnChoice;
+	GPIGPOScreen(std::string_view title) : PopupScreen(title, "OK") {}
+	const char *tag() const override { return "GPIGPO"; }
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-	void OnCompleted(DialogResult result) override;
-	UI::EventReturn OnDigitButton(UI::EventParams &e);
-	UI::EventReturn OnBackspace(UI::EventParams &e);
-
-private:
-	void AddDigit(int n);
-	void BackspaceDigit();
-	void UpdatePreviewDigits();
-
-	UI::TextView *addrView_;
-	UI::Button *buttons_[16];
-	unsigned int addr_;
-};
-
-class JitCompareScreen : public UIDialogScreenWithBackground {
-public:
-	void CreateViews() override;
-
-	const char *tag() const override { return "JitCompare"; }
-
-private:
-	void UpdateDisasm();
-	UI::EventReturn OnRandomBlock(UI::EventParams &e);
-	UI::EventReturn OnRandomFPUBlock(UI::EventParams &e);
-	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
-	void OnRandomBlock(int flag);
-
-	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
-	UI::EventReturn OnSelectBlock(UI::EventParams &e);
-	UI::EventReturn OnPrevBlock(UI::EventParams &e);
-	UI::EventReturn OnNextBlock(UI::EventParams &e);
-	UI::EventReturn OnBlockAddress(UI::EventParams &e);
-	UI::EventReturn OnAddressChange(UI::EventParams &e);
-	UI::EventReturn OnShowStats(UI::EventParams &e);
-
-	int currentBlock_ = -1;
-
-	UI::TextView *blockName_;
-	UI::TextEdit *blockAddr_;
-	UI::TextView *blockStats_;
-
-	UI::LinearLayout *leftDisasm_;
-	UI::LinearLayout *rightDisasm_;
 };
 
 class ShaderListScreen : public UIDialogScreenWithBackground {
@@ -189,6 +146,7 @@ public:
 		: id_(id), type_(type) {}
 
 	void CreateViews() override;
+	bool key(const KeyInput &ki) override;
 
 	const char *tag() const override { return "ShaderView"; }
 
@@ -211,9 +169,51 @@ private:
 	UI::EventReturn OnLoadDump(UI::EventParams &e);
 
 	std::vector<std::string> files_;
-	std::shared_ptr<http::Download> listing_;
-	std::shared_ptr<http::Download> dumpDownload_;
+	std::shared_ptr<http::Request> listing_;
+	std::shared_ptr<http::Request> dumpDownload_;
+};
+
+class TouchTestScreen : public UIDialogScreenWithGameBackground {
+public:
+	TouchTestScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			touches_[i].id = -1;
+		}
+	}
+
+	void touch(const TouchInput &touch) override;
+	void DrawForeground(UIContext &dc) override;
+
+	bool key(const KeyInput &key) override;
+	void axis(const AxisInput &axis) override;
+
+	const char *tag() const override { return "TouchTest"; }
+
+protected:
+	struct TrackedTouch {
+		int id;
+		float x;
+		float y;
+	};
+	enum {
+		MAX_TOUCH_POINTS = 10,
+	};
+	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	std::vector<std::string> keyEventLog_;
+
+	UI::TextView *lastKeyEvents_ = nullptr;
+
+	double lastFrameTime_ = 0.0;
+
+	void CreateViews() override;
+	void UpdateLogView();
+
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
 };
 
 void DrawProfile(UIContext &ui);
-const char *GetCompilerABI();
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);

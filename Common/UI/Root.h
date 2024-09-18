@@ -23,10 +23,19 @@ class ViewGroup;
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets);
 void UpdateViewHierarchy(ViewGroup *root);
+
+enum class KeyEventResult {
+	IGNORE_KEY,  // Don't let it be processed.
+	PASS_THROUGH,  // Let it be processed, but return false.
+	ACCEPT,  // Let it be processed, but return true.
+};
+
 // Hooks arrow keys for navigation
+KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root);
+
 bool KeyEvent(const KeyInput &key, ViewGroup *root);
-bool TouchEvent(const TouchInput &touch, ViewGroup *root);
-bool AxisEvent(const AxisInput &axis, ViewGroup *root);
+void TouchEvent(const TouchInput &touch, ViewGroup *root);
+void AxisEvent(const AxisInput &axis, ViewGroup *root);
 
 enum class UISound {
 	SELECT = 0,
@@ -34,12 +43,16 @@ enum class UISound {
 	CONFIRM,
 	TOGGLE_ON,
 	TOGGLE_OFF,
+	ACHIEVEMENT_UNLOCKED,
+	LEADERBOARD_SUBMITTED,
 	COUNT,
 };
 
 void SetSoundEnabled(bool enabled);
-void SetSoundCallback(std::function<void(UISound)> func);
+void SetSoundCallback(std::function<void(UISound, float)> func);
 
-void PlayUISound(UISound sound);
+// This is only meant for actual UI navigation sound, not achievements.
+// Call directly into the player for other UI effects.
+void PlayUISound(UISound sound, float volume = 0.25f);
 
 }  // namespace UI

@@ -31,7 +31,9 @@
 
 #include <algorithm>
 #include <memory>
+#ifndef NO_ARMIPS
 #include <string_view>
+#endif
 #include <unordered_map>
 
 #include "zlib.h"
@@ -44,7 +46,19 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#ifndef NO_ARMIPS
 #include "ext/armips/Core/Assembler.h"
+#else
+struct Identifier {
+	explicit Identifier() {}
+	explicit Identifier(const std::string &s) {}
+};
+
+struct LabelDefinition {
+	Identifier name;
+	int64_t value;
+};
+#endif
 
 SymbolMap *g_symbolMap;
 
@@ -127,9 +141,9 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 
 		if (!started) continue;
 
-		u32 address = -1, size, vaddress = -1;
+		u32 address = -1, size = 0, vaddress = -1;
 		int moduleIndex = 0;
-		int typeInt;
+		int typeInt = ST_NONE;
 		SymbolType type;
 		char name[128] = {0};
 
@@ -145,11 +159,13 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 		}
 
-		sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		if (matched < 1)
+			continue;
 		type = (SymbolType) typeInt;
 		if (!hasModules) {
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		} else {
@@ -157,13 +173,21 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			moduleIndex = vaddress;
 			vaddress = GetModuleAbsoluteAddr(address, moduleIndex);
 			if (!Memory::IsValidAddress(vaddress)) {
-				ERROR_LOG(LOADER, "Invalid address in symbol file: %08x (%s)", vaddress, name);
+				ERROR_LOG(Log::Loader, "Invalid address in symbol file: %08x (%s)", vaddress, name);
 				continue;
 			}
 		}
 
 		if (type == ST_DATA && size == 0)
 			size = 4;
+
+		// Ignore syscalls, will be recognized from stubs.
+		// Note: it's still useful to save these for grepping and importing into other tools.
+		if (strncmp(name, "zz_sce", 6) == 0)
+			continue;
+		// Also ignore unresolved imports, which will similarly be replaced.
+		if (strncmp(name, "zz_[UNK", 7) == 0)
+			continue;
 
 		if (!strcmp(name, ".text") || !strcmp(name, ".init") || strlen(name) <= 1) {
 
@@ -190,12 +214,12 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 	return started;
 }
 
-void SymbolMap::SaveSymbolMap(const Path &filename) const {
+bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return true;
 	}
 
 	// TODO(scoped): Use gzdopen
@@ -206,7 +230,7 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 #endif
 
 	if (f == Z_NULL)
-		return;
+		return false;
 
 	gzprintf(f, ".text\n");
 
@@ -225,6 +249,7 @@ void SymbolMap::SaveSymbolMap(const Path &filename) const {
 		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
 	gzclose(f);
+	return true;
 }
 
 bool SymbolMap::LoadNocashSym(const Path &filename) {
@@ -1089,7 +1114,7 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 
 	case ST_DATA:
 		{
-			int count = ARRAYSIZE(defaultSymbols)+(int)activeData.size();
+			size_t count = ARRAYSIZE(defaultSymbols)+activeData.size();
 			SendMessage(listbox, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
 
 			for (int i = 0; i < ARRAYSIZE(defaultSymbols); i++) {

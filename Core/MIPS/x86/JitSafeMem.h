@@ -69,8 +69,6 @@ private:
 
 	Gen::OpArg PrepareMemoryOpArg(MemoryOpType type);
 	void PrepareSlowAccess();
-	void MemCheckImm(MemoryOpType type);
-	void MemCheckAsm(MemoryOpType type);
 	bool ImmValid();
 	void IndirectCALL(const void *safeFunc);
 

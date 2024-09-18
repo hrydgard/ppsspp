@@ -17,26 +17,14 @@
 
 #pragma once
 
-#include <unordered_map>
-
-#include <d3d9.h>
-
-// Keeps track of allocated FBOs.
-// Also provides facilities for drawing and later converting raw
-// pixel data.
-
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-
-class TextureCacheDX9;
-class DrawEngineDX9;
-class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
 	FramebufferManagerDX9(Draw::DrawContext *draw);
-	~FramebufferManagerDX9();
 
 protected:
-	bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride) override;
+	// TODO: The non-color path of FramebufferManagerCommon::ReadbackDepthbufferSync seems to work just as well.
+	bool ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode) override;
 };

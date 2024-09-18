@@ -27,7 +27,11 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/Thread/Promise.h"
 
+#include "Core/Util/MemStick.h"
+
 #include "UI/MiscScreens.h"
+
+class NoticeView;
 
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
@@ -48,17 +52,17 @@ public:
 protected:
 	void CreateViews() override;
 
-	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
-	void render() override {
+	ScreenRenderFlags render(ScreenRenderMode mode) override {
 		// Simple anti-flicker due to delayed finish.
 		if (!done_) {
 			// render as usual.
-			UIDialogScreenWithBackground::render();
+			return UIDialogScreenWithBackground::render(mode);
 		} else {
 			// no render. black frame insertion is better than flicker.
 		}
+		return ScreenRenderFlags::NONE;
 	}
 
 private:
@@ -76,36 +80,17 @@ private:
 	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
+	NoticeView *errorNoticeView_ = nullptr;
 
 	bool initialSetup_;
 	bool storageBrowserWorking_;
 	bool done_ = false;
 
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	int choice_ = CHOICE_PRIVATE_DIRECTORY;
+#else
 	int choice_ = 0;
-};
-
-class ProgressReporter {
-public:
-	void Set(std::string value) {
-		std::lock_guard<std::mutex> guard(mutex_);
-		progress_ = value;
-	}
-
-	std::string Get() {
-		std::lock_guard<std::mutex> guard(mutex_);
-		return progress_;
-	}
-
-private:
-	std::string progress_;
-	std::mutex mutex_;
-};
-
-struct MoveResult {
-	bool success;  // Got through the whole move.
-	std::string errorMessage;
-	size_t failedFiles;
-	size_t skippedFiles;
+#endif
 };
 
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
@@ -127,10 +112,14 @@ private:
 
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	bool moveData_ = false;
+#else
 	bool moveData_ = true;
+#endif
 	bool initialSetup_;
 
-	ProgressReporter progressReporter_;
+	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;

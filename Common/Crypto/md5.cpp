@@ -62,7 +62,7 @@
 /*
  * MD5 context setup
  */
-void md5_starts( md5_context *ctx )
+void ppsspp_md5_starts( md5_context *ctx )
 {
     ctx->total[0] = 0;
     ctx->total[1] = 0;
@@ -73,7 +73,7 @@ void md5_starts( md5_context *ctx )
     ctx->state[3] = 0x10325476;
 }
 
-static void md5_process( md5_context *ctx, unsigned char data[64] )
+static void ppsspp_md5_process( md5_context *ctx, const unsigned char data[64] )
 {
     unsigned long X[16], A, B, C, D;
 
@@ -199,7 +199,7 @@ static void md5_process( md5_context *ctx, unsigned char data[64] )
 /*
  * MD5 process buffer
  */
-void md5_update( md5_context *ctx, unsigned char *input, int ilen )
+void ppsspp_md5_update( md5_context *ctx, unsigned char *input, int ilen )
 {
     int fill;
     unsigned long left;
@@ -220,7 +220,7 @@ void md5_update( md5_context *ctx, unsigned char *input, int ilen )
     {
         memcpy( (void *) (ctx->buffer + left),
                 (void *) input, fill );
-        md5_process( ctx, ctx->buffer );
+        ppsspp_md5_process( ctx, ctx->buffer );
         input += fill;
         ilen  -= fill;
         left = 0;
@@ -228,7 +228,7 @@ void md5_update( md5_context *ctx, unsigned char *input, int ilen )
 
     while( ilen >= 64 )
     {
-        md5_process( ctx, input );
+        ppsspp_md5_process( ctx, input );
         input += 64;
         ilen  -= 64;
     }
@@ -251,7 +251,7 @@ static const unsigned char md5_padding[64] =
 /*
  * MD5 final digest
  */
-void md5_finish( md5_context *ctx, unsigned char output[16] )
+void ppsspp_md5_finish( md5_context *ctx, unsigned char output[16] )
 {
     unsigned long last, padn;
     unsigned long high, low;
@@ -267,8 +267,8 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
     last = ctx->total[0] & 0x3F;
     padn = ( last < 56 ) ? ( 56 - last ) : ( 120 - last );
 
-    md5_update( ctx, (unsigned char *) md5_padding, padn );
-    md5_update( ctx, msglen, 8 );
+    ppsspp_md5_update( ctx, (unsigned char *) md5_padding, padn );
+    ppsspp_md5_update( ctx, msglen, 8 );
 
     PUT_ULONG_LE( ctx->state[0], output,  0 );
     PUT_ULONG_LE( ctx->state[1], output,  4 );
@@ -279,13 +279,13 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
 /*
  * output = MD5( input buffer )
  */
-void md5( unsigned char *input, int ilen, unsigned char output[16] )
+void ppsspp_md5( unsigned char *input, int ilen, unsigned char output[16] )
 {
     md5_context ctx;
 
-    md5_starts( &ctx );
-    md5_update( &ctx, input, ilen );
-    md5_finish( &ctx, output );
+    ppsspp_md5_starts( &ctx );
+    ppsspp_md5_update( &ctx, input, ilen );
+    ppsspp_md5_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( md5_context ) );
 }
@@ -293,14 +293,14 @@ void md5( unsigned char *input, int ilen, unsigned char output[16] )
 /*
  * MD5 HMAC context setup
  */
-void md5_hmac_starts( md5_context *ctx, unsigned char *key, int keylen )
+void ppsspp_md5_hmac_starts( md5_context *ctx, unsigned char *key, int keylen )
 {
     int i;
     unsigned char sum[16];
 
     if( keylen > 64 )
     {
-        md5( key, keylen, sum );
+        ppsspp_md5( key, keylen, sum );
         keylen = 16;
         key = sum;
     }
@@ -314,8 +314,8 @@ void md5_hmac_starts( md5_context *ctx, unsigned char *key, int keylen )
         ctx->opad[i] = (unsigned char)( ctx->opad[i] ^ key[i] );
     }
 
-    md5_starts( ctx );
-    md5_update( ctx, ctx->ipad, 64 );
+    ppsspp_md5_starts( ctx );
+    ppsspp_md5_update( ctx, ctx->ipad, 64 );
 
     memset( sum, 0, sizeof( sum ) );
 }
@@ -323,23 +323,23 @@ void md5_hmac_starts( md5_context *ctx, unsigned char *key, int keylen )
 /*
  * MD5 HMAC process buffer
  */
-void md5_hmac_update( md5_context *ctx, unsigned char *input, int ilen )
+void ppsspp_md5_hmac_update( md5_context *ctx, unsigned char *input, int ilen )
 {
-    md5_update( ctx, input, ilen );
+    ppsspp_md5_update( ctx, input, ilen );
 }
 
 /*
  * MD5 HMAC final digest
  */
-void md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
+void ppsspp_md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
 {
     unsigned char tmpbuf[16];
 
-    md5_finish( ctx, tmpbuf );
-    md5_starts( ctx );
-    md5_update( ctx, ctx->opad, 64 );
-    md5_update( ctx, tmpbuf, 16 );
-    md5_finish( ctx, output );
+    ppsspp_md5_finish( ctx, tmpbuf );
+    ppsspp_md5_starts( ctx );
+    ppsspp_md5_update( ctx, ctx->opad, 64 );
+    ppsspp_md5_update( ctx, tmpbuf, 16 );
+    ppsspp_md5_finish( ctx, output );
 
     memset( tmpbuf, 0, sizeof( tmpbuf ) );
 }
@@ -347,14 +347,14 @@ void md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
 /*
  * output = HMAC-MD5( hmac key, input buffer )
  */
-void md5_hmac( unsigned char *key, int keylen, unsigned char *input, int ilen,
+void ppsspp_md5_hmac( unsigned char *key, int keylen, unsigned char *input, int ilen,
                unsigned char output[16] )
 {
     md5_context ctx;
 
-    md5_hmac_starts( &ctx, key, keylen );
-    md5_hmac_update( &ctx, input, ilen );
-    md5_hmac_finish( &ctx, output );
+    ppsspp_md5_hmac_starts( &ctx, key, keylen );
+    ppsspp_md5_hmac_update( &ctx, input, ilen );
+    ppsspp_md5_hmac_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( md5_context ) );
 }
@@ -464,7 +464,7 @@ static const unsigned char md5_hmac_test_sum[7][16] =
 /*
  * Checkup routine
  */
-int md5_self_test( int verbose )
+int ppsspp_md5_self_test( int verbose )
 {
     int i, buflen;
     unsigned char buf[1024];

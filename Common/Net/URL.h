@@ -15,6 +15,8 @@
 
 struct UrlEncoder
 {
+	virtual ~UrlEncoder() {}
+
 	UrlEncoder() : paramCount(0)
 	{
 		data.reserve(256);
@@ -84,34 +86,10 @@ protected:
 	}
 
 	// Percent encoding, aka application/x-www-form-urlencoded.
-	void AppendEscaped(const std::string &value)
-	{
-		for (size_t lastEnd = 0; lastEnd < value.length(); )
-		{
-			size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
-			if (pos == value.npos)
-			{
-				data += value.substr(lastEnd);
-				break;
-			}
-
-			if (pos != lastEnd)
-				data += value.substr(lastEnd, pos - lastEnd);
-			lastEnd = pos;
-
-			// Encode the reserved character.
-			char c = value[pos];
-			data += '%';
-			data += hexChars[(c >> 4) & 15];
-			data += hexChars[(c >> 0) & 15];
-			++lastEnd;
-		}
-	}
+	void AppendEscaped(const std::string &value);
 
 	std::string data;
 	int paramCount;
-	static const char *unreservedChars;
-	static const char *hexChars;
 };
 
 
@@ -129,8 +107,7 @@ struct MultipartFormDataEncoder : UrlEncoder
 		boundary = temp;
 	}
 
-	virtual void Add(const std::string &key, const std::string &value)
-	{
+	void Add(const std::string &key, const std::string &value) override {
 		Add(key, value, "", "");
 	}
 
@@ -158,13 +135,11 @@ struct MultipartFormDataEncoder : UrlEncoder
 		Add(key, std::string((const char *)&value[0], value.size()), filename, mimeType);
 	}
 
-	virtual void Finish()
-	{
+	void Finish() override {
 		data += "--" + boundary + "--";
 	}
 
-	virtual std::string GetMimeType() const
-	{
+	std::string GetMimeType() const override {
 		return "multipart/form-data; boundary=\"" + boundary + "\"";
 	}
 
@@ -204,5 +179,5 @@ private:
 };
 
 
-std::string UriDecode(const std::string & sSrc);
-std::string UriEncode(const std::string & sSrc);
+std::string UriDecode(std::string_view sSrc);
+std::string UriEncode(std::string_view sSrc);

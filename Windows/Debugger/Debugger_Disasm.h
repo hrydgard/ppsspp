@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #pragma once
 
 #include "Windows/W32Util/DialogManager.h"
@@ -27,6 +25,7 @@ private:
 	CtrlThreadList* threadList;
 	CtrlStackTraceView* stackTraceView;
 	CtrlModuleList* moduleList;
+	CtrlWatchList *watchList_;
 	TabControl* leftTabs;
 	TabControl* bottomTabs;
 	std::vector<BreakPoint> displayedBreakPoints_;

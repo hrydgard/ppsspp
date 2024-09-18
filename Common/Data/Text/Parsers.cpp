@@ -7,7 +7,6 @@
 
 // Not strictly a parser...
 void NiceSizeFormat(uint64_t size, char *out, size_t bufSize) {
-	const char *sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
 	int s = 0;
 	int frac = 0;
 	while (size >= 1024) {
@@ -18,8 +17,10 @@ void NiceSizeFormat(uint64_t size, char *out, size_t bufSize) {
 	float f = (float)size + ((float)frac / 1024.0f);
 	if (s == 0)
 		snprintf(out, bufSize, "%d B", (int)size);
-	else
-		snprintf(out, bufSize, "%3.1f %s", f, sizes[s]);
+	else {
+		static const char* const sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
+		snprintf(out, bufSize, "%3.2f %s", f, sizes[s]);
+	}
 }
 
 std::string NiceSizeFormat(uint64_t size) {
@@ -43,7 +44,7 @@ bool Version::ParseVersionString(std::string str) {
 
 std::string Version::ToString() const {
 	char temp[128];
-	sprintf(temp, "%i.%i.%i", major, minor, sub);
+	snprintf(temp, sizeof(temp), "%i.%i.%i", major, minor, sub);
 	return std::string(temp);
 }
 
@@ -52,7 +53,7 @@ int Version::ToInteger() const {
 	return major * 1000000 + minor * 10000 + sub;
 }
 
-bool ParseMacAddress(std::string str, uint8_t macAddr[6]) {
+bool ParseMacAddress(const std::string &str, uint8_t macAddr[6]) {
 	unsigned int mac[6];
 	if (6 != sscanf(str.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5])) {
 		return false;

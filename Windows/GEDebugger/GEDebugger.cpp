@@ -29,6 +29,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
@@ -86,6 +87,8 @@ static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosi
 	DisplayList list;
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		view->setDisplayList(list);
+	} else {
+		view->clearDisplayList();
 	}
 }
 
@@ -290,13 +293,16 @@ void CGEDebugger::SetupPreviews() {
 				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, primaryTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
-				PreviewExport(primaryBuffer_);
+				if (primaryBuffer_)
+					PreviewExport(primaryBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(primaryBuffer_, false);
+				if (primaryBuffer_)
+					PreviewToClipboard(primaryBuffer_, false);
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
-				PreviewToClipboard(primaryBuffer_, true);
+				if (primaryBuffer_)
+					PreviewToClipboard(primaryBuffer_, true);
 				break;
 			case ID_GEDBG_TRACK_PIXEL:
 				primaryTrackX_ = x;
@@ -304,7 +310,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				primaryTrackX_ = 0xFFFFFFFF;
-				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -335,13 +341,16 @@ void CGEDebugger::SetupPreviews() {
 				EnableMenuItem(subMenu, ID_GEDBG_TRACK_PIXEL_STOP, secondTrackX_ == 0xFFFFFFFF ? MF_GRAYED : MF_ENABLED);
 				break;
 			case ID_GEDBG_EXPORT_IMAGE:
-				PreviewExport(secondBuffer_);
+				if (secondBuffer_)
+					PreviewExport(secondBuffer_);
 				break;
 			case ID_GEDBG_COPY_IMAGE:
-				PreviewToClipboard(secondBuffer_, false);
+				if (secondBuffer_)
+					PreviewToClipboard(secondBuffer_, false);
 				break;
 			case ID_GEDBG_COPY_IMAGE_ALPHA:
-				PreviewToClipboard(secondBuffer_, true);
+				if (secondBuffer_)
+					PreviewToClipboard(secondBuffer_, true);
 				break;
 			case ID_GEDBG_TRACK_PIXEL:
 				secondTrackX_ = x;
@@ -349,7 +358,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				secondTrackX_ = 0xFFFFFFFF;
-				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
@@ -839,9 +848,9 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 
 	case GPU_DBG_FORMAT_24BIT_8X:
 	{
-		DepthScaleFactors depthScale = GetDepthScaleFactors();
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.Apply((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
+		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.DecodeToU16((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
 		break;
 	}
 
@@ -860,8 +869,8 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 
 	case GPU_DBG_FORMAT_FLOAT: {
 		float pixf = *(float *)&pix;
-		DepthScaleFactors depthScale = GetDepthScaleFactors();
-		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.Apply(pixf));
+		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.DecodeToU16(pixf));
 		break;
 	}
 
@@ -870,11 +879,11 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 			double z = *(float *)&pix;
 			int z24 = (int)(z * 16777215.0);
 
-			DepthScaleFactors factors = GetDepthScaleFactors();
+			DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 			// TODO: Use GetDepthScaleFactors here too, verify it's the same.
 			int z16 = z24 - 0x800000 + 0x8000;
 
-			int z16_2 = factors.Apply(z);
+			int z16_2 = factors.DecodeToU16(z);
 
 			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
 		}
@@ -991,7 +1000,7 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 		tabRect.right = tabRect.left + (width / 2 - tabRect.left * 2);
 	}
 	tabRect.bottom = tabRect.top + (height - tabRect.top - tabRect.left);
-	
+
 	RECT tabRectRight = tabRect;
 	if (tabs && tabsRight_ && tabs->Count() == 0 && tabsRight_->Count() != 0) {
 		tabRect.right = tabRect.left;
@@ -1005,7 +1014,7 @@ void CGEDebugger::UpdateSize(WORD width, WORD height) {
 	HWND frameWnd = GetDlgItem(m_hDlg, IDC_GEDBG_FRAME);
 	GetWindowRect(frameWnd, &frameRect);
 	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&frameRect, 2);
-	
+
 	RECT trRect = { frameRect.right + 10, frameRect.top, tabRectRight.right, tabRectRight.top };
 	if (tabsTR_ && tabsTR_->Count() == 0) {
 		trRect.right = trRect.left;
@@ -1045,7 +1054,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		UpdateSize(LOWORD(lParam), HIWORD(lParam));
 		SavePosition();
 		return TRUE;
-		
+
 	case WM_MOVE:
 		SavePosition();
 		return TRUE;
@@ -1064,6 +1073,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_ACTIVATE:
 		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 			g_activeWindow = WINDOW_GEDEBUGGER;
+		} else {
+			g_activeWindow = WINDOW_OTHER;
 		}
 		break;
 
@@ -1211,11 +1222,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_RECORD:
-			GPURecord::SetCallback([](const Path &path) {
-				// Opens a Windows Explorer window with the file.
-				OpenDirectory(path.c_str());
+			GPURecord::RecordNextFrame([](const Path &path) {
+				// Opens a Windows Explorer window with the file, when done.
+				System_ShowFileInFolder(path);
 			});
-			GPURecord::Activate();
 			break;
 
 		case IDC_GEDBG_FLUSH:

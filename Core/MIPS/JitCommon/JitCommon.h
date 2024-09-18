@@ -28,6 +28,7 @@
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleArm64(const u8 *data, int size);
 std::vector<std::string> DisassembleX86(const u8 *data, int size);
+std::vector<std::string> DisassembleRV64(const u8 *data, int size);
 
 struct JitBlock;
 class JitBlockCache;
@@ -53,6 +54,7 @@ namespace MIPSComp {
 		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
 		virtual void Comp_ReplacementFunc(MIPSOpcode op) = 0;
 		virtual void Comp_ITypeMem(MIPSOpcode op) = 0;
+		virtual void Comp_StoreSync(MIPSOpcode op) = 0;
 		virtual void Comp_Cache(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranch(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranchRI(MIPSOpcode op) = 0;
@@ -175,5 +177,5 @@ namespace MIPSComp {
 
 	void DoDummyJitState(PointerWrap &p);
 
-	JitInterface *CreateNativeJit(MIPSState *mipsState);
+	JitInterface *CreateNativeJit(MIPSState *mipsState, bool useIR);
 }

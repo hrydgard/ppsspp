@@ -128,6 +128,8 @@ void GPUgstate::Reset() {
 	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
 
 	savedContextVersion = 1;
+
+	gstate_c.Dirty(DIRTY_CULL_PLANES);
 }
 
 void GPUgstate::Save(u32_le *ptr) {
@@ -213,7 +215,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
-void GPUgstate::Restore(u32_le *ptr) {
+void GPUgstate::Restore(const u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];
@@ -258,6 +260,8 @@ void GPUgstate::Restore(u32_le *ptr) {
 
 	if (gpu)
 		gpu->ResetMatrices();
+
+	gstate_c.Dirty(DIRTY_CULL_PLANES);
 }
 
 bool vertTypeIsSkinningEnabled(u32 vertType) {
@@ -365,5 +369,51 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		savedContextVersion = 0;
 	} else {
 		Do(p, savedContextVersion);
+	}
+
+	if (p.GetMode() == PointerWrap::MODE_READ)
+		gstate_c.Dirty(DIRTY_CULL_PLANES);
+}
+
+static const char *const gpuUseFlagNames[32] = {
+	"GPU_USE_DUALSOURCE_BLEND",
+	"GPU_USE_LIGHT_UBERSHADER",
+	"GPU_USE_FRAGMENT_TEST_CACHE",
+	"GPU_USE_VS_RANGE_CULLING",
+	"GPU_USE_BLEND_MINMAX",
+	"GPU_USE_LOGIC_OP",
+	"GPU_USE_FRAGMENT_UBERSHADER",
+	"GPU_USE_TEXTURE_NPOT",
+	"GPU_USE_ANISOTROPY",
+	"GPU_USE_CLEAR_RAM_HACK",
+	"GPU_USE_INSTANCE_RENDERING",
+	"GPU_USE_VERTEX_TEXTURE_FETCH",
+	"GPU_USE_TEXTURE_FLOAT",
+	"GPU_USE_16BIT_FORMATS",
+	"GPU_USE_DEPTH_CLAMP",
+	"GPU_USE_TEXTURE_LOD_CONTROL",
+	"GPU_USE_DEPTH_TEXTURE",
+	"GPU_USE_ACCURATE_DEPTH",
+	"GPU_USE_GS_CULLING",
+	"N/A",
+	"GPU_USE_FRAMEBUFFER_FETCH",
+	"GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT",
+	"GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT",
+	"GPU_ROUND_DEPTH_TO_16BIT",
+	"GPU_USE_CLIP_DISTANCE",
+	"GPU_USE_CULL_DISTANCE",
+	"N/A", // bit 26
+	"N/A", // bit 27
+	"N/A", // bit 28
+	"GPU_USE_VIRTUAL_REALITY",
+	"GPU_USE_SINGLE_PASS_STEREO",
+	"GPU_USE_SIMPLE_STEREO_PERSPECTIVE",
+};
+
+const char *GpuUseFlagToString(int useFlag) {
+	if ((u32)useFlag < 32) {
+		return gpuUseFlagNames[useFlag];
+	} else {
+		return "N/A";
 	}
 }

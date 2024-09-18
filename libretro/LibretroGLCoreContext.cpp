@@ -8,7 +8,7 @@
 #include "libretro/LibretroGLCoreContext.h"
 
 bool LibretroGLCoreContext::Init() {
-	if (!LibretroHWRenderContext::Init(true))
+	if (!LibretroHWRenderContext::Init(false))
 		return false;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
@@ -19,14 +19,14 @@ void LibretroGLCoreContext::CreateDrawContext() {
 	if (!glewInitDone) {
 #if !PPSSPP_PLATFORM(IOS) && !defined(USING_GLES2)
 		if (glewInit() != GLEW_OK) {
-			ERROR_LOG(G3D, "glewInit() failed.\n");
+			ERROR_LOG(Log::G3D, "glewInit() failed.\n");
 			return;
 		}
 #endif
 		glewInitDone = true;
 		CheckGLExtensions();
 	}
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(false);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);

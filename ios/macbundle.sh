@@ -4,7 +4,7 @@ PPSSPP="${1}"
 PPSSPPiOS="${PPSSPP}/PPSSPP"
 
 if [ ! -f "${PPSSPPiOS}" ]; then
-  echo "No such file: ${PPSSPPiOS}!"
+  echo "macbundle.sh: No such file: ${PPSSPPiOS}!"
   exit 0
 fi
 
@@ -18,3 +18,5 @@ else
 	plutil -replace CFBundleShortVersionString -string "" ${PPSSPP}/Info.plist
 	plutil -replace CFBundleVersion            -string "" ${PPSSPP}/Info.plist
 fi
+
+echo "macbundle.sh: Updated ${PPSSPP}/Info.plist"

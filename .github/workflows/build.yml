@@ -34,12 +34,12 @@ jobs:
 
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v2
 
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -63,20 +63,20 @@ jobs:
       run: cp Windows/Release/*.exe ppsspp/
 
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Windows ${{ matrix.platform }} build
         path: ppsspp/
 
   build-uwp:
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v2
 
     - name: Build UWP
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -87,7 +87,7 @@ jobs:
     needs: build-windows
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false
 
@@ -97,7 +97,7 @@ jobs:
       run: git submodule update --init pspautotests assets/lang
 
     - name: Download build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: Windows x64 build
         path: ppsspp/
@@ -143,14 +143,14 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86 UNITTEST=1 HEADLESS=1
-          id: android-x86_32
+          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
+          id: android-x86_64
         - os: ubuntu-latest
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
-          id: android-x86_64
+          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1
+          id: android-vr
         - os: ubuntu-latest
           extra: android
           cc: clang
@@ -192,7 +192,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -203,7 +203,7 @@ jobs:
         git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       if: matrix.extra == 'qt'
       with:
         cache: true
@@ -219,7 +219,7 @@ jobs:
       run: |
         sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Create macOS git-version.cpp for tagged release
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
@@ -229,6 +229,8 @@ jobs:
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
+      # Disable ccache on macos for now, it's become buggy for some reason.
+      if: matrix.id != 'macos'
       with:
         key: ${{ matrix.id }}
 
@@ -283,7 +285,7 @@ jobs:
         fi
 
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: matrix.extra == 'test'
       with:
         name: ${{ matrix.os }} build
@@ -296,7 +298,7 @@ jobs:
         mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF##*/}.zip || exit 1
 
     - name: Upload macOS release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
       with:
         files: ppsspp/*.zip
@@ -317,7 +319,7 @@ jobs:
     needs: build
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: false
 
@@ -331,7 +333,7 @@ jobs:
       run: |
         sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Install macOS dependencies
       if: runner.os == 'macOS'
@@ -339,7 +341,7 @@ jobs:
         git submodule update --init SDL/macOS
 
     - name: Download build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: ${{ matrix.os }} build
         path: ppsspp/
@@ -360,3 +362,40 @@ jobs:
     - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
+
+  build_test_headless_alpine:
+    runs-on: ubuntu-latest
+    container: 
+      image: alpine:latest
+      options: --shm-size=8g
+    steps:
+    - name: Install Linux dependencies (Alpine)
+      run: |
+        apk add build-base wget git bash cmake python3 glu-dev sdl2-dev
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Fix git detected dubious ownership in repository
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+    
+    - name: Compile ffmpeg
+      run: |
+        cd ffmpeg && ./linux_x86-64.sh
+
+    - name: Build for testing
+      run: |
+        ./b.sh --headless --unittest
+
+    - name: Execute unit tests
+      run: |
+        ./build/PPSSPPUnitTest ALL
+
+    - name: Execute headless tests
+      run: |
+        python test.py -g --graphics=software

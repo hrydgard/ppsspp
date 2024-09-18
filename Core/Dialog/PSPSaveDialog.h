@@ -72,18 +72,18 @@
 class PSPSaveDialog: public PSPDialog {
 public:
 	PSPSaveDialog(UtilityDialogType type);
-	virtual ~PSPSaveDialog();
+	~PSPSaveDialog();
 
-	virtual int Init(int paramAddr);
-	virtual int Update(int animSpeed) override;
-	virtual int Shutdown(bool force = false) override;
-	virtual void DoState(PointerWrap &p) override;
-	virtual pspUtilityDialogCommon *GetCommonParam() override;
+	int Init(int paramAddr);
+	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon *GetCommonParam() override;
 
 	void ExecuteIOAction();
 
 protected:
-	virtual bool UseAutoStatus() override {
+	bool UseAutoStatus() override {
 		return false;
 	}
 
@@ -94,8 +94,8 @@ private:
 	void DisplaySaveIcon(bool checkExists);
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2(bool showNewData = false);
-	void DisplayMessage(std::string text, bool hasYesNo = false);
-	const std::string GetSelectedSaveDirName() const;
+	void DisplayMessage(std::string_view text, bool hasYesNo = false);
+	std::string GetSelectedSaveDirName() const;
 
 	void JoinIOThread();
 	void StartIOThread();

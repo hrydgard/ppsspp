@@ -227,6 +227,8 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 	aheadThread_ = std::thread([this] {
 		SetCurrentThreadName("FileLoaderReadAhead");
 
+		AndroidJNIThreadContext jniContext;
+
 		while (aheadRemaining_ != 0 && !aheadCancel_) {
 			// Where should we look?
 			const u32 cacheStartPos = NextAheadBlock();

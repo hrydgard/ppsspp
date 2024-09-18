@@ -42,6 +42,13 @@ enum RiscVReg {
 	F8, F9, F10, F11, F12, F13, F14, F15,
 	F16, F17, F18, F19, F20, F21, F22, F23,
 	F24, F25, F26, F27, F28, F29, F30, F31,
+
+	V0 = 0x40, V1, V2, V3, V4, V5, V6, V7,
+	V8, V9, V10, V11, V12, V13, V14, V15,
+	V16, V17, V18, V19, V20, V21, V22, V23,
+	V24, V25, V26, V27, V28, V29, V30, V31,
+
+	INVALID_REG = 0xFFFFFFFF,
 };
 
 enum class FixupBranchType {
@@ -85,11 +92,13 @@ enum class FConv {
 
 	S = 0x1000,
 	D = 0x1001,
+	H = 0x1002,
 	Q = 0x1003,
 };
 
 enum class FMv {
 	X,
+	H,
 	W,
 	D,
 };
@@ -99,6 +108,14 @@ enum class Csr {
 	FRm = 0x002,
 	FCsr = 0x003,
 
+	VStart = 0x008,
+	VXSat = 0x009,
+	VXRm = 0x00A,
+	VCsr = 0x00F,
+	VL = 0xC20,
+	VType = 0xC21,
+	VLenB = 0xC22,
+
 	Cycle = 0xC00,
 	Time = 0xC01,
 	InstRet = 0xC02,
@@ -107,13 +124,73 @@ enum class Csr {
 	InstRetH = 0xC82,
 };
 
+enum class VLMul {
+	M1 = 0b000,
+	M2 = 0b001,
+	M4 = 0b010,
+	M8 = 0b011,
+	MF8 = 0b101,
+	MF4 = 0b110,
+	MF2 = 0b111,
+};
+
+enum class VSew {
+	E8 = 0b000,
+	E16 = 0b001,
+	E32 = 0b010,
+	E64 = 0b011,
+};
+
+enum class VTail {
+	U = 0,
+	A = 1,
+};
+
+enum class VMask {
+	U = 0,
+	A = 1,
+};
+
+struct VType {
+	constexpr VType(VSew sew, VTail vt, VMask vm)
+		: value(((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7)) {
+	}
+	constexpr VType(VSew sew, VLMul lmul, VTail vt, VMask vm)
+		: value((uint32_t)lmul | ((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7)) {
+	}
+
+	VType(int bits, VLMul lmul, VTail vt, VMask vm) {
+		VSew sew = VSew::E8;
+		switch (bits) {
+		case 8: sew = VSew::E8; break;
+		case 16: sew = VSew::E16; break;
+		case 32: sew = VSew::E32; break;
+		case 64: sew = VSew::E64; break;
+		default: _assert_msg_(false, "Invalid vtype width"); break;
+		}
+		value = (uint32_t)lmul | ((uint32_t)sew << 3) | ((uint32_t)vt << 6) | ((uint32_t)vm << 7);
+	}
+
+	uint32_t value;
+};
+
+enum class VUseMask {
+	V0_T = 0,
+	NONE = 1,
+};
+
 struct FixupBranch {
 	FixupBranch() {}
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
+	FixupBranch(FixupBranch &&other);
+	FixupBranch(const FixupBranch &) = delete;
 	~FixupBranch();
 
+	FixupBranch &operator =(FixupBranch &&other);
+	FixupBranch &operator =(const FixupBranch &other) = delete;
+
 	const u8 *ptr = nullptr;
-	FixupBranchType type;
+	FixupBranchType type = FixupBranchType::B;
 };
 
 class RiscVEmitter {
@@ -135,6 +212,19 @@ public:
 	void SetJumpTarget(FixupBranch &branch);
 	bool BInRange(const void *func) const;
 	bool JInRange(const void *func) const;
+
+	void QuickJAL(RiscVReg scratchreg, RiscVReg rd, const u8 *dst);
+	void QuickJ(RiscVReg scratchreg, const u8 *dst) {
+		QuickJAL(scratchreg, R_ZERO, dst);
+	}
+	void QuickCallFunction(const u8 *func, RiscVReg scratchreg = R_RA) {
+		QuickJAL(scratchreg, R_RA, func);
+	}
+	template <typename T>
+	void QuickCallFunction(T *func, RiscVReg scratchreg = R_RA) {
+		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
+		QuickCallFunction((const u8 *)func, scratchreg);
+	}
 
 	void LUI(RiscVReg rd, s32 simm32);
 	void AUIPC(RiscVReg rd, s32 simm32);
@@ -225,6 +315,12 @@ public:
 	void NEG(RiscVReg rd, RiscVReg rs) {
 		SUB(rd, R_ZERO, rs);
 	}
+	void SNEZ(RiscVReg rd, RiscVReg rs) {
+		SLTU(rd, R_ZERO, rs);
+	}
+	void SEQZ(RiscVReg rd, RiscVReg rs) {
+		SLTIU(rd, rs, 1);
+	}
 
 	void FENCE(Fence predecessor, Fence successor);
 	void FENCE_TSO();
@@ -232,7 +328,7 @@ public:
 	void ECALL();
 	void EBREAK();
 
-	// 64-bit instructions - oens ending in W sign extend result to 32 bits.
+	// 64-bit instructions - ones ending in W sign extend result to 32 bits.
 	void LWU(RiscVReg rd, RiscVReg addr, s32 simm12);
 	void LD(RiscVReg rd, RiscVReg addr, s32 simm12);
 	void SD(RiscVReg rs2, RiscVReg addr, s32 simm12);
@@ -325,6 +421,26 @@ public:
 	void FLE(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
 
+	// Additional floating point (Zfa.)
+	bool CanFLI(int bits, double v) const;
+	bool CanFLI(int bits, uint32_t pattern) const;
+	bool CanFLI(int bits, float v) const {
+		return CanFLI(bits, (double)v);
+	}
+	void FLI(int bits, RiscVReg rd, double v);
+	void FLI(int bits, RiscVReg rd, uint32_t pattern);
+	void FLI(int bits, RiscVReg rd, float v) {
+		FLI(bits, rd, (double)v);
+	}
+	void FMINM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FMAXM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FROUND(int bits, RiscVReg rd, RiscVReg rs1, Round rm = Round::DYNAMIC);
+
+	// Convenience helper for FLI support.
+	void QuickFLI(int bits, RiscVReg rd, double v, RiscVReg scratchReg);
+	void QuickFLI(int bits, RiscVReg rd, uint32_t pattern, RiscVReg scratchReg);
+	void QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg);
+
 	// Control state register manipulation.
 	void CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1);
 	void CSRRS(RiscVReg rd, Csr csr, RiscVReg rs1);
@@ -346,6 +462,528 @@ public:
 	void FSRMI(Round rm) {
 		FSRMI(R_ZERO, rm);
 	}
+
+	// Vector instructions.
+	void VSETVLI(RiscVReg rd, RiscVReg rs1, VType vtype);
+	void VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype);
+	void VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
+	// Load contiguous registers, unordered.
+	void VLE_V(int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VLSEGE_V(1, dataBits, vd, rs1, vm);
+	}
+	// Load registers with stride (note: rs2/stride can be X0/zero to broadcast.)
+	void VLSE_V(int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE) {
+		VLSSEGE_V(1, dataBits, vd, rs1, rs2, vm);
+	}
+	// Load indexed registers (gather), unordered.
+	void VLUXEI_V(int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VLUXSEGEI_V(1, indexBits, vd, rs1, vs2, vm);
+	}
+	// Load indexed registers (gather), ordered.
+	void VLOXEI_V(int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VLOXSEGEI_V(1, indexBits, vd, rs1, vs2, vm);
+	}
+	// Load mask (force 8 bit, EMUL=1, TA)
+	void VLM_V(RiscVReg vd, RiscVReg rs1);
+	// Load but ignore faults after first element.
+	void VLEFF_V(int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VLSEGEFF_V(1, dataBits, vd, rs1, vm);
+	}
+	// Load fields into subsequent registers (destructure.)
+	void VLSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VLSSEGE_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE);
+	void VLUXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VLOXSEGEI_V(int fields, int indexBits, RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VLSEGEFF_V(int fields, int dataBits, RiscVReg vd, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	// Load entire registers (implementation dependent size.)
+	void VLR_V(int regs, int hintBits, RiscVReg vd, RiscVReg rs1);
+
+	void VSE_V(int dataBits, RiscVReg vs3, RiscVReg rs1, VUseMask vm = VUseMask::NONE) {
+		VSSEGE_V(1, dataBits, vs3, rs1, vm);
+	}
+	void VSSE_V(int dataBits, RiscVReg vs3, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE) {
+		VSSSEGE_V(1, dataBits, vs3, rs1, rs2, vm);
+	}
+	void VSUXEI_V(int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VSUXSEGEI_V(1, indexBits, vs3, rs1, vs2, vm);
+	}
+	void VSOXEI_V(int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VSOXSEGEI_V(1, indexBits, vs3, rs1, vs2, vm);
+	}
+	void VSM_V(RiscVReg vs3, RiscVReg rs1);
+	void VSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSSSEGE_V(int fields, int dataBits, RiscVReg vs3, RiscVReg rs1, RiscVReg rs2, VUseMask vm = VUseMask::NONE);
+	void VSUXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VSOXSEGEI_V(int fields, int indexBits, RiscVReg vs3, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VSR_V(int regs, RiscVReg vs3, RiscVReg rs1);
+
+	void VADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VADD_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VRSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VRSUB_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VNEG_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VRSUB_VX(vd, vs2, X0, vm);
+	}
+
+	void VWADDU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWADDU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSUBU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSUBU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWADDU_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWADDU_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSUBU_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSUBU_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWADD_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWADD_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSUB_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSUB_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VZEXT_V(int frac, RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VSEXT_V(int frac, RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	// vmask must be V0, provided for clarity/reminder.
+	void VADC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VADC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VADC_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask);
+	void VMADC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VMADC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VMADC_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask);
+	void VMADC_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMADC_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1);
+	void VMADC_VI(RiscVReg vd, RiscVReg vs2, s8 simm5);
+	void VSBC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VSBC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VMSBC_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VMSBC_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VMSBC_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMSBC_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1);
+
+	void VAND_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VAND_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VAND_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VOR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VOR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VOR_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VXOR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VXOR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VXOR_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VNOT_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE) {
+		VXOR_VI(vd, vs2, -1, vm);
+	}
+
+	void VSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSRL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSRL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSRL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSRA_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSRA_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSRA_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VNSRL_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VNSRL_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VNSRL_WI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VNSRA_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VNSRA_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VNSRA_WI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+
+	// Using a mask creates an AND condition, assuming vtype has MU not MA.
+	// Note: VV and VI don't have all comparison ops, VX does (there's no GE/GEU at all, though.)
+	void VMSEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSLTU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSLEU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMSEQ_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSNE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSLTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSLT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSLEU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSLE_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSGTU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSGT_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMSEQ_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VMSNE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VMSLEU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VMSLE_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VMSGTU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VMSGT_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+
+	void VMINU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMINU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMIN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMAXU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMAXU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMAX_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMULH_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULH_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMULHU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULHU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	// Takes vs2 as signed, vs1 as unsigned.
+	void VMULHSU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMULHSU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VDIVU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VDIVU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VDIV_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VDIV_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VREMU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREMU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VREM_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREM_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VWMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWMULU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMULU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWMULSU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWMULSU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	// Multiply and add - vd += vs1 * vs2.
+	void VMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMACC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and sub - vd -= vs1 * vs2.
+	void VNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VNMSAC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and add - vd = vd * vs1 + vs2.
+	void VMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMADD_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Multiply and sub - vd = -(vd * vs1) + vs2.
+	void VNMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VNMSUB_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += vs1 * vs2.
+	void VWMACCU_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACCU_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += vs1 * vs2.
+	void VWMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACC_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += S(vs1) * U(vs2).
+	void VWMACCSU_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VWMACCSU_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Widening multiply and add - vd(wide) += U(rs1) * S(vs2).
+	void VWMACCUS_VX(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	// Masked bits (1) take vs1/rs1/simm5, vmask must be V0.
+	void VMERGE_VVM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, RiscVReg vmask);
+	void VMERGE_VXM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	void VMERGE_VIM(RiscVReg vd, RiscVReg vs2, s8 simm5, RiscVReg vmask);
+
+	// Simple register copy, can be used as a hint to internally prepare size if vd == vs1.
+	void VMV_VV(RiscVReg vd, RiscVReg vs1);
+	// These broadcast a value to all lanes of vd.
+	void VMV_VX(RiscVReg vd, RiscVReg rs1);
+	void VMV_VI(RiscVReg vd, s8 simm5);
+
+	void VSADDU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSADDU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSADDU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VSADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSADD_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VSSUBU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSSUBU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSSUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VAADDU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VAADDU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VAADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VAADD_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VASUBU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VASUBU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VASUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VASUB_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	// Fixed-point multiply, sra's product by SEW-1 before writing result.
+	void VSMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSMUL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VSSRL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSSRL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSSRL_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VSSRA_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VSSRA_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSSRA_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+
+	void VNCLIPU_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VNCLIPU_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VNCLIPU_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+	void VNCLIP_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VNCLIP_WX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VNCLIP_VI(RiscVReg vd, RiscVReg vs2, s8 simm5, VUseMask vm = VUseMask::NONE);
+
+	void VFADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFRSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFWADD_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWADD_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_WV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWSUB_WF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFDIV_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFRDIV_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFWMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWMUL_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	// Fused multiply and accumulate: vd = +vd + vs1 * vs2.
+	void VFMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and accumulate, negated: vd = -vd - vs1 * vs2.
+	void VFNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract accumuluator: vd = -vd + vs1 * vs2.
+	void VFMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract accumuluator, negated: vd = +vd - vs1 * vs2.
+	void VFNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and add: vd = +(vs1 * vd) + vs2.
+	void VFMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and add, negated: vd = -(vs1 * vd) - vs2.
+	void VFNMADD_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMADD_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract: vd = +(vs1 * vd) - vs2.
+	void VFMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused multiply and subtract, negated: vd = -(vs1 * vd) + vs2.
+	void VFNMSUB_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNMSUB_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	// Fused widening multiply and accumulate: vd(wide) = +vd + vs1 * vs2.
+	void VFWMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and accumulate, negated: vd(wide) = -vd - vs1 * vs2.
+	void VFWNMACC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWNMACC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and subtract accumulator: vd(wide) = -vd + vs1 * vs2.
+	void VFWMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	// Fused widening multiply and subtract accumulator, negated: vd(wide) = +vd - vs1 * vs2.
+	void VFWNMSAC_VV(RiscVReg vd, RiscVReg vs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWNMSAC_VF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	void VFSQRT_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFRSQRT7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFREC7_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	void VFMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFMIN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFMAX_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFSGNJ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFSGNJ_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSGNJN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFSGNJN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSGNJX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFSGNJX_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VMFEQ_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMFEQ_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMFNE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMFNE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMFLT_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMFLT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMFLE_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VMFLE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMFGT_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VMFGE_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VFCLASS_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	// vmask must be V0, takes rs1 where mask bits are set (1).
+	void VFMERGE_VFM(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, RiscVReg vmask);
+	// Broadcast/splat.
+	void VFMV_VF(RiscVReg vd, RiscVReg rs1);
+
+	void VFCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	void VFWCVT_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_RTZ_XU_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_RTZ_X_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_F_XU_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_F_X_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFWCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	void VFNCVT_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_RTZ_XU_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_RTZ_X_F_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_F_XU_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_F_X_W(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFNCVT_ROD_F_F_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+
+	void VREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDMAXU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDMINU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDAND_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VREDXOR_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWREDSUMU_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWREDSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+
+	void VFREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFREDMAX_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFREDMIN_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWREDOSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VFWREDUSUM_VS(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+
+	void VMAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMNAND_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMANDN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMXOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMORN_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMMV_M(RiscVReg vd, RiscVReg vs1) {
+		VMAND_MM(vd, vs1, vs1);
+	}
+	void VMCLR_M(RiscVReg vd, RiscVReg vs1) {
+		VMXOR_MM(vd, vs1, vs1);
+	}
+	void VMSET_M(RiscVReg vd, RiscVReg vs1) {
+		VMXNOR_MM(vd, vs1, vs1);
+	}
+	void VMNOT_M(RiscVReg vd, RiscVReg vs1) {
+		VMNAND_MM(vd, vs1, vs1);
+	}
+
+	void VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSBF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSIF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VMSOF_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VIOTA_M(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VID_M(RiscVReg vd, VUseMask vm = VUseMask::NONE);
+
+	void VMV_X_S(RiscVReg rd, RiscVReg vs2);
+	void VMV_S_X(RiscVReg vd, RiscVReg rs1);
+	void VFMV_F_S(RiscVReg rd, RiscVReg vs2);
+	void VFMV_S_F(RiscVReg vd, RiscVReg rs1);
+
+	void VSLIDEUP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDEUP_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSLIDEDOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDEDOWN_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+	void VSLIDE1UP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSLIDE1UP_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VSLIDE1DOWN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VFSLIDE1DOWN_VF(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+
+	void VRGATHER_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHEREI16_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHER_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VRGATHER_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+
+	void VCOMPRESS_VM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
+	void VMVR_V(int regs, RiscVReg vd, RiscVReg vs2);
+
+	void VANDN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VANDN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VBREV_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VBREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCLZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCTZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCPOP_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VROL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VROL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VI(RiscVReg vd, RiscVReg vs2, u8 uimm6, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+
+	// Bitmanip instructions.
+	void ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SH_ADD(int shift, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SH_ADD_UW(int shift, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SLLI_UW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void ANDN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ORN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void XNOR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLZ(RiscVReg rd, RiscVReg rs);
+	void CLZW(RiscVReg rd, RiscVReg rs);
+	void CTZ(RiscVReg rd, RiscVReg rs);
+	void CTZW(RiscVReg rd, RiscVReg rs);
+	void CPOP(RiscVReg rd, RiscVReg rs);
+	void CPOPW(RiscVReg rd, RiscVReg rs);
+	void MAX(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MAXU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MIN(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void MINU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void SEXT_B(RiscVReg rd, RiscVReg rs);
+	void SEXT_H(RiscVReg rd, RiscVReg rs);
+	void SEXT_W(RiscVReg rd, RiscVReg rs) {
+		ADDIW(rd, rs, 0);
+	}
+	void ZEXT_B(RiscVReg rd, RiscVReg rs) {
+		ANDI(rd, rs, 0xFF);
+	}
+	void ZEXT_H(RiscVReg rd, RiscVReg rs);
+	void ZEXT_W(RiscVReg rd, RiscVReg rs) {
+		ADD_UW(rd, rs, R_ZERO);
+	}
+	void ROL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ROLW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void ROR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void RORW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void RORI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void RORIW(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void ORC_B(RiscVReg rd, RiscVReg rs);
+	void REV8(RiscVReg rd, RiscVReg rs);
+	void CLMUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLMULH(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CLMULR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BCLR(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BCLRI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BEXT(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BEXTI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BINV(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BINVI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+	void BSET(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt);
+
+	void CZERO_EQZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CZERO_NEZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
@@ -396,6 +1034,22 @@ public:
 	void C_SWSP(RiscVReg rs2, u8 uimm8);
 	void C_FSWSP(RiscVReg rs2, u8 uimm8);
 	void C_SDSP(RiscVReg rs2, u32 uimm9);
+
+	void C_LBU(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_LHU(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_LH(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_SB(RiscVReg rs2, RiscVReg rs1, u8 uimm2);
+	void C_SH(RiscVReg rs2, RiscVReg rs1, u8 uimm2);
+	void C_ZEXT_B(RiscVReg rd);
+	void C_SEXT_B(RiscVReg rd);
+	void C_ZEXT_H(RiscVReg rd);
+	void C_SEXT_H(RiscVReg rd);
+	void C_ZEXT_W(RiscVReg rd);
+	void C_SEXT_W(RiscVReg rd) {
+		C_ADDIW(rd, 0);
+	}
+	void C_NOT(RiscVReg rd);
+	void C_MUL(RiscVReg rd, RiscVReg rs2);
 
 	bool CBInRange(const void *func) const;
 	bool CJInRange(const void *func) const;
@@ -458,13 +1112,14 @@ private:
 		writable_ += 2;
 	}
 
+protected:
 	const u8 *code_ = nullptr;
 	u8 *writable_ = nullptr;
 	const u8 *lastCacheFlushEnd_ = nullptr;
 	bool autoCompress_ = false;
 };
 
-class MIPSCodeBlock : public CodeBlock<RiscVEmitter> {
+class RiscVCodeBlock : public CodeBlock<RiscVEmitter> {
 private:
 	void PoisonMemory(int offset) override;
 };

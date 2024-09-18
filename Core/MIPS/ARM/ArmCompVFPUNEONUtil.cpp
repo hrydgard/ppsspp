@@ -177,7 +177,7 @@ ARMReg ArmJit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFl
 		} else {
 			// Do some special cases
 			if (regnum[0] == 1 && regnum[1] == 0) {
-				INFO_LOG(HLE, "PREFIXST: Bottom swap!");
+				INFO_LOG(Log::HLE, "PREFIXST: Bottom swap!");
 				VREV64(I_32, ar, inputAR);
 				regnum[0] = 0;
 				regnum[1] = 1;
@@ -193,7 +193,7 @@ ARMReg ArmJit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFl
 
 			// TODO: Cannot do this permutation yet!
 			if (!match) {
-				ERROR_LOG(HLE, "PREFIXST: Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
+				ERROR_LOG(Log::HLE, "PREFIXST: Unsupported permute! %i %i %i %i / %i", regnum[0], regnum[1], regnum[2], regnum[3], n);
 				VMOV(ar, inputAR);
 			}
 		}
@@ -218,7 +218,7 @@ ARMReg ArmJit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFl
 				}
 			}
 			VMOV(ar, MatchSize(Q0, ar));
-			INFO_LOG(HLE, "PREFIXST: Partial ABS %i/%i! Slow fallback generated.", abs_mask, full_mask);
+			INFO_LOG(Log::HLE, "PREFIXST: Partial ABS %i/%i! Slow fallback generated.", abs_mask, full_mask);
 		}
 	}
 
@@ -240,7 +240,7 @@ ARMReg ArmJit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFl
 				}
 			}
 			VMOV(ar, MatchSize(Q0, ar));
-			INFO_LOG(HLE, "PREFIXST: Partial Negate %i/%i! Slow fallback generated.", negate_mask, full_mask);
+			INFO_LOG(Log::HLE, "PREFIXST: Partial Negate %i/%i! Slow fallback generated.", negate_mask, full_mask);
 		}
 	}
 
@@ -270,7 +270,7 @@ ArmJit::DestARMReg ArmJit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags)
 		dest.backingRd = dest.rd;
 	} else {
 		// Allocate a temporary register.
-		ERROR_LOG(JIT, "PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
+		ERROR_LOG(Log::JIT, "PREFIXD: Write mask allocated! %i/%i", writeMask, full_mask);
 		dest.rd = fpr.QAllocTemp(sz);
 		dest.backingRd = fpr.QMapReg(vreg, sz, mapFlags & ~MAP_NOINIT);  // Force initialization of the backing reg.
 	}
@@ -294,12 +294,12 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 
 	if (sat1_mask && sat3_mask) {
 		// Why would anyone do this?
-		ERROR_LOG(JIT, "PREFIXD: Can't have both sat[0-1] and sat[-1-1] at the same time yet");
+		ERROR_LOG(Log::JIT, "PREFIXD: Can't have both sat[0-1] and sat[-1-1] at the same time yet");
 	}
 
 	if (sat1_mask) {
 		if (sat1_mask != full_mask) {
-			ERROR_LOG(JIT, "PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
+			ERROR_LOG(Log::JIT, "PREFIXD: Can't have partial sat1 mask yet (%i vs %i)", sat1_mask, full_mask);
 		}
 		if (IsD(dest.rd)) {
 			VMOV_immf(D0, 0.0);
@@ -316,7 +316,7 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 
 	if (sat3_mask && sat1_mask != full_mask) {
 		if (sat3_mask != full_mask) {
-			ERROR_LOG(JIT, "PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
+			ERROR_LOG(Log::JIT, "PREFIXD: Can't have partial sat3 mask yet (%i vs %i)", sat3_mask, full_mask);
 		}
 		if (IsD(dest.rd)) {
 			VMOV_immf(D0, 0.0);
@@ -340,11 +340,11 @@ void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 		int writeMask = (~(js.prefixD >> 8)) & 0xF;
 
 		if (writeMask == 3) {
-			INFO_LOG(JIT, "Doing writemask = 3");
+			INFO_LOG(Log::JIT, "Doing writemask = 3");
 			VMOV(D_0(dest.rd), D_0(dest.backingRd));
 		} else {
 			// TODO
-			ERROR_LOG(JIT, "PREFIXD: Arbitrary write masks not supported (%i / %i)", writeMask, full_mask);
+			ERROR_LOG(Log::JIT, "PREFIXD: Arbitrary write masks not supported (%i / %i)", writeMask, full_mask);
 			VMOV(dest.backingRd, dest.rd);
 		}
 	}

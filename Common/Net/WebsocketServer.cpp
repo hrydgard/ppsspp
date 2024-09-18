@@ -69,7 +69,7 @@ static bool ListContainsNoCase(const std::string &list, const std::string value)
 	return false;
 }
 
-WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, const std::string &protocol) {
+WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::ServerRequest &request, const std::string &protocol) {
 	auto requireHeader = [&](const char *name, const char *expected) {
 		std::string val;
 		if (!request.GetHeader(name, &val)) {

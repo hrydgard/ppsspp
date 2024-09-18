@@ -62,6 +62,7 @@ public:
 
 	// Ops
 	void Comp_ITypeMem(MIPSOpcode op) override {}
+	void Comp_StoreSync(MIPSOpcode op) override {}
 	void Comp_Cache(MIPSOpcode op) override {}
 
 	void Comp_RelBranch(MIPSOpcode op) override {}

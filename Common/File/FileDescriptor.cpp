@@ -114,7 +114,7 @@ void SetNonBlocking(int sock, bool non_blocking) {
 	int opts = fcntl(sock, F_GETFL);
 	if (opts < 0) {
 		perror("fcntl(F_GETFL)");
-		ERROR_LOG(IO, "Error getting socket status while changing nonblocking status");
+		ERROR_LOG(Log::IO, "Error getting socket status while changing nonblocking status");
 	}
 	if (non_blocking) {
 		opts = (opts | O_NONBLOCK);
@@ -124,12 +124,12 @@ void SetNonBlocking(int sock, bool non_blocking) {
 
 	if (fcntl(sock, F_SETFL, opts) < 0) {
 		perror("fcntl(F_SETFL)");
-		ERROR_LOG(IO, "Error setting socket nonblocking status");
+		ERROR_LOG(Log::IO, "Error setting socket nonblocking status");
 	}
 #else
 	u_long val = non_blocking ? 1 : 0;
 	if (ioctlsocket(sock, FIONBIO, &val) != 0) {
-		ERROR_LOG(IO, "Error setting socket nonblocking status");
+		ERROR_LOG(Log::IO, "Error setting socket nonblocking status");
 	}
 #endif
 }

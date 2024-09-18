@@ -27,12 +27,18 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
+#include "Common/System/Request.h"
+#include "Common/VR/PPSSPPVR.h"
+#include "Common/UI/AsyncImageFileView.h"
 
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
@@ -47,125 +53,19 @@
 #include "UI/MainScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
+#include "UI/DisplayLayoutScreen.h"
+#include "UI/RetroAchievementScreens.h"
 
-AsyncImageFileView::AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams)
-	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
-
-AsyncImageFileView::~AsyncImageFileView() {}
-
-static float DesiredSize(float sz, float contentSize, UI::MeasureSpec spec) {
-	float measured;
-	UI::MeasureBySpec(sz, contentSize, spec, &measured);
-	return measured;
-}
-
-void AsyncImageFileView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
-	if (texture_ && texture_->GetTexture()) {
-		float texw = (float)texture_->Width();
-		float texh = (float)texture_->Height();
-		float desiredW = DesiredSize(layoutParams_->width, w, horiz);
-		float desiredH = DesiredSize(layoutParams_->height, h, vert);
-		switch (sizeMode_) {
-		case UI::IS_FIXED:
-			w = fixedSizeW_;
-			h = fixedSizeH_;
-			break;
-		case UI::IS_KEEP_ASPECT:
-			w = texw;
-			h = texh;
-			if (desiredW != w || desiredH != h) {
-				float aspect = w / h;
-				// We need the other dimension based on the desired scale to find the best aspect.
-				float desiredWOther = DesiredSize(layoutParams_->height, h * (desiredW / w), vert);
-				float desiredHOther = DesiredSize(layoutParams_->width, w * (desiredH / h), horiz);
-
-				float diffW = fabsf(aspect - desiredW / desiredWOther);
-				float diffH = fabsf(aspect - desiredH / desiredHOther);
-				if (diffW < diffH) {
-					w = desiredW;
-					h = desiredWOther;
-				} else {
-					w = desiredHOther;
-					h = desiredH;
-				}
-			}
-			break;
-		case UI::IS_DEFAULT:
-		default:
-			w = texw;
-			h = texh;
-			break;
-		}
-	} else {
-		w = 16;
-		h = 16;
-	}
-}
-
-void AsyncImageFileView::SetFilename(const Path &filename) {
-	if (filename_ != filename) {
-		textureFailed_ = false;
-		filename_ = filename;
-		texture_.reset(nullptr);
-	}
-}
-
-void AsyncImageFileView::DeviceLost() {
-	if (texture_.get())
-		texture_->DeviceLost();
-}
-
-void AsyncImageFileView::DeviceRestored(Draw::DrawContext *draw) {
-	if (texture_.get())
-		texture_->DeviceRestored(draw);
-}
-
-void AsyncImageFileView::Draw(UIContext &dc) {
-	using namespace Draw;
-	if (!texture_ && !textureFailed_ && !filename_.empty()) {
-		texture_ = CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true);
-		if (!texture_.get())
-			textureFailed_ = true;
-	}
-
-	if (HasFocus()) {
-		dc.FillRect(dc.theme->itemFocusedStyle.background, bounds_.Expand(3));
-	}
-
-	// TODO: involve sizemode
-	if (texture_ && texture_->GetTexture()) {
-		dc.Flush();
-		dc.GetDrawContext()->BindTexture(0, texture_->GetTexture());
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
-		dc.Flush();
-		dc.RebindTexture();
-		if (!text_.empty()) {
-			dc.DrawText(text_.c_str(), bounds_.centerX()+1, bounds_.centerY()+1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-		}
-	} else {
-		if (!filename_.empty()) {
-			// draw a black rectangle to represent the missing screenshot.
-			dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
-		} else {
-			// draw a dark gray rectangle to represent no save state.
-			dc.FillRect(UI::Drawable(0x50202020), GetBounds());
-		}
-		if (!text_.empty()) {
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-		}
-	}
-}
-
-static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
+			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(const Path &filename, std::string title, int slot, std::shared_ptr<I18NCategory> i18n, Path gamePath)
+	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
 		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
@@ -181,8 +81,8 @@ protected:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		auto pa = GetI18NCategory("Pause");
-		auto di = GetI18NCategory("Dialog");
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
@@ -238,7 +138,7 @@ UI::EventReturn ScreenshotViewScreen::OnUndoState(UI::EventParams &e) {
 
 class SaveSlotView : public UI::LinearLayout {
 public:
-	SaveSlotView(const Path &gamePath, int slot, UI::LayoutParams *layoutParams = nullptr);
+	SaveSlotView(const Path &gamePath, int slot, bool vertical, UI::LayoutParams *layoutParams = nullptr);
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 90;
@@ -275,7 +175,7 @@ private:
 	Path screenshotFilename_;
 };
 
-SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
+SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, bool vertical, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot), gamePath_(gameFilename) {
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
@@ -284,11 +184,17 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, new UI::LayoutParams(82 * 2, 47 * 2)));
 	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
-	auto pa = GetI18NCategory("Pause");
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
-	LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-	buttons->SetSpacing(2.0);
-	Add(buttons);
+	LinearLayout *lines = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	lines->SetSpacing(2.0f);
+
+	Add(lines);
+
+	LinearLayout *buttons = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	buttons->SetSpacing(10.0f);
+
+	lines->Add(buttons);
 
 	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
@@ -296,18 +202,18 @@ SaveSlotView::SaveSlotView(const Path &gameFilename, int slot, UI::LayoutParams 
 	fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
 
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
-		loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
-		loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+		if (!Achievements::HardcoreModeActive()) {
+			loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
+			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+		}
 
 		std::string dateStr = SaveState::GetSlotDateAsString(gamePath_, slot_);
-		std::vector<std::string> dateStrs;
-		SplitString(dateStr, ' ', dateStrs);
-		if (!dateStrs.empty() && !dateStrs[0].empty()) {
-			LinearLayout *strs = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-			Add(strs);
-			for (size_t i = 0; i < dateStrs.size(); i++) {
-				strs->Add(new TextView(dateStrs[i], new LinearLayoutParams(0.0, G_VCENTER)))->SetShadow(true);
+		if (!dateStr.empty()) {
+			TextView *dateView = new TextView(dateStr, new LinearLayoutParams(0.0, G_VCENTER));
+			if (vertical) {
+				dateView->SetSmall(true);
 			}
+			lines->Add(dateView)->SetShadow(true);
 		}
 	} else {
 		fv->SetFilename(Path());
@@ -352,36 +258,52 @@ void GamePauseScreen::update() {
 	UIScreen::update();
 
 	if (finishNextFrame_) {
-		TriggerFinish(DR_CANCEL);
+		TriggerFinish(finishNextFrameResult_);
 		finishNextFrame_ = false;
 	}
+
+	SetVRAppMode(VRAppMode::VR_MENU_MODE);
+}
+
+GamePauseScreen::GamePauseScreen(const Path &filename)
+	: UIDialogScreenWithGameBackground(filename) {
+	// So we can tell if something blew up while on the pause screen.
+	std::string assertStr = "PauseScreen: " + filename.GetFilename();
+	SetExtraAssertInfo(assertStr.c_str());
 }
 
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
 }
 
-void GamePauseScreen::CreateViews() {
+bool GamePauseScreen::key(const KeyInput &key) {
+	if (!UIScreen::key(key) && (key.flags & KEY_DOWN)) {
+		// Special case to be able to unpause with a bound pause key.
+		// Normally we can't bind keys used in the UI.
+		InputMapping mapping(key.deviceId, key.keyCode);
+		std::vector<int> pspButtons;
+		KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+		for (auto button : pspButtons) {
+			if (button == VIRTKEY_PAUSE) {
+				TriggerFinish(DR_CANCEL);
+				return true;
+			}
+		}
+		return false;
+	}
+	return false;
+}
+
+void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
-	Margins scrollMargins(0, 20, 0, 0);
-	Margins actionMenuMargins(0, 20, 15, 0);
-	auto gr = GetI18NCategory("Graphics");
-	auto pa = GetI18NCategory("Pause");
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
-	root_->Add(leftColumn);
-
-	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	leftColumn->Add(leftColumnItems);
-
-	leftColumnItems->Add(new Spacer(0.0));
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
-		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, vertical, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
 		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
@@ -389,7 +311,7 @@ void GamePauseScreen::CreateViews() {
 	leftColumnItems->Add(new Spacer(0.0));
 
 	LinearLayout *buttonRow = leftColumnItems->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	if (g_Config.bEnableStateUndo) {
+	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive()) {
 		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load")));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(gamePath_));
 		loadUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLoadUndo);
@@ -399,25 +321,88 @@ void GamePauseScreen::CreateViews() {
 		saveUndoButton->OnClick.Handle(this, &GamePauseScreen::OnLastSaveUndo);
 	}
 
-	if (g_Config.iRewindFlipFrequency > 0) {
+	if (g_Config.iRewindSnapshotInterval > 0 && !Achievements::HardcoreModeActive()) {
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
+}
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumn);
+void GamePauseScreen::CreateViews() {
+	using namespace UI;
+
+	bool vertical = UseVerticalLayout();
+
+	Margins scrollMargins(0, 10, 0, 0);
+	Margins actionMenuMargins(0, 10, 15, 0);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
+	root_->Add(leftColumn);
+
+	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	leftColumn->Add(leftColumnItems);
+
+	leftColumnItems->SetSpacing(5.0f);
+	if (Achievements::IsActive()) {
+		leftColumnItems->Add(new GameAchievementSummaryView());
+
+		char buf[512];
+		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
+		if (sz != (size_t)-1) {
+			leftColumnItems->Add(new TextView(std::string_view(buf, sz), new UI::LinearLayoutParams(Margins(5, 5))))->SetSmall(true);
+		}
+	}
+
+	if (!Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode) {
+		CreateSavestateControls(leftColumnItems, vertical);
+	} else {
+		// Let's show the active challenges.
+		std::set<uint32_t> ids = Achievements::GetActiveChallengeIDs();
+		if (!ids.empty()) {
+			leftColumnItems->Add(new ItemHeader(ac->T("Active Challenges")));
+			for (auto id : ids) {
+				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), id);
+				if (!achievement)
+					continue;
+				leftColumnItems->Add(new AchievementView(achievement));
+			}
+		}
+
+		// And tack on an explanation for why savestate options are not available.
+		std::string_view notAvailable = ac->T("Save states not available in Hardcore Mode");
+		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, notAvailable, ""));
+	}
+
+	ViewGroup *middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
+	root_->Add(middleColumn);
+
+	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightColumnHolder->Add(rightColumn);
+
+	root_->Add(rightColumnHolder);
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
 	if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
+		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Add([=](UI::EventParams &) {
+			screenManager()->push(new UmdReplaceScreen());
+			return UI::EVENT_DONE;
+		});
 	}
 	Choice *continueChoice = rightColumnItems->Add(new Choice(pa->T("Continue")));
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	rightColumnItems->Add(new Spacer(25.0));
 
 	std::string gameId = g_paramSFO.GetDiscID();
 	if (g_Config.hasGameConfig(gameId)) {
@@ -427,23 +412,52 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
+	UI::Choice *displayEditor_ = rightColumnItems->Add(new Choice(gr->T("Display layout & effects")));
+	displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		screenManager()->push(new DisplayLayoutScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new CwCheatScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+	}
+	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
+		rightColumnItems->Add(new Choice(ac->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
 	}
 
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
-		auto rp = GetI18NCategory("Reporting");
+		auto rp = GetI18NCategory(I18NCat::REPORTING);
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
 	if (g_Config.bPauseMenuExitsEmulator) {
-		auto mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
+
+	if (!Core_MustRunBehind()) {
+		if (middleColumn) {
+			playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
+			playButton_->OnClick.Add([=](UI::EventParams &e) {
+				g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+				playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+				return UI::EVENT_DONE;
+			});
+		}
+	} else {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		rightColumnHolder->Add(new TextView(nw->T("Network connected")));
+	}
+	rightColumnHolder->Add(new Spacer(10.0f));
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
@@ -473,18 +487,33 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		Path fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
-		auto pa = GetI18NCategory("Pause");
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), pa, gamePath_);
+		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
 		screenManager()->push(screen);
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	if (g_Config.bPauseMenuExitsEmulator) {
-		System_SendMessage("finish", "");
+	// If RAIntegration has dirty info, ask for confirmation.
+	if (Achievements::RAIntegrationDirty()) {
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		screenManager()->push(new PromptScreen(gamePath_, ac->T("You have unsaved RAIntegration changes. Exit?"), di->T("Yes"), di->T("No"), [=](bool result) {
+			if (result) {
+				if (g_Config.bPauseMenuExitsEmulator) {
+					System_ExitApp();
+				} else {
+					finishNextFrameResult_ = DR_OK;  // exit game
+					finishNextFrame_ = true;
+				}
+			}
+		}));
 	} else {
-		TriggerFinish(DR_OK);
+		if (g_Config.bPauseMenuExitsEmulator) {
+			System_ExitApp();
+		} else {
+			TriggerFinish(DR_OK);
+		}
 	}
 	return UI::EVENT_DONE;
 }
@@ -515,48 +544,41 @@ UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
-	screenManager()->push(new UmdReplaceScreen());
-	return UI::EVENT_DONE;
-}
-
 void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-		g_Config.unloadGameConfig();
-		g_Config.deleteGameConfig(info->id);
-		info->hasConfig = false;
-		screenManager()->RecreateAllViews();
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+			g_Config.unloadGameConfig();
+			g_Config.deleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
 	}
 }
 
 UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-	std::string gameId = g_paramSFO.GetDiscID();
-	g_Config.createGameConfig(gameId);
-	g_Config.changeGameSpecific(gameId, info->GetTitle());
-	g_Config.saveGameConfig(gameId, info->GetTitle());
-	if (info) {
-		info->hasConfig = true;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+		std::string gameId = g_paramSFO.GetDiscID();
+		g_Config.createGameConfig(gameId);
+		g_Config.changeGameSpecific(gameId, info->GetTitle());
+		g_Config.saveGameConfig(gameId, info->GetTitle());
+		if (info) {
+			info->hasConfig = true;
+		}
+		screenManager()->topScreen()->RecreateViews();
 	}
-
-	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	auto di = GetI18NCategory("Dialog");
-	auto ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ga = GetI18NCategory(I18NCat::GAME);
 	screenManager()->push(
-		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;

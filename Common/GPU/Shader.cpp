@@ -68,7 +68,6 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		gles = true;
 		forceMatrix4x4 = true;
 		glslES30 = true;
-		texelFetch = "texelFetch";
 		break;
 	case GLSL_VULKAN:
 		fragColor0 = "fragColor0";
@@ -118,7 +117,7 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 	}
 }
 
-void init_resources(TBuiltInResource &Resources) {
+void InitShaderResources(TBuiltInResource &Resources) {
 	Resources.maxLights = 32;
 	Resources.maxClipPlanes = 6;
 	Resources.maxTextureUnits = 32;

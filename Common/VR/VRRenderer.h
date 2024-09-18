@@ -4,8 +4,8 @@
 #include "VRMath.h"
 
 enum VRConfig {
-	//switching between 2D and 3D
-	VR_CONFIG_MODE,
+	//switching between mode
+	VR_CONFIG_MODE, VR_CONFIG_PASSTHROUGH, VR_CONFIG_CANVAS_6DOF, VR_CONFIG_REPROJECTION,
 	//mouse cursor
 	VR_CONFIG_MOUSE_SIZE, VR_CONFIG_MOUSE_X, VR_CONFIG_MOUSE_Y,
 	//viewport setup
@@ -20,19 +20,25 @@ enum VRConfig {
 enum VRConfigFloat {
 	// 2D canvas positioning
 	VR_CONFIG_CANVAS_DISTANCE, VR_CONFIG_MENU_PITCH, VR_CONFIG_MENU_YAW, VR_CONFIG_RECENTER_YAW,
+	VR_CONFIG_CANVAS_ASPECT,
+
+	//viewport setup
+	VR_CONFIG_VIEWPORT_SUPERSAMPLING,
 
 	VR_CONFIG_FLOAT_MAX
 };
 
 enum VRMode {
 	VR_MODE_MONO_SCREEN,
+	VR_MODE_SBS_SCREEN,
 	VR_MODE_STEREO_SCREEN,
 	VR_MODE_MONO_6DOF,
+	VR_MODE_SBS_6DOF,
 	VR_MODE_STEREO_6DOF
 };
 
 void VR_GetResolution( engine_t* engine, int *pWidth, int *pHeight );
-void VR_InitRenderer( engine_t* engine, bool multiview );
+void VR_InitRenderer( engine_t* engine );
 void VR_DestroyRenderer( engine_t* engine );
 
 bool VR_InitFrame( engine_t* engine );
@@ -47,3 +53,4 @@ void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
 XrView VR_GetView(int eye);
+XrVector3f VR_GetHMDAngles();

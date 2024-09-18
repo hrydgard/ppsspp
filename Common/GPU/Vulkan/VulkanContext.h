@@ -35,12 +35,19 @@ enum {
 	VULKAN_VENDOR_ARM = 0x000013B5,  // Mali
 	VULKAN_VENDOR_QUALCOMM = 0x00005143,
 	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
+	VULKAN_VENDOR_APPLE = 0x0000106b,  // Apple through MoltenVK
+	VULKAN_VENDOR_MESA = 0x00010005, // lavapipe
 };
 
 VK_DEFINE_HANDLE(VmaAllocator);
 VK_DEFINE_HANDLE(VmaAllocation);
 
 std::string VulkanVendorString(uint32_t vendorId);
+
+template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
+	newStruct->pNext = root.pNext;
+	root.pNext = newStruct;
+}
 
 // Not all will be usable on all platforms, of course...
 enum WindowSystem {
@@ -73,6 +80,7 @@ struct VulkanPhysicalDeviceInfo {
 };
 
 class VulkanProfiler;
+class VulkanContext;
 
 // Extremely rough split of capabilities.
 enum class PerfClass {
@@ -92,11 +100,11 @@ class VulkanDeleteList {
 	};
 
 	struct Callback {
-		explicit Callback(void(*f)(void *userdata), void *u)
+		explicit Callback(void(*f)(VulkanContext *vulkan, void *userdata), void *u)
 			: func(f), userdata(u) {
 		}
 
-		void(*func)(void *userdata);
+		void (*func)(VulkanContext *vulkan, void *userdata);
 		void *userdata;
 	};
 
@@ -116,7 +124,8 @@ public:
 	void QueueDeleteFramebuffer(VkFramebuffer &framebuffer) { _dbg_assert_(framebuffer != VK_NULL_HANDLE); framebuffers_.push_back(framebuffer); framebuffer = VK_NULL_HANDLE; }
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
-	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
+	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -132,7 +141,11 @@ public:
 	}
 
 	void Take(VulkanDeleteList &del);
-	void PerformDeletes(VkDevice device, VmaAllocator allocator);
+	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
+
+	int GetLastDeleteCount() const {
+		return deleteCount_;
+	}
 
 private:
 	std::vector<VkCommandPool> cmdPools_;
@@ -151,7 +164,9 @@ private:
 	std::vector<VkFramebuffer> framebuffers_;
 	std::vector<VkPipelineLayout> pipelineLayouts_;
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
+	std::vector<VkQueryPool> queryPools_;
 	std::vector<Callback> callbacks_;
+	int deleteCount_ = 0;
 };
 
 // VulkanContext manages the device and swapchain, and deferred deletion of objects.
@@ -170,11 +185,18 @@ public:
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice();
-	int GetPhysicalDeviceByName(std::string name);
-	void ChooseDevice(int physical_device);
-	bool EnableInstanceExtension(const char *extension);
-	bool EnableDeviceExtension(const char *extension);
-	VkResult CreateDevice();
+	int GetPhysicalDeviceByName(const std::string &name);
+
+	// Convenience method to avoid code duplication.
+	// If it returns false, delete the context.
+	bool CreateInstanceAndDevice(const CreateInfo &info);
+
+	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
+	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
+	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
+
+	// Was previously two functions, ChooseDevice and CreateDevice.
+	VkResult CreateDevice(int physical_device);
 
 	const std::string &InitError() const { return init_error_; }
 
@@ -218,7 +240,8 @@ public:
 	// Simple workaround for the casting warning.
 	template <class T>
 	void SetDebugName(T handle, VkObjectType type, const char *name) {
-		if (extensionsLookup_.EXT_debug_utils) {
+		if (extensionsLookup_.EXT_debug_utils && handle != VK_NULL_HANDLE) {
+			_dbg_assert_(handle != VK_NULL_HANDLE);
 			SetDebugNameImpl((uint64_t)handle, type, name);
 		}
 	}
@@ -253,11 +276,15 @@ public:
 		VkPhysicalDeviceProperties properties;
 		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
 		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
+		VkPhysicalDeviceDepthStencilResolveProperties depthStencilResolve;
 	};
 
 	struct AllPhysicalDeviceFeatures {
 		VkPhysicalDeviceFeatures standard;
 		VkPhysicalDeviceMultiviewFeatures multiview;
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
+		VkPhysicalDevicePresentIdFeaturesKHR presentId;
+		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
@@ -283,6 +310,17 @@ public:
 		return device_extensions_enabled_;
 	}
 
+	const std::vector<VkExtensionProperties> &GetInstanceExtensionsAvailable() const {
+		return instance_extension_properties_;
+	}
+	const std::vector<const char *> &GetInstanceExtensionsEnabled() const {
+		return instance_extensions_enabled_;
+	}
+
+	const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const {
+		return memory_properties_;
+	}
+
 	struct PhysicalDeviceFeatures {
 		AllPhysicalDeviceFeatures available{};
 		AllPhysicalDeviceFeatures enabled{};
@@ -292,11 +330,21 @@ public:
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
-	bool IsInstanceExtensionAvailable(const char *name) const {
-		for (auto &iter : instance_extension_properties_) {
-			if (!strcmp(name, iter.extensionName))
+	bool IsInstanceExtensionAvailable(const char *extensionName) const {
+		for (const auto &iter : instance_extension_properties_) {
+			if (!strcmp(extensionName, iter.extensionName))
 				return true;
 		}
+
+		// Also search through the layers, one of them might carry the extension (especially DEBUG_utils)
+		for (const auto &iter : instance_layer_properties_) {
+			for (const auto &ext : iter.extensions) {
+				if (!strcmp(extensionName, ext.extensionName)) {
+					return true;
+				}
+			}
+		}
+
 		return false;
 	}
 
@@ -309,6 +357,7 @@ public:
 	}
 
 	int GetInflightFrames() const {
+		// out of MAX_INFLIGHT_FRAMES.
 		return inflightFrames_;
 	}
 	// Don't call while a frame is in progress.
@@ -353,6 +402,18 @@ public:
 		return surfFormats_;
 	}
 
+	VkPresentModeKHR GetPresentMode() const {
+		return presentMode_;
+	}
+
+	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
+		return availablePresentModes_;
+	}
+
+	int GetLastDeleteCount() const {
+		return frame_[curFrame_].deleteList.GetLastDeleteCount();
+	}
+
 private:
 	bool ChooseQueue();
 
@@ -368,17 +429,19 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_;
+	WindowSystem winsys_{};
+
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
-	void *winsysData1_;
-	void *winsysData2_;
+	void *winsysData1_ = nullptr;
+	void *winsysData2_ = nullptr;
 	std::function<VkExtent2D()> cbGetDrawSize_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;
 	VkDevice device_ = VK_NULL_HANDLE;
 	VkQueue gfx_queue_ = VK_NULL_HANDLE;
 	VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+	u32 vulkanApiVersion_ = 0;
 
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
@@ -401,7 +464,8 @@ private:
 	uint32_t graphics_queue_family_index_ = -1;
 	std::vector<PhysicalDeviceProps> physicalDeviceProperties_;
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
-	VkPhysicalDeviceMemoryProperties memory_properties{};
+
+	VkPhysicalDeviceMemoryProperties memory_properties_{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};
@@ -429,7 +493,7 @@ private:
 	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
-	VkFormat swapchainFormat_;
+	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
 	uint32_t queue_count = 0;
 
@@ -438,16 +502,13 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
+	VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
+	std::vector<VkPresentModeKHR> availablePresentModes_;
+
 	std::vector<VkCommandBuffer> cmdQueue_;
 
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
 };
-
-// Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
 
 // GLSL compiler
 void init_glslang();
@@ -463,6 +524,8 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
+const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 

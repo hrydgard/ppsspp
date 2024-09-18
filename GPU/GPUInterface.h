@@ -31,6 +31,7 @@
 struct PspGeListArgs;
 struct GPUgstate;
 class PointerWrap;
+struct VirtualFramebuffer;
 
 enum DisplayListStatus {
 	// The list has been completed
@@ -116,24 +117,15 @@ ENUM_CLASS_BITOPS(WriteStencil);
 
 enum class GPUCopyFlag {
 	NONE = 0,
-	FORCE_SRC_MEM = 1,
-	FORCE_DST_MEM = 2,
-	// Note: implies src == dst and FORCE_SRC_MEM.
+	FORCE_SRC_MATCH_MEM = 1,
+	FORCE_DST_MATCH_MEM = 2,
+	// Note: implies src == dst and FORCE_SRC_MATCH_MEM.
 	MEMSET = 4,
 	DEPTH_REQUESTED = 8,
 	DEBUG_NOTIFIED = 16,
+	DISALLOW_CREATE_VFB = 32,
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
-
-// Used for debug
-struct FramebufferInfo {
-	u32 fb_address;
-	u32 z_address;
-	int format;
-	u32 width;
-	u32 height;
-	void* fbo;
-};
 
 struct DisplayListStackEntry {
 	u32 pc;
@@ -189,14 +181,15 @@ public:
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 
 	// Initialization
-	virtual bool IsReady() = 0;
-	virtual void CancelReady() = 0;
-	virtual void InitClear() = 0;
+	virtual bool IsStarted() = 0;
 	virtual void Reinitialize() = 0;
 
 	// Frame managment
 	virtual void BeginHostFrame() = 0;
 	virtual void EndHostFrame() = 0;
+
+	virtual void CheckDisplayResized() = 0;
+	virtual void CheckConfigChanged() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
@@ -217,12 +210,11 @@ public:
 	virtual void InterruptEnd(int listid) = 0;
 	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) = 0;
 
-	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
-	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
+	virtual void PSPFrame() = 0;
 	virtual void CopyDisplayToOutput(bool reallyDirty) = 0;
 
 	// Tells the GPU to update the gpuStats structure.
@@ -249,17 +241,19 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	virtual void Resized() = 0;
-	virtual void ClearShaderCache() = 0;
-	virtual void CleanupBeforeUI() = 0;
+	virtual void NotifyDisplayResized() = 0;
+	virtual void NotifyRenderResized() = 0;
+	virtual void NotifyConfigChanged() = 0;
+
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
+	virtual bool PresentedThisFrame() const = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
@@ -269,7 +263,7 @@ public:
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
 	// TODO: Currently Qt only, needs to be cleaned up.
-	virtual std::vector<FramebufferInfo> GetFramebufferList() const = 0;
+	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
 	virtual s64 GetListTicks(int listid) const = 0;
 
 	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.

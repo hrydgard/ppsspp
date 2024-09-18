@@ -16,11 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+#include <mutex>
 
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -30,20 +34,12 @@
 
 namespace HLEPlugins {
 
+std::mutex g_inputMutex;
+float PluginDataAxis[JOYSTICK_AXIS_MAX];
+std::map<int, uint8_t> PluginDataKeys;
+
 static bool anyEnabled = false;
 static std::vector<std::string> prxPlugins;
-
-enum class PluginType {
-	INVALID = 0,
-	PRX,
-};
-
-struct PluginInfo {
-	PluginType type;
-	std::string filename;
-	int version;
-	uint32_t memory;
-};
 
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	PluginInfo info;
@@ -58,30 +54,35 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	}
 
 	if (options->Get("filename", &value, "")) {
+		info.name = value;
 		info.filename = "ms0:/PSP/PLUGINS/" + subdir + "/" + value;
 	} else {
 		info.type = PluginType::INVALID;
 	}
 
+	if (options->Get("name", &value, "")) {
+		info.name = value;
+	}
+
 	options->Get("version", &info.version, 0);
 	options->Get("memory", &info.memory, 0);
 	if (info.memory > 93) {
-		ERROR_LOG(SYSTEM, "Plugin memory too high, using 93 MB");
+		ERROR_LOG(Log::System, "Plugin memory too high, using 93 MB");
 		info.memory = 93;
 	}
 
 	if (info.version == 0) {
-		ERROR_LOG(SYSTEM, "Plugin without version ignored: %s", subdir.c_str());
+		ERROR_LOG(Log::System, "Plugin without version ignored: %s", subdir.c_str());
 		info.type = PluginType::INVALID;
 		info.memory = 0;
 	} else if (info.type == PluginType::INVALID && !info.filename.empty()) {
-		ERROR_LOG(SYSTEM, "Plugin without valid type: %s", subdir.c_str());
+		ERROR_LOG(Log::System, "Plugin without valid type: %s", subdir.c_str());
 	}
 
 	return info;
 }
 
-static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
+std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
 	std::vector<File::FileInfo> pluginDirs;
 	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS), &pluginDirs);
 
@@ -93,33 +94,40 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 
 		IniFile ini;
 		if (!ini.Load(subdirFullName / "plugin.ini")) {
-			ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/plugin.ini", subdirFullName.c_str());
+			ERROR_LOG(Log::System, "Failed to load plugin ini: %s/plugin.ini", subdirFullName.c_str());
 			continue;
 		}
 
 		std::set<std::string> matches;
 
 		std::string gameIni;
-		if (ini.GetOrCreateSection("games")->Get("ALL", &gameIni, "")) {
-			if (!strcasecmp(gameIni.c_str(), "true")) {
-				matches.insert("plugin.ini");
-			} else if (!gameIni.empty()) {
-				matches.insert(gameIni);
-			}
-		}
 
-		if (ini.GetOrCreateSection("games")->Get(gameID.c_str(), &gameIni, "")) {
-			if (!strcasecmp(gameIni.c_str(), "true")) {
-				matches.insert("plugin.ini");
-			} else if (!gameIni.empty()) {
-				matches.insert(gameIni);
+		// TODO: Should just use getsection and fail the ini if not found, I guess.
+		const Section *games = ini.GetSection("games");
+		if (games) {
+			if (games->Get(gameID.c_str(), &gameIni, "")) {
+				if (!strcasecmp(gameIni.c_str(), "true")) {
+					matches.insert("plugin.ini");
+				} else if (!strcasecmp(gameIni.c_str(), "false")) {
+					continue;
+				} else if (!gameIni.empty()) {
+					matches.insert(gameIni);
+				}
+			}
+
+			if (games->Get("ALL", &gameIni, "")) {
+				if (!strcasecmp(gameIni.c_str(), "true")) {
+					matches.insert("plugin.ini");
+				} else if (!gameIni.empty()) {
+					matches.insert(gameIni);
+				}
 			}
 		}
 
 		std::set<std::string> langMatches;
 		for (const std::string &subini : matches) {
 			if (!ini.Load(subdirFullName / subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
+				ERROR_LOG(Log::System, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 
@@ -134,7 +142,7 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 
 		for (const std::string &subini : langMatches) {
 			if (!ini.Load(subdirFullName / subini)) {
-				ERROR_LOG(SYSTEM, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
+				ERROR_LOG(Log::System, "Failed to load plugin ini: %s/%s", subdirFullName.c_str(), subini.c_str());
 				continue;
 			}
 
@@ -166,27 +174,36 @@ void Init() {
 
 bool Load() {
 	bool started = false;
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+
 	for (const std::string &filename : prxPlugins) {
-		std::string error_string = "";
-		SceUID module = KernelLoadModule(filename, &error_string);
-		if (!error_string.empty()) {
-			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %s", filename.c_str(), error_string.c_str());
+		if (!g_Config.bEnablePlugins) {
+			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
 			continue;
 		}
-		if (module < 0) {
-			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %08x", filename.c_str(), module);
+
+		std::string error_string = "";
+		SceUID module = KernelLoadModule(filename, &error_string);
+		if (!error_string.empty() || module < 0) {
+			ERROR_LOG(Log::System, "Unable to load plugin %s (module %d): '%s'", filename.c_str(), module, error_string.c_str());
 			continue;
 		}
 
 		int ret = KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
-			ERROR_LOG(SYSTEM, "Unable to start plugin %s: %08x", filename.c_str(), ret);
+			ERROR_LOG(Log::System, "Unable to start plugin %s: %08x", filename.c_str(), ret);
+		} else {
+			std::string shortName = Path(filename).GetFilename();
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName), 6.0f);
+			started = true;
 		}
 
-		INFO_LOG(SYSTEM, "Loaded plugin: %s", filename.c_str());
-		started = true;
+		INFO_LOG(Log::System, "Loaded plugin: %s", filename.c_str());
 	}
 
+	std::lock_guard<std::mutex> guard(g_inputMutex);
+	PluginDataKeys.clear();
 	return started;
 }
 
@@ -197,6 +214,8 @@ void Unload() {
 void Shutdown() {
 	prxPlugins.clear();
 	anyEnabled = false;
+	std::lock_guard<std::mutex> guard(g_inputMutex);
+	PluginDataKeys.clear();
 }
 
 void DoState(PointerWrap &p) {
@@ -212,4 +231,16 @@ bool HasEnabled() {
 	return anyEnabled;
 }
 
-};
+void SetKey(int key, uint8_t value) {
+	if (anyEnabled) {
+		std::lock_guard<std::mutex> guard(g_inputMutex);
+		PluginDataKeys[key] = value;
+	}
+}
+
+uint8_t GetKey(int key) {
+	std::lock_guard<std::mutex> guard(g_inputMutex);
+	return PluginDataKeys[key];
+}
+
+}  // namespace

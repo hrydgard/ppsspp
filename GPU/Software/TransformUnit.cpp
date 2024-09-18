@@ -41,26 +41,26 @@
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
 TransformUnit::TransformUnit() {
-	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
+	if (!decoded_)
+		return;
 	binner_ = new BinManager();
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
+	FreeAlignedMemory(decoded_);
 	delete binner_;
 }
 
+bool TransformUnit::IsStarted() {
+	return binner_ && decoded_;
+}
+
 SoftwareDrawEngine::SoftwareDrawEngine() {
-	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	flushOnParams_ = false;
 }
 
-SoftwareDrawEngine::~SoftwareDrawEngine() {
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-}
+SoftwareDrawEngine::~SoftwareDrawEngine() {}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
 	DrawEngineCommon::NotifyConfigChanged();
@@ -71,8 +71,8 @@ void SoftwareDrawEngine::DispatchFlush() {
 	transformUnit.Flush("debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+	_assert_msg_(clockwise, "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
@@ -162,7 +162,7 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
 	return Vec3ByMatrix44(coords, gstate.projMatrix);
 }
 
-template <bool depthClamp, bool writeOutsideFlag>
+template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	ScreenCoords ret;
 
@@ -171,9 +171,9 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
 
 	// This matches hardware tests - depth is clamped when this flag is on.
-	if (depthClamp) {
+	if constexpr (depthClamp) {
 		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
-		if (writeOutsideFlag && coords.z > -coords.w && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		if ((alwaysCheckRange || coords.z > -coords.w) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
 			*outside_range_flag = true;
 		}
 
@@ -181,7 +181,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 			scaled.z = 0.f;
 		else if (scaled.z > 65535.0f)
 			scaled.z = 65535.0f;
-	} else if (writeOutsideFlag && (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+	} else if (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0 || scaled.z < 0.0f || scaled.z >= 65536.0f) {
 		*outside_range_flag = true;
 	}
 
@@ -209,17 +209,13 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float z = coords.z * zScale / coords.w + zCenter;
 
 	if (gstate.isDepthClampEnabled()) {
-		if (outside_range_flag)
-			return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
-		return ClipToScreenInternal<true, false>(Vec3f(x, y, z), coords, outside_range_flag);
+		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
-	if (outside_range_flag)
-		return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
-	return ClipToScreenInternal<false, false>(Vec3f(x, y, z), coords, outside_range_flag);
+	return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
 }
 
-ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords) {
-	return ClipToScreenInternal(coords, nullptr);
+ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag) {
+	return ClipToScreenInternal(coords, outsideRangeFlag);
 }
 
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
@@ -271,12 +267,9 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		bool canSkipWorldPos = true;
 		if (state->enableLighting) {
 			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
-			for (int i = 0; i < 4; ++i) {
-				if (!state->lightingState.lights[i].enabled)
-					continue;
-				if (!state->lightingState.lights[i].directional)
-					canSkipWorldPos = false;
-			}
+			canSkipWorldPos = !state->lightingState.usesWorldPos;
+		} else {
+			state->lightingState.usesWorldNormal = state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 		}
 
 		float world[16];
@@ -299,17 +292,34 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
 			float fogSlope = getFloat24(gstate.fog2);
-			// Same fixup as in ShaderManagerGLES.cpp
-			if (my_isnanorinf(fogEnd)) {
-				fogEnd = std::signbit(fogEnd) ? -INFINITY : INFINITY;
-			}
-			if (my_isnanorinf(fogSlope)) {
-				fogSlope = std::signbit(fogSlope) ? -INFINITY : INFINITY;
-			}
 
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
-			state->posToFog *= fogSlope;
+
+			// If either are NAN/INF, we simplify so there's no inf + -inf muddying things.
+			// This is required for Outrun to render proper skies, for example.
+			// The PSP treats these exponents as if they were valid.
+			if (my_isnanorinf(fogEnd)) {
+				bool sign = std::signbit(fogEnd);
+				// The multiply would reverse it if it wasn't infinity (doesn't matter if it's infnan.)
+				if (std::signbit(fogSlope))
+					sign = !sign;
+				// Also allow a multiply by zero (slope) to result in zero, regardless of sign.
+				// Act like it was negative and clamped to zero.
+				if (fogSlope == 0.0f)
+					sign = true;
+
+				// Since this is constant for the entire draw, we don't even use infinity.
+				float forced = sign ? 0.0f : 1.0f;
+				state->posToFog = Vec4f(0.0f, 0.0f, 0.0f, forced);
+			} else if (my_isnanorinf(fogSlope)) {
+				// We can't have signs differ with infinities, so we use a large value.
+				// Anything outside [0, 1] will clamp, so this essentially forces extremes.
+				fogSlope = std::signbit(fogSlope) ? -262144.0f : 262144.0f;
+				state->posToFog *= fogSlope;
+			} else {
+				state->posToFog *= fogSlope;
+			}
 		}
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
@@ -317,12 +327,37 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	}
 
 	if (gstate.isDepthClampEnabled())
-		state->roundToScreen = &ClipToScreenInternal<true, true>;
+		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
-		state->roundToScreen = &ClipToScreenInternal<false, true>;
+		state->roundToScreen = &ClipToScreenInternal<false, false>;
 }
 
-ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformState &state) {
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128 Dot43SSE4(__m128 a, __m128 b) {
+	__m128 multiplied = _mm_mul_ps(a, _mm_insert_ps(b, _mm_set1_ps(1.0f), 0x30));
+	__m128 lanes3311 = _mm_movehdup_ps(multiplied);
+	__m128 partial = _mm_add_ps(multiplied, lanes3311);
+	return _mm_add_ss(partial, _mm_movehl_ps(lanes3311, partial));
+}
+#endif
+
+static inline float Dot43(const Vec4f &a, const Vec3f &b) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	if (cpu_info.bSSE4_1)
+		return _mm_cvtss_f32(Dot43SSE4(a.vec, b.vec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t multipled = vmulq_f32(a.vec, vsetq_lane_f32(1.0f, b.vec, 3));
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	return vget_lane_f32(add2, 0);
+#endif
+	return Dot(a, Vec4f(b, 1.0f));
+}
+
+ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state) {
 	PROFILE_THIS_SCOPE("read_vert");
 	// If we ever thread this, we'll have to change this.
 	ClipVertexData vertex;
@@ -348,7 +383,7 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 		normal = -normal;
 
 	if (vreader.hasColor0()) {
-		vreader.ReadColor0_8888((u8 *)&vertex.v.color0);
+		vertex.v.color0 = vreader.ReadColor0_8888();
 	} else {
 		vertex.v.color0 = gstate.getMaterialAmbientRGBA();
 	}
@@ -386,14 +421,14 @@ ClipVertexData TransformUnit::ReadVertex(VertexReader &vreader, const TransformS
 		}
 
 		if (state.enableFog) {
-			vertex.v.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
+			vertex.v.fogdepth = Dot43(state.posToFog, pos);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
 		vertex.v.clipw = vertex.clippos.w;
 
 		Vec3<float> worldnormal;
-		if (state.enableLighting || state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
+		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
 			worldnormal.NormalizeOr001();
 		}
@@ -459,12 +494,12 @@ public:
 		if (useIndices_)
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
 		if (vertex_count != 0)
-			vdecoder.DecodeVerts(base, vertices, lowerBound_, upperBound_);
+			vdecoder.DecodeVerts(base, vertices, &gstate_c.uv, lowerBound_, upperBound_);
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
 		// However, if we're reusing a lot of verts, we should read and cache them.
 		useCache_ = useIndices_ && vertex_count > (upperBound_ - lowerBound_ + 1);
-		if (useCache_ && cached_.size() < upperBound_ - lowerBound_ + 1)
+		if (useCache_ && (int)cached_.size() < upperBound_ - lowerBound_ + 1)
 			cached_.resize(std::max(128, upperBound_ - lowerBound_ + 1));
 	}
 
@@ -556,10 +591,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		// Some games send rectangles as a series of regular triangles.
 		// We look for this, but only in throughmode.
 		ClipVertexData buf[6];
-		int buf_index = data_index_;
-		for (int i = 0; i < data_index_; ++i) {
-			buf[i] = data_[i];
-		}
+		// Could start at data_index_ and copy to buf, but there's little reason.
+		int buf_index = 0;
+		_assert_(data_index_ == 0);
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
 			buf[buf_index++] = vreader.Read(vtx);
@@ -801,7 +835,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		}
 
 	default:
-		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
+		ERROR_LOG(Log::G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
 }
@@ -916,11 +950,11 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
 					// These aren't documented and should be rare.  Let's bounds check each one.
 					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
 					}
 					indices[i] = (u16)inds32[i];
 				}
@@ -977,7 +1011,8 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			vertices[i].z = vert.pos.z;
 		} else {
 			Vec4f clipPos = Vec3ByMatrix44(vert.pos, worldviewproj);
-			ScreenCoords screenPos = ClipToScreen(clipPos);
+			bool outsideRangeFlag;
+			ScreenCoords screenPos = ClipToScreen(clipPos, &outsideRangeFlag);
 			float z = clipPos.z * zScale / clipPos.w + zCenter;
 
 			if (gstate.vertType & GE_VTYPE_TC_MASK) {

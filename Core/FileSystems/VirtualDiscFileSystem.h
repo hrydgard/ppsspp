@@ -25,6 +25,8 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
+extern const std::string INDEX_FILENAME;
+
 class VirtualDiscFileSystem: public IFileSystem {
 public:
 	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath);
@@ -64,9 +66,9 @@ private:
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;
 	typedef s64 HandlerOffset;
-	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
-	static void HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	static void HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
 	// The primary purpose of handlers is to make it easier to work with large archives.
 	// However, they have other uses as well, such as patching individual files.
@@ -76,14 +78,18 @@ private:
 
 		typedef bool (*InitFunc)(HandlerLogFunc logger, void *loggerArg);
 		typedef void (*ShutdownFunc)();
+		typedef void (*ShutdownV2Func)(void *loggerArg);
 		typedef HandlerHandle (*OpenFunc)(const char *basePath, const char *filename);
 		typedef HandlerOffset (*SeekFunc)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
 		typedef HandlerOffset (*ReadFunc)(HandlerHandle handle, void *data, HandlerOffset size);
 		typedef void (*CloseFunc)(HandlerHandle handle);
+		typedef int (*VersionFunc)();
 
 		HandlerLibrary library;
+		VirtualDiscFileSystem *const sys_;
 		InitFunc Init;
 		ShutdownFunc Shutdown;
+		ShutdownV2Func ShutdownV2;
 		OpenFunc Open;
 		SeekFunc Seek;
 		ReadFunc Read;

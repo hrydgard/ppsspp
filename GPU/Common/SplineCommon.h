@@ -27,6 +27,7 @@
 #define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
 
 // PSP compatible format so we can use the end of the pipeline in beziers etc
+// 8 + 4 + 12 + 12 = 36 bytes
 struct SimpleVertex {
 	float uv[2];
 	union {
@@ -63,7 +64,7 @@ struct SurfaceInfo {
 	GEPatchPrimType primType;
 	bool patchFacing;
 
-	void Init() {
+	void BaseInit() {
 		// If specified as 0, uses 1.
 		if (tess_u < 1) tess_u = 1;
 		if (tess_v < 1) tess_v = 1;
@@ -88,7 +89,7 @@ struct BezierSurface : public SurfaceInfo {
 	int num_verts_per_patch;
 
 	void Init(int maxVertices) {
-		SurfaceInfo::Init();
+		SurfaceInfo::BaseInit();
 		// Downsample until it fits, in case crazy tessellation factors are sent.
 		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
 			tess_u--;
@@ -126,7 +127,7 @@ struct SplineSurface : public SurfaceInfo {
 	int num_vertices_u;
 
 	void Init(int maxVertices) {
-		SurfaceInfo::Init();
+		SurfaceInfo::BaseInit();
 		// Downsample until it fits, in case crazy tessellation factors are sent.
 		while ((num_patches_u * tess_u + 1) * (num_patches_v * tess_v + 1) > maxVertices) {
 			tess_u--;

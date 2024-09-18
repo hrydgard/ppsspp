@@ -19,30 +19,38 @@
 
 #include <functional>
 
+#include "Common/File/Path.h"
+
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 
 #include "UI/MiscScreens.h"
 
+class SavedataView;
+
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
 	InstallZipScreen(const Path &zipPath);
-	virtual void update() override;
-	virtual bool key(const KeyInput &key) override;
+	void update() override;
+	bool key(const KeyInput &key) override;
 
 	const char *tag() const override { return "InstallZip"; }
 
 protected:
-	virtual void CreateViews() override;
+	void CreateViews() override;
 
 private:
 	UI::EventReturn OnInstall(UI::EventParams &params);
 
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
-	UI::ProgressBar *progressBar_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
+	SavedataView *existingSaveView_ = nullptr;
+	Path savedataToOverwrite_;
 	Path zipPath_;
+	std::vector<Path> destFolders_;
+	int destFolderChoice_ = 0;
+	ZipFileInfo zipFileInfo_{};
 	bool returnToHomebrew_ = true;
 	bool installStarted_ = false;
 	bool deleteZipFile_ = false;

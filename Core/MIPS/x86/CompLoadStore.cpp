@@ -44,6 +44,7 @@
 // #define CONDITIONAL_DISABLE(flag) { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
+#define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 	using namespace Gen;
@@ -79,7 +80,7 @@ namespace MIPSComp {
 		return in;
 	}
 
-	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc)
+	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc, bool makeRTWritable)
 	{
 		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
@@ -89,7 +90,10 @@ namespace MIPSComp {
 		gpr.Lock(rt, rs);
 		
 		if (rt == MIPS_REG_ZERO || gpr.R(rt).IsImm()) {
-			// NOTICE_LOG(JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
+			if (makeRTWritable) {
+				gpr.MapReg(rt, true, true);
+			}
+			// NOTICE_LOG(Log::JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
 		} else {
 			gpr.MapReg(rt, true, false);
 		}
@@ -286,12 +290,15 @@ namespace MIPSComp {
 	{
 		CONDITIONAL_DISABLE(LSU);
 		int offset = _IMM16;
+		MIPSGPReg rs = _RS;
 		MIPSGPReg rt = _RT;
 		int o = op>>26;
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
 		}
+
+		CheckMemoryBreakpoint(0, rs, offset);
 
 		switch (o)
 		{
@@ -334,6 +341,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset - 3);
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
 					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
@@ -350,6 +358,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset + 3);
 					EatInstruction(nextOp);
 					// op has the correct address.
 					CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
@@ -366,6 +375,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset - 3);
 					EatInstruction(nextOp);
 					// nextOp has the correct address.
 					CompITypeMemWrite(nextOp, 32, safeMemFuncs.writeU32);
@@ -382,6 +392,7 @@ namespace MIPSComp {
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp && !jo.Disabled(JitDisable::LSU_UNALIGNED))
 				{
+					CheckMemoryBreakpoint(1, rs, offset + 3);
 					EatInstruction(nextOp);
 					// op has the correct address.
 					CompITypeMemWrite(op, 32, safeMemFuncs.writeU32);
@@ -396,6 +407,48 @@ namespace MIPSComp {
 			return;
 		}
 
+	}
+
+	void Jit::Comp_StoreSync(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(LSU);
+
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
+		// Note: still does something even if loading to zero.
+
+		CheckMemoryBreakpoint(0, rs, offset);
+
+		FixupBranch skipStore;
+		FixupBranch finish;
+		switch (op >> 26) {
+		case 48: // ll
+			CompITypeMemRead(op, 32, &XEmitter::MOVZX, safeMemFuncs.readU32);
+			MOV(8, MDisp(X64JitConstants::CTXREG, -128 + offsetof(MIPSState, llBit)), Imm8(1));
+			break;
+
+		case 56: // sc
+			// Map before the jump in case any regs spill.  Unlock happens inside CompITypeMemWrite().
+			// This is not a very common op, but it's in jit so memory breakpoints can trip.
+			gpr.Lock(rt, rs);
+			gpr.MapReg(rt, true, true);
+			gpr.MapReg(rs, true, false);
+
+			CMP(8, MDisp(X64JitConstants::CTXREG, -128 + offsetof(MIPSState, llBit)), Imm8(1));
+			skipStore = J_CC(CC_NE);
+
+			CompITypeMemWrite(op, 32, safeMemFuncs.writeU32, true);
+			MOV(32, gpr.R(rt), Imm32(1));
+			finish = J();
+
+			SetJumpTarget(skipStore);
+			MOV(32, gpr.R(rt), Imm32(0));
+			SetJumpTarget(finish);
+			break;
+
+		default:
+			INVALIDOP;
+		}
 	}
 
 	void Jit::Comp_Cache(MIPSOpcode op) {

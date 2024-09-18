@@ -19,8 +19,10 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Compatibility.h"
@@ -97,6 +99,10 @@ static void MemoryStick_CalcInitialFree() {
 	std::unique_lock<std::mutex> guard(freeCalcMutex);
 	freeCalcStatus = FreeCalcStatus::RUNNING;
 	freeCalcThread = std::thread([] {
+		SetCurrentThreadName("CalcInitialFree");
+
+		AndroidJNIThreadContext jniContext;
+
 		memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
 
 		std::unique_lock<std::mutex> guard(freeCalcMutex);

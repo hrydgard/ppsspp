@@ -87,6 +87,9 @@ struct MemCheck {
 	BreakAction result = BREAK_ACTION_IGNORE;
 	std::string logFormat;
 
+	bool hasCondition = false;
+	BreakPointCond condition;
+
 	u32 numHits = 0;
 
 	u32 lastPC = 0;
@@ -97,10 +100,6 @@ struct MemCheck {
 	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
 	// Called on a copy.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
-	void JitBeforeApply(u32 addr, bool write, int size, u32 pc);
-	void JitBeforeAction(u32 addr, bool write, int size, u32 pc);
-	bool JitApplyChanged();
-	void JitCleanup(bool changed);
 
 	void Log(u32 addr, bool write, int size, u32 pc, const char *reason);
 
@@ -115,7 +114,7 @@ struct MemCheck {
 
 // BreakPoints cannot overlap, only one is allowed per address.
 // MemChecks can overlap, as long as their ends are different.
-// WARNING: MemChecks are not used in the interpreter or HLE currently.
+// WARNING: MemChecks are not always tracked in HLE currently.
 class CBreakPoints
 {
 public:
@@ -147,6 +146,10 @@ public:
 	static void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	static void ClearAllMemChecks();
 
+	static void ChangeMemCheckAddCond(u32 start, u32 end, const BreakPointCond &cond);
+	static void ChangeMemCheckRemoveCond(u32 start, u32 end);
+	static BreakPointCond *GetMemCheckCondition(u32 start, u32 end);
+
 	static void ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt);
 
 	static bool GetMemCheck(u32 start, u32 end, MemCheck *check);
@@ -154,19 +157,16 @@ public:
 	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason);
 	static BreakAction ExecOpMemCheck(u32 address, u32 pc);
 
-	// Executes memchecks but used by the jit.  Cleanup finalizes after jit is done.
-	static void ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc);
-	static void ExecMemCheckJitCleanup();
-
 	static void SetSkipFirst(u32 pc);
 	static u32 CheckSkipFirst();
 
 	// Includes uncached addresses.
-	static const std::vector<MemCheck> GetMemCheckRanges(bool write);
+	static std::vector<MemCheck> GetMemCheckRanges(bool write);
 
-	static const std::vector<MemCheck> GetMemChecks();
-	static const std::vector<BreakPoint> GetBreakpoints();
+	static std::vector<MemCheck> GetMemChecks();
+	static std::vector<BreakPoint> GetBreakpoints();
 
+	static bool HasBreakPoints();
 	static bool HasMemChecks();
 
 	static void Update(u32 addr = 0);
@@ -179,13 +179,15 @@ private:
 	// Finds exactly, not using a range check.
 	static size_t FindMemCheck(u32 start, u32 end);
 	static MemCheck *GetMemCheckLocked(u32 address, int size);
+	static void UpdateCachedMemCheckRanges();
 
 	static std::vector<BreakPoint> breakPoints_;
 	static u32 breakSkipFirstAt_;
 	static u64 breakSkipFirstTicks_;
 
 	static std::vector<MemCheck> memChecks_;
-	static std::vector<MemCheck *> cleanupMemChecks_;
+	static std::vector<MemCheck> memCheckRangesRead_;
+	static std::vector<MemCheck> memCheckRangesWrite_;
 };
 
 

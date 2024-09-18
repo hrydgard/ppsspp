@@ -24,6 +24,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
@@ -39,8 +40,13 @@ static u32 backlightOffTime;
 
 void __ImposeInit()
 {
-	language = g_Config.iLanguage;
-	buttonValue = g_Config.iButtonPreference;
+	language = g_Config.GetPSPLanguage();
+	if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
+		if (language != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && language != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
+			language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		}
+	}
+	buttonValue = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm ? PSP_SYSTEMPARAM_BUTTON_CIRCLE : g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
 }
@@ -59,7 +65,7 @@ void __ImposeDoState(PointerWrap &p)
 
 static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
 		Memory::Write_U32(PSP_IMPOSE_BATTICON_NONE, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
@@ -67,17 +73,18 @@ static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 	return 0;
 }
 
-static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
-{
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
+static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
-	return 0;
+	if (language != g_Config.GetPSPLanguage()) {
+		return hleLogWarning(Log::sceUtility, 0, "ignoring requested language");
+	}
+	return hleLogSuccessI(Log::sceUtility, 0);
 }
 
 static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
 		Memory::Write_U32(language, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))
@@ -86,31 +93,31 @@ static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 }
 
 static u32 sceImposeSetUMDPopup(int mode) {
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetUMDPopup(%i)", mode);
+	DEBUG_LOG(Log::sceUtility, "sceImposeSetUMDPopup(%i)", mode);
 	umdPopup = mode;
 	return 0;
 }
 
 static u32 sceImposeGetUMDPopup() {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetUMDPopup()");
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetUMDPopup()");
 	return umdPopup;
 }
 
 static u32 sceImposeSetBacklightOffTime(int time) {
-	DEBUG_LOG(SCEUTILITY, "sceImposeSetBacklightOffTime(%i)", time);
+	DEBUG_LOG(Log::sceUtility, "sceImposeSetBacklightOffTime(%i)", time);
 	backlightOffTime = time;
 	return 0;
 }
 
 static u32 sceImposeGetBacklightOffTime() {
-	DEBUG_LOG(SCEUTILITY, "sceImposeGetBacklightOffTime()");
+	DEBUG_LOG(Log::sceUtility, "sceImposeGetBacklightOffTime()");
 	return backlightOffTime;
 }
 
 //OSD stuff? home button?
 const HLEFunction sceImpose[] =
 {
-	{0X36AA6E91, &WrapU_UU<sceImposeSetLanguageMode>,      "sceImposeSetLanguageMode",      'x', "xx"},  // Seen
+	{0X36AA6E91, &WrapU_UU<sceImposeSetLanguageMode>,      "sceImposeSetLanguageMode",      'i', "ii"},
 	{0X381BD9E7, nullptr,                                  "sceImposeHomeButton",           '?', ""  },
 	{0X0F341BE4, nullptr,                                  "sceImposeGetHomePopup",         '?', ""  },
 	{0X5595A71A, nullptr,                                  "sceImposeSetHomePopup",         '?', ""  },

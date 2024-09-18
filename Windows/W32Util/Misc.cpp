@@ -4,9 +4,12 @@
 #include <WinUser.h>
 #include <shellapi.h>
 #include <commctrl.h>
+#include <ShlObj.h>
 
 #include "Misc.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -71,18 +74,42 @@ namespace W32Util
 		// Lock the handle and copy the text to the buffer.
 
 		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy);
-		wcscpy(lptstrCopy, wtext.c_str());
-		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
-		GlobalUnlock(hglbCopy);
-		SetClipboardData(CF_UNICODETEXT, hglbCopy);
+		if (lptstrCopy) {
+			wcscpy(lptstrCopy, wtext.c_str());
+			lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character
+			GlobalUnlock(hglbCopy);
+			SetClipboardData(CF_UNICODETEXT, hglbCopy);
+		}
 		CloseClipboard();
-		return TRUE;
+		return lptstrCopy ? TRUE : FALSE;
 	}
 
 	void MakeTopMost(HWND hwnd, bool topMost) {
 		HWND style = HWND_NOTOPMOST;
 		if (topMost) style = HWND_TOPMOST;
 		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
+	}
+
+	void GetWindowRes(HWND hWnd, int *xres, int *yres) {
+		RECT rc;
+		GetClientRect(hWnd, &rc);
+		*xres = rc.right - rc.left;
+		*yres = rc.bottom - rc.top;
+	}
+
+	void ShowFileInFolder(const std::string &path) {
+		// SHParseDisplayName can't handle relative paths, so normalize first.
+		std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
+
+		SFGAOF flags{};
+		PIDLIST_ABSOLUTE pidl = nullptr;
+		HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
+
+		if (pidl) {
+			if (SUCCEEDED(hr))
+				SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+			CoTaskMemFree(pidl);
+		}
 	}
 
 	static const wchar_t *RemoveExecutableFromCommandLine(const wchar_t *cmdline) {
@@ -139,6 +166,34 @@ namespace W32Util
 		SpawnNewInstance(overrideArgs, args);
 
 		ExitProcess(0);
+	}
+
+	bool ExecuteAndGetReturnCode(const wchar_t *executable, const wchar_t *cmdline, const wchar_t *currentDirectory, DWORD *exitCode) {
+		PROCESS_INFORMATION processInformation = { 0 };
+		STARTUPINFO startupInfo = { 0 };
+		startupInfo.cb = sizeof(startupInfo);
+
+		std::wstring cmdlineW;
+		cmdlineW += L"PPSSPP ";  // could also put the executable name as first argument, but concerned about escaping.
+		cmdlineW += cmdline;
+
+		// Create the process
+		bool result = CreateProcess(executable, (LPWSTR)cmdlineW.c_str(),
+			NULL, NULL, FALSE,
+			NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
+			NULL, currentDirectory, &startupInfo, &processInformation);
+
+		if (!result) {
+			// We failed.
+			return false;
+		}
+
+		// Successfully created the process.  Wait for it to finish.
+		WaitForSingleObject(processInformation.hProcess, INFINITE);
+		result = GetExitCodeProcess(processInformation.hProcess, exitCode);
+		CloseHandle(processInformation.hProcess);
+		CloseHandle(processInformation.hThread);
+		return result != 0;
 	}
 
 	void SpawnNewInstance(bool overrideArgs, const std::string &args) {
@@ -400,27 +455,36 @@ void GenericListControl::ProcessUpdate() {
 		ListView_DeleteItem(handle,--items);
 	}
 
+	for (auto &act : pendingActions_) {
+		switch (act.action) {
+		case Action::CHECK:
+			ListView_SetCheckState(handle, act.item, act.state ? TRUE : FALSE);
+			break;
+
+		case Action::IMAGE:
+			ListView_SetItemState(handle, act.item, (act.state & 0xF) << 12, LVIS_STATEIMAGEMASK);
+			break;
+		}
+	}
+	pendingActions_.clear();
+
 	ResizeColumns();
 
 	InvalidateRect(handle, nullptr, TRUE);
-	UpdateWindow(handle);
 	ListView_RedrawItems(handle, 0, newRows - 1);
+	UpdateWindow(handle);
 	updating = false;
 }
 
 
-void GenericListControl::SetCheckState(int item, bool state)
-{
-	updating = true;
-	ListView_SetCheckState(handle,item,state ? TRUE : FALSE);
-	updating = false;
+void GenericListControl::SetCheckState(int item, bool state) {
+	pendingActions_.push_back({ Action::CHECK, item, state ? 1 : 0 });
+	Update();
 }
 
 void GenericListControl::SetItemState(int item, uint8_t state) {
-	updating = true;
-	ListView_SetItemState(handle, item, (state & 0xF) << 12, LVIS_STATEIMAGEMASK);
-	ListView_RedrawItems(handle, item, item);
-	updating = false;
+	pendingActions_.push_back({ Action::IMAGE, item, (int)state });
+	Update();
 }
 
 void GenericListControl::ResizeColumns()

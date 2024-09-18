@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-#include <cmath>
 
+#include <cmath>
+#include <string>
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -35,18 +36,15 @@ inline int Xpose(int v) {
 #endif
 
 // The VFPU uses weird angles where 4.0 represents a full circle. This makes it possible to return
-// exact 1.0/-1.0 values at certain angles. We currently just scale, and special case the cardinal directions.
+// exact 1.0/-1.0 values at certain angles.
 //
-// Stepping down to [0, 2pi) helps, but we also check common exact-result values.
-// TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
-//
-// We also try an alternative solution, computing things in double precision, multiplying the input by pi/2.
-// This fixes #12900 (Hitman Reborn 2) but breaks #13705 (Cho Aniki Zero) and #13671 (Hajime no Ippo).
-// #2921 is still fine. So the alt solution (vfpu_sin_double etc) are behind a compat flag.
-//
-// A better solution would be to tailor some sine approximation for the 0..90 degrees range, compute
-// modulo manually and mirror that around the circle. Also correctly special casing for inf/nan inputs
-// and just trying to match it as closely as possible to the real PSP.
+// The current code attempts to match VFPU sin/cos exactly.
+// Possibly affected games:
+//     Final Fantasy III               (#2921 )
+//     Hitman Reborn 2                 (#12900)
+//     Cho Aniki Zero                  (#13705)
+//     Hajime no Ippo                  (#13671) 
+//     Dissidia Duodecim Final Fantasy (#6710 )
 //
 // Messing around with the modulo functions? try https://www.desmos.com/calculator.
 
@@ -54,18 +52,42 @@ extern float vfpu_sin(float);
 extern float vfpu_cos(float);
 extern void vfpu_sincos(float, float&, float&);
 
-inline float vfpu_asin(float angle) {
-	return (float)(asinf(angle) / M_PI_2);
-}
+extern float vfpu_asin(float);
 
 inline float vfpu_clamp(float v, float min, float max) {
 	// Note: NAN is preserved, and -0.0 becomes +0.0 if min=+0.0.
 	return v >= max ? max : (v <= min ? min : v);
 }
 
-float vfpu_dot(float a[4], float b[4]);
+float vfpu_dot(const float a[4], const float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
+
+extern float vfpu_exp2(float);
+extern float vfpu_rexp2(float);
+extern float vfpu_log2(float);
+extern float vfpu_rcp(float);
+
+extern void vrnd_init_default(uint32_t *rcx);
+extern void vrnd_init(uint32_t seed, uint32_t *rcx);
+extern uint32_t vrnd_generate(uint32_t *rcx);
+
+inline uint32_t get_uexp(uint32_t x) {
+	return (x >> 23) & 0xFF;
+}
+
+inline int32_t get_exp(uint32_t x) {
+	return get_uexp(x) - 127;
+}
+
+inline int32_t get_mant(uint32_t x) {
+	// Note: this returns the hidden 1.
+	return (x & 0x007FFFFF) | 0x00800000;
+}
+
+inline int32_t get_sign(uint32_t x) {
+	return x & 0x80000000;
+}
 
 #define VFPU_FLOAT16_EXP_MAX    0x1f
 #define VFPU_SH_FLOAT16_SIGN    15
@@ -180,34 +202,51 @@ enum MatrixOverlapType {
 
 MatrixOverlapType GetMatrixOverlap(int m1, int m2, MatrixSize msize);
 
-
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
-inline int GetMtx(int matrixReg) {
+static inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
 }
 
-VectorSize GetVecSizeSafe(MIPSOpcode op);
-VectorSize GetVecSize(MIPSOpcode op);
-MatrixSize GetMtxSizeSafe(MIPSOpcode op);
-MatrixSize GetMtxSize(MIPSOpcode op);
+static inline VectorSize GetVecSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (VectorSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
+static inline MatrixSize GetMtxSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (MatrixSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
 VectorSize GetHalfVectorSizeSafe(VectorSize sz);
 VectorSize GetHalfVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
 VectorSize MatrixVectorSizeSafe(MatrixSize sz);
 VectorSize MatrixVectorSize(MatrixSize sz);
-int GetNumVectorElements(VectorSize sz);
+
+static inline int GetNumVectorElements(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return 1;
+	case V_Pair:   return 2;
+	case V_Triple: return 3;
+	case V_Quad:   return 4;
+	default:       return 0;
+	}
+}
+
 int GetMatrixSideSafe(MatrixSize sz);
 int GetMatrixSide(MatrixSize sz);
-const char *GetVectorNotation(int reg, VectorSize size);
-const char *GetMatrixNotation(int reg, MatrixSize size);
-inline bool IsMatrixTransposed(int matrixReg) {
+std::string GetVectorNotation(int reg, VectorSize size);
+std::string GetMatrixNotation(int reg, MatrixSize size);
+static inline bool IsMatrixTransposed(int matrixReg) {
 	return (matrixReg >> 5) & 1;
 }
-inline bool IsVectorColumn(int vectorReg) {
+static inline bool IsVectorColumn(int vectorReg) {
 	return !((vectorReg >> 5) & 1);
 }
-inline int TransposeMatrixReg(int matrixReg) {
+static inline int TransposeMatrixReg(int matrixReg) {
 	return matrixReg ^ 0x20;
 }
 int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
@@ -215,4 +254,4 @@ int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 bool GetVFPUCtrlMask(int reg, u32 *mask);
 
 float Float16ToFloat32(unsigned short l);
-void InitVFPUSinCos();
+void InitVFPU();

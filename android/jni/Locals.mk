@@ -15,11 +15,15 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/miniupnp-build \
   $(LOCAL_PATH)/../../ext/libpng17 \
   $(LOCAL_PATH)/../../ext/libzip \
-  $(LOCAL_PATH)/../../ext/openxr \
+  $(LOCAL_PATH)/../../ext/OpenXR-SDK/include \
   $(LOCAL_PATH)/../../ext/zstd/lib \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \
+  $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-22.01/include \
+  $(LOCAL_PATH)/../../ext/libchdr/include \
+  $(LOCAL_PATH)/../../ext/cpu_features/include \
+  $(LOCAL_PATH)/../../ext/rcheevos/include \
   $(LOCAL_PATH)
 
 LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build
@@ -53,16 +57,6 @@ ifeq ($(TARGET_ARCH_ABI),armeabi)
 
   LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -march=armv6
 endif
-ifeq ($(TARGET_ARCH_ABI),x86)
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavformat.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavcodec.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswresample.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswscale.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
-  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
-
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
-endif
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavformat.a
@@ -82,4 +76,6 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
+  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/include
+  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/lib/linkernsbypass
 endif

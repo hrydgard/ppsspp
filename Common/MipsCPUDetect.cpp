@@ -37,7 +37,7 @@ std::string GetCPUString() {
 	std::string cpu_string = "Unknown";
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return cpu_string;
 	std::istringstream file(procdata);
 	
@@ -59,7 +59,7 @@ unsigned char GetCPUImplementer()
 	unsigned char implementer = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -82,7 +82,7 @@ unsigned short GetCPUPart()
 	unsigned short part = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -104,7 +104,7 @@ bool CheckCPUASE(const std::string& ase)
 	std::string line, marker = "ASEs implemented\t: ";
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return false;
 	std::istringstream file(procdata);
 	
@@ -131,7 +131,7 @@ int GetCoreCount()
 	int cores = 1;
 
 	std::string presentData;
-	bool presentSuccess = File::ReadFileToString(true, syscpupresentfile, presentData);
+	bool presentSuccess = File::ReadSysTextFileToString(syscpupresentfile, &presentData);
 	std::istringstream presentFile(presentData);
 
 	if (presentSuccess) {
@@ -145,7 +145,7 @@ int GetCoreCount()
 	}
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 1;
 	std::istringstream file(procdata);
 	
@@ -197,6 +197,28 @@ void CPUInfo::Detect()
 #endif
 }
 
+std::vector<std::string> CPUInfo::Features() {
+	std::vector<std::string> features;
+
+	struct Flag {
+		bool &flag;
+		const char *str;
+	};
+	const Flag list[] = {
+		{ bXBurst1, "XBurst1" },
+		{ bXBurst2, "XBurst2" },
+		{ CPU64bit, "64-bit" },
+	};
+
+	for (auto &item : list) {
+		if (item.flag) {
+			features.push_back(item.str);
+		}
+	}
+
+	return features;
+}
+
 // Turn the cpu info into a string we can show
 std::string CPUInfo::Summarize()
 {
@@ -205,10 +227,11 @@ std::string CPUInfo::Summarize()
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-	if (bXBurst1) sum += ", XBurst1";
-	if (bXBurst2) sum += ", XBurst2";
-	if (CPU64bit) sum += ", 64-bit";
 
+	auto features = Features();
+	for (std::string &feature : features) {
+		sum += ", " + feature;
+	}
 	return sum;
 }
 

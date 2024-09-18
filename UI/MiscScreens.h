@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 
@@ -35,31 +36,43 @@ void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
+class BackgroundScreen : public UIScreen {
+public:
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
+	void sendMessage(UIMessage message, const char *value) override;
+
+private:
+	void CreateViews() override {}
+	const char *tag() const override { return "bg"; }
+
+	Path gamePath_;
+};
+
+// This doesn't have anything to do with the background anymore. It's just a PPSSPP UIScreen
+// that knows how handle sendMessage properly. Same for all the below.
 class UIScreenWithBackground : public UIScreen {
 public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
-	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 };
 
 class UIScreenWithGameBackground : public UIScreenWithBackground {
 public:
-	UIScreenWithGameBackground(const std::string &gamePath)
-		: UIScreenWithBackground(), gamePath_(gamePath) {}
-	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	UIScreenWithGameBackground(const Path &gamePath) : UIScreenWithBackground(), gamePath_(gamePath) {}
+	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
+
+	bool forceTransparent_ = false;
+	bool darkenGameBackground_ = true;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
-	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
-
+	void sendMessage(UIMessage message, const char *value) override;
 	void AddStandardBack(UI::ViewGroup *parent);
 };
 
@@ -67,15 +80,14 @@ class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
 public:
 	UIDialogScreenWithGameBackground(const Path &gamePath)
 		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
-	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
 };
 
-class PromptScreen : public UIDialogScreenWithBackground {
+class PromptScreen : public UIDialogScreenWithGameBackground {
 public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText,
+	PromptScreen(const Path& gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;
@@ -94,40 +106,21 @@ private:
 	std::function<void(bool)> callback_;
 };
 
-class NewLanguageScreen : public ListPopupScreen {
+class NewLanguageScreen : public UI::ListPopupScreen {
 public:
-	NewLanguageScreen(const std::string &title);
+	NewLanguageScreen(std::string_view title);
 
 	const char *tag() const override { return "NewLanguage"; }
 
 private:
 	void OnCompleted(DialogResult result) override;
 	bool ShowButtons() const override { return true; }
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
-	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<File::FileInfo> langs_;
 };
 
-class PostProcScreen : public ListPopupScreen {
+class TextureShaderScreen : public UI::ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title, int id, bool showStereoShaders);
-
-	void CreateViews() override;
-
-	const char *tag() const override { return "PostProc"; }
-
-private:
-	void OnCompleted(DialogResult result) override;
-	bool ShowButtons() const override { return true; }
-	std::vector<ShaderInfo> shaders_;
-	int id_;
-	bool showStereoShaders_;
-	std::vector<int> indexTranslation_;
-};
-
-class TextureShaderScreen : public ListPopupScreen {
-public:
-	TextureShaderScreen(const std::string &title);
+	TextureShaderScreen(std::string_view title);
 
 	void CreateViews() override;
 
@@ -150,10 +143,10 @@ public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void update() override;
-	void render() override;
-	void sendMessage(const char *message, const char *value) override;
+	void DrawForeground(UIContext &ui) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
 	const char *tag() const override { return "Logo"; }
@@ -170,15 +163,13 @@ class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen();
 	void update() override;
-	void render() override;
+	void DrawForeground(UIContext &ui) override;
 
 	void CreateViews() override;
 
 	const char *tag() const override { return "Credits"; }
 
 private:
-	UI::EventReturn OnOK(UI::EventParams &e);
-
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnPrivacy(UI::EventParams &e);
@@ -192,14 +183,11 @@ private:
 
 class SettingInfoMessage : public UI::LinearLayout {
 public:
-	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
+	SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp);
 
-	void SetBottomCutoff(float y) {
-		cutOffY_ = y;
-	}
-	void Show(const std::string &text, UI::View *refView = nullptr);
+	void Show(std::string_view text, const UI::View *refView = nullptr);
 
-	void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 	std::string GetText() const;
 
 private:
@@ -208,3 +196,5 @@ private:
 	float cutOffY_;
 	bool showing_ = false;
 };
+
+uint32_t GetBackgroundColorWithAlpha(const UIContext &dc);

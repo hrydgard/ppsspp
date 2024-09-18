@@ -81,7 +81,7 @@ void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType 
 
 class Bezier3DWeight {
 private:
-	void CalcWeights(float t, Weight &w) {
+	static void CalcWeights(float t, Weight &w) {
 		// Bernstein 3D basis polynomial
 		w.basis[0] = (1 - t) * (1 - t) * (1 - t);
 		w.basis[1] = 3 * t * (1 - t) * (1 - t);
@@ -95,7 +95,7 @@ private:
 		w.deriv[3] = 3 * t * t;
 	}
 public:
-	Weight *CalcWeightsAll(u32 key) {
+	static Weight *CalcWeightsAll(u32 key) {
 		int tess = (int)key;
 		Weight *weights = new Weight[tess + 1];
 		const float inv_tess = 1.0f / (float)tess;
@@ -129,7 +129,7 @@ private:
 	};
 
 	// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
-	void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
+	static void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
 		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
 	//	for (int i = 0; i < n + 5; ++i) {
 		for (int i = 0; i < n + 2; ++i) {
@@ -160,7 +160,7 @@ private:
 		}
 	}
 
-	void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
+	static void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
 #ifdef _M_SSE
 		const __m128 knot012 = _mm_loadu_ps(knots);
 		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
@@ -360,11 +360,11 @@ public:
 
 					// Pre-tessellate U lines
 					tess_pos.SampleU(wu.basis);
-					if (sampleCol)
+					if constexpr (sampleCol)
 						tess_col.SampleU(wu.basis);
-					if (sampleTex)
+					if constexpr (sampleTex)
 						tess_tex.SampleU(wu.basis);
-					if (sampleNrm)
+					if constexpr (sampleNrm)
 						tess_nrm.SampleU(wu.deriv);
 
 					for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
@@ -375,24 +375,24 @@ public:
 
 						// Tessellate
 						vert.pos = tess_pos.SampleV(wv.basis);
-						if (sampleCol) {
+						if constexpr (sampleCol) {
 							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
 						} else {
 							vert.color_32 = points.defcolor;
 						}
-						if (sampleTex) {
+						if constexpr (sampleTex) {
 							tess_tex.SampleV(wv.basis).Write(vert.uv);
 						} else {
 							// Generate texcoord
 							vert.uv[0] = patch_u + tile_u * inv_u;
 							vert.uv[1] = patch_v + tile_v * inv_v;
 						}
-						if (sampleNrm) {
+						if constexpr (sampleNrm) {
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
 							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
-							if (patchFacing)
+							if constexpr (patchFacing)
 								vert.nrm *= -1.0f;
 						} else {
 							vert.nrm.SetZero();
@@ -498,7 +498,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	if (surface.num_points_u < 4 || surface.num_points_v < 4)
 		return;
 
-	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
+	SimpleBufferManager managedBuf(decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
 
 	int num_points = surface.num_points_u * surface.num_points_v;
 	u16 index_lower_bound = 0;
@@ -514,13 +514,13 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
 	if (!simplified_control_points) {
-		ERROR_LOG(G3D, "Failed to allocate space for simplified control points, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for simplified control points, skipping curve draw");
 		return;
 	}
 
 	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
 	if (!temp_buffer) {
-		ERROR_LOG(G3D, "Failed to allocate space for temp buffer, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for temp buffer, skipping curve draw");
 		return;
 	}
 
@@ -531,24 +531,26 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	int vertexSize = vdecoder->VertexSize();
 	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %d vs %d", vertexSize, (int)sizeof(SimpleVertex));
+		ERROR_LOG(Log::G3D, "Something went really wrong, vertex size: %d vs %d", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
 	if (!points) {
-		ERROR_LOG(G3D, "Failed to allocate space for control point pointers, skipping curve draw");
+		ERROR_LOG(Log::G3D, "Failed to allocate space for control point pointers, skipping curve draw");
 		return;
 	}
 	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
-	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
-	output.indices = decIndex;
+	output.vertices = (SimpleVertex *)(decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2);
+	output.indices = decIndex_;
 	output.count = 0;
 
-	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
+	int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
+
+	surface.Init(maxVerts);
 
 	if (CanUseHardwareTessellation(surface.primType)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
@@ -557,7 +559,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		if (cpoints.IsValid())
 			SoftwareTessellation(output, surface, origVertType, cpoints);
 		else
-			ERROR_LOG(G3D, "Failed to allocate space for control point values, skipping curve draw");
+			ERROR_LOG(Log::G3D, "Failed to allocate space for control point values, skipping curve draw");
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
@@ -575,7 +577,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), decOptions_.applySkinInDecode);
 	int generatedBytesRead;
 	if (output.count)
-		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, gstate.getCullMode(), &generatedBytesRead);
+		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);
 
 	if (flushOnParams_)
 		DispatchFlush();

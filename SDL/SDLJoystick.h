@@ -1,10 +1,12 @@
 #pragma once
 #ifdef _MSC_VER
 #include "SDL/SDL.h"
-#include "SDL/SDL_thread.h"
+#else
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL.h"
 #else
 #include "SDL.h"
-#include "SDL_thread.h"
+#endif
 #endif
 #include <map>
 
@@ -18,14 +20,18 @@ public:
 	~SDLJoystick();
 
 	void registerEventHandler();
-	void ProcessInput(SDL_Event &event);
+	void ProcessInput(const SDL_Event &event);
 
 private:
 	void setUpController(int deviceIndex);
 	void setUpControllers();
-	keycode_t getKeycodeForButton(SDL_GameControllerButton button);
+	InputKeyCode getKeycodeForButton(SDL_GameControllerButton button);
 	int getDeviceIndex(int instanceId);
+
 	bool registeredAsEventHandler;
 	std::vector<SDL_GameController *> controllers;
 	std::map<int, int> controllerDeviceMap;
+
+	// Deduplicate axis events. Pair is device, axis.
+	std::map<std::pair<InputDeviceID, InputAxis>, float> prevAxisValue_;
 };

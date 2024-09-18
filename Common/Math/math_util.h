@@ -40,6 +40,10 @@ inline uint32_t RoundUpToPowerOf2(uint32_t v) {
 	return v;
 }
 
+inline uint32_t RoundUpToPowerOf2(uint32_t v, uint32_t power) {
+	return (v + power - 1) & ~(power - 1);
+}
+
 inline uint32_t log2i(uint32_t val) {
 	unsigned int ret = -1;
 	while (val != 0) {
@@ -61,6 +65,13 @@ inline T clamp_value(T val, T floor, T cap) {
 		return floor;
 	else
 		return val;
+}
+
+// Very common operation, familiar from shaders.
+inline float saturatef(float x) {
+	if (x > 1.0f) return 1.0f;
+	else if (x < 0.0f) return 0.0f;
+	else return x;
 }
 
 #define ROUND_UP(x, a)   (((x) + (a) - 1) & ~((a) - 1))
@@ -99,6 +110,10 @@ inline bool my_isinf(float f) {
 		f2u.u == 0xff800000;
 }
 
+inline bool my_isinf_u(uint32_t u) {
+	return u == 0x7f800000 || u == 0xff800000;
+}
+
 inline bool my_isnan(float f) {
 	FP32 f2u;
 	f2u.f = f;
@@ -111,6 +126,10 @@ inline bool my_isnanorinf(float f) {
 	f2u.f = f;
 	// NaNs have non-zero mantissa, infs have zero mantissa. That is, we just ignore the mantissa here.
 	return ((f2u.u & 0x7F800000) == 0x7F800000);
+}
+
+inline float InfToZero(float f) {
+	return my_isinf(f) ? 0.0f : f;
 }
 
 inline int is_even(float d) {

@@ -19,25 +19,25 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-
+#include "Common/System/OSD.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
-#include "Core/MemMap.h"
-#include "Core/Reporting.h"
-#include "Core/System.h"
-
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Core/System.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -65,9 +65,9 @@ const char *uploadShader = R"(
 // hardware vendors.
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform layout(set = 1, binding = 0, rgba8) writeonly image2D img;
+uniform layout(set = 0, binding = 0, rgba8) writeonly image2D img;
 
-layout(std430, set = 1, binding = 1) buffer Buf {
+layout(std430, set = 0, binding = 1) buffer Buf {
 	uint data[];
 } buf;
 
@@ -121,9 +121,10 @@ SamplerCache::~SamplerCache() {
 }
 
 VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
-	VkSampler sampler = cache_.Get(key);
-	if (sampler != VK_NULL_HANDLE)
+	VkSampler sampler;
+	if (cache_.Get(key, &sampler)) {
 		return sampler;
+	}
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -135,6 +136,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
 	if (key.aniso) {
 		// Docs say the min of this value and the supported max are used.
 		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
@@ -144,7 +146,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.anisotropyEnable = false;
 	}
 	if (key.maxLevel == 9 * 256) {
-		// No max level needed.
+		// No max level needed. Better for performance on some archs like ARM Mali.
 		samp.maxLod = VK_LOD_CLAMP_NONE;
 	} else {
 		samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);
@@ -158,7 +160,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	return sampler;
 }
 
-std::string SamplerCache::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+std::string SamplerCache::DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType) {
 	SamplerCacheKey key;
 	key.FromString(id);
 	return StringFromFormat("%s/%s mag:%s min:%s mip:%s maxLod:%f minLod:%f bias:%f",
@@ -217,7 +219,6 @@ void TextureCacheVulkan::DeviceLost() {
 	Clear(true);
 
 	samplerCache_.DeviceLost();
-
 	if (samplerNearest_)
 		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
 
@@ -228,6 +229,7 @@ void TextureCacheVulkan::DeviceLost() {
 
 	nextTexture_ = nullptr;
 	draw_ = nullptr;
+	Unbind();
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
@@ -261,7 +263,7 @@ void TextureCacheVulkan::NotifyConfigChanged() {
 
 static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
-	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
+	char *data = (char *)g_VFS.ReadFile(filename.c_str(), &sz);
 	if (!data)
 		return std::string();
 
@@ -328,37 +330,9 @@ static const VkFilter MagFiltVK[2] = {
 
 void TextureCacheVulkan::StartFrame() {
 	TextureCacheCommon::StartFrame();
-
-	InvalidateLastTexture();
-	textureShaderCache_->Decimate();
-
-	timesInvalidatedAllThisFrame_ = 0;
-	texelsScaledThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		int slabPressureLimit = TEXCACHE_SLAB_PRESSURE;
-		if (g_Config.iTexScalingLevel > 1) {
-			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
-			slabPressureLimit *= g_Config.iTexScalingLevel;
-		}
-		// TODO: Use some indication from VMA.
-		// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
-		Decimate(false);
-	}
-
+	// TODO: For low memory detection, maybe use some indication from VMA.
+	// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
 	computeShaderManager_.BeginFrame();
-}
-
-void TextureCacheVulkan::EndFrame() {
-	computeShaderManager_.EndFrame();
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
 }
 
 void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -399,12 +373,9 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
+		Unbind();
 		return;
 	}
-
-	entry->vkTex->Touch();
 
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
@@ -421,7 +392,6 @@ void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheVulkan::Unbind() {
 	imageView_ = VK_NULL_HANDLE;
 	curSampler_ = VK_NULL_HANDLE;
-	InvalidateLastTexture();
 }
 
 void TextureCacheVulkan::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -437,7 +407,19 @@ static Draw::DataFormat FromVulkanFormat(VkFormat fmt) {
 
 static VkFormat ToVulkanFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return VULKAN_8888_FORMAT;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return VK_FORMAT_BC2_UNORM_BLOCK;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return VK_FORMAT_BC3_UNORM_BLOCK;
+	case Draw::DataFormat::BC4_UNORM_BLOCK: return VK_FORMAT_BC4_UNORM_BLOCK;
+	case Draw::DataFormat::BC5_UNORM_BLOCK: return VK_FORMAT_BC5_UNORM_BLOCK;
+	case Draw::DataFormat::BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
+	case Draw::DataFormat::ASTC_4x4_UNORM_BLOCK: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+	case Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+	case Draw::DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+	case Draw::DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+
+	case Draw::DataFormat::R8G8B8A8_UNORM: return VULKAN_8888_FORMAT;
+	default: _assert_msg_(false, "Bad texture pixel format"); return VULKAN_8888_FORMAT;
 	}
 }
 
@@ -448,50 +430,54 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	plan.hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
 	plan.slowScaler = !plan.hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;
 	if (!PrepareBuildTexture(plan, entry)) {
-		// We're screwed?
+		// We're screwed (invalid size or something, corrupt display list), let's just zap it.
+		if (entry->vkTex) {
+			delete entry->vkTex;
+			entry->vkTex = nullptr;
+		}
 		return;
 	}
 
 	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (plan.scaleFactor > 1) {
+		_dbg_assert_(!plan.doReplace);
 		// Whether hardware or software scaling, this is the dest format.
 		dstFmt = VULKAN_8888_FORMAT;
 	} else if (plan.decodeToClut8) {
 		dstFmt = VULKAN_CLUT8_FORMAT;
 	}
 
+	_dbg_assert_(plan.levelsToLoad <= plan.maxPossibleLevels);
+
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
 	// and similar, which don't really need it.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256) {
+	// Also, if using replacements, check that we really can generate mips for this format - that's not possible for compressed ones.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256 && (!plan.doReplace || plan.replaced->Format() == Draw::DataFormat::R8G8B8A8_UNORM)) {
 		// Boost the number of mipmaps.
-		if (plan.maxPossibleLevels > plan.levelsToCreate) {
+		if (plan.maxPossibleLevels > plan.levelsToCreate) { // TODO: Should check against levelsToLoad, no?
 			// We have to generate mips with a shader. This requires decoding to R8G8B8A8_UNORM format to avoid extra complications.
 			dstFmt = VULKAN_8888_FORMAT;
 		}
 		plan.levelsToCreate = plan.maxPossibleLevels;
 	}
 
+	_dbg_assert_(plan.levelsToCreate >= plan.levelsToLoad);
+
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
-	if (plan.replaceValid) {
-		actualFmt = ToVulkanFormat(plan.replaced->Format(plan.baseLevelSrc));
+	bool bcFormat = false;
+	int bcAlign = 0;
+	if (plan.doReplace) {
+		Draw::DataFormat fmt = plan.replaced->Format();
+		bcFormat = Draw::DataFormatIsBlockCompressed(fmt, &bcAlign);
+		actualFmt = ToVulkanFormat(fmt);
 	}
 
 	bool computeUpload = false;
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
 	delete entry->vkTex;
-	entry->vkTex = new VulkanTexture(vulkan);
-	VulkanTexture *image = entry->vkTex;
-
-	const VkComponentMapping *mapping;
-	switch (actualFmt) {
-	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
-	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
-	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
-	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
-	}
 
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -500,7 +486,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (uploadCS_ != VK_NULL_HANDLE) {
 			computeUpload = true;
 		} else {
-			WARN_LOG(G3D, "Falling back to software scaling, hardware shader didn't compile");
+			WARN_LOG(Log::G3D, "Falling back to software scaling, hardware shader didn't compile");
 		}
 	}
 
@@ -510,42 +496,56 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
+		INFO_LOG(Log::G3D, "About to save texture");
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 
-	char texName[128]{};
-	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
-	image->SetTag(texName);
+	const VkComponentMapping *mapping;
+	switch (actualFmt) {
+	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
+	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
+	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
+	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no channel swizzle
+	}
 
-	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
+	char texName[64];
+	snprintf(texName, sizeof(texName), "tex_%08x_%s_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()), gstate.isTextureSwizzled() ? "swz" : "lin");
+	entry->vkTex = new VulkanTexture(vulkan, texName);
+	VulkanTexture *image = entry->vkTex;
+
+	VulkanBarrierBatch barrier;
+	bool allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, &barrier, mapping);
+	barrier.Flush(cmdInit);
 	if (!allocSuccess && !lowMemoryMode_) {
-		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+		WARN_LOG_REPORT(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
-		Decimate();
+		Decimate(entry, true);
+
 		// TODO: We should stall the GPU here and wipe things out of memory.
 		// As is, it will almost definitely fail the second time, but next frame it may recover.
 
-		auto err = GetI18NCategory("Error");
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		if (plan.scaleFactor > 1) {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
-			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
 
 		// Turn off texture replacement for this texture.
-		plan.replaced = &replacer_.FindNone();
+		plan.replaced = nullptr;
 
 		plan.createW /= plan.scaleFactor;
 		plan.createH /= plan.scaleFactor;
 		plan.scaleFactor = 1;
 		actualFmt = dstFmt;
 
-		allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, &barrier, mapping);
+		barrier.Flush(cmdInit);
 	}
 
 	if (!allocSuccess) {
-		ERROR_LOG(G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
+		ERROR_LOG(Log::G3D, "Failed to create texture (%dx%d)", plan.w, plan.h);
 		delete entry->vkTex;
 		entry->vkTex = nullptr;
 	}
@@ -565,6 +565,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		levels = plan.levelsToLoad;
 	}
 
+	VulkanPushPool *pushBuffer = drawEngine_->GetPushBufferForTextureData();
+
+	// Batch the copies.
+	TextureCopyBatch copyBatch;
+	copyBatch.reserve(levels);
+
 	for (int i = 0; i < levels; i++) {
 		int mipUnscaledWidth = gstate.getTextureWidth(i);
 		int mipUnscaledHeight = gstate.getTextureHeight(i);
@@ -574,8 +580,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
 		int bpp = VkFormatBytesPerPixel(actualFmt);
-		int stride = (mipWidth * bpp + 15) & ~15;  // output stride
-		int uploadSize = stride * mipHeight;
+		int optimalStrideAlignment = std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment);
+		int byteStride = RoundUpToPowerOf2(mipWidth * bpp, optimalStrideAlignment);  // output stride
+		int pixelStride = byteStride / bpp;
+		int uploadSize = byteStride * mipHeight;
 
 		uint32_t bufferOffset;
 		VkBuffer texBuf;
@@ -584,34 +592,41 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		void *data;
 		std::vector<uint8_t> saveData;
 
+		// Simple wrapper to avoid reading back from VRAM (very, very expensive).
 		auto loadLevel = [&](int sz, int srcLevel, int lstride, int lfactor) {
 			if (plan.saveTexture) {
 				saveData.resize(sz);
 				data = &saveData[0];
 			} else {
-				data = drawEngine_->GetPushBufferForTextureData()->PushAligned(sz, &bufferOffset, &texBuf, pushAlignment);
+				data = pushBuffer->Allocate(sz, pushAlignment, &texBuf, &bufferOffset);
 			}
-			LoadTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
+			LoadVulkanTextureLevel(*entry, (uint8_t *)data, lstride, srcLevel, lfactor, actualFmt);
 			if (plan.saveTexture)
-				bufferOffset = drawEngine_->GetPushBufferForTextureData()->PushAligned(&saveData[0], sz, pushAlignment, &texBuf);
+				bufferOffset = pushBuffer->Push(&saveData[0], sz, pushAlignment, &texBuf);
 		};
 
 		bool dataScaled = true;
-		if (plan.replaceValid) {
+		if (plan.doReplace) {
+			int rowLength = pixelStride;
+			if (bcFormat) {
+				// For block compressed formats, we just set the upload size to the data size..
+				uploadSize = plan.replaced->GetLevelDataSizeAfterCopy(plan.baseLevelSrc + i);
+				rowLength = (mipWidth + 3) & ~3;
+			}
 			// Directly load the replaced image.
-			data = drawEngine_->GetPushBufferForTextureData()->PushAligned(uploadSize, &bufferOffset, &texBuf, pushAlignment);
+			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
-			plan.replaced->Load(plan.baseLevelSrc + i, data, stride);  // if it fails, it'll just be garbage data... OK for now.
+			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride)) {  // If plan.doReplace, this shouldn't fail.
+				WARN_LOG(Log::G3D, "Failed to copy replaced texture level");
+				// TODO: Fill with some pattern?
+			}
 			replacementTimeThisFrame_ += time_now_d() - replaceStart;
-			VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				"Copy Upload (replaced): %dx%d", mipWidth, mipHeight);
-			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
-			VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
+			entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, rowLength);
 		} else {
 			if (plan.depth != 1) {
 				// 3D texturing.
-				loadLevel(uploadSize, i, stride, plan.scaleFactor);
-				entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, stride / bpp);
+				loadLevel(uploadSize, i, byteStride, plan.scaleFactor);
+				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, 0, mipWidth, mipHeight, i, texBuf, bufferOffset, pixelStride);
 			} else if (computeUpload) {
 				int srcBpp = VkFormatBytesPerPixel(dstFmt);
 				int srcStride = mipUnscaledWidth * srcBpp;
@@ -626,20 +641,19 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
 				vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(uploadCS_));
-				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 1, 1, &descSet, 0, nullptr);
+				vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 				vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 				vkCmdDispatch(cmdInit, (mipUnscaledWidth + 7) / 8, (mipUnscaledHeight + 7) / 8, 1);
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 				vulkan->Delete().QueueDeleteImageView(view);
 			} else {
-				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, stride, plan.scaleFactor);
-				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT,
-					"Copy Upload: %dx%d", mipWidth, mipHeight);
-				entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, stride / bpp);
-				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
+				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, byteStride, plan.scaleFactor);
+				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
-			if (replacer_.Enabled() && plan.replaced->IsInvalid() && !lowMemoryMode_) {
+			if (plan.saveTexture && !lowMemoryMode_) {
+				INFO_LOG(Log::G3D, "Calling NotifyTextureDecoded %08x", entry->addr);
+
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;
@@ -650,12 +664,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.addr = entry->addr;
 				replacedInfo.isVideo = IsVideo(entry->addr);
 				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
-				replacedInfo.scaleFactor = plan.scaleFactor;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
-
-				replacer_.NotifyTextureDecoded(replacedInfo, data, stride, plan.baseLevelSrc + i, w, h);
+				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, byteStride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
 		}
+	}
+
+	if (!copyBatch.empty()) {
+		VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, "Copy Upload");
+		// Submit the whole batch of mip uploads.
+		entry->vkTex->FinishCopyBatch(cmdInit, &copyBatch);
+		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 
 	VkImageLayout layout = computeUpload ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -679,12 +698,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
 	}
 }
 
-VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) {
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
 		return VK_FORMAT_R8G8B8A8_UNORM;
 	}
@@ -709,7 +728,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
+void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -750,7 +769,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		u32 fmt = dstFmt;
 		// CPU scaling reads from the destination buffer so we want cached RAM.
 		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-		scaler_.ScaleAlways((u32 *)rearrange, pixelData, w, h, scaleFactor);
+		scaler_.ScaleAlways((u32 *)rearrange, pixelData, w, h, &w, &h, scaleFactor);
 		pixelData = (u32 *)writePtr;
 
 		// We always end up at 8888.  Other parts assume this.
@@ -841,7 +860,7 @@ std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
 	return samplerCache_.DebugGetSamplerIDs();
 }
 
-std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+std::string TextureCacheVulkan::DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType) {
 	return samplerCache_.DebugGetSamplerString(id, stringType);
 }
 

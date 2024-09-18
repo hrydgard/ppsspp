@@ -24,23 +24,31 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "UI/MiscScreens.h"
-#include "UI/TextureUtil.h"
+#include "UI/Screen.h"
+
+enum class PauseScreenMode {
+	MAIN,
+	DISPLAY_SETTINGS,
+};
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
-	virtual ~GamePauseScreen();
+	GamePauseScreen(const Path &filename);
+	~GamePauseScreen();
 
-	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	bool key(const KeyInput &key) override;
 
 	const char *tag() const override { return "GamePause"; }
 
 protected:
-	virtual void CreateViews() override;
-	virtual void update() override;
+	void CreateViews() override;
+	void update() override;
 	void CallbackDeleteConfig(bool yes);
 
 private:
+	void CreateSavestateControls(UI::LinearLayout *viewGroup, bool vertical);
+
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
@@ -50,52 +58,16 @@ private:
 	UI::EventReturn OnLastSaveUndo(UI::EventParams &e);
 
 	UI::EventReturn OnScreenshotClicked(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 
-	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
 	UI::EventReturn OnState(UI::EventParams &e);
 
 	// hack
 	bool finishNextFrame_ = false;
-	Path gamePath_;
-};
+	DialogResult finishNextFrameResult_ = DR_CANCEL;
+	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 
-// AsyncImageFileView loads a texture from a file, and reloads it as necessary.
-// TODO: Actually make async, doh.
-class AsyncImageFileView : public UI::Clickable {
-public:
-	AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams = 0);
-	~AsyncImageFileView();
-
-	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-	std::string DescribeText() const override { return text_; }
-
-	void DeviceLost() override;
-	void DeviceRestored(Draw::DrawContext *draw) override;
-
-	void SetFilename(const Path &filename);
-	void SetColor(uint32_t color) { color_ = color; }
-	void SetOverlayText(std::string text) { text_ = text; }
-	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
-	void SetCanBeFocused(bool can) { canFocus_ = can; }
-
-	bool CanBeFocused() const override { return canFocus_; }
-
-	const Path &GetFilename() const { return filename_; }
-
-private:
-	bool canFocus_;
-	Path filename_;
-	std::string text_;
-	uint32_t color_;
-	UI::ImageSizeMode sizeMode_;
-
-	std::unique_ptr<ManagedTexture> texture_;
-	bool textureFailed_;
-	float fixedSizeW_;
-	float fixedSizeH_;
+	UI::Button *playButton_ = nullptr;
 };

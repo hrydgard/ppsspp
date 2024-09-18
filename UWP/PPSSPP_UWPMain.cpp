@@ -2,6 +2,8 @@
 #include "PPSSPP_UWPMain.h"
 
 #include <mutex>
+#include <list>
+#include <memory>
 
 #include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
@@ -11,28 +13,34 @@
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
 #include "Core/Config.h"
 
+#include "Windows/InputDevice.h"
+#include "Windows/XinputDevice.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
-#include "UWPHost.h"
 #include "UWPUtil.h"
 #include "App.h"
+
+// UWP Helpers includes
+#include "UWPHelpers/StorageManager.h"
+#include "UWPHelpers/StorageAsync.h"
+#include "UWPHelpers/LaunchItem.h"
+#include "UWPHelpers/InputHelpers.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -44,9 +52,9 @@ using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
 
 // UGLY!
-PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
-std::string langRegion;
+std::list<std::unique_ptr<InputDevice>> g_input;
+
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -56,70 +64,22 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	app_(app),
 	m_deviceResources(deviceResources)
 {
-	g_main = this;
+	TimeInit();
 
-	net::Init();
-
-	host = new UWPHost();
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 
-	// create_task(KnownFolders::GetFolderForUserAsync(nullptr, KnownFolderId::RemovableDevices)).then([this](StorageFolder ^));
-
-	// TODO: Change the timer settings if you want something other than the default variable timestep mode.
-	// e.g. for 60 FPS fixed timestep update logic, call:
-	/*
-	m_timer.SetFixedTimeStep(true);
-	m_timer.SetTargetElapsedSeconds(1.0 / 60);
-	*/
-
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
-	const Path &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader(exePath / "Content"));
-	VFSRegister("", new DirectoryAssetReader(exePath));
+#if _DEBUG
+		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 
-	wchar_t lcCountry[256];
-
-	if (0 != GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcCountry, 256)) {
-		langRegion = ConvertWStringToUTF8(lcCountry);
-		for (size_t i = 0; i < langRegion.size(); i++) {
-			if (langRegion[i] == '-')
-				langRegion[i] = '_';
+		if (g_Config.bEnableLogging) {
+			LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
 		}
-	} else {
-		langRegion = "en_US";
-	}
+#endif
 
-	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
-	g_Config.memStickDirectory = Path(memstickFolderW);
-
-	// On Win32 it makes more sense to initialize the system directories here
-	// because the next place it was called was in the EmuThread, and it's too late by then.
-	InitSysDirectories();
-
-	LogManager::Init(&g_Config.bEnableLogging);
-
-	// Load config up here, because those changes below would be overwritten
-	// if it's not loaded here first.
-	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.Load();
-
-	bool debugLogLevel = false;
-
-	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
-
-	if (debugLogLevel) {
-		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
-	}
-
-	const char *argv[2] = { "fake", nullptr };
-
-
-	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
-
-	NativeInit(1, argv, "", "", cacheFolder.c_str());
-
+	// At this point we have main requirements initialized (Log, Config, NativeInit, Device)
 	NativeInitGraphics(ctx_.get());
 	NativeResized();
 
@@ -127,7 +87,14 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	int height = m_deviceResources->GetScreenViewport().Height;
 
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
+
+	// add first XInput device to respond
+	g_input.push_back(std::make_unique<XinputDevice>());
+
 	InputDevice::BeginPolling();
+
+	// Prepare input pane (for Xbox & touch devices)
+	PrepareInputPane();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
@@ -135,6 +102,7 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
+	g_VFS.Clear();
 
 	// Deregister device notification
 	m_deviceResources->RegisterDeviceNotify(nullptr);
@@ -152,58 +120,62 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 }
 
+void PPSSPP_UWPMain::UpdateScreenState() {
+	// This code was included into the render loop directly
+	// based on my test I don't understand why it should be called each loop
+	// is it better to call it on demand only, like when screen state changed?
+	auto context = m_deviceResources->GetD3DDeviceContext();
+
+	switch (m_deviceResources->ComputeDisplayRotation()) {
+	case DXGI_MODE_ROTATION_IDENTITY: g_display.rotation = DisplayRotation::ROTATE_0; break;
+	case DXGI_MODE_ROTATION_ROTATE90: g_display.rotation = DisplayRotation::ROTATE_90; break;
+	case DXGI_MODE_ROTATION_ROTATE180: g_display.rotation = DisplayRotation::ROTATE_180; break;
+	case DXGI_MODE_ROTATION_ROTATE270: g_display.rotation = DisplayRotation::ROTATE_270; break;
+	}
+	// Not super elegant but hey.
+	memcpy(&g_display.rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
+
+	// Reset the viewport to target the whole screen.
+	auto viewport = m_deviceResources->GetScreenViewport();
+
+	g_display.pixel_xres = viewport.Width;
+	g_display.pixel_yres = viewport.Height;
+
+	if (g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270) {
+		// We need to swap our width/height.
+		std::swap(g_display.pixel_xres, g_display.pixel_yres);
+	}
+
+	g_display.dpi = m_deviceResources->GetActualDpi();
+
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		// Boost DPI a bit to look better.
+		g_display.dpi *= 96.0f / 136.0f;
+	}
+	g_display.dpi_scale_x = 96.0f / g_display.dpi;
+	g_display.dpi_scale_y = 96.0f / g_display.dpi;
+
+	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
+
+	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale_x;
+	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
+
+	context->RSSetViewports(1, &viewport);
+}
+
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
-	ctx_->GetDrawContext()->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-	NativeUpdate();
-
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		SetCurrentThreadName("UWPRenderThread");
 		hasSetThreadName = true;
 	}
 
-	auto context = m_deviceResources->GetD3DDeviceContext();
+	UpdateScreenState();
 
-	switch (m_deviceResources->ComputeDisplayRotation()) {
-	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
-	case DXGI_MODE_ROTATION_ROTATE90: g_display_rotation = DisplayRotation::ROTATE_90; break;
-	case DXGI_MODE_ROTATION_ROTATE180: g_display_rotation = DisplayRotation::ROTATE_180; break;
-	case DXGI_MODE_ROTATION_ROTATE270: g_display_rotation = DisplayRotation::ROTATE_270; break;
-	}
-	// Not super elegant but hey.
-	memcpy(&g_display_rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
-
-	// Reset the viewport to target the whole screen.
-	auto viewport = m_deviceResources->GetScreenViewport();
-
-	pixel_xres = viewport.Width;
-	pixel_yres = viewport.Height;
-
-	if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
-		// We need to swap our width/height.
-		std::swap(pixel_xres, pixel_yres);
-	}
-
-	g_dpi = m_deviceResources->GetActualDpi();
-
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
-		// Boost DPI a bit to look better.
-		g_dpi *= 96.0f / 136.0f;
-	}
-	g_dpi_scale_x = 96.0f / g_dpi;
-	g_dpi_scale_y = 96.0f / g_dpi;
-
-	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
-	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
-
-	dp_xres = pixel_xres * g_dpi_scale_x;
-	dp_yres = pixel_yres * g_dpi_scale_y;
-
-	context->RSSetViewports(1, &viewport);
-
-	NativeRender(ctx_.get());
+	NativeFrame(ctx_.get());
 	return true;
 }
 
@@ -220,6 +192,10 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 }
 
 void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
+	// TODO: Look like (Ctrl, Alt, Shift) don't trigger this event
+	bool isDPad = (int)virtualKey >= 195 && (int)virtualKey <= 218; // DPad buttons range
+	DPadInputState(isDPad);
+
 	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
 	if (iter != virtualKeyCodeToNKCode.end()) {
 		KeyInput key{};
@@ -241,8 +217,22 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 	}
 }
 
+void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
+	// This event triggered only in chars case, (Arrows, Delete..etc don't call it)
+	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
+	if (isTextEditActive()) {
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.keyCode = (InputKeyCode)keyCode;
+		// After many tests turns out for char just add `KEY_CHAR` for the flags
+		// any other flag like `KEY_DOWN` will cause conflict and trigger something else
+		key.flags = KEY_CHAR;
+		NativeKey(key);
+	}
+}
+
 void PPSSPP_UWPMain::OnMouseWheel(float delta) {
-	int key = NKCODE_EXT_MOUSEWHEEL_UP;
+	InputKeyCode key = NKCODE_EXT_MOUSEWHEEL_UP;
 	if (delta < 0) {
 		key = NKCODE_EXT_MOUSEWHEEL_DOWN;
 	} else if (delta == 0) {
@@ -252,8 +242,10 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	KeyInput keyInput{};
 	keyInput.keyCode = key;
 	keyInput.deviceId = DEVICE_ID_MOUSE;
-	keyInput.flags = KEY_DOWN | KEY_UP;
+	keyInput.flags = KEY_DOWN;
 	NativeKey(keyInput);
+
+	// KEY_UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
 }
 
 bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
@@ -274,8 +266,8 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
 	float dpiFactor_y = dpiFactor_x;
-	dpiFactor_x /= pixel_in_dps_x;
-	dpiFactor_y /= pixel_in_dps_y;
+	dpiFactor_x /= g_display.pixel_in_dps_x;
+	dpiFactor_y /= g_display.pixel_in_dps_y;
 
 	TouchInput input{};
 	input.id = touchId;
@@ -305,10 +297,10 @@ void PPSSPP_UWPMain::OnSuspend() {
 
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
-	std::vector<std::string> adapterNames;
+	std::vector<std::string> adapterNames = resources->GetAdapters();
 
 	draw_ = Draw::T3DCreateD3D11Context(
-		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
+		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetSwapChain(), resources->GetDeviceFeatureLevel(), 0, adapterNames, g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();
 	_assert_(success);
 }
@@ -317,17 +309,15 @@ void UWPGraphicsContext::Shutdown() {
 	delete draw_;
 }
 
-void UWPGraphicsContext::SwapInterval(int interval) {
-
-}
-
 std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
-		return "Windows 10 Universal";
+		return GetSystemName();
+	case SYSPROP_SYSTEMBUILD:
+		return GetWindowsBuild();
 	case SYSPROP_LANGREGION:
-		return langRegion;
+		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
 		/* TODO: Need to either change this API or do this on a thread in an ugly fashion.
 		DataPackageView ^view = Clipboard::GetContent();
@@ -338,6 +328,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "";
 	case SYSPROP_GPUDRIVER_VERSION:
 		return "";
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}
@@ -357,13 +349,6 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 		// Need to resize off the null terminator either way.
 		tempPath.resize(sz);
 		result.push_back(ConvertWStringToUTF8(tempPath));
-
-		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
-			result.push_back(getenv("TMPDIR"));
-		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
-			result.push_back(getenv("TMP"));
-		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
-			result.push_back(getenv("TEMP"));
 		return result;
 	}
 
@@ -372,19 +357,33 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+
 	case SYSPROP_DEVICE_TYPE:
 	{
-		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-		if (ver->DeviceFamily == "Windows.Mobile") {
+		if (IsMobile()) {
 			return DEVICE_TYPE_MOBILE;
-		} else if (ver->DeviceFamily == "Windows.Xbox") {
+		} else if (IsXBox()) {
 			return DEVICE_TYPE_TV;
 		} else {
 			return DEVICE_TYPE_DESKTOP;
+		}
+	}
+	case SYSPROP_DISPLAY_XRES:
+	{
+		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		if (corewindow) {
+			return  (int)corewindow->Bounds.Width;
+		}
+	}
+	case SYSPROP_DISPLAY_YRES:
+	{
+		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		if (corewindow) {
+			return (int)corewindow->Bounds.Height;
 		}
 	}
 	default:
@@ -406,18 +405,25 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	}
 }
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_TEXT_CLIPBOARD:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+	{
+		return !IsXBox();
+	}
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FOLDER_BROWSER:
-		return false;  // at least I don't know a usable one
+		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
-		return false;
+		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_ACCELEROMETER:
+		return IsMobile();
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -427,42 +433,160 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
+	{
+		// Do actual check 
+		// touch devices has input pane, we need to depend on it
+		// I don't know any possible way to display input dialog in non-xaml apps
+		return isKeyboardAvailable() || isTouchAvailable();
+	}
+	case SYSPROP_DEBUGGER_PRESENT:
+		return IsDebuggerPresent();
+	case SYSPROP_OK_BUTTON_LEFT:
 		return true;
 	default:
 		return false;
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	using namespace concurrency;
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::POLL_CONTROLLERS:
+	{
+		for (const auto &device : g_input)
+		{
+			if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
+				break;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
 
-	if (!strcmp(command, "finish")) {
-		// Not really supposed to support this under UWP.
-	} else if (!strcmp(command, "browse_file")) {
-		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
-		picker->ViewMode = Pickers::PickerViewMode::List;
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
+	switch (type) {
 
-		// These are single files that can be loaded directly using StorageFileLoader.
-		picker->FileTypeFilter->Append(".cso");
-		picker->FileTypeFilter->Append(".iso");
+	case SystemRequestType::EXIT_APP:
+	{
+		bool state = false;
+		ExecuteTask(state, Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryConsolidateAsync());
+		if (!state) {
+			// Notify the user?
+		}
+		return true;
+	}
+	case SystemRequestType::RESTART_APP:
+	{
+		Windows::ApplicationModel::Core::AppRestartFailureReason error;
+		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
+		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
+			// Shutdown
+			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3, param4);
+		}
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		std::vector<std::string> supportedExtensions = { ".jpg", ".png" };
 
-		// Can't load these this way currently, they require mounting the underlying folder.
-		picker->FileTypeFilter->Append(".bin");
-		picker->FileTypeFilter->Append(".elf");
-		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
+		//Call file picker
+		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
+			if (filePath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+			}
+			else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		std::vector<std::string> supportedExtensions = {};
+		switch ((BrowseFileType)param3) {
+		case BrowseFileType::BOOTABLE:
+			supportedExtensions = { ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
+			break;
+		case BrowseFileType::INI:
+			supportedExtensions = { ".ini" };
+			break;
+		case BrowseFileType::ZIP:
+			supportedExtensions = { ".zip" };
+			break;
+		case BrowseFileType::DB:
+			supportedExtensions = { ".db" };
+			break;
+		case BrowseFileType::SOUND_EFFECT:
+			supportedExtensions = { ".wav", ".mp3" };
+			break;
+		case BrowseFileType::ANY:
+			// 'ChooseFile' will added '*' by default when there are no extensions assigned
+			break;
+		default:
+			ERROR_LOG(Log::FileSystem, "Unexpected BrowseFileType: %d", param3);
+			return false;
+		}
 
-		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
-			if (file) {
-				std::string path = FromPlatformString(file->Path);
-				NativeMessageReceived("boot", path.c_str());
+		//Call file picker
+		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
+			if (filePath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+			}
+			else {
+				g_requestManager.PostSystemFailure(requestId);
 			}
 		});
-	} else if (!strcmp(command, "toggle_fullscreen")) {
+
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		ChooseFolder().then([requestId](std::string folderPath) {
+			if (folderPath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, folderPath.c_str());
+			}
+			else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	}
+	case SystemRequestType::NOTIFY_UI_EVENT:
+	{
+		switch ((UIEventNotification)param3) {
+		case UIEventNotification::MENU_RETURN:
+			CloseLaunchItem();
+			break;
+		case UIEventNotification::POPUP_CLOSED:
+			DeactivateTextEditInput();
+			break;
+		case UIEventNotification::TEXT_GOTFOCUS:
+			ActivateTextEditInput(true);
+			break;
+		case UIEventNotification::TEXT_LOSTFOCUS:
+			DeactivateTextEditInput(true);
+			break;
+		default:
+			break;
+		}
+		return true;
+	}
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		auto dataPackage = ref new DataPackage();
+		dataPackage->RequestedOperation = DataPackageOperation::Copy;
+		dataPackage->SetText(ToPlatformString(param1));
+		Clipboard::SetContent(dataPackage);
+		return true;
+	}
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	{
 		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
 		bool flag = !view->IsFullScreenMode;
-		if (strcmp(parameter, "0") == 0) {
+		if (param1 == "0") {
 			flag = false;
-		} else if (strcmp(parameter, "1") == 0){
+		} else if (param1 == "1"){
 			flag = true;
 		}
 		if (flag) {
@@ -470,20 +594,23 @@ void System_SendMessage(const char *command, const char *parameter) {
 		} else {
 			view->ExitFullScreenMode();
 		}
+		return true;
+	}
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		OpenFolder(param1);
+		return true;
+	default:
+		return false;
 	}
 }
 
-void OpenDirectory(const char *path) {
-	// Unsupported
-}
-
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 #if _M_ARM
 	if (length_ms == -1 || length_ms == -3)
 		length_ms = 50;
@@ -505,11 +632,6 @@ void System_AskForPermission(SystemPermission permission) {
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;
-}
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	// TODO
-	cb(false, "");
 }
 
 std::string GetCPUBrandString() {
@@ -534,7 +656,7 @@ std::string GetCPUBrandString() {
 	}
 	catch (const std::exception & e) {
 		const char* what = e.what();
-		INFO_LOG(SYSTEM, "%s", what);
+		INFO_LOG(Log::System, "%s", what);
 	}
 
 	if (cpu_id != nullptr) {
@@ -556,7 +678,7 @@ std::string GetCPUBrandString() {
 		}
 		catch (const std::exception & e) {
 			const char* what = e.what();
-			INFO_LOG(SYSTEM, "%s", what);
+			INFO_LOG(Log::System, "%s", what);
 		}
 	}
 
@@ -565,21 +687,4 @@ std::string GetCPUBrandString() {
 	} else {
 		return "Unknown";
 	}
-}
-
-// Emulation of TlsAlloc for Windows 10. Used by glslang. Doesn't actually seem to work, other than fixing the linking errors?
-
-extern "C" {
-DWORD WINAPI __imp_TlsAlloc() {
-	return FlsAlloc(nullptr);
-}
-BOOL WINAPI __imp_TlsFree(DWORD index) {
-	return FlsFree(index);
-}
-BOOL WINAPI __imp_TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue) {
-	return FlsSetValue(dwTlsIndex, lpTlsValue);
-}
-LPVOID WINAPI __imp_TlsGetValue(DWORD dwTlsIndex) {
-	return FlsGetValue(dwTlsIndex);
-}
 }

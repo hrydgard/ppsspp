@@ -46,6 +46,7 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 
 	case DataFormat::S8: return 1;
 	case DataFormat::D16: return 2;
+	case DataFormat::D16_S8: return 3;
 	case DataFormat::D24_S8: return 4;
 	case DataFormat::D32F: return 4;
 	// Or maybe 8...
@@ -56,9 +57,32 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	}
 }
 
+const char *DataFormatToString(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8_UNORM: return "R8_UNORM";
+	case DataFormat::R8G8_UNORM: return "R8G8_UNORM";
+	case DataFormat::R8G8B8A8_UNORM: return "R8G8B8A8_UNORM";
+	case DataFormat::B8G8R8A8_UNORM: return "B8G8R8A8_UNORM";
+	case DataFormat::R16_UNORM: return "R16_UNORM";
+	case DataFormat::R16_FLOAT: return "R16_FLOAT";
+	case DataFormat::R32_FLOAT: return "R32_FLOAT";
+
+	case DataFormat::S8: return "S8";
+	case DataFormat::D16: return "D16";
+	case DataFormat::D16_S8: return "D16_S8";
+	case DataFormat::D24_S8: return "D24_S8";
+	case DataFormat::D32F: return "D32F";
+	case DataFormat::D32F_S8: return "D32F_S8";
+
+	default:
+		return "(N/A)";
+	}
+}
+
 bool DataFormatIsDepthStencil(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::D16:
+	case DataFormat::D16_S8:
 	case DataFormat::D24_S8:
 	case DataFormat::S8:
 	case DataFormat::D32F:
@@ -69,8 +93,34 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 	}
 }
 
+// We don't bother listing the formats that are irrelevant for PPSSPP, like BC6 (HDR format)
+// or weird-shaped ASTC formats. We only support 4x4 block size formats for now.
+// If you pass in a blockSize parameter, it receives byte count that a 4x4 block takes in this format.
+bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
+	switch (fmt) {
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+		if (blockSize) *blockSize = 8;  // 64 bits
+		return true;
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+	case DataFormat::BC7_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		if (blockSize) *blockSize = 16;  // 128 bits
+		return true;
+	default:
+		if (blockSize) *blockSize = 0;
+		return false;
+	}
+}
+
 RefCountedObject::~RefCountedObject() {
-	_dbg_assert_(refcount_ == 0xDEDEDE);
+	const int rc = refcount_.load();
+	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);
 }
 
 bool RefCountedObject::Release() {
@@ -82,6 +132,7 @@ bool RefCountedObject::Release() {
 			return true;
 		}
 	} else {
+		// No point in printing the name here if the object has already been free-d, it'll be corrupt and dangerous to print.
 		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
@@ -89,10 +140,9 @@ bool RefCountedObject::Release() {
 
 bool RefCountedObject::ReleaseAssertLast() {
 	bool released = Release();
-	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't! (%s)", name_);
 	return released;
 }
-
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
@@ -137,7 +187,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -181,7 +231,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -270,7 +320,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -416,7 +466,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -499,7 +549,7 @@ void DrawContext::DestroyPresets() {
 }
 
 DrawContext::~DrawContext() {
-	DestroyPresets();
+	// TODO: Can't call DestroyPresets here, too late.
 }
 
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
@@ -551,7 +601,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format: %d", (int)format);
 			break;
 		}
 	}
@@ -613,7 +663,7 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			WARN_LOG(G3D, "Unable to convert from format to BGRA: %d", (int)format);
+			WARN_LOG(Log::G3D, "Unable to convert from format to BGRA: %d", (int)format);
 			break;
 		}
 	}
@@ -701,7 +751,8 @@ void ConvertToD16(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t
 
 const char *Bugs::GetBugName(uint32_t bug) {
 	switch (bug) {
-	case NO_DEPTH_CANNOT_DISCARD_STENCIL: return "NO_DEPTH_CANNOT_DISCARD_STENCIL";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI";
+	case NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO: return "NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO";
 	case DUAL_SOURCE_BLENDING_BROKEN: return "DUAL_SOURCE_BLENDING_BROKEN";
 	case ANY_MAP_BUFFER_RANGE_SLOW: return "ANY_MAP_BUFFER_RANGE_SLOW";
 	case PVR_GENMIPMAP_HEIGHT_GREATER: return "PVR_GENMIPMAP_HEIGHT_GREATER";
@@ -712,7 +763,26 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
 	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
 	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
+	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
+	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
+	case PVR_BAD_16BIT_TEXFORMATS: return "PVR_BAD_16BIT_TEXFORMATS";
 	default: return "(N/A)";
+	}
+}
+
+const char *PresentModeToString(PresentMode presentMode) {
+	// All 8 possible cases, with three flags, for simplicity.
+	switch ((int)presentMode) {
+	case 0: return "NONE";
+	case (int)PresentMode::FIFO: return "FIFO";
+	case (int)PresentMode::IMMEDIATE: return "IMMEDIATE";
+	case (int)PresentMode::MAILBOX: return "MAILBOX";
+	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX) : return "FIFO|MAILBOX";
+	case ((int)PresentMode::FIFO | (int)PresentMode::IMMEDIATE) : return "FIFO|IMMEDIATE";
+	case ((int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "MAILBOX|IMMEDIATE";  // Not gonna happen
+	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "FIFO|MAILBOX|IMMEDIATE";
+	default:
+		return "INVALID";
 	}
 }
 

@@ -20,7 +20,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -40,22 +39,30 @@ static const SamplerDef samplers[1] = {
 	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
 };
 
-const UniformDef g_draw2Duniforms[2] = {
+const UniformDef g_draw2Duniforms[5] = {
 	{ "vec2", "texSize", 0 },
 	{ "float", "scaleFactor", 1},
+	{ "float", "z_scale", 2 },
+	{ "float", "z_scale_inv", 3 },
+	{ "float", "z_offset", 4 },
 };
 
 struct Draw2DUB {
 	float texSizeX;
 	float texSizeY;
 	float scaleFactor;
+	float zScale;
+	float zScaleInv;
+	float zOffset;
 };
 
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
 	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 8 },
+	{ "z_scale", -1, 1, UniformType::FLOAT1, 12 },
+	{ "z_scale_inv", -1, 1, UniformType::FLOAT1, 16 },
+	{ "z_offset", -1, 1, UniformType::FLOAT1, 20 },
 } };
-
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
@@ -97,22 +104,40 @@ Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 
 	return Draw2DPipelineInfo{
 		"draw2d_copy_depth",
+		RASTER_DEPTH,  // Unused in this case, I think.
 		RASTER_DEPTH,
+	};
+}
+
+Draw2DPipelineInfo GenerateDraw2DEncodeDepthFs(ShaderWriter &writer) {
+	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.HighPrecisionFloat();
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
+	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
+	writer.C("  float depthValue = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
+	writer.C("  gl_FragDepth = (depthValue * z_scale_inv) + z_offset;\n");
+	writer.EndFSMain("outColor");
+
+	return Draw2DPipelineInfo{
+		"draw2d_copy_r16_to_depth",
+		RASTER_COLOR,
 		RASTER_DEPTH,
 	};
 }
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
-	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors();
+	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
-	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
-	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.F("  float depthValue = ((floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0)) / 65535.0; \n");
+	writer.C("  gl_FragDepth = (depthValue * z_scale_inv) + z_offset;\n");
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -124,23 +149,24 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 
 Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
+	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors();
+	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec2 tsize = texSize;\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
 	writer.F("  float strip = 4.0 * scaleFactor;\n");
 	writer.C("  float in_strip = mod(coord.y, strip);\n");
 	writer.C("  coord.y = coord.y - in_strip + strip - in_strip;\n");
 	writer.C("  coord /= tsize;\n");
-	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
-	writer.F("  highp float depthValue = (floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0); \n");
-	writer.F("  gl_FragDepth = (depthValue / %f) + %f;\n", factors.scale, factors.offset);
+	writer.C("  highp vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
+	writer.F("  highp float depthValue = floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0; \n");
+	writer.C("  gl_FragDepth = z_offset + ((depthValue / 65535.0) * z_scale_inv);\n");
 	writer.EndFSMain("outColor");
-	
+
 	return Draw2DPipelineInfo{
 		"draw2d_565_to_depth_deswizzle",
 		RASTER_COLOR,
@@ -235,21 +261,19 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 
 	ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), info.tag);
 
-	_assert_(fs);
+	_assert_msg_(fs, "Failed to create shader module!\n%s", fsCode);
 
 	// verts have positions in 2D clip coordinates.
 	static const InputLayoutDesc desc = {
+		16,
 		{
-			{ 16, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
+			{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
 		},
 	};
 	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
 
-	BlendState *blend = draw_->CreateBlendState({ false, info.writeChannel == RASTER_COLOR ? 0xF : 0 });
+	BlendState *blend = draw_->CreateBlendState({ false, info.writeChannel == RASTER_COLOR ? 0xF : 0x0 });
 
 	DepthStencilStateDesc dsDesc{};
 	if (info.writeChannel == RASTER_DEPTH) {
@@ -293,17 +317,23 @@ void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX
 	float dY = 1.0f / (float)dstHeight;
 	float sX = 1.0f / (float)srcWidth;
 	float sY = 1.0f / (float)srcHeight;
+	float xOffset = 0.0f;
+	float yOffset = 0.0f;
+	if (draw_->GetDeviceCaps().requiresHalfPixelOffset) {
+		xOffset = -dX * 0.5f;
+		yOffset = -dY * 0.5f;
+	}
 	Draw2DVertex vtx[4] = {
-		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY1), sX * srcX1, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY1), sX * srcX2, sY * srcY1 },
-		{ -1.0f + 2.0f * dX * dstX1, -(1.0f - 2.0f * dY * dstY2), sX * srcX1, sY * srcY2 },
-		{ -1.0f + 2.0f * dX * dstX2, -(1.0f - 2.0f * dY * dstY2), sX * srcX2, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * dstX1 + xOffset, -(1.0f - 2.0f * dY * dstY1) + yOffset, sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX2 + xOffset, -(1.0f - 2.0f * dY * dstY1) + yOffset, sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * dstX1 + xOffset, -(1.0f - 2.0f * dY * dstY2) + yOffset, sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * dstX2 + xOffset, -(1.0f - 2.0f * dY * dstY2) + yOffset, sX * srcX2, sY * srcY2 },
 	};
 
 	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor);
 }
 
-void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
+void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
 	using namespace Draw;
 
 	_dbg_assert_(pipeline);
@@ -320,6 +350,11 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCoun
 	ub.texSizeY = tex ? tex->Height() : texH;
 	ub.scaleFactor = (float)scaleFactor;
 
+	DepthScaleFactors zScaleFactors = GetDepthScaleFactors(gstate_c.UseFlags());
+	ub.zScale = zScaleFactors.Scale();
+	ub.zScaleInv = 1.0f / ub.zScale;
+	ub.zOffset = zScaleFactors.Offset();
+
 	draw_->BindPipeline(pipeline->pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 
@@ -330,7 +365,7 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, Draw2DVertex *verts, int vertexCoun
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, linearFilter ? &draw2DSamplerLinear_ : &draw2DSamplerNearest_);
 	draw_->DrawUP(verts, vertexCount);
 
-	draw_->InvalidateCachedState();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 }
@@ -344,10 +379,10 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 
 	switch (shader) {
 	case DRAW2D_COPY_COLOR:
-		if (!draw2DPipelineColor_) {
-			draw2DPipelineColor_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorFs);
+		if (!draw2DPipelineCopyColor_) {
+			draw2DPipelineCopyColor_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorFs);
 		}
-		pipeline = draw2DPipelineColor_;
+		pipeline = draw2DPipelineCopyColor_;
 		break;
 
 	case DRAW2D_COPY_COLOR_RECT2LIN:
@@ -356,16 +391,26 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 		}
 		pipeline = draw2DPipelineColorRect2Lin_;
 		break;
-
 	case DRAW2D_COPY_DEPTH:
 		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			// Can't do it
 			return nullptr;
 		}
-		if (!draw2DPipelineDepth_) {
-			draw2DPipelineDepth_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyDepthFs);
+		if (!draw2DPipelineCopyDepth_) {
+			draw2DPipelineCopyDepth_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyDepthFs);
 		}
-		pipeline = draw2DPipelineDepth_;
+		pipeline = draw2DPipelineCopyDepth_;
+		break;
+
+	case DRAW2D_ENCODE_R16_TO_DEPTH:
+		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+			// Can't do it
+			return nullptr;
+		}
+		if (!draw2DPipelineEncodeDepth_) {
+			draw2DPipelineEncodeDepth_ = draw2D_.Create2DPipeline(&GenerateDraw2DEncodeDepthFs);
+		}
+		pipeline = draw2DPipelineEncodeDepth_;
 		break;
 
 	case DRAW2D_565_TO_DEPTH:

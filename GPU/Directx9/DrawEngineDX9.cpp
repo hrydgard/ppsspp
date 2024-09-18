@@ -16,13 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <wrl/client.h>
 
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
@@ -41,6 +41,8 @@
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
+
+using Microsoft::WRL::ComPtr;
 
 static const D3DPRIMITIVETYPE d3d_prim[8] = {
 	// Points, which are expanded to triangles.
@@ -73,10 +75,6 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define VERTEXCACHE_DECIMATION_INTERVAL 17
-
-enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
-
 static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	{ 0, offsetof(TransformedVertex, pos), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	{ 0, offsetof(TransformedVertex, uv), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
@@ -86,19 +84,12 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	D3DDECL_END()
 };
 
-DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vai_(256), vertexDeclMap_(64) {
+DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclMap_(64) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
-	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	// Allocate nicely aligned memory. Maybe graphics drivers will
-	// appreciate it.
-	// All this is a LOT of memory, need to see if we can cut down somehow.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 
 	InitDeviceObjects();
 
@@ -109,27 +100,19 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vai_(256), 
 }
 
 DrawEngineDX9::~DrawEngineDX9() {
-	if (transformedVertexDecl_) {
-		transformedVertexDecl_->Release();
-	}
-
 	DestroyDeviceObjects();
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	vertexDeclMap_.Iterate([&](const uint32_t &key, IDirect3DVertexDeclaration9 *decl) {
-		if (decl) {
-			decl->Release();
-		}
-	});
 	vertexDeclMap_.Clear();
 	delete tessDataTransferDX9;
 }
 
 void DrawEngineDX9::InitDeviceObjects() {
-
+	draw_->SetInvalidationCallback(std::bind(&DrawEngineDX9::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineDX9::DestroyDeviceObjects() {
+	if (draw_) {
+		draw_->SetInvalidationCallback(InvalidationCallback());
+	}
 	ClearTrackedVertexArrays();
 }
 
@@ -166,11 +149,11 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
-	IDirect3DVertexDeclaration9 *vertexDeclCached = vertexDeclMap_.Get(pspFmt);
-
-	if (vertexDeclCached) {
-		return vertexDeclCached;
+HRESULT DrawEngineDX9::SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt, IDirect3DVertexDeclaration9 **ppVertextDeclaration) {
+	ComPtr<IDirect3DVertexDeclaration9> vertexDeclCached;
+	if (vertexDeclMap_.Get(pspFmt, &vertexDeclCached)) {
+		*ppVertextDeclaration = vertexDeclCached.Detach();
+		return S_OK;
 	} else {
 		D3DVERTEXELEMENT9 VertexElements[8];
 		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
@@ -212,7 +195,7 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 
 		// POSITION
 		// Always
-		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
+		VertexAttribSetup(VertexElement, DecVtxFormat::PosFmt(), decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
 		VertexElement++;
 
 		// End
@@ -220,81 +203,16 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
 
 		// Create declaration
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
+		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
 		HRESULT hr = device_->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
-			ERROR_LOG(G3D, "Failed to create vertex declaration!");
-			pHardwareVertexDecl = nullptr;
+			ERROR_LOG(Log::G3D, "Failed to create vertex declaration!");
 		}
 
 		// Add it to map
 		vertexDeclMap_.Insert(pspFmt, pHardwareVertexDecl);
-		return pHardwareVertexDecl;
-	}
-}
-
-void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
-	vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
-	if (vai->vbo) {
-		vai->vbo->Release();
-		vai->vbo = nullptr;
-	}
-	if (vai->ebo) {
-		vai->ebo->Release();
-		vai->ebo = nullptr;
-	}
-}
-
-void DrawEngineDX9::ClearTrackedVertexArrays() {
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
-		delete vai;
-	});
-	vai_.Clear();
-}
-
-void DrawEngineDX9::DecimateTrackedVertexArrays() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
-	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
-		bool kill;
-		if (vai->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
-			// We limit killing unreliable so we don't rehash too often.
-			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
-		} else {
-			kill = vai->lastFrame < threshold;
-		}
-		if (kill) {
-			delete vai;
-			vai_.Remove(hash);
-		}
-	});
-	vai_.Maintain();
-
-	// Enable if you want to see vertex decoders in the log output. Need a better way.
-#if 0
-	char buffer[16384];
-	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
-		char *ptr = buffer;
-		ptr += dec->second->ToString(ptr);
-		//		*ptr++ = '\n';
-		NOTICE_LOG(G3D, buffer);
-	}
-#endif
-}
-
-VertexArrayInfoDX9::~VertexArrayInfoDX9() {
-	if (vbo) {
-		vbo->Release();
-	}
-	if (ebo) {
-		ebo->Release();
+		*ppVertextDeclaration = pHardwareVertexDecl.Detach();
+		return hr;
 	}
 }
 
@@ -303,25 +221,18 @@ static uint32_t SwapRB(uint32_t c) {
 }
 
 void DrawEngineDX9::BeginFrame() {
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
-
-	DecimateTrackedVertexArrays();
-
 	lastRenderStepId_ = -1;
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
-void DrawEngineDX9::DoFlush() {
-	gpuStats.numFlushes++;
-
-	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
-	int curRenderStepId = draw_->GetCurrentStepId();
-	if (lastRenderStepId_ != curRenderStepId) {
-		// Dirty everything that has dynamic state that will need re-recording.
+// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
+void DrawEngineDX9::Invalidate(InvalidationCallbackFlags flags) {
+	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		lastRenderStepId_ = curRenderStepId;
 	}
+}
 
+// The inline wrapper in the header checks for numDrawCalls_ == 0
+void DrawEngineDX9::DoFlush() {
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -339,174 +250,17 @@ void DrawEngineDX9::DoFlush() {
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
-		LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
-		LPDIRECT3DINDEXBUFFER9 ib_ = NULL;
+		LPDIRECT3DVERTEXBUFFER9 vb_ = nullptr;
+		LPDIRECT3DINDEXBUFFER9 ib_ = nullptr;
 
-		int vertexCount = 0;
-		int maxIndex = 0;
-		bool useElements = true;
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		DecodeVerts(decoded_);
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		gpuStats.numUncachedVertsDrawn += vertexCount;
 
-		// Cannot cache vertex data with morph enabled.
-		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
-			useCache = false;
-
-		if (useCache) {
-			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			VertexArrayInfoDX9 *vai = vai_.Get(id);
-			if (!vai) {
-				vai = new VertexArrayInfoDX9();
-				vai_.Insert(id, vai);
-			}
-
-			switch (vai->status) {
-			case VertexArrayInfoDX9::VAI_NEW:
-				{
-					// Haven't seen this one before.
-					uint64_t dataHash = ComputeHash();
-					vai->hash = dataHash;
-					vai->minihash = ComputeMiniHash();
-					vai->status = VertexArrayInfoDX9::VAI_HASHING;
-					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded); // writes to indexGen
-					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
-					vai->maxIndex = indexGen.MaxIndex();
-					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-
-					goto rotateVBO;
-				}
-
-				// Hashing - still gaining confidence about the buffer.
-				// But if we get this far it's likely to be worth creating a vertex buffer.
-			case VertexArrayInfoDX9::VAI_HASHING:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					if (vai->drawsUntilNextFullHash == 0) {
-						// Let's try to skip a full hash if mini would fail.
-						const u32 newMiniHash = ComputeMiniHash();
-						uint64_t newHash = vai->hash;
-						if (newMiniHash == vai->minihash) {
-							newHash = ComputeHash();
-						}
-						if (newMiniHash != vai->minihash || newHash != vai->hash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
-						}
-						if (vai->numVerts > 64) {
-							// exponential backoff up to 16 draws, then every 24
-							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
-						} else {
-							// Lower numbers seem much more likely to change.
-							vai->drawsUntilNextFullHash = 0;
-						}
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
-					} else {
-						vai->drawsUntilNextFullHash--;
-						u32 newMiniHash = ComputeMiniHash();
-						if (newMiniHash != vai->minihash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
-						}
-					}
-
-					if (vai->vbo == 0) {
-						DecodeVerts(decoded);
-						vai->numVerts = indexGen.VertexCount();
-						vai->prim = indexGen.Prim();
-						vai->maxIndex = indexGen.MaxIndex();
-						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-						useElements = !indexGen.SeenOnlyPurePrims();
-						if (!useElements && indexGen.PureCount()) {
-							vai->numVerts = indexGen.PureCount();
-						}
-
-						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
-
-						void * pVb;
-						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						device_->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
-						vai->vbo->Lock(0, size, &pVb, 0);
-						memcpy(pVb, decoded, size);
-						vai->vbo->Unlock();
-						if (useElements) {
-							void * pIb;
-							u32 size = sizeof(short) * indexGen.VertexCount();
-							device_->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
-							vai->ebo->Lock(0, size, &pIb, 0);
-							memcpy(pIb, decIndex, size);
-							vai->ebo->Unlock();
-						} else {
-							vai->ebo = 0;
-						}
-					} else {
-						gpuStats.numCachedDrawCalls++;
-						useElements = vai->ebo ? true : false;
-						gpuStats.numCachedVertsDrawn += vai->numVerts;
-						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-					}
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-					break;
-				}
-
-				// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfoDX9::VAI_RELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					gpuStats.numCachedDrawCalls++;
-					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-
-					vertexCount = vai->numVerts;
-
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-
-					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-					break;
-				}
-
-			case VertexArrayInfoDX9::VAI_UNRELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					DecodeVerts(decoded);
-					goto rotateVBO;
-				}
-			}
-
-			vai->lastFrame = gpuStats.numFlips;
-		} else {
-			DecodeVerts(decoded);
-rotateVBO:
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
-			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
-		}
+		_dbg_assert_((int)prim > 0);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -522,16 +276,17 @@ rotateVBO:
 		ApplyDrawState(prim);
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, lastVType_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
+		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
+		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
+		SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType(), &pHardwareVertexDecl);
 
 		if (pHardwareVertexDecl) {
-			device_->SetVertexDeclaration(pHardwareVertexDecl);
+			device_->SetVertexDeclaration(pHardwareVertexDecl.Get());
 			if (vb_ == NULL) {
 				if (useElements) {
-					device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex + 1, D3DPrimCount(d3d_prim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, numDecodedVerts_, D3DPrimCount(d3d_prim[prim], vertexCount), decIndex_, D3DFMT_INDEX16, decoded_, dec_->GetDecVtxFmt().stride);
 				} else {
-					device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], vertexCount), decoded_, dec_->GetDecVtxFmt().stride);
 				}
 			} else {
 				device_->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
@@ -539,7 +294,7 @@ rotateVBO:
 				if (useElements) {
 					device_->SetIndices(ib_);
 
-					device_->DrawIndexedPrimitive(d3d_prim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(d3d_prim[prim], vertexCount));
+					device_->DrawIndexedPrimitive(d3d_prim[prim], 0, 0, numDecodedVerts_, 0, D3DPrimCount(d3d_prim[prim], vertexCount));
 				} else {
 					device_->DrawPrimitive(d3d_prim[prim], 0, D3DPrimCount(d3d_prim[prim], vertexCount));
 				}
@@ -551,7 +306,9 @@ rotateVBO:
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
+		int vertexCount = DecodeInds();
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -559,26 +316,29 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
+		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;
-		params.provokeFlatFirst = true;
 		params.flippedY = false;
 		params.usesHalfZ = true;
+
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// We need to rotate the index buffer to simulate a different provoking vertex.
+			// We do this before line expansion etc.
+			int indexCount = RemainingIndices(inds);
+			IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+		}
 
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
@@ -590,7 +350,7 @@ rotateVBO:
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
-		int maxIndex = indexGen.MaxIndex();
+		int maxIndex = numDecodedVerts_;
 		SoftwareTransform swTransform(params);
 
 		// Half pixel offset hack.
@@ -601,30 +361,30 @@ rotateVBO:
 		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight > 0, trans, scale);
 
-		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		swTransform.Transform(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, &result);
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
-		if (result.action == SW_NOT_READY) {
-			swTransform.DetectOffsetTexture(maxIndex);
-		}
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
 			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
 
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(false, false, lastVType_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(false, false, dec_, decOptions_.expandAllWeightsToFloat, true, pipelineState_);
 
-		if (result.action == SW_DRAW_PRIMITIVES) {
+		if (result.action == SW_DRAW_INDEXED) {
 			if (result.setStencil) {
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS);
 				dxstate.stencilRef.set(result.stencilValue);
@@ -634,12 +394,8 @@ rotateVBO:
 			// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 			// Might help for text drawing.
 
-			device_->SetVertexDeclaration(transformedVertexDecl_);
-			if (result.drawIndexed) {
-				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
-			} else {
-				device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], result.drawNumTrans), result.drawBuffer, sizeof(TransformedVertex));
-			}
+			device_->SetVertexDeclaration(transformedVertexDecl_.Get());
+			device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, numDecodedVerts_, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
@@ -665,25 +421,8 @@ rotateVBO:
 		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	}
 
-	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
-
-	indexGen.Reset();
-	decodedVerts_ = 0;
-	numDrawCalls = 0;
-	vertexCountInDrawCalls_ = 0;
-	decodeCounter_ = 0;
-	dcid_ = 0;
-	prevPrim_ = GE_PRIM_INVALID;
-	gstate_c.vertexFullAlpha = true;
+	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-
-	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
-	gstate_c.vertBounds.minU = 512;
-	gstate_c.vertBounds.minV = 512;
-	gstate_c.vertBounds.maxU = 0;
-	gstate_c.vertBounds.maxV = 0;
-
 	GPUDebug::NotifyDraw();
 }
 

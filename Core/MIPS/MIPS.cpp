@@ -45,7 +45,6 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 u8 voffset[128];
 u8 fromvoffset[128];
 
-
 #ifndef M_LOG2E
 #define M_E        2.71828182845904523536f
 #define M_LOG2E    1.44269504088896340736f
@@ -89,7 +88,6 @@ const float cst_constants[32] = {
 	sqrtf(3.0f)/2.0f,
 };
 
-
 MIPSState::MIPSState() {
 	MIPSComp::jit = nullptr;
 
@@ -122,7 +120,7 @@ MIPSState::MIPSState() {
 	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
 
 	// Disadvantages:
-	// * Extra indirection, can be confusing and slower (interpreter only)
+	// * Extra indirection, can be confusing and slower (interpreter only, however we can often skip the table by rerranging formulas)
 	// * Flushing and reloading row registers is now slower
 
 	int i = 0;
@@ -154,13 +152,12 @@ MIPSState::MIPSState() {
 
 	for (int i = 0; i < (int)ARRAY_SIZE(firstThirtyTwo); i++) {
 		if (voffset[firstThirtyTwo[i]] != i) {
-			ERROR_LOG(CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
+			ERROR_LOG(Log::CPU, "Wrong voffset order! %i: %i should have been %i", firstThirtyTwo[i], voffset[firstThirtyTwo[i]], i);
 		}
 	}
 }
 
 MIPSState::~MIPSState() {
-	Shutdown();
 }
 
 void MIPSState::Shutdown() {
@@ -209,14 +206,12 @@ void MIPSState::Init() {
 	llBit = 0;
 	nextPC = 0;
 	downcount = 0;
-	// Initialize the VFPU random number generator with .. something?
-	rng.Init(0x1337);
 
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (PSP_CoreParameter().cpuCore == CPUCore::JIT) {
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
-	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_JIT) {
-		MIPSComp::jit = new MIPSComp::IRJit(this);
+	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
+	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
+		MIPSComp::jit = new MIPSComp::IRJit(this, false);
 	} else {
 		MIPSComp::jit = nullptr;
 	}
@@ -237,27 +232,28 @@ void MIPSState::UpdateCore(CPUCore desired) {
 
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
-		INFO_LOG(CPU, "Switching to JIT");
+	case CPUCore::JIT_IR:
+		INFO_LOG(Log::CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
 			delete oldjit;
 		}
-		newjit = MIPSComp::CreateNativeJit(this);
+		newjit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 		break;
 
-	case CPUCore::IR_JIT:
-		INFO_LOG(CPU, "Switching to IRJIT");
+	case CPUCore::IR_INTERPRETER:
+		INFO_LOG(Log::CPU, "Switching to IR interpreter");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
 			delete oldjit;
 		}
-		newjit = new MIPSComp::IRJit(this);
+		newjit = new MIPSComp::IRJit(this, false);
 		break;
 
 	case CPUCore::INTERPRETER:
-		INFO_LOG(CPU, "Switching to interpreter");
+		INFO_LOG(Log::CPU, "Switching to interpreter");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
@@ -271,7 +267,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 3);
+	auto s = p.Section("MIPSState", 1, 4);
 	if (!s)
 		return;
 
@@ -308,8 +304,12 @@ void MIPSState::DoState(PointerWrap &p) {
 		Do(p, fcr0_unused);
 	}
 	Do(p, fcr31);
-	Do(p, rng.m_w);
-	Do(p, rng.m_z);
+	if (s <= 3) {
+		uint32_t dummy;
+		Do(p, dummy); // rng.m_w
+		Do(p, dummy); // rng.m_z
+	}
+
 	Do(p, inDelaySlot);
 	Do(p, llBit);
 	Do(p, debugCount);
@@ -330,7 +330,8 @@ void MIPSState::SingleStep() {
 int MIPSState::RunLoopUntil(u64 globalTicks) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
-	case CPUCore::IR_JIT:
+	case CPUCore::JIT_IR:
+	case CPUCore::IR_INTERPRETER:
 		while (inDelaySlot) {
 			// We must get out of the delay slot before going into jit.
 			SingleStep();

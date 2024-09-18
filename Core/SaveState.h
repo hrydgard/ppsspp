@@ -15,8 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Common/File/Path.h"
@@ -29,20 +32,21 @@ namespace SaveState
 		WARNING,
 		SUCCESS,
 	};
-	typedef std::function<void(Status status, const std::string &message, void *cbUserData)> Callback;
+	typedef std::function<void(Status status, std::string_view message, void *cbUserData)> Callback;
 
 	static const int NUM_SLOTS = 5;
-	static const char *STATE_EXTENSION = "ppst";
-	static const char *SCREENSHOT_EXTENSION = "jpg";
-	static const char *UNDO_STATE_EXTENSION = "undo.ppst";
-	static const char *UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
+	static const char * const STATE_EXTENSION = "ppst";
+	static const char * const SCREENSHOT_EXTENSION = "jpg";
+	static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
+	static const char * const UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
 
-	static const char *LOAD_UNDO_NAME = "load_undo.ppst";
+	static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
 	void Init();
 	void Shutdown();
 
 	// Cycle through the 5 savestate slots
+	void PrevSlot();
 	void NextSlot();
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);

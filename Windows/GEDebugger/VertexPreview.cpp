@@ -43,7 +43,7 @@ static const char preview_vs[] =
 	"uniform mat4 u_viewproj;\n"
 	"void main() {\n"
 	"  gl_Position = u_viewproj * a_position;\n"
-	"  gl_Position.z = 1.0f;\n"
+	"  gl_Position.z = 1.0;\n"
 	"}\n";
 
 static GLSLProgram *previewProgram = nullptr;
@@ -286,11 +286,11 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	}
 
 	if (prim_type >= 7) {
-		ERROR_LOG(G3D, "Unsupported prim type: %x", op);
+		ERROR_LOG(Log::G3D, "Unsupported prim type: %x", op);
 		return;
 	}
 	if (!gpuDebug) {
-		ERROR_LOG(G3D, "Invalid debugging environment, shutting down?");
+		ERROR_LOG(Log::G3D, "Invalid debugging environment, shutting down?");
 		return;
 	}
 	which &= previewsEnabled_;
@@ -303,7 +303,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	static std::vector<u16> indices;
 
 	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
-		ERROR_LOG(G3D, "Vertex preview not yet supported");
+		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
 		return;
 	}
 

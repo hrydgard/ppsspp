@@ -18,17 +18,18 @@
 // TODO: Get rid of the internal window.
 // Tried before but Intel drivers screw up when minimizing, or something ?
 
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-// It's improving slowly, though. :)
 #include "stdafx.h"
+
+#include "ppsspp_config.h"
+
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
-#include "ppsspp_config.h"
 
 #include <Windowsx.h>
 #include <shellapi.h>
 #include <commctrl.h>
 #include <string>
+#include <dwmapi.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -56,6 +57,8 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
+#include "Windows/W32Util/DarkMode.h"
+#include "Windows/W32Util/UAHMenuBar.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
@@ -69,8 +72,8 @@
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Common/LogManager.h"
-#include "Common/ConsoleListener.h"
+#include "Common/Log/LogManager.h"
+#include "Common/Log/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
@@ -85,10 +88,12 @@
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
 
+// See https://github.com/unknownbrackets/verysleepy/commit/fc1b1b3bd6081fae3566cdb542d896e413238b71
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
 const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
+const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
 
 // Respond TRUE to a message with this param value to indicate support.
 const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
@@ -105,14 +110,11 @@ struct VerySleepy_AddrInfo {
 };
 
 static std::wstring windowTitle;
-extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_WHEELRELEASE 3
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
-#define WHEELRELEASE_DELAY_MS 16
 
 namespace MainWindow
 {
@@ -135,6 +137,7 @@ namespace MainWindow
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_isFullscreen = false;
+	static bool g_keepScreenBright = false;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
@@ -159,6 +162,10 @@ namespace MainWindow
 		return hwndDisplay;
 	}
 
+	void SetKeepScreenBright(bool keepBright) {
+		g_keepScreenBright = keepBright;
+	}
+
 	void Init(HINSTANCE hInstance) {
 		// Register classes - Main Window
 		WNDCLASSEX wcex;
@@ -177,7 +184,7 @@ namespace MainWindow
 
 		WNDCLASSEX wcdisp;
 		memset(&wcdisp, 0, sizeof(wcdisp));
-		// Display Window
+		// Display Window (contained in main window)
 		wcdisp.cbSize = sizeof(WNDCLASSEX);
 		wcdisp.style = CS_HREDRAW | CS_VREDRAW;
 		wcdisp.lpfnWndProc = (WNDPROC)DisplayProc;
@@ -195,7 +202,7 @@ namespace MainWindow
 		if (g_Config.UseFullScreen() || inFullscreenResize)
 			return;
 
-		WINDOWPLACEMENT placement;
+		WINDOWPLACEMENT placement{};
 		GetWindowPlacement(hwndMain, &placement);
 		if (placement.showCmd == SW_SHOWNORMAL) {
 			RECT rc;
@@ -238,7 +245,7 @@ namespace MainWindow
 				g_Config.iInternalResolution = 0;
 		}
 
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 
 	void CorrectCursor() {
@@ -264,29 +271,15 @@ namespace MainWindow
 		}
 	}
 
-	void ReleaseMouseWheel() {
-			// For simplicity release both wheel events
-			KeyInput key;
-			key.deviceId = DEVICE_ID_MOUSE;
-			key.flags = KEY_UP;
-			key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-			NativeKey(key);
-			key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-			NativeKey(key);
-	}
-
 	static void HandleSizeChange(int newSizingType) {
 		SavePosition();
 		Core_NotifyWindowHidden(false);
 		if (!g_Config.bPauseWhenMinimized) {
-			NativeMessageReceived("window minimized", "false");
+			System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "false");
 		}
 
-		int width = 0, height = 0;
-		RECT rc;
-		GetClientRect(hwndMain, &rc);
-		width = rc.right - rc.left;
-		height = rc.bottom - rc.top;
+		int width, height;
+		W32Util::GetWindowRes(hwndMain, &width, &height);
 
 		// Moves the internal display window to match the inner size of the main window.
 		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
@@ -299,10 +292,11 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		DEBUG_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		DEBUG_LOG(Log::System, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu_resized", "");
+			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
+			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		}
 
 		// Don't save the window state if fullscreen.
@@ -373,6 +367,7 @@ namespace MainWindow
 				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
 				HandleSizeChange(oldWindowState);
+				ShowWindow(hwndMain, SW_SHOW);
 			} else {
 				ShowWindow(hwndMain, SW_MAXIMIZE);
 			}
@@ -470,7 +465,6 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		// Seems to be fine to call now since we use a UNICODE build...
 		std::wstring title = windowTitle;
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
@@ -494,6 +488,10 @@ namespace MainWindow
 			return FALSE;
 
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
+
+
+		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
@@ -585,25 +583,21 @@ namespace MainWindow
 
 	void DestroyDebugWindows() {
 		DialogManager::RemoveDlg(disasmWindow);
-		if (disasmWindow)
-			delete disasmWindow;
+		delete disasmWindow;
 		disasmWindow = nullptr;
 
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
-		if (geDebuggerWindow)
-			delete geDebuggerWindow;
+		delete geDebuggerWindow;
 		geDebuggerWindow = nullptr;
 #endif
 
 		DialogManager::RemoveDlg(memoryWindow);
-		if (memoryWindow)
-			delete memoryWindow;
+		delete memoryWindow;
 		memoryWindow = nullptr;
 
 		DialogManager::RemoveDlg(vfpudlg);
-		if (vfpudlg)
-			delete vfpudlg;
+		delete vfpudlg;
 		vfpudlg = nullptr;
 	}
 
@@ -611,12 +605,6 @@ namespace MainWindow
 		static bool firstErase = true;
 
 		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
-
 		case WM_SIZE:
 			break;
 
@@ -632,7 +620,7 @@ namespace MainWindow
 			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
-		// Poor man's touch - mouse input. We send the data  asynchronous touch events for minimal latency.
+		// Mouse input. We send asynchronous touch events for minimal latency.
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
@@ -640,8 +628,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 
-				float x = GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
@@ -654,15 +642,22 @@ namespace MainWindow
 
 				// Simulate doubleclick, doesn't work with RawInput enabled
 				static double lastMouseDown;
+				static float lastMouseDownX = -1.0f;
+				static float lastMouseDownY = -1.0f;
 				double now = time_now_d();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					float dx = lastMouseDownX - x;
+					float dy = lastMouseDownY - y;
+					float distSq = dx * dx + dy * dy;
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.UseFullScreen());
 					}
 					lastMouseDown = 0.0;
 				} else {
 					lastMouseDown = now;
 				}
+				lastMouseDownX = x;
+				lastMouseDownY = y;
 			}
 			break;
 
@@ -681,8 +676,8 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				float x = (float)cursorX * g_dpi_scale_x;
-				float y = (float)cursorY * g_dpi_scale_y;
+				float x = (float)cursorX * g_display.dpi_scale_x;
+				float y = (float)cursorY * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				if (wParam & MK_LBUTTON) {
@@ -703,8 +698,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 
-				float x = (float)GET_X_LPARAM(lParam) * g_dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
+				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
@@ -727,26 +722,95 @@ namespace MainWindow
 		return 0;
 	}
 
+	RECT MapRectFromClientToWndCoords(HWND hwnd, const RECT & r)
+	{
+		RECT wnd_coords = r;
+
+		// map to screen
+		MapWindowPoints(hwnd, NULL, reinterpret_cast<POINT *>(&wnd_coords), 2);
+
+		RECT scr_coords;
+		GetWindowRect(hwnd, &scr_coords);
+
+		// map to window coords by substracting the window coord origin in
+		// screen coords.
+		OffsetRect(&wnd_coords, -scr_coords.left, -scr_coords.top);
+
+		return wnd_coords;
+	}
+
+	RECT GetNonclientMenuBorderRect(HWND hwnd)
+	{
+		RECT r;
+		GetClientRect(hwnd, &r);
+		r = MapRectFromClientToWndCoords(hwnd, r);
+		int y = r.top - 1;
+		return {
+			r.left,
+			y,
+			r.right,
+			y + 1
+		};
+	}
+
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
+		LRESULT darkResult = 0;
+		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
+			return darkResult;
+		}
+
 		switch (message) {
 		case WM_CREATE:
-			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+			if (!IsVistaOrHigher()) {
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}
+			if (g_darkModeSupported) {
+				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
 			break;
 
+		case WM_USER_RUN_CALLBACK:
+		{
+			auto callback = reinterpret_cast<void (*)(void *window, void *userdata)>(wParam);
+			void *userdata = reinterpret_cast<void *>(lParam);
+			callback(hWnd, userdata);
+			break;
+		}
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
-			case 0:
-				return (u32)(u64)Memory::base;
-			case 1:
-				return (u32)((u64)Memory::base >> 32);
+			case 0: return (u32)(u64)Memory::base;
+			case 1: return (u32)((u64)Memory::base >> 32);
+			case 2: return (u32)(u64)(&Memory::base);
+			case 3: return (u32)((u64)(&Memory::base) >> 32);
 			default:
 				return 0;
 			}
 			break;
+
+		case WM_USER_GET_EMULATION_STATE:
+			return (u32)(Core_IsActive() && GetUIState() == UISTATE_INGAME);
+
+		// Hack to kill the white line underneath the menubar.
+		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
+		case WM_NCPAINT:
+		case WM_NCACTIVATE:
+		{
+			if (!IsDarkModeEnabled() || IsIconic(hWnd)) {
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+
+			auto result = DefWindowProc(hWnd, message, wParam, lParam);
+			// Paint over the line with pure black. Could also try to figure out the dark theme color.
+			HDC hdc = GetWindowDC(hWnd);
+			RECT r = GetNonclientMenuBorderRect(hWnd);
+			HBRUSH red = CreateSolidBrush(RGB(0, 0, 0));
+			FillRect(hdc, &r, red);
+			DeleteObject(red);
+			ReleaseDC(hWnd, hdc);
+			return result;
+		}
 
 		case WM_GETMINMAXINFO:
 			{
@@ -772,9 +836,11 @@ namespace MainWindow
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
+				} else {
+					g_activeWindow = WINDOW_OTHER;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
-					if (pause != Core_IsStepping()) {	// != is xor for bools
+					if (pause != Core_IsStepping()) {
 						if (disasmWindow)
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
@@ -783,12 +849,12 @@ namespace MainWindow
 				}
 
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-					NativeMessageReceived("got_focus", "");
+					System_PostUIMessage(UIMessage::GOT_FOCUS);
 					hasFocus = true;
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
-					NativeMessageReceived("lost_focus", "");
+					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
 					hasFocus = false;
@@ -803,7 +869,7 @@ namespace MainWindow
 
 		case WM_ERASEBKGND:
 			// This window is always covered by DisplayWindow. No reason to erase.
-			return 1;
+			return 0;
 
 		case WM_MOVE:
 			SavePosition();
@@ -835,7 +901,7 @@ namespace MainWindow
 			case SIZE_MINIMIZED:
 				Core_NotifyWindowHidden(true);
 				if (!g_Config.bPauseWhenMinimized) {
-					NativeMessageReceived("window minimized", "true");
+					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
 				}
 				InputDevice::LoseFocus();
 				break;
@@ -857,10 +923,8 @@ namespace MainWindow
 				} else {
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
-				// There's no separate keyup event for mousewheel events,
-				// so we release it with a slight delay.
+				// There's no release event, but we simulate it in NativeKey/NativeFrame.
 				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
 				NativeKey(key);
 			}
 			break;
@@ -875,11 +939,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
-			case TIMER_WHEELRELEASE:
-				ReleaseMouseWheel();
-				KillTimer(hWnd, TIMER_WHEELRELEASE);
 				return 0;
 			}
 			break;
@@ -950,33 +1009,34 @@ namespace MainWindow
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
-				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
+				int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
-					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
-				}
-				else
-				{
-					TCHAR filename[512];
-					if (DragQueryFile(hdrop, 0, filename, 512) != 0) {
+					// TODO: Translate? Or just not bother?
+					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
+				} else {
+					TCHAR filename[1024];
+					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
-						NativeMessageReceived("boot", utf8_filename.c_str());
+						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
 						Core_EnableStepping(false);
 					}
 				}
+				DragFinish(hdrop);
 			}
 			break;
 
 		case WM_CLOSE:
 			InputDevice::StopPolling();
+			MainThread_Stop();
 			WindowsRawInput::Shutdown();
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-			KillTimer(hWnd, TIMER_WHEELRELEASE);
+			// Main window is gone, this tells the message loop to exit.
 			PostQuitMessage(0);
-			break;
+			return 0;
 
 		case WM_USER + 1:
 			NotifyDebuggerMapLoaded();
@@ -996,14 +1056,6 @@ namespace MainWindow
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
 			UpdateWindowTitle();
-			break;
-
-		case WM_USER_BROWSE_BOOT_DONE:
-			BrowseAndBootDone();
-			break;
-
-		case WM_USER_BROWSE_BG_DONE:
-			BrowseBackgroundDone();
 			break;
 
 		case WM_USER_RESTART_EMUTHREAD:
@@ -1032,19 +1084,48 @@ namespace MainWindow
 			trapMouse = true;
 			break;
 
-		// Turn off the screensaver.
+		// Turn off the screensaver if in-game.
 		// Note that if there's a screensaver password, this simple method
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
-			{
+			// Disable Alt key for menu if it's been mapped.
+			if (wParam == SC_KEYMENU && (lParam >> 16) <= 0) {
+				if (KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_LEFT) || KeyMap::IsKeyMapped(DEVICE_ID_KEYBOARD, NKCODE_ALT_RIGHT)) {
+					return 0;
+				}
+			}
+			if (g_keepScreenBright) {
 				switch (wParam) {
 				case SC_SCREENSAVE:
 					return 0;
 				case SC_MONITORPOWER:
-					return 0;
+					if (lParam == 1 || lParam == 2) {
+						return 0;
+					} else {
+						break;
+					}
+				default:
+					// fall down to DefWindowProc
+					break;
 				}
-				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		case WM_SETTINGCHANGE:
+			{
+				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
+					SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+
+		case WM_THEMECHANGED:
+		{
+			if (g_darkModeSupported)
+			{
+				_AllowDarkModeForWindow(hWnd, g_darkModeEnabled);
+				RefreshTitleBarThemeColor(hWnd);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
 
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1077,6 +1158,10 @@ namespace MainWindow
 
 	bool IsFullscreen() {
 		return g_isFullscreen;
+	}
+
+	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
+		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
 	}
 
 }  // namespace

@@ -213,22 +213,22 @@ enum class PSPOskNativeStatus {
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog(UtilityDialogType type);
-	virtual ~PSPOskDialog();
+	~PSPOskDialog();
 
-	virtual int Init(u32 oskPtr);
-	virtual int Update(int animSpeed) override;
-	virtual int Shutdown(bool force = false) override;
-	virtual void DoState(PointerWrap &p) override;
-	virtual pspUtilityDialogCommon *GetCommonParam() override;
+	int Init(u32 oskPtr);
+	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
-	virtual bool UseAutoStatus() override {
+	bool UseAutoStatus() override {
 		return false;
 	}
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
+	static void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
+	static void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
 	int NativeKeyboard();
 
@@ -239,15 +239,15 @@ private:
 	u32 FieldMaxLength();
 	int GetIndex(const wchar_t* src, wchar_t ch);
 
-	PSPPointer<SceUtilityOskParams> oskParams;
+	PSPPointer<SceUtilityOskParams> oskParams{};
 	std::string oskDesc;
 	std::string oskIntext;
 	std::string oskOuttext;
 
 	int selectedChar = 0;
 	std::u16string inputChars;
-	OskKeyboardDisplay currentKeyboard;
-	OskKeyboardLanguage currentKeyboardLanguage;
+	OskKeyboardDisplay currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+	OskKeyboardLanguage currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 	bool isCombinated = false;
 
 	std::mutex nativeMutex_;

@@ -18,17 +18,18 @@ public:
 	// Public variables since it doesn't make sense
 	// to bother with accessors for all these.
 	int status = 100;
-	// Intentional misspelling.
-	char *referer = nullptr;
+
+	char *referer = nullptr;  // Intentional misspelling.
 	char *user_agent = nullptr;
 	char *resource = nullptr;
 	char *params = nullptr;
+
 	int content_length = -1;
 	std::unordered_map<std::string, std::string> other;
 	enum RequestType {
 		SIMPLE, FULL,
 	};
-	RequestType type;
+	RequestType type = SIMPLE;
 	enum Method {
 		GET,
 		HEAD,

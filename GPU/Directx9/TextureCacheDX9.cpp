@@ -17,10 +17,10 @@
 
 #include <algorithm>
 #include <cstring>
+#include <wrl/client.h>
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 
 #include "GPU/GPUState.h"
@@ -32,32 +32,31 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"
 
 // NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
 
+using Microsoft::WRL::ComPtr;
+
 Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_A4R4G4B4:
-		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-	case D3DFMT_A1R5G5B5:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case D3DFMT_R5G6B5:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case D3DFMT_A8:
-		return Draw::DataFormat::R8_UNORM;
-	case D3DFMT_A8R8G8B8:
-	default:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case D3DFMT_A4R4G4B4: return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	case D3DFMT_A1R5G5B5: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case D3DFMT_R5G6B5: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case D3DFMT_A8: return Draw::DataFormat::R8_UNORM;
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
 D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return D3DFMT_DXT1;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return D3DFMT_DXT3;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return D3DFMT_DXT5;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	default: _dbg_assert_(false); return D3DFMT_A8R8G8B8;
 	}
 }
 
@@ -72,8 +71,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	lastBoundTexture = INVALID_TEX;
-	isBgraBackend_ = true;
-
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	D3DCAPS9 pCaps;
@@ -85,7 +82,7 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 		result = device_->GetDeviceCaps(&pCaps);
 	}
 	if (FAILED(result)) {
-		WARN_LOG(G3D, "Failed to get the device caps!");
+		WARN_LOG(Log::G3D, "Failed to get the device caps!");
 		maxAnisotropyLevel = 16;
 	} else {
 		maxAnisotropyLevel = pCaps.MaxAnisotropy;
@@ -96,7 +93,6 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 }
 
 TextureCacheDX9::~TextureCacheDX9() {
-	pFramebufferVertexDecl->Release();
 	Clear(true);
 }
 
@@ -112,7 +108,7 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	}
 }
 
-void TextureCacheDX9::InvalidateLastTexture() {
+void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 }
 
@@ -155,22 +151,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheDX9::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
-	}
-
 	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
+		// Just take the opportunity to set the global aniso level here, once per frame.
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
@@ -218,7 +200,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		device_->SetTexture(0, nullptr);
 		return;
 	}
-	LPDIRECT3DBASETEXTURE9 texture = DxTex(entry);
+	IDirect3DBaseTexture9 *texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
 		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
@@ -230,7 +212,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheDX9::Unbind() {
 	device_->SetTexture(0, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -249,8 +231,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
-		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+	if (plan.doReplace) {
+		dstFmt = ToD3D9Format(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
 	} else if (plan.decodeToClut8) {
@@ -284,7 +266,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (FAILED(hr)) {
-		INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
+		INFO_LOG(Log::G3D, "Failed to create D3D texture: %dx%d", tw, th);
 		ReleaseTexture(entry, true);
 		return;
 	}
@@ -304,12 +286,12 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 
 			result = ((LPDIRECT3DTEXTURE9)texture)->LockRect(dstLevel, &rect, NULL, lockFlag);
 			if (FAILED(result)) {
-				ERROR_LOG(G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
+				ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture at level %d: %dx%d", i, plan.w, plan.h);
 				return;
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
 			int stride = rect.Pitch;
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
 		}
 	} else {
@@ -317,14 +299,14 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		D3DLOCKED_BOX box;
 		HRESULT result = ((LPDIRECT3DVOLUMETEXTURE9)texture)->LockBox(0, &box, nullptr, D3DLOCK_DISCARD);
 		if (FAILED(result)) {
-			ERROR_LOG(G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
+			ERROR_LOG(Log::G3D, "Failed to lock D3D 2D texture: %dx%dx%d", plan.w, plan.h, plan.depth);
 			return;
 		}
 
 		uint8_t *data = (uint8_t *)box.pBits;
 		int stride = box.RowPitch;
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			data += box.SlicePitch;
 		}
 		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);
@@ -335,8 +317,14 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+
+		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+			entry->status |= TexCacheEntry::STATUS_BGRA;
+		}
+	} else {
+		entry->status |= TexCacheEntry::STATUS_BGRA;
 	}
 }
 
@@ -370,15 +358,15 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 
 	ApplyTexture();
 
-	LPDIRECT3DBASETEXTURE9 baseTex;
-	LPDIRECT3DTEXTURE9 tex;
-	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	ComPtr<IDirect3DBaseTexture9> baseTex;
+	ComPtr<IDirect3DTexture9> tex;
+	ComPtr<IDirect3DSurface9> offscreen;
 	HRESULT hr;
 
 	bool success = false;
 	hr = device_->GetTexture(0, &baseTex);
 	if (SUCCEEDED(hr) && baseTex != NULL) {
-		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
+		hr = baseTex.As(&tex);
 		if (SUCCEEDED(hr)) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -388,17 +376,16 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.
 			if (FAILED(hr)) {
-				LPDIRECT3DSURFACE9 renderTarget = nullptr;
+				ComPtr<IDirect3DSurface9> renderTarget;
 				hr = tex->GetSurfaceLevel(level, &renderTarget);
 				if (renderTarget && SUCCEEDED(hr)) {
 					hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 					if (SUCCEEDED(hr)) {
-						hr = device_->GetRenderTargetData(renderTarget, offscreen);
+						hr = device_->GetRenderTargetData(renderTarget.Get(), offscreen.Get());
 						if (SUCCEEDED(hr)) {
 							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 						}
 					}
-					renderTarget->Release();
 				}
 				*isFramebuffer = true;
 			} else {
@@ -439,14 +426,11 @@ bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, 
 				}
 				if (offscreen) {
 					offscreen->UnlockRect();
-					offscreen->Release();
 				} else {
 					tex->UnlockRect(level);
 				}
 			}
-			tex->Release();
 		}
-		baseTex->Release();
 	}
 
 	return success;

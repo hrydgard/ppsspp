@@ -8,7 +8,7 @@
 #include "libretro/LibretroGLContext.h"
 
 bool LibretroGLContext::Init() {
-	if (!LibretroHWRenderContext::Init(true))
+	if (!LibretroHWRenderContext::Init(false))
 		return false;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
@@ -31,7 +31,7 @@ void LibretroGLContext::CreateDrawContext() {
 #endif
 
     CheckGLExtensions();
-    draw_ = Draw::T3DCreateGLContext();
+    draw_ = Draw::T3DCreateGLContext(false);
     renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
     renderManager_->SetInflightFrames(g_Config.iInflightFrames);
     SetGPUBackend(GPUBackend::OPENGL);

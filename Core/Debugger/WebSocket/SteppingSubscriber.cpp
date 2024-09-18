@@ -32,7 +32,7 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 	WebSocketSteppingState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
-	~WebSocketSteppingState() override {
+	~WebSocketSteppingState() {
 		disasm_.clear();
 	}
 

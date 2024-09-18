@@ -20,6 +20,8 @@
 #include <cstdarg>
 #include <cstdint>
 #include <string>
+#include <cstring>
+#include <string_view>
 #include <vector>
 
 #ifdef _MSC_VER
@@ -35,31 +37,39 @@ std::string IndentString(const std::string &str, const std::string &sep, bool sk
 
 // Other simple string utilities.
 
-inline bool startsWith(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
+inline bool startsWith(std::string_view str, std::string_view key) {
+	if (str.size() < key.size())
 		return false;
-	return str.substr(0, what.size()) == what;
+	return !memcmp(str.data(), key.data(), key.size());
 }
 
-inline bool endsWith(const std::string &str, const std::string &what) {
+inline bool endsWith(std::string_view str, std::string_view what) {
 	if (str.size() < what.size())
 		return false;
 	return str.substr(str.size() - what.size()) == what;
 }
 
 // Only use on strings where you're only concerned about ASCII.
-inline bool startsWithNoCase(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
+inline bool startsWithNoCase(std::string_view str, std::string_view key) {
+	if (str.size() < key.size())
 		return false;
-	return strncasecmp(str.c_str(), what.c_str(), what.size()) == 0;
+	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
-inline bool endsWithNoCase(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
+inline bool endsWithNoCase(std::string_view str, std::string_view key) {
+	if (str.size() < key.size())
 		return false;
-	const size_t offset = str.size() - what.size();
-	return strncasecmp(str.c_str() + offset, what.c_str(), what.size()) == 0;
+	const size_t offset = str.size() - key.size();
+	return strncasecmp(str.data() + offset, key.data(), key.size()) == 0;
 }
+
+inline bool equalsNoCase(std::string_view str, std::string_view key) {
+	if (str.size() != key.size())
+		return false;
+	return strncasecmp(str.data(), key.data(), key.size()) == 0;
+}
+
+bool containsNoCase(std::string_view haystack, std::string_view needle);
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
@@ -70,11 +80,23 @@ std::string StringFromInt(int value);
 std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
 
-void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
+std::string_view StripSpaces(std::string_view s);
+std::string_view StripQuotes(std::string_view s);
 
-void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
+std::string_view StripPrefix(std::string_view prefix, std::string_view s);
 
-std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
+// NOTE: str must live at least as long as all uses of output.
+void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output);
+// Try to avoid this when possible, in favor of the string_view version.
+void SplitString(std::string_view str, const char delim, std::vector<std::string> &output);
+
+void GetQuotedStrings(std::string_view str, std::vector<std::string> &output);
+
+std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest);
+
+// Takes something like R&eplace and returns Replace, plus writes 'e' to *shortcutChar
+// if not nullptr. Useful for Windows menu strings.
+std::string UnescapeMenuString(std::string_view input, char *shortcutChar);
 
 void SkipSpace(const char **ptr);
 
@@ -83,10 +105,15 @@ template<size_t Count>
 inline size_t truncate_cpy(char(&out)[Count], const char *src) {
 	return truncate_cpy(out, Count, src);
 }
+size_t truncate_cpy(char *dest, size_t destSize, std::string_view src);
+template<size_t Count>
+inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
+	return truncate_cpy(out, Count, src);
+}
 
 const char* safe_string(const char* s);
 
-long parseHexLong(std::string s);
+long parseHexLong(const std::string &s);
 long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);
 // Cheap!
@@ -103,3 +130,9 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
+
+// Replaces %1, %2, %3 in format with arg1, arg2, arg3.
+// Much safer than snprintf and friends.
+// For mixes of strings and ints, manually convert the ints to strings.
+std::string ApplySafeSubstitutions(std::string_view format, std::string_view string1, std::string_view string2 = "", std::string_view string3 = "", std::string_view string4 = "");
+std::string ApplySafeSubstitutions(std::string_view format, int i1, int i2 = 0, int i3 = 0, int i4 = 0);

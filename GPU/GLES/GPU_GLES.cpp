@@ -22,12 +22,12 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -43,19 +43,13 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 
-#include "Core/MIPS/MIPS.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
-
 #ifdef _WIN32
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
-	UpdateVsyncInterval(true);
-	gstate_c.useFlags = CheckGPUFeatures();
+	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
+	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
@@ -64,7 +58,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;
-	drawEngineCommon_ = &drawEngine_;
 
 	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
@@ -74,7 +67,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerGL_->SetTextureCache(textureCacheGL_);
 	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
 	framebufferManagerGL_->SetDrawEngine(&drawEngine_);
-	framebufferManagerGL_->Init();
+	framebufferManagerGL_->Init(msaaLevel_);
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
 	textureCacheGL_->SetShaderManager(shaderManagerGL_);
 	textureCacheGL_->SetDrawEngine(&drawEngine_);
@@ -82,7 +75,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
 	// No need to flush before the tex scale/offset commands if we are baking
@@ -91,8 +84,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateCmdInfo();
 
 	BuildReportingInfo();
-	// Update again after init to be sure of any silly driver problems.
-	UpdateVsyncInterval(true);
 
 	textureCache_->NotifyConfigChanged();
 
@@ -103,59 +94,56 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 			shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
 			// Actually precompiled by IsReady() since we're single-threaded.
-			shaderManagerGL_->Load(shaderCachePath_);
+			File::IOFile f(shaderCachePath_, "rb");
+			if (f.IsOpen()) {
+				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
+					if (drawEngineCommon_->EverUsedExactEqualDepth()) {
+						sawExactEqualDepth_ = true;
+					}
+					gstate_c.SetUseFlags(CheckGPUFeatures());
+					// We're compiling now, clear if they changed.
+					gstate_c.useFlagsChanged = false;
+
+					if (shaderManagerGL_->LoadCache(f))
+						NOTICE_LOG(Log::G3D, "Precompiling the shader cache from '%s'", shaderCachePath_.c_str());
+				}
+			}
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not loading.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		}
 	}
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation if device is unsupported.
 		if (!drawEngine_.SupportsHWTessellation()) {
-			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-			auto gr = GetI18NCategory("Graphics");
-			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 		}
 	}
 }
 
 GPU_GLES::~GPU_GLES() {
-	if (draw_) {
-		GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		render->Wipe();
-	}
-
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
 
 	if (shaderCachePath_.Valid() && draw_) {
 		if (g_Config.bShaderCache) {
-			shaderManagerGL_->Save(shaderCachePath_);
+			shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 		} else {
-			INFO_LOG(G3D, "Shader cache disabled. Not saving.");
+			INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		}
 	}
-
-	framebufferManagerGL_->DestroyAllFBOs();
-	shaderManagerGL_->ClearCache(true);
 	fragmentTestCache_.Clear();
-	
-	delete shaderManagerGL_;
-	shaderManagerGL_ = nullptr;
-	delete framebufferManagerGL_;
-	delete textureCacheGL_;
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
 // TODO: This should use DrawContext::GetDeviceCaps() more and more, and eventually
 // this can be shared between all the backends.
 u32 GPU_GLES::CheckGPUFeatures() const {
-	u32 features = GPUCommon::CheckGPUFeatures();
+	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	features |= GPU_USE_16BIT_FORMATS;
-
-	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
-		features |= GPU_USE_REVERSE_COLOR_ORDER;
 
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_USE_TEXTURE_LOD_CONTROL;
@@ -173,60 +161,41 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
-	if (draw_->GetDeviceCaps().depthClampSupported) {
-		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
-		// Our implementation of depth texturing needs simple Z range, so can't
-		// use the extension hacks (yet).
-	}
-
-	// If we already have a 16-bit depth buffer, we don't need to round.
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
-	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
-	if (!prefer16) {
-		if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-				// Use fragment rounding on desktop and GLES3, most accurate.
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			} else {
-				// At least do vertex rounding if nothing else.
-				features |= GPU_ROUND_DEPTH_TO_16BIT;
-			}
-		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
-			features |= GPU_ROUND_DEPTH_TO_16BIT;
-		}
-	}
-
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_USE_ACCURATE_DEPTH) == 0) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
 
-	if (IsVREnabled()) {
+	// Can't use switch-case in older glsl.
+	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
+		features &= ~GPU_USE_LIGHT_UBERSHADER;
+
+	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
-	}
-	if (IsMultiviewSupported()) {
-		features |= GPU_USE_SINGLE_PASS_STEREO;
+		features &= ~GPU_USE_VS_RANGE_CULLING;
 	}
 
+	if (!gl_extensions.GLES3) {
+		// Heuristic.
+		features &= ~GPU_USE_FRAGMENT_UBERSHADER;
+	}
+
+	features = CheckGPUFeaturesLate(features);
+
+	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK) && g_Config.bVendorBugChecksEnabled) {
+		if (PSP_CoreParameter().compat.flags().OldAdrenoPixelDepthRoundingGL) {
+			features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+		}
+	}
+
+	// This is a bit ugly, but lets us reuse most of the depth logic in GPUCommon.
+	if (features & GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) {
+		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
+			// Unsupported, switch to GPU_ROUND_DEPTH_TO_16BIT instead.
+			features &= ~GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
+	}
 	return features;
-}
-
-bool GPU_GLES::IsReady() {
-	return shaderManagerGL_->ContinuePrecompile();
-}
-
-void  GPU_GLES::CancelReady() {
-	shaderManagerGL_->CancelPrecompile();
 }
 
 void GPU_GLES::BuildReportingInfo() {
@@ -253,121 +222,59 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	INFO_LOG(G3D, "GPU_GLES: DeviceLost");
+	INFO_LOG(Log::G3D, "GPU_GLES: DeviceLost");
 
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	CancelReady();
-	shaderManagerGL_->DeviceLost();
-	textureCacheGL_->DeviceLost();
 	fragmentTestCache_.DeviceLost();
-	drawEngine_.DeviceLost();
 
-	GPUCommon::DeviceLost();
+	GPUCommonHW::DeviceLost();
 }
 
-void GPU_GLES::DeviceRestore() {
-	GPUCommon::DeviceRestore();
+void GPU_GLES::DeviceRestore(Draw::DrawContext *draw) {
+	GPUCommonHW::DeviceRestore(draw);
 
-	UpdateCmdInfo();
-	UpdateVsyncInterval(true);
-
-	shaderManagerGL_->DeviceRestore(draw_);
-	textureCacheGL_->DeviceRestore(draw_);
-	drawEngine_.DeviceRestore(draw_);
 	fragmentTestCache_.DeviceRestore(draw_);
 }
 
-void GPU_GLES::Reinitialize() {
-	GPUCommon::Reinitialize();
-}
-
-void GPU_GLES::InitClear() {
-}
-
 void GPU_GLES::BeginHostFrame() {
-	GPUCommon::BeginHostFrame();
-	UpdateCmdInfo();
-	if (resized_) {
-		gstate_c.useFlags = CheckGPUFeatures();
-		framebufferManager_->Resized();
-		drawEngine_.NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		shaderManagerGL_->DirtyShader();
-		resized_ = false;
-	}
-
+	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();
+
+	textureCache_->StartFrame();
+
+	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
+
+	const int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
+	if (shaderCachePath_.Valid() && !(gpuStats.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING) {
+		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
+	}
+	shaderManagerGL_->DirtyLastShader();
+
+	// Not sure if this is really needed.
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
+
+	framebufferManager_->BeginFrame();
+
+	fragmentTestCache_.Decimate();
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		shaderManager_->ClearShaders();
+		framebufferManager_->ClearAllDepthBuffers();
+		gstate_c.useFlagsChanged = false;
+	}
 }
 
 void GPU_GLES::EndHostFrame() {
 	drawEngine_.EndFrame();
 }
 
-void GPU_GLES::ReapplyGfxState() {
-	GPUCommon::ReapplyGfxState();
-}
-
-void GPU_GLES::BeginFrame() {
-	textureCacheGL_->StartFrame();
-	fragmentTestCache_.Decimate();
-
-	GPUCommon::BeginFrame();
-
-	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
-	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
-		shaderManagerGL_->Save(shaderCachePath_);
-	}
-
-	shaderManagerGL_->DirtyShader();
-
-	// Not sure if this is really needed.
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
-
-	framebufferManagerGL_->BeginFrame();
-}
-
-void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
-	// Flush anything left over.
-	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - CopyDisplayToOutput");
-	drawEngine_.Flush();
-
-	shaderManagerGL_->DirtyLastShader();
-
-	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
-}
-
 void GPU_GLES::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();
-}
-
-inline void GPU_GLES::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
-		}
-		drawEngine_.Flush();
-	}
-}
-
-void GPU_GLES::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op >> 24, diff);
-}
-
-void GPU_GLES::ExecuteOp(u32 op, u32 diff) {
-	const u8 cmd = op >> 24;
-	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*info.func)(op, diff);
-	} else if (diff) {
-		uint64_t dirty = info.flags >> 8;
-		if (dirty)
-			gstate_c.Dirty(dirty);
-	}
 }
 
 void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
@@ -382,54 +289,4 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
-}
-
-void GPU_GLES::ClearCacheNextFrame() {
-	textureCacheGL_->ClearNextFrame();
-}
-
-void GPU_GLES::ClearShaderCache() {
-	shaderManagerGL_->ClearCache(true);
-}
-
-void GPU_GLES::CleanupBeforeUI() {
-	// Clear any enabled vertex arrays.
-	shaderManagerGL_->DirtyLastShader();
-}
-
-void GPU_GLES::DoState(PointerWrap &p) {
-	GPUCommon::DoState(p);
-
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	// In Freeze-Frame mode, we don't want to do any of this.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_->Clear(true);
-		drawEngine_.ClearTrackedVertexArrays();
-
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManager_->DestroyAllFBOs();
-	}
-}
-
-std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderIDs();
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
-	default:
-		return shaderManagerGL_->DebugGetShaderIDs(type);
-	}
-}
-
-std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	switch (type) {
-	case SHADER_TYPE_VERTEXLOADER:
-		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
-	default:
-		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
-	}
 }

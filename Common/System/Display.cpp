@@ -1,27 +1,13 @@
+#include <cstdio>
+
 #include "Common/System/Display.h"
 #include "Common/Math/math_util.h"
 
-int dp_xres;
-int dp_yres;
-
-int pixel_xres;
-int pixel_yres;
-
-float g_dpi = 1.0f;  // will be overwritten with a value that makes sense.
-float g_dpi_scale_x = 1.0f;
-float g_dpi_scale_y = 1.0f;
-float g_dpi_scale_real_x = 1.0f;
-float g_dpi_scale_real_y = 1.0f;
-float pixel_in_dps_x = 1.0f;
-float pixel_in_dps_y = 1.0f;
-float display_hz = 60.0f;
-
-DisplayRotation g_display_rotation;
-Lin::Matrix4x4 g_display_rot_matrix = Lin::Matrix4x4::identity();
+DisplayProperties g_display;
 
 template<class T>
 void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) {
-	switch (g_display_rotation) {
+	switch (g_display.rotation) {
 	case DisplayRotation::ROTATE_180:
 		rect.x = curRTWidth - rect.w - rect.x;
 		rect.y = curRTHeight - rect.h - rect.y;
@@ -61,4 +47,22 @@ void RotateRectToDisplay(DisplayRect<int> &rect, int curRTWidth, int curRTHeight
 
 void RotateRectToDisplay(DisplayRect<float> &rect, float curRTWidth, float curRTHeight) {
 	RotateRectToDisplayImpl<float>(rect, curRTWidth, curRTHeight);
+}
+
+DisplayProperties::DisplayProperties() {
+	rot_matrix.setIdentity();
+}
+
+void DisplayProperties::Print() {
+	printf("dp_xres/yres: %d, %d\n", dp_xres, dp_yres);
+	printf("pixel_xres/yres: %d, %d\n", pixel_xres, pixel_yres);
+
+	printf("dpi, x, y: %f, %f, %f\n", dpi, dpi_scale_x, dpi_scale_y);
+	printf("pixel_in_dps: %f, %f\n", pixel_in_dps_x, pixel_in_dps_y);
+
+	printf("dpi_real: %f, %f\n", dpi_scale_real_x, dpi_scale_real_y);
+	printf("display_hz: %f\n", display_hz);
+
+	printf("rotation: %d\n", (int)rotation);
+	rot_matrix.print();
 }

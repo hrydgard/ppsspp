@@ -23,12 +23,12 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
-#include "Core/Reporting.h"
 #include "Windows/DinputDevice.h"
 #pragma comment(lib,"dinput8.lib")
 
@@ -39,7 +39,7 @@ std::vector<DIDEVICEINSTANCE> DinputDevice::devices;
 bool DinputDevice::needsCheck_ = true;
 
 // In order from 0.  There can be 128, but most controllers do not have that many.
-static const int dinput_buttons[] = {
+static const InputKeyCode dinput_buttons[] = {
 	NKCODE_BUTTON_1,
 	NKCODE_BUTTON_2,
 	NKCODE_BUTTON_3,
@@ -145,7 +145,7 @@ DinputDevice::DinputDevice(int devnum) {
 		return;
 	}
 
-	getDevices(false);
+	getDevices(needsCheck_);
 	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
 	{
 		return;
@@ -203,13 +203,14 @@ DinputDevice::~DinputDevice() {
 	}
 }
 
-void SendNativeAxis(int deviceId, int value, int &lastValue, int axisId) {
-	AxisInput axis;
-	axis.deviceId = deviceId;
-	axis.axisId = axisId;
-	axis.value = (float)value / 10000.0f; // Convert axis to normalised float
-	NativeAxis(axis);
-
+void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
+	if (value != lastValue) {
+		AxisInput axis;
+		axis.deviceId = deviceId;
+		axis.axisId = axisId;
+		axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
+		NativeAxis(&axis, 1);
+	}
 	lastValue = value;
 }
 
@@ -241,10 +242,9 @@ int DinputDevice::UpdateState() {
 	ApplyButtons(js);
 
 	if (analog)	{
+		// TODO: Use the batched interface.
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
-
-		auto axesToSquare = KeyMap::MappedAxesForDevice(axis.deviceId);
 
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
@@ -287,7 +287,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 
 	// Now the POV hat, which can technically go in any degree but usually does not.
 	if (LOWORD(state.rgdwPOV[0]) != lastPOV_[0]) {
-		KeyInput dpad[4];
+		KeyInput dpad[4]{};
 		for (int i = 0; i < 4; ++i) {
 			dpad[i].deviceId = DEVICE_ID_PAD_0 + pDevNum;
 			dpad[i].flags = KEY_UP;

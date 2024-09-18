@@ -105,6 +105,7 @@ Windows/*.ipch
 # For vim
 *.swp
 tags
+*.ctags
 
 # Other VCS
 .bzr/
@@ -117,6 +118,8 @@ debian/ppsspp/
 
 # Libretro build
 *.o
+*.tmp
+*.a
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc
@@ -129,3 +132,12 @@ CMakeFiles
 
 # Clangd 
 .cache/
+build
+libretro/obj/local
+
+ppsspp_retroachievements.dat
+RACache
+RAPrefs_PPSSPP.cfg
+
+# For CLion
+cmake-build-*/

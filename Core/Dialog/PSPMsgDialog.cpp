@@ -44,7 +44,7 @@ PSPMsgDialog::~PSPMsgDialog() {
 int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -62,7 +62,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
-		ERROR_LOG_REPORT(SCEUTILITY, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
+		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;
@@ -140,17 +140,18 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	ChangeStatusInit(MSG_INIT_DELAY_US);
 
 	UpdateButtons();
+	InitCommon();
 	StartFade(true);
 	return 0;
 }
 
 
 void PSPMsgDialog::FormatErrorCode(uint32_t code) {
-	auto err = GetI18NCategory("Dialog");
+	auto err = GetI18NCategory(I18NCat::DIALOG);
 
 	switch (code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
-		snprintf(msgText, 512, "%s (%08x)", err->T("MsgErrorSavedataDataBroken", "Save data was corrupt."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataDataBroken", "Save data was corrupt."), code);
 		break;
 
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_MS:
@@ -158,35 +159,35 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS:
 	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS:
 	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS:
-		snprintf(msgText, 512, "%s (%08x)", err->T("MsgErrorSavedataNoMS", "Memory stick not inserted."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataNoMS", "Memory stick not inserted."), code);
 		break;
 
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA:
 	case SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA:
 	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA:
 	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA:
-		snprintf(msgText, 512, "%s (%08x)", err->T("MsgErrorSavedataNoData", "Warning: no save data was found."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataNoData", "Warning: no save data was found."), code);
 		break;
 
 	case SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL:
 	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE:
-		snprintf(msgText, 512, "%s (%08x)", err->T("MsgErrorSavedataMSFull", "Memory stick full.  Check your storage space."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataMSFull", "Memory stick full.  Check your storage space."), code);
 		break;
 
 	default:
-		snprintf(msgText, 512, "%s %08x", err->T("MsgErrorCode", "Error code:"), code);
+		snprintf(msgText, 512, "%s %08x", err->T_cstr("MsgErrorCode", "Error code:"), code);
 	}
 }
 
-void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
-	auto di = GetI18NCategory("Dialog");
+void PSPMsgDialog::DisplayMessage(const std::string &text, bool hasYesNo, bool hasOK) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
 
 	// Without the scrollbar, we have 390 total pixels.
 	float WRAP_WIDTH = 340.0f;
-	if ((size_t)UTF8StringNonASCIICount(text.c_str()) >= text.size() / 4) {
+	if ((size_t)UTF8StringNonASCIICount(text) >= text.size() / 4) {
 		WRAP_WIDTH = 376.0f;
 		if (text.size() > 12) {
 			messageStyle.scale = 0.6f;
@@ -194,7 +195,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
 	}
 
 	float totalHeight = 0.0f;
-	PPGeMeasureText(nullptr, &totalHeight, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	PPGeMeasureText(nullptr, &totalHeight, text, FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
 	// The PSP normally only shows about 8 lines at a time.
 	// For improved UX, we intentionally show part of the next line.
 	float visibleHeight = std::min(totalHeight, 175.0f);
@@ -282,19 +283,8 @@ int PSPMsgDialog::Update(int animSpeed) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
+		UpdateCommon();
 		UpdateFade(animSpeed);
-
-		okButtonImg = ImageID("I_CIRCLE");
-		cancelButtonImg = ImageID("I_CROSS");
-		okButtonFlag = CTRL_CIRCLE;
-		cancelButtonFlag = CTRL_CROSS;
-		if (messageDialog.common.buttonSwap == 1)
-		{
-			okButtonImg = ImageID("I_CROSS");
-			cancelButtonImg = ImageID("I_CIRCLE");
-			okButtonFlag = CTRL_CROSS;
-			cancelButtonFlag = CTRL_CIRCLE;
-		}
 
 		StartDraw();
 		// white -> RGB(168,173,189), black -> RGB(129,134,150)
@@ -308,10 +298,10 @@ int PSPMsgDialog::Update(int animSpeed) {
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : NULL);
+			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : "");
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : NULL);
+			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : "");
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{

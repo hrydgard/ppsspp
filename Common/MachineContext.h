@@ -168,6 +168,17 @@ typedef sigcontext SContext;
 #define CTX_PC arm_pc
 #define CTX_REG(x) regs[x]
 
+#elif PPSSPP_ARCH(RISCV64)
+
+#include <ucontext.h>
+typedef mcontext_t SContext;
+
+#define MACHINE_CONTEXT_SUPPORTED
+
+#define CTX_REG(x) __gregs[x]
+#define CTX_PC CTX_REG(0)
+#define CTX_SP CTX_REG(2)
+
 #else
 
 // No context definition for architecture

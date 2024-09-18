@@ -6,38 +6,66 @@
 #include <condition_variable>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
 
 enum class VKRRunType {
+	SUBMIT,
 	PRESENT,
 	SYNC,
 	EXIT,
 };
 
 struct QueueProfileContext {
+	bool enabled = false;
+	bool timestampsEnabled = false;
 	VkQueryPool queryPool;
 	std::vector<std::string> timestampDescriptions;
 	std::string profileSummary;
 	double cpuStartTime;
 	double cpuEndTime;
+	double descWriteTime;
+	int descriptorsWritten;
+	int descriptorsDeduped;
+#ifdef _DEBUG
+	int commandCounts[11];
+#endif
+};
+
+class VKRFramebuffer;
+
+struct ReadbackKey {
+	const VKRFramebuffer *framebuf;
+	int width;
+	int height;
+};
+
+struct CachedReadback {
+	VkBuffer buffer;
+	VmaAllocation allocation;
+	VkDeviceSize bufferSize;
+	bool isCoherent;
+
+	void Destroy(VulkanContext *vulkan);
 };
 
 struct FrameDataShared {
-	// Permanent objects
-	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
+	// For synchronous readbacks.
+	VkFence readbackFence = VK_NULL_HANDLE;
+	bool useMultiThreading;
+	bool measurePresentTime;
 
-	void Init(VulkanContext *vulkan);
+	void Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime);
 	void Destroy(VulkanContext *vulkan);
 };
 
 enum class FrameSubmitType {
 	Pending,
 	Sync,
-	Present,
+	FinishFrame,
 };
 
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
@@ -49,7 +77,8 @@ struct FrameData {
 	bool readyForFence = true;
 
 	VkFence fence = VK_NULL_HANDLE;
-	VkFence readbackFence = VK_NULL_HANDLE;  // Strictly speaking we might only need one global of these.
+	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
+	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
@@ -71,23 +100,31 @@ struct FrameData {
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
 
+	// Frames need unique IDs to wait for present on, let's keep them here.
+	// Also used for indexing into the frame timing history buffer.
+	uint64_t frameId = 0;
+
 	// Profiling.
-	QueueProfileContext profile;
-	bool profilingEnabled_ = false;
+	QueueProfileContext profile{};
+
+	// Async readback cache.
+	DenseHashMap<ReadbackKey, CachedReadback *> readbacks_;
+
+	FrameData() : readbacks_(8) {}
 
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
-	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+	void AcquireNextImage(VulkanContext *vulkan);
 	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
 
 	// Generally called from the main thread, unlike most of the rest.
 	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
-	// This will only submit if we are actually recording init commands.
-	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
+	// Submits pending command buffers.
+	void Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
 
 private:
 	// Metadata for logging etc
-	int index;
+	int index = -1;
 };

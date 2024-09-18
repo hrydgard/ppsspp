@@ -10,6 +10,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Shader.h"
@@ -179,8 +180,9 @@ public:
 
 	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
-		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
-		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
+		render->SetStencil(
+			stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask,
+			stencilWriteMask, stencilFail, stencilZFail, stencilPass);
 	}
 };
 
@@ -211,7 +213,6 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule {
 public:
 	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage, const std::string &tag) : render_(render), stage_(stage), tag_(tag) {
-		DEBUG_LOG(G3D, "Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
@@ -260,6 +261,11 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 	return true;
 }
 
+struct PipelineLocData : GLRProgramLocData {
+	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
+	std::vector<GLint> dynamicUniformLocs_;
+};
+
 class OpenGLInputLayout : public InputLayout {
 public:
 	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
@@ -275,8 +281,7 @@ private:
 
 class OpenGLPipeline : public Pipeline {
 public:
-	OpenGLPipeline(GLRenderManager *render) : render_(render) {
-	}
+	OpenGLPipeline(GLRenderManager *render) : render_(render) {}
 	~OpenGLPipeline() {
 		for (auto &iter : shaders) {
 			iter->Release();
@@ -284,9 +289,10 @@ public:
 		if (program_) {
 			render_->DeleteProgram(program_);
 		}
+		// DO NOT delete locs_ here, it's deleted by the render manager.
 	}
 
-	bool LinkShaders();
+	bool LinkShaders(const PipelineDesc &desc);
 
 	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
@@ -295,11 +301,13 @@ public:
 	AutoRef<OpenGLBlendState> blend;
 	AutoRef<OpenGLRasterState> raster;
 
+	// Not owned!
+	PipelineLocData *locs_ = nullptr;
+
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLint samplerLocs_[MAX_TEXTURE_SLOTS]{};
-	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
+
 
 	// Allow using other sampler names than sampler0, sampler1 etc in shaders.
 	// If not set, will default to those, though.
@@ -314,8 +322,8 @@ class OpenGLTexture;
 
 class OpenGLContext : public DrawContext {
 public:
-	OpenGLContext();
-	virtual ~OpenGLContext();
+	OpenGLContext(bool canChangeSwapInterval);
+	~OpenGLContext();
 
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
@@ -351,14 +359,20 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void BeginFrame() override;
+	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
+	void Present(PresentMode mode, int vblanks) override;
+
+	int GetFrameCount() override {
+		return frameCount_;
+	}
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -378,9 +392,9 @@ public:
 		renderManager_.SetScissor({ left, top, width, height });
 	}
 
-	void SetViewports(int count, Viewport *viewports) override {
+	void SetViewport(const Viewport &viewport) override {
 		// Same structure, different name.
-		renderManager_.SetViewport((GLRViewport &)*viewports);
+		renderManager_.SetViewport((GLRViewport &)viewport);
 	}
 
 	void SetBlendFactor(float color[4]) override {
@@ -392,12 +406,11 @@ public:
 		stencilWriteMask_ = writeMask;
 		stencilCompareMask_ = compareMask;
 		// Do we need to update on the fly here?
-		renderManager_.SetStencilFunc(
+		renderManager_.SetStencil(
 			curPipeline_->depthStencil->stencilEnabled,
 			curPipeline_->depthStencil->stencilCompareOp,
 			refValue,
-			compareMask);
-		renderManager_.SetStencilOp(
+			compareMask,
 			writeMask,
 			curPipeline_->depthStencil->stencilFail,
 			curPipeline_->depthStencil->stencilZFail,
@@ -408,12 +421,9 @@ public:
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
-		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
-		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];
-			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
-		}
+	void BindVertexBuffer(Buffer *buffer, int offset) override {
+		curVBuffer_ = (OpenGLBuffer *)buffer;
+		curVBufferOffset_ = offset;
 	}
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
 		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
@@ -450,6 +460,7 @@ public:
 				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
 				case GPUVendor::VENDOR_VIVANTE: return "VENDOR_VIVANTE";
 				case GPUVendor::VENDOR_APPLE: return "VENDOR_APPLE";
+				case GPUVendor::VENDOR_MESA: return "VENDOR_MESA";
 				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
@@ -466,16 +477,21 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
-	int GetCurrentStepId() const override {
-		return renderManager_.GetCurrentStepId();
+	void Invalidate(InvalidationFlags flags) override;
+
+	void SetInvalidationCallback(InvalidationCallback callback) override {
+		renderManager_.SetInvalidationCallback(callback);
 	}
 
-	void InvalidateCachedState() override;
+	std::string GetGpuProfileString() const override {
+		return renderManager_.GetGpuProfileString();
+	}
 
 private:
 	void ApplySamplers();
 
 	GLRenderManager renderManager_;
+	int frameCount_ = 0;
 
 	DeviceCaps caps_{};
 
@@ -486,9 +502,9 @@ private:
 	const GLRTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 
 	AutoRef<OpenGLPipeline> curPipeline_;
-	AutoRef<OpenGLBuffer> curVBuffers_[4]{};
-	int curVBufferOffsets_[4]{};
+	AutoRef<OpenGLBuffer> curVBuffer_;
 	AutoRef<OpenGLBuffer> curIBuffer_;
+	int curVBufferOffset_ = 0;
 	int curIBufferOffset_ = 0;
 	AutoRef<Framebuffer> curRenderTarget_;
 
@@ -508,7 +524,7 @@ static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
 	return (v1 << 16) | (v2 << 8) | v3;
 }
 
-static bool HasIntelDualSrcBug(int versions[4]) {
+static bool HasIntelDualSrcBug(const int versions[4]) {
 	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
 	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
 	case MakeIntelSimpleVer(9, 17, 10):
@@ -524,8 +540,7 @@ static bool HasIntelDualSrcBug(int versions[4]) {
 	}
 }
 
-OpenGLContext::OpenGLContext() {
-	// TODO: Detect more caps
+OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameTimeHistory_) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
 			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
@@ -549,6 +564,7 @@ OpenGLContext::OpenGLContext() {
 		caps_.textureDepthSupported = true;
 	}
 
+	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
 	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
@@ -557,6 +573,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
 	caps_.depthClampSupported = gl_extensions.ARB_depth_clamp || gl_extensions.EXT_depth_clamp;
 	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
+	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
 	if (gl_extensions.IsGLES) {
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
@@ -576,9 +593,13 @@ OpenGLContext::OpenGLContext() {
 	} else {
 		caps_.fragmentShaderDepthWriteSupported = true;
 	}
+	caps_.fragmentShaderStencilWriteSupported = gl_extensions.ARB_shader_stencil_export;
 
 	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
 	caps_.logicOpSupported = !gl_extensions.IsGLES;
+
+	// Always the case in GL (which is what we want for PSP flat shade).
+	caps_.provokingVertexLast = true;
 
 	// Interesting potential hack for emulating GL_DEPTH_CLAMP (use a separate varying, force depth in fragment shader):
 	// This will induce a performance penalty on many architectures though so a blanket enable of this
@@ -595,13 +616,26 @@ OpenGLContext::OpenGLContext() {
 	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
 	case GPU_VENDOR_VIVANTE: caps_.vendor = GPUVendor::VENDOR_VIVANTE; break;
 	case GPU_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	case GPU_VENDOR_MESA: caps_.vendor = GPUVendor::VENDOR_MESA; break;
 	case GPU_VENDOR_UNKNOWN:
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
 	}
+
+	// Hide D3D9 when we know it likely won't work well.
+#if PPSSPP_PLATFORM(WINDOWS)
+	caps_.supportsD3D9 = true;
+	if (!strcmp(gl_extensions.model, "Intel(R) Iris(R) Xe Graphics")) {
+		caps_.supportsD3D9 = false;
+	}
+#endif
+
+	// Very rough heuristic!
+	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
+
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
 	}
 
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -644,6 +678,15 @@ OpenGLContext::OpenGLContext() {
 		// See https://github.com/hrydgard/ppsspp/commit/8974cd675e538f4445955e3eac572a9347d84232
 		// TODO: Should this workaround be removed for newer devices/drivers?
 		bugs_.Infest(Bugs::PVR_GENMIPMAP_HEIGHT_GREATER);
+	}
+
+	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+#if PPSSPP_PLATFORM(ANDROID)
+		// The bug seems to affect Adreno 3xx and 5xx, and appeared in Android 8.0 Oreo, so API 26.
+		// See https://github.com/hrydgard/ppsspp/issues/16015#issuecomment-1328316080.
+		if (gl_extensions.modelNumber < 600 && System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26)
+			bugs_.Infest(Bugs::ADRENO_RESOURCE_DEADLOCK);
+#endif
 	}
 
 #if PPSSPP_PLATFORM(IOS)
@@ -711,7 +754,9 @@ OpenGLContext::OpenGLContext() {
 			// This too...
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			if (gl_extensions.EXT_gpu_shader4) {
-				shaderLanguageDesc_.bitwiseOps = true;
+				// Older macOS devices seem to have problems defining uint uniforms.
+				// Let's just assume OpenGL 3.0+ is required.
+				shaderLanguageDesc_.bitwiseOps = gl_extensions.VersionGEThan(3, 0, 0);
 				shaderLanguageDesc_.texelFetch = "texelFetch2D";
 			}
 		}
@@ -723,11 +768,21 @@ OpenGLContext::OpenGLContext() {
 
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_EXT_shader_framebuffer_fetch : require";
-			shaderLanguageDesc_.lastFragData = gl_extensions.GLES3 ? "fragColor0" : "gl_LastFragData[0]";
+			shaderLanguageDesc_.lastFragData = "fragColor0";
 		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 			shaderLanguageDesc_.framebufferFetchExtension = "#extension GL_ARM_shader_framebuffer_fetch : require";
 			shaderLanguageDesc_.lastFragData = "gl_LastFragColorARM";
 		}
+	}
+
+	if (canChangeSwapInterval) {
+		caps_.presentInstantModeChange = true;
+		caps_.presentMaxInterval = 4;
+		caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
+	} else {
+		caps_.presentInstantModeChange = false;
+		caps_.presentModesSupported = PresentMode::FIFO;
+		caps_.presentMaxInterval = 1;
 	}
 
 	renderManager_.SetDeviceCaps(caps_);
@@ -735,34 +790,41 @@ OpenGLContext::OpenGLContext() {
 
 OpenGLContext::~OpenGLContext() {
 	DestroyPresets();
+
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		renderManager_.DeletePushBuffer(frameData_[i].push);
 	}
 }
 
-void OpenGLContext::BeginFrame() {
-	renderManager_.BeginFrame();
+void OpenGLContext::BeginFrame(DebugFlags debugFlags) {
+	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.BeginPushBuffer(frameData.push);
+	frameData.push->Begin();
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
+	frameData.push->End();  // upload the data!
 	renderManager_.Finish();
-
-	InvalidateCachedState();
+	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void OpenGLContext::InvalidateCachedState() {
-	// Unbind stuff.
-	for (auto &texture : boundTextures_) {
-		texture = nullptr;
+void OpenGLContext::Present(PresentMode presentMode, int vblanks) {
+	renderManager_.Present();
+	frameCount_++;
+}
+
+void OpenGLContext::Invalidate(InvalidationFlags flags) {
+	if (flags & InvalidationFlags::CACHED_RENDER_STATE) {
+		// Unbind stuff.
+		for (auto &texture : boundTextures_) {
+			texture = nullptr;
+		}
+		for (auto &sampler : boundSamplers_) {
+			sampler = nullptr;
+		}
+		curPipeline_ = nullptr;
 	}
-	for (auto &sampler : boundSamplers_) {
-		sampler = nullptr;
-	}
-	curPipeline_ = nullptr;
 }
 
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -771,7 +833,7 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return fmt;
 }
 
-GLuint TypeToTarget(TextureType type) {
+static GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
 	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
@@ -784,7 +846,7 @@ GLuint TypeToTarget(TextureType type) {
 #endif
 	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default:
-		ERROR_LOG(G3D,  "Bad texture type %d", (int)type);
+		ERROR_LOG(Log::G3D,  "Bad texture type %d", (int)type);
 		return GL_NONE;
 	}
 }
@@ -809,25 +871,33 @@ public:
 		return tex_;
 	}
 
+	void UpdateTextureLevels(GLRenderManager *render, const uint8_t *const *data, int numLevels, TextureCallback initDataCallback);
+
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 
 	GLRenderManager *render_;
 	GLRTexture *tex_;
 
-	DataFormat format_;
 	TextureType type_;
 	int mipLevels_;
-	bool generatedMips_;
+	bool generateMips_;  // Generate mips requested
+	bool generatedMips_;  // Has generated mips
 };
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
+	_dbg_assert_(desc.format != Draw::DataFormat::UNDEFINED);
+	_dbg_assert_(desc.width > 0 && desc.height > 0 && desc.depth > 0);
+	_dbg_assert_(desc.type != Draw::TextureType::UNKNOWN);
+
 	generatedMips_ = false;
+	generateMips_ = desc.generateMips;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
 	format_ = desc.format;
 	type_ = desc.type;
+
 	GLenum target = TypeToTarget(desc.type);
 	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
@@ -835,21 +905,25 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	if (desc.initData.empty())
 		return;
 
+	UpdateTextureLevels(render, desc.initData.data(), (int)desc.initData.size(), desc.initDataCallback);
+}
+
+void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t * const *data, int numLevels, TextureCallback initDataCallback) {
 	int level = 0;
 	int width = width_;
 	int height = height_;
 	int depth = depth_;
-	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width, height, depth, level, 0, data, desc.initDataCallback);
+	for (int i = 0; i < numLevels; i++) {
+		SetImageData(0, 0, 0, width, height, depth, level, 0, data[i], initDataCallback);
 		width = (width + 1) / 2;
 		height = (height + 1) / 2;
 		depth = (depth + 1) / 2;
 		level++;
 	}
-	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
+	mipLevels_ = generateMips_ ? mipLevels_ : level;
 
 	bool genMips = false;
-	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
+	if (numLevels < mipLevels_ && generateMips_) {
 		// Assumes the texture is bound for editing
 		genMips = true;
 		generatedMips_ = true;
@@ -860,7 +934,7 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 OpenGLTexture::~OpenGLTexture() {
 	if (tex_) {
 		render_->DeleteTexture(tex_);
-		tex_ = 0;
+		tex_ = nullptr;
 		generatedMips_ = false;
 	}
 }
@@ -879,7 +953,7 @@ public:
 	GLRFramebuffer *framebuffer_ = nullptr;
 };
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback) {
 	if ((width != width_ || height != height_ || depth != depth_) && level == 0) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
@@ -895,8 +969,8 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	uint8_t *texData = new uint8_t[(size_t)(width * height * depth * alignment)];
 
 	bool texDataPopulated = false;
-	if (callback) {
-		texDataPopulated = callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+	if (initDataCallback) {
+		texDataPopulated = initDataCallback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
 	}
 	if (texDataPopulated) {
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
@@ -927,36 +1001,36 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(G3D, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(G3D, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(Log::G3D, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
 	default:
-		ERROR_LOG(G3D, "glReadPixels: %08x", error);
+		ERROR_LOG(Log::G3D, "glReadPixels: %08x", error);
 		break;
 	}
 }
 #endif
 
-bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, const char *tag) {
+bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	if (gl_extensions.IsGLES && (channelBits & FB_COLOR_BIT) == 0) {
 		// Can't readback depth or stencil on GLES.
 		return false;
@@ -969,13 +1043,17 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 		aspect |= GL_DEPTH_BUFFER_BIT;
 	if (channelBits & FB_STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
-	renderManager_.CopyFramebufferToMemorySync(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, tag);
-	return true;
+	return renderManager_.CopyFramebufferToMemory(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(&renderManager_, desc);
+}
+
+void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
+	OpenGLTexture *tex = (OpenGLTexture *)texture;
+	tex->UpdateTextureLevels(&renderManager_, data, numLevels, initDataCallback);
 }
 
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
@@ -1059,7 +1137,7 @@ public:
 		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
 	}
-	~OpenGLBuffer() override {
+	~OpenGLBuffer() {
 		render_->DeleteBuffer(buffer_);
 	}
 
@@ -1091,15 +1169,15 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
 	if (!desc.shaders.size()) {
-		ERROR_LOG(G3D,  "Pipeline requires at least one shader");
+		ERROR_LOG(Log::G3D,  "Pipeline requires at least one shader");
 		return nullptr;
 	}
 	if ((uint32_t)desc.prim >= (uint32_t)Primitive::PRIMITIVE_TYPE_COUNT) {
-		ERROR_LOG(G3D, "Invalid primitive type");
+		ERROR_LOG(Log::G3D, "Invalid primitive type");
 		return nullptr;
 	}
 	if (!desc.depthStencil || !desc.blend || !desc.raster) {
-		ERROR_LOG(G3D,  "Incomplete prim desciption");
+		ERROR_LOG(Log::G3D,  "Incomplete prim desciption");
 		return nullptr;
 	}
 
@@ -1109,17 +1187,19 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 			iter->AddRef();
 			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 		} else {
-			ERROR_LOG(G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag);
+			ERROR_LOG(Log::G3D,  "ERROR: Tried to create graphics pipeline %s with a null shader module", tag ? tag : "no tag");
 			delete pipeline;
 			return nullptr;
 		}
 	}
+
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
-		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
 	}
+
 	pipeline->samplers_ = desc.samplers;
-	if (pipeline->LinkShaders()) {
+	if (pipeline->LinkShaders(desc)) {
+		_assert_((u32)desc.prim < ARRAY_SIZE(primToGL));
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
 		pipeline->depthStencil = (OpenGLDepthStencilState *)desc.depthStencil;
@@ -1128,7 +1208,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
 		return pipeline;
 	} else {
-		ERROR_LOG(G3D,  "Failed to create pipeline %s - shaders failed to link", tag);
+		ERROR_LOG(Log::G3D,  "Failed to create pipeline %s - shaders failed to link", tag ? tag : "no tag");
 		delete pipeline;
 		return nullptr;
 	}
@@ -1189,7 +1269,7 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguag
 	}
 }
 
-bool OpenGLPipeline::LinkShaders() {
+bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	std::vector<GLRShader *> linkShaders;
 	for (auto shaderModule : shaders) {
 		if (shaderModule) {
@@ -1197,11 +1277,11 @@ bool OpenGLPipeline::LinkShaders() {
 			if (shader) {
 				linkShaders.push_back(shader);
 			} else {
-				ERROR_LOG(G3D,  "LinkShaders: Bad shader module");
+				ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader module");
 				return false;
 			}
 		} else {
-			ERROR_LOG(G3D,  "LinkShaders: Bad shader in module");
+			ERROR_LOG(Log::G3D,  "LinkShaders: Bad shader in module");
 			return false;
 		}
 	}
@@ -1220,32 +1300,41 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_POSITION, "a_position" });
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
 
+	locs_ = new PipelineLocData();
+	locs_->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
+
 	std::vector<GLRProgram::UniformLocQuery> queries;
+	int samplersToCheck;
 	if (!samplers_.is_empty()) {
-		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
-			queries.push_back({ &samplerLocs_[i], samplers_[i].name, true });
+		int size = std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
+		queries.reserve(size);
+		for (int i = 0; i < size; i++) {
+			queries.push_back({ &locs_->samplerLocs_[i], samplers_[i].name, true });
 		}
+		samplersToCheck = size;
 	} else {
-		queries.push_back({ &samplerLocs_[0], "sampler0" });
-		queries.push_back({ &samplerLocs_[1], "sampler1" });
-		queries.push_back({ &samplerLocs_[2], "sampler2" });
+		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
+		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });
+		queries.push_back({ &locs_->samplerLocs_[2], "sampler2" });
+		samplersToCheck = 3;
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
+	queries.reserve(dynamicUniforms.uniforms.size());
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
-		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
+		queries.push_back({ &locs_->dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
 	std::vector<GLRProgram::Initializer> initialize;
 	for (int i = 0; i < MAX_TEXTURE_SLOTS; ++i) {
-		if (i < (int)samplers_.size()) {
-			initialize.push_back({ &samplerLocs_[i], 0, i });
+		if (i < samplersToCheck) {
+			initialize.push_back({ &locs_->samplerLocs_[i], 0, i });
 		} else {
-			samplerLocs_[i] = -1;
+			locs_->samplerLocs_[i] = -1;
 		}
 	}
 
 	GLRProgramFlags flags{};
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, flags);
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, locs_, flags);
 	return true;
 }
 
@@ -1267,7 +1356,7 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 
 	for (size_t i = 0; i < curPipeline_->dynamicUniforms.uniforms.size(); ++i) {
 		const auto &uniform = curPipeline_->dynamicUniforms.uniforms[i];
-		const GLint &loc = curPipeline_->dynamicUniformLocs_[i];
+		const GLint &loc = curPipeline_->locs_->dynamicUniformLocs_[i];
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {
 		case UniformType::FLOAT1:
@@ -1284,40 +1373,39 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffer_->buffer_, curVBufferOffset_, curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
-	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.DrawIndexed(
+		curPipeline_->inputLayout->inputLayout_,
+		curVBuffer_->buffer_, curVBufferOffset_,
+		curIBuffer_->buffer_, curIBufferOffset_ + offset * sizeof(uint32_t),
+		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	_assert_(curPipeline_->inputLayout != nullptr);
 	int stride = curPipeline_->inputLayout->stride;
-	size_t dataSize = stride * vertexCount;
+	uint32_t dataSize = stride * vertexCount;
 
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 
 	GLRBuffer *buf;
-	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
+	uint32_t offset;
+	uint8_t *dest = frameData.push->Allocate(dataSize, 4, &buf, &offset);
+	memcpy(dest, vdata, dataSize);
 
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
-	}
-	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
@@ -1336,8 +1424,8 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	renderManager_.Clear(colorval, depthVal, stencilVal, glMask, 0xF, 0, 0, targetWidth_, targetHeight_);
 }
 
-DrawContext *T3DCreateGLContext() {
-	return new OpenGLContext();
+DrawContext *T3DCreateGLContext(bool canChangeSwapInterval) {
+	return new OpenGLContext(canChangeSwapInterval);
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {
@@ -1347,13 +1435,12 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
-	stride = desc.bindings.empty() ? 0 : (GLsizei)desc.bindings[0].stride;
+	stride = desc.stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;
-		entry.stride = (GLsizei)desc.bindings[attr.binding].stride;
 		entry.offset = attr.offset;
 		switch (attr.format) {
 		case DataFormat::R32G32_FLOAT:
@@ -1378,14 +1465,14 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 			break;
 		case DataFormat::UNDEFINED:
 		default:
-			ERROR_LOG(G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+			ERROR_LOG(Log::G3D,  "Thin3DGLVertexFormat: Invalid or unknown component type applied.");
 			break;
 		}
 
 		entries.push_back(entry);
 	}
 	if (!entries.empty()) {
-		inputLayout_ = render_->CreateInputLayout(entries);
+		inputLayout_ = render_->CreateInputLayout(entries, stride);
 	} else {
 		inputLayout_ = nullptr;
 	}
@@ -1397,7 +1484,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	// TODO: Support multiview later. (It's our only use case for multi layers).
 	_dbg_assert_(desc.numLayers == 1);
 
-	GLRFramebuffer *framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil);
+	GLRFramebuffer *framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil, desc.tag);
 	OpenGLFramebuffer *fbo = new OpenGLFramebuffer(&renderManager_, framebuffer);
 	return fbo;
 }
@@ -1506,11 +1593,34 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 
 	case DataFormat::R8_UNORM:
 		return FMT_TEXTURE;
+	case DataFormat::R16_UNORM:
+		if (!gl_extensions.IsGLES) {
+			return FMT_TEXTURE;
+		} else {
+			return 0;
+		}
+		break;
 
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:
-		return FMT_TEXTURE;
+		return gl_extensions.supportsBC123 ? FMT_TEXTURE : 0;
+
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+		return gl_extensions.supportsBC45 ? FMT_TEXTURE : 0;
+
+	case DataFormat::BC7_UNORM_BLOCK:
+		return gl_extensions.supportsBC7 ? FMT_TEXTURE : 0;
+
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		return gl_extensions.supportsASTC ? FMT_TEXTURE : 0;
+
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+		return gl_extensions.supportsETC2 ? FMT_TEXTURE : 0;
+
 	default:
 		return 0;
 	}

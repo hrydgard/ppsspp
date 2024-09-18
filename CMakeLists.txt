@@ -1,5 +1,5 @@
 # vim:noexpandtab:
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(PPSSPP)
 enable_testing()
 
@@ -67,6 +67,8 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		set(MIPS_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^riscv64")
 		set(RISCV64_DEVICE ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^loongarch64")
+		set(LOONGARCH64_DEVICE ON)
 	else()
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
@@ -102,40 +104,47 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
 
+# Default to bundled SDL2 on macOS, system SDL2 elsewhere.
+if(APPLE AND NOT IOS)
+	set(DEFAULT_USE_SYSTEM_LIBSDL2 OFF)
+else()
+	set(DEFAULT_USE_SYSTEM_LIBSDL2 ON)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 if(NOT IOS)
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
 endif()
 
-if(MACOSX AND NOT USE_SYSTEM_LIBSDL2)
-	set(SDL2_LIBRARY ${CMAKE_SOURCE_DIR}/SDL/macOS/SDL2.framework)
-endif()
-
-include(ccache)
+include(CheckCXXSourceCompiles)
 include(GNUInstallDirs)
 
 add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
-if(OPENXR)
+if(OPENXR AND NOT ARMV7_DEVICE)
 	add_definitions(-DOPENXR)
-	add_library(openxr SHARED IMPORTED)
-	if(OPENXR_PLATFORM_PICO)
-	  add_definitions(-DOPENXR_PLATFORM_PICO)
-	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/pico/arm64-v8a/libopenxr_loader.so")
-	  message("OpenXR for Pico enabled")
-	endif()
-	if(OPENXR_PLATFORM_QUEST)
-	  add_definitions(-DOPENXR_PLATFORM_QUEST)
-	  set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/libs/quest/arm64-v8a/libopenxr_loader.so")
-	  message("OpenXR for Quest enabled")
-	endif()
+	add_subdirectory(ext/OpenXR-SDK)
+	message("OpenXR enabled")
 endif()
 
 if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")
 else()
-	message("Normal Build")
+	message("Non-gold Build")
+endif()
+
+if(IOS_APP_STORE)
+	add_definitions(-DPPSSPP_PLATFORM_IOS_APP_STORE)
+	add_definitions(-DGLES_SILENCE_DEPRECATION)
+	# Set a global default to not generate schemes for each target.
+	# Makes using XCode sligthly more sane.
+	set(CMAKE_XCODE_GENERATE_SCHEME NO)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
+	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
+	message("iOS App Store build")
+elseif(IOS)
+	message("iOS sideload build")
 endif()
 
 # User-editable options (go into CMakeCache.txt)
@@ -144,6 +153,7 @@ option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7_DEVICE})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM_DEVICE})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS_DEVICE})
 option(RISCV64 "Set to ON if targeting a RISCV64 processor" ${RISCV64_DEVICE})
+option(LOONGARCH64 "Set to ON if targeting a LOONGARCH64 processor" ${LOONGARCH64_DEVICE})
 option(X86 "Set to ON if targeting an X86 processor" ${X86_DEVICE})
 option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64_DEVICE})
 # :: Environments
@@ -151,7 +161,7 @@ option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
-option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ${USE_WAYLAND_WSI})
+option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ON)
 option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" ${USE_VULKAN_DISPLAY_KHR})
 # :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
@@ -165,33 +175,40 @@ option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
+option(USE_ARMIPS "Build with armips support in API/debugger" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
-option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ON)
+option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ${DEFAULT_USE_SYSTEM_LIBSDL2})
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
 option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
 option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
+option(USE_CCACHE "Use ccache if detected" ON)
+option(USE_NO_MMAP "Disable mmap usage" OFF)
+
+if(USE_CCACHE)
+	include(ccache)
+endif()
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
 		message("Using X11 for Vulkan")
+		find_package(X11)
+		include_directories(${X11_Xlib_INCLUDE_PATH})
 		add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
 	else()
 		message("NOT using X11 for Vulkan")
 	endif()
 
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
-	if(USE_WAYLAND_WSI)
-		find_package(Wayland)
-		if(NOT WAYLAND_FOUND)
-			message(STATUS "Could not find Wayland libraries, disabling Wayland WSI support for Vulkan.")
-		else()
-			include_directories(${WAYLAND_INCLUDE_DIR})
-			add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
-		endif()
+	find_package(Wayland)
+	if(NOT WAYLAND_FOUND)
+		message(STATUS "Could not find Wayland libraries, disabling Wayland WSI support for Vulkan.")
+	elseif(USE_WAYLAND_WSI)
+		include_directories(${WAYLAND_INCLUDE_DIR})
+		add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
 	endif()
 
 	if(USE_VULKAN_DISPLAY_KHR)
@@ -221,6 +238,22 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
+if(NOT ANDROID AND NOT WIN32 AND (NOT APPLE OR IOS))
+	set(HTTPS_NOT_AVAILABLE ON)
+endif()
+
+# Made this flag negative because it's hopefully quite temporary and didn't
+# want to have to update all build systems.
+if(HTTPS_NOT_AVAILABLE)
+	add_definitions(-DHTTPS_NOT_AVAILABLE)
+endif()
+
+# Disable the usage of MMAP for the memory system.
+# It is not tested on all platforms and can cause issues.
+if(USE_NO_MMAP)
+	add_definitions(-DNO_MMAP -DMASKED_PSP_MEMORY)
+endif()
+
 # Work around for some misfeature of the current glslang build system
 include_directories(ext/glslang)
 
@@ -228,7 +261,7 @@ include_directories(ext/glslang)
 # Anyway, glew will be going away anyway.
 include_directories(ext/glew)
 
-if(OPENXR)
+if(OPENXR AND NOT ARMV7_DEVICE)
 	set(OPENGL_LIBRARIES GLESv3 EGL)
 elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
@@ -248,13 +281,36 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-if(NOT LIBRETRO AND NOT IOS)
+if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
+	find_package(SDL2_ttf)
+	find_package(Fontconfig)
+
+	# TODO: this can be removed once CI supports newer SDL2_ttf
+	if (NOT SDL2_ttf_FOUND)
+		find_package(PkgConfig)
+		if(PkgConfig_FOUND)
+			pkg_check_modules(SDL2_ttf_PKGCONFIG IMPORTED_TARGET SDL2_ttf)
+		endif()
+	endif()
 endif()
+
+if(MACOSX AND NOT IOS)
+	if(USE_SYSTEM_LIBSDL2)
+		find_package(SDL2)
+		find_package(SDL2_ttf)
+	else()
+		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
+		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
+		add_definitions(-DHAVE_SYSCTLBYNAME)
+	endif()
+endif()
+
 include(FindThreads)
 
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
+	find_library(IOKIT_LIBRARY IOKit)
 	find_library(QUARTZ_CORE_LIBRARY QuartzCore)
 endif()
 
@@ -276,6 +332,8 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
 	message(STATUS "No build type selected, default to Release")
 	set(CMAKE_BUILD_TYPE "Release")
+else()
+	message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 endif()
 
 message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -295,6 +353,9 @@ if(MIPS)
 endif()
 if(RISCV64)
 	message("Generating for RISCV64, ${CMAKE_BUILD_TYPE}")
+endif()
+if(LOONGARCH64)
+	message("Generating for LOONGARCH64, ${CMAKE_BUILD_TYPE}")
 endif()
 if(X86)
 	message("Generating for x86, ${CMAKE_BUILD_TYPE}")
@@ -325,9 +386,17 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
 	endif()
 	if(CLANG)
-		add_definitions(-Wno-nullability-completeness)
-		add_definitions(-Wno-tautological-pointer-compare)
-		add_definitions(-Wno-deprecated-register)
+		add_definitions(
+			-Wno-nullability-completeness
+			-Wno-tautological-pointer-compare
+			-Wno-deprecated-register
+			-Wno-sign-conversion
+			-Wno-shorten-64-to-32
+		)
+		if(MACOSX OR IOS)
+			# Hack around a bad check for __GNUC__ in basis_universal that makes it use old stuff on iOS
+			add_definitions(-Wno-deprecated-builtins)
+		endif()
 	endif()
 
 	if(USE_ASAN)
@@ -371,15 +440,25 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
 	endif()
 
+	add_definitions(-fno-math-errno)
+
 	if(X86 OR X86_64)
 		# enable sse2 code generation
 		add_definitions(-msse2)
+		if(NOT X86_64 AND NOT CLANG)
+			add_definitions(-mfpmath=sse)
+			# add_definitions(-mstackrealign)
+		 endif()
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+		if(LIBRETRO AND ARM64)
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14")
+		else()
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+		endif()
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
@@ -388,8 +467,13 @@ if(NOT MSVC)
 			add_definitions(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=700)
-		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
-		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1 -D_BSD_SOURCE -D_DEFAULT_SOURCE)
+		if(CMAKE_SYSTEM_NAME MATCHES "Linux|SunOS" OR MINGW)
+			add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+		endif()
+		if(${CMAKE_SYSTEM_NAME} STREQUAL "NetBSD")
+			add_definitions(-D_NETBSD_SOURCE)
+		endif()
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
 	endif()
@@ -401,6 +485,7 @@ else()
 	endif()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
+	set(CMAKE_EXE_LINKER_FLAGS /NODEFAULTLIB:"libcmt.lib")
 endif()
 
 if(WIN32)
@@ -471,6 +556,7 @@ set(CommonARM64
 	Common/Arm64Emitter.cpp
 	Common/ArmEmitter.h
 	Common/ArmEmitter.cpp
+	Core/Util/DisArm64.h
 	Core/Util/DisArm64.cpp
 )
 source_group(ARM64 FILES ${CommonARM64})
@@ -491,6 +577,14 @@ set(CommonRISCV64
 	Core/MIPS/fake/FakeJit.h
 )
 source_group(RISCV64 FILES ${CommonRISCV64})
+
+set(CommonLOONGARCH64
+	${CommonJIT}
+	Common/LoongArchCPUDetect.cpp
+	Core/MIPS/fake/FakeJit.cpp
+	Core/MIPS/fake/FakeJit.h
+)
+source_group(LOONGARCH64 FILES ${CommonLOONGARCH64})
 
 if(WIN32)
 	set(CommonD3D
@@ -522,7 +616,7 @@ set(CommonVR
 	Common/VR/VRRenderer.cpp
 	Common/VR/VRRenderer.h
 )
-include_directories(ext/openxr)
+include_directories(ext/OpenXR-SDK/include)
 
 add_library(Common STATIC
 	${CommonX86}
@@ -530,6 +624,7 @@ add_library(Common STATIC
 	${CommonARM64}
 	${CommonMIPS}
 	${CommonRISCV64}
+	${CommonLOONGARCH64}
 	${CommonD3D}
 	${CommonVR}
 	Common/Serialize/Serializer.cpp
@@ -549,6 +644,7 @@ add_library(Common STATIC
 	Common/Data/Collections/FixedSizeQueue.h
 	Common/Data/Collections/Hashmaps.h
 	Common/Data/Collections/TinySet.h
+	Common/Data/Collections/FastVec.h
 	Common/Data/Collections/ThreadSafeList.h
 	Common/Data/Color/RGBAUtil.cpp
 	Common/Data/Color/RGBAUtil.h
@@ -572,6 +668,8 @@ add_library(Common STATIC
 	Common/Data/Format/JSONReader.cpp
 	Common/Data/Format/JSONWriter.h
 	Common/Data/Format/JSONWriter.cpp
+	Common/Data/Format/DDSLoad.cpp
+	Common/Data/Format/DDSLoad.h
 	Common/Data/Format/PNGLoad.cpp
 	Common/Data/Format/PNGLoad.h
 	Common/Data/Format/ZIMLoad.cpp
@@ -589,10 +687,14 @@ add_library(Common STATIC
 	Common/Data/Random/Rng.h
 	Common/File/VFS/VFS.h
 	Common/File/VFS/VFS.cpp
-	Common/File/VFS/AssetReader.cpp
-	Common/File/VFS/AssetReader.h
+	Common/File/VFS/ZipFileReader.cpp
+	Common/File/VFS/ZipFileReader.h
+	Common/File/VFS/DirectoryReader.cpp
+	Common/File/VFS/DirectoryReader.h
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
+	Common/File/AndroidContentURI.h
+	Common/File/AndroidContentURI.cpp
 	Common/File/DiskFree.h
 	Common/File/DiskFree.cpp
 	Common/File/Path.h
@@ -606,6 +708,9 @@ add_library(Common STATIC
 	Common/File/FileDescriptor.cpp
 	Common/File/FileDescriptor.h
 	Common/GPU/DataFormat.h
+	Common/GPU/MiscTypes.h
+	Common/GPU/GPUBackendCommon.cpp
+	Common/GPU/GPUBackendCommon.h
 	Common/GPU/thin3d.cpp
 	Common/GPU/thin3d.h
 	Common/GPU/thin3d_create.h
@@ -624,7 +729,11 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/gl3stub.h
 	Common/GPU/OpenGL/GLFeatures.cpp
 	Common/GPU/OpenGL/GLFeatures.h
+	Common/GPU/OpenGL/GLFrameData.cpp
+	Common/GPU/OpenGL/GLFrameData.h
 	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLMemory.cpp
+	Common/GPU/OpenGL/GLMemory.h
 	Common/GPU/OpenGL/GLRenderManager.cpp
 	Common/GPU/OpenGL/GLRenderManager.h
 	Common/GPU/OpenGL/GLQueueRunner.cpp
@@ -637,6 +746,10 @@ add_library(Common STATIC
 	Common/GPU/Vulkan/VulkanDebug.h
 	Common/GPU/Vulkan/VulkanContext.cpp
 	Common/GPU/Vulkan/VulkanContext.h
+	Common/GPU/Vulkan/VulkanDescSet.cpp
+	Common/GPU/Vulkan/VulkanDescSet.h
+	Common/GPU/Vulkan/VulkanFramebuffer.cpp
+	Common/GPU/Vulkan/VulkanFramebuffer.h
 	Common/GPU/Vulkan/VulkanImage.cpp
 	Common/GPU/Vulkan/VulkanImage.h
 	Common/GPU/Vulkan/VulkanLoader.cpp
@@ -658,6 +771,7 @@ add_library(Common STATIC
 	Common/Input/InputState.cpp
 	Common/Input/InputState.h
 	Common/Math/fast/fast_matrix.c
+	Common/Math/CrossSIMD.h
 	Common/Math/curves.cpp
 	Common/Math/curves.h
 	Common/Math/expression_parser.cpp
@@ -674,6 +788,10 @@ add_library(Common STATIC
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
 	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPNaettRequest.cpp
+	Common/Net/HTTPNaettRequest.h
+	Common/Net/HTTPRequest.cpp
+	Common/Net/HTTPRequest.h
 	Common/Net/HTTPServer.cpp
 	Common/Net/HTTPServer.h
 	Common/Net/NetBuffer.cpp
@@ -692,16 +810,26 @@ add_library(Common STATIC
 	Common/Render/TextureAtlas.h
 	Common/Render/DrawBuffer.cpp
 	Common/Render/DrawBuffer.h
+	Common/Render/ManagedTexture.cpp
+	Common/Render/ManagedTexture.h
 	Common/Render/Text/draw_text.cpp
 	Common/Render/Text/draw_text.h
 	Common/Render/Text/draw_text_android.cpp
 	Common/Render/Text/draw_text_android.h
+	Common/Render/Text/draw_text_sdl.cpp
+	Common/Render/Text/draw_text_sdl.h
 	Common/Render/Text/draw_text_win.cpp
 	Common/Render/Text/draw_text_win.h
 	Common/Render/Text/draw_text_uwp.cpp
 	Common/Render/Text/draw_text_uwp.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/System/System.h
+	Common/System/NativeApp.h
+	Common/System/Request.cpp
+	Common/System/Request.h
+	Common/System/OSD.cpp
+	Common/System/OSD.h
 	Common/Thread/Channel.h
 	Common/Thread/ParallelLoop.cpp
 	Common/Thread/ParallelLoop.h
@@ -710,6 +838,8 @@ add_library(Common STATIC
 	Common/Thread/ThreadUtil.h
 	Common/Thread/ThreadManager.cpp
 	Common/Thread/ThreadManager.h
+	Common/UI/AsyncImageFileView.cpp
+	Common/UI/AsyncImageFileView.h
 	Common/UI/Root.cpp
 	Common/UI/Root.h
 	Common/UI/Screen.cpp
@@ -718,6 +848,8 @@ add_library(Common STATIC
 	Common/UI/UI.h
 	Common/UI/Context.cpp
 	Common/UI/Context.h
+	Common/UI/IconCache.cpp
+	Common/UI/IconCache.h
 	Common/UI/UIScreen.cpp
 	Common/UI/UIScreen.h
 	Common/UI/Tween.cpp
@@ -726,6 +858,10 @@ add_library(Common STATIC
 	Common/UI/View.h
 	Common/UI/ViewGroup.cpp
 	Common/UI/ViewGroup.h
+	Common/UI/ScrollView.cpp
+	Common/UI/ScrollView.h
+	Common/UI/PopupScreens.cpp
+	Common/UI/PopupScreens.h
 	Common/BitScan.h
 	Common/BitSet.h
 	Common/Buffer.h
@@ -734,8 +870,6 @@ add_library(Common STATIC
 	Common/Common.h
 	Common/CommonFuncs.h
 	Common/CommonTypes.h
-	Common/ConsoleListener.cpp
-	Common/ConsoleListener.h
 	Common/DbgNew.h
 	Common/FakeEmitter.h
 	Common/FakeCPUDetect.cpp
@@ -743,16 +877,22 @@ add_library(Common STATIC
 	Common/ExceptionHandlerSetup.h
 	Common/Log.h
 	Common/Log.cpp
-	Common/LogManager.cpp
-	Common/LogManager.h
+	Common/Log/ConsoleListener.cpp
+	Common/Log/ConsoleListener.h
+	Common/Log/StdioListener.cpp
+	Common/Log/StdioListener.h
+	Common/Log/LogManager.cpp
+	Common/Log/LogManager.h
 	Common/LogReporting.cpp
 	Common/LogReporting.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
 	Common/MemArenaWin32.cpp
+	Common/MemArenaHorizon.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
+	Common/MemoryUtilHorizon.cpp
 	Common/MemoryUtil.h
 	Common/OSVersion.cpp
 	Common/OSVersion.h
@@ -762,12 +902,19 @@ add_library(Common STATIC
 	Common/SysError.cpp
 	Common/TimeUtil.cpp
 	Common/TimeUtil.h
+	Common/Battery/Battery.h
 )
 
 include_directories(Common)
 setup_target_project(Common Common)
 
-target_link_libraries(Common Ext::Snappy)
+target_link_libraries(Common Ext::Snappy cpu_features)
+
+if(ARM64)
+    if(ANDROID)
+        target_link_libraries(Common adrenotools)
+    endif()
+endif()
 
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
@@ -797,7 +944,11 @@ if(USE_FFMPEG)
 					set(PLATFORM_ARCH "android/x86")
 				endif()
 			elseif(IOS)
-				set(PLATFORM_ARCH "ios/universal")
+				if(IOS_PLATFORM STREQUAL "TVOS")
+					set(PLATFORM_ARCH "tvos/arm64")
+				else()
+					set(PLATFORM_ARCH "ios/universal")
+				endif()
 			elseif(MACOSX)
 				set(PLATFORM_ARCH "macosx/universal")
 			elseif(LINUX)
@@ -811,6 +962,8 @@ if(USE_FFMPEG)
 					set(PLATFORM_ARCH "linux/mips32")
 				elseif(RISCV64)
 					set(PLATFORM_ARCH "linux/riscv64")
+				elseif(LOONGARCH64)
+					set(PLATFORM_ARCH "linux/loongarch64")
 				elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 					set(PLATFORM_ARCH "linux/x86_64")
 				elseif(X86)
@@ -832,6 +985,23 @@ if(USE_FFMPEG)
 	endif()
 
 	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
+	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
+	# Check if we need to use const AVCodec
+	set(CMAKE_REQUIRED_LIBRARIES avcodec;avformat)
+	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
+	check_cxx_source_compiles("extern \"C\" {
+		#include <libavcodec/avcodec.h>
+		#include <libavformat/avformat.h>
+		}
+		static AVCodecContext *s_codec_context = NULL;
+		int main() {
+			const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
+			return 0;
+		}
+		" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
+
+	# Check if we need to use avcodec_alloc_context3 instead of stream->codec
+	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
 endif(USE_FFMPEG)
 
 find_package(ZLIB)
@@ -877,7 +1047,7 @@ add_library(cityhash STATIC
 	ext/cityhash/city.h
 	ext/cityhash/citycrc.h
 )
-include_directories(ext/cityhash)
+target_include_directories(cityhash PRIVATE ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
@@ -891,6 +1061,7 @@ endif()
 
 find_package(LIBZIP)
 if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
+	include_directories(${LIBZIP_INCLUDE_DIRS})
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
@@ -1082,23 +1253,44 @@ else()
 	include_directories(ext/libpng17)
 endif()
 
+add_library(basis_universal STATIC
+	ext/basis_universal/basisu.h
+	ext/basis_universal/basisu_containers.h
+	ext/basis_universal/basisu_containers_impl.h
+	ext/basis_universal/basisu_file_headers.h
+	ext/basis_universal/basisu_transcoder.cpp
+	ext/basis_universal/basisu_transcoder.h
+	ext/basis_universal/basisu_transcoder_internal.h
+	ext/basis_universal/basisu_transcoder_tables_astc.inc
+	ext/basis_universal/basisu_transcoder_tables_astc_0_255.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_55.inc
+	ext/basis_universal/basisu_transcoder_tables_atc_56.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_alpha.inc
+	ext/basis_universal/basisu_transcoder_tables_bc7_m5_color.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_5.inc
+	ext/basis_universal/basisu_transcoder_tables_dxt1_6.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_45.inc
+	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
+	ext/basis_universal/basisu_transcoder_uastc.h
+)
+set(BASISU_LIBRARIES basis_universal)
+
 set(nativeExtra)
 set(nativeExtraLibs)
 
-if(ANDROID)
-	set(nativeExtra ${nativeExtra}
-		Common/GL/GLInterface/EGLAndroid.cpp
-		Common/GL/GLInterface/EGLAndroid.h
-		Common/GL/GLInterface/EGL.cpp
-		Common/GL/GLInterface/EGL.h
-		Common/GL/GLInterface/GLInterface.cpp
-		Common/GL/GLInterfaceBase.h
-	)
+if(OPENXR AND NOT ARMV7_DEVICE)
+	set(nativeExtraLibs ${nativeExtraLibs} openxr_loader)
+endif()
 
+if(IOS OR MACOSX)
+	set(nativeExtra ${nativeExtra}
+		Common/Render/Text/draw_text_cocoa.mm
+		Common/Render/Text/draw_text_cocoa.h)
+endif()
+
+if(ANDROID)
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
-		android/jni/AndroidEGLContext.cpp
-		android/jni/AndroidEGLContext.h
 		android/jni/AndroidJavaGLContext.cpp
 		android/jni/AndroidJavaGLContext.h
 		android/jni/AndroidVulkanContext.cpp
@@ -1109,19 +1301,21 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
-	if (OPENXR)
-		set(nativeExtraLibs ${nativeExtraLibs} openxr)
-	endif()
 	# No target
-elseif(IOS)
+elseif(IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
 		ios/AppDelegate.mm
 		ios/AppDelegate.h
 		ios/DisplayManager.h
 		ios/DisplayManager.mm
+		ios/Controls.h
+		ios/Controls.mm
+		ios/ViewControllerCommon.h
 		ios/ViewController.mm
 		ios/ViewController.h
+		ios/ViewControllerMetal.mm
+		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/CameraHelper.mm
@@ -1132,13 +1326,15 @@ elseif(IOS)
 		ios/PPSSPPUIApplication.mm
 		ios/SmartKeyboardMap.cpp
 		ios/SmartKeyboardMap.hpp
-		ios/SubtleVolume.h
-		ios/SubtleVolume.mm
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
+		UI/DarwinFileSystemServices.mm
+		UI/DarwinFileSystemServices.h
+		Common/Battery/AppleBatteryClient.m
 	)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia" )
+
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
@@ -1147,24 +1343,32 @@ elseif(IOS)
 		set(nativeExtraLibs ${nativeExtraLibs} iconv)
 	endif()
 
+	# TODO: Enable arc globally?
 	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/ViewControllerMetal.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/iOSCoreAudio.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/PPSSPPUIApplication.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/iCade/iCadeReaderView.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/AudioEngine.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/DisplayManager.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/Controls.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
 	set(TargetBin PPSSPP)
+elseif(IOS AND LIBRETRO)
+    set(nativeExtraLibs ${nativeExtraLibs} "-framework GLKit")
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
 	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
 	list(APPEND NativeAppSource
 		Qt/QtMain.cpp
 		Qt/QtMain.h
-		Qt/QtHost.cpp
-		Qt/QtHost.h
 		Qt/mainwindow.cpp
 		Qt/mainwindow.h
 	)
@@ -1172,7 +1376,16 @@ elseif(USING_QT_UI)
 	if(USING_GLES2)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
-
+	if(APPLE)
+		list(APPEND NativeAppSource
+			UI/DarwinFileSystemServices.mm
+			UI/DarwinFileSystemServices.h
+			Common/Battery/AppleBatteryClient.m)
+		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+	endif()
 	include_directories(Qt)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
@@ -1196,8 +1409,13 @@ elseif(WIN32)
 	else()
 		link_directories(dx9sdk/Lib/x86)
 	endif()
-elseif(TARGET SDL2::SDL2)
-	set(TargetBin PPSSPPSDL)
+elseif(LIBRETRO)
+else()
+	if(GOLD)
+		set(TargetBin PPSSPPGold)
+	else()
+		set(TargetBin PPSSPPSDL)
+	endif()
 	# Require SDL
 	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra}
@@ -1211,15 +1429,60 @@ elseif(TARGET SDL2::SDL2)
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
-	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
-	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm)
-		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY})
-	elseif(USING_EGL)
-		set(nativeExtraLibs ${nativeExtraLibs} pthread)
+	if(SDL2_ttf_FOUND OR
+		(SDL2_ttf_PKGCONFIG_FOUND AND
+		 SDL2_ttf_PKGCONFIG_VERSION VERSION_GREATER_EQUAL "2.0.18"))
+		add_definitions(-DUSE_SDL2_TTF)
+		if(FONTCONFIG_FOUND)
+			add_definitions(-DUSE_SDL2_TTF_FONTCONFIG)
+			set(nativeExtraLibs ${nativeExtraLibs} Fontconfig::Fontconfig)
+		endif()
+	elseif(SDL2_ttf_PKGCONFIG_FOUND)
+		message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
 	endif()
-elseif(NOT LIBRETRO)
-	message(FATAL_ERROR "Could not find SDL2. Failing.")
+	if(SDL2_ttf_FOUND)
+		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
+	elseif(SDL2_ttf_PKGCONFIG_FOUND)
+		set(nativeExtraLibs ${nativeExtraLibs} PkgConfig::SDL2_ttf_PKGCONFIG)
+	endif()
+	if(APPLE)
+		set(nativeExtra ${nativeExtra}
+		SDL/SDLMain.h
+		SDL/SDLMain.mm
+		SDL/SDLCocoaMetalLayer.h
+		SDL/SDLCocoaMetalLayer.mm
+		SDL/CocoaBarItems.mm
+		SDL/CocoaBarItems.h
+		SDL/PPSSPPAboutViewController.m
+		SDL/PPSSPPAboutViewController.h
+		UI/DarwinFileSystemServices.mm
+		UI/DarwinFileSystemServices.h
+		Common/Battery/AppleBatteryClient.m
+		UI/PSPNSApplicationDelegate.mm
+		UI/PSPNSApplicationDelegate.h)
+
+		# TODO
+		# set_source_files_properties(SDL/SDLMain.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
+        set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(UI/PSPNSApplicationDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(SDL/CocoaMetalLayer.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(SDL/CocoaBarItems.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(SDL/PPSSPPAboutViewController.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+
+		if(USE_SYSTEM_LIBSDL2)
+			set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
+		else()
+			set(nativeExtraLibs ${nativeExtraLibs} ${SDL2Fwk})
+		endif()
+	elseif(USING_EGL)
+		set(nativeExtraLibs ${nativeExtraLibs} pthread SDL2::SDL2)
+	else()
+		set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
+	endif()
 endif()
 
 if(WIN32)
@@ -1233,6 +1496,13 @@ if(WIN32)
 	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
+if(NOT LIBRETRO)
+	list(APPEND NativeAppSource
+		UI/AudioCommon.h
+		UI/AudioCommon.cpp
+	)
+endif()
+
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/DiscordIntegration.cpp
@@ -1241,10 +1511,10 @@ list(APPEND NativeAppSource
 	UI/BackgroundAudio.cpp
 	UI/ChatScreen.h
 	UI/ChatScreen.cpp
+	UI/DebugOverlay.cpp
+	UI/DebugOverlay.h
 	UI/DevScreens.cpp
 	UI/DevScreens.h
-	UI/DisplayLayoutEditor.cpp
-	UI/DisplayLayoutEditor.h
 	UI/DisplayLayoutScreen.cpp
 	UI/DisplayLayoutScreen.h
 	UI/EmuScreen.h
@@ -1257,22 +1527,26 @@ list(APPEND NativeAppSource
 	UI/MiscScreens.cpp
 	UI/PauseScreen.h
 	UI/PauseScreen.cpp
+	UI/TabbedDialogScreen.h
+	UI/TabbedDialogScreen.cpp
 	UI/GameScreen.h
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.h
 	UI/GameSettingsScreen.cpp
+	UI/DriverManagerScreen.h
+	UI/DriverManagerScreen.cpp
 	UI/GPUDriverTestScreen.h
 	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.h
 	UI/TiltAnalogSettingsScreen.cpp
-	UI/TiltEventProcessor.h
-	UI/TiltEventProcessor.cpp
 	UI/TouchControlLayoutScreen.h
 	UI/TouchControlLayoutScreen.cpp
 	UI/TouchControlVisibilityScreen.h
 	UI/TouchControlVisibilityScreen.cpp
 	UI/GamepadEmu.h
 	UI/GamepadEmu.cpp
+	UI/JoystickHistoryView.h
+	UI/JoystickHistoryView.cpp
 	UI/OnScreenDisplay.h
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.h
@@ -1289,16 +1563,18 @@ list(APPEND NativeAppSource
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.h
 	UI/InstallZipScreen.cpp
+	UI/JitCompareScreen.h
+	UI/JitCompareScreen.cpp
 	UI/MemStickScreen.h
 	UI/MemStickScreen.cpp
 	UI/ProfilerDraw.h
 	UI/ProfilerDraw.cpp
-	UI/TextureUtil.h
-	UI/TextureUtil.cpp
-	UI/ComboKeyMappingScreen.h
-	UI/ComboKeyMappingScreen.cpp
+	UI/CustomButtonMappingScreen.h
+	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
+	UI/RetroAchievementScreens.cpp
+	UI/RetroAchievementScreens.h
 )
 
 if(ANDROID)
@@ -1311,6 +1587,10 @@ if(ANDROID)
 	if (NOT LIBRETRO)
 		set(nativeExtra ${nativeExtra} ${NativeAppSource})
 	endif()
+endif()
+
+if (IOS)
+        set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
 add_library(native STATIC
@@ -1328,11 +1608,11 @@ if(LINUX AND NOT ANDROID)
 endif()
 
 set(ATOMIC_LIB)
-if(ANDROID OR (LINUX AND ARM_DEVICE))
+if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64) OR (LINUX AND LOONGARCH64))
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
@@ -1357,7 +1637,7 @@ add_library(kirk STATIC
 	ext/libkirk/kirk_engine.c
 	ext/libkirk/kirk_engine.h
 )
-include_directories(ext/libkirk)
+target_include_directories(kirk PRIVATE ext/libkirk)
 
 add_library(sfmt19937 STATIC
 	ext/sfmt19937/SFMT.c
@@ -1366,24 +1646,27 @@ add_library(sfmt19937 STATIC
 	ext/sfmt19937/SFMT-params.h
 	ext/sfmt19937/SFMT-params19937.h
 )
-include_directories(ext/sfmt19937)
+target_compile_definitions(sfmt19937 PRIVATE SFMT_MEXP=19937)
+target_include_directories(sfmt19937 PRIVATE ext/sfmt19937)
 
 add_library(xbrz STATIC
 	ext/xbrz/xbrz.cpp
 	ext/xbrz/xbrz.h
 )
-include_directories(ext/xbrz)
+target_include_directories(xbrz PRIVATE ext/xbrz)
 
 add_library(xxhash STATIC
 	ext/xxhash.c
 	ext/xxhash.h
 )
-include_directories(ext/xxhash)
+target_include_directories(xxhash PRIVATE ext/xxhash)
 
 set(CoreExtra)
 set(CoreExtraLibs)
 
 set(CoreExtra ${CoreExtra}
+	Core/MIPS/IR/IRAnalysis.cpp
+	Core/MIPS/IR/IRAnalysis.h
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp
 	Core/MIPS/IR/IRCompFPU.cpp
@@ -1397,6 +1680,8 @@ set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRInterpreter.h
 	Core/MIPS/IR/IRJit.cpp
 	Core/MIPS/IR/IRJit.h
+	Core/MIPS/IR/IRNativeCommon.cpp
+	Core/MIPS/IR/IRNativeCommon.h
 	Core/MIPS/IR/IRPassSimplify.cpp
 	Core/MIPS/IR/IRPassSimplify.h
 	Core/MIPS/IR/IRRegCache.cpp
@@ -1436,6 +1721,17 @@ list(APPEND CoreExtra
 	Core/MIPS/ARM64/Arm64RegCache.h
 	Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
 	Core/MIPS/ARM64/Arm64RegCacheFPU.h
+	Core/MIPS/ARM64/Arm64IRAsm.cpp
+	Core/MIPS/ARM64/Arm64IRCompALU.cpp
+	Core/MIPS/ARM64/Arm64IRCompBranch.cpp
+	Core/MIPS/ARM64/Arm64IRCompFPU.cpp
+	Core/MIPS/ARM64/Arm64IRCompLoadStore.cpp
+	Core/MIPS/ARM64/Arm64IRCompSystem.cpp
+	Core/MIPS/ARM64/Arm64IRCompVec.cpp
+	Core/MIPS/ARM64/Arm64IRJit.cpp
+	Core/MIPS/ARM64/Arm64IRJit.h
+	Core/MIPS/ARM64/Arm64IRRegCache.cpp
+	Core/MIPS/ARM64/Arm64IRRegCache.h
 	GPU/Common/VertexDecoderArm64.cpp
 	Core/Util/DisArm64.cpp
 )
@@ -1456,6 +1752,17 @@ list(APPEND CoreExtra
 	Core/MIPS/x86/RegCache.h
 	Core/MIPS/x86/RegCacheFPU.cpp
 	Core/MIPS/x86/RegCacheFPU.h
+	Core/MIPS/x86/X64IRAsm.cpp
+	Core/MIPS/x86/X64IRCompALU.cpp
+	Core/MIPS/x86/X64IRCompBranch.cpp
+	Core/MIPS/x86/X64IRCompFPU.cpp
+	Core/MIPS/x86/X64IRCompLoadStore.cpp
+	Core/MIPS/x86/X64IRCompSystem.cpp
+	Core/MIPS/x86/X64IRCompVec.cpp
+	Core/MIPS/x86/X64IRJit.cpp
+	Core/MIPS/x86/X64IRJit.h
+	Core/MIPS/x86/X64IRRegCache.cpp
+	Core/MIPS/x86/X64IRRegCache.h
 	GPU/Common/VertexDecoderX86.cpp
 	GPU/Software/DrawPixelX86.cpp
 	GPU/Software/SamplerX86.cpp
@@ -1464,6 +1771,21 @@ list(APPEND CoreExtra
 list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.cpp
 	Core/MIPS/MIPS/MipsJit.h
+)
+
+list(APPEND CoreExtra
+	Core/MIPS/RiscV/RiscVAsm.cpp
+	Core/MIPS/RiscV/RiscVCompALU.cpp
+	Core/MIPS/RiscV/RiscVCompBranch.cpp
+	Core/MIPS/RiscV/RiscVCompFPU.cpp
+	Core/MIPS/RiscV/RiscVCompLoadStore.cpp
+	Core/MIPS/RiscV/RiscVCompSystem.cpp
+	Core/MIPS/RiscV/RiscVCompVec.cpp
+	Core/MIPS/RiscV/RiscVJit.cpp
+	Core/MIPS/RiscV/RiscVJit.h
+	Core/MIPS/RiscV/RiscVRegCache.cpp
+	Core/MIPS/RiscV/RiscVRegCache.h
+	GPU/Common/VertexDecoderRiscV.cpp
 )
 
 if(NOT MOBILE_DEVICE)
@@ -1476,7 +1798,7 @@ if(NOT MOBILE_DEVICE)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepthBufferGLES.cpp
+	GPU/GLES/StencilBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
@@ -1557,6 +1879,7 @@ set(GPU_SOURCES
 	${GPU_NEON}
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
+	GPU/Common/DepthBufferCommon.cpp
 	GPU/Common/TextureShaderCommon.cpp
 	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
@@ -1593,6 +1916,8 @@ set(GPU_SOURCES
 	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/VertexDecoderHandwritten.cpp
+	GPU/Common/VertexDecoderHandwritten.h
 	GPU/Common/TransformCommon.cpp
 	GPU/Common/TransformCommon.h
 	GPU/Common/IndexGenerator.cpp
@@ -1605,7 +1930,10 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
-	GPU/Common/SplineCommon.h
+	GPU/Common/TextureReplacer.cpp
+	GPU/Common/TextureReplacer.h
+	GPU/Common/ReplacedTexture.cpp
+	GPU/Common/ReplacedTexture.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
@@ -1628,6 +1956,8 @@ set(GPU_SOURCES
 	GPU/GPU.h
 	GPU/GPUCommon.cpp
 	GPU/GPUCommon.h
+	GPU/GPUCommonHW.cpp
+	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
@@ -1654,7 +1984,6 @@ set(GPU_SOURCES
 	GPU/Software/SoftGpu.h
 	GPU/Software/TransformUnit.cpp
 	GPU/Software/TransformUnit.h
-	GPU/ge_constants.h
 )
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
@@ -1664,6 +1993,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CommonJIT}
 	Core/Config.cpp
 	Core/Config.h
+	Core/ConfigSettings.cpp
+	Core/ConfigSettings.h
 	Core/ConfigValues.h
 	Core/ControlMapper.cpp
 	Core/ControlMapper.h
@@ -1676,6 +2007,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CoreTiming.h
 	Core/CwCheat.cpp
 	Core/CwCheat.h
+	Core/FrameTiming.cpp
+	Core/FrameTiming.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/Instance.cpp
@@ -1684,7 +2017,11 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/KeyMap.h
 	Core/KeyMapDefaults.cpp
 	Core/KeyMapDefaults.h
+	Core/RetroAchievements.h
+	Core/RetroAchievements.cpp
 	Core/ThreadEventQueue.h
+	Core/TiltEventProcessor.h
+	Core/TiltEventProcessor.cpp
 	Core/WebServer.cpp
 	Core/WebServer.h
 	Core/Debugger/Breakpoints.cpp
@@ -1708,6 +2045,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/GameBroadcaster.h
 	Core/Debugger/WebSocket/GameSubscriber.cpp
 	Core/Debugger/WebSocket/GameSubscriber.h
+	Core/Debugger/WebSocket/ClientConfigSubscriber.cpp
+	Core/Debugger/WebSocket/ClientConfigSubscriber.h
 	Core/Debugger/WebSocket/GPUBufferSubscriber.cpp
 	Core/Debugger/WebSocket/GPUBufferSubscriber.h
 	Core/Debugger/WebSocket/GPURecordSubscriber.cpp
@@ -1763,6 +2102,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
+	Core/FFMPEGCompat.h
 	Core/FileSystems/tlzrc.cpp
 	Core/FileSystems/BlobFileSystem.cpp
 	Core/FileSystems/BlobFileSystem.h
@@ -1799,6 +2139,10 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAdler.cpp
 	Core/HLE/sceAdler.h
+	Core/HLE/AtracCtx.cpp
+	Core/HLE/AtracCtx.h
+	Core/HLE/AtracCtx2.cpp
+	Core/HLE/AtracCtx2.h
 	Core/HLE/sceAtrac.cpp
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp
@@ -1905,6 +2249,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSfmt19937.h
 	Core/HLE/sceSha256.cpp
 	Core/HLE/sceSha256.h
+	Core/HLE/sceSircs.cpp
+	Core/HLE/sceSircs.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp
@@ -1933,6 +2279,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePauth.h
 	Core/HW/SimpleAudioDec.cpp
 	Core/HW/SimpleAudioDec.h
+	Core/HW/Atrac3Standalone.cpp
+	Core/HW/Atrac3Standalone.h
+	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/BufferQueue.cpp
@@ -1953,8 +2302,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SasReverb.h
 	Core/HW/StereoResampler.cpp
 	Core/HW/StereoResampler.h
-	Core/Host.cpp
-	Core/Host.h
 	Core/Loaders.cpp
 	Core/Loaders.h
 	Core/FileLoaders/CachingFileLoader.cpp
@@ -1991,8 +2338,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
+	Core/MIPS/MIPSVFPUFallbacks.cpp
+	Core/MIPS/MIPSVFPUFallbacks.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
+	Core/MIPS/MIPSTracer.cpp
+	Core/MIPS/MIPSTracer.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp
@@ -2011,14 +2362,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
-	Core/TextureReplacer.cpp
-	Core/TextureReplacer.h
 	Core/ThreadPools.cpp
 	Core/ThreadPools.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
+	Core/Util/MemStick.cpp
+	Core/Util/MemStick.h
+	Core/Util/GameDB.cpp
+	Core/Util/GameDB.h
 	Core/Util/PortManager.cpp
 	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp
@@ -2027,6 +2380,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	${GPU_SOURCES}
 	ext/disarm.cpp
+	ext/disarm.h
+	ext/riscv-disas.cpp
+	ext/riscv-disas.h
 	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
 )
 
@@ -2037,7 +2393,11 @@ if(ANDROID)
 	endif()
 endif()
 
-set(CoreExtraLibs ${CoreExtraLibs} armips)
+if(USE_ARMIPS)
+	set(CoreExtraLibs ${CoreExtraLibs} armips)
+else()
+	add_definitions(-DNO_ARMIPS=1)
+endif()
 
 # needed for VK_USE_PLATFORM_XCB_KHR only
 #if(VULKAN AND NOT WIN32)
@@ -2063,19 +2423,30 @@ if(USE_SYSTEM_ZSTD)
 	target_include_directories(${CoreLibName} PRIVATE ${ZSTD_INCLUDE_DIR})
 	target_link_libraries(${CoreLibName} ${ZSTD_LIBRARY})
 else()
-	set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "we don't need zstd programs" FORCE)
-	add_subdirectory(ext/zstd/build/cmake EXCLUDE_FROM_ALL)
+	add_subdirectory(ext/zstd-build)
 	set(CoreExtraLibs ${CoreExtraLibs} libzstd_static)
 	include_directories(ext/zstd/lib)
 endif()
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
+include_directories(ext/libchdr/include)
+
+target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+if(NOT HTTPS_NOT_AVAILABLE)
+	target_link_libraries(${CoreLibName} naett)
+	if(WIN32)
+		target_link_libraries(${CoreLibName} winhttp)
+	endif()
+endif()
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+	if (HAVE_LIBAVCODEC_CONST_AVCODEC)
+		target_compile_definitions(${CoreLibName} PRIVATE HAVE_LIBAVCODEC_CONST_AVCODEC=1)
+	endif()
 	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
 	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec})
 	target_link_libraries(${CoreLibName}
@@ -2102,8 +2473,8 @@ if(USE_MINIUPNPC)
 		target_link_libraries(${CoreLibName} ${MINIUPNP_LIBRARY})
 		add_definitions(-DWITH_UPNP -DUSE_SYSTEM_MINIUPNPC)
 	else()
-		set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
-		set (MINIUPNPC_API_VERSION 17)
+		set (MINIUPNPC_VERSION 2.2) # used by miniupnpcstrings.h.cmake
+		set (MINIUPNPC_API_VERSION 18)
 		option(UPNPC_BUILD_STATIC "Build static library" TRUE)
 		option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
 		mark_as_advanced(NO_GETADDRINFO)
@@ -2127,25 +2498,28 @@ if(USE_MINIUPNPC)
 		add_definitions(-DWITH_UPNP -DMINIUPNP_STATICLIB)
 		set(MINIUPNP_DIR "ext/miniupnp/miniupnpc")
 		include_directories(${CMAKE_CURRENT_BINARY_DIR})
+		include_directories(ext/miniupnp/miniupnpc/src)
+		include_directories(ext/miniupnp/miniupnpc/include)
 		configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
 		set(MINIUPNPC_SOURCES
 			# the needed bits of miniupnpc (no python module, no tests, no cli)
-			${MINIUPNP_DIR}/addr_is_reserved.c
-			${MINIUPNP_DIR}/connecthostport.c
-			${MINIUPNP_DIR}/igd_desc_parse.c
-			${MINIUPNP_DIR}/minisoap.c
-			${MINIUPNP_DIR}/minissdpc.c
-			${MINIUPNP_DIR}/miniupnpc.c
-			${MINIUPNP_DIR}/miniwget.c
-			${MINIUPNP_DIR}/minixml.c
-			${MINIUPNP_DIR}/minixmlvalid.c
-			${MINIUPNP_DIR}/portlistingparse.c
-			${MINIUPNP_DIR}/receivedata.c
+			${MINIUPNP_DIR}/src/addr_is_reserved.c
+			${MINIUPNP_DIR}/src/connecthostport.c
+			${MINIUPNP_DIR}/src/igd_desc_parse.c
+			${MINIUPNP_DIR}/src/minisoap.c
+			${MINIUPNP_DIR}/src/minissdpc.c
+			${MINIUPNP_DIR}/src/miniupnpc.c
+			#${MINIUPNP_DIR}/miniupnpcmodule.c
+			${MINIUPNP_DIR}/src/miniwget.c
+			${MINIUPNP_DIR}/src/minixml.c
+			${MINIUPNP_DIR}/src/minixmlvalid.c
+			${MINIUPNP_DIR}/src/portlistingparse.c
+			${MINIUPNP_DIR}/src/receivedata.c
 			#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
-			${MINIUPNP_DIR}/upnpcommands.c
-			${MINIUPNP_DIR}/upnpdev.c
-			${MINIUPNP_DIR}/upnperrors.c
-			${MINIUPNP_DIR}/upnpreplyparse.c
+			${MINIUPNP_DIR}/src/upnpcommands.c
+			${MINIUPNP_DIR}/src/upnpdev.c
+			${MINIUPNP_DIR}/src/upnperrors.c
+			${MINIUPNP_DIR}/src/upnpreplyparse.c
 			${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
 		)
 		if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
@@ -2218,10 +2592,12 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_MemoryDlg.h
 	Windows/Debugger/Debugger_Lists.cpp
 	Windows/Debugger/Debugger_Lists.h
-	Windows/Debugger/Debugger_SymbolMap.h
 	Windows/Debugger/Debugger_VFPUDlg.cpp
 	Windows/Debugger/Debugger_VFPUDlg.h
-	Windows/Debugger/SimpleELF.h
+	Windows/Debugger/WatchItemWindow.cpp
+	Windows/Debugger/WatchItemWindow.h
+	Windows/Debugger/EditSymbolsWindow.cpp
+	Windows/Debugger/EditSymbolsWindow.h
 	Windows/GEDebugger/CtrlDisplayListView.cpp
 	Windows/GEDebugger/SimpleGLWindow.cpp
 	Windows/GEDebugger/TabState.cpp
@@ -2265,6 +2641,13 @@ set(WindowsFiles
 	Windows/W32Util/ShellUtil.h
 	Windows/W32Util/TabControl.cpp
 	Windows/W32Util/TabControl.h
+	Windows/W32Util/IatHook.h
+	Windows/W32Util/ContextMenu.h
+	Windows/W32Util/ContextMenu.cpp
+	Windows/W32Util/DarkMode.h
+	Windows/W32Util/DarkMode.cpp
+	Windows/W32Util/UAHMenuBar.h
+	Windows/W32Util/UAHMenuBar.cpp
 	Windows/WindowsHost.cpp
 	Windows/WindowsHost.h
 	Windows/MainWindow.cpp
@@ -2288,7 +2671,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf mfplat mfreadwrite mfuuid shlwapi)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
@@ -2307,6 +2690,7 @@ set(NativeAssets
 	assets/lang
 	assets/shaders
 	assets/themes
+	assets/vfpu
 	assets/Roboto-Condensed.ttf
 	assets/7z.png
 	assets/compat.ini
@@ -2322,6 +2706,8 @@ set(NativeAssets
 	assets/sfx_select.wav
 	assets/sfx_toggle_off.wav
 	assets/sfx_toggle_on.wav
+	assets/sfx_achievement_unlocked.wav
+	assets/sfx_leaderbord_submitted.wav
 	source_assets/image/logo.png
 	source_assets/image/icon_regular_72.png
 )
@@ -2330,8 +2716,8 @@ set(NativeAssets
 if(HEADLESS)
 	set(HeadlessSource
 		headless/Headless.cpp
-		headless/StubHost.cpp
-		headless/StubHost.h
+		headless/HeadlessHost.cpp
+		headless/HeadlessHost.h
 		headless/Compare.cpp
 		headless/Compare.h
 		headless/SDLHeadlessHost.cpp
@@ -2356,7 +2742,7 @@ if(HEADLESS)
 		)
 	endif()
 	add_executable(PPSSPPHeadless ${HeadlessSource})
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon})
+	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
 
@@ -2369,6 +2755,7 @@ if(UNITTEST)
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
+		unittest/TestVFS.cpp
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
@@ -2376,7 +2763,7 @@ if(UNITTEST)
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
-	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon} Common)
+	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(PPSSPPUnitTest unittest)
 	add_test(arm64_emitter PPSSPPUnitTest Arm64Emitter)
 	add_test(arm_emitter PPSSPPUnitTest ArmEmitter)
@@ -2402,11 +2789,18 @@ endif()
 if(TargetBin)
 	if(APPLE)
 		if(NOT IOS)
-			set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
-			set(MACOSX_BUNDLE_ICON_FILE ppsspp.icns)
+			if(GOLD)
+				set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp_gold.icns)
+				set(MACOSX_BUNDLE_ICON_FILE ppsspp_gold.icns)
+				set(MACOSX_BUNDLE_BUNDLE_NAME "PPSSPP Gold")
+				set(MACOSX_BUNDLE_GUI_IDENTIFIER org.ppsspp.ppssppgold)
+			else()
+				set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
+				set(MACOSX_BUNDLE_ICON_FILE ppsspp.icns)
+				set(MACOSX_BUNDLE_BUNDLE_NAME "PPSSPP")
+				set(MACOSX_BUNDLE_GUI_IDENTIFIER org.ppsspp.ppsspp)
+			endif()
 			set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-			set(MACOSX_BUNDLE_BUNDLE_NAME PPSSPP)
-			set(MACOSX_BUNDLE_GUI_IDENTIFIER org.ppsspp.ppsspp)
 		endif()
 
 		# TODO: there must a native way to copy these.
@@ -2417,6 +2811,7 @@ if(TargetBin)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 		file(GLOB_RECURSE THEME_FILE assets/themes/*)
 		file(GLOB_RECURSE DEBUGGER_FILES assets/debugger/*)
+		file(GLOB_RECURSE VFPU_FILES assets/vfpu/*)
 
 		if(NOT IOS)
 			set_source_files_properties(${BigFontAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
@@ -2426,18 +2821,22 @@ if(TargetBin)
 			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/shaders")
 			set_source_files_properties(${THEME_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/themes")
 			set_source_files_properties(${DEBUGGER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/debugger")
+			set_source_files_properties(${VFPU_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/vfpu")
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
+			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			if(NOT IOS_APP_STORE)
+				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
+			endif()
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPPSDL.app/Contents/Frameworks/")
-			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
-			elseif(USING_QT_UI)
+			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
+			if(USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
+			elseif(NOT USE_SYSTEM_LIBSDL2)
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}")
 			endif()
 		endif()
 	elseif(WIN32)
@@ -2461,8 +2860,12 @@ if(NOT ANDROID)
 	file(INSTALL assets/flash0 DESTINATION assets)
 endif()
 # packaging and code signing
-if(IOS)
-	set(DEPLOYMENT_TARGET 11.0)
+if(IOS AND NOT LIBRETRO)
+	if(IOS_APP_STORE)
+		set(DEPLOYMENT_TARGET 12.0)
+	else()
+		set(DEPLOYMENT_TARGET 11.0)
+	endif()
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -2472,34 +2875,126 @@ if(IOS)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	set(RSRC_XIB_FILES "Launch Screen.storyboard")
+	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
+
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
+
 	#This breaks in modern XCode. Not sure when it worked...
 	#if(CMAKE_GENERATOR STREQUAL "Xcode")
 	#	set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
 	#else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
-	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND mkdir -p \"${APP_DIR_NAME}\"
-		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
-	)
+
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
-	set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
-		RESOURCE "ios/Launch Screen.storyboard"
-		RESOURCE "ios/Settings.bundle"
-		RESOURCE "ext/vulkan/iOS/Frameworks"
-		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
-		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
-		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+	set(PRODUCT_NAME "PPSSPP")
+	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	if(GOLD)
+		if(IOS_APP_STORE)
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
+		else()
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppssppgold")
+		endif()
+		set(ICON_NAME "AppIconGold")
+		set(DISPLAY_NAME "PPSSPP Gold")
+	else()
+		if(IOS_APP_STORE)
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
+		else()
+			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp")
+		endif()
+		set(ICON_NAME "AppIcon")
+		set(DISPLAY_NAME "PPSSPP")
+	endif()
+	if(IOS_APP_STORE)
+		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
+		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+		# This is for injecting the version into the plist, and also copying resources.
+		# Should find a different way to do both these things.
+		add_custom_command(TARGET ${TargetBin} POST_BUILD
+			COMMAND echo "Creating ${APP_DIR_NAME} for app store build"
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
+			# Prepend -v to the extracting command to see the files copied.
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			# This updates the version in the plist.
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
+		)
+
+		# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
+		target_link_libraries(${TargetBin}
+			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+		)
+
+		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
+		set_target_properties(${TargetBin} PROPERTIES
+			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ios/assets.xcassets"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
+			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+			BUILD_WITH_INSTALL_RPATH YES
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+			# Some sources say we should generate the PLIST. There's stuff in it that
+			# I don't know how to generate, though.
+			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
+			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
+			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			XCODE_ATTRIBUTE_SKIP_INSTALL NO
+   			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
+		)
+	else()
+		# This is for injecting the version into the plist.
+		add_custom_command(TARGET PPSSPP POST_BUILD
+			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+		)
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+			XCODE_GENERATE_SCHEME YES
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+		)
+	endif()
+	add_custom_command(TARGET PPSSPP POST_BUILD
+		COMMAND plutil -replace CFBundleDisplayName -string "${DISPLAY_NAME}" "${APP_DIR_NAME}/Info.plist"
+		COMMAND plutil -replace CFBundleIdentifier -string "${BUNDLE_IDENTIFIER}" "${APP_DIR_NAME}/Info.plist"
 	)
+endif()
+
+if(MACOSX AND NOT IOS)
+	if(GOLD)
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/InfoGold.plist"
+		)
+	else()
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macOS/Info.plist"
+		)
+	endif()
 endif()
 
 if(UNIX AND NOT ANDROID AND NOT APPLE)

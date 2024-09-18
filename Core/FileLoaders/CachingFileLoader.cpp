@@ -269,6 +269,8 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 	aheadThread_ = std::thread([this, pos] {
 		SetCurrentThreadName("FileLoaderReadAhead");
 
+		AndroidJNIThreadContext jniContext;
+
 		std::unique_lock<std::recursive_mutex> guard(blocksMutex_);
 		s64 cacheStartPos = pos >> BLOCK_SHIFT;
 		s64 cacheEndPos = cacheStartPos + BLOCK_READAHEAD - 1;

@@ -18,7 +18,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 
 namespace MIPSCodeUtils

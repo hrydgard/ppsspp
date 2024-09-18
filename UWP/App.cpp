@@ -3,19 +3,27 @@
 #include "pch.h"
 #include "App.h"
 
+#include <ppltasks.h>
 #include <mutex>
 
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/DirectoryReader.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/Log/LogManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
-
-#include <ppltasks.h>
+#include "UWPHelpers/LaunchItem.h"
+#include <UWPUtil.h>
 
 using namespace UWP;
-
+ 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::Core;
@@ -44,6 +52,59 @@ App::App() :
 {
 }
 
+void App::InitialPPSSPP() {
+	// Initial net
+	net::Init();
+
+	// Get install location
+	auto packageDirectory = Package::Current->InstalledPath;
+	const Path& exePath = Path(FromPlatformString(packageDirectory));
+	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
+	g_VFS.Register("", new DirectoryReader(exePath));
+
+	// Mount a filesystem
+	g_Config.flash0Directory = exePath / "assets/flash0";
+
+	// Prepare for initialization
+	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
+	g_Config.internalDataDirectory = Path(internalDataFolderW);
+	g_Config.memStickDirectory = g_Config.internalDataDirectory;
+
+	// On Win32 it makes more sense to initialize the system directories here
+	// because the next place it was called was in the EmuThread, and it's too late by then.
+	CreateSysDirectories();
+
+	LogManager::Init(&g_Config.bEnableLogging);
+
+	// Set the config path to local state by default
+	// it will be overrided by `NativeInit` if there is custom memStick
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.Load();
+
+	if (g_Config.bFirstRun) {
+		// Clear `memStickDirectory` to show memory stick screen on first start
+		g_Config.memStickDirectory.clear();
+	}
+
+	// Since we don't have any async operation in `NativeInit`
+	// it's better to call it here
+	const char* argv[2] = { "fake", nullptr };
+	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->TemporaryFolder->Path->Data());
+	// We will not be able to use `argv`
+	// since launch parameters usually handled by `OnActivated`
+	// and `OnActivated` will be invoked later, even after `PPSSPP_UWPMain(..)`
+	// so we are handling launch cases using `LaunchItem`
+	NativeInit(1, argv, "", "", cacheFolder.c_str());
+
+	// Override backend, `DIRECT3D11` is the only way for UWP apps
+	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
+
+	// Calling `NativeInit` before will help us to deal with custom configs
+	// such as custom adapter, so it's better to initial render device here
+	m_deviceResources = std::make_shared<DX::DeviceResources>();
+	m_deviceResources->CreateWindowSizeDependentResources();
+}
+
 // The first method called when the IFrameworkView is being created.
 void App::Initialize(CoreApplicationView^ applicationView) {
 	// Register event handlers for app lifecycle. This example includes Activated, so that we
@@ -56,21 +117,17 @@ void App::Initialize(CoreApplicationView^ applicationView) {
 
 	CoreApplication::Resuming +=
 		ref new EventHandler<Platform::Object^>(this, &App::OnResuming);
-
-	// At this point we have access to the device. 
-	// We can create the device-dependent resources.
-	m_deviceResources = std::make_shared<DX::DeviceResources>();
 }
 
 // Called when the CoreWindow object is created (or re-created).
 void App::SetWindow(CoreWindow^ window) {
-	window->SizeChanged += 
+	window->SizeChanged +=
 		ref new TypedEventHandler<CoreWindow^, WindowSizeChangedEventArgs^>(this, &App::OnWindowSizeChanged);
 
 	window->VisibilityChanged +=
 		ref new TypedEventHandler<CoreWindow^, VisibilityChangedEventArgs^>(this, &App::OnVisibilityChanged);
 
-	window->Closed += 
+	window->Closed +=
 		ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>(this, &App::OnWindowClosed);
 
 	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
@@ -86,6 +143,7 @@ void App::SetWindow(CoreWindow^ window) {
 
 	window->KeyDown += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyDown);
 	window->KeyUp += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyUp);
+	window->CharacterReceived += ref new TypedEventHandler<CoreWindow^, CharacterReceivedEventArgs^>(this, &App::OnCharacterReceived);
 
 	window->PointerMoved += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerMoved);
 	window->PointerEntered += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerEntered);
@@ -108,7 +166,7 @@ void App::SetWindow(CoreWindow^ window) {
 		Windows::UI::Core::BackRequestedEventArgs^>(
 			this, &App::App_BackRequested);
 
-	m_deviceResources->SetWindow(window);
+	InitialPPSSPP();
 }
 
 bool App::HasBackButton() {
@@ -132,6 +190,10 @@ void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::Ke
 
 void App::OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {
 	m_main->OnKeyUp(args->KeyStatus.ScanCode, args->VirtualKey);
+}
+
+void App::OnCharacterReceived(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::CharacterReceivedEventArgs^ args) {
+	m_main->OnCharacterReceived(args->KeyStatus.ScanCode, args->KeyCode);
 }
 
 void App::OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
@@ -198,9 +260,8 @@ void App::Run() {
 	while (!m_windowClosed) {
 		if (m_windowVisible) {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-			if (m_main->Render()) {
-				m_deviceResources->Present();
-			}
+			m_main->Render();
+			// TODO: Adopt some practices from m_deviceResources->Present();
 		} else {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
 		}
@@ -214,7 +275,6 @@ void App::Uninitialize() {
 }
 
 // Application lifecycle event handlers.
-
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
@@ -224,6 +284,9 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 
 	if (g_Config.UseFullScreen())
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+
+	//Detect if app started or activated by launch item (file, uri)
+	DetectLaunchItem(args);
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -235,6 +298,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	auto app = this;
 
 	create_task([app, deferral]() {
+		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
 		deferral->Complete();
 	});
@@ -267,18 +331,11 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	PSP_CoreParameter().pixelWidth = (int)(width * scale);
 	PSP_CoreParameter().pixelHeight = (int)(height * scale);
 	if (UpdateScreenScale((int)width, (int)height)) {
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
 	}
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
-
-	if (args->Visible == false) {
-		// MainScreen::OnExit and even App::OnWindowClosed
-		// doesn't seem to be called when closing the window
-		// Try to save the config here
-		g_Config.Save("App::OnVisibilityChanged");
-	}
 	m_windowVisible = args->Visible;
 }
 

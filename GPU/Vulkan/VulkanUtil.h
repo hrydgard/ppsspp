@@ -24,7 +24,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
-#include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/thin3d.h"
 
 extern const VkComponentMapping VULKAN_4444_SWIZZLE;
@@ -32,10 +32,9 @@ extern const VkComponentMapping VULKAN_1555_SWIZZLE;
 extern const VkComponentMapping VULKAN_565_SWIZZLE;
 extern const VkComponentMapping VULKAN_8888_SWIZZLE;
 
-// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
 #define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16   // TODO: Does not actually have mandatory support, though R5G6B5 does! See #14602
+#define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 #define VULKAN_CLUT8_FORMAT VK_FORMAT_R8_UNORM
 
@@ -61,7 +60,6 @@ public:
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 
 	void BeginFrame();
-	void EndFrame();
 
 private:
 	void InitDeviceObjects(Draw::DrawContext *draw);
@@ -73,11 +71,10 @@ private:
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 	struct FrameData {
-		FrameData() : descPool("VulkanComputeShaderManager", true) {
-			descPool.Setup([] { });
-		}
+		FrameData() : descPool("VulkanComputeShaderManager", true) {}
 
 		VulkanDescSetPool descPool;
+		bool descPoolUsed = false;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
@@ -85,7 +82,7 @@ private:
 		VkShaderModule module;
 	};
 	
-	DenseHashMap<PipelineKey, VkPipeline, (VkPipeline)VK_NULL_HANDLE> pipelines_;
+	DenseHashMap<PipelineKey, VkPipeline> pipelines_;
 };
 
 

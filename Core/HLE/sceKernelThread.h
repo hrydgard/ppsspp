@@ -177,7 +177,7 @@ bool KernelIsThreadDormant(SceUID threadID);
 bool KernelIsThreadWaiting(SceUID threadID);
 
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled);
-void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled);
+void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled);
 
 u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval);

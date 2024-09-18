@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/ConfigValues.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUInterface.h"
@@ -45,6 +46,8 @@ enum {
 	FB_USAGE_BLUE_TO_ALPHA = 64,
 	FB_USAGE_FIRST_FRAME_SAVED = 128,
 	FB_USAGE_RENDER_DEPTH = 256,
+	FB_USAGE_COLOR_MIXED_DEPTH = 512,
+	FB_USAGE_INVALIDATE_DEPTH = 1024,  // used to clear depth buffers.
 };
 
 enum {
@@ -122,6 +125,8 @@ struct VirtualFramebuffer {
 
 	// Tracking for downloads-to-CLUT.
 	u16 clutUpdatedBytes;
+
+	// Means that the whole image has already been read back to memory - used when combining small readbacks (gameUsesSequentialCopies_).
 	bool memoryUpdated;
 
 	// TODO: Fold into usageFlags?
@@ -151,6 +156,20 @@ struct VirtualFramebuffer {
 	inline int BufferWidthInBytes() const { return bufferWidth * BufferFormatBytesPerPixel(fb_format); }
 	inline int FbStrideInBytes() const { return fb_stride * BufferFormatBytesPerPixel(fb_format); }
 	inline int ZStrideInBytes() const { return z_stride * 2; }
+
+	inline int Stride(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_stride : z_stride; }
+	inline u32 Address(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_address : z_address; }
+	inline GEBufferFormat Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
+	inline int BindSeq(RasterChannel channel) const { return channel == RASTER_COLOR ? colorBindSeq : depthBindSeq; }
+
+	// Computed from stride.
+	int BufferByteSize(RasterChannel channel) const { return BufferByteStride(channel) * height; }
+	int BufferByteStride(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? fb_stride * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * 2;
+	}
+	int BufferByteWidth(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? width * (fb_format == GE_FORMAT_8888 ? 4 : 2) : width * 2;
+	}
 };
 
 struct FramebufferHeuristicParams {
@@ -186,6 +205,7 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
+	BINDFBCOLOR_UNCACHED = 16,
 };
 
 enum DrawTextureFlags {
@@ -204,6 +224,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// Used for copies when setting color to depth.
+	Z_COPY,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
 };
@@ -230,7 +252,7 @@ inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
 // Makes it easy to see if blits match etc.
 struct BlockTransferRect {
 	VirtualFramebuffer *vfb;
-	// RasterChannel channel;  // We currently only deal with color for block copies.
+	RasterChannel channel;  // We usually only deal with color, but we have limited depth block transfer support now.
 
 	int x_bytes;
 	int y;
@@ -250,6 +272,12 @@ struct BlockTransferRect {
 namespace Draw {
 class DrawContext;
 }
+
+struct DrawPixelsEntry {
+	Draw::Texture *tex;
+	uint64_t contentsHash;
+	int frameNumber;
+};
 
 struct GPUDebugBuffer;
 class DrawEngineCommon;
@@ -272,7 +300,7 @@ public:
 		drawEngine_ = td;
 	}
 
-	virtual void Init();
+	void Init(int msaaLevel);
 	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
@@ -300,7 +328,7 @@ public:
 	void SetDepthFrameBuffer(bool isClearingDepth);
 
 	void RebindFramebuffer(const char *tag);
-	std::vector<FramebufferInfo> GetFramebufferList() const;
+	std::vector<const VirtualFramebuffer *> GetFramebufferList() const;
 
 	void CopyDisplayToOutput(bool reallyDirty);
 
@@ -309,6 +337,10 @@ public:
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
+
+	// We changed our depth mode, gotta start over.
+	// Ideally, we should convert depth buffers here, not just clear them.
+	void ClearAllDepthBuffers();
 
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
@@ -321,7 +353,7 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	void DrawFramebufferToOutput(const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
@@ -351,13 +383,14 @@ public:
 		return useBufferedRendering_;
 	}
 
-	bool MayIntersectFramebuffer(u32 start) const {
+	// TODO: Maybe just include the last depth buffer address in this, too.
+	bool MayIntersectFramebufferColor(u32 start) const {
 		// Clear the cache/kernel bits.
 		start &= 0x3FFFFFFF;
 		if (Memory::IsVRAMAddress(start))
 			start &= 0x041FFFFF;
 		// Most games only have two framebuffers at the start.
-		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
+		if (start >= framebufColorRangeEnd_ || start < PSP_GetVidMemBase()) {
 			return false;
 		}
 		return true;
@@ -398,7 +431,12 @@ public:
 	}
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized();
+	void NotifyRenderResized(int msaaLevel);
+	virtual void NotifyDisplayResized();
+	void NotifyConfigChanged();
+
+	void CheckPostShaders();
+
 	virtual void DestroyAllFBOs();
 
 	virtual void DeviceLost();
@@ -438,11 +476,23 @@ public:
 		int scaleFactor,  // usually unused, except for swizzle...
 		Draw2DPipeline *pipeline, const char *tag);
 
+	void ReleasePipelines();
+
+	int GetMSAALevel() const {
+		return msaaLevel_;
+	}
+
+	void DiscardFramebufferCopy() {
+		currentFramebufferCopy_ = nullptr;
+	}
+
+	bool PresentedThisFrame() const;
+
 protected:
-	virtual void ReadbackFramebufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel);
+	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Used for when a shader is required, such as GLES.
-	virtual bool ReadbackDepthbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride);
-	virtual bool ReadbackStencilbufferSync(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride);
+	virtual bool ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode);
+	virtual bool ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode);
 	void SetViewport2D(int x, int y, int w, int h);
 	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
@@ -450,7 +500,7 @@ protected:
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
-	bool UpdateSize();
+	bool UpdateRenderSize(int msaaLevel);
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
@@ -458,21 +508,20 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, RasterChannel channel, const char *tag);
 
-	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer);
+	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer, bool *partial);
 
 	void EstimateDrawingSize(u32 fb_address, int fb_stride, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int &drawing_width, int &drawing_height);
-	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
-	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
+	static void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
-	void ShowScreenResolution();
 
-	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
+	static bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb);
+	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
@@ -482,7 +531,7 @@ protected:
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 
-	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
+	void UpdateFramebufUsage(VirtualFramebuffer *vfb) const;
 
 	int GetFramebufferLayers() const;
 
@@ -499,6 +548,8 @@ protected:
 	inline int GetBindSeqCount() {
 		return fbBindSeqCount_++;
 	}
+
+	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
 	PresentationCommon *presentation_ = nullptr;
 
@@ -524,8 +575,10 @@ protected:
 
 	VirtualFramebuffer *currentRenderVfb_ = nullptr;
 
+	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
+
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
-	u32 framebufRangeEnd_ = 0;
+	u32 framebufColorRangeEnd_ = 0;
 
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
@@ -534,12 +587,15 @@ protected:
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
+	std::vector<DrawPixelsEntry> drawPixelsCache_;
+
 	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;
 	float renderHeight_ = 0.0f;
 
+	int msaaLevel_ = 0;
 	int renderScaleFactor_ = 1;
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
@@ -580,12 +636,20 @@ protected:
 	Draw::SamplerState *depthReadbackSampler_ = nullptr;
 
 	// Draw2D pipelines
-	Draw2DPipeline *draw2DPipelineColor_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColor_ = nullptr;
 	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
-	Draw2DPipeline *draw2DPipelineDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyDepth_ = nullptr;
+	Draw2DPipeline *draw2DPipelineEncodeDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.
+
+	// Depth readback helper state
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 };
+
+// Should probably live elsewhere.
+bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer);

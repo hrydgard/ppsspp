@@ -71,7 +71,7 @@ public:
 	void SortSymbols();
 
 	bool LoadSymbolMap(const Path &filename);
-	void SaveSymbolMap(const Path &filename) const;
+	bool SaveSymbolMap(const Path &filename) const;
 	bool LoadNocashSym(const Path &filename);
 	void SaveNocashSym(const Path &filename) const;
 

@@ -21,11 +21,14 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
+#include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Core/Loaders.h"
-#include "Core/Host.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "libchdr/chd.h"
 
 extern "C"
 {
@@ -37,49 +40,47 @@ extern "C"
 std::mutex NPDRMDemoBlockDevice::mutex_;
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
-	// Check for CISO
-	if (!fileLoader->Exists())
+	if (!fileLoader->Exists()) {
 		return nullptr;
-	char buffer[4]{};
-	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
-	if (size == 4 && !memcmp(buffer, "CISO", 4))
+	}
+	if (fileLoader->IsDirectory()) {
+		ERROR_LOG(Log::Loader, "Can't open directory directly as block device: %s", fileLoader->GetPath().c_str());
+		return nullptr;
+	}
+
+	char buffer[8]{};
+	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
+	if (size != 8) {
+		// Bad or empty file
+		return nullptr;
+	}
+
+	// Check for CISO
+	if (!memcmp(buffer, "CISO", 4)) {
 		return new CISOFileBlockDevice(fileLoader);
-	if (size == 4 && !memcmp(buffer, "\x00PBP", 4)) {
+	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
 		if (size == 4 && psarOffset < fileLoader->FileSize())
 			return new NPDRMDemoBlockDevice(fileLoader);
+	} else if (!memcmp(buffer, "MComprHD", 8)) {
+		return new CHDFileBlockDevice(fileLoader);
 	}
+
+	// Should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
 	return new FileBlockDevice(fileLoader);
 }
 
-u32 BlockDevice::CalculateCRC(volatile bool *cancel) {
-	u32 crc = crc32(0, Z_NULL, 0);
-
-	u8 block[2048];
-	for (u32 i = 0; i < GetNumBlocks(); ++i) {
-		if (cancel && *cancel)
-			return 0;
-		if (!ReadBlock(i, block, true)) {
-			ERROR_LOG(FILESYS, "Failed to read block for CRC");
-			return 0;
-		}
-		crc = crc32(crc, block, 2048);
-	}
-
-	return crc;
-}
-
 void BlockDevice::NotifyReadError() {
-	auto err = GetI18NCategory("Error");
 	if (!reportedError_) {
-		host->NotifyUserMessage(err->T("Game disc read error - ISO corrupt"), 6.0f);
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
 		reportedError_ = true;
 	}
 }
 
 FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader) {
+	: BlockDevice(fileLoader) {
 	filesize_ = fileLoader->FileSize();
 }
 
@@ -90,7 +91,7 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
 	size_t retval = fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags);
 	if (retval != 2048) {
-		DEBUG_LOG(FILESYS, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
+		DEBUG_LOG(Log::FileSystem, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
 
@@ -100,7 +101,7 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	size_t retval = fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr);
 	if (retval != (size_t)count) {
-		ERROR_LOG(FILESYS, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
+		ERROR_LOG(Log::FileSystem, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
 		return false;
 	}
 	return true;
@@ -137,24 +138,24 @@ typedef struct ciso_header
 static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
 
 CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader)
+	: BlockDevice(fileLoader)
 {
 	// CISO format is fairly simple, but most tools do not write the header_size.
 
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
 	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0) {
-		WARN_LOG(LOADER, "Invalid CSO!");
+		WARN_LOG(Log::Loader, "Invalid CSO!");
 	}
 	if (hdr.ver > 1) {
-		WARN_LOG(LOADER, "CSO version too high!");
+		WARN_LOG(Log::Loader, "CSO version too high!");
 	}
 
 	frameSize = hdr.block_size;
 	if ((frameSize & (frameSize - 1)) != 0)
-		ERROR_LOG(LOADER, "CSO block size %i unsupported, must be a power of two", frameSize);
+		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be a power of two", frameSize);
 	else if (frameSize < 0x800)
-		ERROR_LOG(LOADER, "CSO block size %i unsupported, must be at least one sector", frameSize);
+		ERROR_LOG(Log::Loader, "CSO block size %i unsupported, must be at least one sector", frameSize);
 
 	// Determine the translation from block to frame.
 	blockShift = 0;
@@ -165,7 +166,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	const u64 totalSize = hdr.total_bytes;
 	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
 	numBlocks = (u32)(totalSize / GetBlockSize());
-	VERBOSE_LOG(LOADER, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
+	VERBOSE_LOG(Log::Loader, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
 	// We might read a bit of alignment too, so be prepared.
 	if (frameSize + (1 << indexShift) < CSO_READ_BUFFER_SIZE)
@@ -206,7 +207,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
-		ERROR_LOG(LOADER, "Expected CSO to at least be %lld bytes, but file is %lld bytes. File: '%s'",
+		ERROR_LOG(Log::Loader, "Expected CSO to at least be %lld bytes, but file is %lld bytes. File: '%s'",
 			expectedFileSize, fileSize, fileLoader->GetPath().c_str());
 		NotifyReadError();
 	}
@@ -257,7 +258,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		z.zfree = Z_NULL;
 		z.opaque = Z_NULL;
 		if (inflateInit2(&z, -15) != Z_OK) {
-			ERROR_LOG(LOADER, "GetBlockSize() ERROR: %s\n", (z.msg) ? z.msg : "?");
+			ERROR_LOG(Log::Loader, "GetBlockSize() ERROR: %s\n", (z.msg) ? z.msg : "?");
 			NotifyReadError();
 			return false;
 		}
@@ -268,14 +269,14 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 		int status = inflate(&z, Z_FINISH);
 		if (status != Z_STREAM_END) {
-			ERROR_LOG(LOADER, "block %d: inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
+			ERROR_LOG(Log::Loader, "block %d: inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
 			NotifyReadError();
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
 		}
 		if (z.total_out != frameSize) {
-			ERROR_LOG(LOADER, "block %d: block size error %d != %d\n", blockNumber, (u32)z.total_out, frameSize);
+			ERROR_LOG(Log::Loader, "block %d: block size error %d != %d\n", blockNumber, (u32)z.total_out, frameSize);
 			NotifyReadError();
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
@@ -313,7 +314,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 
 	z_stream z{};
 	if (inflateInit2(&z, -15) != Z_OK) {
-		ERROR_LOG(LOADER, "Unable to initialize inflate: %s\n", (z.msg) ? z.msg : "?");
+		ERROR_LOG(Log::Loader, "Unable to initialize inflate: %s\n", (z.msg) ? z.msg : "?");
 		return false;
 	}
 
@@ -357,11 +358,11 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 
 			int status = inflate(&z, Z_FINISH);
 			if (status != Z_STREAM_END) {
-				ERROR_LOG(LOADER, "Inflate frame %d: failed - %s[%d]\n", frame, (z.msg) ? z.msg : "error", status);
+				ERROR_LOG(Log::Loader, "Inflate frame %d: failed - %s[%d]\n", frame, (z.msg) ? z.msg : "error", status);
 				NotifyReadError();
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (z.total_out != frameSize) {
-				ERROR_LOG(LOADER, "Inflate frame %d: block size error %d != %d\n", frame, (u32)z.total_out, frameSize);
+				ERROR_LOG(Log::Loader, "Inflate frame %d: block size error %d != %d\n", frame, (u32)z.total_out, frameSize);
 				NotifyReadError();
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (frameBlocks != blocksPerFrame) {
@@ -382,7 +383,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 }
 
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader)
+	: BlockDevice(fileLoader)
 {
 	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;
@@ -393,8 +394,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
-	if(readSize!=256){
-		ERROR_LOG(LOADER, "Invalid NPUMDIMG header!");
+	if (readSize != 256){
+		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG header!");
 	}
 
 	kirk_init();
@@ -427,7 +428,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset, 1, tableSize, table);
 	if(readSize!=tableSize){
-		ERROR_LOG(LOADER, "Invalid NPUMDIMG table!");
+		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG table!");
 	}
 
 	u32 *p = (u32*)table;
@@ -445,7 +446,6 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	}
 
 	currentBlock = -1;
-
 }
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
@@ -510,7 +510,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	if(table[block].size<blockSize){
 		lzsize = lzrc_decompress(blockBuf, 0x00100000, readBuf, table[block].size);
 		if(lzsize!=blockSize){
-			ERROR_LOG(LOADER, "LZRC decompress error! lzsize=%d\n", lzsize);
+			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();
 			return false;
 		}
@@ -518,5 +518,181 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	memcpy(outPtr, blockBuf+lba*2048, 2048);
 
+	return true;
+}
+
+/*
+ * CHD file
+ */
+static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
+
+struct CHDImpl {
+	chd_file *chd = nullptr;
+	const chd_header *header = nullptr;
+};
+
+struct ExtendedCoreFile {
+	core_file core;  // Must be the first struct member, for some tricky pointer casts.
+	uint64_t seekPos;
+};
+
+CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader), impl_(new CHDImpl())
+{
+	Path paths[8];
+	paths[0] = fileLoader->GetPath();
+	int depth = 0;
+
+	core_file_ = new ExtendedCoreFile();
+	core_file_->core.argp = fileLoader;
+	core_file_->core.fsize = [](core_file *file) -> uint64_t {
+		FileLoader *loader = (FileLoader *)file->argp;
+		return loader->FileSize();
+	};
+	core_file_->core.fseek = [](core_file *file, int64_t offset, int seekType) -> int {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		switch (seekType) {
+		case SEEK_SET:
+			coreFile->seekPos = offset;
+			break;
+		case SEEK_CUR:
+			coreFile->seekPos += offset;
+			break;
+		case SEEK_END:
+		{
+			FileLoader *loader = (FileLoader *)file->argp;
+			coreFile->seekPos = loader->FileSize() + offset;
+			break;
+		}
+		default:
+			break;
+		}
+		return 0;
+	};
+	core_file_->core.fread = [](void *out_data, size_t size, size_t count, core_file *file) {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		FileLoader *loader = (FileLoader *)file->argp;
+		uint64_t totalSize = size * count;
+		loader->ReadAt(coreFile->seekPos, totalSize, out_data);
+		coreFile->seekPos += totalSize;
+		return size * count;
+	};
+	core_file_->core.fclose = [](core_file *file) {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		delete coreFile;
+		return 0;
+	};
+
+	/*
+	// TODO: Support parent/child CHD files.
+
+	// Default, in case of failure
+	numBlocks = 0;
+
+	chd_header childHeader;
+
+	chd_error err = chd_read_header(paths[0].c_str(), &childHeader);
+	if (err != CHDERR_NONE) {
+		ERROR_LOG(Log::Loader, "Error loading CHD header for '%s': %s", paths[0].c_str(), chd_error_string(err));
+		NotifyReadError();
+		return;
+	}
+
+	if (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0) {
+		chd_header parentHeader;
+
+		// Look for parent CHD in current directory
+		Path chdDir = paths[0].NavigateUp();
+
+		std::vector<File::FileInfo> files;
+		if (File::GetFilesInDir(chdDir, &files)) {
+			parentHeader.length = 0;
+
+			for (const auto &file : files) {
+				std::string extension = file.fullName.GetFileExtension();
+				if (extension != ".chd") {
+					continue;
+				}
+
+				if (chd_read_header(filepath.c_str(), &parentHeader) == CHDERR_NONE &&
+					memcmp(parentHeader.sha1, childHeader.parentsha1, sizeof(parentHeader.sha1)) == 0) {
+					// ERROR_LOG(Log::Loader, "Checking '%s'", filepath.c_str());
+					paths[++depth] = filepath;
+					break;
+				}
+			}
+
+			// Check if parentHeader was opened
+			if (parentHeader.length == 0) {
+				ERROR_LOG(Log::Loader, "Error loading CHD '%s': parents not found", fileLoader->GetPath().c_str());
+				NotifyReadError();
+				return;
+			}
+			memcpy(childHeader.parentsha1, parentHeader.parentsha1, sizeof(childHeader.parentsha1));
+		} while (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0);
+	}
+	*/
+
+	chd_file *file = nullptr;
+	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
+	if (err != CHDERR_NONE) {
+		ERROR_LOG(Log::Loader, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
+		NotifyReadError();
+		return;
+	}
+
+	impl_->chd = file;
+	impl_->header = chd_get_header(impl_->chd);
+
+	readBuffer = new u8[impl_->header->hunkbytes];
+	currentHunk = -1;
+	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
+	numBlocks = impl_->header->unitcount;
+}
+
+CHDFileBlockDevice::~CHDFileBlockDevice()
+{
+	if (impl_->chd) {
+		chd_close(impl_->chd);
+		delete[] readBuffer;
+	}
+}
+
+bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
+{
+	if (!impl_->chd) {
+		ERROR_LOG(Log::Loader, "ReadBlock: CHD not open. %s", fileLoader_->GetPath().c_str());
+		return false;
+	}
+	if ((u32)blockNumber >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+	u32 hunk = blockNumber / blocksPerHunk;
+	u32 blockInHunk = blockNumber % blocksPerHunk;
+
+	if (currentHunk != hunk) {
+		chd_error err = chd_read(impl_->chd, hunk, readBuffer);
+		if (err != CHDERR_NONE) {
+			ERROR_LOG(Log::Loader, "CHD read failed: %d %d %s", blockNumber, hunk, chd_error_string(err));
+			NotifyReadError();
+		}
+		currentHunk = hunk;
+	}
+	memcpy(outPtr, readBuffer + blockInHunk * impl_->header->unitbytes, GetBlockSize());
+	return true;
+}
+
+bool CHDFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	if (minBlock >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize() * count);
+		return false;
+	}
+
+	for (int i = 0; i < count; i++) {
+		if (!ReadBlock(minBlock + i, outPtr + i * GetBlockSize())) {
+			return false;
+		}
+	}
 	return true;
 }

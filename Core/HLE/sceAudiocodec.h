@@ -17,6 +17,8 @@
 
 #pragma once
 
+class PointerWrap;
+
 typedef struct {
 	s32_le unk0;
 	s32_le unk4;

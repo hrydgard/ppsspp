@@ -94,7 +94,7 @@ enum ARM64Reg
 
 // R19-R28. R29 (FP), R30 (LR) are always saved and FP updated appropriately.
 const u32 ALL_CALLEE_SAVED = 0x1FF80000;
-const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // d8-d15
+const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // q8-q15
 
 inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
@@ -253,7 +253,7 @@ public:
 private:
 	ARM64Reg        m_destReg;
 	WidthSpecifier  m_width;
-	ExtendSpecifier m_extend;
+	ExtendSpecifier m_extend = EXTEND_UXTB;
 	TypeSpecifier   m_type;
 	ShiftType       m_shifttype;
 	u32             m_shift;
@@ -287,6 +287,23 @@ public:
 		{
 			m_width = WIDTH_32BIT;
 			m_extend = EXTEND_UXTW;
+		}
+		m_shifttype = ST_LSL;
+	}
+	ArithOption(ARM64Reg Rd, bool index, bool signExtend) {
+		if (index)
+			m_shift = 4;
+		else
+			m_shift = 0;
+
+		m_destReg = Rd;
+		m_type = TYPE_EXTENDEDREG;
+		if (Is64Bit(Rd)) {
+			m_width = WIDTH_64BIT;
+			m_extend = EXTEND_UXTX;
+		} else {
+			m_width = WIDTH_32BIT;
+			m_extend = signExtend ? EXTEND_SXTW : EXTEND_UXTW;
 		}
 		m_shifttype = ST_LSL;
 	}
@@ -353,7 +370,7 @@ private:
 	void EncodeUnconditionalBranchInst(u32 opc, u32 op2, u32 op3, u32 op4, ARM64Reg Rn);
 	void EncodeExceptionInst(u32 instenc, u32 imm);
 	void EncodeSystemInst(u32 op0, u32 op1, u32 CRn, u32 CRm, u32 op2, ARM64Reg Rt);
-	void EncodeArithmeticInst(u32 instenc, bool flags, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void EncodeArithmeticInst(u32 instenc, bool flags, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void EncodeArithmeticCarryInst(u32 op, bool flags, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EncodeCondCompareImmInst(u32 op, ARM64Reg Rn, u32 imm, u32 nzcv, CCFlags cond);
 	void EncodeCondCompareRegInst(u32 op, ARM64Reg Rn, ARM64Reg Rm, u32 nzcv, CCFlags cond);
@@ -361,7 +378,7 @@ private:
 	void EncodeData1SrcInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn);
 	void EncodeData2SrcInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EncodeData3SrcInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
-	void EncodeLogicalInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+	void EncodeLogicalInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
 	void EncodeLoadRegisterInst(u32 bitop, ARM64Reg Rt, u32 imm);
 	void EncodeLoadStoreExcInst(u32 instenc, ARM64Reg Rs, ARM64Reg Rt2, ARM64Reg Rn, ARM64Reg Rt);
 	void EncodeLoadStorePairedInst(u32 op, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, u32 imm);
@@ -369,7 +386,7 @@ private:
 	void EncodeLoadStoreIndexedInst(u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm, u8 size);
 	void EncodeMOVWideInst(u32 op, ARM64Reg Rd, u32 imm, ShiftAmount pos);
 	void EncodeBitfieldMOVInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
 	void EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, ARM64Reg Rn, ARM64Reg Rd);
 	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, int n);
 	void EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
@@ -401,6 +418,7 @@ public:
 	void ReserveCodeSpace(u32 bytes);
 	const u8* AlignCode16();
 	const u8* AlignCodePage();
+	const u8 *NopAlignCode16();
 	void FlushIcache();
 	void FlushIcacheSection(const u8* start, const u8* end);
 	u8* GetWritableCodePtr();
@@ -461,17 +479,17 @@ public:
 
 	// Add/Subtract (Extended/Shifted register)
 	void ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void CMN(ARM64Reg Rn, ARM64Reg Rm);
-	void CMN(ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void CMN(ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 	void CMP(ARM64Reg Rn, ARM64Reg Rm);
-	void CMP(ARM64Reg Rn, ARM64Reg Rm, ArithOption Option);
+	void CMP(ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Option);
 
 	// Add/Subtract (with carry)
 	void ADC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -541,15 +559,15 @@ public:
 	void MNEG(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Logical (shifted register)
-	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void BIC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void ORN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
-	void TST(ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void BIC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void ORN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
+	void TST(ARM64Reg Rn, ARM64Reg Rm, const ArithOption &Shift);
 
 	// Wrap the above for saner syntax
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { AND(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
@@ -563,7 +581,7 @@ public:
 	void TST(ARM64Reg Rn, ARM64Reg Rm) { TST(Rn, Rm, ArithOption(Is64Bit(Rn) ? ZR : WZR, ST_LSL, 0)); }
 
 	// Convenience wrappers around ORR. These match the official convenience syntax.
-	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);
+	void MOV(ARM64Reg Rd, ARM64Reg Rm, const ArithOption &Shift);
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
 
@@ -663,16 +681,16 @@ public:
 	void LDRSW(IndexType type, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
 
 	// Load/Store register (register offset)
-	void STRB(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDRB(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDRSB(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void STRH(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDRH(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDRSH(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void STR(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDR(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDRSW(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void PRFM(ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void STRB(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDRB(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDRSB(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void STRH(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDRH(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDRSH(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void STR(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDR(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDRSW(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void PRFM(ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
 
 	// Load/Store register (unscaled offset)
 	void STURB(ARM64Reg Rt, ARM64Reg Rn, s32 imm);
@@ -793,14 +811,21 @@ public:
 	void STP(u8 size, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 
 	// Loadstore register offset
-	void STR(u8 size, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
-	void LDR(u8 size, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void STR(u8 size, ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void LDR(u8 size, ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
 
 	// Scalar - 1 Source
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
 	void FNEG(ARM64Reg Rd, ARM64Reg Rn);
 	void FSQRT(ARM64Reg Rd, ARM64Reg Rn);
 	void FMOV(ARM64Reg Rd, ARM64Reg Rn, bool top = false);  // Also generalized move between GPR/FP
+
+	// Scalar - pairwise
+	void FADDP(ARM64Reg Rd, ARM64Reg Rn);
+	void FMAXP(ARM64Reg Rd, ARM64Reg Rn);
+	void FMINP(ARM64Reg Rd, ARM64Reg Rn);
+	void FMAXNMP(ARM64Reg Rd, ARM64Reg Rn);
+	void FMINNMP(ARM64Reg Rd, ARM64Reg Rn);
 
 	// Scalar - 2 Source
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -826,9 +851,12 @@ public:
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void BIT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void BIF(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FADDP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -838,6 +866,8 @@ public:
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void FDIV(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FNEG(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -868,12 +898,36 @@ public:
 	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 
+	void CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMHI(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMHS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMTST(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMLE(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMLT(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+
 	// Move
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void INS(u8 size, ARM64Reg Rd, u8 index, ARM64Reg Rn);
 	void INS(u8 size, ARM64Reg Rd, u8 index1, ARM64Reg Rn, u8 index2);
 	void UMOV(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void SMOV(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
+
+	// Vector immediates
+	void FMOV(u8 size, ARM64Reg Rd, u8 imm8);
+	// MSL means bits shifted in are 1s.  For size=64, each bit of imm8 is expanded to 8 actual bits.
+	void MOVI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0, bool MSL = false);
+	void MVNI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0, bool MSL = false);
+	void ORR(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
+	void BIC(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
+
+	bool TryMOVI(u8 size, ARM64Reg Rd, uint64_t value);
+	// Allow using a different size.  Unclear if there's a penalty.
+	bool TryAnyMOVI(u8 size, ARM64Reg Rd, uint64_t value);
 
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
@@ -883,6 +937,8 @@ public:
 	// and one that outputs to a scalar fp register.
 	void FCVTS(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
 	void FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
+	void FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale);
 
 	// Scalar convert int to float. No rounding mode specifier necessary.
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
@@ -909,6 +965,10 @@ public:
 	// Conditional select
 	void FCSEL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 
+	// Conditional compare
+	void FCCMP(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond);
+	void FCCMPE(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond);
+
 	// Permute
 	void UZP1(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void TRN1(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -916,12 +976,17 @@ public:
 	void UZP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void TRN2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void ZIP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Related to permute, extract vector from pair (always by byte arrangement.)
+	void EXT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, int index);
 
 	// Shift by immediate
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SSHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	// Shift == src_size for these.
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
@@ -938,7 +1003,7 @@ public:
 	void FMLA(u8 esize, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
 
 	void MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
-	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG);
+	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
 
 	// ABI related
 	void ABI_PushRegisters(uint32_t gpr_registers, uint32_t fp_registers);
@@ -953,6 +1018,7 @@ private:
 	void EmitScalar2Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitThreeSame(bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCopy(bool Q, u32 op, u32 imm5, u32 imm4, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitScalarPairwise(bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void Emit2RegMisc(bool Q, bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreSingleStructure(bool L, bool R, u32 opcode, bool S, u32 size, ARM64Reg Rt, ARM64Reg Rn);
 	void EmitLoadStoreSingleStructure(bool L, bool R, u32 opcode, bool S, u32 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
@@ -961,6 +1027,7 @@ private:
 	void EmitConversion2(bool sf, bool S, bool direction, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void EmitCondCompare(bool M, bool S, CCFlags cond, int op, u8 nzcv, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
 	void EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
@@ -973,10 +1040,12 @@ private:
 	void EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round, bool sign);
 	void EmitScalar3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode);
 	void EncodeLoadStorePair(u32 size, bool load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
-	void EncodeLoadStoreRegisterOffset(u32 size, bool load, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void EncodeLoadStoreRegisterOffset(u32 size, bool load, ARM64Reg Rt, ARM64Reg Rn, const ArithOption &Rm);
+	void EncodeModImm(bool Q, u8 op, u8 cmode, u8 o2, ARM64Reg Rd, u8 abcdefgh);
 
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);

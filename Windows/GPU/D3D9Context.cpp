@@ -13,7 +13,6 @@
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"
@@ -22,44 +21,21 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
-void D3D9Context::SwapBuffers() {
-	if (has9Ex_) {
-		deviceEx_->EndScene();
-		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);
-		deviceEx_->BeginScene();
-	} else {
-		device_->EndScene();
-		device_->Present(NULL, NULL, NULL, NULL);
-		device_->BeginScene();
-	}
-}
-
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
-
-static void GetRes(HWND hWnd, int &xres, int &yres) {
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	xres = rc.right - rc.left;
-	yres = rc.bottom - rc.top;
-}
-
-void D3D9Context::SwapInterval(int interval) {
-	swapInterval_ = interval;
-}
 
 bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	bool windowed = true;
 	hWnd_ = wnd;
 
 	// D3D9 has no need for display rotation.
-	g_display_rotation = DisplayRotation::ROTATE_0;
-	g_display_rot_matrix.setIdentity();
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
 
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
 	hD3D9_ = LoadLibrary(TEXT("d3d9.dll"));
 	if (!hD3D9_) {
-		ERROR_LOG(G3D, "Missing d3d9.dll");
+		ERROR_LOG(Log::G3D, "Missing d3d9.dll");
 		*error_message = "D3D9.dll missing - try reinstalling DirectX.";
 		return false;
 	}
@@ -96,13 +72,13 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	D3DDISPLAYMODE d3ddm;
 	if (FAILED(d3d_->GetAdapterDisplayMode(adapterId_, &d3ddm))) {
 		*error_message = "GetAdapterDisplayMode failed";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
 	if (FAILED(d3d_->GetDeviceCaps(adapterId_, D3DDEVTYPE_HAL, &d3dCaps))) {
 		*error_message = "GetDeviceCaps failed (?)";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
@@ -115,7 +91,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {
 			*error_message = "D24S8 depth/stencil not available";
-			d3d_->Release();
+			d3d_ = nullptr;
 			return false;
 		}
 	}
@@ -127,7 +103,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
 	int xres, yres;
-	GetRes(hWnd_, xres, yres);
+	W32Util::GetWindowRes(hWnd_, &xres, &yres);
 
 	presentParams_ = {};
 	presentParams_.BackBufferWidth = xres;
@@ -155,7 +131,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	if (FAILED(hr)) {
 		*error_message = "Failed to create D3D device";
-		d3d_->Release();
+		d3d_ = nullptr;
 		return false;
 	}
 
@@ -167,12 +143,12 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		// TODO: This makes it slower?
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
-	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, adapterId_, device_, deviceEx_);
+	draw_ = Draw::T3DCreateDX9Context(d3d_.Get(), d3dEx_.Get(), adapterId_, device_.Get(), deviceEx_.Get());
 	SetGPUBackend(GPUBackend::DIRECT3D9);
 	if (!draw_->CreatePresets()) {
 		// Shader compiler not installed? Return an error so we can fall back to GL.
-		device_->Release();
-		d3d_->Release();
+		device_ = nullptr;
+		d3d_ = nullptr;
 		*error_message = "DirectX9 runtime not correctly installed. Please install.";
 		return false;
 	}
@@ -184,8 +160,8 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 void D3D9Context::Resize() {
 	// This should only be called from the emu thread.
 	int xres, yres;
-	GetRes(hWnd_, xres, yres);
-	uint32_t newInterval = swapInterval_ == 1 ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;;
+	W32Util::GetWindowRes(hWnd_, &xres, &yres);
+	uint32_t newInterval = swapInterval_ == 1 ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 	bool w_changed = presentParams_.BackBufferWidth != xres;
 	bool h_changed = presentParams_.BackBufferHeight != yres;
 	bool i_changed = presentParams_.PresentationInterval != newInterval;
@@ -209,8 +185,8 @@ void D3D9Context::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
 	device_->EndScene();
-	device_->Release();
-	d3d_->Release();
+	device_ = nullptr;
+	d3d_ = nullptr;
 	UnloadD3DCompiler();
 	pD3Ddevice9 = nullptr;
 	pD3DdeviceEx9 = nullptr;

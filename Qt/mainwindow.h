@@ -9,9 +9,12 @@
 #include <QMainWindow>
 #include <QActionGroup>
 
+#include "ppsspp_config.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
-#include "ConsoleListener.h"
+#if PPSSPP_PLATFORM(WINDOWS)
+#include "Common/Log/ConsoleListener.h"
+#endif
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -113,62 +116,56 @@ private slots:
 	void consoleAct();
 
 	// Game settings
-	void languageAct() { NativeMessageReceived("language screen", ""); }
-	void controlMappingAct() { NativeMessageReceived("control mapping", ""); }
-	void displayLayoutEditorAct() { NativeMessageReceived("display layout editor", ""); }
-	void moreSettingsAct() { NativeMessageReceived("settings", ""); }
+	void languageAct() { System_PostUIMessage(UIMessage::SHOW_LANGUAGE_SCREEN); }
+	void controlMappingAct() { System_PostUIMessage(UIMessage::SHOW_CONTROL_MAPPING); }
+	void displayLayoutEditorAct() { System_PostUIMessage(UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR); }
+	void moreSettingsAct() { System_PostUIMessage(UIMessage::SHOW_SETTINGS); }
 
 	void bufferRenderAct() {
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
 	void renderingResolutionGroup_triggered(QAction *action) {
 		g_Config.iInternalResolution = action->data().toInt();
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
-	void displayLayoutGroup_triggered(QAction *action) {
-		g_Config.iSmallDisplayZoomType = action->data().toInt();
-		NativeMessageReceived("gpu_resized", "");
-	}
 	void autoframeskipAct() {
 		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 		if (g_Config.bSkipBufferEffects) {
 			g_Config.bSkipBufferEffects = false;
-			NativeMessageReceived("gpu_resized", "");
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 		}
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
 	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
 	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
-	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iBufFilter = action->data().toInt(); }
+	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iDisplayFilter = action->data().toInt(); }
 	void textureScalingLevelGroup_triggered(QAction *action) {
 		g_Config.iTexScalingLevel = action->data().toInt();
-		NativeMessageReceived("gpu_clearCache", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 	void textureScalingTypeGroup_triggered(QAction *action) {
 		g_Config.iTexScalingType = action->data().toInt();
-		NativeMessageReceived("gpu_clearCache", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 	void deposterizeAct() {
 		g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-		NativeMessageReceived("gpu_clearCache", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 	void transformAct() {
 		g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-		NativeMessageReceived("gpu_resized", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
-	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
 	void frameskipTypeAct() { g_Config.iFrameSkipType = !g_Config.iFrameSkipType; }
 
 	// Sound
 	void audioAct() {
 		g_Config.bEnableSound = !g_Config.bEnableSound;
-		if (PSP_IsInited() && !IsAudioInitialised())
-			Audio_Init();
 	}
 
 	// Cheats
@@ -177,17 +174,12 @@ private slots:
 	// Chat
 	void chatAct() {
 		if (GetUIState() == UISTATE_INGAME) {
-			NativeMessageReceived("chat screen", "");
+			System_PostUIMessage(UIMessage::SHOW_CHAT_SCREEN);
 		}
 	}
 
 	void fullscrAct();
 	void raiseTopMost();
-	void statsAct() {
-		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-		NativeMessageReceived("clear jit", "");
-	}
-	void showFPSAct() { g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3; } // 3 = both speed and FPS
 
 	// Help
 	void websiteAct();

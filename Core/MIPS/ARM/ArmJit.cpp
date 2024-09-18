@@ -62,14 +62,14 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg0 = (inst & 0x0000F000) >> 12;
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
-				sprintf(temp, "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				INFO_LOG(JIT, "A:   %s", temp);
+				snprintf(temp, sizeof(temp), "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				INFO_LOG(Log::JIT, "A:   %s", temp);
 				i += 4;
 				continue;
 			}
 		}
 		ArmDis((u32)codePtr, inst, temp, sizeof(temp), true);
-		INFO_LOG(JIT, "A:   %s", temp);
+		INFO_LOG(Log::JIT, "A:   %s", temp);
 	}
 }
 
@@ -91,7 +91,7 @@ static u32 JitMemCheck(u32 pc) {
 
 	// Note: pc may be the delay slot.
 	const auto op = Memory::Read_Instruction(pc, true);
-	s32 offset = (s16)(op & 0xFFFF);
+	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	if (MIPSGetInfo(op) & IS_VFPU)
 		offset &= 0xFFFC;
 	u32 addr = currentMIPS->r[MIPS_GET_RS(op)] + offset;
@@ -114,7 +114,7 @@ ArmJit::ArmJit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsState, &
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
-	INFO_LOG(JIT, "ARM JIT initialized: %lld MB of code space", (long long)(GetSpaceLeft() / (1024 * 1024)));
+	INFO_LOG(Log::JIT, "ARM JIT initialized: %lld MB of code space", (long long)(GetSpaceLeft() / (1024 * 1024)));
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 
@@ -132,10 +132,15 @@ void ArmJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(Log::CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
-		js.lastSetRounding = 0;
+		if (p.mode == PointerWrap::MODE_READ) {
+			js.lastSetRounding = 0;
+		}
 	} else {
 		js.hasSetRounding = 1;
 	}
@@ -155,8 +160,16 @@ void ArmJit::FlushAll()
 	FlushPrefixV();
 }
 
-void ArmJit::FlushPrefixV()
-{
+void ArmJit::FlushPrefixV() {
+	if (js.startDefaultPrefix && !js.blockWrotePrefixes && js.HasNoPrefix()) {
+		// They started default, we never modified in memory, and they're default now.
+		// No reason to modify memory.  This is common at end of blocks.  Just clear dirty.
+		js.prefixSFlag = (JitState::PrefixState)(js.prefixSFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixTFlag = (JitState::PrefixState)(js.prefixTFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixDFlag = (JitState::PrefixState)(js.prefixDFlag & ~JitState::PREFIX_DIRTY);
+		return;
+	}
+
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		gpr.SetRegImm(SCRATCHREG1, js.prefixS);
 		STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
@@ -174,6 +187,9 @@ void ArmJit::FlushPrefixV()
 		STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
+
+	// If we got here, we must've written prefixes to memory in this block.
+	js.blockWrotePrefixes = true;
 }
 
 void ArmJit::ClearCache()
@@ -192,10 +208,10 @@ void ArmJit::InvalidateCacheAt(u32 em_address, int length) {
 void ArmJit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckJitBreakpoint(GetCompilerPC() + 4, 0);
@@ -228,17 +244,18 @@ void ArmJit::CompileDelaySlot(int flags) {
 void ArmJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
-	// INFO_LOG(JIT, "Compiling at %08x", em_address);
+	// INFO_LOG(Log::JIT, "Compiling at %08x", em_address);
 
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
 
-	BeginWrite();
+	BeginWrite(JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 16);
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
+	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	EndWrite();
@@ -246,7 +263,7 @@ void ArmJit::Compile(u32 em_address) {
 	bool cleanSlate = false;
 
 	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		WARN_LOG(Log::JIT, "Detected rounding mode usage, rebuilding jit with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
 		js.lastSetRounding = js.hasSetRounding;
 		cleanSlate = true;
@@ -254,7 +271,7 @@ void ArmJit::Compile(u32 em_address) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
+		WARN_LOG_REPORT(Log::JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
@@ -285,7 +302,8 @@ MIPSOpcode ArmJit::GetOffsetInstruction(int offset) {
 const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = em_address;
+	js.compilerPC = em_address;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
@@ -293,6 +311,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+	js.blockWrotePrefixes = false;
 	js.PrefixStart();
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
@@ -379,17 +398,17 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(JIT, "=============== mips ===============");
+		INFO_LOG(Log::JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
-			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
+			INFO_LOG(Log::JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(JIT, "=============== ARM ===============");
+		INFO_LOG(Log::JIT, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
 	if (logBlocks > 0)
@@ -430,7 +449,7 @@ bool ArmJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 void ArmJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
@@ -517,6 +536,14 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 	js.compilerPC += 4;
 	// No writing exits, keep going!
 
+	if (CBreakPoints::HasMemChecks()) {
+		// We could modify coreState, so we need to write PC and check.
+		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
+		FlushAll();
+		WriteExit(GetCompilerPC() + 4, js.nextExit++);
+		js.compiling = false;
+	}
+
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 #endif
@@ -534,7 +561,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
-		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		ERROR_LOG_REPORT_ONCE(replFunc, Log::HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
 		return;
 	}
 
@@ -590,13 +617,24 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			ApplyRoundingMode();
 			RestoreDowncount();
+
+			CMPI2R(R0, 0, SCRATCHREG2);
+			FixupBranch positive = B_CC(CC_GE);
+
+			RSB(R0, R0, Operand2(0));
+			MovFromPC(R1);
+			FixupBranch done = B();
+
+			SetJumpTarget(positive);
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
+
+			SetJumpTarget(done);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
 			js.compiling = false;
 		}
 	} else {
-		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+		ERROR_LOG(Log::HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
 }
 
@@ -623,6 +661,10 @@ void ArmJit::Comp_Generic(MIPSOpcode op)
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
 			js.PrefixUnknown();
+
+		// Even if DISABLE'd, we want to set this flag so we overwrite.
+		if ((info & OUT_VFPU_PREFIX) != 0)
+			js.blockWrotePrefixes = true;
 	}
 }
 
@@ -714,7 +756,9 @@ void ArmJit::UpdateRoundingMode(u32 fcr31) {
 // I don't think this gives us that much benefit.
 void ArmJit::WriteExit(u32 destination, int exit_num)
 {
-	// TODO: Check destination is valid and trigger exception.
+	// NOTE: Can't blindly check for bad destination addresses here, sometimes exits with bad destinations are written intentionally (like breaks).
+	_assert_msg_(exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num. dest=%08x", destination);
+
 	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -787,7 +831,7 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 		MOVI2R(R0, GetCompilerPC());
 		MovToPC(R0);
 		if (off != 0)
-			ADDI2R(R0, R0, off, SCRATCHREG2);
+			ADDI2R(R0, R0, off * 4, SCRATCHREG2);
 		QuickCallFunction(SCRATCHREG2, &JitMemCheck);
 
 		// If 0, the breakpoint wasn't tripped.

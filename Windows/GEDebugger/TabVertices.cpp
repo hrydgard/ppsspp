@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonWindows.h"
 #include <commctrl.h>
 #include "Common/CommonTypes.h"
 #include "Common/Data/Encoding/Utf8.h"

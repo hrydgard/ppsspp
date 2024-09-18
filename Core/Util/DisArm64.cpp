@@ -23,6 +23,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <array>
 
 #include "Common/Arm64Emitter.h"
 #include "Common/StringUtils.h"
@@ -421,14 +422,14 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		const char *op = opcode2 >= 8 ? "unk" : opname[opcode];
 		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", op, r, Rd, r, Rn);
 	} else if (((w >> 21) & 0x2FF) == 0x0D6) {
-		const char *opname[32] = {
+		const char *opname[64] = {
 			0, 0, "udiv", "sdiv", 0, 0, 0, 0,
 			"lslv", "lsrv", "asrv", "rorv", 0, 0, 0, 0,
 			"crc32b", "crc32h", "crc32w", 0, "crc32cb", "crc32ch", "crc32cw", 0,
 		};
 		int opcode = (w >> 10) & 0x3F;
 		// Data processing (2 source)
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opname[opcode], r, Rd, r, Rn, r, Rm);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opname[opcode] ? opname[opcode] : "?", r, Rd, r, Rn, r, Rm);
 	} else if (((w >> 24) & 0x1f) == 0xA) {
 		// Logical (shifted register)
 		int shift = (w >> 22) & 0x3;
@@ -476,7 +477,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		int imm3 = (w >> 10) & 0x7;
 		if (Rd == 31 && sub && S) {
 			// It's a CMP
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %s", "cmp", S ? "s" : "", r, Rn, r, Rm, extendnames[option]);
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %s", "cmp", "s", r, Rn, r, Rm, extendnames[option]);
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d, %s", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm, extendnames[option]);
 		}
@@ -496,7 +497,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		int op31 = (w >> 21) & 0x7;
 		int o0 = (w >> 15) & 1;
 		int Ra = (w >> 10) & 0x1f;
-		const char *opnames[8] = { 0, 0, "maddl", "msubl", "smulh", 0, 0, 0 };
+		static constexpr std::array<const char*, 8> opnames = { 0, 0, "maddl", "msubl", "smulh", 0, 0, 0 };
 
 		if (op31 == 0) {
 			// madd/msub supports both 32-bit and 64-bit modes
@@ -748,15 +749,21 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				int dst_index = imm5 >> (size + 1);
 				int src_index = imm4 >> size;
 				int op = (w >> 29) & 1;
-				char s = "bhsd"[size];
+				char s;
+				switch (size) {
+				case 0x00: s = 'b'; break;
+				case 0x01: s = 'h'; break;
+				case 0x02: s = 's'; break;
+				case 0x03: s = 'd'; break;
+				}
 				if (op == 0 && imm4 == 0) {
 					// DUP (element)
 					int idxdsize = (imm5 & 8) ? 128 : 64;
-					char r = "dq"[idxdsize == 128];
+					char r = (idxdsize == 128) ? 'q' : 'd';
 					snprintf(instr->text, sizeof(instr->text), "dup %c%d, %c%d.%c[%d]", r, Rd, r, Rn, s, dst_index);
 				} else {
 					int idxdsize = (imm4 & 8) ? 128 : 64;
-					char r = "dq"[idxdsize == 128];
+					char r = (idxdsize == 128) ? 'q' : 'd';
 					snprintf(instr->text, sizeof(instr->text), "ins %c%d.%c[%d], %c%d.%c[%d]", r, Rd, s, dst_index, r, Rn, s, src_index);
 				}
 			}
@@ -915,8 +922,6 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 			} else if (((w >> 10) & 0x3f) == 0x0 && opcode == 0) {
 				char ir = sf ? 'x' : 'w';
 				char roundmode = "npmz"[(w >> 19) & 3];
-				if (opcode & 0x4)
-					roundmode = 'a';
 				char fr = ((w >> 22) & 1) ? 'd' : 's';
 				snprintf(instr->text, sizeof(instr->text), "fcvt%cs %c%d, %c%d", roundmode, ir, Rd, fr, Rn);
 			} else if ((opcode & 6) == 2) {
@@ -929,9 +934,9 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 			snprintf(instr->text, sizeof(instr->text), "(float cond compare %08x)", w);
 		} else if (((w >> 10) & 3) == 2) {
 			int opc = (w >> 12) & 0xf;
-			const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
+			const char *opnames[16] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
 			char r = ((w >> 22) & 1) ? 'd' : 's';
-			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc] ? opnames[opc] : "?", r, Rd, r, Rn, r, Rm);
 		} else if (((w >> 10) & 3) == 3) {
 			char fr = ((w >> 22) & 1) ? 'd' : 's';
 			int cond = (w >> 12) & 0xf;

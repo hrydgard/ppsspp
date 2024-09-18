@@ -38,65 +38,6 @@ class ShaderManagerD3D11;
 class TextureCacheD3D11;
 class FramebufferManagerD3D11;
 
-// States transitions:
-// On creation: DRAWN_NEW
-// DRAWN_NEW -> DRAWN_HASHING
-// DRAWN_HASHING -> DRAWN_RELIABLE
-// DRAWN_HASHING -> DRAWN_UNRELIABLE
-// DRAWN_ONCE -> UNRELIABLE
-// DRAWN_RELIABLE -> DRAWN_SAFE
-// UNRELIABLE -> death
-// DRAWN_ONCE -> death
-// DRAWN_RELIABLE -> death
-
-enum {
-	VAI11_FLAG_VERTEXFULLALPHA = 1,
-};
-
-// Try to keep this POD.
-class VertexArrayInfoD3D11 {
-public:
-	VertexArrayInfoD3D11() {
-		status = VAI_NEW;
-		vbo = 0;
-		ebo = 0;
-		prim = GE_PRIM_INVALID;
-		numDraws = 0;
-		numFrames = 0;
-		lastFrame = gpuStats.numFlips;
-		numVerts = 0;
-		drawsUntilNextFullHash = 0;
-		flags = 0;
-	}
-	~VertexArrayInfoD3D11();
-
-	enum Status : uint8_t {
-		VAI_NEW,
-		VAI_HASHING,
-		VAI_RELIABLE,  // cache, don't hash
-		VAI_UNRELIABLE,  // never cache
-	};
-
-	uint64_t hash;
-	u32 minihash;
-
-	ID3D11Buffer *vbo;
-	ID3D11Buffer *ebo;
-
-	// Precalculated parameter for drawRangeElements
-	u16 numVerts;
-	u16 maxIndex;
-	s8 prim;
-	Status status;
-
-	// ID information
-	int numDraws;
-	int numFrames;
-	int lastFrame;  // So that we can forget.
-	u16 drawsUntilNextFullHash;
-	u8 flags;
-};
-
 class TessellationDataTransferD3D11 : public TessellationDataTransfer {
 private:
 	ID3D11DeviceContext *context_;
@@ -117,7 +58,10 @@ public:
 class DrawEngineD3D11 : public DrawEngineCommon {
 public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
-	virtual ~DrawEngineD3D11();
+	~DrawEngineD3D11();
+
+	void DeviceLost() override { draw_ = nullptr;  }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -135,26 +79,30 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls)
+		if (!numDrawVerts_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls)
+		if (!numDrawVerts_)
 			return;
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 	}
 
-	void DispatchFlush() override { Flush(); }
-
-	void ClearTrackedVertexArrays() override;
+	void DispatchFlush() override {
+		if (!numDrawVerts_)
+			return;
+		Flush();
+	}
 
 	void NotifyConfigChanged() override;
 
 	void ClearInputLayoutMap();
 
 private:
+	void Invalidate(InvalidationCallbackFlags flags);
+
 	void DoFlush();
 
 	void ApplyDrawState(int prim);
@@ -162,15 +110,11 @@ private:
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
-	void MarkUnreliable(VertexArrayInfoD3D11 *vai);
-
 	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
 	ID3D11Device *device_;
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
-
-	PrehashMap<VertexArrayInfoD3D11 *, nullptr> vai_;
 
 	struct InputLayoutKey {
 		D3D11VertexShader *vshader;
@@ -184,7 +128,7 @@ private:
 		}
 	};
 
-	DenseHashMap<InputLayoutKey, ID3D11InputLayout *, nullptr> inputLayoutMap_;
+	DenseHashMap<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_ = nullptr;
@@ -196,10 +140,10 @@ private:
 	PushBufferD3D11 *pushInds_;
 
 	// D3D11 state object caches.
-	DenseHashMap<uint64_t, ID3D11BlendState *, nullptr> blendCache_;
-	DenseHashMap<uint64_t, ID3D11BlendState1 *, nullptr> blendCache1_;
-	DenseHashMap<uint64_t, ID3D11DepthStencilState *, nullptr> depthStencilCache_;
-	DenseHashMap<uint32_t, ID3D11RasterizerState *, nullptr> rasterCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState *> blendCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState1 *> blendCache1_;
+	DenseHashMap<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
+	DenseHashMap<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
 	ID3D11RasterizerState *rasterState_ = nullptr;

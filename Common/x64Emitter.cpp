@@ -140,6 +140,37 @@ const u8 *XEmitter::AlignCodePage()
 	return code;
 }
 
+const u8 *XEmitter::NopAlignCode16() {
+	int nops = 16 - ((u64)code & 15);
+	if (nops == 16)
+		return code;
+
+	// note: the string lengths are obviously not computable with strlen, but are equal to the index.
+	// Nop strings from https://stackoverflow.com/questions/25545470/long-multi-byte-nops-commonly-understood-macros-or-other-notation
+	static const char * const nopStrings[16] = {
+		"",
+		"\x90",
+		"\x66\x90",
+		"\x0f\x1f\00",
+		"\x0f\x1f\x40\x00",
+		"\x0f\x1f\x44\x00\x00",
+		"\x66\x0f\x1f\x44\x00\x00",
+		"\x0f\x1f\x80\x00\x00\x00\x00",
+		"\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x90",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x66\x90",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x0f\x1f\00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x0f\x1f\x40\x00",
+	};
+
+	memcpy(code, nopStrings[nops], nops);
+	code += nops;
+	return code;
+}
+
 // This operation modifies flags; check to see the flags are locked.
 // If the flags are locked, we should immediately and loudly fail before
 // causing a subtle JIT bug.
@@ -1291,7 +1322,7 @@ void XEmitter::XOR (int bits, const OpArg &a1, const OpArg &a2) {CheckFlags(); W
 void XEmitter::MOV (int bits, const OpArg &a1, const OpArg &a2)
 {
 	if (a1.IsSimpleReg() && a2.IsSimpleReg() && a1.GetSimpleReg() == a2.GetSimpleReg())
-		ERROR_LOG(JIT, "Redundant MOV @ %p - bug in JIT?", code);
+		ERROR_LOG(Log::JIT, "Redundant MOV @ %p - bug in JIT?", code);
 	WriteNormalOp(this, bits, nrmMOV, a1, a2);
 }
 void XEmitter::TEST(int bits, const OpArg &a1, const OpArg &a2) {CheckFlags(); WriteNormalOp(this, bits, nrmTEST, a1, a2);}
@@ -1658,12 +1689,14 @@ void XEmitter::CVTTPD2DQ(X64Reg regOp, OpArg arg) {WriteSSEOp(0x66, 0xE6, regOp,
 
 void XEmitter::MASKMOVDQU(X64Reg dest, X64Reg src)  {WriteSSEOp(0x66, sseMASKMOVDQU, dest, R(src));}
 
+void XEmitter::MOVSHDUP(X64Reg regOp, OpArg arg) { WriteSSEOp(0xF3, sseMOVHPfromRM, regOp, arg); }
+void XEmitter::MOVSLDUP(X64Reg regOp, OpArg arg) { WriteSSEOp(0xF3, sseMOVLPfromRM, regOp, arg); }
+
 void XEmitter::MOVMSKPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x50, dest, arg);}
 void XEmitter::MOVMSKPD(X64Reg dest, OpArg arg) {WriteSSEOp(0x66, 0x50, dest, arg);}
 
 void XEmitter::LDDQU(X64Reg dest, OpArg arg)    {WriteSSEOp(0xF2, sseLDDQU, dest, arg);} // For integer data only
 
-// THESE TWO ARE UNTESTED.
 void XEmitter::UNPCKLPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x14, dest, arg);}
 void XEmitter::UNPCKHPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x15, dest, arg);}
 
@@ -1858,6 +1891,9 @@ void XEmitter::PTEST(X64Reg dest, OpArg arg)    {WriteSSE41Op(0x66, 0x3817, dest
 void XEmitter::PACKUSDW(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x382b, dest, arg);}
 void XEmitter::DPPS(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A40, dest, arg, 1); Write8(mask);}
 
+void XEmitter::INSERTPS(X64Reg dest, OpArg arg, u8 dstsubreg, u8 srcsubreg, u8 zmask) { WriteSSE41Op(0x66, 0x3A21, dest, arg, 1); Write8((srcsubreg << 6) | (dstsubreg << 4) | zmask); }
+void XEmitter::EXTRACTPS(OpArg dest, X64Reg arg, u8 subreg) { WriteSSE41Op(0x66, 0x3A17, arg, dest, 1); Write8(subreg); }
+
 void XEmitter::PMINSB(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3838, dest, arg);}
 void XEmitter::PMINSD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3839, dest, arg);}
 void XEmitter::PMINUW(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383a, dest, arg);}
@@ -2050,7 +2086,7 @@ void XEmitter::VCVTTPD2DQ(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits,
 void XEmitter::VCVTTSS2SI(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(0, 0xF3, 0x2C, regOp1, arg, 0, bits == 64 ? 1 : 0); }
 void XEmitter::VCVTTSD2SI(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(0, 0xF2, 0x2C, regOp1, arg, 0, bits == 64 ? 1 : 0); }
 void XEmitter::VEXTRACTPS(OpArg arg, X64Reg regOp1, u8 subreg) { WriteAVXOp(0, 0x66, 0x3A17, regOp1, arg, 1); Write8(subreg); }
-void XEmitter::VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg) { WriteAVXOp(0, 0x66, 0x3A21, regOp1, regOp2, arg, 1); Write8(subreg); }
+void XEmitter::VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 dstsubreg, u8 srcsubreg, u8 zmask) { WriteAVXOp(0, 0x66, 0x3A21, regOp1, regOp2, arg, 1); Write8((srcsubreg << 6) | (dstsubreg << 4) | zmask); }
 void XEmitter::VLDDQU(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0xF2, sseLDDQU, regOp1, arg); }
 void XEmitter::VMOVAPS(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0x00, sseMOVAPfromRM, regOp1, arg); }
 void XEmitter::VMOVAPD(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0x66, sseMOVAPfromRM, regOp1, arg); }

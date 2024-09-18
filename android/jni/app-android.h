@@ -5,7 +5,7 @@
 #include <string>
 #include <cstdint>
 
-#include "Common/LogManager.h"
+#include "Common/Log/LogManager.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
@@ -28,3 +28,4 @@ public:
 #endif
 
 #endif
+

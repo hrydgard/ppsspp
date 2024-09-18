@@ -123,7 +123,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			fpr.SimpleRegV(origV[regnum], 0);
@@ -220,7 +220,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 
 // Vector regs can overlap in all sorts of swizzled ways.
 // This does allow a single overlap in sregs[i].
-bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 	for (int i = 0; i < sn; ++i) {
 		if (sregs[i] == dreg && i != di)
 			return false;
@@ -234,7 +234,7 @@ bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tr
 	return true;
 }
 
-bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+bool IsOverlapSafe(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
@@ -244,6 +244,8 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	s32 imm = (signed short)(op&0xFFFC);
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 	MIPSGPReg rs = _RS;
+
+	CheckMemoryBreakpoint(0, rs, imm);
 
 	switch (op >> 26) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
@@ -299,6 +301,8 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	MIPSGPReg rs = _RS;
+
+	CheckMemoryBreakpoint(0, rs, imm);
 
 	switch (op >> 26) {
 	case 53: //lvl.q/lvr.q
@@ -2204,13 +2208,25 @@ void CosOnly(SinCosArg angle, float *output) {
 	output[1] = vfpu_cos(angle);
 }
 
-void ASinScaled(SinCosArg angle, float *output) {
-	output[0] = vfpu_asin(angle);
+void ASinScaled(SinCosArg sine, float *output) {
+	output[0] = vfpu_asin(sine);
 }
 
 void SinCosNegSin(SinCosArg angle, float *output) {
 	vfpu_sincos(angle, output[0], output[1]);
 	output[0] = -output[0];
+}
+
+void Exp2(SinCosArg arg, float *output) {
+	output[0] = vfpu_exp2(arg);
+}
+
+void Log2(SinCosArg arg, float *output) {
+	output[0] = vfpu_log2(arg);
+}
+
+void RExp2(SinCosArg arg, float *output) {
+	output[0] = vfpu_rexp2(arg);
 }
 
 void Jit::Comp_VV2Op(MIPSOpcode op) {
@@ -2219,7 +2235,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg, float *output), u8 sreg) {
+	auto specialFuncCallHelper = [this](void (*specialFunc)(SinCosArg, float *output), u8 sreg) {
 #if PPSSPP_ARCH(AMD64)
 		MOVSS(XMM0, fpr.V(sreg));
 		// TODO: This reg might be different on Linux...
@@ -2228,7 +2244,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 #else
 		LEA(64, RDI, MIPSSTATE_VAR(sincostemp[0]));
 #endif
-		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)specialFunc, 0));
 #else
 		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
 		if (fpr.V(sreg).IsSimpleReg()) {
@@ -2236,7 +2252,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		} else {
 			MOV(32, R(EAX), fpr.V(sreg));
 		}
-		CallProtectedFunction((const void *)sinCosFunc, R(EAX), Imm32((uint32_t)(uintptr_t)&mips_->sincostemp[0]));
+		CallProtectedFunction((const void *)specialFunc, R(EAX), Imm32((uint32_t)(uintptr_t)&mips_->sincostemp[0]));
 #endif
 	};
 
@@ -2402,18 +2418,20 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			trigCallHelper(&SinOnly, sregs[i]);
+			specialFuncCallHelper(&SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			trigCallHelper(&CosOnly, sregs[i]);
+			specialFuncCallHelper(&CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
-			DISABLE;
+			specialFuncCallHelper(&Exp2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
-			DISABLE;
+			specialFuncCallHelper(&Log2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
@@ -2421,7 +2439,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-			trigCallHelper(&ASinScaled, sregs[i]);
+			specialFuncCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
@@ -2432,11 +2450,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			trigCallHelper(&NegSinOnly, sregs[i]);
+			specialFuncCallHelper(&NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
-			DISABLE;
+			specialFuncCallHelper(&RExp2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		}
 	}
@@ -2525,10 +2544,13 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 			// TODO: Optimization if rt is Imm?
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			}
 		} else {
 			//ERROR
@@ -2577,10 +2599,13 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 
 		if (imm == VFPU_CTRL_SPREFIX) {
 			js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+			js.blockWrotePrefixes = true;
 		} else if (imm == VFPU_CTRL_TPREFIX) {
 			js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+			js.blockWrotePrefixes = true;
 		} else if (imm == VFPU_CTRL_DPREFIX) {
 			js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+			js.blockWrotePrefixes = true;
 		}
 	}
 }
@@ -3531,7 +3556,7 @@ void Jit::CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin) {
 			break;
 		}
 		default:
-			ERROR_LOG(JIT, "Bad what in vrot");
+			ERROR_LOG(Log::JIT, "Bad what in vrot");
 			break;
 		}
 	}
@@ -3545,7 +3570,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	}
 	if (!js.HasNoPrefix()) {
 		// Prefixes work strangely for this, see IRCompVFPU.
-		WARN_LOG_REPORT(JIT, "vrot instruction using prefixes at %08x", GetCompilerPC());
+		WARN_LOG_REPORT(Log::JIT, "vrot instruction using prefixes at %08x", GetCompilerPC());
 		DISABLE;
 	}
 
@@ -3565,7 +3590,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 		// Pair of vrot with the same angle argument. Let's join them (can share sin/cos results).
 		vd2 = MIPS_GET_VD(nextOp);
 		imm2 = (nextOp >> 16) & 0x1f;
-		// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+		// NOTICE_LOG(Log::JIT, "Joint VFPU at %08x", js.blockStart);
 	}
 
 	u8 sreg;

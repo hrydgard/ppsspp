@@ -20,6 +20,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceOpenPSID.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Reporting.h"
 
 SceOpenPSID dummyOpenPSID = { 0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D };
 
@@ -36,7 +37,7 @@ void __OpenPSIDShutdown() {
 
 static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 {
-	WARN_LOG(HLE, "UNTESTED %s(%08x)", __FUNCTION__, OpenPSIDPtr);
+	WARN_LOG(Log::HLE, "UNTESTED %s(%08x)", __FUNCTION__, OpenPSIDPtr);
 
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
@@ -48,7 +49,7 @@ static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 
 static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr,u32 unknown)
 {
-	WARN_LOG(HLE, "UNTESTED %s(%08x, %08x)", __FUNCTION__, OpenPSIDPtr, unknown);
+	WARN_LOG(Log::HLE, "UNTESTED %s(%08x, %08x)", __FUNCTION__, OpenPSIDPtr, unknown);
 
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
@@ -73,14 +74,14 @@ Returns:
 	0 on success, otherwise < 0.
 */
 static s32 sceDdrdb_F013F8BF(u32 pDataPtr, u32 pSigPtr) {
-	ERROR_LOG(HLE, "UNIMPL %s(%08x, %08x)", __FUNCTION__, pDataPtr, pSigPtr);
+	ERROR_LOG(Log::HLE, "UNIMPL %s(%08x, %08x)", __FUNCTION__, pDataPtr, pSigPtr);
 
 	return 0;
 }
 
 // unkPtr might be a pointer to OpenPSID
-static s32 sceOpenPSID_B29330DE(u32 unkPtr) {
-	ERROR_LOG(HLE, "UNIMPL %s(%08x)", __FUNCTION__, unkPtr);
+static s32 sceOpenPSIDGetProductCode(u32 unkPtr) {
+	ERROR_LOG_REPORT(Log::HLE, "UNIMPL %s(%08x)", __FUNCTION__, unkPtr);
 
 	return 0;
 }
@@ -88,8 +89,8 @@ static s32 sceOpenPSID_B29330DE(u32 unkPtr) {
 
 const HLEFunction sceOpenPSID[] = 
 {
-	{0XC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,   "sceOpenPSIDGetOpenPSID", 'i', "x" },
-	{0xB29330DE, &WrapI_U<sceOpenPSID_B29330DE>,     "sceOpenPSID_B29330DE",   'i', "x" },
+	{0xC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,    "sceOpenPSIDGetOpenPSID",      'i', "x" },
+	{0xB29330DE, &WrapI_U<sceOpenPSIDGetProductCode>, "sceOpenPSIDGetProductCode",   'i', "x" },
 };
 
 void Register_sceOpenPSID()
