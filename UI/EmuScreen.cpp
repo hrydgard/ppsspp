@@ -715,16 +715,9 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_FRAME_ADVANCE:
-		if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
-			if (down) {
-				// If game is running, pause emulation immediately. Otherwise, advance a single frame.
-				if (Core_IsStepping()) {
-					frameStep_ = true;
-					Core_EnableStepping(false);
-				} else if (!frameStep_) {
-					Core_EnableStepping(true, "ui.frameAdvance", 0);
-				}
-			}
+		// Can't do this reliably in an async fashion, so we just set a variable.
+		if (down) {
+			doFrameAdvance_.store(true);
 		}
 		break;
 
@@ -1425,6 +1418,19 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
+
+	if (doFrameAdvance_.exchange(false)) {
+		if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
+			// If game is running, pause emulation immediately. Otherwise, advance a single frame.
+			if (Core_IsStepping()) {
+				frameStep_ = true;
+				Core_EnableStepping(false);
+			} else if (!frameStep_) {
+				lastNumFlips = gpuStats.numFlips;
+				Core_EnableStepping(true, "ui.frameAdvance", 0);
+			}
+		}
+	}
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	uint32_t clearColor = 0;
