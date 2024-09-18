@@ -750,6 +750,10 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 
+	case VIRTKEY_RESET_EMULATION:
+		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		break;
+
 #ifndef MOBILE_DEVICE
 	case VIRTKEY_RECORD:
 		if (down) {
