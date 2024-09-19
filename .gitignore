@@ -141,3 +141,5 @@ RAPrefs_PPSSPP.cfg
 
 # For CLion
 cmake-build-*/
+
+/.vscode/
