@@ -882,6 +882,7 @@
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Data\Collections\FastVec.h" />
+    <ClCompile Include="Data\Collections\CyclicBuffer.h" />
     <ClCompile Include="Data\Color\RGBAUtil.cpp" />
     <ClCompile Include="Data\Convert\SmallDataConvert.cpp" />
     <ClCompile Include="Data\Encoding\Base64.cpp" />

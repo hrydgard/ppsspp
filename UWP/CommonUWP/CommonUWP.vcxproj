@@ -115,6 +115,7 @@
     <ClInclude Include="..\..\Common\Data\Collections\Hashmaps.h" />
     <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Data\Collections\TinySet.h" />
+    <ClInclude Include="..\..\Common\Data\Collections\CyclicBuffer.h" />
     <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h" />
     <ClInclude Include="..\..\Common\Data\Convert\SmallDataConvert.h" />
     <ClInclude Include="..\..\Common\Data\Encoding\Base64.h" />
