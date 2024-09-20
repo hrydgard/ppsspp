@@ -100,6 +100,11 @@ void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlock
 }
 
 bool MIPSTracer::flush_to_file() {
+	if (logging_path.empty()) {
+		WARN_LOG(Log::JIT, "The path is empty, cannot flush the trace!");
+		return false;
+	}
+
 	INFO_LOG(Log::JIT, "Flushing the trace to a file...");
 	output = File::OpenCFile(logging_path, "w");
 	

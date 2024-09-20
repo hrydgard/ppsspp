@@ -1894,16 +1894,16 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(dev->T("MIPSTracer")));
 
 	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
-	CheckBox *MIPSLoggerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
-	list->Add(MIPSLoggerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
-	MIPSLoggerEnabled->SetEnabledFunc([]() {
+	CheckBox *MIPSTracerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
+	list->Add(MIPSTracerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
+	MIPSTracerEnabled->SetEnabledFunc([]() {
 		bool temp = g_Config.iCpuCore == static_cast<int>(CPUCore::IR_INTERPRETER) && PSP_IsInited();
 		return temp && Core_IsStepping() && coreState != CORE_POWERDOWN;
 	});
 
-	Choice *MIPSlogging_path = list->Add(new Choice(dev->T("Select the output logging file")));
-	MIPSlogging_path->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
-	MIPSlogging_path->SetEnabledFunc([]() {
+	Choice *TraceDumpPath = list->Add(new Choice(dev->T("Select the file path for the trace")));
+	TraceDumpPath->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
+	TraceDumpPath->SetEnabledFunc([]() {
 		if (!PSP_IsInited())
 			return false;
 		return true;
@@ -2159,10 +2159,9 @@ UI::EventReturn DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e
 }
 
 UI::EventReturn DeveloperToolsScreen::OnMIPSTracerFlushTrace(UI::EventParams &e) {
-	bool success = mipsTracer.flush_to_file();
-	if (!success) {
-		WARN_LOG(Log::JIT, "Error: cannot flush the trace to the specified file!");
-	}
+	mipsTracer.flush_to_file();
+	// The error logs are emitted inside the tracer
+
 	return UI::EVENT_DONE;
 }
 
