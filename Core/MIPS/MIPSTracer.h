@@ -26,6 +26,7 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/Data/Collections/CyclicBuffer.h"
 
 
 struct TraceBlockInfo {
@@ -59,70 +60,6 @@ struct TraceBlockStorage {
 	}
 };
 
-
-template <typename T>
-struct CyclicBuffer {
-	std::vector<T> buffer;
-	u32 current_index;
-	bool overflow;
-
-	explicit CyclicBuffer(u32 capacity) : buffer(capacity, T()), current_index(0), overflow(false) {}
-
-	CyclicBuffer(): buffer(), current_index(0), overflow(false) {}
-
-	void push_back(const T& value);
-	void push_back(T&& value);
-
-	void clear();
-	void resize(u32 new_capacity);
-
-	std::vector<T> get_content() const;
-};
-
-template<typename T>
-std::vector<T> CyclicBuffer<T>::get_content() const {
-	if (!overflow) {
-		return std::vector<T>(buffer.begin(), buffer.begin() + current_index);
-	}
-
-	std::vector<T> ans;
-	ans.reserve(buffer.size());
-	std::copy(buffer.begin() + current_index, buffer.end(), std::back_inserter(ans));
-	std::copy(buffer.begin(), buffer.begin() + current_index, std::back_inserter(ans));
-	return ans;
-}
-
-template <typename T>
-void CyclicBuffer<T>::push_back(const T& value) {
-	buffer[current_index] = value;
-	++current_index;
-	if (current_index == buffer.size()) {
-		current_index = 0;
-		overflow = true;
-	}
-}
-
-template <typename T>
-void CyclicBuffer<T>::push_back(T&& value) {
-	buffer[current_index] = std::move(value);
-	++current_index;
-	if (current_index == buffer.size()) {
-		current_index = 0;
-		overflow = true;
-	}
-}
-
-template <typename T>
-void CyclicBuffer<T>::clear() {
-	buffer.clear();
-	current_index = 0;
-	overflow = false;
-}
-
-template <typename T>
-void CyclicBuffer<T>::resize(u32 new_capacity) {
-	buffer.resize(new_capacity);
-}
 
 
 // This system is meant for trace recording.

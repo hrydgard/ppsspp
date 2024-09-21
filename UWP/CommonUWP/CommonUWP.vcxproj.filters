@@ -597,6 +597,9 @@
     <ClInclude Include="..\..\Common\Data\Collections\TinySet.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Collections\CyclicBuffer.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Common\Data\Random\Rng.h">
       <Filter>Data\Random</Filter>
     </ClInclude>

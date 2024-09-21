@@ -994,6 +994,9 @@
     <ClCompile Include="Data\Collections\FastVec.h">
       <Filter>Data\Collections</Filter>
     </ClCompile>
+    <ClCompile Include="Data\Collections\CyclicBuffer.h">
+      <Filter>Data\Collections</Filter>
+    </ClCompile>
     <ClCompile Include="GPU\GPUBackendCommon.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
