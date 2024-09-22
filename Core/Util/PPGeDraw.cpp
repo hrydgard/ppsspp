@@ -780,15 +780,13 @@ void PPGeMeasureText(float *w, float *h, std::string_view text, float scale, int
 	std::string s = PPGeSanitizeText(text);
 
 	if (HasTextDrawer()) {
-		std::string s2 = ReplaceAll(s, "&", "&&");
-
 		float mw, mh;
 		textDrawer->SetFontScale(scale, scale);
 		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
 		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
 			dtalign |= FLAG_ELLIPSIZE_TEXT;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
-		textDrawer->MeasureStringRect(s2, b, &mw, &mh, dtalign);
+		textDrawer->MeasureStringRect(s, b, &mw, &mh, dtalign);
 
 		if (w)
 			*w = mw;
@@ -898,14 +896,14 @@ inline int GetPow2(int x) {
 	return ret;
 }
 
-static PPGeTextDrawerImage PPGeGetTextImage(const char *text, const PPGeStyle &style, float maxWidth, bool wrap) {
+static PPGeTextDrawerImage PPGeGetTextImage(std::string_view text, const PPGeStyle &style, float maxWidth, bool wrap) {
 	int tdalign = 0;
 	tdalign |= FLAG_ELLIPSIZE_TEXT;
 	if (wrap) {
 		tdalign |= FLAG_WRAP_TEXT;
 	}
 
-	PPGeTextDrawerCacheKey key{ text, tdalign, maxWidth / style.scale };
+	PPGeTextDrawerCacheKey key{ std::string(text), tdalign, maxWidth / style.scale };
 	PPGeTextDrawerImage im{};
 
 	auto cacheItem = textDrawerImages.find(key);
@@ -1065,7 +1063,7 @@ void PPGeDrawText(std::string_view text, float x, float y, const PPGeStyle &styl
 	}
 
 	if (HasTextDrawer()) {
-		PPGeTextDrawerImage im = PPGeGetTextImage(ReplaceAll(str, "&", "&&").c_str(), style, 480.0f - x, false);
+		PPGeTextDrawerImage im = PPGeGetTextImage(str, style, 480.0f - x, false);
 		if (im.ptr) {
 			PPGeDrawTextImage(im, x, y, style);
 			return;
@@ -1116,13 +1114,11 @@ void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidt
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
 
 	if (HasTextDrawer()) {
-		std::string s2 = ReplaceAll(s, "&", "&&");
-
 		float actualWidth, actualHeight;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = 0;
 		textDrawer->SetFontScale(style.scale, style.scale);
-		textDrawer->MeasureStringRect(s2, b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+		textDrawer->MeasureStringRect(s, b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
 
 		// Check if we need to scale the text down to fit better.
 		PPGeStyle adjustedStyle = style;
@@ -1138,14 +1134,14 @@ void PPGeDrawTextWrapped(std::string_view text, float x, float y, float wrapWidt
 				actualHeight = (maxLines + 1) * lineHeight;
 				// Add an ellipsis if it's just too long to be readable.
 				// On a PSP, it does this without scaling it down.
-				s2 = StripTrailingWhite(CropLinesToCount(s2, (int)maxLines));
-				s2.append("\n...");
+				s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines));
+				s.append("\n...");
 			}
 
 			adjustedStyle.scale *= wrapHeight / actualHeight;
 		}
 
-		PPGeTextDrawerImage im = PPGeGetTextImage(s2.c_str(), adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
+		PPGeTextDrawerImage im = PPGeGetTextImage(s, adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
 		if (im.ptr) {
 			PPGeDrawTextImage(im, x, y, adjustedStyle);
 			return;
