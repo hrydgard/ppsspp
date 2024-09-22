@@ -94,7 +94,7 @@ void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlock
 	trace_info.push_back({ virt_addr, storage_index });
 
 
-	u32 index = trace_info.size() - 1;
+	u32 index = (u32)(trace_info.size() - 1);
 	auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
 	ir_ptr[1].constant = index;
 }
