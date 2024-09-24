@@ -56,6 +56,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/RetroAchievementScreens.h"
+#include "UI/BackgroundAudio.h"
 
 static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
@@ -480,6 +481,9 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	if (tag == "ScreenshotView" && dr == DR_OK) {
 		finishNextFrame_ = true;
 	} else {
+		if (tag == "Game") {
+			g_BackgroundAudio.SetGame(Path());
+		}
 		// There may have been changes to our savestates, so let's recreate.
 		RecreateViews();
 	}
