@@ -169,12 +169,12 @@ void MIPSTracer::stop_tracing() {
 inline void MIPSTracer::print_stats() const {
 	// First, the storage
 	INFO_LOG(Log::JIT, "=============== MIPSTracer storage ===============");
-	INFO_LOG(Log::JIT, "Current index = %d, storage size = %d", storage.cur_index, storage.raw_instructions.size());
+	INFO_LOG(Log::JIT, "Current index = %d, storage size = %d", storage.cur_index, (int)storage.raw_instructions.size());
 
 	// Then the cyclic buffer
 	if (executed_blocks.overflow) {
 		INFO_LOG(Log::JIT, "=============== MIPSTracer cyclic buffer (overflow) ===============");
-		INFO_LOG(Log::JIT, "Trace size = %d, starts from index %d", executed_blocks.buffer.size(), executed_blocks.current_index);
+		INFO_LOG(Log::JIT, "Trace size = %d, starts from index %d", (int)executed_blocks.buffer.size(), executed_blocks.current_index);
 	}
 	else {
 		INFO_LOG(Log::JIT, "=============== MIPSTracer cyclic buffer (no overflow) ===============");
@@ -182,11 +182,11 @@ inline void MIPSTracer::print_stats() const {
 	}
 	// Next, the hash-to-index mapping
 	INFO_LOG(Log::JIT, "=============== MIPSTracer hashes ===============");
-	INFO_LOG(Log::JIT, "Number of unique hashes = %d", hash_to_storage_index.size());
+	INFO_LOG(Log::JIT, "Number of unique hashes = %d", (int)hash_to_storage_index.size());
 
 	// Finally, the basic block list
 	INFO_LOG(Log::JIT, "=============== MIPSTracer basic block list ===============");
-	INFO_LOG(Log::JIT, "Number of processed basic blocks = %d", trace_info.size());
+	INFO_LOG(Log::JIT, "Number of processed basic blocks = %d", (int)trace_info.size());
 
 	INFO_LOG(Log::JIT, "=============== MIPSTracer stats end ===============");
 }
