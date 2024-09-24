@@ -474,6 +474,10 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_VOL_DOWN, "Vol -"},
 	{CTRL_SCREEN, "Screen"},
 	{CTRL_NOTE, "Note"},
+	{CTRL_L2, "Dev-kit L2"},
+	{CTRL_L3, "Dev-kit L3"},
+	{CTRL_R2, "Dev-kit R2"},
+	{CTRL_R3, "Dev-kit R3"},
 };
 
 // key here can be other things than InputKeyCode.
