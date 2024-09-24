@@ -50,6 +50,11 @@ const std::unordered_map<std::string, uint32_t> buttonLookup = {
 	{ "forward", CTRL_FORWARD },
 	{ "back", CTRL_BACK },
 	{ "playpause", CTRL_PLAYPAUSE },
+	// Obscure unmapped keys, see issue #17464
+	{ "l2", CTRL_L2 },
+	{ "l3", CTRL_L3 },
+	{ "r2", CTRL_R2 },
+	{ "r3", CTRL_R3 },
 };
 
 struct WebSocketInputState : public DebuggerSubscriber {
