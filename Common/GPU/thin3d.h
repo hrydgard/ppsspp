@@ -211,13 +211,14 @@ enum FormatSupport {
 	FMT_STORAGE_IMAGE = 64,
 };
 
-enum InfoField {
+enum class InfoField {
 	APINAME,
 	APIVERSION,
 	VENDORSTRING,
 	VENDOR,
 	SHADELANGVERSION,
 	DRIVER,
+	DEVICE_API_VERSION,  // Vulkan-only
 };
 
 enum class GPUVendor {

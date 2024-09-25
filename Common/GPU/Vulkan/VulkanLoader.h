@@ -255,6 +255,7 @@ struct VulkanExtensions {
 	bool KHR_maintenance1; // required for KHR_create_renderpass2
 	bool KHR_maintenance2;
 	bool KHR_maintenance3;
+	bool KHR_maintenance4;
 	bool KHR_multiview;  // required for KHR_create_renderpass2
 	bool KHR_get_memory_requirements2;
 	bool KHR_dedicated_allocation;

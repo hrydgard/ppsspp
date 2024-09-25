@@ -592,12 +592,12 @@ public:
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
-		case APIVERSION: return "DirectX 9.0";
-		case VENDORSTRING: return identifier_.Description;
-		case VENDOR: return "";
-		case DRIVER: return identifier_.Driver;  // eh, sort of
-		case SHADELANGVERSION: return shadeLangVersion_;
-		case APINAME: return "Direct3D 9";
+		case InfoField::APIVERSION: return "DirectX 9.0";
+		case InfoField::VENDORSTRING: return identifier_.Description;
+		case InfoField::VENDOR: return "";
+		case InfoField::DRIVER: return identifier_.Driver;  // eh, sort of
+		case InfoField::SHADELANGVERSION: return shadeLangVersion_;
+		case InfoField::APINAME: return "Direct3D 9";
 		default: return "?";
 		}
 	}

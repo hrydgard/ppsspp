@@ -522,16 +522,13 @@ public:
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
-		case APINAME: return "Vulkan";
-		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().properties.deviceName;
-		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
-		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
-		case SHADELANGVERSION: return "N/A";;
-		case APIVERSION: 
-		{
-			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().properties.apiVersion;
-			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
-		}
+		case InfoField::APINAME: return "Vulkan";
+		case InfoField::VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().properties.deviceName;
+		case InfoField::VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
+		case InfoField::DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
+		case InfoField::SHADELANGVERSION: return "N/A";;
+		case InfoField::APIVERSION: return FormatAPIVersion(vulkan_->InstanceApiVersion());
+		case InfoField::DEVICE_API_VERSION: return FormatAPIVersion(vulkan_->DeviceApiVersion());
 		default: return "?";
 		}
 	}
@@ -882,6 +879,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
 
+	INFO_LOG(Log::G3D, "Determining Vulkan device caps");
+
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
@@ -980,8 +979,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
-		// if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
-		multisampleAllowed = false;  // Actually, let's disable it on them all for now. See issue #18818.
+		if (caps_.deviceID < 0x6000000) { // On sub 6xx series GPUs, disallow multisample.
+			INFO_LOG(Log::G3D, "Multisampling was disabled due to old driver version (Adreno)");
+			multisampleAllowed = false;
+		}
 
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
@@ -1055,6 +1056,14 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
 		INFO_LOG(Log::G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
+		multisampleAllowed = false;
+	}
+
+	if (!vulkan->Extensions().KHR_create_renderpass2) {
+		WARN_LOG(Log::G3D, "KHR_create_renderpass2 not supported, disabling multisampling");
+		multisampleAllowed = false;
+	} else {
+		_dbg_assert_(vkCreateRenderPass2 != nullptr);
 	}
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
@@ -1067,7 +1076,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
 			INFO_LOG(Log::G3D, "Multisample levels mask: %d", caps_.multiSampleLevelsMask);
 		} else {
-			INFO_LOG(Log::G3D, "Not enough depth/stencil resolve modes supported, disabling multisampling.");
+			INFO_LOG(Log::G3D, "Not enough depth/stencil resolve modes supported, disabling multisampling. Color: %d Depth: %d Stencil: %d",
+				limits.framebufferColorSampleCounts, limits.framebufferDepthSampleCounts, limits.framebufferStencilSampleCounts);
 			caps_.multiSampleLevelsMask = 1;
 		}
 	} else {

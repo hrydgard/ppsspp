@@ -142,11 +142,11 @@ public:
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
-		case APIVERSION: return "Direct3D 11";
-		case VENDORSTRING: return adapterDesc_;
-		case VENDOR: return "";
-		case DRIVER: return "-";
-		case SHADELANGVERSION:
+		case InfoField::APIVERSION: return "Direct3D 11";
+		case InfoField::VENDORSTRING: return adapterDesc_;
+		case InfoField::VENDOR: return "";
+		case InfoField::DRIVER: return "-";
+		case InfoField::SHADELANGVERSION:
 			switch (featureLevel_) {
 			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1"; break;
 			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2"; break;
@@ -159,7 +159,7 @@ public:
 			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1"; break;
 			}
 			return "Unknown feature level";
-		case APINAME: return "Direct3D 11";
+		case InfoField::APINAME: return "Direct3D 11";
 		default: return "?";
 		}
 	}

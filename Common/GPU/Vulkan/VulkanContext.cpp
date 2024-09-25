@@ -102,11 +102,13 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 	// Check which Vulkan version we should request.
 	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
-	vulkanApiVersion_ = VK_API_VERSION_1_0;
+	vulkanInstanceApiVersion_ = VK_API_VERSION_1_0;
 	if (vkEnumerateInstanceVersion) {
-		vkEnumerateInstanceVersion(&vulkanApiVersion_);
-		vulkanApiVersion_ &= 0xFFFFF000;  // Remove patch version.
-		vulkanApiVersion_ = std::min(VK_API_VERSION_1_3, vulkanApiVersion_);
+		vkEnumerateInstanceVersion(&vulkanInstanceApiVersion_);
+		vulkanInstanceApiVersion_ &= 0xFFFFF000;  // Remove patch version.
+		vulkanInstanceApiVersion_ = std::min(VK_API_VERSION_1_3, vulkanInstanceApiVersion_);
+		std::string versionString = FormatAPIVersion(vulkanInstanceApiVersion_);
+		INFO_LOG(Log::G3D, "Detected Vulkan API version: %s", versionString.c_str());
 	}
 
 	instance_layer_names_.clear();
@@ -201,7 +203,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	app_info.pEngineName = info.app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 2;
-	app_info.apiVersion = vulkanApiVersion_;
+	app_info.apiVersion = vulkanInstanceApiVersion_;
 
 	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
@@ -240,7 +242,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	VulkanLoadInstanceFunctions(instance_, extensionsLookup_, vulkanApiVersion_);
+	VulkanLoadInstanceFunctions(instance_, extensionsLookup_, vulkanInstanceApiVersion_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WARN_LOG(Log::G3D, "CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
@@ -560,7 +562,7 @@ int VulkanContext::GetBestPhysicalDevice() {
 }
 
 bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+	if (coreVersion != 0 && vulkanDeviceApiVersion_ >= coreVersion) {
 		return true;
 	}
 	for (auto &iter : device_extension_properties_) {
@@ -573,7 +575,7 @@ bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVe
 }
 
 bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
-	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+	if (coreVersion != 0 && vulkanInstanceApiVersion_ >= coreVersion) {
 		return true;
 	}
 	for (auto &iter : instance_extension_properties_) {
@@ -588,6 +590,8 @@ bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t core
 VkResult VulkanContext::CreateDevice(int physical_device) {
 	physical_device_ = physical_device;
 	INFO_LOG(Log::G3D, "Chose physical device %d: %s", physical_device, physicalDeviceProperties_[physical_device].properties.deviceName);
+
+	vulkanDeviceApiVersion_ = physicalDeviceProperties_[physical_device].properties.apiVersion;
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
@@ -668,6 +672,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_API_VERSION_1_1);
 	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME, VK_API_VERSION_1_1);
 	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_maintenance4 = EnableDeviceExtension("VK_KHR_maintenance4", VK_API_VERSION_1_3);
 	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME, VK_API_VERSION_1_1);
 
 	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
@@ -796,9 +801,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
-		ERROR_LOG(Log::G3D, "Unable to create Vulkan device");
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
 	} else {
-		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanApiVersion_);
+		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanDeviceApiVersion_);
 	}
 	INFO_LOG(Log::G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 
@@ -806,7 +811,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
-	allocatorInfo.vulkanApiVersion = vulkanApiVersion_;
+	allocatorInfo.vulkanApiVersion = std::min(vulkanDeviceApiVersion_, vulkanInstanceApiVersion_);
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
@@ -1863,6 +1868,7 @@ bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props) {
 		return true;
 	if (branch > 100 || major > 100)
 		return true;
+	// Can (in theory) have false negatives!
 	return false;
 }
 
@@ -1891,6 +1897,10 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
 	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
 	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 	return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
+}
+
+std::string FormatAPIVersion(u32 version) {
+	return StringFromFormat("%d.%d.%d", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version), VK_API_VERSION_PATCH(version));
 }
 
 // Mainly just the formats seen on gpuinfo.org for swapchains, as this function is only used for listing
