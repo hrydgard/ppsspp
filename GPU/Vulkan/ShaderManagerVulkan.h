@@ -103,6 +103,13 @@ protected:
 	GShaderID id_;
 };
 
+struct Uniforms {
+	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
+	UB_VS_FS_Base ub_base{};
+	UB_VS_Lights ub_lights{};
+	UB_VS_Bones ub_bones{};
+};
+
 class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
 	ShaderManagerVulkan(Draw::DrawContext *draw);
@@ -139,15 +146,15 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) {
-		return dest->Push(&ub_base, sizeof(ub_base), uboAlignment_, buf);
+	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
+		return dest->Push(&uniforms_->ub_base, sizeof(uniforms_->ub_base), uboAlignment_, buf);
 	}
-	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) {
-		return dest->Push(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
+	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
+		return dest->Push(&uniforms_->ub_lights, sizeof(uniforms_->ub_lights), uboAlignment_, buf);
 	}
 	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) {
-		return dest->Push(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
+	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
+		return dest->Push(&uniforms_->ub_bones, sizeof(uniforms_->ub_bones), uboAlignment_, buf);
 	}
 
 	static bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
@@ -171,10 +178,8 @@ private:
 	char *codeBuffer_;
 
 	uint64_t uboAlignment_;
-	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
-	UB_VS_FS_Base ub_base;
-	UB_VS_Lights ub_lights;
-	UB_VS_Bones ub_bones;
+
+	Uniforms *uniforms_;
 
 	VulkanFragmentShader *lastFShader_ = nullptr;
 	VulkanVertexShader *lastVShader_ = nullptr;
