@@ -1536,14 +1536,16 @@ void NativeShutdown() {
 // In the future, we might make this more sophisticated, such as storing in the app private directory on Android.
 // Right now we just store secrets in separate files next to ppsspp.ini. The important thing is keeping them out of it
 // since we often ask people to post or send the ini for debugging.
-static Path GetSecretPath(const char *nameOfSecret) {
+static Path GetSecretPath(std::string_view nameOfSecret) {
 	return GetSysDirectory(DIRECTORY_SYSTEM) / ("ppsspp_" + std::string(nameOfSecret) + ".dat");
 }
 
 // name should be simple alphanumerics to avoid problems on Windows.
-bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
+bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) {
 	Path path = GetSecretPath(nameOfSecret);
-	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
+	if (data.empty() && File::Exists(path)) {
+		return File::Delete(path);
+	} else if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
 		WARN_LOG(Log::System, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
 		return false;
 	}
@@ -1551,7 +1553,7 @@ bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 }
 
 // On failure, returns an empty string. Good enough since any real secret is non-empty.
-std::string NativeLoadSecret(const char *nameOfSecret) {
+std::string NativeLoadSecret(std::string_view nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
 	if (!File::ReadBinaryFileToString(path, &data)) {

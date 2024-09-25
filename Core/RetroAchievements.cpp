@@ -503,8 +503,19 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), "", g_RAImageID);
 		}
+
+		// Clear the token.
+		if (result == RC_INVALID_CREDENTIALS || result == RC_EXPIRED_TOKEN) {
+			g_Config.sAchievementsUserName.clear();
+			NativeClearSecret(RA_TOKEN_SECRET_NAME);
+			g_loginResult = RC_OK;
+		} else {
+			g_loginResult = result;
+		}
+
 		OnAchievementsLoginStateChange();
-		break;
+		g_isLoggingIn = false;
+		return;
 	}
 	}
 	g_loginResult = result;
@@ -718,7 +729,7 @@ void Logout() {
 	rc_client_logout(g_rcClient);
 	// remove from config
 	g_Config.sAchievementsUserName.clear();
-	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
+	NativeClearSecret(RA_TOKEN_SECRET_NAME);
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();
 	g_loginResult = RC_OK;  // Allow trying again
