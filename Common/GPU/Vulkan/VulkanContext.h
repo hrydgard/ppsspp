@@ -528,6 +528,7 @@ const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
 const char *VulkanImageLayoutToString(VkImageLayout imageLayout);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
+std::string FormatAPIVersion(u32 version);
 
 // Simple heuristic.
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);

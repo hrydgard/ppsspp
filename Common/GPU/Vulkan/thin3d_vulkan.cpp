@@ -522,15 +522,14 @@ public:
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
-		case APINAME: return "Vulkan";
-		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().properties.deviceName;
-		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
-		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
-		case SHADELANGVERSION: return "N/A";;
-		case APIVERSION: 
+		case InfoField::APINAME: return "Vulkan";
+		case InfoField::VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().properties.deviceName;
+		case InfoField::VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
+		case InfoField::DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
+		case InfoField::SHADELANGVERSION: return "N/A";;
+		case InfoField::APIVERSION:
 		{
-			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().properties.apiVersion;
-			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
+			return FormatAPIVersion(vulkan_->GetPhysicalDeviceProperties().properties.apiVersion);
 		}
 		default: return "?";
 		}

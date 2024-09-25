@@ -1863,6 +1863,7 @@ bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props) {
 		return true;
 	if (branch > 100 || major > 100)
 		return true;
+	// Can (in theory) have false negatives!
 	return false;
 }
 
@@ -1891,6 +1892,10 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
 	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
 	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 	return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
+}
+
+std::string FormatAPIVersion(u32 version) {
+	return StringFromFormat("%d.%d.%d", VK_API_VERSION_MAJOR(version), VK_API_VERSION_MINOR(version), VK_API_VERSION_PATCH(version));
 }
 
 // Mainly just the formats seen on gpuinfo.org for swapchains, as this function is only used for listing

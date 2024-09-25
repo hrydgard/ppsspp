@@ -211,7 +211,7 @@ enum FormatSupport {
 	FMT_STORAGE_IMAGE = 64,
 };
 
-enum InfoField {
+enum class InfoField {
 	APINAME,
 	APIVERSION,
 	VENDORSTRING,
