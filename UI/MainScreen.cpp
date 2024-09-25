@@ -344,7 +344,6 @@ void GameButton::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
 		if (!currentTitle.empty()) {
-			title_ = ReplaceAll(currentTitle + discNumInfo, "&", "&&");
 			title_ = ReplaceAll(title_, "\n", " ");
 		}
 

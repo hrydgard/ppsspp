@@ -874,6 +874,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		if (source.channel == RASTER_COLOR) {
 			Draw2DPipeline *pipeline = nullptr;
 			const char *pass_name = "N/A";
+			float scaleFactorX = 1.0f;
 			if (src->fb_format == dst->fb_format) {
 				gpuStats.numColorCopies++;
 				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
@@ -888,7 +889,6 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 					src->fb_address, GeBufferFormatToString(src->fb_format),
 					dst->fb_address, GeBufferFormatToString(dst->fb_format));
 
-				float scaleFactorX = 1.0f;
 				pipeline = GetReinterpretPipeline(src->fb_format, dst->fb_format, &scaleFactorX);
 				dstX1 *= scaleFactorX;
 				dstX2 *= scaleFactorX;
@@ -903,6 +903,11 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// OK we have the pipeline, now just do the blit.
 				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
 					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, pass_name);
+			}
+
+			if (scaleFactorX == 1.0f && dst->z_address == src->z_address && dst->z_stride == src->z_stride) {
+				// We should also copy the depth buffer in this case!
+				BlitFramebufferDepth(src, dst, true);
 			}
 		}
 	}
@@ -966,7 +971,7 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	delete v;
 }
 
-void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch) {
 	_dbg_assert_(src && dst);
 
 	_dbg_assert_(src != dst);
@@ -974,7 +979,7 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	// Check that the depth address is even the same before actually blitting.
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = (src->width == dst->width || (src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512)) && src->height == dst->height;
-	if (!matchingDepthBuffer || !matchingSize) {
+	if (!matchingDepthBuffer || (!matchingSize && !allowSizeMismatch)) {
 		return;
 	}
 

@@ -516,7 +516,7 @@ protected:
 	static void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
+	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 

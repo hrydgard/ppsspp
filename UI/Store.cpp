@@ -489,7 +489,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = ReplaceAll(game.getStringOr("author", "?"), "&&", "&");  // Can't remove && in the JSON source data due to old app versions
+			e.author = ReplaceAll(game.getStringOr("author", "?"), "&&", "&");  // Can't remove && in the JSON source data due to old app versions, so we do the opposite replacement here.
 			e.size = game.getInt("size");
 			e.downloadURL = game.getStringOr("download-url", "");
 			e.iconURL = game.getStringOr("icon-url", "");

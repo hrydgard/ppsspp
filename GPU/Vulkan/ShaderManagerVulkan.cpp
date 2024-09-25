@@ -27,6 +27,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/TimeUtil.h"
+#include "Common/MemoryUtil.h"
 
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -213,16 +214,16 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 	codeBuffer_ = new char[CODE_BUFFER_SIZE];
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	uboAlignment_ = vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
-	memset(&ub_base, 0, sizeof(ub_base));
-	memset(&ub_lights, 0, sizeof(ub_lights));
-	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
-	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
-	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
+	uniforms_ = (Uniforms *)AllocateAlignedMemory(sizeof(Uniforms), 16);
+
+	static_assert(sizeof(uniforms_->ub_base) <= 512, "ub_base grew too big");
+	static_assert(sizeof(uniforms_->ub_lights) <= 512, "ub_lights grew too big");
+	static_assert(sizeof(uniforms_->ub_bones) <= 384, "ub_bones grew too big");
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
+	FreeAlignedMemory(uniforms_);
 	Clear();
 	delete[] codeBuffer_;
 }
@@ -278,11 +279,11 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&ub_base, dirty, false, useBufferedRendering);
+			BaseUpdateUniforms(&uniforms_->ub_base, dirty, false, useBufferedRendering);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
-			LightUpdateUniforms(&ub_lights, dirty);
+			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
 		if (dirty & DIRTY_BONE_UNIFORMS)
-			BoneUpdateUniforms(&ub_bones, dirty);
+			BoneUpdateUniforms(&uniforms_->ub_bones, dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
