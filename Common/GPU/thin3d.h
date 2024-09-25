@@ -218,6 +218,7 @@ enum class InfoField {
 	VENDOR,
 	SHADELANGVERSION,
 	DRIVER,
+	DEVICE_API_VERSION,  // Vulkan-only
 };
 
 enum class GPUVendor {

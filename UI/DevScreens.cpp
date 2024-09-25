@@ -539,8 +539,9 @@ void SystemInfoScreen::CreateTabs() {
 		gpuInfo->Add(new InfoItem(si->T("Vendor (detected)"), vendor));
 	gpuInfo->Add(new InfoItem(si->T("Driver Version"), draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
-	if (GetGPUBackend() != GPUBackend::VULKAN)
+	if (GetGPUBackend() != GPUBackend::VULKAN) {
 		gpuInfo->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+	}
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		gpuInfo->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
@@ -644,12 +645,18 @@ void SystemInfoScreen::CreateTabs() {
 		} else {
 			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
 		}
+		versionInfo->Add(new InfoItem(si->T("API Version"), apiVersion));
 	} else {
 		apiVersion = draw->GetInfoString(InfoField::APIVERSION);
 		if (apiVersion.size() > 30)
 			apiVersion.resize(30);
+		versionInfo->Add(new InfoItem(si->T("API Version"), apiVersion));
+
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			std::string deviceApiVersion = draw->GetInfoString(InfoField::DEVICE_API_VERSION);
+			versionInfo->Add(new InfoItem(si->T("Device API Version"), deviceApiVersion));
+		}
 	}
-	versionInfo->Add(new InfoItem(si->T("API Version"), apiVersion));
 	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
 #if PPSSPP_PLATFORM(ANDROID)

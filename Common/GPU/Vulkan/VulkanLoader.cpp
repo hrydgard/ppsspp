@@ -265,7 +265,7 @@ bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
 
 static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name) {
-    PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
+	PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
 	if (!funcPtr) {
 		INFO_LOG(Log::G3D, "Missing function (instance): %s", name);
 	}
@@ -273,9 +273,9 @@ static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name
 }
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)LoadInstanceFunc(instance, #x);
 
-static PFN_vkVoidFunction LoadInstanceFuncCore(VkInstance instance, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
-    PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? name : extName);
-	if (vulkanApiVersion >= min_core && !funcPtr) {
+static PFN_vkVoidFunction LoadInstanceFuncCore(VkInstance instance, const char *name, const char *extName, u32 min_core, u32 vulkanInstanceApiVersion) {
+	PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, vulkanInstanceApiVersion >= min_core ? name : extName);
+	if (vulkanInstanceApiVersion >= min_core && !funcPtr) {
 		// Try the ext name.
 		funcPtr = vkGetInstanceProcAddr(instance, extName);
 	}
@@ -285,10 +285,10 @@ static PFN_vkVoidFunction LoadInstanceFuncCore(VkInstance instance, const char *
 	return funcPtr;
 }
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
-    x = (PFN_ ## x)LoadInstanceFuncCore(instance, #x, #ext_x, min_core, vulkanApiVersion);
+    x = (PFN_ ## x)LoadInstanceFuncCore(instance, #x, #ext_x, min_core, vulkanInstanceApiVersion);
 
 static PFN_vkVoidFunction LoadDeviceFunc(VkDevice device, const char *name) {
-    PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, name);
+	PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, name);
 	if (!funcPtr) {
 		INFO_LOG(Log::G3D, "Missing function (device): %s", name);
 	}
@@ -296,9 +296,9 @@ static PFN_vkVoidFunction LoadDeviceFunc(VkDevice device, const char *name) {
 }
 #define LOAD_DEVICE_FUNC(device, x) x = (PFN_ ## x)LoadDeviceFunc(device, #x);
 
-static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
-    PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, vulkanApiVersion >= min_core ? name : extName);
-	if (vulkanApiVersion >= min_core && !funcPtr) {
+static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, const char *extName, u32 min_core, u32 vulkanDeviceApiVersion) {
+	PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, vulkanDeviceApiVersion >= min_core ? name : extName);
+	if (vulkanDeviceApiVersion >= min_core && !funcPtr) {
 		funcPtr = vkGetDeviceProcAddr(device, extName);
 	}
 	if (!funcPtr) {
@@ -307,7 +307,7 @@ static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, 
 	return funcPtr;
 }
 #define LOAD_DEVICE_FUNC_CORE(device, x, ext_x, min_core) \
-    x = (PFN_ ## x)LoadDeviceFuncCore(device, #x, #ext_x, min_core, vulkanApiVersion);
+    x = (PFN_ ## x)LoadDeviceFuncCore(device, #x, #ext_x, min_core, vulkanDeviceApiVersion);
 
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(Log::G3D,"Missing (global): %s", #x);}
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
@@ -645,8 +645,9 @@ bool VulkanLoad(std::string *errorStr) {
 #endif
 }
 
-void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion) {
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanInstanceApiVersion) {
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	INFO_LOG(Log::G3D, "Loading Vulkan instance functions. Instance API version: %08x (%d.%d.%d)", vulkanInstanceApiVersion, VK_API_VERSION_MAJOR(vulkanInstanceApiVersion), VK_API_VERSION_MINOR(vulkanInstanceApiVersion), VK_API_VERSION_PATCH(vulkanInstanceApiVersion));
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -720,9 +721,9 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
-void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion) {
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanDeviceApiVersion) {
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
-	INFO_LOG(Log::G3D, "Loading Vulkan device functions. Vulkan API version: %08x (%d.%d)", vulkanApiVersion, VK_VERSION_MAJOR(vulkanApiVersion), VK_VERSION_MINOR(vulkanApiVersion));
+	INFO_LOG(Log::G3D, "Loading Vulkan device functions. Device API version: %08x (%d.%d.%d)", vulkanDeviceApiVersion, VK_API_VERSION_MAJOR(vulkanDeviceApiVersion), VK_API_VERSION_MINOR(vulkanDeviceApiVersion), VK_API_VERSION_PATCH(vulkanDeviceApiVersion));
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
 	LOAD_DEVICE_FUNC(device, vkQueueWaitIdle);
@@ -739,10 +740,8 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkBindImageMemory2);
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2);
-	LOAD_DEVICE_FUNC(device, vkGetDeviceBufferMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2);
-	LOAD_DEVICE_FUNC(device, vkGetDeviceImageMemoryRequirements);
 	LOAD_DEVICE_FUNC(device, vkCreateFence);
 	LOAD_DEVICE_FUNC(device, vkDestroyFence);
 	LOAD_DEVICE_FUNC(device, vkResetFences);
@@ -859,6 +858,10 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	}
 	if (enabledExtensions.KHR_create_renderpass2) {
 		LOAD_DEVICE_FUNC_CORE(device, vkCreateRenderPass2, vkCreateRenderPass2KHR, VK_API_VERSION_1_2);
+	}
+	if (enabledExtensions.KHR_maintenance4) {
+		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceBufferMemoryRequirements, vkGetDeviceBufferMemoryRequirementsKHR, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceImageMemoryRequirements, vkGetDeviceImageMemoryRequirementsKHR, VK_API_VERSION_1_3);
 	}
 #endif
 }

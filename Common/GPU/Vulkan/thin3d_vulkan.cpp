@@ -527,10 +527,8 @@ public:
 		case InfoField::VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
 		case InfoField::DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
 		case InfoField::SHADELANGVERSION: return "N/A";;
-		case InfoField::APIVERSION:
-		{
-			return FormatAPIVersion(vulkan_->GetPhysicalDeviceProperties().properties.apiVersion);
-		}
+		case InfoField::APIVERSION: return FormatAPIVersion(vulkan_->InstanceApiVersion());
+		case InfoField::DEVICE_API_VERSION: return FormatAPIVersion(vulkan_->DeviceApiVersion());
 		default: return "?";
 		}
 	}
@@ -881,6 +879,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
 
+	INFO_LOG(Log::G3D, "Determining Vulkan device caps");
+
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
@@ -979,8 +979,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
-		// if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
-		multisampleAllowed = false;  // Actually, let's disable it on them all for now. See issue #18818.
+		if (caps_.deviceID < 0x6000000) { // On sub 6xx series GPUs, disallow multisample.
+			INFO_LOG(Log::G3D, "Multisampling was disabled due to old driver version (Adreno)");
+			multisampleAllowed = false;
+		}
 
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
