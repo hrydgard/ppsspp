@@ -264,7 +264,16 @@ static VulkanLibraryHandle vulkanLibrary;
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
 
-#define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {INFO_LOG(Log::G3D, "Missing (instance): %s", #x);}
+static void *LoadInstanceFunc(VkInstance instance, const char *name) {
+	void *funcPtr = vkGetInstanceProcAddr(instance, name);
+	if (!funcPtr) {
+		INFO_LOG(Log::G3D, "Missing function (instance): %s", name);
+		return nullptr;
+	}
+	return funcPtr;
+}
+#define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)LoadInstanceFunc(instance, #x);
+
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
 	if (vulkanApiVersion >= min_core && !x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #ext_x); \
