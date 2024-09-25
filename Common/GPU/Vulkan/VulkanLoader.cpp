@@ -274,10 +274,20 @@ static void *LoadInstanceFunc(VkInstance instance, const char *name) {
 }
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)LoadInstanceFunc(instance, #x);
 
+static void *LoadInstanceFuncCore(VkInstance instance, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
+	void *funcPtr = vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? name : extName);
+	if (vulkanApiVersion >= min_core && !funcPtr) {
+		// Try the ext name.
+		funcPtr = vkGetInstanceProcAddr(instance, extName);
+	}
+	if (!funcPtr) {
+		INFO_LOG(Log::G3D, "Missing (instance): %s (%s)", name, extName);
+	}
+	return funcPtr;
+}
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
-    x = (PFN_ ## x)vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
-	if (vulkanApiVersion >= min_core && !x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #ext_x); \
-    if (!x) {INFO_LOG(Log::G3D, "Missing (instance): %s (%s)", #x, #ext_x);}
+    x = (PFN_ ## x)LoadInstanceFuncCore(instance, #x, #ext_x, min_core, vulkanApiVersion);
+
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {INFO_LOG(Log::G3D, "Missing (device): %s", #x);}
 #define LOAD_DEVICE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)vkGetDeviceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
