@@ -264,18 +264,17 @@ static VulkanLibraryHandle vulkanLibrary;
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
 
-static void *LoadInstanceFunc(VkInstance instance, const char *name) {
-	void *funcPtr = vkGetInstanceProcAddr(instance, name);
+static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name) {
+    PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
 	if (!funcPtr) {
 		INFO_LOG(Log::G3D, "Missing function (instance): %s", name);
-		return nullptr;
 	}
 	return funcPtr;
 }
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)LoadInstanceFunc(instance, #x);
 
-static void *LoadInstanceFuncCore(VkInstance instance, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
-	void *funcPtr = vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? name : extName);
+static PFN_vkVoidFunction LoadInstanceFuncCore(VkInstance instance, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
+    PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? name : extName);
 	if (vulkanApiVersion >= min_core && !funcPtr) {
 		// Try the ext name.
 		funcPtr = vkGetInstanceProcAddr(instance, extName);
@@ -288,13 +287,29 @@ static void *LoadInstanceFuncCore(VkInstance instance, const char *name, const c
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)LoadInstanceFuncCore(instance, #x, #ext_x, min_core, vulkanApiVersion);
 
-#define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {INFO_LOG(Log::G3D, "Missing (device): %s", #x);}
-#define LOAD_DEVICE_FUNC_CORE(instance, x, ext_x, min_core) \
-    x = (PFN_ ## x)vkGetDeviceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
-	if (vulkanApiVersion >= min_core && !x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #ext_x); \
-	if (!x) {INFO_LOG(Log::G3D, "Missing (device): %s (%s)", #x, #ext_x);}
-#define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(Log::G3D,"Missing (global): %s", #x);}
+static PFN_vkVoidFunction LoadDeviceFunc(VkDevice device, const char *name) {
+    PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, name);
+	if (!funcPtr) {
+		INFO_LOG(Log::G3D, "Missing function (device): %s", name);
+	}
+	return funcPtr;
+}
+#define LOAD_DEVICE_FUNC(device, x) x = (PFN_ ## x)LoadDeviceFunc(device, #x);
 
+static PFN_vkVoidFunction LoadDeviceFuncCore(VkDevice device, const char *name, const char *extName, u32 min_core, u32 vulkanApiVersion) {
+    PFN_vkVoidFunction funcPtr = vkGetDeviceProcAddr(device, vulkanApiVersion >= min_core ? name : extName);
+	if (vulkanApiVersion >= min_core && !funcPtr) {
+		funcPtr = vkGetDeviceProcAddr(device, extName);
+	}
+	if (!funcPtr) {
+		INFO_LOG(Log::G3D, "Missing (device): %s (%s)", name, extName);
+	}
+	return funcPtr;
+}
+#define LOAD_DEVICE_FUNC_CORE(device, x, ext_x, min_core) \
+    x = (PFN_ ## x)LoadDeviceFuncCore(device, #x, #ext_x, min_core, vulkanApiVersion);
+
+#define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(Log::G3D,"Missing (global): %s", #x);}
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
 static const char * const device_name_blacklist[] = {
