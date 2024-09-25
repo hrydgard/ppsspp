@@ -688,7 +688,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 // good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion) {
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
-	INFO_LOG(Log::G3D, "Vulkan device functions loaded.");
+	INFO_LOG(Log::G3D, "Loading Vulkan device functions. Vulkan API version: %08x (%d.%d)", vulkanApiVersion, VK_VERSION_MAJOR(vulkanApiVersion), VK_VERSION_MINOR(vulkanApiVersion));
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
 	LOAD_DEVICE_FUNC(device, vkQueueWaitIdle);

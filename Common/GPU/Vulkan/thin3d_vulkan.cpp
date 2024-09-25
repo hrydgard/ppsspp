@@ -1055,6 +1055,14 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
 		INFO_LOG(Log::G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
+		multisampleAllowed = false;
+	}
+
+	if (!vulkan->Extensions().KHR_create_renderpass2) {
+		WARN_LOG(Log::G3D, "KHR_create_renderpass2 not supported, disabling multisampling");
+		multisampleAllowed = false;
+	} else {
+		_dbg_assert_(vkCreateRenderPass2 != nullptr);
 	}
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
@@ -1067,7 +1075,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
 			INFO_LOG(Log::G3D, "Multisample levels mask: %d", caps_.multiSampleLevelsMask);
 		} else {
-			INFO_LOG(Log::G3D, "Not enough depth/stencil resolve modes supported, disabling multisampling.");
+			INFO_LOG(Log::G3D, "Not enough depth/stencil resolve modes supported, disabling multisampling. Color: %d Depth: %d Stencil: %d",
+				limits.framebufferColorSampleCounts, limits.framebufferDepthSampleCounts, limits.framebufferStencilSampleCounts);
 			caps_.multiSampleLevelsMask = 1;
 		}
 	} else {
