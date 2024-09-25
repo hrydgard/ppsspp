@@ -971,7 +971,6 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
-
 	int i = decodeVertsCounter_;
 	int stride = (int)dec_->GetDecVtxFmt().stride;
 	for (; i < numDrawVerts_; i++) {
@@ -981,6 +980,12 @@ void DrawEngineCommon::DecodeVerts(u8 *dest) {
 		drawVertexOffsets_[i] = numDecodedVerts_ - indexLowerBound;
 
 		int indexUpperBound = dv.indexUpperBound;
+
+		if (indexUpperBound + 1 - indexLowerBound + numDecodedVerts_ >= VERTEX_BUFFER_MAX) {
+			// Hit our limit! Stop decoding in this draw.
+			break;
+		}
+
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
 		dec_->DecodeVerts(dest + numDecodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
 		numDecodedVerts_ += indexUpperBound - indexLowerBound + 1;
