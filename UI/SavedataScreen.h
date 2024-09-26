@@ -152,7 +152,7 @@ public:
 	SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType type, bool showIcon, UI::LayoutParams *layoutParams = nullptr);
 	SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileType type, std::string_view title, std::string_view savedataTitle, std::string_view savedataDetail, std::string_view fileSize, std::string_view mtime, bool showIcon, UI::LayoutParams *layoutParams = nullptr);
 
-	void Update(GameInfo *ginfo);
+	void UpdateGame(GameInfo *ginfo);
 private:
 	UI::TextView *savedataTitle_ = nullptr;
 	UI::TextView *detail_ = nullptr;

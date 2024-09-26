@@ -528,7 +528,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, text_, *value_ , [=](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [=](const std::string &enteredValue, int) {
 			*value_ = StripSpaces(enteredValue);
 			EventParams params{};
 			OnChange.Trigger(params);
@@ -537,6 +537,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	}
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
+	popupScreen->SetPasswordMasking(passwordMasking_);
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}
@@ -570,6 +571,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_ = new TextEdit(textEditValue_, Title(), placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
 	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
+	edit_->SetPasswordMasking(passwordMasking_);
 	lin->Add(edit_);
 
 	UI::SetFocusedView(edit_);
@@ -628,7 +630,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 	std::string valueText = ValueText();
 
-	if (passwordDisplay_) {
+	if (passwordMasking_) {
 		// Replace all characters with stars.
 		memset(&valueText[0], '*', valueText.size());
 	}

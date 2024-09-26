@@ -344,7 +344,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
 		if (!currentTitle.empty()) {
-			title_ = ReplaceAll(title_, "\n", " ");
+			title_ = ReplaceAll(currentTitle, "\n", " ");
 		}
 
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
@@ -798,7 +798,7 @@ void GameBrowser::Refresh() {
 			if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 				topBar->Add(new Choice(mm->T("Enter Path"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([=](UI::EventParams &) {
 					auto mm = GetI18NCategory(I18NCat::MAINMENU);
-					System_InputBoxGetString(token_, mm->T("Enter Path"), path_.GetPath().ToString(), [=](const char *responseString, int responseValue) {
+					System_InputBoxGetString(token_, mm->T("Enter Path"), path_.GetPath().ToString(), false, [=](const char *responseString, int responseValue) {
 						this->SetPath(Path(responseString));
 					});
 					return UI::EVENT_DONE;
@@ -1358,7 +1358,7 @@ bool MainScreen::key(const KeyInput &touch) {
 			searchKeyModifier_ = true;
 		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
-			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, [&](const std::string &value, int) {
+			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [&](const std::string &value, int) {
 				searchFilter_ = StripSpaces(value);
 				searchChanged_ = true;
 			});

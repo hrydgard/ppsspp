@@ -540,7 +540,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		std::thread([=] {
 			std::string out;
-			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
+			InputBoxFlags flags{};
+			if (param3) {
+				flags |= InputBoxFlags::PasswordMasking;
+			}
+			if (!param2.empty()) {
+				flags |= InputBoxFlags::Selected;
+			}
+			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out, flags)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);

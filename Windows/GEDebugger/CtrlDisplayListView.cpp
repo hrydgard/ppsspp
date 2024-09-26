@@ -397,7 +397,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_GEDBG_GOTOADDR:
 			{
 				std::string expression = StringFromFormat("%08x", curAddress);
-				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, true)) {
+				if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Address", expression, expression, InputBoxFlags::Selected)) {
 					break;
 				}
 				uint32_t newAddress = curAddress;

@@ -348,6 +348,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	u16 minIndex = 0;
 	u16 maxIndex = count - 1;
 	if (!indices.empty()) {
+		_dbg_assert_(count <= indices.size());
 		minIndex = 0xFFFF;
 		maxIndex = 0;
 		for (int i = 0; i < count; ++i) {

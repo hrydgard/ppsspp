@@ -1962,7 +1962,7 @@ bool System_AudioRecordingState() { return false; }
 #endif
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
-bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) { return false; }
-std::string NativeLoadSecret(const char *nameOfSecret) {
+bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }
+std::string NativeLoadSecret(std::string_view nameOfSecret) {
    return "";
 }

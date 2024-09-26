@@ -108,8 +108,9 @@ void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples) {}
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
-bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) { return false; }
-std::string NativeLoadSecret(const char *nameOfSecret) {
+// To clear the secret entirely, just save an empty string.
+bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }
+std::string NativeLoadSecret(std::string_view nameOfSecret) {
 	return "";
 }
 

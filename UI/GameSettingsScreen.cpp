@@ -1648,7 +1648,7 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, false, [](const std::string &value, int) {
 		g_Config.sQuickChat0 = value;
 	});
 #endif
@@ -1658,7 +1658,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, false, [](const std::string &value, int) {
 		g_Config.sQuickChat1 = value;
 	});
 #endif
@@ -1668,7 +1668,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, false, [](const std::string &value, int) {
 		g_Config.sQuickChat2 = value;
 	});
 #endif
@@ -1678,7 +1678,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, false, [](const std::string &value, int) {
 		g_Config.sQuickChat3 = value;
 	});
 #endif
@@ -1688,7 +1688,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, false, [](const std::string &value, int) {
 		g_Config.sQuickChat4 = value;
 	});
 #endif
@@ -1698,7 +1698,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter a new PSP nickname"), g_Config.sNickName, false, [](const std::string &value, int) {
 		g_Config.sNickName = StripSpaces(value);
 	});
 #endif
@@ -2325,7 +2325,7 @@ UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 
 UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(GetRequesterToken(), n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("proAdhocServer Address:"), addrView_->GetText(), false, [this](const std::string& value, int) {
 		addrView_->SetText(value);
 	});
 	return UI::EVENT_DONE;

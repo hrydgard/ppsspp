@@ -234,7 +234,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_QuitRequested = true;
 		return true;
 #if PPSSPP_PLATFORM(SWITCH)
-	case SystemRequestType::INPUT_TEXT_MODAL: {
+	case SystemRequestType::INPUT_TEXT_MODAL:
+	{
 		// swkbd only works on "real" titles
 		if (__nx_applet_type != AppletType_Application && __nx_applet_type != AppletType_SystemApplication) {
 			g_requestManager.PostSystemFailure(requestId);
