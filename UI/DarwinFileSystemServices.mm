@@ -140,10 +140,10 @@ Path DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse() {
     if (userPreferred)
         return Path(userPreferred.UTF8String);
     
-    return __defaultMemoryStickPath();
+    return defaultMemoryStickPath();
 }
 
-Path DarwinFileSystemServices::__defaultMemoryStickPath() {
+Path DarwinFileSystemServices::defaultMemoryStickPath() {
 #if PPSSPP_PLATFORM(IOS)
     NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)
                                objectAtIndex:0];
