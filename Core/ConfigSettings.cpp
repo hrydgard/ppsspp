@@ -11,8 +11,8 @@ std::unordered_map<void*, ConfigSetting*>& ConfigSetting::getPtrLUT() {
 	return lut;
 }
 
-bool ConfigSetting::perGame(void* ptr) {
-	return g_Config.bGameSpecific && ConfigSetting::getPtrLUT().count(ptr) > 0 && ConfigSetting::getPtrLUT()[ptr]->PerGame();
+bool ConfigSetting::perGame(void *ptr) {
+	return g_Config.bGameSpecific && getPtrLUT().count(ptr) > 0 && getPtrLUT()[ptr]->PerGame();
 }
 
 bool ConfigSetting::Get(const Section *section) const {

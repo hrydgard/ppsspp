@@ -227,7 +227,8 @@ struct ConfigSetting {
 
 	const Type type_;
 
-	static bool perGame(void* ptr);
+	// Returns false if per-game settings are not currently used
+	static bool perGame(void *ptr);
 
 private:
 	CfgFlag flags_;
