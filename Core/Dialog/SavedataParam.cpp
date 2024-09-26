@@ -459,7 +459,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}
 	}
 
-	u8* cryptedData = 0;
+	u8 *cryptedData = 0;
 	int cryptedSize = 0;
 	u8 cryptedHash[0x10]{};
 	// Encrypt save.
@@ -487,6 +487,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		bool hasKey = decryptMode > 1;
 		if (hasKey && !HasKey(param)) {
 			delete[] cryptedData;
+			ERROR_LOG(Log::sceUtility, "Inconsistent hasKey");
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
 
@@ -596,7 +597,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 				delete[] cryptedData;
 				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 			}
-		}	
+		}
 		delete[] cryptedData;
 	}
 
@@ -629,8 +630,11 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveDirName, int saveId, bool secureMode) {
 	if (!param) {
+		ERROR_LOG(Log::sceUtility, "Param missing");
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
+
+	INFO_LOG(Log::sceUtility, "Load: %s", saveDirName.c_str());
 
 	bool isRWMode = param->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATA || param->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE;
 
@@ -639,10 +643,12 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	std::string filePath = dirPath + "/" + fileName;
 
 	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		WARN_LOG(Log::sceUtility, "Load: Dir not found: %s", dirPath.c_str());
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA : SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
 	if (!fileName.empty() && !pspFileSystem.GetFileInfo(filePath).exists) {
+		WARN_LOG(Log::sceUtility, "Load: File not found: %s", filePath.c_str());
 		return isRWMode ? SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND : SCE_UTILITY_SAVEDATA_ERROR_LOAD_FILE_NOT_FOUND;
 	}
 
@@ -650,8 +656,10 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 	// This isn't reset if the path doesn't even exist.
 	param->dataSize = 0;
 	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
-	if (result != 0)
+	if (result != 0) {
+		WARN_LOG(Log::sceUtility, "LoadSaveData failed: %s", dirPath.c_str());
 		return result;
+	}
 
 	// Load sfo
 	if (!LoadSFO(param, dirPath)) {
@@ -691,8 +699,10 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
 	// Blank filename always means success, if secureVersion was correct.
-	if (filename.empty())
+	if (filename.empty()) {
+		INFO_LOG(Log::sceUtility, "'Loading' blank filename, returning success.");
 		return 0;
+	}
 
 	s64 readSize;
 	INFO_LOG(Log::sceUtility, "Loading file with size %u in %s", param->dataBufSize, filePath.c_str());
@@ -1553,7 +1563,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		if (saveDataListCount > 0 && WouldHaveMultiSaveName(param)) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
-			
+
 			// get and stock file info for each file
 			int realCount = 0;
 			for (int i = 0; i < saveDataListCount; i++) {
@@ -1565,7 +1575,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					for (auto it = allSaves.begin(); it != allSaves.end(); ++it) {
 						if (it->name.compare(0, gameName.length(), gameName) == 0) {
 							std::string saveName = it->name.substr(gameName.length());
-							
+
 							if (IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
 
@@ -1592,7 +1602,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				PSPFileInfo info = GetSaveInfo(fileDataDir);
 				if (info.exists) {
 					SetFileInfo(realCount, info, thisSaveName);
-					INFO_LOG(Log::sceUtility, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
+					INFO_LOG(Log::sceUtility, "Save data folder exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
 					realCount++;
 				} else {
 					if (listEmptyFile) {
@@ -1607,7 +1617,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveNameListDataCount = realCount;
 		}
 	}
-	// Load info on only save 
+
+	// Load info on only save
 	if (!hasMultipleFileName) {
 		saveNameListData = 0;
 
@@ -1620,7 +1631,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = GetSaveInfo(fileDataDir);
 		if (info.exists) {
 			SetFileInfo(0, info, GetSaveName(param));
-			INFO_LOG(Log::sceUtility, "Save data exists: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
+			INFO_LOG(Log::sceUtility, "Save data folder exists: %s = %s", GetSaveName(param).c_str(), fileDataDir.c_str());
 			saveNameListDataCount = 1;
 		} else {
 			if (listEmptyFile) {

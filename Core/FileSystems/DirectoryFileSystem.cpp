@@ -1039,8 +1039,8 @@ void VFSFileSystem::CloseFile(u32 handle) {
 		delete [] iter->second.fileData;
 		entries.erase(iter);
 	} else {
-		//This shouldn't happen...
-		ERROR_LOG(Log::FileSystem,"Cannot close file that hasn't been opened: %08x", handle);
+		// This shouldn't happen...
+		ERROR_LOG(Log::FileSystem, "Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 

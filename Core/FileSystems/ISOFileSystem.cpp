@@ -300,7 +300,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 				}
 			}
 		}
-		
+
 		if (nextEntry) {
 			entry = nextEntry;
 			if (!entry->valid)
@@ -479,10 +479,10 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 		OpenFileEntry &e = iter->second;
 
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "lba");
 			return 0;
 		}
-		
+
 		if (e.isBlockSectorMode) {
 			// Whole sectors! Shortcut to this simple code.
 			blockDevice->ReadBlocks(e.seekPos, (int)size, pointer);
@@ -520,7 +520,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			if (newSize == 0) {
 				INFO_LOG(Log::FileSystem, "Attempted read at end of file, 0-size read simulated");
 			} else {
-				INFO_LOG(Log::FileSystem, "Reading beyond end of file from seekPos %d, clamping size %lld to %lld", e.seekPos, size, newSize);
+				WARN_LOG(Log::FileSystem, "Reading beyond end of file (%s) from seekPos %d, clamping size %lld to %lld", e.file ? e.file->name.c_str() : "lba", e.seekPos, size, newSize);
 			}
 			size = newSize;
 		}
@@ -625,7 +625,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 	}
 
 	TreeEntry *entry = GetFromPath(filename, false);
-	PSPFileInfo x; 
+	PSPFileInfo x;
 	if (entry) {
 		x.name = entry->name;
 		// Strangely, it seems to be executable even for files.

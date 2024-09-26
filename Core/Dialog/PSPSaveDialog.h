@@ -69,7 +69,7 @@
 #define SCE_UTILITY_SAVEDATA_ERROR_SIZES_WRONG_UMD      (0x801103Ca)
 #define SCE_UTILITY_SAVEDATA_ERROR_SIZES_INTERNAL       (0x801103Cb)
 
-class PSPSaveDialog: public PSPDialog {
+class PSPSaveDialog : public PSPDialog {
 public:
 	PSPSaveDialog(UtilityDialogType type);
 	~PSPSaveDialog();
@@ -88,7 +88,6 @@ protected:
 	}
 
 private:
-
 	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon(bool checkExists);
@@ -158,4 +157,3 @@ private:
 	std::mutex paramLock;
 	volatile SaveIOStatus ioThreadStatus;
 };
-
