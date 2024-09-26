@@ -97,7 +97,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(IOS)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(token_, n->T("Chat"), "", [](const std::string &value, int) {
+	System_InputBoxGetString(token_, n->T("Chat"), "", false, [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif

@@ -1120,7 +1120,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("copy_to_clipboard", param1);
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
-	case SystemRequestType::INPUT_PASSWORD_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
 		PushCommand("inputbox", serialized.c_str());

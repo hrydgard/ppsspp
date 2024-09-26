@@ -825,14 +825,14 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 	void SetPasswordDisplay() {
-		passwordDisplay_ = true;
+		passwordMasking_ = true;
 	}
 protected:
 	virtual std::string ValueText() const = 0;
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
-	bool passwordDisplay_ = false;
+	bool passwordMasking_ = false;
 };
 
 class ChoiceWithCallbackValueDisplay : public AbstractChoiceWithValueDisplay {
@@ -1026,6 +1026,9 @@ public:
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
 	void SetTextAlign(int align) { align_ = align; }  // Only really useful for setting FLAG_DYNAMIC_ASCII
+	void SetPasswordMasking(bool masking) {
+		passwordMasking_ = masking;
+	}
 
 	void FocusChanged(int focusFlags) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -1050,6 +1053,7 @@ private:
 	int scrollPos_ = 0;
 	size_t maxLen_;
 	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
+	bool passwordMasking_ = false;
 	int align_ = 0;
 	// TODO: Selections
 };

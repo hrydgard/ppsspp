@@ -1546,7 +1546,7 @@ bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) {
 	if (data.empty() && File::Exists(path)) {
 		return File::Delete(path);
 	} else if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
-		WARN_LOG(Log::System, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
+		WARN_LOG(Log::System, "Failed to write secret '%.*s' to path '%s'", (int)nameOfSecret.size(), nameOfSecret.data(), path.c_str());
 		return false;
 	}
 	return true;
