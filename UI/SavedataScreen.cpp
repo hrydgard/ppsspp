@@ -92,7 +92,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	}
 }
 
-void SavedataView::Update(GameInfo *ginfo) {
+void SavedataView::UpdateGame(GameInfo *ginfo) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE)) {
 		return;
 	}
@@ -123,7 +123,7 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 		showIcon,
 		layoutParams) {
 	if (ginfo) {
-		Update(ginfo);
+		UpdateGame(ginfo);
 	}
 }
 
@@ -140,7 +140,7 @@ public:
 			return;
 		}
 		if (savedataView_) {
-			savedataView_->Update(ginfo.get());
+			savedataView_->UpdateGame(ginfo.get());
 		}
 	}
 
