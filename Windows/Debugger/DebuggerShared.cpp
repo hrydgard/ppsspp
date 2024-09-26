@@ -18,7 +18,7 @@ void displayExpressionError(HWND hwnd)
 bool executeExpressionWindow(HWND hwnd, DebugInterface* cpu, u32& dest)
 {
 	std::string expression;
-	if (InputBox_GetString(GetModuleHandle(NULL), hwnd, L"Expression", "",expression) == false)
+	if (InputBox_GetString(GetModuleHandle(NULL), hwnd, L"Expression", "", expression) == false)
 	{
 		return false;
 	}

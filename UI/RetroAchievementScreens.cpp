@@ -296,7 +296,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 				Achievements::Logout();
 				return UI::EVENT_DONE;
 			});
-		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
+		} else if (false && System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
 				System_AskUsernamePassword(GetRequesterToken(), title, [](const std::string &value, int) {

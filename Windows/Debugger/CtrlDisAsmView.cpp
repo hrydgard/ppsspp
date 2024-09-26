@@ -280,21 +280,22 @@ std::string trimString(std::string input)
 void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
 	auto memLock = Memory::Lock();
-	if (Core_IsStepping() == false) {
+	if (!Core_IsStepping()) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
 	}
 	std::string op;
-	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,L"Assemble opcode",defaultText, op, false);
-	if (!result)
+	bool result = InputBox_GetString(MainWindow::GetHInstance(), wnd, L"Assemble opcode", defaultText, op, InputBoxFlags::Default);
+	if (!result) {
 		return;
+	}
 
 	// check if it changes registers first
-	auto seperator = op.find('=');
-	if (seperator != std::string::npos)
+	auto separator = op.find('=');
+	if (separator != std::string::npos)
 	{
-		std::string registerName = trimString(op.substr(0,seperator));
-		std::string expression = trimString(op.substr(seperator+1));
+		std::string registerName = trimString(op.substr(0,separator));
+		std::string expression = trimString(op.substr(separator+1));
 
 		u32 value;
 		if (parseExpression(expression.c_str(),debugger,value) == true)
