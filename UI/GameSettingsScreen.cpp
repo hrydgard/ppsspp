@@ -57,6 +57,7 @@
 #include "UI/MemStickScreen.h"
 #include "UI/Theme.h"
 #include "UI/RetroAchievementScreens.h"
+#include "UI/OnScreenDisplay.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -120,6 +121,17 @@ static bool SupportsCustomDriver() {
 #endif
 }
 
+#endif
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+static void SetMemStickDirDarwin(int requesterToken) {
+	auto initialPath = g_Config.memStickDirectory;
+	INFO_LOG(Log::System, "Current path: %s", initialPath.c_str());
+	System_BrowseForFolder(requesterToken, "", initialPath, [](const std::string &value, int) {
+		INFO_LOG(Log::System, "Selected path: %s", value.c_str());
+		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
+	});
+}
 #endif
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
@@ -1113,7 +1125,20 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	}
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+	bool showItHere = true;
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	if (g_Config.memStickDirectory == DarwinFileSystemServices::defaultMemoryStickPath()) {
+		// We still keep a way to access it on the developer tools screen.
+		showItHere = false;
+	}
+#endif
+	if (showItHere) {
+		systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
+			[=](UI::EventParams &) {
+				SetMemStickDirDarwin(GetRequesterToken());
+				return UI::EVENT_DONE;
+			});	
+	}
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1121,7 +1146,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
 		memstickPath->SetEnabled(!PSP_IsInited());
-		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
 
 		// Display USB path for convenience.
 		std::string usbPath;
@@ -1138,7 +1163,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
 	memstickPath->SetEnabled(!PSP_IsInited());
-	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
 #else
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
@@ -1347,15 +1372,8 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	auto initialPath = g_Config.memStickDirectory;
-	System_BrowseForFolder(GetRequesterToken(), "", initialPath, [](const std::string &value, int) {
-		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
-	});
-#else
+UI::EventReturn GameSettingsScreen::OnShowMemstickScreen(UI::EventParams &e) {
 	screenManager()->push(new MemStickScreen(false));
-#endif
 	return UI::EVENT_DONE;
 }
 
@@ -1763,6 +1781,7 @@ void DeveloperToolsScreen::CreateViews() {
 	auto a = GetI18NCategory(I18NCat::AUDIO);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
 	AddStandardBack(root_);
 
@@ -1880,6 +1899,15 @@ void DeveloperToolsScreen::CreateViews() {
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
 		return UI::EVENT_DONE;
 	});
+#endif
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""));
+	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
+		[=](UI::EventParams &) {
+			SetMemStickDirDarwin(GetRequesterToken());
+			return UI::EVENT_DONE;
+		});
 #endif
 
 	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };

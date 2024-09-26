@@ -28,10 +28,10 @@ public:
 
 	static Path appropriateMemoryStickDirectoryToUse();
 	static void setUserPreferredMemoryStickDirectory(Path);
+	static Path defaultMemoryStickPath();
 
 	static void ClearDelegate();
 private:
-	static Path __defaultMemoryStickPath();
 #if PPSSPP_PLATFORM(IOS)
 	// iOS only, needed for UIDocumentPickerViewController
 	static void *__pickerDelegate;

@@ -103,7 +103,7 @@ private:
 	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
-	UI::EventReturn OnChangeMemStickDir(UI::EventParams &e);
+	UI::EventReturn OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
 	UI::EventReturn OnSavePathOther(UI::EventParams &e);
