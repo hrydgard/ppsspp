@@ -344,7 +344,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 		const std::string currentTitle = ginfo->GetTitle();
 		if (!currentTitle.empty()) {
-			title_ = ReplaceAll(title_, "\n", " ");
+			title_ = ReplaceAll(currentTitle, "\n", " ");
 		}
 
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
