@@ -731,7 +731,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	auto initTouchPos = [=](ConfigTouchPos &touch, float x, float y) {
 		if (touch.x == -1.0f || touch.y == -1.0f) {
 			touch.x = x / xres;
-			touch.y = y / yres;
+			touch.y = std::max(y, 20.0f * globalScale) / yres;
 			touch.scale = scale;
 		}
 	};
