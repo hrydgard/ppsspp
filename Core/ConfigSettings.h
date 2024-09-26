@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-
+#include <unordered_map>
 #include "Core/ConfigValues.h"
 
 class Path;
@@ -79,6 +79,7 @@ struct ConfigSetting {
 		ptr_.b = v;
 		cb_.b = nullptr;
 		default_.b = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -86,6 +87,7 @@ struct ConfigSetting {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, std::string(*transTo)(int), int (*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
@@ -93,6 +95,7 @@ struct ConfigSetting {
 		ptr_.i = v;
 		cb_.i = nullptr;
 		default_.i = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -100,6 +103,7 @@ struct ConfigSetting {
 		ptr_.u = v;
 		cb_.u = nullptr;
 		default_.u = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, uint64_t *v, uint64_t def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -107,6 +111,7 @@ struct ConfigSetting {
 		ptr_.lu = v;
 		cb_.lu = nullptr;
 		default_.lu = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, float *v, float def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -114,6 +119,7 @@ struct ConfigSetting {
 		ptr_.f = v;
 		cb_.f = nullptr;
 		default_.f = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -121,13 +127,15 @@ struct ConfigSetting {
 		ptr_.s = v;
 		cb_.s = nullptr;
 		default_.s = def;
+		getPtrLUT()[v] = this;
 	}
 
-	ConfigSetting(const char *ini, Path *p, const char *def, CfgFlag flags = CfgFlag::DEFAULT)
+	ConfigSetting(const char *ini, Path *v, const char *def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_PATH), flags_(flags) {
-		ptr_.p = p;
+		ptr_.p = v;
 		cb_.p = nullptr;
 		default_.p = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -135,6 +143,7 @@ struct ConfigSetting {
 		ptr_.touchPos = v;
 		cb_.touchPos = nullptr;
 		default_.touchPos = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *iniKey, const char *iniImage, const char *iniShape, const char *iniToggle, const char *iniRepeat, ConfigCustomButton *v, ConfigCustomButton def, CfgFlag flags = CfgFlag::DEFAULT)
@@ -142,48 +151,56 @@ struct ConfigSetting {
 		ptr_.customButton = v;
 		cb_.customButton = nullptr;
 		default_.customButton = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_BOOL), flags_(flags) {
 		ptr_.b = v;
 		cb_.b = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_INT), flags_(flags) {
 		ptr_.i = v;
 		cb_.i = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::string(*transTo)(int), int(*transFrom)(const std::string &), CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_INT), flags_(flags), translateTo_(transTo), translateFrom_(transFrom) {
 		ptr_.i = v;
 		cb_.i = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_UINT32), flags_(flags) {
 		ptr_.u = v;
 		cb_.u = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_FLOAT), flags_(flags) {
 		ptr_.f = v;
 		cb_.f = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, StringDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(ini), type_(TYPE_STRING), flags_(flags) {
 		ptr_.s = v;
 		cb_.s = def;
+		getPtrLUT()[v] = this;
 	}
 
 	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, CfgFlag flags = CfgFlag::DEFAULT)
 		: iniKey_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), flags_(flags) {
 		ptr_.touchPos = v;
 		cb_.touchPos = def;
+		getPtrLUT()[v] = this;
 	}
 
 	// Should actually be called ReadFromIni or something.
@@ -210,6 +227,9 @@ struct ConfigSetting {
 
 	const Type type_;
 
+	// Returns false if per-game settings are not currently used
+	static bool perGame(void *ptr);
+
 private:
 	CfgFlag flags_;
 	SettingPtr ptr_;
@@ -219,6 +239,8 @@ private:
 	// We only support transform for ints.
 	std::string (*translateTo_)(int) = nullptr;
 	int (*translateFrom_)(const std::string &) = nullptr;
+
+	static std::unordered_map<void*, ConfigSetting*>& getPtrLUT();
 };
 
 struct ConfigSectionSettings {
