@@ -1782,6 +1782,7 @@ void DeveloperToolsScreen::CreateViews() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	AddStandardBack(root_);
 
@@ -1916,7 +1917,7 @@ void DeveloperToolsScreen::CreateViews() {
 	ffMode->HideChoice(1);  // not used
 
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
-	displayRefreshRate->SetFormat(dev->T("%d Hz"));
+	displayRefreshRate->SetFormat(si->T("%d Hz"));
 
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
 	list->Add(new ItemHeader(dev->T("MIPSTracer")));
@@ -1990,7 +1991,7 @@ void DeveloperToolsScreen::CreateViews() {
 	// Experimental, allow some VR features without OpenXR
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		auto vr = GetI18NCategory(I18NCat::VR);
-		list->Add(new ItemHeader(gr->T("Virtual reality")));
+		list->Add(new ItemHeader(vr->T("Virtual reality")));
 		list->Add(new CheckBox(&g_Config.bForceVR, vr->T("VR camera")));
 	}
 
