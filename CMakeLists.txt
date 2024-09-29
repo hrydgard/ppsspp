@@ -988,7 +988,8 @@ if(USE_FFMPEG)
 	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
 	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
 	# Check if we need to use const AVCodec
-	set(CMAKE_REQUIRED_LIBRARIES avcodec;avformat)
+	set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec} ${FFmpeg_INCLUDE_avformat})
+	set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
 	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
 	check_cxx_source_compiles("extern \"C\" {
 		#include <libavcodec/avcodec.h>
@@ -2449,7 +2450,7 @@ if(FFmpeg_FOUND)
 		target_compile_definitions(${CoreLibName} PRIVATE HAVE_LIBAVCODEC_CONST_AVCODEC=1)
 	endif()
 	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
-	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec})
+	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec} ${FFmpeg_INCLUDE_avformat})
 	target_link_libraries(${CoreLibName}
 		FFmpeg::avcodec
 		FFmpeg::avformat
