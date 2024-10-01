@@ -16,6 +16,11 @@ To see command line usage, type:
 cargo run -- --help
 ```
 
+Most common usage, to add a key:
+
+cargo run -- add-new-key Graphics "Skip half"
+
+
 To autoformat the code, use:
 
 ```bash
