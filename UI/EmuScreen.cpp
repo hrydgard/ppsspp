@@ -1464,8 +1464,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				if (!framebufferBound && PSP_IsInited()) {
 					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
 					gpu->CopyDisplayToOutput(true);
+					framebufferBound = true;
 				}
-				framebufferBound = true;
 			}
 			break;
 		}
