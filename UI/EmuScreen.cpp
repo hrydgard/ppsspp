@@ -468,6 +468,11 @@ EmuScreen::~EmuScreen() {
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (std::string_view(dialog->tag()) == "TextEditPopup") {
+		// Chat message finished.
+		return;
+	}
+
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
@@ -1055,7 +1060,7 @@ void EmuScreen::CreateViews() {
 			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 			chatButton_ = btn;
 		}
-		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
+		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), screenManager(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
 		chatButton_ = nullptr;
