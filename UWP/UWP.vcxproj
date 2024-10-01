@@ -421,7 +421,7 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="..\Assets\themes\defaultthemes.ini">
+    <None Include="..\Assets\themes\*.ini">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\themes\%(Filename)%(Extension)</Link>
     </None>
