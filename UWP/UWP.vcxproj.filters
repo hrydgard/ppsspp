@@ -214,7 +214,7 @@
     <None Include="..\Assets\*.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\Assets\themes\defaultthemes.ini">
+    <None Include="..\Assets\themes\*.ini">
       <Filter>Content\themes</Filter>
     </None>
     <None Include="..\Assets\*.wav">
