@@ -380,9 +380,9 @@ void GamePauseScreen::CreateViews() {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, notAvailable, ""));
 	}
 
-	ViewGroup *middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
+	LinearLayout *middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
 	root_->Add(middleColumn);
-
+	middleColumn->SetSpacing(0.0f);
 	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
@@ -404,7 +404,7 @@ void GamePauseScreen::CreateViews() {
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	rightColumnItems->Add(new Spacer(25.0));
+	rightColumnItems->Add(new Spacer(20.0));
 
 	std::string gameId = g_paramSFO.GetDiscID();
 	if (g_Config.hasGameConfig(gameId)) {
@@ -438,7 +438,7 @@ void GamePauseScreen::CreateViews() {
 		auto rp = GetI18NCategory(I18NCat::REPORTING);
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
-	rightColumnItems->Add(new Spacer(25.0));
+	rightColumnItems->Add(new Spacer(20.0));
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
@@ -453,7 +453,7 @@ void GamePauseScreen::CreateViews() {
 			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
 			return UI::EVENT_DONE;
 		});
-
+		middleColumn->Add(new Spacer(20.0));
 		Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
 		infoButton->OnClick.Add([=](UI::EventParams &e) {
 			screenManager()->push(new GameScreen(gamePath_, true));
