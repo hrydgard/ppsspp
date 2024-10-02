@@ -34,9 +34,7 @@ private:
 	UI::EventReturn OnQuickChat4(UI::EventParams &e);
 	UI::EventReturn OnQuickChat5(UI::EventParams &e);
 
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	UI::TextEdit *chatEdit_ = nullptr;
-#endif
 	UI::ScrollView *scroll_ = nullptr;
 	UI::LinearLayout *chatVert_ = nullptr;
 	UI::ViewGroup *box_ = nullptr;
