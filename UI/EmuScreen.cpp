@@ -589,19 +589,19 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			if (!chatButton_)
 				RecreateViews();
 
-#if defined(USING_WIN_UI)
-			// temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
-			if (g_Config.bBypassOSKWithKeyboard) {
-				// TODO: Make translatable.
-				g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use ctrl + c hotkey", 2.0f);
+			if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+				// temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+				if (g_Config.bBypassOSKWithKeyboard) {
+					// TODO: Make translatable.
+					g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use ctrl + c hotkey", 2.0f);
+				} else {
+					UI::EventParams e{};
+					OnChatMenu.Trigger(e);
+				}
 			} else {
 				UI::EventParams e{};
 				OnChatMenu.Trigger(e);
 			}
-#else
-			UI::EventParams e{};
-			OnChatMenu.Trigger(e);
-#endif
 		}
 	} else if (message == UIMessage::APP_RESUMED && screenManager()->topScreen() == this) {
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
@@ -935,7 +935,6 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	if (UI::IsFocusMovementEnabled()) {
 		return UIScreen::UnsyncKey(key);
 	}
-
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 

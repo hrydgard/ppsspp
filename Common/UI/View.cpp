@@ -1329,7 +1329,7 @@ bool TextEdit::Key(const KeyInput &input) {
 
 	// Process chars.
 	if (input.flags & KEY_CHAR) {
-		int unichar = input.keyCode;
+		const int unichar = input.keyCode;
 		if (unichar >= 0x20 && !ctrlDown_) {  // Ignore control characters.
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
