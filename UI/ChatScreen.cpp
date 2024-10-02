@@ -15,6 +15,7 @@
 #include "Core/System.h"
 #include "Core/HLE/proAdhoc.h"
 #include "UI/ChatScreen.h"
+#include "UI/PopupScreens.h"
 
 void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -22,14 +23,20 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
-	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
-	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
-	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
-#endif
+	chatButton_ = nullptr;
+	chatEdit_ = nullptr;
+	chatVert_ = nullptr;
+
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		// We have direct keyboard input.
+		chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
+		chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmitMessage);
+	} else {
+		// If we have a native input box, like on Android, or at least we can do a popup text input with our UI...
+		chatButton_ = bottom->Add(new Button(n->T("Chat message"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		chatButton_->OnClick.Handle(this, &ChatMenu::OnAskForChatMessage);
+	}
 
 	if (g_Config.bEnableQuickChat) {
 		LinearLayout *quickChat = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -89,18 +96,37 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	UpdateChat();
 }
 
-UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || (defined(SDL) && !PPSSPP_PLATFORM(SWITCH))
+UI::EventReturn ChatMenu::OnSubmitMessage(UI::EventParams &e) {
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(IOS)
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(token_, n->T("Chat"), "", false, [](const std::string &value, int) {
-		sendChat(value);
-	});
-#endif
+
+	using namespace UI;
+
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(token_, n->T("Chat"), "", false, [](const std::string &value, int) {
+			sendChat(value);
+		});
+	} else {
+		// We need to pop up a UI inputbox.
+		messageTemp_.clear();
+		TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&messageTemp_, "", n->T("Chat message"), 256);
+		if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
+			popupScreen->SetAlignTop(true);
+		}
+		popupScreen->OnChange.Add([=](UI::EventParams &e) {
+			sendChat(messageTemp_);
+			return UI::EVENT_DONE;
+		});
+		popupScreen->SetPopupOrigin(chatButton_);
+		screenManager_->push(popupScreen);
+	}
 	return UI::EVENT_DONE;
 }
 

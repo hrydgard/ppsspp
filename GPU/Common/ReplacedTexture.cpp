@@ -199,6 +199,8 @@ inline uint32_t RoundUpTo4(uint32_t value) {
 }
 
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
+	_assert_(vfs != nullptr);
+
 	this->vfs_ = vfs;
 
 	std::unique_lock<std::mutex> lock(lock_);
@@ -293,6 +295,11 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	if (data_.size() <= mipLevel) {
 		data_.resize(mipLevel + 1);
+	}
+
+	if (!vfs_) {
+		ERROR_LOG(Log::G3D, "Unexpected null vfs_ pointer in LoadLevelData");
+		return LoadLevelResult::LOAD_ERROR;
 	}
 
 	ReplacedTextureLevel level;

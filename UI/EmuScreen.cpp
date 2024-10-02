@@ -468,6 +468,11 @@ EmuScreen::~EmuScreen() {
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (std::string_view(dialog->tag()) == "TextEditPopup") {
+		// Chat message finished.
+		return;
+	}
+
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
@@ -584,19 +589,19 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			if (!chatButton_)
 				RecreateViews();
 
-#if defined(USING_WIN_UI)
-			// temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
-			if (g_Config.bBypassOSKWithKeyboard) {
-				// TODO: Make translatable.
-				g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use ctrl + c hotkey", 2.0f);
+			if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+				// temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+				if (g_Config.bBypassOSKWithKeyboard) {
+					// TODO: Make translatable.
+					g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use ctrl + c hotkey", 2.0f);
+				} else {
+					UI::EventParams e{};
+					OnChatMenu.Trigger(e);
+				}
 			} else {
 				UI::EventParams e{};
 				OnChatMenu.Trigger(e);
 			}
-#else
-			UI::EventParams e{};
-			OnChatMenu.Trigger(e);
-#endif
 		}
 	} else if (message == UIMessage::APP_RESUMED && screenManager()->topScreen() == this) {
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
@@ -930,7 +935,6 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	if (UI::IsFocusMovementEnabled()) {
 		return UIScreen::UnsyncKey(key);
 	}
-
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
@@ -1055,7 +1059,7 @@ void EmuScreen::CreateViews() {
 			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
 			chatButton_ = btn;
 		}
-		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
+		chatMenu_ = root_->Add(new ChatMenu(GetRequesterToken(), screenManager()->getUIContext()->GetBounds(), screenManager(), new LayoutParams(FILL_PARENT, FILL_PARENT)));
 		chatMenu_->SetVisibility(UI::V_GONE);
 	} else {
 		chatButton_ = nullptr;
@@ -1464,8 +1468,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				if (!framebufferBound && PSP_IsInited()) {
 					// draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
 					gpu->CopyDisplayToOutput(true);
+					framebufferBound = true;
 				}
-				framebufferBound = true;
 			}
 			break;
 		}
