@@ -1020,6 +1020,7 @@ static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, 
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
@@ -1043,8 +1044,20 @@ void EmuScreen::CreateViews() {
 	resumeButton_->SetVisibility(V_GONE);
 
 	resetButton_ = buttons->Add(new Button(dev->T("Reset")));
-	resetButton_->OnClick.Handle(this, &EmuScreen::OnReset);
+	resetButton_->OnClick.Add([](UI::EventParams &) {
+		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		}
+		return UI::EVENT_DONE;
+	});
 	resetButton_->SetVisibility(V_GONE);
+
+	backButton_ = buttons->Add(new Button(dev->T("Back")));
+	backButton_->OnClick.Add([this](UI::EventParams &) {
+		this->pauseTrigger_ = true;
+		return UI::EVENT_DONE;
+	});
+	backButton_->SetVisibility(V_GONE);
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
@@ -1166,19 +1179,13 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
-	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
-		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-	}
-	return UI::EVENT_DONE;
-}
-
 void EmuScreen::update() {
 	using namespace UI;
 
 	UIScreen::update();
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
+	backButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 
 	if (chatButton_ && chatMenu_) {
 		if (chatMenu_->GetVisibility() != V_GONE) {
