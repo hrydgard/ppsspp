@@ -267,8 +267,8 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
-GamePauseScreen::GamePauseScreen(const Path &filename)
-	: UIDialogScreenWithGameBackground(filename) {
+GamePauseScreen::GamePauseScreen(const Path &filename, std::string gameID)
+	: UIDialogScreenWithGameBackground(filename), gameID_(gameID) {
 	// So we can tell if something blew up while on the pause screen.
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
@@ -467,7 +467,7 @@ void GamePauseScreen::CreateViews() {
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));
+	screenManager()->push(new GameSettingsScreen(gamePath_, gameID_));
 	return UI::EVENT_DONE;
 }
 
