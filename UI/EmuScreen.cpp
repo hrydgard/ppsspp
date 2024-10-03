@@ -1328,12 +1328,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
 	}
 
-	// Sanity check
-#ifdef _DEBUG
-	Draw::BackendState state = draw->GetCurrentBackendState();
-	_dbg_assert_(!state.valid || state.passes == 0);
-#endif
-
 	GamepadUpdateOpacity();
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
@@ -1500,6 +1494,11 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
+
+	Draw::BackendState state = draw->GetCurrentBackendState();
+
+	// We allow if !state.valid, that means it's not the Vulkan backend.
+	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering);
 
 	screenManager()->getUIContext()->BeginFrame();
 
