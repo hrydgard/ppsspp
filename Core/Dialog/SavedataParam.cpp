@@ -337,7 +337,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(saveId));
 	if (dirPath.size() == 0) {
-		ERROR_LOG(Log::sceUtility, "GetSaveFilePath (%.*s) returned empty - cannot delete save directory. Might already be deleted?", sizeof(param->gameName), param->gameName);
+		ERROR_LOG(Log::sceUtility, "GetSaveFilePath (%.*s) returned empty - cannot delete save directory. Might already be deleted?", (int)sizeof(param->gameName), param->gameName);
 		return false;
 	}
 
