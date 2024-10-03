@@ -67,7 +67,6 @@ private:
 	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 	UI::EventReturn OnChat(UI::EventParams &params);
 	UI::EventReturn OnResume(UI::EventParams &params);
-	UI::EventReturn OnReset(UI::EventParams &params);
 
 	void bootGame(const Path &filename);
 	bool bootAllowStorage(const Path &filename);
@@ -114,6 +113,7 @@ private:
 	UI::TextView *loadingTextView_ = nullptr;
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
+	UI::Button *backButton_ = nullptr;
 	UI::View *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 

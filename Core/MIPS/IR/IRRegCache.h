@@ -31,7 +31,7 @@ constexpr int TOTAL_MAPPABLE_IRREGS = 256;
 // Arbitrary - increase if your backend has more.
 constexpr int TOTAL_POSSIBLE_NATIVEREGS = 128;
 
-typedef int8_t IRNativeReg;
+typedef int8_t IRNativeReg;  // invalid value is -1
 
 constexpr IRReg IRREG_INVALID = 255;
 
