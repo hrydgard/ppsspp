@@ -383,7 +383,7 @@ public:
 	BackendState GetCurrentBackendState() const override {
 		return BackendState{
 			(u32)renderManager_.GetNumSteps(),
-			true,
+			true,  // Means that the other value is meaningful.
 		};
 	}
 
