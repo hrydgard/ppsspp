@@ -1224,17 +1224,17 @@ void EmuScreen::update() {
 		return;
 	}
 
+	if (pauseTrigger_) {
+		pauseTrigger_ = false;
+		screenManager()->push(new GamePauseScreen(gamePath_));
+	}
+
 	if (invalid_)
 		return;
 
 	double now = time_now_d();
 
 	controlMapper_.Update(now);
-
-	if (pauseTrigger_) {
-		pauseTrigger_ = false;
-		screenManager()->push(new GamePauseScreen(gamePath_));
-	}
 
 	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();
@@ -1297,6 +1297,11 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 				return true;
 			return false;
 		}
+
+		if (invalid_) {
+			return false;
+		}
+
 		return true;
 	};
 
