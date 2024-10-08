@@ -797,6 +797,7 @@ void CreditsScreen::CreateViews() {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
@@ -807,7 +808,7 @@ void CreditsScreen::CreateViews() {
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 		rightYOffset = 74;
 	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
@@ -815,6 +816,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 84, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
+
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
