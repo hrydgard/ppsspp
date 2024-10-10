@@ -22,12 +22,16 @@ public class TextRenderer {
 	}
 
 	public static void init(Context ctx) {
-		robotoCondensed = Typeface.createFromAsset(ctx.getAssets(), "Roboto-Condensed.ttf");
-		if (robotoCondensed != null) {
-			Log.i(TAG, "Successfully loaded Roboto Condensed");
-			textPaint.setTypeface(robotoCondensed);
-		} else {
-			Log.e(TAG, "Failed to load Roboto Condensed");
+		try {
+			robotoCondensed = Typeface.createFromAsset(ctx.getAssets(), "Roboto-Condensed.ttf");
+			if (robotoCondensed != null) {
+				Log.i(TAG, "Successfully loaded Roboto Condensed");
+				textPaint.setTypeface(robotoCondensed);
+			} else {
+				Log.e(TAG, "Failed to load Roboto Condensed");
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception when loading typeface. shouldn't happen but is reported. We just fall back." + e);
 		}
 		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
 	}

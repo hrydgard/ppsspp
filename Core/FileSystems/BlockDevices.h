@@ -113,25 +113,27 @@ public:
 	~NPDRMDemoBlockDevice();
 
 	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
-	u32 GetNumBlocks() const override {return (u32)lbaSize;}
+	u32 GetNumBlocks() const override {return (u32)lbaSize_;}
 	bool IsDisc() const override { return false; }
 
 private:
-	static std::mutex mutex_;
-	u32 lbaSize;
+	// TODO: Doubt this mutex is actually needed.
+	std::mutex mutex_;
 
-	u32 psarOffset;
-	int blockSize;
-	int blockLBAs;
-	u32 numBlocks;
+	u32 lbaSize_ = 0;
 
-	u8 vkey[16];
-	u8 hkey[16];
-	struct table_info *table;
+	u32 psarOffset = 0;
+	int blockSize_ = 0;
+	int blockLBAs_ = 0;
+	u32 numBlocks_ = 0;
 
-	int currentBlock;
-	u8 *blockBuf;
-	u8 *tempBuf;
+	u8 vkey[16]{};
+	u8 hkey[16]{};
+	struct table_info *table_ = nullptr;
+
+	int currentBlock_ = 0;
+	u8 *blockBuf_ = nullptr;
+	u8 *tempBuf_ = nullptr;
 };
 
 struct CHDImpl;
