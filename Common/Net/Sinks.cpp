@@ -284,7 +284,6 @@ size_t OutputSink::PushAtMost(const char *buf, size_t bytes) {
 	return avail;
 }
 
-
 bool OutputSink::Printf(const char *fmt, ...) {
 	// Let's start by checking how much space we have.
 	size_t avail = BUFFER_SIZE - std::max(write_, valid_);
@@ -301,10 +300,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	if (result >= (int)avail) {
 		// There wasn't enough space.  Let's use a buffer instead.
 		// This could be caused by wraparound.
-		char temp[BUFFER_SIZE];
-		result = vsnprintf(temp, BUFFER_SIZE, fmt, args);
+		char temp[4096];
+		result = vsnprintf(temp, sizeof(temp), fmt, args);
 
-		if ((size_t)result < BUFFER_SIZE && result > 0) {
+		if ((size_t)result < sizeof(temp) && result > 0) {
 			// In case it did return the null terminator.
 			if (temp[result - 1] == '\0') {
 				result--;

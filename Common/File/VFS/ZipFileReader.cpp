@@ -109,13 +109,14 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	// INFO_LOG(Log::System, "Zip: Listing '%s'", orig_path);
 
+	const std::string relativePath = path.substr(inZipPath_.size());
+
 	listing->reserve(directories.size() + files.size());
 	for (const auto &dir : directories) {
 		File::FileInfo info;
 		info.name = dir;
 
 		// Remove the "inzip" part of the fullname.
-		std::string relativePath = std::string(path).substr(inZipPath_.size());
 		info.fullName = Path(relativePath + dir);
 		info.exists = true;
 		info.isWritable = false;
@@ -125,10 +126,8 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	}
 
 	for (const auto &fiter : files) {
-		std::string fpath = path;
 		File::FileInfo info;
 		info.name = fiter;
-		std::string relativePath = std::string(path).substr(inZipPath_.size());
 		info.fullName = Path(relativePath + fiter);
 		info.exists = true;
 		info.isWritable = false;

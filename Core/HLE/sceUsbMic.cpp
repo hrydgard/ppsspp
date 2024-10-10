@@ -429,8 +429,6 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	} else {
 		audioBuf->resize(size);
 	}
-	if (!audioBuf)
-		return 0;
 
 	numNeedSamples = maxSamples;
 	readMicDataLength = 0;

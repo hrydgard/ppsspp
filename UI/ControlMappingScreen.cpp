@@ -730,8 +730,8 @@ public:
 		return this;
 	}
 
-	MockButton *SetFlipHBG(float f) {
-		flipHBG_ = f;
+	MockButton *SetFlipHBG(bool b) {
+		flipHBG_ = b;
 		return this;
 	}
 
@@ -750,7 +750,7 @@ public:
 		return selectedButton_ && *selectedButton_ == button_;
 	}
 
-	int Button() {
+	int Button() const {
 		return button_;
 	}
 
@@ -776,7 +776,7 @@ class MockPSP : public UI::AnchorLayout {
 public:
 	static constexpr float SCALE = 1.4f;
 
-	MockPSP(UI::LayoutParams *layoutParams = nullptr);
+	explicit MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
 	void FocusButton(int btn);
 	void NotifyPressed(int btn);
