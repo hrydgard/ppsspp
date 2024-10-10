@@ -101,8 +101,6 @@ libretro-build-linux-i686:
 
 # MacOS 64-bit
 libretro-build-osx-x64:
-  tags:
-    - macosx-packaging
   variables:
     CORE_ARGS: -DLIBRETRO=ON -DUSE_SYSTEM_LIBPNG=OFF
   extends:
@@ -112,8 +110,6 @@ libretro-build-osx-x64:
 
 # MacOS 64-bit
 libretro-build-osx-arm64:
-  tags:
-    - macosx-packaging
   extends:
     - .libretro-osx-cmake-arm64
     - .core-defs
