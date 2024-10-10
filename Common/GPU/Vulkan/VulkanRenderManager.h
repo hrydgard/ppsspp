@@ -103,7 +103,7 @@ public:
 	std::string fragmentShaderSource;
 	std::string geometryShaderSource;
 
-	VkPrimitiveTopology topology;
+	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -577,7 +577,7 @@ private:
 
 	bool insideFrame_ = false;
 	// probably doesn't need to be atomic.
-	std::atomic<bool> runCompileThread_;
+	std::atomic<bool> runCompileThread_{};
 
 	bool useRenderThread_ = true;
 	bool measurePresentTime_ = false;

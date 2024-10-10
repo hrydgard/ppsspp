@@ -28,6 +28,8 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.MediaStore;
+
+import androidx.annotation.NonNull;
 import androidx.documentfile.provider.DocumentFile;
 import android.text.InputType;
 import android.util.Log;
@@ -92,7 +94,6 @@ public abstract class NativeActivity extends Activity {
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
-	private PowerManager powerManager;
 
 	private Vibrator vibrator;
 
@@ -213,7 +214,7 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode, String [] permissions, int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, @NonNull String [] permissions, @NonNull int[] grantResults) {
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {
@@ -259,7 +260,7 @@ public abstract class NativeActivity extends Activity {
 			// Try another method.
 			String removableStoragePath;
 			list = new ArrayList<String>();
-			File fileList[] = new File("/storage/").listFiles();
+			File[] fileList = new File("/storage/").listFiles();
 			if (fileList != null) {
 				for (File file : fileList) {
 					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
@@ -357,7 +358,7 @@ public abstract class NativeActivity extends Activity {
 			// Get the optimal buffer sz
 			detectOptimalAudioSettings();
 		}
-		powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+		PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (powerManager != null && powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
@@ -427,7 +428,7 @@ public abstract class NativeActivity extends Activity {
 		}
 		catch (Exception e) {
 			NativeApp.reportException(e, null);
-			Log.e(TAG, "Failed to get SD storage dirs: " + e.toString());
+			Log.e(TAG, "Failed to get SD storage dirs: " + e);
 		}
 
 		Log.i(TAG, "End of storage paths");
@@ -708,7 +709,7 @@ public abstract class NativeActivity extends Activity {
 
 				}
 			} catch (Exception e) {
-				Log.e(TAG, "Failed to set framerate: " + e.toString());
+				Log.e(TAG, "Failed to set framerate: " + e);
 			}
 		}
 	}
@@ -918,7 +919,7 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	public void onConfigurationChanged(Configuration newConfig) {
+	public void onConfigurationChanged(@NonNull Configuration newConfig) {
 		Log.i(TAG, "onConfigurationChanged");
 		super.onConfigurationChanged(newConfig);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
@@ -1228,12 +1229,12 @@ public abstract class NativeActivity extends Activity {
 							getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
 						}
 					} catch (Exception e) {
-						Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+						Log.w(TAG, "Exception getting permissions for document: " + e);
 						NativeApp.sendRequestResult(requestId, false, "", 0);
 						NativeApp.reportException(e, selectedFile.toString());
 						return;
 					}
-					Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+					Log.i(TAG, "Browse file finished:" + selectedFile);
 					NativeApp.sendRequestResult(requestId, true, selectedFile.toString(), 0);
 				}
 			} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
@@ -1246,7 +1247,7 @@ public abstract class NativeActivity extends Activity {
 							getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 						}
 					} catch (Exception e) {
-						Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+						Log.w(TAG, "Exception getting permissions for document: " + e);
 						NativeApp.reportException(e, selectedDirectoryUri.toString());
 						// Even if we got an exception getting permissions, continue and try to pass along the file. Maybe this version of Android
 						// doesn't need it. If we can't access it, we'll fail in some other way later.
@@ -1520,7 +1521,7 @@ public abstract class NativeActivity extends Activity {
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;
-			if (!params.equals("")) {
+			if (!params.isEmpty()) {
 				try {
 					milliseconds = Integer.parseInt(params);
 				} catch (NumberFormatException e) {
@@ -1576,7 +1577,7 @@ public abstract class NativeActivity extends Activity {
 			recreate();
 		} else if (command.equals("graphics_restart")) {
 			Log.i(TAG, "graphics_restart");
-			if (params != null && !params.equals("")) {
+			if (params != null && !params.isEmpty()) {
 				overrideShortcutParam = params;
 			}
 			shuttingDown = true;

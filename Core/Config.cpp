@@ -123,7 +123,7 @@ const char *DefaultLangRegion() {
 		std::vector<std::string> keys;
 		mapping.GetKeys("LangRegionNames", keys);
 
-		for (std::string key : keys) {
+		for (const std::string &key : keys) {
 			if (startsWithNoCase(key, langRegion)) {
 				// Exact submatch, or different case.  Let's use it.
 				defaultLangRegion = key;
@@ -718,21 +718,10 @@ static const ConfigSetting soundSettings[] = {
 };
 
 static bool DefaultShowTouchControls() {
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
-	if (deviceType == DEVICE_TYPE_MOBILE) {
-		std::string name = System_GetProperty(SYSPROP_NAME);
-		if (KeyMap::HasBuiltinController(name)) {
-			return false;
-		} else {
-			return true;
-		}
-	} else if (deviceType == DEVICE_TYPE_TV) {
-		return false;
-	} else if (deviceType == DEVICE_TYPE_DESKTOP) {
-		return false;
-	} else if (deviceType == DEVICE_TYPE_VR) {
-		return false;
-	} else {
+	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
+	case DEVICE_TYPE_MOBILE:
+		return !KeyMap::HasBuiltinController(System_GetProperty(SYSPROP_NAME));
+	default:
 		return false;
 	}
 }
@@ -1063,9 +1052,9 @@ void Config::LoadLangValuesMapping() {
 
 	for (size_t i = 0; i < keys.size(); i++) {
 		std::string langName;
-		langRegionNames->Get(keys[i].c_str(), &langName, "ERROR");
+		langRegionNames->Get(keys[i], &langName, "ERROR");
 		std::string langCode;
-		systemLanguage->Get(keys[i].c_str(), &langCode, "ENGLISH");
+		systemLanguage->Get(keys[i], &langCode, "ENGLISH");
 		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		if (langCodeMapping.find(langCode) != langCodeMapping.end())
 			iLangCode = langCodeMapping[langCode];
@@ -1356,7 +1345,7 @@ bool Config::Save(const char *saveReason) {
 			Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
-				postShaderSetting->Set(k.c_str(), v);
+				postShaderSetting->Set(k, v);
 			}
 			Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 			postShaderChain->Clear();
@@ -1772,7 +1761,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
 	postShaderSetting->Clear();
 	for (const auto &[k, v] : mPostShaderSetting) {
-		postShaderSetting->Set(k.c_str(), v);
+		postShaderSetting->Set(k, v);
 	}
 
 	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
@@ -1987,15 +1976,15 @@ void PlayTimeTracker::Load(const Section *section) {
 		// Parse the string.
 		PlayTime gameTime{};
 		if (2 == sscanf(value.c_str(), "%d,%llu", &gameTime.totalTimePlayed, (long long *)&gameTime.lastTimePlayed)) {
-			tracker_[iter.first.c_str()] = gameTime;
+			tracker_[iter.first] = gameTime;
 		}
 	}
 }
 
 void PlayTimeTracker::Save(Section *section) {
-	for (auto iter : tracker_) {
+	for (auto &iter : tracker_) {
 		std::string formatted = StringFromFormat("%d,%llu", iter.second.totalTimePlayed, iter.second.lastTimePlayed);
-		section->Set(iter.first.c_str(), formatted);
+		section->Set(iter.first, formatted);
 	}
 }
 

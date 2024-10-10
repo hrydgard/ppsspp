@@ -73,7 +73,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	syncReadback_.Destroy(vulkan_);
 
 	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
-		_assert_(rp);
+		_dbg_assert_(rp);
 		rp->Destroy(vulkan_);
 		delete rp;
 	});

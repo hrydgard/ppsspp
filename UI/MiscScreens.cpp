@@ -80,7 +80,7 @@ static Draw::Texture *bgTexture;
 
 class Animation {
 public:
-	virtual ~Animation() {}
+	virtual ~Animation() = default;
 	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
 };
 
@@ -254,7 +254,7 @@ private:
 		}
 	}
 
-	std::shared_ptr<GameInfo> GetInfo(UIContext &dc, int index) {
+	static std::shared_ptr<GameInfo> GetInfo(UIContext &dc, int index) {
 		if (index < 0) {
 			return nullptr;
 		}
@@ -264,7 +264,7 @@ private:
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
-	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
+	static void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
 		if (!ginfo || amount <= 0.0f)
 			return;
 		GameInfoTex *pic = ginfo->GetBGPic();
@@ -568,7 +568,7 @@ void TextureShaderScreen::CreateViews() {
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
-		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
+		items.emplace_back(ps->T(shaders_[i].section, shaders_[i].name));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 
@@ -611,7 +611,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 		}
 #endif
 
-		File::FileInfo lang = tempLangs[i];
+		const File::FileInfo &lang = tempLangs[i];
 		langs_.push_back(lang);
 
 		std::string code;
@@ -958,12 +958,12 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"fp64",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
-		specialthanksMaxim.c_str(),
-		specialthanksKeithGalocy.c_str(),
-		specialthanksOrphis.c_str(),
-		specialthanksangelxwind.c_str(),
-		specialthanksW_MS.c_str(),
-		specialthankssolarmystic.c_str(),
+		specialthanksMaxim,
+		specialthanksKeithGalocy,
+		specialthanksOrphis,
+		specialthanksangelxwind,
+		specialthanksW_MS,
+		specialthankssolarmystic,
 		cr->T("all the forum mods"),
 		"",
 		cr->T("this translation by", ""),   // Empty string as this is the original :)

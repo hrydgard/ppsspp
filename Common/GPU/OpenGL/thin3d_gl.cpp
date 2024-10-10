@@ -248,7 +248,7 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 	source_ = std::string((const char *)data, dataSize);
 	// Add the prelude on automatically.
 	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
-		if (source_.find("#version") == source_.npos) {
+		if (source_.find("#version") == std::string::npos) {
 			source_ = ApplyGLSLPrelude(source_, glstage_);
 		}
 	} else {

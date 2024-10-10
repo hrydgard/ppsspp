@@ -28,7 +28,7 @@ struct AudioDebugStats;
 
 class StereoResampler {
 public:
-	StereoResampler();
+	StereoResampler() noexcept;
 	~StereoResampler();
 
 	// Called from audio threads

@@ -79,7 +79,7 @@ void ScreenManager::update() {
 		overlayScreen_->update();
 	}
 	// The background screen doesn't need updating.
-	if (stack_.size()) {
+	if (!stack_.empty()) {
 		stack_.back().screen->update();
 	}
 }

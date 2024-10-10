@@ -398,7 +398,7 @@ public:
 	std::vector<std::string> GetDeviceList() const override {
 		std::vector<std::string> list;
 		for (int i = 0; i < vulkan_->GetNumPhysicalDevices(); i++) {
-			list.push_back(vulkan_->GetPhysicalDeviceProperties(i).properties.deviceName);
+			list.emplace_back(vulkan_->GetPhysicalDeviceProperties(i).properties.deviceName);
 		}
 		return list;
 	}

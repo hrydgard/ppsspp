@@ -80,7 +80,7 @@ bool GenericLogEnabled(LogLevel level, Log type) {
 	return false;
 }
 
-LogManager *LogManager::logManager_ = NULL;
+LogManager *LogManager::logManager_ = nullptr;
 
 // NOTE: Needs to be kept in sync with the Log enum.
 static const char * const g_logTypeNames[] = {
@@ -215,8 +215,8 @@ void LogManager::ChangeFileLog(const char *filename) {
 
 void LogManager::SaveConfig(Section *section) {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
-		section->Set((std::string(log_[i].m_shortName) + "Enabled").c_str(), log_[i].enabled);
-		section->Set((std::string(log_[i].m_shortName) + "Level").c_str(), (int)log_[i].level);
+		section->Set((std::string(log_[i].m_shortName) + "Enabled"), log_[i].enabled);
+		section->Set((std::string(log_[i].m_shortName) + "Level"), (int)log_[i].level);
 	}
 }
 
@@ -224,8 +224,8 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		bool enabled = false;
 		int level = 0;
-		section->Get((std::string(log_[i].m_shortName) + "Enabled").c_str(), &enabled, true);
-		section->Get((std::string(log_[i].m_shortName) + "Level").c_str(), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
+		section->Get((std::string(log_[i].m_shortName) + "Enabled"), &enabled, true);
+		section->Get((std::string(log_[i].m_shortName) + "Level"), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
 		log_[i].enabled = enabled;
 		log_[i].level = (LogLevel)level;
 	}
@@ -246,7 +246,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	static const char sep = '/';
 #endif
 	const char *fileshort = strrchr(file, sep);
-	if (fileshort != NULL) {
+	if (fileshort) {
 		do
 			--fileshort;
 		while (fileshort > file && *fileshort != sep);
@@ -302,7 +302,7 @@ void LogManager::Init(bool *enabledSetting) {
 
 void LogManager::Shutdown() {
 	delete logManager_;
-	logManager_ = NULL;
+	logManager_ = nullptr;
 }
 
 void LogManager::AddListener(LogListener *listener) {

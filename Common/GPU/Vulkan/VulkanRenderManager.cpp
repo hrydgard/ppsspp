@@ -248,10 +248,10 @@ struct SinglePipelineTask {
 
 class CreateMultiPipelinesTask : public Task {
 public:
-	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(std::move(tasks)) {
 		tasksInFlight_.fetch_add(1);
 	}
-	~CreateMultiPipelinesTask() {}
+	~CreateMultiPipelinesTask() = default;
 
 	TaskType Type() const override {
 		return TaskType::CPU_COMPUTE;
@@ -745,8 +745,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		// unless we want to limit ourselves to only measure the main cmd buffer.
 		// Later versions of Vulkan have support for clearing queries on the CPU timeline, but we don't want to rely on that.
 		// Reserve the first two queries for initCmd.
-		frameData.profile.timestampDescriptions.push_back("initCmd Begin");
-		frameData.profile.timestampDescriptions.push_back("initCmd");
+		frameData.profile.timestampDescriptions.emplace_back("initCmd Begin");
+		frameData.profile.timestampDescriptions.emplace_back("initCmd");
 		VkCommandBuffer initCmd = GetInitCmd();
 	}
 }

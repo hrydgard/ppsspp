@@ -141,7 +141,7 @@ struct RPKey {
 
 class VKRRenderPass {
 public:
-	VKRRenderPass(const RPKey &key) : key_(key) {}
+	explicit VKRRenderPass(const RPKey &key) : key_(key) {}
 
 	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 	void Destroy(VulkanContext *vulkan) {

@@ -54,10 +54,9 @@ struct D3D11DepthStencilKey {
 	}
 };
 
-
 class D3D11DepthStencilState : public DepthStencilState {
 public:
-	~D3D11DepthStencilState() {}
+	~D3D11DepthStencilState() = default;
 	DepthStencilStateDesc desc;
 };
 
@@ -116,7 +115,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override {
-		if (memcmp(blendFactor_, color, sizeof(float) * 4)) {
+		if (0 != memcmp(blendFactor_, color, sizeof(float) * 4)) {
 			memcpy(blendFactor_, color, sizeof(float) * 4);
 			blendFactorDirty_ = true;
 		}
@@ -130,7 +129,7 @@ public:
 
 
 	void Draw(int vertexCount, int offset) override;
-	void DrawIndexed(int vertexCount, int offset) override;
+	void DrawIndexed(int indexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -251,7 +250,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
 		swapChain_(swapChain),
-		deviceList_(deviceList) {
+		deviceList_(std::move(deviceList)) {
 
 	// We no longer support Windows Phone.
 	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);

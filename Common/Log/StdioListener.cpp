@@ -19,8 +19,8 @@
 #include <algorithm>  // min
 #include <cstring>
 #include <string> // System: To be able to add strings with "+"
-#include <math.h>
-#include <stdarg.h>
+#include <cmath>
+#include <cstdarg>
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif

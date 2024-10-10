@@ -22,7 +22,6 @@ namespace Draw {
 	class RasterState;
 }
 
-class Texture;
 class DrawBuffer;
 class TextDrawer;
 

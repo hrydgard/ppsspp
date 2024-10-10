@@ -118,7 +118,7 @@ private:
 
 class Transition {
 public:
-	Transition() {}
+	Transition() = default;
 };
 
 enum {

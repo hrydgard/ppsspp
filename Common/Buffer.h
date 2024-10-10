@@ -11,9 +11,8 @@ class Path;
 // Does not do synchronization, must use external mutexes.
 class Buffer {
 public:
-	Buffer();
+	Buffer() = default;
 	Buffer(Buffer &&) = default;
-	~Buffer();
 
 	static Buffer Void() {
 		Buffer buf;

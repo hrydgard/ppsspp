@@ -36,7 +36,7 @@ struct WavData {
 	int raw_bytes_per_frame = 0;
 	uint8_t *raw_data = nullptr;
 	int raw_data_size = 0;
-	u8 at3_extradata[16];
+	u8 at3_extradata[16]{};
 
 	bool Read(RIFFReader &riff);
 
@@ -45,6 +45,7 @@ struct WavData {
 		raw_data = nullptr;
 	}
 
+	[[nodiscard]]
 	bool IsSimpleWAV() const {
 		bool isBad = raw_bytes_per_frame > sizeof(int16_t) * num_channels;
 		return !isBad && num_channels > 0 && sample_rate >= 8000 && codec == 0;
@@ -210,7 +211,7 @@ public:
 		decoder_ = nullptr;
 	}
 
-	bool IsOK() { return wave_.raw_data != nullptr; }
+	bool IsOK() const { return wave_.raw_data != nullptr; }
 
 	bool Read(int *buffer, int len) {
 		if (!wave_.raw_data)
