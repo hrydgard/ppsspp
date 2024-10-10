@@ -111,7 +111,7 @@
 
         <meta-data
             android:name="xperiaplayoptimized_content"
-            android:resource="@drawable/ic_launcher" />
+            android:resource="@mipmap/ic_launcher" />
 
         <profileable android:shell="true" android:enabled="true" />
     </application>
