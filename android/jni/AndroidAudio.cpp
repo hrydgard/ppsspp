@@ -104,8 +104,7 @@ bool AndroidAudio_Resume(AndroidAudioState *state) {
 		if (!init_retval) {
 			delete state->ctx;
 			state->ctx = nullptr;
-		}
-		if (state->input_enable) {
+		} else if (state->input_enable) {
 			state->ctx->AudioRecord_Start(state->input_sample_rate);
 		}
 		return init_retval;

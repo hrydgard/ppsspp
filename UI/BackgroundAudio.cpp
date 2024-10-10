@@ -334,11 +334,13 @@ bool BackgroundAudio::Play() {
 	if (at3Reader_) {
 		if (at3Reader_->Read(buffer, sz)) {
 			if (fadingOut_) {
+                float vol = volume_;
 				for (int i = 0; i < sz*2; i += 2) {
-					buffer[i] *= volume_;
-					buffer[i + 1] *= volume_;
-					volume_ += delta_;
+					buffer[i] = (int)((float)buffer[i] * vol);
+					buffer[i + 1] = (int)((float)buffer[i + 1] * vol);
+					vol += delta_;
 				}
+                volume_ = vol;
 			}
 		}
 	} else {

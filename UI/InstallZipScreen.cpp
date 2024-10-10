@@ -40,7 +40,7 @@ void InstallZipScreen::CreateViews() {
 	using namespace UI;
 
 	File::FileInfo fileInfo;
-	bool success = File::GetFileInfo(zipPath_, &fileInfo);
+	File::GetFileInfo(zipPath_, &fileInfo);
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);

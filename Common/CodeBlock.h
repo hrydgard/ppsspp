@@ -128,7 +128,7 @@ public:
 			const uint8_t *pos = GetCodePtr();
 			if (pos + sizeEstimate - region > (ptrdiff_t)region_size)
 				sizeEstimate = region_size - (pos - region);
-			writeEstimated_ = pos - writeStart_ + sizeEstimate;
+			writeEstimated_ = (pos - writeStart_) + sizeEstimate;
 			ProtectMemoryPages(pos, sizeEstimate, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 	}

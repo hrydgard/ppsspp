@@ -35,8 +35,6 @@ void TestCode::Generate()
 {
 	testCodePtr = this->GetCodePtr();
 
-	const u8 *start = AlignCode16();
-
 	uint32_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
 	uint32_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
 	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
