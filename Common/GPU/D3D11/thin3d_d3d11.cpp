@@ -633,7 +633,7 @@ ID3D11DepthStencilState *D3D11DrawContext::GetCachedDepthStencilState(const D3D1
 DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	D3D11DepthStencilState *dss = new D3D11DepthStencilState();
 	dss->desc = desc;
-	return dynamic_cast<DepthStencilState *>(dss);
+	return static_cast<DepthStencilState *>(dss);
 }
 
 BlendState *D3D11DrawContext::CreateBlendState(const BlendStateDesc &desc) {

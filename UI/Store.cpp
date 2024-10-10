@@ -573,7 +573,7 @@ void StoreScreen::CreateViews() {
 
 ProductItemView *StoreScreen::GetSelectedItem() {
 	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
-		ProductItemView *item = dynamic_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
+		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
 		if (!item) {
 			continue;
 		}
@@ -585,7 +585,7 @@ ProductItemView *StoreScreen::GetSelectedItem() {
 }
 
 UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
-	ProductItemView *item = dynamic_cast<ProductItemView *>(e.v);
+	ProductItemView *item = static_cast<ProductItemView *>(e.v);
 	if (!item)
 		return UI::EVENT_DONE;
 
