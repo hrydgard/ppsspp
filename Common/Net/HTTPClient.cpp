@@ -512,13 +512,13 @@ HTTPRequest::HTTPRequest(RequestMethod method, const std::string &url, const std
 }
 
 HTTPRequest::~HTTPRequest() {
-	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
+	g_OSD.RemoveProgressBar(url_, !failed_, 0.5f);
 
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
 void HTTPRequest::Start() {
-	thread_ = std::thread(std::bind(&HTTPRequest::Do, this));
+	thread_ = std::thread([this] { Do(); });
 }
 
 void HTTPRequest::Join() {

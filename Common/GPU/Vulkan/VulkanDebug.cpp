@@ -42,7 +42,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	VkDebugUtilsMessageTypeFlagsEXT                  messageType,
 	const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
 	void *pUserData) {
-	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	std::ostringstream message;
 
 	const char *pMessage = pCallbackData->pMessage;
@@ -149,6 +148,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	std::string msg = message.str();
 
 #ifdef _WIN32
+    const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	OutputDebugStringA(msg.c_str());
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		if (options->breakOnError && System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {

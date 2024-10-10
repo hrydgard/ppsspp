@@ -187,8 +187,6 @@ static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::En
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
-	uint32_t foreGround = whiteAlpha(alpha);
-
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);

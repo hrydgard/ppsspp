@@ -390,7 +390,7 @@ public:
 		data.blendColor.color = color;
 	}
 
-	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
+	void PushConstants(VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();

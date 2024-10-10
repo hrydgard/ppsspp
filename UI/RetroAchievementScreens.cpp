@@ -14,7 +14,7 @@
 #include "UI/OnScreenDisplay.h"
 
 static inline std::string_view DeNull(const char *ptr) {
-	return ptr ? std::string_view(ptr) : "";
+	return std::string_view(ptr ? ptr : "");
 }
 
 // Compound view, creating a FileChooserChoice inside.
@@ -221,9 +221,9 @@ void RetroAchievementsLeaderboardScreen::CreateTabs() {
 			const rc_client_leaderboard_entry_t &entry = entryList_->entries[i];
 
 			char buffer[512];
-			rc_client_leaderboard_entry_get_user_image_url(&entryList_->entries[i], buffer, sizeof(buffer));
+			rc_client_leaderboard_entry_get_user_image_url(&entry, buffer, sizeof(buffer));
 			// Can also show entry.submitted, which is a time_t. And maybe highlight recent ones?
-			layout->Add(new LeaderboardEntryView(&entryList_->entries[i], is_self));
+			layout->Add(new LeaderboardEntryView(&entry, is_self));
 		}
 	}
 }

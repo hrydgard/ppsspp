@@ -351,7 +351,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	const size_t UP_MAX_BYTES = 65536 * 24;
 
-	upBuffer_ = CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	upBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
 	IDXGIDevice1 *dxgiDevice1 = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void **>(&dxgiDevice1));

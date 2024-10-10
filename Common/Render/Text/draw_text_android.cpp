@@ -37,7 +37,7 @@ TextDrawerAndroid::~TextDrawerAndroid() {
 	// At worst we leak one ref...
 	// env_->DeleteGlobalRef(cls_textRenderer);
 	ClearCache();
-	ClearFonts();
+	fontMap_.clear();  // size is precomputed using dpiScale_.
 }
 
 bool TextDrawerAndroid::IsReady() const {
@@ -58,8 +58,8 @@ uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
-	AndroidFontEntry entry;
-	entry.size = (float)(size * 1.4f) / dpiScale_;
+	AndroidFontEntry entry{};
+	entry.size = ((float)size * 1.4f) / dpiScale_;
 	fontMap_[fontHash] = entry;
 	fontHash_ = fontHash;
 	return fontHash;

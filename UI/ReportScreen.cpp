@@ -77,7 +77,7 @@ RatingChoice::RatingChoice(std::string_view captionKey, int *value, LayoutParams
 	Add(group_);
 
 	group_->SetSpacing(0.0f);
-	SetupChoices();
+	RatingChoice::SetupChoices();
 }
 
 void RatingChoice::Update() {
@@ -147,7 +147,7 @@ protected:
 
 CompatRatingChoice::CompatRatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams)
 		: RatingChoice(captionKey, value, layoutParams) {
-	SetupChoices();
+	CompatRatingChoice::SetupChoices();
 }
 
 void CompatRatingChoice::SetupChoices() {

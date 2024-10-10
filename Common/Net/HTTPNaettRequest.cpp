@@ -17,7 +17,7 @@ HTTPSRequest::HTTPSRequest(RequestMethod method, const std::string &url, const s
 }
 
 HTTPSRequest::~HTTPSRequest() {
-	Join();
+	HTTPSRequest::Join();
 }
 
 void HTTPSRequest::Start() {
@@ -53,7 +53,7 @@ void HTTPSRequest::Join() {
 	if (!res_ || !req_)
 		return;  // No pending operation.
 	// Tear down.
-	if (completed_ && res_) {
+	if (completed_) {
 		_dbg_assert_(req_);
 		naettClose(res_);
 		naettFree(req_);

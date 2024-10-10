@@ -65,7 +65,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		switch (g_Config.iTiltInputType) {
 		case TILT_DPAD:
 		{
-			PSPDpad *pad = rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
+			rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
 			break;
 		}
 		case TILT_ACTION_BUTTON:

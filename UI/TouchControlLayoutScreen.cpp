@@ -286,7 +286,6 @@ public:
 	void Draw(UIContext &dc) override {
 		float opacity = GamepadGetOpacity();
 		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-		uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
 
 		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
@@ -379,7 +378,6 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
 		if (mode_ == 0) {
-			const Bounds &controlBounds = pickedControl_->GetBounds();
 
 			// Allow placing the control halfway outside the play area.
 			Bounds validRange = this->GetBounds();
@@ -387,7 +385,9 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 			validRange.x = 0.0f;
 			validRange.y = 0.0f;
 
-			// This make cure the controll is all inside the screen (commended out only half)
+			// TODO: Worth keeping?
+			// This make sure the control is all inside the screen (commented out only half)
+			// const Bounds &controlBounds = pickedControl_->GetBounds();
 			//validRange.x += controlBounds.w * 0.5f;
 			//validRange.w -= controlBounds.w;
 			//validRange.y += controlBounds.h * 0.5f;
@@ -478,7 +478,6 @@ void ControlLayoutView::CreateViews() {
 	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
 	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
-	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 
 	auto addDragDropButton = [&](ConfigTouchPos &pos, const char *key, ImageID bgImg, ImageID img) {
 		DragDropButton *b = nullptr;
