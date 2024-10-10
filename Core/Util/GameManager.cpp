@@ -637,6 +637,11 @@ bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
 	data->resize(readSize);
 
 	zip_file *zf = zip_fopen_index(z, fileIndex, 0);
+	if (!zf) {
+		ERROR_LOG(Log::HLE, "Failed to zip_fopen_index file %d from zip", fileIndex);
+		return false;
+	}
+
 	zip_int64_t retval = zip_fread(zf, data->data(), readSize);
 	zip_fclose(zf);
 
