@@ -37,8 +37,6 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
-std::mutex NPDRMDemoBlockDevice::mutex_;
-
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	if (!fileLoader->Exists()) {
 		return nullptr;
@@ -389,8 +387,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
-	u32 tableOffset, tableSize;
-	u32 lbaStart, lbaEnd;
+	u32 tableOffset_, tableSize_;
 
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
@@ -411,29 +408,38 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	sceDrmBBCipherUpdate(&ckey, np_header+0x40, 0x60);
 	sceDrmBBCipherFinal(&ckey);
 
-	lbaStart = *(u32*)(np_header+0x54); // LBA start
-	lbaEnd   = *(u32*)(np_header+0x64); // LBA end
-	lbaSize  = (lbaEnd-lbaStart+1);     // LBA size of ISO
-	blockLBAs = *(u32*)(np_header+0x0c); // block size in LBA
-	blockSize = blockLBAs*2048;
-	numBlocks = (lbaSize+blockLBAs-1)/blockLBAs; // total blocks;
+	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
+	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
+	lbaSize_     = (lbaEnd-lbaStart+1);     // LBA size of ISO
+	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
-	blockBuf = new u8[blockSize];
-	tempBuf  = new u8[blockSize];
+	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
+	_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s)", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str());
 
-	tableOffset = *(u32*)(np_header+0x6c); // table offset
+	// When we remove the above assert, let's just try to survive.
+	if (blockLBAs_ > 4096) {
+		return;
+	}
 
-	tableSize = numBlocks*32;
-	table = new table_info[numBlocks];
+	blockSize_ = blockLBAs_ * 2048;
+	numBlocks_ = (lbaSize_ + blockLBAs_-1) / blockLBAs_; // total blocks;
 
-	readSize = fileLoader_->ReadAt(psarOffset + tableOffset, 1, tableSize, table);
-	if(readSize!=tableSize){
+	blockBuf_ = new u8[blockSize_];
+	tempBuf_  = new u8[blockSize_];
+
+	tableOffset_ = *(u32*)(np_header+0x6c); // table offset
+
+	tableSize_ = numBlocks_ * 32;
+	table_ = new table_info[numBlocks_];
+
+	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
+	if (readSize!=tableSize_){
 		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG table!");
 	}
 
-	u32 *p = (u32*)table;
+	u32 *p = (u32*)table_;
 	u32 i, k0, k1, k2, k3;
-	for(i=0; i<numBlocks; i++){
+	for (i=0; i<numBlocks_; i++){
 		k0 = p[0]^p[1];
 		k1 = p[1]^p[2];
 		k2 = p[0]^p[3];
@@ -445,86 +451,83 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		p += 8;
 	}
 
-	currentBlock = -1;
+	currentBlock_ = -1;
 }
 
-NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
-{
+NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice() {
 	std::lock_guard<std::mutex> guard(mutex_);
-	delete [] table;
-	delete [] tempBuf;
-	delete [] blockBuf;
+	delete [] table_;
+	delete [] tempBuf_;
+	delete [] blockBuf_;
 }
 
 int lzrc_decompress(void *out, int out_len, void *in, int in_len);
 
-bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
-{
+bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
 	std::lock_guard<std::mutex> guard(mutex_);
-	CIPHER_KEY ckey;
-	int block, lba, lzsize;
-	size_t readSize;
-	u8 *readBuf;
 
-	lba = blockNumber-currentBlock;
-	if(lba>=0 && lba<blockLBAs){
-		memcpy(outPtr, blockBuf+lba*2048, 2048);
+	if (blockSize_ == 0) {
+		// Wasn't opened successfully.
+		return false;
+	}
+
+	int lba = blockNumber - currentBlock_;
+	if (lba >= 0 && lba < blockLBAs_){
+		memcpy(outPtr, blockBuf_ + lba*2048, 2048);
 		return true;
 	}
 
-	block = blockNumber/blockLBAs;
-	lba = blockNumber%blockLBAs;
-	currentBlock = block*blockLBAs;
+	int block = blockNumber / blockLBAs_;
+	lba = blockNumber % blockLBAs_;
+	currentBlock_ = block * blockLBAs_;
 
-	if(table[block].unk_1c!=0){
-		if((u32)block==(numBlocks-1))
+	if (table_[block].unk_1c != 0) {
+		if((u32)block == (numBlocks_ - 1))
 			return true; // demos make by fake_np
 		else
 			return false;
 	}
 
-	if(table[block].size<blockSize)
-		readBuf = tempBuf;
+	u8 *readBuf;
+	if (table_[block].size < blockSize_)
+		readBuf = tempBuf_;
 	else
-		readBuf = blockBuf;
+		readBuf = blockBuf_;
 
-	readSize = fileLoader_->ReadAt(psarOffset+table[block].offset, 1, table[block].size, readBuf, flags);
-	if(readSize != (size_t)table[block].size){
-		if((u32)block==(numBlocks-1))
+	size_t readSize = fileLoader_->ReadAt(psarOffset+table_[block].offset, 1, table_[block].size, readBuf, flags);
+	if (readSize != (size_t)table_[block].size){
+		if((u32)block==(numBlocks_-1))
 			return true;
 		else
 			return false;
 	}
 
-	if((table[block].flag&1)==0){
+	if ((table_[block].flag & 1) == 0) {
 		// skip mac check
 	}
 
-	if((table[block].flag&4)==0){
-		sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, table[block].offset>>4);
-		sceDrmBBCipherUpdate(&ckey, readBuf, table[block].size);
+	if ((table_[block].flag & 4) == 0) {
+		CIPHER_KEY ckey;
+		sceDrmBBCipherInit(&ckey, 1, 2, hkey, vkey, table_[block].offset>>4);
+		sceDrmBBCipherUpdate(&ckey, readBuf, table_[block].size);
 		sceDrmBBCipherFinal(&ckey);
 	}
 
-	if(table[block].size<blockSize){
-		lzsize = lzrc_decompress(blockBuf, 0x00100000, readBuf, table[block].size);
-		if(lzsize!=blockSize){
+	if (table_[block].size < blockSize_) {
+		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
+		if(lzsize!=blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();
 			return false;
 		}
 	}
 
-	memcpy(outPtr, blockBuf+lba*2048, 2048);
-
+	memcpy(outPtr, blockBuf_+lba*2048, 2048);
 	return true;
 }
 
-/*
- * CHD file
- */
-static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
+// static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
 
 struct CHDImpl {
 	chd_file *chd = nullptr;
@@ -537,8 +540,7 @@ struct ExtendedCoreFile {
 };
 
 CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
-	: BlockDevice(fileLoader), impl_(new CHDImpl())
-{
+	: BlockDevice(fileLoader), impl_(new CHDImpl()) {
 	Path paths[8];
 	paths[0] = fileLoader->GetPath();
 	int depth = 0;
@@ -650,16 +652,14 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	numBlocks = impl_->header->unitcount;
 }
 
-CHDFileBlockDevice::~CHDFileBlockDevice()
-{
+CHDFileBlockDevice::~CHDFileBlockDevice() {
 	if (impl_->chd) {
 		chd_close(impl_->chd);
 		delete[] readBuffer;
 	}
 }
 
-bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
-{
+bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	if (!impl_->chd) {
 		ERROR_LOG(Log::Loader, "ReadBlock: CHD not open. %s", fileLoader_->GetPath().c_str());
 		return false;
