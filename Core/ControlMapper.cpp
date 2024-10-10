@@ -85,11 +85,6 @@ static int GetOppositeVKey(int vkey) {
 	}
 }
 
-static bool IsAxisVKey(int vkey) {
-	// Little hacky but works, of course.
-	return GetOppositeVKey(vkey) != 0;
-}
-
 static bool IsUnsignedMapping(int vkey) {
 	return vkey == VIRTKEY_SPEED_ANALOG;
 }

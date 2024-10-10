@@ -52,10 +52,11 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
+	constexpr std::string_view ContentTypeHeader = "Content-Type:";
 	std::string contentType;
 	for (const std::string &header : responseHeaders) {
-		if (startsWithNoCase(header, "Content-Type:")) {
-			contentType = header.substr(strlen("Content-Type:"));
+		if (startsWithNoCase(header, ContentTypeHeader)) {
+			contentType = header.substr(ContentTypeHeader.size());
 			// Strip any whitespace (TODO: maybe move this to stringutil?)
 			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
 			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);

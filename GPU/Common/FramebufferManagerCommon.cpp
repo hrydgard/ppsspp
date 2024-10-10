@@ -3182,48 +3182,50 @@ bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
+	if (!vfb || !vfb->fbo) {
+		return;
+	}
+
 	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
 	}
-	if (vfb && vfb->fbo) {
-		if (gameUsesSequentialCopies_) {
-			// Ignore the x/y/etc., read the entire thing.  See below.
-			x = 0;
-			y = 0;
-			w = vfb->width;
-			h = vfb->height;
+	if (gameUsesSequentialCopies_) {
+		// Ignore the x/y/etc., read the entire thing.  See below.
+		x = 0;
+		y = 0;
+		w = vfb->width;
+		h = vfb->height;
+		vfb->memoryUpdated = true;
+		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+	} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+		// Mark it as fully downloaded until next render to it.
+		if (channel == RASTER_COLOR)
 			vfb->memoryUpdated = true;
-			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-		} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-			// Mark it as fully downloaded until next render to it.
-			if (channel == RASTER_COLOR)
-				vfb->memoryUpdated = true;
-			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-		} else {
-			// Let's try to set the flag eventually, if the game copies a lot.
-			// Some games (like Grand Knights History) copy subranges very frequently.
-			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-			static int frameLastCopy = 0;
-			static u32 bufferLastCopy = 0;
-			static int copiesThisFrame = 0;
-			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-				frameLastCopy = gpuStats.numFlips;
-				bufferLastCopy = vfb->fb_address;
-				copiesThisFrame = 0;
-			}
-			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-				gameUsesSequentialCopies_ = true;
-			}
+		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+	} else {
+		// Let's try to set the flag eventually, if the game copies a lot.
+		// Some games (like Grand Knights History) copy subranges very frequently.
+		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+		static int frameLastCopy = 0;
+		static u32 bufferLastCopy = 0;
+		static int copiesThisFrame = 0;
+		if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+			frameLastCopy = gpuStats.numFlips;
+			bufferLastCopy = vfb->fb_address;
+			copiesThisFrame = 0;
 		}
-
-		// This handles any required stretching internally.
-		ReadbackFramebuffer(vfb, x, y, w, h, channel, mode);
-
-		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-		textureCache_->ForgetLastTexture();
-		RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
+		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+			gameUsesSequentialCopies_ = true;
+		}
 	}
+
+	// This handles any required stretching internally.
+	ReadbackFramebuffer(vfb, x, y, w, h, channel, mode);
+
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	textureCache_->ForgetLastTexture();
+	RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
 }
 
 void FramebufferManagerCommon::FlushBeforeCopy() {
