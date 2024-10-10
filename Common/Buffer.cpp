@@ -102,16 +102,17 @@ int Buffer::OffsetToAfterNextCRLF() {
 }
 
 void Buffer::Printf(const char *fmt, ...) {
-	char buffer[2048];
+	char buffer[4096];
 	va_list vl;
 	va_start(vl, fmt);
-	size_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
-	if ((int)retval >= (int)sizeof(buffer)) {
+	int retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
+	if (retval >= (int)sizeof(buffer)) {
 		// Output was truncated. TODO: Do something.
 		ERROR_LOG(Log::IO, "Buffer::Printf truncated output");
 	}
-	if ((int)retval < 0) {
-		ERROR_LOG(Log::IO, "Buffer::Printf failed");
+	if (retval < 0) {
+		ERROR_LOG(Log::IO, "Buffer::Printf failed, bad args?");
+		return;
 	}
 	va_end(vl);
 	char *ptr = Append(retval);
