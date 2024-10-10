@@ -80,8 +80,10 @@ void GameScreen::update() {
 		if (Reporting::HasCRC(gamePath_)) {
 			uint32_t crcvalue = Reporting::RetrieveCRC(gamePath_);
 			CRC32string = int2hexstr(crcvalue);
-			tvCRC_->SetVisibility(UI::V_VISIBLE);
-			tvCRC_->SetText(CRC32string);
+			if (tvCRC_) {
+				tvCRC_->SetVisibility(UI::V_VISIBLE);
+				tvCRC_->SetText(CRC32string);
+			}
 			if (tvCRCCopy_) {
 				tvCRCCopy_->SetVisibility(UI::V_VISIBLE);
 			}
@@ -113,6 +115,21 @@ void GameScreen::CreateViews() {
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
+
+	bool fileTypeSupportCRC = false;
+	if (info) {
+		switch (info->fileType) {
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_ISO_NP:
+		case IdentifiedFileType::PSP_ISO:
+			fileTypeSupportCRC = true;
+			break;
+
+		default:
+			break;
+		}
+	}
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
@@ -151,25 +168,29 @@ void GameScreen::CreateViews() {
 		tvPlayTime_->SetVisibility(V_GONE);
 		
 		LinearLayout *crcHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
-		tvCRC_ = crcHoriz->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(0.0, G_VCENTER)));
-		tvCRC_->SetShadow(true);
-		Visibility crcVisibility = Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE;
-		tvCRC_->SetVisibility(crcVisibility);
-		if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
-			tvCRCCopy_ = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, G_VCENTER)));
-			tvCRCCopy_->OnClick.Add([this](UI::EventParams &) {
-				u32 crc = Reporting::RetrieveCRC(gamePath_);
-				char buffer[16];
-				snprintf(buffer, sizeof(buffer), "%08X", crc);
-				System_CopyStringToClipboard(buffer);
-				// Success indication. Not worth a translatable string.
-				g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
-				return UI::EVENT_DONE;
-			});
-			tvCRCCopy_->SetVisibility(crcVisibility);
-			tvCRCCopy_->SetScale(0.82f);
-		} else {
-			tvCRCCopy_ = nullptr;
+
+		if (fileTypeSupportCRC) {
+			// CRC button makes sense.
+			tvCRC_ = crcHoriz->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(0.0, G_VCENTER)));
+			tvCRC_->SetShadow(true);
+			Visibility crcVisibility = Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE;
+			tvCRC_->SetVisibility(crcVisibility);
+			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
+				tvCRCCopy_ = crcHoriz->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(0.0, G_VCENTER)));
+				tvCRCCopy_->OnClick.Add([this](UI::EventParams &) {
+					u32 crc = Reporting::RetrieveCRC(gamePath_);
+					char buffer[16];
+					snprintf(buffer, sizeof(buffer), "%08X", crc);
+					System_CopyStringToClipboard(buffer);
+					// Success indication. Not worth a translatable string.
+					g_OSD.Show(OSDType::MESSAGE_SUCCESS, buffer, 1.0f);
+					return UI::EVENT_DONE;
+				});
+				tvCRCCopy_->SetVisibility(crcVisibility);
+				tvCRCCopy_->SetScale(0.82f);
+			} else {
+				tvCRCCopy_ = nullptr;
+			}
 		}
 
 		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -268,21 +289,6 @@ void GameScreen::CreateViews() {
 	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
 	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
 	btnSetBackground_->SetVisibility(V_GONE);
-
-	bool fileTypeSupportCRC = false;
-	if (info) {
-		switch (info->fileType) {
-		case IdentifiedFileType::PSP_PBP:
-		case IdentifiedFileType::PSP_PBP_DIRECTORY:
-		case IdentifiedFileType::PSP_ISO_NP:
-		case IdentifiedFileType::PSP_ISO:
-			fileTypeSupportCRC = true;
-			break;
-
-		default:
-			break;
-		}
-	}
 
 	isHomebrew_ = info && info->region > GAMEREGION_MAX;
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
