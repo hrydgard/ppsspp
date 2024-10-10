@@ -48,7 +48,11 @@ android {
 
 	compileSdk 35
 	ndkVersion "21.4.7075529"
-
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(17)
+		}
+	}
 	defaultConfig {
 		/*
 		configurations.all {
@@ -117,10 +121,14 @@ android {
 					'../assets',
 			]
 		}
+		normal {
+			res.srcDirs = ['normal/res']
+		}
 		gold {
 			res.srcDirs = ['gold/res']
 		}
 		vr {
+			res.srcDirs = ['normal/res']
 			manifest.srcFile 'VRManifest.xml'
 		}
 		legacy {

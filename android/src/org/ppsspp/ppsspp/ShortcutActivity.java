@@ -154,7 +154,7 @@ public class ShortcutActivity extends Activity {
 		}
 		if (!setIcon) {
 			// Fall back to the PPSSPP icon.
-			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.drawable.ic_launcher);
+			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.mipmap.ic_launcher);
 			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
 		}
 		setResult(RESULT_OK, responseIntent);
