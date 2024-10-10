@@ -496,7 +496,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
-		INFO_LOG(Log::G3D, "About to save texture");
+		INFO_LOG(Log::G3D, "About to save texture (%dx%d)", plan.createW, plan.createH);
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 

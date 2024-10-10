@@ -664,18 +664,21 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 // can be pretty slow.
 class SaveTextureTask : public Task {
 public:
-	std::vector<u8> rgbaData;
+	// malloc'd
+	u8 *rgbaData = nullptr;
 
 	int w = 0;
 	int h = 0;
-	int pitch = 0;  // bytes
 
 	Path filename;
 	Path saveFilename;
 
 	u32 replacedInfoHash = 0;
 
-	SaveTextureTask(std::vector<u8> &&_rgbaData) : rgbaData(std::move(_rgbaData)) {}
+	SaveTextureTask(u8 *_rgbaData) : rgbaData(_rgbaData) {}
+	~SaveTextureTask() {
+		free(rgbaData);
+	}
 
 	// This must be set to I/O blocking because of Android storage (so we attach the thread to JNI), while being CPU heavy too.
 	TaskType Type() const override { return TaskType::IO_BLOCKING; }
@@ -711,7 +714,7 @@ public:
 		png.format = PNG_FORMAT_RGBA;
 		png.width = w;
 		png.height = h;
-		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData.data(), pitch, nullptr);
+		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData, w * 4, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
 			ERROR_LOG(Log::G3D, "Saving texture to PNG produced errors.");
@@ -735,9 +738,9 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) co
 	return true;
 }
 
-void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {
+void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int origW, int origH, int scaledW, int scaledH) {
 	_assert_msg_(saveEnabled_, "Texture saving not enabled");
-	_assert_(pitch >= 0);
+	_assert_(srcPitch >= 0);
 
 	if (!WillSave(replacedInfo)) {
 		// Ignore.
@@ -787,6 +790,10 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	int w = scaledW;
 	int h = scaledH;
 
+	if (w == 0 || h == 0) {
+		return;
+	}
+
 	// Only save the hashed portion of the PNG.
 	int lookupW;
 	int lookupH;
@@ -795,15 +802,19 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		h = lookupH * (scaledH / origH);
 	}
 
-	std::vector<u8> saveBuf;
+
+	size_t saveBufSize = w * h * 4;
+	u8 *saveBuf = (u8 *)malloc(saveBufSize);
+	if (!saveBuf) {
+		ERROR_LOG(Log::G3D, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
+		return;
+	}
 
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
-	saveBuf.resize(w * h * 4);
 	for (int y = 0; y < h; y++) {
-		memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * 4);
+		memcpy(saveBuf + y * w * 4, (const u8 *)data + y * srcPitch, w * 4);
 	}
-	pitch = w * 4;
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
 
@@ -812,7 +823,6 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 
 	task->w = w;
 	task->h = h;
-	task->pitch = pitch;
 	task->replacedInfoHash = replacedInfo.hash;
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
 
