@@ -61,7 +61,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		return ev.getToolType(pointer);
 	}
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
+	@TargetApi(Build.VERSION_CODES.N)
 	private void processMouseDelta(final MotionEvent ev) {
 		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
 			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
@@ -95,7 +95,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				break;
 			case MotionEvent.ACTION_MOVE: {
 				code = 1;
-				if (Build.VERSION.SDK_INT >= 12) {
+				if (Build.VERSION.SDK_INT >= 24) {
 					processMouseDelta(ev);
 				}
 				break;

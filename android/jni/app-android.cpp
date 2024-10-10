@@ -975,7 +975,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL. This doesn't get called on the Vulkan path.
 // This gets called from onSurfaceCreated.
-extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	_assert_(useCPUThread);
 
 	INFO_LOG(Log::G3D, "NativeApp.displayInit()");
@@ -1294,7 +1294,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
-	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
+	JNIEnv *env, jclass, jfloat x, jfloat y) {
 	if (!renderer_inited)
 		return false;
 	// TODO: Mousewheel should probably be an axis instead.
@@ -1474,7 +1474,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions(JNIEnv *, jclass) {
 	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
 }
 
@@ -1563,7 +1563,7 @@ static void VulkanEmuThread(ANativeWindow *wnd);
 
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
-extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
+extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
 	if (!graphicsContext) {

@@ -504,7 +504,6 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
 		int rot;
@@ -954,7 +953,6 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private InputDeviceState getInputDeviceState(InputEvent event) {
 		InputDevice device = event.getDevice();
 		if (device == null) {
@@ -1060,6 +1058,11 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
+	@TargetApi(Build.VERSION_CODES.N)
+	void sendMouseDelta(float dx, float dy) {
+		NativeApp.mouseDelta(dx, dy);
+	}
+
 	@Override
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 	public boolean onGenericMotionEvent(MotionEvent event) {
@@ -1078,9 +1081,11 @@ public abstract class NativeActivity extends Activity {
 
 		if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
 			if ((event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
-				float dx = event.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
-				float dy = event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
-				NativeApp.mouseDelta(dx, dy);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+					float dx = event.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
+					float dy = event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
+					sendMouseDelta(dx, dy);
+				}
 			}
 
 			switch (event.getAction()) {
@@ -1594,7 +1599,7 @@ public abstract class NativeActivity extends Activity {
 			if (mInfraredHelper == null) {
 				return false;
 			}
-			if (params.startsWith("sircs")) {
+			if (params.startsWith("sircs") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				Pattern pattern = Pattern.compile("sircs_(\\d+)_(\\d+)_(\\d+)_(\\d+)");
 				Matcher matcher = pattern.matcher(params);
 				if (!matcher.matches())
