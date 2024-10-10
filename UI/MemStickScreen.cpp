@@ -236,7 +236,7 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
-	std::string_view confirmButtonText = "";
+	std::string_view confirmButtonText;
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
 	case CHOICE_BROWSE_FOLDER:
@@ -310,9 +310,9 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
 		std::string newPath = value;
-		size_t pos = newPath.find_last_not_of("/");
+		size_t pos = newPath.find_last_not_of('/');
 		// Gotta have at least something but a /, and also needs to start with a /.
-		if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
@@ -456,7 +456,7 @@ void MemStickScreen::update() {
 	}
 }
 
-ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup)
+ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
 	if (initialSetup_) {

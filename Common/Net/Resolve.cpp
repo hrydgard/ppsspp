@@ -1,9 +1,9 @@
 #include "ppsspp_config.h"
 #include "Common/Net/Resolve.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -98,7 +98,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	else if (type == DNSType::IPV6)
 		hints.ai_family = AF_INET6;
 
-	const char *servicep = service.length() == 0 ? nullptr : service.c_str();
+	const char *servicep = service.empty() ? nullptr : service.c_str();
 
 	*res = nullptr;
 	int result = getaddrinfo(host.c_str(), servicep, &hints, res);
@@ -125,7 +125,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 
 void DNSResolveFree(addrinfo *res)
 {
-	if (res != NULL)
+	if (res)
 		freeaddrinfo(res);
 }
 
@@ -163,8 +163,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
 	INFO_LOG(Log::sceNet, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
-	struct ifconf ifc;
-	memset(&ifc, 0, sizeof(ifconf));
+	struct ifconf ifc{};
 	ifc.ifc_req = ifreqs;
 	ifc.ifc_len = sizeof(ifreqs);
 
@@ -198,7 +197,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
 			// is a valid IP4 Address
 			if (inet_ntop(AF_INET, &((struct sockaddr_in*)addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
-				IP4s.push_back(ipstr);
+				IP4s.emplace_back(ipstr);
 			}
 		}
 		/*else if (ifreqs[i].ifr_addr.sa_family == AF_INET6) {

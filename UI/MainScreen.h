@@ -170,7 +170,7 @@ protected:
 	float prevHighlightProgress_ = 0.0f;
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
-	bool lastVertical_;
+	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
 	UI::ScrollView *scrollAllGames_ = nullptr;
 	bool searchKeyModifier_ = false;

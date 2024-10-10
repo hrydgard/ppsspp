@@ -212,6 +212,7 @@ android {
 			'normalDebug',      // for debugging
 			'normalOptimized',  // for testing/user build
 			'normalRelease',    // for Google Play releases
+			'goldDebug',
 			'goldRelease',      // for Google Play releases
 			'vrDebug',          // for VR debugging
 			'vrOptimized',      // for VR testing

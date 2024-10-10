@@ -88,7 +88,7 @@ void EnableFocusMovement(bool enable) {
 		if (focusedView) {
 			focusedView->FocusChanged(FF_LOSTFOCUS);
 		}
-		focusedView = 0;
+		focusedView = nullptr;
 	}
 }
 

@@ -35,7 +35,7 @@ void IconCache::SaveToFile(FILE *file) {
 	// First, compute the total size. If above a threshold, remove until under.
 	Decimate(MAX_SAVED_CACHE_SIZE);
 
-	DiskCacheHeader header;
+	DiskCacheHeader header{};
 	header.magic = ICON_CACHE_MAGIC;
 	header.version = ICON_CACHE_VERSION;
 	header.entryCount = (uint32_t)cache_.size();
@@ -43,8 +43,7 @@ void IconCache::SaveToFile(FILE *file) {
 	fwrite(&header, 1, sizeof(header), file);
 
 	for (auto &iter : cache_) {
-		DiskCacheEntry entryHeader;
-		memset(&entryHeader, 0, sizeof(entryHeader));  // valgrind complains about padding bytes
+		DiskCacheEntry entryHeader{};
 		entryHeader.keyLen = (uint32_t)iter.first.size();
 		entryHeader.dataLen = (uint32_t)iter.second.data.size();
 		entryHeader.format = iter.second.format;
@@ -58,7 +57,7 @@ void IconCache::SaveToFile(FILE *file) {
 bool IconCache::LoadFromFile(FILE *file) {
 	std::unique_lock<std::mutex> lock(lock_);
 
-	DiskCacheHeader header;
+	DiskCacheHeader header{};
 	if (fread(&header, 1, sizeof(header), file) != sizeof(DiskCacheHeader)) {
 		return false;
 	}
@@ -69,7 +68,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 	double now = time_now_d();
 
 	for (uint32_t i = 0; i < header.entryCount; i++) {
-		DiskCacheEntry entryHeader;
+		DiskCacheEntry entryHeader{};
 		if (fread(&entryHeader, 1, sizeof(entryHeader), file) != sizeof(entryHeader)) {
 			break;
 		}
@@ -157,7 +156,7 @@ void IconCache::Decimate(int64_t maxSize) {
 
 	int64_t totalSize = 0;
 	for (auto &iter : cache_) {
-		totalSize += iter.second.data.size();
+		totalSize += (int64_t)iter.second.data.size();
 	}
 
 	if (totalSize <= maxSize) {
@@ -173,7 +172,7 @@ void IconCache::Decimate(int64_t maxSize) {
 
 	std::vector<SortEntry> sortEntries;
 	sortEntries.reserve(cache_.size());
-	for (auto iter : cache_) {
+	for (const auto &iter : cache_) {
 		sortEntries.push_back({ iter.first, iter.second.usedTimeStamp, iter.second.data.size() });
 	}
 
@@ -183,7 +182,7 @@ void IconCache::Decimate(int64_t maxSize) {
 	});
 
 	while (totalSize > maxSize && !sortEntries.empty()) {
-		totalSize -= sortEntries.back().size;
+		totalSize -= (int64_t)sortEntries.back().size;
 		auto iter = cache_.find(sortEntries.back().key);
 		if (iter != cache_.end()) {
 			if (iter->second.texture) {

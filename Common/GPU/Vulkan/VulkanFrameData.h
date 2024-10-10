@@ -55,8 +55,8 @@ struct CachedReadback {
 struct FrameDataShared {
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
-	bool useMultiThreading;
-	bool measurePresentTime;
+	bool useMultiThreading = false;
+	bool measurePresentTime = false;
 
 	void Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime);
 	void Destroy(VulkanContext *vulkan);

@@ -80,7 +80,7 @@ static Draw::Texture *bgTexture;
 
 class Animation {
 public:
-	virtual ~Animation() {}
+	virtual ~Animation() = default;
 	virtual void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) = 0;
 };
 
@@ -254,7 +254,7 @@ private:
 		}
 	}
 
-	std::shared_ptr<GameInfo> GetInfo(UIContext &dc, int index) {
+	static std::shared_ptr<GameInfo> GetInfo(UIContext &dc, int index) {
 		if (index < 0) {
 			return nullptr;
 		}
@@ -264,7 +264,7 @@ private:
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
-	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
+	static void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
 		if (!ginfo || amount <= 0.0f)
 			return;
 		GameInfoTex *pic = ginfo->GetBGPic();
@@ -520,8 +520,6 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	Margins actionMenuMargins(0, 100, 15, 0);
-
 	root_ = new AnchorLayout();
 
 	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 330, 10)))->SetClip(false);
@@ -570,7 +568,7 @@ void TextureShaderScreen::CreateViews() {
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
-		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
+		items.emplace_back(ps->T(shaders_[i].section, shaders_[i].name));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 
@@ -613,7 +611,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 		}
 #endif
 
-		File::FileInfo lang = tempLangs[i];
+		const File::FileInfo &lang = tempLangs[i];
 		langs_.push_back(lang);
 
 		std::string code;
@@ -797,6 +795,7 @@ void CreditsScreen::CreateViews() {
 	using namespace UI;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
@@ -807,7 +806,7 @@ void CreditsScreen::CreateViews() {
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+		root_->Add(new Button(mm->T("Buy PPSSPP Gold"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 		rightYOffset = 74;
 	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
@@ -815,6 +814,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 84, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
+
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
@@ -958,12 +958,12 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 		"fp64",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
-		specialthanksMaxim.c_str(),
-		specialthanksKeithGalocy.c_str(),
-		specialthanksOrphis.c_str(),
-		specialthanksangelxwind.c_str(),
-		specialthanksW_MS.c_str(),
-		specialthankssolarmystic.c_str(),
+		specialthanksMaxim,
+		specialthanksKeithGalocy,
+		specialthanksOrphis,
+		specialthanksangelxwind,
+		specialthanksW_MS,
+		specialthankssolarmystic,
 		cr->T("all the forum mods"),
 		"",
 		cr->T("this translation by", ""),   // Empty string as this is the original :)

@@ -61,7 +61,9 @@ void ScreenManager::switchScreen(Screen *screen) {
 		WARN_LOG(Log::System, "Switching to a zero screen, this can't be good");
 	}
 	if (stack_.empty() || screen != stack_.back().screen) {
-		screen->setScreenManager(this);
+		if (screen) {
+			screen->setScreenManager(this);
+		}
 		nextStack_.push_back({ screen, 0 });
 	}
 }
@@ -77,7 +79,7 @@ void ScreenManager::update() {
 		overlayScreen_->update();
 	}
 	// The background screen doesn't need updating.
-	if (stack_.size()) {
+	if (!stack_.empty()) {
 		stack_.back().screen->update();
 	}
 }

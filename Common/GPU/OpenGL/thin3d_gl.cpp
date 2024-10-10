@@ -245,10 +245,10 @@ private:
 };
 
 bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
-	source_ = std::string((const char *)data);
+	source_ = std::string((const char *)data, dataSize);
 	// Add the prelude on automatically.
 	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
-		if (source_.find("#version") == source_.npos) {
+		if (source_.find("#version") == std::string::npos) {
 			source_ = ApplyGLSLPrelude(source_, glstage_);
 		}
 	} else {
@@ -646,7 +646,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		// Note: this is for Intel drivers with GL3+.
 		// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/10117
 		// TODO: Remove entirely sometime reasonably far in driver years after 2015.
-		const std::string ver = GetInfoString(Draw::InfoField::APIVERSION);
+		const std::string ver = OpenGLContext::GetInfoString(Draw::InfoField::APIVERSION);
 		int versions[4]{};
 		if (sscanf(ver.c_str(), "Build %d.%d.%d.%d", &versions[0], &versions[1], &versions[2], &versions[3]) == 4) {
 			if (HasIntelDualSrcBug(versions)) {
@@ -962,7 +962,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		depth_ = depth;
 	}
 
-	if (stride == 0)
+	if (!stride)
 		stride = width;
 
 	size_t alignment = DataFormatSizeInBytes(format_);

@@ -285,7 +285,7 @@ void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 	if (subtitle_.empty() && ginfo->gameSizeOnDisk > 0) {
 		std::string date = ginfo->GetMTime();
 		std::string savedata_title = ginfo->GetParamSFO().GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + " (" + NiceSizeFormat(ginfo->gameSizeOnDisk) + ", " + date.c_str() + ")";
+		subtitle_ = CleanSaveString(savedata_title) + " (" + NiceSizeFormat(ginfo->gameSizeOnDisk) + ", " + date + ")";
 	}
 }
 
@@ -375,7 +375,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 
 	UpdateText(ginfo);
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
 
 	int availableWidth = bounds_.w - 150;
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -389,9 +389,9 @@ void SavedataButton::Draw(UIContext &dc) {
 		tb.w = std::max(1.0f, bounds_.w - 150.0f);
 		dc.PushScissor(tb);
 	}
-	dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
+	dc.DrawText(title_, bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
 	dc.SetFontScale(0.6f, 0.6f);
-	dc.DrawText(subtitle_.c_str(), bounds_.x + tx, bounds_.y2() - 7, style.fgColor, ALIGN_BOTTOM);
+	dc.DrawText(subtitle_, bounds_.x + tx, bounds_.y2() - 7, style.fgColor, ALIGN_BOTTOM);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	if (availableWidth < tw) {

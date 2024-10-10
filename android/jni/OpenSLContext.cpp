@@ -291,7 +291,7 @@ OpenSLContext::~OpenSLContext() {
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = nullptr;
 	}
-	AudioRecord_Stop();
+	OpenSLContext::AudioRecord_Stop();
 
 	INFO_LOG(Log::Audio, "OpenSL: Shutdown - deleting engine object");
 

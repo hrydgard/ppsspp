@@ -38,7 +38,7 @@ class NoticeView;
 class MemStickScreen : public UIDialogScreenWithBackground {
 public:
 	MemStickScreen(bool initialSetup);
-	~MemStickScreen() {}
+	~MemStickScreen() = default;
 
 	const char *tag() const override { return "MemStick"; }
 
@@ -95,7 +95,7 @@ private:
 
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
-	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
+	ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup);
 	~ConfirmMemstickMoveScreen();
 
 	const char *tag() const override { return "ConfirmMemstickMove"; }

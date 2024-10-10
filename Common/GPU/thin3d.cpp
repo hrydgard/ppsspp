@@ -548,10 +548,6 @@ void DrawContext::DestroyPresets() {
 	}
 }
 
-DrawContext::~DrawContext() {
-	// TODO: Can't call DestroyPresets here, too late.
-}
-
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const uint32_t *src32 = (const uint32_t *)src;

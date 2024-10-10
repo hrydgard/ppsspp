@@ -58,7 +58,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -95,7 +95,7 @@ public:
 
 	VulkanContext *Vulkan() const { return vulkan_; }
 private:
-	static void CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
+	static void CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
 
 	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
 
@@ -141,7 +141,7 @@ struct RPKey {
 
 class VKRRenderPass {
 public:
-	VKRRenderPass(const RPKey &key) : key_(key) {}
+	explicit VKRRenderPass(const RPKey &key) : key_(key) {}
 
 	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 	void Destroy(VulkanContext *vulkan) {

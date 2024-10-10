@@ -123,7 +123,7 @@ static bool IsTempPath(const Path &str) {
 
 class GameButton : public UI::Clickable {
 public:
-	GameButton(const Path &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0)
+	GameButton(const Path &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = nullptr)
 		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
@@ -227,7 +227,7 @@ private:
 
 void GameButton::Draw(UIContext &dc) {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON);
-	Draw::Texture *texture = 0;
+	Draw::Texture *texture = nullptr;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
@@ -685,7 +685,7 @@ bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_Config.RecentIsos()) {
-			filenames.push_back(Path(str));
+			filenames.emplace_back(str);
 		}
 		return true;
 	}
@@ -1326,7 +1326,7 @@ void MainScreen::CreateViews() {
 
 	root_->SetTag("mainroot");
 
-	upgradeBar_ = 0;
+	upgradeBar_ = nullptr;
 	if (!g_Config.upgradeMessage.empty()) {
 		auto u = GetI18NCategory(I18NCat::UPGRADE);
 		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));

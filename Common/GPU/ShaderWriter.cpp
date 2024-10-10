@@ -575,8 +575,6 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 ShaderWriter &ShaderWriter::GetTextureSize(const char *szVariable, const char *texName) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
-		F("  float2 %s; %s.GetDimensions(%s.x, %s.y);", szVariable, texName, szVariable, szVariable);
-		break;
 	case HLSL_D3D9:
 		F("  float2 %s; %s.GetDimensions(%s.x, %s.y);", szVariable, texName, szVariable, szVariable);
 		break;

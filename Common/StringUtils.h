@@ -115,7 +115,6 @@ const char* safe_string(const char* s);
 
 long parseHexLong(const std::string &s);
 long parseLong(std::string s);
-std::string StringFromFormat(const char* format, ...);
 // Cheap!
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args);
 

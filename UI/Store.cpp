@@ -268,10 +268,10 @@ private:
 	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnLaunchClick(UI::EventParams &e);
 
-	bool IsGameInstalled() {
+	bool IsGameInstalled() const {
 		return g_GameManager.IsGameInstalled(entry_.file);
 	}
-	std::string DownloadURL();
+	std::string DownloadURL() const;
 
 	StoreEntry entry_;
 	UI::Button *uninstallButton_ = nullptr;
@@ -380,10 +380,10 @@ void ProductView::Update() {
 	}
 	if (launchButton_)
 		launchButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
-	View::Update();
+	ViewGroup::Update();
 }
 
-std::string ProductView::DownloadURL() {
+std::string ProductView::DownloadURL() const {
 	if (entry_.downloadURL.empty()) {
 		// Construct the URL.
 		return StoreBaseUrl() + "files/" + entry_.file + ".zip";
@@ -446,7 +446,7 @@ void StoreScreen::update() {
 
 	g_DownloadManager.Update();
 
-	if (listing_.get() != 0 && listing_->Done()) {
+	if (listing_.get() && listing_->Done()) {
 		resultCode_ = listing_->ResultCode();
 		if (listing_->ResultCode() == 200) {
 			std::string listingJson;
@@ -574,6 +574,9 @@ void StoreScreen::CreateViews() {
 ProductItemView *StoreScreen::GetSelectedItem() {
 	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
 		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
+		if (!item) {
+			continue;
+		}
 		if (item->GetEntry().name == lastSelectedName_)
 			return item;
 	}

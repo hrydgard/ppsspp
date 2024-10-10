@@ -60,7 +60,7 @@
 #endif
 #endif
 
-StereoResampler::StereoResampler()
+StereoResampler::StereoResampler() noexcept
 		: m_maxBufsize(MAX_BUFSIZE_DEFAULT)
 	  , m_targetBufsize(TARGET_BUFSIZE_DEFAULT) {
 	// Need to have space for the worst case in case it changes.

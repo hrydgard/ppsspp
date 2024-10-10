@@ -344,7 +344,7 @@ void JitCompareScreen::UpdateDisasm() {
 	} else {  // viewMode_ == ViewMode::STATS
 		statsContainer_->Clear();
 
-		BlockCacheStats bcStats;
+		BlockCacheStats bcStats{};
 		blockCacheDebug->ComputeStats(bcStats);
 
 		char stats[1024];

@@ -31,8 +31,8 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #else
-#include <errno.h>
-#include <stdio.h>
+#include <cerrno>
+#include <cstdio>
 #endif
 
 #ifdef __APPLE__

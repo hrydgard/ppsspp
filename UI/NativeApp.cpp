@@ -28,7 +28,7 @@
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 
-#include <locale.h>
+#include <clocale>
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
@@ -529,7 +529,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	LogManager *logman = LogManager::GetInstance();
 
-	const char *fileToLog = 0;
+	const char *fileToLog = nullptr;
 	Path stateToLoad;
 
 	bool gotBootFilename = false;

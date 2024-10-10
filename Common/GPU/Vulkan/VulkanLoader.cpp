@@ -373,6 +373,7 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 				(std::string(fileRedirectDir.c_str()) + "/").c_str(), nullptr);
 			if (!lib) {
 				ERROR_LOG(Log::G3D, "Failed to load custom driver with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
+				*errorString = "Failed to load custom driver";
 			} else {
 				INFO_LOG(Log::G3D, "Vulkan library loaded with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
 			}
@@ -387,6 +388,9 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 				INFO_LOG(Log::G3D, "Vulkan library loaded ('%s')", so_names[i]);
 				break;
 			}
+		}
+		if (!lib) {
+			*errorString = "No vulkan library found";
 		}
 	}
 	return lib;
@@ -481,7 +485,7 @@ bool VulkanMayBeAvailable() {
 #elif defined(VK_USE_PLATFORM_METAL_EXT)
 	const char * const platformSurfaceExtension = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
 #else
-	const char *platformSurfaceExtension = 0;
+	const char *platformSurfaceExtension = nullptr;
 #endif
 
 	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties) {

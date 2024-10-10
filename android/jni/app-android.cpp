@@ -390,7 +390,7 @@ static void EmuThreadJoin() {
 
 static void PushCommand(std::string cmd, std::string param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
-	frameCommands.push(FrameCommand(cmd, param));
+	frameCommands.push(FrameCommand(std::move(cmd), std::move(param)));
 }
 
 // Android implementation of callbacks to the Java part of the app
@@ -440,7 +440,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 
 	case SYSPROP_TEMP_DIRS:
 	default:
-		return std::vector<std::string>();
+		return {};
 	}
 }
 
@@ -576,7 +576,7 @@ std::string Android_GetInputDeviceDebugString() {
 		return "(N/A)";
 	}
 
-	const char *charArray = env->GetStringUTFChars(jstr, 0);
+	const char *charArray = env->GetStringUTFChars(jstr, nullptr);
 	std::string retVal = charArray;
 	env->ReleaseStringUTFChars(jstr, charArray);
 	env->DeleteLocalRef(jstr);
@@ -587,7 +587,7 @@ std::string Android_GetInputDeviceDebugString() {
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	if (!jstr)
 		return "";
-	const char *str = env->GetStringUTFChars(jstr, 0);
+	const char *str = env->GetStringUTFChars(jstr, nullptr);
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
 	return cpp_string;
@@ -632,16 +632,16 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioConfig
 
 // Easy way for the Java side to ask the C++ side for configuration options, such as
 // the rotation lock which must be controlled from Java on Android.
-static std::string QueryConfig(std::string query) {
+static std::string QueryConfig(std::string_view query) {
 	char temp[128];
 	if (query == "screenRotation") {
 		INFO_LOG(Log::G3D, "g_Config.screenRotation = %d", g_Config.iScreenRotation);
 		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
-		return std::string(temp);
+		return temp;
 	} else if (query == "immersiveMode") {
-		return std::string(g_Config.bImmersiveMode ? "1" : "0");
+		return g_Config.bImmersiveMode ? "1" : "0";
 	} else if (query == "sustainedPerformanceMode") {
-		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
+		return g_Config.bSustainedPerformanceMode ? "1" : "0";
 	} else if (query == "androidJavaGL") {
 		// If we're using Vulkan, we say no... need C++ to use Vulkan.
 		if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -766,7 +766,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	}
 
 	std::string user_data_path = GetJavaString(env, jdataDir);
-	if (user_data_path.size() > 0)
+	if (!user_data_path.empty())
 		user_data_path += "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
@@ -975,7 +975,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL. This doesn't get called on the Vulkan path.
 // This gets called from onSurfaceCreated.
-extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	_assert_(useCPUThread);
 
 	INFO_LOG(Log::G3D, "NativeApp.displayInit()");
@@ -994,7 +994,6 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		INFO_LOG(Log::G3D, "BeginAndroidShutdown. Looping until emu thread done...");
 		// Skipping GL calls here because the old context is lost.
 		while (graphicsContext->ThreadFrame()) {
-			continue;
 		}
 		INFO_LOG(Log::G3D, "Joining emu thread");
 		EmuThreadJoin();
@@ -1042,9 +1041,9 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 }
 
 static void recalculateDpi() {
-	g_display.dpi = display_dpi_x;
-	g_display.dpi_scale_x = 240.0f / display_dpi_x;
-	g_display.dpi_scale_y = 240.0f / display_dpi_y;
+	g_display.dpi = (float)display_dpi_x;
+	g_display.dpi_scale_x = 240.0f / (float)display_dpi_x;
+	g_display.dpi_scale_y = 240.0f / (float)display_dpi_y;
 	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
@@ -1122,7 +1121,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
-		PushCommand("inputbox", serialized.c_str());
+		PushCommand("inputbox", serialized);
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_IMAGE:
@@ -1229,7 +1228,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 	if (!renderer_inited)
 		return;
-	TouchInput touch;
+	TouchInput touch{};
 	touch.id = pointerId;
 	touch.x = x * g_display.dpi_scale_x;
 	touch.y = y * g_display.dpi_scale_y;
@@ -1280,8 +1279,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	AxisInput *axis = new AxisInput[count];
 	_dbg_assert_(count <= env->GetArrayLength(axisIds));
 	_dbg_assert_(count <= env->GetArrayLength(values));
-	jint *axisIdBuffer = env->GetIntArrayElements(axisIds, NULL);
-	jfloat *valueBuffer = env->GetFloatArrayElements(values, NULL);
+	jint *axisIdBuffer = env->GetIntArrayElements(axisIds, nullptr);
+	jfloat *valueBuffer = env->GetFloatArrayElements(values, nullptr);
 
 	// These are dirty-filtered on the Java side.
 	for (int i = 0; i < count; i++) {
@@ -1294,7 +1293,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
-	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
+	JNIEnv *env, jclass, jfloat x, jfloat y) {
 	if (!renderer_inited)
 		return false;
 	// TODO: Mousewheel should probably be an axis instead.
@@ -1474,7 +1473,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions(JNIEnv *, jclass) {
 	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
 }
 
@@ -1508,7 +1507,7 @@ std::vector<std::string> System_GetCameraDeviceList() {
 			getEnv()->DeleteLocalRef(dev);
 			continue;
 		}
-		deviceListVector.push_back(std::string(cdev));
+		deviceListVector.emplace_back(cdev);
 		getEnv()->ReleaseStringUTFChars(dev, cdev);
 		getEnv()->DeleteLocalRef(dev);
 	}
@@ -1532,9 +1531,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEn
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass, jbyteArray image) {
-	if (image != NULL) {
+	if (image) {
 		jlong size = env->GetArrayLength(image);
-		jbyte* buffer = env->GetByteArrayElements(image, NULL);
+		jbyte* buffer = env->GetByteArrayElements(image, nullptr);
 		Camera::pushCameraImage(size, (unsigned char *)buffer);
 		env->ReleaseByteArrayElements(image, buffer, JNI_ABORT);
 	}
@@ -1563,7 +1562,7 @@ static void VulkanEmuThread(ANativeWindow *wnd);
 
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
-extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
+extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
 	if (!graphicsContext) {
@@ -1693,7 +1692,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 
 	INFO_LOG(Log::System, "queryGameName(%s)", path.c_str());
 
-	std::string result = "";
+	std::string result;
 
 	GameInfoCache *cache = new GameInfoCache();
 	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
@@ -1765,8 +1764,8 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
         if (info->Ready(GameInfoFlags::ICON)) {
             if (!info->icon.data.empty()) {
                 INFO_LOG(Log::System, "requestIcon: Got icon");
-                result = env->NewByteArray(info->icon.data.size());
-                env->SetByteArrayRegion(result, 0, info->icon.data.size(), (const jbyte *)info->icon.data.data());
+                result = env->NewByteArray((jsize)info->icon.data.size());
+                env->SetByteArrayRegion(result, 0, (jsize)info->icon.data.size(), (const jbyte *)info->icon.data.data());
             }
         } else {
             INFO_LOG(Log::System, "requestIcon: Filetype unknown");

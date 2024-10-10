@@ -385,7 +385,7 @@ private:
 	void PerformReadback(const GLRStep &pass);
 	void PerformReadbackImage(const GLRStep &pass);
 
-	void fbo_ext_create(const GLRInitStep &step);
+	void fbo_ext_create(const GLRInitStep &step);  // Unused on some platforms
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();

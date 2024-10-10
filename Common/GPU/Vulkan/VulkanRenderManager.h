@@ -103,7 +103,7 @@ public:
 	std::string fragmentShaderSource;
 	std::string geometryShaderSource;
 
-	VkPrimitiveTopology topology;
+	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	VkVertexInputAttributeDescription attrs[8]{};
 	VkVertexInputBindingDescription ibd{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -390,7 +390,7 @@ public:
 		data.blendColor.color = color;
 	}
 
-	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
+	void PushConstants(VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
@@ -577,7 +577,7 @@ private:
 
 	bool insideFrame_ = false;
 	// probably doesn't need to be atomic.
-	std::atomic<bool> runCompileThread_;
+	std::atomic<bool> runCompileThread_{};
 
 	bool useRenderThread_ = true;
 	bool measurePresentTime_ = false;

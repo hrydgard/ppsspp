@@ -7,9 +7,6 @@
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 
-Buffer::Buffer() { }
-Buffer::~Buffer() { }
-
 char *Buffer::Append(size_t length) {
 	if (length > 0) {
 		size_t old_size = data_.size();
@@ -125,7 +122,7 @@ bool Buffer::FlushToFile(const Path &filename) {
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return false;
-	if (data_.size()) {
+	if (!data_.empty()) {
 		fwrite(&data_[0], 1, data_.size(), f);
 	}
 	fclose(f);

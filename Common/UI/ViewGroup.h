@@ -69,7 +69,7 @@ public:
 
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
-	virtual void Clear();
+	void Clear();
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	View *GetViewByIndex(int index) { return views_[index]; }
 	int GetNumSubviews() const { return (int)views_.size(); }
