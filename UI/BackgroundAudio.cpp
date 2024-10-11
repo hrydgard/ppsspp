@@ -564,8 +564,32 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 }
 
-void SoundEffectMixer::LoadSamples() {
+class SampleLoadTask : public Task {
+public:
+	SampleLoadTask(SoundEffectMixer *mixer) : mixer_(mixer) {}
+	TaskType Type() const override { return TaskType::IO_BLOCKING; }
+	TaskPriority Priority() const override {
+		return TaskPriority::NORMAL;
+	}
+	virtual void Run() {
+		mixer_->LoadSamplesOnThread();
+	}
+private:
+	SoundEffectMixer *mixer_;
+};
+
+void SoundEffectMixer::Init() {
 	samples_.resize((size_t)UI::UISound::COUNT);
+	UI::SetSoundCallback([](UI::UISound sound, float volume) {
+		g_BackgroundAudio.SFX().Play(sound, volume);
+	});
+
+	// Load samples in the background.
+
+	g_threadManager.EnqueueTask(new SampleLoadTask(this));
+}
+
+void SoundEffectMixer::LoadSamplesOnThread() {
 	LoadDefaultSample(UI::UISound::BACK);
 	LoadDefaultSample(UI::UISound::SELECT);
 	LoadDefaultSample(UI::UISound::CONFIRM);
@@ -582,8 +606,4 @@ void SoundEffectMixer::LoadSamples() {
 	} else {
 		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
-
-	UI::SetSoundCallback([](UI::UISound sound, float volume) {
-		g_BackgroundAudio.SFX().Play(sound, volume);
-	});
 }
