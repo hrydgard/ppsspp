@@ -584,15 +584,19 @@ void ConfirmMemstickMoveScreen::update() {
 
 	if (newSpaceTask_ && newFreeSpaceView_) {
 		SpaceResult *result = newSpaceTask_->Poll();
-		newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
-		delete newSpaceTask_;
-		newSpaceTask_ = nullptr;
+		if (result) {
+			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
+			delete newSpaceTask_;
+			newSpaceTask_ = nullptr;
+		}
 	}
 	if (oldSpaceTask_ && oldFreeSpaceView_) {
 		SpaceResult *result = oldSpaceTask_->Poll();
-		oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
-		delete oldSpaceTask_;
-		oldSpaceTask_ = nullptr;
+		if (result) {
+			oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
+			delete oldSpaceTask_;
+			oldSpaceTask_ = nullptr;
+		}
 	}
 }
 
