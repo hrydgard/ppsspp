@@ -44,7 +44,7 @@ public:
 	PSPDevType DevType(u32 handle) override;
 	std::vector<PSPFileInfo> GetDirListing(const std::string &path, bool *exists = nullptr) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::UMD; }
-	u64  FreeSpace(const std::string &path) override { return 0; }
+	u64  FreeDiskSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations
 	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size) override;
