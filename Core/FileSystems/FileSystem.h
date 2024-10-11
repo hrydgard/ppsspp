@@ -145,7 +145,7 @@ public:
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() = 0;
-	virtual u64      FreeSpace(const std::string &path) = 0;
+	virtual u64      FreeDiskSpace(const std::string &path) = 0;
 	virtual bool     ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) = 0;
 };
 
@@ -175,7 +175,7 @@ public:
 	int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override { return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
 	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
-	u64 FreeSpace(const std::string &path) override { return 0; }
+	u64 FreeDiskSpace(const std::string &path) override { return 0; }
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 };
 

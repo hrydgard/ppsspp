@@ -871,7 +871,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 	return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 }
 
-u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
+u64 DirectoryFileSystem::FreeDiskSpace(const std::string &path) {
 	int64_t result = 0;
 	if (free_disk_space(GetLocalPath(path), result)) {
 		return ReplayApplyDisk64(ReplayAction::FREESPACE, (uint64_t)result, CoreTiming::GetGlobalTimeUs());
