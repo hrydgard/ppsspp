@@ -38,7 +38,7 @@ public class TextRenderer {
 
 	private static Point measureLine(String string, double textSize) {
 		int w;
-		if (string.length() > 0) {
+		if (!string.isEmpty()) {
 			textPaint.setTextSize((float) textSize);
 			w = (int) textPaint.measureText(string);
 			// Round width up to even already here to avoid annoyances from odd-width 16-bit textures
@@ -55,7 +55,7 @@ public class TextRenderer {
 	}
 
 	private static Point measure(String string, double textSize) {
-		String lines[] = string.replaceAll("\\r", "").split("\n");
+		String [] lines = string.replaceAll("\\r", "").split("\n");
 		Point total = new Point();
 		total.x = 0;
 		for (String line : lines) {
@@ -95,10 +95,9 @@ public class TextRenderer {
 		String lines[] = string.replaceAll("\\r", "").split("\n");
 		float y = 1.0f;
 
-		Path path = new Path();
-
+		Path path = null;
 		for (String line : lines) {
-			if (line.length() > 0) {
+			if (!line.isEmpty()) {
 				if (highContrastFontsEnabled) {
 					// This is a workaround for avoiding "High Contrast Fonts" screwing up our
 					// single-channel font rendering.
