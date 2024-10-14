@@ -1281,16 +1281,26 @@ void GPUCommon::FlushImm() {
 	if (immCount_ == 0 || immPrim_ == GE_PRIM_INVALID)
 		return;
 
-	SetDrawType(DRAW_PRIM, immPrim_);
-	VirtualFramebuffer *vfb = nullptr;
-	if (framebufferManager_)
-		vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// No idea how many cycles to skip, heh.
 		immCount_ = 0;
 		return;
 	}
+
+	// Ignore immediate point primitives with a X/Y of 0.
+	// These are accidentally created when games clear the graphics state.
+	if (immCount_ == 1 && immPrim_ == GE_PRIM_POINTS && immBuffer_[0].x == 0 && immBuffer_[0].y == 0 && immBuffer_[0].z == 0 && immBuffer_[0].color0_32 == 0) {
+		immCount_ = 0;
+		return;
+	}
+
+	SetDrawType(DRAW_PRIM, immPrim_);
+
 	gstate_c.UpdateUVScaleOffset();
+
+	VirtualFramebuffer *vfb = nullptr;
+	if (framebufferManager_)
+		vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (vfb) {
 		CheckDepthUsage(vfb);
 	}
