@@ -52,7 +52,7 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	u64 FreeSpace(const std::string &path) override;
+	u64 FreeDiskSpace(const std::string &path) override;
 
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
 

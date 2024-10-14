@@ -103,7 +103,7 @@ static void MemoryStick_CalcInitialFree() {
 
 		AndroidJNIThreadContext jniContext;
 
-		memstickInitialFree = pspFileSystem.FreeSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
+		memstickInitialFree = pspFileSystem.FreeDiskSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
 
 		std::unique_lock<std::mutex> guard(freeCalcMutex);
 		freeCalcStatus = FreeCalcStatus::DONE;
@@ -122,10 +122,12 @@ static void MemoryStick_WaitInitialFree() {
 }
 
 u64 MemoryStick_FreeSpace() {
+	NOTICE_LOG(Log::IO, "Calculated free disk space");
+
 	MemoryStick_WaitInitialFree();
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
-	u64 realFreeSpace = pspFileSystem.FreeSpace("ms0:/");
+	u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
 
 	// Cap the memory stick size to avoid math errors when old games get sizes that were
 	// not planned for back then (even though 2GB cards were available.)
