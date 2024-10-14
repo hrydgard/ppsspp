@@ -325,6 +325,13 @@ public:
 	OpenGLContext(bool canChangeSwapInterval);
 	~OpenGLContext();
 
+	BackendState GetCurrentBackendState() const override {
+		return BackendState{
+			(u32)renderManager_.GetNumSteps(),
+			true,  // Means that the other value is meaningful.
+		};
+	}
+
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
 		renderManager_.Resize(w, h);

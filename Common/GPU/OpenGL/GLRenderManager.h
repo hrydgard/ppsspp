@@ -842,6 +842,10 @@ public:
 		skipGLCalls_ = true;
 	}
 
+	int GetNumSteps() const {
+		return (int)steps_.size();
+	}
+
 private:
 	bool Run(GLRRenderThreadTask &task);
 

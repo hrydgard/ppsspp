@@ -1509,7 +1509,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	Draw::BackendState state = draw->GetCurrentBackendState();
 
 	// We allow if !state.valid, that means it's not the Vulkan backend.
-	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d screenmode: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, mode);
+	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, mode, (int)g_Config.iGPUBackend);
 
 	screenManager()->getUIContext()->BeginFrame();
 
