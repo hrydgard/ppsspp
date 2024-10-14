@@ -1567,9 +1567,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
-			presentation_->NotifyPresent();
 		}
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		presentation_->NotifyPresent();
 		return;
 	}
 
@@ -1628,6 +1628,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
+			// This effectively calls presentation_->NotifyPresent();
 			return;
 		} else {
 			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
@@ -1635,8 +1636,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			if (useBufferedRendering_) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
-			}
+			} // For non-buffered rendering, every frame is cleared anyway.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+			presentation_->NotifyPresent();
 			return;
 		}
 	}
@@ -1700,7 +1702,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 	} else if (useBufferedRendering_) {
-		WARN_LOG(Log::FrameBuf, "Current VFB lacks an FBO: %08x", vfb->fb_address);
+		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
+	} else {
+		presentation_->NotifyPresent();
 	}
 
 	// This may get called mid-draw if the game uses an immediate flip.
