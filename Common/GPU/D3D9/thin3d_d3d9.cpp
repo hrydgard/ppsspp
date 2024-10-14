@@ -1520,6 +1520,9 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 	if (channelBits != FB_COLOR_BIT) {
 		fb->depthstenciltex->UnlockRect(0);
 	}
+	if (offscreen) {
+		offscreen->UnlockRect();
+	}
 
 	return SUCCEEDED(hr);
 }
