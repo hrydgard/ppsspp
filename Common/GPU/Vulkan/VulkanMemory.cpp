@@ -71,7 +71,8 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	VmaAllocationInfo allocInfo{};
 	
 	VkResult result = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &block.buffer, &block.allocation, &allocInfo);
-	_assert_(result == VK_SUCCESS);
+
+	_assert_msg_(result == VK_SUCCESS, "VulkanPushPool: Failed to create buffer (result = %s, size = %d)", VulkanResultToString(result), (int)size);
 
 	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
 
