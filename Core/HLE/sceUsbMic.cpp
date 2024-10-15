@@ -273,7 +273,7 @@ static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 		return -1;
 	}
 
-	ERROR_LOG(Log::HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
+	WARN_LOG(Log::HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
 		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
 	}
@@ -284,6 +284,7 @@ static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 
 	return __MicInput(maxSamples, sampleRate, bufAddr, USBMIC, false);
 }
+
 static int sceUsbMicGetInputLength() {
 	int ret = Microphone::getReadMicDataLength() / 2;
 	ERROR_LOG(Log::HLE, "UNTEST sceUsbMicGetInputLength(ret: %d)", ret);
@@ -297,7 +298,8 @@ static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
 
 static int sceUsbMicWaitInputEnd() {
 	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
-	return 0;
+	// Hack: Just task switch so other threads get to do work. Helps Beaterator (although recording does not appear to work correctly).
+	return hleDelayResult(0, "MicWait", 100);
 }
 
 int Microphone::startMic(void *param) {
