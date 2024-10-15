@@ -403,7 +403,7 @@ u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask) {
 
 std::string SymbolMap::GetDescription(unsigned int address) {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
-	const char* labelName = NULL;
+	const char *labelName = nullptr;
 
 	u32 funcStart = GetFunctionStart(address);
 	if (funcStart != INVALID_ADDRESS) {
@@ -414,11 +414,11 @@ std::string SymbolMap::GetDescription(unsigned int address) {
 			labelName = GetLabelName(dataStart);
 	}
 
-	if (labelName != NULL)
+	if (labelName)
 		return labelName;
 
-	char descriptionTemp[256];
-	sprintf(descriptionTemp, "(%08x)", address);
+	char descriptionTemp[32];
+	snprintf(descriptionTemp, sizeof(descriptionTemp), "(%08x)", address);
 	return descriptionTemp;
 }
 
@@ -435,7 +435,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 			entry.address = it->first;
 			entry.size = GetFunctionSize(entry.address);
 			const char* name = GetLabelName(entry.address);
-			if (name != NULL)
+			if (name)
 				entry.name = name;
 			result.push_back(entry);
 		}
@@ -448,7 +448,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 			entry.address = it->first;
 			entry.size = GetDataSize(entry.address);
 			const char* name = GetLabelName(entry.address);
-			if (name != NULL)
+			if (name)
 				entry.name = name;
 			result.push_back(entry);
 		}

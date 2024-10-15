@@ -275,10 +275,8 @@ public:
 	const char *GetName() override { return nm.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "Module"; }
-	void GetQuickInfo(char *ptr, int size) override
-	{
-		// ignore size
-		sprintf(ptr, "%sname=%s gp=%08x entry=%08x",
+	void GetQuickInfo(char *ptr, int size) override {
+		snprintf(ptr, size, "%sname=%s gp=%08x entry=%08x",
 			isFake ? "faked " : "",
 			nm.name,
 			nm.gp_value,
@@ -394,7 +392,7 @@ public:
 
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
-		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
+		snprintf(temp, sizeof(temp), "zz_%s", GetFuncName(func.moduleName, func.nid));
 		g_symbolMap->AddFunction(temp,func.stubAddr,8);
 
 		// Keep track and actually hook it up if possible.
