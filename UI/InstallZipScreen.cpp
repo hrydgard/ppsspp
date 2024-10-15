@@ -112,7 +112,6 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-			backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
 
 			showDeleteCheckbox = true;
 		} else if (zipFileInfo_.contents == ZipFileContents::SAVE_DATA) {
