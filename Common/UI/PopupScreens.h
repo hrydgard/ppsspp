@@ -427,7 +427,6 @@ public:
 
 private:
 	std::string *value_;
-	BrowseFileType fileType_;
 	RequesterToken token_;
 };
 

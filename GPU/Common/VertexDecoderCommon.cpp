@@ -1313,9 +1313,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		// Can skip looking up in the JIT.
 		jitted_ = &VtxDec_Tu8_C5551_Ps16;
 		return;
-	}
-	// Fails to update alphaFull properly.
-	else if (!options.expand8BitNormalsToFloat && fmtWithoutSkinFlag == (GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT)) {
+	} else if (!options.expand8BitNormalsToFloat && fmtWithoutSkinFlag == (GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT)) {
 		jitted_ = &VtxDec_Tu16_C8888_Pfloat;
 		return;
 	}
