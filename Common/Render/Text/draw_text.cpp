@@ -121,6 +121,35 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	target.Flush(true);
 }
 
+void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
+	if (str.empty()) {
+		*w = 0.0;
+		*h = 0.0;
+		return;
+	}
+
+	CacheKey key{ std::string(str), fontHash_ };
+
+	TextMeasureEntry *entry;
+	auto iter = sizeCache_.find(key);
+	if (iter != sizeCache_.end()) {
+		entry = iter->second.get();
+	} else {
+		entry = new TextMeasureEntry();
+		float extW, extH;
+		MeasureStringInternal(str, &extW, &extH);
+		entry->width = extW;
+		entry->height = extH;
+		// Hm, use the old calculation?
+		// int h = i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
+		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+	}
+
+	entry->lastUsedFrame = frameCount_;
+	*w = entry->width * fontScaleX_ * dpiScale_;
+	*h = entry->height * fontScaleY_ * dpiScale_;
+}
+
 void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 

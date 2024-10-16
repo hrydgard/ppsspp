@@ -51,27 +51,13 @@ void TextDrawerQt::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerQt::MeasureString(std::string_view str, float *w, float *h) {
-	CacheKey key{ std::string(str), fontHash_ };
+void TextDrawerQt::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	QFont* font = fontMap_.find(fontHash_)->second;
+	QFontMetrics fm(*font);
+	QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
 
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		QFont* font = fontMap_.find(fontHash_)->second;
-		QFontMetrics fm(*font);
-		QSize size = fm.size(0, QString::fromUtf8(str.data(), str.length()));
-
-		entry = new TextMeasureEntry();
-		entry->width = size.width();
-		entry->height = size.height();
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
-	}
-
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	*w = size.width();
+	*h = size.height();
 }
 
 bool TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {

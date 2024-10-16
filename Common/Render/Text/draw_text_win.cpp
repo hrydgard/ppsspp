@@ -120,46 +120,30 @@ void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerWin32::MeasureString(std::string_view str, float *w, float *h) {
-	CacheKey key{ std::string(str), fontHash_ };
-	
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		auto iter = fontMap_.find(fontHash_);
-		if (iter != fontMap_.end()) {
-			SelectObject(ctx_->hDC, iter->second->hFont);
-		}
-
-		std::string toMeasure(str);
-
-		std::vector<std::string_view> lines;
-		SplitString(toMeasure, '\n', lines);
-
-		int extW = 0, extH = 0;
-		for (auto &line : lines) {
-			SIZE size;
-			std::wstring wstr = ConvertUTF8ToWString(line);
-			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-
-			if (size.cx > extW)
-				extW = size.cx;
-			extH += size.cy;
-		}
-
-		entry = new TextMeasureEntry();
-		entry->width = extW;
-		entry->height = extH;
-		// Hm, use the old calculation?
-		// int h = i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	auto iter = fontMap_.find(fontHash_);
+	if (iter != fontMap_.end()) {
+		SelectObject(ctx_->hDC, iter->second->hFont);
 	}
 
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	std::string toMeasure(str);
+
+	std::vector<std::string_view> lines;
+	SplitString(toMeasure, '\n', lines);
+
+	int extW = 0, extH = 0;
+	for (auto &line : lines) {
+		SIZE size;
+		std::wstring wstr = ConvertUTF8ToWString(line);
+		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
+
+		if (size.cx > extW)
+			extW = size.cx;
+		extH += size.cy;
+	}
+
+	*w = extW;
+	*h = extH;
 }
 
 bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {

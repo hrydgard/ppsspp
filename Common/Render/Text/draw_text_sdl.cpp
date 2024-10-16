@@ -186,15 +186,13 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 #endif
 }
 
-uint32_t TextDrawerSDL::CheckMissingGlyph(const std::string& text) {
+uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
 	TTF_Font *font = fontMap_.find(fontHash_)->second;
-	UTF8 utf8Decoded(text.c_str());
+	UTF8 utf8Decoded(text);
 
 	uint32_t missingGlyph = 0;
-	for (int i = 0; i < text.length(); ) {
+	while (!utf8Decoded.end()) {
 		uint32_t glyph = utf8Decoded.next();
-		i = utf8Decoded.byteIndex();
-
 		if (!TTF_GlyphIsProvided32(font, glyph)) {
 			missingGlyph = glyph;
 			break;
@@ -279,39 +277,28 @@ void TextDrawerSDL::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerSDL::MeasureString(std::string_view str, float *w, float *h) {
-	CacheKey key{ std::string(str), fontHash_ };
+void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	TTF_Font *font = fontMap_.find(fontHash_)->second;
+	int ptSize = TTF_FontHeight(font) / 1.35;
 
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		TTF_Font *font = fontMap_.find(fontHash_)->second;
-		int ptSize = TTF_FontHeight(font) / 1.35;
-
-		uint32_t missingGlyph = CheckMissingGlyph(key.text);
+	uint32_t missingGlyph = CheckMissingGlyph(str);
 		
-		if (missingGlyph) {
-			int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-			if (fallbackFont >= 0) {
-				font = fallbackFonts_[fallbackFont];
-			}
+	if (missingGlyph) {
+		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
+		if (fallbackFont >= 0) {
+			font = fallbackFonts_[fallbackFont];
 		}
-
-		int width = 0;
-		int height = 0;
-		TTF_SizeUTF8(font, key.text.c_str(), &width, &height);
-
-		entry = new TextMeasureEntry();
-		entry->width = width;
-		entry->height = height;
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	int width = 0;
+	int height = 0;
+
+	// Unfortunately we need to zero-terminate here.
+	std::string text(str);
+	TTF_SizeUTF8(font, text.c_str(), &width, &height);
+
+	*w = width;
+	*h = height;
 }
 
 bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
