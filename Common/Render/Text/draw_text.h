@@ -42,14 +42,14 @@ struct TextMeasureEntry {
 
 class TextDrawer {
 public:
-	virtual ~TextDrawer();
+	virtual ~TextDrawer() = default;
 
 	virtual bool IsReady() const { return true; }
 	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;
 	virtual void SetFont(uint32_t fontHandle) = 0;  // Shortcut once you've set the font once.
 	void SetFontScale(float xscale, float yscale);
-	virtual void MeasureString(std::string_view str, float *w, float *h) = 0;
-	virtual void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);
+	void MeasureString(std::string_view str, float *w, float *h);
+	void MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);
 
 	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
 	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);
@@ -69,6 +69,9 @@ public:
 
 protected:
 	TextDrawer(Draw::DrawContext *draw);
+
+	virtual void MeasureStringInternal(std::string_view str, float *w, float *h) = 0;
+
 	void ClearCache();
 
 	virtual bool SupportsColorEmoji() const = 0;

@@ -75,41 +75,23 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) {
-	if (str.empty()) {
-		*w = 0.0;
-		*h = 0.0;
-		return;
-	}
-
-	CacheKey key{ std::string(str), fontHash_ };
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
+void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	float scaledSize = 14;
+	auto iter = fontMap_.find(fontHash_);
+	if (iter != fontMap_.end()) {
+		scaledSize = iter->second.size;
 	} else {
-		float scaledSize = 14;
-		auto iter = fontMap_.find(fontHash_);
-		if (iter != fontMap_.end()) {
-			scaledSize = iter->second.size;
-		} else {
-			ERROR_LOG(Log::G3D, "Missing font");
-		}
-		std::string text(str);
-		auto env = getEnv();
-		// Unfortunate that we can't create a jstr from a std::string_view directly.
-		jstring jstr = env->NewStringUTF(text.c_str());
-		uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
-		env->DeleteLocalRef(jstr);
-
-		entry = new TextMeasureEntry();
-		entry->width = (size >> 16);
-		entry->height = (size & 0xFFFF);
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+		ERROR_LOG(Log::G3D, "Missing font");
 	}
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	std::string text(str);
+	auto env = getEnv();
+	// Unfortunate that we can't create a jstr from a std::string_view directly.
+	jstring jstr = env->NewStringUTF(text.c_str());
+	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
+	env->DeleteLocalRef(jstr);
+
+	*w = (size >> 16);
+	*h = (size & 0xFFFF);
 }
 
 bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {

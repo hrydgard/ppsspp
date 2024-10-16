@@ -19,16 +19,17 @@ public:
 
 	uint32_t SetFont(const char *fontName, int size, int flags) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
-	void MeasureString(std::string_view str, float *w, float *h) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
+	void MeasureStringInternal(std::string_view str, float *w, float *h) override;
+
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
 
 private:
 	void PrepareFallbackFonts(std::string_view locale);
-	uint32_t CheckMissingGlyph(const std::string& text);
+	uint32_t CheckMissingGlyph(std::string_view text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
 	std::map<uint32_t, _TTF_Font *> fontMap_;
