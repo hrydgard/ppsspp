@@ -42,7 +42,7 @@ struct TextMeasureEntry {
 
 class TextDrawer {
 public:
-	virtual ~TextDrawer();
+	virtual ~TextDrawer() = default;
 
 	virtual bool IsReady() const { return true; }
 	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;

@@ -18,8 +18,6 @@ TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
 	dpiScale_ = CalculateDPIScale();
 }
-TextDrawer::~TextDrawer() {
-}
 
 float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	float w, h;
@@ -124,12 +122,19 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 }
 
 void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
+
+	float plainW, plainH;
+	MeasureString(str, &plainW, &plainH);
+
+	if (wrap && plainW > bounds.w) {
+		std::string toMeasure = std::string(str);
 		WrapString(toMeasure, toMeasure.c_str(), bounds.w, wrap);
+		MeasureString(toMeasure, w, h);
+	} else {
+		*w = plainW;
+		*h = plainH;
 	}
-	MeasureString(toMeasure, w, h);
 }
 
 void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
@@ -186,7 +191,7 @@ void TextDrawer::OncePerFrame() {
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms
-	if (frameCount_ % 23 == 0) {
+	if (frameCount_ % 63 == 0) {
 		for (auto iter = cache_.begin(); iter != cache_.end();) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
 				if (iter->second->texture)
