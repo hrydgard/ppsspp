@@ -540,6 +540,10 @@ void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
+bool GPUCommonHW::PresentedThisFrame() const {
+	return framebufferManager_->PresentedThisFrame();
+}
+
 void GPUCommonHW::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
