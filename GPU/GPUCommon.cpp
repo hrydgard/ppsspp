@@ -722,10 +722,6 @@ void GPUCommon::PSPFrame() {
 	GPURecord::NotifyBeginFrame();
 }
 
-bool GPUCommon::PresentedThisFrame() const {
-	return framebufferManager_ ? framebufferManager_->PresentedThisFrame() : true;
-}
-
 void GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {

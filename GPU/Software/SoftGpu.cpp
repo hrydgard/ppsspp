@@ -656,6 +656,10 @@ void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
 }
 
+bool SoftGPU::PresentedThisFrame() const {
+	return presentation_->PresentedThisFrame();
+}
+
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {
 	uint32_t bytes = height * stride * (fmt == GE_FORMAT_8888 ? 4 : 2);
 	MarkDirty(addr, bytes, value);

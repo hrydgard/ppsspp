@@ -68,6 +68,8 @@ public:
 	void FastRunLoop(DisplayList &list) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
+	bool PresentedThisFrame() const override;
+
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb) override;
 	void CheckFlushOp(int cmd, u32 diff);
