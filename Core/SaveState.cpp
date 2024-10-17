@@ -984,7 +984,7 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				INFO_LOG(Log::SaveState, "Saving state to %s", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.filename.c_str());
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title

@@ -174,11 +174,15 @@ void DrawEngineVulkan::BeginFrame() {
 	tessDataTransferVulkan->SetPushPool(pushUBO_);
 
 	DirtyAllUBOs();
+
+	AssertEmpty();
 }
 
 void DrawEngineVulkan::EndFrame() {
 	stats_.pushVertexSpaceUsed = (int)pushVertex_->GetUsedThisFrame();
 	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
+
+	AssertEmpty();
 }
 
 void DrawEngineVulkan::DirtyAllUBOs() {
@@ -211,6 +215,8 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 // The inline wrapper in the header checks for numDrawCalls_ == 0
 void DrawEngineVulkan::DoFlush() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	renderManager->AssertInRenderPass();
 
 	PROFILE_THIS_SCOPE("Flush");
 
