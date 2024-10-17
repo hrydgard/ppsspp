@@ -92,7 +92,7 @@ void DrawGPUMemoryVis(UIContext *ui, GPUInterface *gpu) {
 	int y = starty;
 
 	ui->SetFontScale(0.7f, 0.7f);
-	ui->DrawTextShadow(str.str().c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(str.str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }
@@ -115,7 +115,7 @@ void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
 	std::string text = ui->GetDrawContext()->GetGpuProfileString();
 
 	ui->SetFontScale(0.4f, 0.4f);
-	ui->DrawTextShadow(text.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(text, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }

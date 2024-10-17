@@ -593,7 +593,7 @@ void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float
 
 	// This allows each line to be horizontally centered by itself.
 	for (const std::string &line : lines) {
-		DrawText(font, line.c_str(), x, baseY, color, align);
+		DrawText(font, line, x, baseY, color, align);
 
 		float tw, th;
 		MeasureText(font, line, &tw, &th);
