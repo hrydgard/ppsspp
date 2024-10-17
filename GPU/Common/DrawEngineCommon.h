@@ -147,6 +147,10 @@ public:
 
 	virtual void ClearTrackedVertexArrays() {}
 
+	void AssertEmpty() {
+		_dbg_assert_(numDrawVerts_ == 0 && numDrawInds_ == 0);
+	}
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
