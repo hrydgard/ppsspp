@@ -628,6 +628,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	}
 	if (!hasImage) {
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "CopyToCurrentFboFromDisplayRam");
+		presentation_->NotifyPresent();
 		return;
 	}
 

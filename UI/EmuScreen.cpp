@@ -1387,6 +1387,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
 		}
+		if (gpu->PresentedThisFrame()) {
+			framebufferBound = true;
+		}
 		if (!framebufferBound) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
@@ -1494,10 +1497,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
 			// So, we don't set framebufferBound here.
 			break;
-		}
-
-		if (framebufferBound && gpu) {
-			gpu->PresentedThisFrame();
 		}
 
 		PSP_EndHostFrame();
