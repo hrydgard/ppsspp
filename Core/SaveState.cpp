@@ -913,25 +913,26 @@ namespace SaveState
 		return Status::SUCCESS;
 	}
 
-	void Process()
-	{
+	// NOTE: This can cause ending of the current renderpass, due to the readback needed for the screenshot.
+	bool Process() {
 		rewindStates.Process();
 
 		if (!needsProcess)
-			return;
+			return false;
 		needsProcess = false;
 
 		if (!__KernelIsRunning())
 		{
 			ERROR_LOG(Log::SaveState, "Savestate failure: Unable to load without kernel, this should never happen.");
-			return;
+			return false;
 		}
 
 		std::vector<Operation> operations = Flush();
 		SaveStart state;
 
-		for (size_t i = 0, n = operations.size(); i < n; ++i)
-		{
+		bool readbackImage = false;
+
+		for (size_t i = 0, n = operations.size(); i < n; ++i) {
 			Operation &op = operations[i];
 			CChunkFileReader::Error result;
 			Status callbackResult;
@@ -984,7 +985,7 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				INFO_LOG(Log::SaveState, "Saving state to %s", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.filename.c_str());
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title
@@ -1068,6 +1069,7 @@ namespace SaveState
 				} else {
 					screenshotFailures = 0;
 				}
+				readbackImage = true;
 				break;
 			}
 			default:
@@ -1083,6 +1085,8 @@ namespace SaveState
 			// Avoid triggering frame skipping due to slowdown
 			__DisplaySetWasPaused();
 		}
+
+		return readbackImage;
 	}
 
 	void NotifySaveData() {

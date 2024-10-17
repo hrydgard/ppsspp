@@ -290,6 +290,10 @@ public:
 		compileMutex_.unlock();
 	}
 
+	void AssertInRenderPass() const {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+	}
+
 	// This is the first call in a draw operation. Instead of asserting like we used to, you can now check the
 	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
 	// The old assert wasn't very helpful in figuring out what caused it anyway...
