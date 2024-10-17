@@ -534,6 +534,7 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 		std::string toMeasure = std::string(text);
 		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, bounds.w, wrap);
 		toMeasure = wrapper.Wrapped();
+		MeasureText(font_id, toMeasure, w, h);
 	} else {
 		MeasureText(font_id, text, w, h);
 	}

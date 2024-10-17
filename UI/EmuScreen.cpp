@@ -1369,6 +1369,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			framebufferBound = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	} else {
+		// Some other screen bound the backbuffer first.
+		framebufferBound = true;
 	}
 
 	g_OSD.NudgeSidebar();
@@ -1376,6 +1379,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+		// NOTE: The strcmp is != 0 - so all popped-over screens EXCEPT DevMenu
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
 			_dbg_assert_(gpu);
@@ -1383,7 +1387,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
 		}
-		if (!framebufferBound && (!gpu || !gpu->PresentedThisFrame())) {
+		if (!framebufferBound) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
 		// Need to make sure the UI texture is available, for "darken".
