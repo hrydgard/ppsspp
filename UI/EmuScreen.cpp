@@ -1445,6 +1445,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
+		if (SaveState::Process()) {
+			// We might have lost the framebuffer bind if we had one, due to a readback.
+			if (framebufferBound) {
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_SavestateRebind");
+			}
+		}
 		PSP_RunLoopWhileState();
 
 		flags |= ScreenRenderFlags::HANDLED_THROTTLING;
