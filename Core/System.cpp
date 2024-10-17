@@ -623,7 +623,6 @@ void PSP_RunLoopWhileState() {
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
-	SaveState::Process();
 	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
 		return;
 	} else if (coreState == CORE_STEPPING) {
