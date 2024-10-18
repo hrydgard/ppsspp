@@ -501,7 +501,7 @@ int main(int argc, const char* argv[])
 	g_Config.iGlobalVolume = VOLUME_FULL;
 	g_Config.iReverbVolume = VOLUME_FULL;
 	g_Config.internalDataDirectory.clear();
-	g_Config.bUseNewAtrac = newAtrac;
+	g_Config.bUseExperimentalAtrac = newAtrac;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
