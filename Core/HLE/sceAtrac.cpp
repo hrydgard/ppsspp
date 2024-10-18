@@ -138,7 +138,7 @@ void __AtracDoState(PointerWrap &p) {
 }
 
 static AtracBase *allocAtrac(bool forceOld = false) {
-	if (g_Config.bUseNewAtrac && !forceOld) {
+	if (g_Config.bUseExperimentalAtrac && !forceOld) {
 		return new Atrac2();
 	} else {
 		return new Atrac();
