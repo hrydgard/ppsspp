@@ -653,22 +653,7 @@ static void check_variables(CoreParameter &coreParam)
 
    var.key = "ppsspp_analog_deadzone";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "0%"))
-         g_Config.fAnalogDeadzone = 0.0f;
-      else if (!strcmp(var.value, "5%"))
-         g_Config.fAnalogDeadzone = 0.05f;
-      else if (!strcmp(var.value, "10%"))
-         g_Config.fAnalogDeadzone = 0.10f;
-      else if (!strcmp(var.value, "15%"))
-         g_Config.fAnalogDeadzone = 0.15f;
-      else if (!strcmp(var.value, "20%"))
-         g_Config.fAnalogDeadzone = 0.20f;
-      else if (!strcmp(var.value, "25%"))
-         g_Config.fAnalogDeadzone = 0.25f;
-      else if (!strcmp(var.value, "30%"))
-         g_Config.fAnalogDeadzone = 0.30f;
-   }
+      g_Config.fAnalogDeadzone = atof(var.value);
 
    var.key = "ppsspp_memstick_inserted";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
