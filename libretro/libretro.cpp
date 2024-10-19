@@ -651,6 +651,25 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bAnalogIsCircular = true;
    }
 
+   var.key = "analog_deadzone";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "0%"))
+         g_Config.fAnalogDeadzone = 0.0f;
+      if (!strcmp(var.value, "5%"))
+         g_Config.fAnalogDeadzone = 0.05f;
+      if (!strcmp(var.value, "10%"))
+         g_Config.fAnalogDeadzone = 0.10f;
+      if (!strcmp(var.value, "15%"))
+         g_Config.fAnalogDeadzone = 0.15f;
+      if (!strcmp(var.value, "20%"))
+         g_Config.fAnalogDeadzone = 0.20f;
+      if (!strcmp(var.value, "25%"))
+         g_Config.fAnalogDeadzone = 0.25f;
+      if (!strcmp(var.value, "30%"))
+         g_Config.fAnalogDeadzone = 0.30f;
+   }
+
    var.key = "ppsspp_memstick_inserted";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
