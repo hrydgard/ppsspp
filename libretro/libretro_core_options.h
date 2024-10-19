@@ -498,7 +498,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          {"1.42", NULL}, {"1.43", NULL}, {"1.44", NULL}, {"1.45", NULL}, {"1.46", NULL}, {"1.47", NULL}, {"1.48", NULL},
          {"1.49", NULL}, {"1.50", NULL}, {NULL, NULL},
       },
-      "1.00"
+      "1.10"
    },
    {
       "ppsspp_skip_buffer_effects",
