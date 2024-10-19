@@ -466,16 +466,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       NULL,
       "input",
       {
-         { "0%", NULL },
-         { "5%", NULL },
-         { "10%", NULL },
-         { "15%", NULL },
-         { "20%", NULL },
-         { "25%", NULL },
-         { "30%", NULL },
+         { "0.0",  NULL },
+         { "0.05", NULL },
+         { "0.10", NULL },
+         { "0.15", NULL },
+         { "0.20", NULL },
+         { "0.25", NULL },
+         { "0.30", NULL },
          { NULL, NULL },
       },
-      "15%"
+      "0.15"
    },
    {
       "ppsspp_skip_buffer_effects",
