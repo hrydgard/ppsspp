@@ -656,17 +656,17 @@ static void check_variables(CoreParameter &coreParam)
    {
       if (!strcmp(var.value, "0%"))
          g_Config.fAnalogDeadzone = 0.0f;
-      if (!strcmp(var.value, "5%"))
+      else if (!strcmp(var.value, "5%"))
          g_Config.fAnalogDeadzone = 0.05f;
-      if (!strcmp(var.value, "10%"))
+      else if (!strcmp(var.value, "10%"))
          g_Config.fAnalogDeadzone = 0.10f;
-      if (!strcmp(var.value, "15%"))
+      else if (!strcmp(var.value, "15%"))
          g_Config.fAnalogDeadzone = 0.15f;
-      if (!strcmp(var.value, "20%"))
+      else if (!strcmp(var.value, "20%"))
          g_Config.fAnalogDeadzone = 0.20f;
-      if (!strcmp(var.value, "25%"))
+      else if (!strcmp(var.value, "25%"))
          g_Config.fAnalogDeadzone = 0.25f;
-      if (!strcmp(var.value, "30%"))
+      else if (!strcmp(var.value, "30%"))
          g_Config.fAnalogDeadzone = 0.30f;
    }
 
