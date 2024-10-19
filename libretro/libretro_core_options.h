@@ -459,7 +459,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "analog_deadzone",
+      "ppsspp_analog_deadzone",
       "Analog Deadzone",
       NULL,
       "Select how far you have to push the analog stick before it starts being processed.",
