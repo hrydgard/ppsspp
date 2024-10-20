@@ -10,28 +10,23 @@
 
 #include "Common/Thread/ThreadUtil.h"
 
+#include <memory>
 #include <mutex>
 #include <Objbase.h>
 #include <Mmreg.h>
 #include <MMDeviceAPI.h>
 #include <AudioClient.h>
 #include <AudioPolicy.h>
+#include <wrl/client.h>
 #include "Functiondiscoverykeys_devpkey.h"
 
 // Includes some code from https://msdn.microsoft.com/en-us/library/dd370810%28VS.85%29.aspx?f=255&MSPPError=-2147217396
 
 #pragma comment(lib, "ole32.lib")
 
-const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
-const IID IID_IAudioClient = __uuidof(IAudioClient);
-const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
-
 // Adapted from a MSDN sample.
 
-#define SAFE_RELEASE(punk)  \
-              if ((punk) != NULL)  \
-                { (punk)->Release(); (punk) = NULL; }
+using Microsoft::WRL::ComPtr;
 
 class CMMNotificationClient final : public IMMNotificationClient {
 public:
@@ -41,7 +36,6 @@ public:
 	virtual ~CMMNotificationClient() {
 		CoTaskMemFree(currentDevice_);
 		currentDevice_ = nullptr;
-		SAFE_RELEASE(_pEnumerator)
 	}
 
 	void SetCurrentDevice(IMMDevice *device) {
@@ -146,8 +140,8 @@ public:
 	std::string GetDeviceName(LPCWSTR pwstrId)
 	{
 		HRESULT hr = S_OK;
-		IMMDevice *pDevice = NULL;
-		IPropertyStore *pProps = NULL;
+		ComPtr<IMMDevice> pDevice;
+		ComPtr<IPropertyStore> pProps;
 		PROPVARIANT varString;
 		PropVariantInit(&varString);
 
@@ -156,8 +150,7 @@ public:
 			// Get enumerator for audio endpoint devices.
 			hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
 				NULL, CLSCTX_INPROC_SERVER,
-				__uuidof(IMMDeviceEnumerator),
-				(void**)&_pEnumerator);
+				IID_PPV_ARGS(&_pEnumerator));
 		}
 		if (hr == S_OK && _pEnumerator) {
 			hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
@@ -174,15 +167,13 @@ public:
 
 		PropVariantClear(&varString);
 
-		SAFE_RELEASE(pProps)
-		SAFE_RELEASE(pDevice)
 		return name;
 	}
 
 private:
 	std::mutex lock_;
 	LONG _cRef = 1;
-	IMMDeviceEnumerator *_pEnumerator = nullptr;
+	ComPtr<IMMDeviceEnumerator> _pEnumerator;
 	wchar_t *currentDevice_ = nullptr;
 	bool deviceChanged_ = false;
 };
@@ -249,12 +240,12 @@ private:
 	int &sampleRate_;
 	StreamCallback &callback_;
 
-	IMMDeviceEnumerator *deviceEnumerator_ = nullptr;
-	IMMDevice *device_ = nullptr;
-	IAudioClient *audioInterface_ = nullptr;
-	CMMNotificationClient *notificationClient_ = nullptr;
+	ComPtr<IMMDeviceEnumerator> deviceEnumerator_;
+	ComPtr<IMMDevice> device_;
+	ComPtr<IAudioClient> audioInterface_;
+	ComPtr<CMMNotificationClient> notificationClient_;
 	WAVEFORMATEXTENSIBLE *deviceFormat_ = nullptr;
-	IAudioRenderClient *renderClient_ = nullptr;
+	ComPtr<IAudioRenderClient> renderClient_;
 	int16_t *shortBuf_ = nullptr;
 
 	enum class Format {
@@ -273,10 +264,9 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 	shortBuf_ = nullptr;
 	ShutdownAudioDevice();
 	if (notificationClient_ && deviceEnumerator_)
-		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_);
-	delete notificationClient_;
+		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_.Get());
 	notificationClient_ = nullptr;
-	SAFE_RELEASE(deviceEnumerator_);
+	deviceEnumerator_ = nullptr;
 }
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
@@ -286,7 +276,7 @@ bool WASAPIAudioThread::ActivateDefaultDevice() {
 		return false;
 
 	_assert_(audioInterface_ == nullptr);
-	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void **)&audioInterface_);
+	hresult = device_->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &audioInterface_);
 	if (FAILED(hresult) || audioInterface_ == nullptr)
 		return false;
 
@@ -309,7 +299,7 @@ bool WASAPIAudioThread::InitAudioDevice() {
 	if (FAILED(hresult))
 		return false;
 	_assert_(renderClient_ == nullptr);
-	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
+	hresult = audioInterface_->GetService(IID_PPV_ARGS(&renderClient_));
 	if (FAILED(hresult) || !renderClient_)
 		return false;
 
@@ -324,11 +314,11 @@ bool WASAPIAudioThread::InitAudioDevice() {
 }
 
 void WASAPIAudioThread::ShutdownAudioDevice() {
-	SAFE_RELEASE(renderClient_);
+	renderClient_ = nullptr;
 	CoTaskMemFree(deviceFormat_);
 	deviceFormat_ = nullptr;
-	SAFE_RELEASE(audioInterface_);
-	SAFE_RELEASE(device_);
+	audioInterface_ = nullptr;
+	device_ = nullptr;
 }
 
 bool WASAPIAudioThread::DetectFormat() {
@@ -445,9 +435,9 @@ void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
 	_assert_(deviceEnumerator_ == nullptr);
-	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
+	HRESULT hresult = CoCreateInstance(__uuidof(MMDeviceEnumerator),
 		nullptr, /* Object is not created as the part of the aggregate */
-		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
+		CLSCTX_ALL, IID_PPV_ARGS(&deviceEnumerator_));
 
 	if (FAILED(hresult) || deviceEnumerator_ == nullptr)
 		return;
@@ -458,11 +448,10 @@ void WASAPIAudioThread::Run() {
 	}
 
 	notificationClient_ = new CMMNotificationClient();
-	notificationClient_->SetCurrentDevice(device_);
-	hresult = deviceEnumerator_->RegisterEndpointNotificationCallback(notificationClient_);
+	notificationClient_->SetCurrentDevice(device_.Get());
+	hresult = deviceEnumerator_->RegisterEndpointNotificationCallback(notificationClient_.Get());
 	if (FAILED(hresult)) {
 		// Let's just keep going, but release the client since it doesn't work.
-		delete notificationClient_;
 		notificationClient_ = nullptr;
 	}
 
@@ -546,7 +535,7 @@ void WASAPIAudioThread::Run() {
 				// TODO: Return to the old device here?
 				return;
 			}
-			notificationClient_->SetCurrentDevice(device_);
+			notificationClient_->SetCurrentDevice(device_.Get());
 			if (!InitAudioDevice()) {
 				ERROR_LOG(Log::sceAudio, "WASAPI: Could not init audio device");
 				return;
