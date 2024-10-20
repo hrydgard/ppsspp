@@ -151,7 +151,6 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		bitmapData.clear();
 		return false;
 	}
-
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
 	auto iter = fontMap_.find(fontHash_);

@@ -123,8 +123,8 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 
 void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 	if (str.empty()) {
-		*w = 0.0;
-		*h = 0.0;
+		*w = 0.0f;
+		*h = 0.0f;
 		return;
 	}
 
