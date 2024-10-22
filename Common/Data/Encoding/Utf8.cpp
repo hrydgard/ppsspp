@@ -37,26 +37,20 @@ inline bool isutf(char c) {
 }
 
 static const uint32_t offsetsFromUTF8[6] = {
-  0x00000000UL, 0x00003080UL, 0x000E2080UL,
-  0x03C82080UL, 0xFA082080UL, 0x82082080UL
+	0x00000000UL, 0x00003080UL, 0x000E2080UL,
+	0x03C82080UL, 0xFA082080UL, 0x82082080UL
 };
 
 static const uint8_t trailingBytesForUTF8[256] = {
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-		2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5,
 };
-
-/* returns length of next utf-8 sequence */
-int u8_seqlen(const char *s)
-{
-  return trailingBytesForUTF8[(unsigned int)(unsigned char)s[0]] + 1;
-}
 
 /* conversions without error checking
    only works for valid UTF-8, i.e. no 5- or 6-byte sequences
@@ -68,7 +62,7 @@ int u8_seqlen(const char *s)
    for all the characters.
    if sz = srcsz+1 (i.e. 4*srcsz+4 bytes), there will always be enough space.
 */
-int u8_toucs(uint32_t *dest, int sz, const char *src, int srcsz)
+int u8_toucs(uint32_t *dest, int sz, const char *src, int srcsz) 
 {
   uint32_t ch;
   const char *src_end = src + srcsz;
@@ -517,6 +511,69 @@ std::string CodepointToUTF8(uint32_t codePoint) {
 	char temp[16]{};
 	UTF8::encode(temp, codePoint);
 	return std::string(temp);
+}
+
+// Helper function to encode a Unicode code point into UTF-8, but doesn't support 4-byte output.
+size_t encode_utf8_modified(uint32_t code_point, unsigned char* output) {
+	if (code_point <= 0x7F) {
+		output[0] = (unsigned char)code_point;
+		return 1;
+	} else if (code_point <= 0x7FF) {
+		output[0] = (unsigned char)(0xC0 | (code_point >> 6));
+		output[1] = (unsigned char)(0x80 | (code_point & 0x3F));
+		return 2;
+	} else if (code_point <= 0xFFFF) {
+		output[0] = (unsigned char)(0xE0 | (code_point >> 12));
+		output[1] = (unsigned char)(0x80 | ((code_point >> 6) & 0x3F));
+		output[2] = (unsigned char)(0x80 | (code_point & 0x3F));
+		return 3;
+	}
+	return 0;
+}
+
+// A function to convert regular UTF-8 to Java Modified UTF-8. Only used on Android.
+// Written by ChatGPT and corrected and modified.
+void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) {
+	output->resize(input.size() * 6); // worst case: every character is encoded as 6 bytes
+	size_t out_idx = 0;
+	for (size_t i = 0; i < input.length(); ) {
+		unsigned char c = input[i];
+		if (c == 0) {
+			// Encode null character as 0xC0 0x80. TODO: We probably don't need to support this?
+			output[out_idx++] = (char)0xC0;
+			output[out_idx++] = (char)0x80;
+			i++;
+		} else if ((c & 0xF0) == 0xF0) { // 4-byte sequence (U+10000 to U+10FFFF)
+			// Decode the Unicode code point from the UTF-8 sequence
+			uint32_t code_point = ((input[i] & 0x07) << 18) |
+				((input[i + 1] & 0x3F) << 12) |
+				((input[i + 2] & 0x3F) << 6) |
+				(input[i + 3] & 0x3F);
+
+			// Convert to surrogate pair
+			uint16_t high_surrogate = ((code_point - 0x10000) / 0x400) + 0xD800;
+			uint16_t low_surrogate = ((code_point - 0x10000) % 0x400) + 0xDC00;
+
+			// Encode the surrogates in UTF-8
+			out_idx += encode_utf8_modified(high_surrogate, (unsigned char *)(output->data() + out_idx));
+			out_idx += encode_utf8_modified(low_surrogate, (unsigned char *)(output->data() + out_idx));
+
+			i += 4;
+		} else {
+			// Copy the other UTF-8 sequences (1-3 bytes)
+			size_t utf8_len = 1;
+			if ((c & 0xE0) == 0xC0) {
+				utf8_len = 2; // 2-byte sequence
+			} else if ((c & 0xF0) == 0xE0) {
+				utf8_len = 3; // 3-byte sequence
+			}
+			memcpy(output->data() + out_idx, input.data() + i, utf8_len);
+			out_idx += utf8_len;
+			i += utf8_len;
+		}
+	}
+	output->resize(out_idx);
+	_dbg_assert_(output->size() >= input.size());
 }
 
 #ifndef _WIN32

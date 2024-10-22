@@ -657,6 +657,13 @@ void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
 }
 
+void SoftGPU::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+	if (presentation_) {
+		presentation_->BeginFrame();
+	}
+}
+
 bool SoftGPU::PresentedThisFrame() const {
 	return presentation_->PresentedThisFrame();
 }

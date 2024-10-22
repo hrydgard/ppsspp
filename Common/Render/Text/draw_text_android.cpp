@@ -83,15 +83,18 @@ void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, fl
 	} else {
 		ERROR_LOG(Log::G3D, "Missing font");
 	}
-	std::string text(str);
+	std::string text;
+	ConvertUTF8ToJavaModifiedUTF8(&text, str);
+
 	auto env = getEnv();
-	// Unfortunate that we can't create a jstr from a std::string_view directly.
 	jstring jstr = env->NewStringUTF(text.c_str());
 	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
 	env->DeleteLocalRef(jstr);
 
-	*w = (size >> 16);
-	*h = (size & 0xFFFF);
+	*w = (float)(size >> 16);
+	*h = (float)(size & 0xFFFF);
+
+	WARN_LOG(Log::G3D, "Measure Modified: '%.*s' size: %fx%f", (int)text.length(), text.data(), *w, *h);
 }
 
 bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
@@ -100,7 +103,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		return false;
 	}
 
-	double size = 0.0;
+	float size = 0.0f;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		size = iter->second.size;
@@ -109,7 +112,11 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	}
 
 	auto env = getEnv();
-	jstring jstr = env->NewStringUTF(std::string(str).c_str());
+
+	std::string text;
+	ConvertUTF8ToJavaModifiedUTF8(&text, str);
+	jstring jstr = env->NewStringUTF(text.c_str());
+
 	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
@@ -117,6 +124,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		imageWidth = 1;
 	if (imageHeight <= 0)
 		imageHeight = 1;
+	WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
 	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
 	env->DeleteLocalRef(jstr);

@@ -384,6 +384,8 @@ LogLevelScreen::LogLevelScreen(std::string_view title) : ListPopupScreen(title) 
 		list.push_back(logLevelList[i]);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(list, -1);
+
+	// CreateViews takes care of, well, that.
 }
 
 void LogLevelScreen::OnCompleted(DialogResult result) {

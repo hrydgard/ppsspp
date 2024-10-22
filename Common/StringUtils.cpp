@@ -100,6 +100,16 @@ bool containsNoCase(std::string_view haystack, std::string_view needle) {
 	return found != haystack.end();
 }
 
+int countChar(std::string_view haystack, char needle) {
+	int count = 0;
+	for (int i = 0; i < haystack.size(); i++) {
+		if (haystack[i] == needle) {
+			count++;
+		}
+	}
+	return count;
+}
+
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args)
 {
 	int writtenCount = vsnprintf(out, outsize, format, args);

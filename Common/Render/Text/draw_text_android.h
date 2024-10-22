@@ -10,7 +10,7 @@
 #include <jni.h>
 
 struct AndroidFontEntry {
-	double size;
+	float size;
 };
 
 class TextDrawerAndroid : public TextDrawer {

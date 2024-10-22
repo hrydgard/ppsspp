@@ -202,9 +202,9 @@ HRESULT ReaderCallback::OnReadSample(
 
 					// Mirror the image in-place if needed.
 					if (g_Config.bCameraMirrorHorizontal) {
-						for (int y = 0; y < dstH; y++) {
+						for (int y = 0; y < (int)dstH; y++) {
 							uint8_t *line = device->imageRGB + y * device->imgRGBLineSizes[0];
-							for (int x = 0; x < dstW / 2; x++) {
+							for (int x = 0; x < (int)dstW / 2; x++) {
 								const int invX = dstW - 1 - x;
 								const uint8_t r = line[x * 3 + 0];
 								const uint8_t g = line[x * 3 + 1];
