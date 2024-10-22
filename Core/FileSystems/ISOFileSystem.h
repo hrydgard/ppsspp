@@ -106,7 +106,7 @@ private:
 // the filenames to "", to achieve this.
 class ISOBlockSystem : public IFileSystem {
 public:
-	ISOBlockSystem(std::shared_ptr<IFileSystem> isoFileSystem) : isoFileSystem_(isoFileSystem) {}
+	ISOBlockSystem(std::shared_ptr<IFileSystem> isoFileSystem) : isoFileSystem_(std::move(isoFileSystem)) {}
 
 	void DoState(PointerWrap &p) override {
 		// This is a bit iffy, as block device savestates already are iffy (loads/saves multiple times for multiple mounts..)
