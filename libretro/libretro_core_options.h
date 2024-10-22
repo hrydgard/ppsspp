@@ -489,12 +489,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       NULL,
       "input",
       {
-         libretro/libretro_core_options.h
-Original file line number	Diff line number	Diff line change
-@@ -489,14 +489,58 @@ struct retro_core_option_v2_definition option_defs_us[] = {
-      NULL,
-      "input",
-      {
          {"1.00", NULL}, {"1.01", NULL}, {"1.02", NULL}, {"1.03", NULL}, {"1.04", NULL}, {"1.05", NULL}, {"1.06", NULL},
          {"1.07", NULL}, {"1.08", NULL}, {"1.09", NULL}, {"1.10", NULL}, {"1.11", NULL}, {"1.12", NULL}, {"1.13", NULL},
          {"1.14", NULL}, {"1.15", NULL}, {"1.16", NULL}, {"1.17", NULL}, {"1.18", NULL}, {"1.19", NULL}, {"1.20", NULL},
