@@ -91,8 +91,8 @@ void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, fl
 	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
 	env->DeleteLocalRef(jstr);
 
-	*w = size >> 16;
-	*h = size & 0xFFFF;
+	*w = (float)(size >> 16);
+	*h = (float)(size & 0xFFFF);
 
 	WARN_LOG(Log::G3D, "Measure Modified: '%.*s' size: %fx%f", (int)text.length(), text.data(), *w, *h);
 }
@@ -103,8 +103,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		return false;
 	}
 
-
-	double size = 0.0;
+	float size = 0.0f;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		size = iter->second.size;
