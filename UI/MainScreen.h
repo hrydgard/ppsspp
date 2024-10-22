@@ -193,9 +193,9 @@ private:
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 };
 
-class GridSettingsScreen : public PopupScreen {
+class GridSettingsPopupScreen : public PopupScreen {
 public:
-	GridSettingsScreen(std::string_view label) : PopupScreen(label) {}
+	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
 
