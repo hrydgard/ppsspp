@@ -108,6 +108,8 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	// Here we need 2KB to expand a 1KB CLUT.
 	expandClut_ = (u32 *)AllocateAlignedMemory(2048, 16);
 
+	_assert_(clutBufRaw_ && clutBufConverted_ && expandClut_);
+
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 2048);
 	memset(clutBufConverted_, 0, 2048);

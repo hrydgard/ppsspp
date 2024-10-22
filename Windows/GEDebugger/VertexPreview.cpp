@@ -200,18 +200,18 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	output.count = 0;
 
 	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
-	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
-	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
+	cpoints.pos = new Vec3f[num_points];
+	cpoints.tex = new Vec2f[num_points];
+	cpoints.col = new Vec4f[num_points];
 	cpoints.Convert(points.data(), num_points);
 
 	surface.Init((int)generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
 	count = output.count;
 
-	FreeAlignedMemory(cpoints.pos);
-	FreeAlignedMemory(cpoints.tex);
-	FreeAlignedMemory(cpoints.col);
+	delete [] cpoints.pos;
+	delete [] cpoints.tex;
+	delete [] cpoints.col;
 }
 
 static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {

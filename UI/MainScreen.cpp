@@ -774,6 +774,7 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// No topbar on recent screen
+	gameList_ = nullptr;
 	if (DisplayTopBar()) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
@@ -828,12 +829,10 @@ void GameBrowser::Refresh() {
 
 		if (*gridStyle_) {
 			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-			Add(gameList_);
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
 			gameList_ = gl;
-			Add(gameList_);
 		}
 	} else {
 		if (*gridStyle_) {
@@ -854,8 +853,8 @@ void GameBrowser::Refresh() {
 		// grid->Add(gameList_);
 		// grid->Add(gridOptionColumn);
 		// Add(grid);
-		Add(gameList_);
 	}
+	Add(gameList_);
 
 	// Find games in the current directory and create new ones.
 	std::vector<DirButton *> dirButtons;
