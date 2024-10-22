@@ -774,6 +774,7 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// No topbar on recent screen
+	gameList_ = nullptr;
 	if (DisplayTopBar()) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (browseFlags_ & BrowseFlags::NAVIGATE) {
@@ -828,12 +829,10 @@ void GameBrowser::Refresh() {
 
 		if (*gridStyle_) {
 			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150*g_Config.fGameGridScale, 85*g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-			Add(gameList_);
 		} else {
 			UI::LinearLayout *gl = new UI::LinearLayoutList(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 			gl->SetSpacing(4.0f);
 			gameList_ = gl;
-			Add(gameList_);
 		}
 	} else {
 		if (*gridStyle_) {
@@ -854,8 +853,8 @@ void GameBrowser::Refresh() {
 		// grid->Add(gameList_);
 		// grid->Add(gridOptionColumn);
 		// Add(grid);
-		Add(gameList_);
 	}
+	Add(gameList_);
 
 	// Find games in the current directory and create new ones.
 	std::vector<DirButton *> dirButtons;
@@ -1061,7 +1060,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
+	auto gridSettings = new GridSettingsPopupScreen(sy->T("Games list settings"));
 	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
 	if (e.v)
 		gridSettings->SetPopupOrigin(e.v);
@@ -1195,7 +1194,7 @@ void MainScreen::CreateViews() {
 		if (g_Config.HasRecentIsos()) {
 			tabHolder_->SetCurrentTab(0, true);
 		} else if (g_Config.iMaxRecent > 0) {
-			tabHolder_->SetCurrentTab(1, true);
+			tabHolder_->SetCurrentTab(1, true);	
 		}
 
 		if (backFromStore_ || showHomebrewTab) {
@@ -1721,7 +1720,7 @@ UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
+void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -1734,34 +1733,34 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
 
-	items->Add(new ItemHeader(sy->T("Grid icon size")));
-	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsScreen::GridPlusClick);
-	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsScreen::GridMinusClick);
+	items->Add(new ItemHeader(sy->T("Grid icon size")))->SetPopupStyle(true);
+	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
+	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
 
-	items->Add(new ItemHeader(sy->T("Display Extra Info")));
+	items->Add(new ItemHeader(sy->T("Display Extra Info")))->SetPopupStyle(true);
 	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
 	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
 
 	if (g_Config.iMaxRecent > 0) {
-		items->Add(new ItemHeader(sy->T("Clear Recent")));
-		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsScreen::OnRecentClearClick);
+		items->Add(new ItemHeader(sy->T("Clear Recent")))->SetPopupStyle(true);
+		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
 	}
 
 	scroll->Add(items);
 	parent->Add(scroll);
 }
 
-UI::EventReturn GridSettingsScreen::GridPlusClick(UI::EventParams &e) {
+UI::EventReturn GridSettingsPopupScreen::GridPlusClick(UI::EventParams &e) {
 	g_Config.fGameGridScale = std::min(g_Config.fGameGridScale*1.25f, MAX_GAME_GRID_SCALE);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GridSettingsScreen::GridMinusClick(UI::EventParams &e) {
+UI::EventReturn GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
 	g_Config.fGameGridScale = std::max(g_Config.fGameGridScale/1.25f, MIN_GAME_GRID_SCALE);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GridSettingsScreen::OnRecentClearClick(UI::EventParams &e) {
+UI::EventReturn GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
 	g_Config.ClearRecentIsos();
 	OnRecentChanged.Trigger(e);
 	return UI::EVENT_DONE;

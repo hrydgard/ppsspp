@@ -216,6 +216,7 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 	uboAlignment_ = vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 
 	uniforms_ = (Uniforms *)AllocateAlignedMemory(sizeof(Uniforms), 16);
+	_assert_(uniforms_);
 
 	static_assert(sizeof(uniforms_->ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(uniforms_->ub_lights) <= 512, "ub_lights grew too big");

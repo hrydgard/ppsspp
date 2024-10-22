@@ -258,9 +258,6 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	}
 #endif
 #endif
-	char temp[32];
-	NiceSizeFormat(size, temp, sizeof(temp));
-	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %s (%llu)", temp, (unsigned long long)size);
 	return ptr;
 }
 

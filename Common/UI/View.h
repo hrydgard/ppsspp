@@ -853,9 +853,11 @@ public:
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void SetLarge(bool large) { large_ = large; }
+	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 private:
 	std::string text_;
 	bool large_ = false;
+	bool popupStyle_ = false;
 };
 
 class PopupHeader : public Item {

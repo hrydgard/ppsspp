@@ -768,8 +768,11 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 	if (scaleFactor > 1) {
 		u32 fmt = dstFmt;
 		// CPU scaling reads from the destination buffer so we want cached RAM.
-		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-		scaler_.ScaleAlways((u32 *)rearrange, pixelData, w, h, &w, &h, scaleFactor);
+		size_t allocBytes = w * scaleFactor * h * scaleFactor * 4;
+		uint8_t *scaleBuf = (uint8_t *)AllocateAlignedMemory(allocBytes, 16);
+		_assert_msg_(scaleBuf, "Failed to allocate %d aligned bytes for texture scaler", (int)allocBytes);
+
+		scaler_.ScaleAlways((u32 *)scaleBuf, pixelData, w, h, &w, &h, scaleFactor);
 		pixelData = (u32 *)writePtr;
 
 		// We always end up at 8888.  Other parts assume this.
@@ -779,13 +782,13 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 
 		if (decPitch != rowPitch) {
 			for (int y = 0; y < h; ++y) {
-				memcpy(writePtr + rowPitch * y, rearrange + decPitch * y, w * bpp);
+				memcpy(writePtr + rowPitch * y, scaleBuf + decPitch * y, w * bpp);
 			}
 			decPitch = rowPitch;
 		} else {
-			memcpy(writePtr, rearrange, w * h * 4);
+			memcpy(writePtr, scaleBuf, w * h * 4);
 		}
-		FreeAlignedMemory(rearrange);
+		FreeAlignedMemory(scaleBuf);
 	}
 }
 
