@@ -209,12 +209,9 @@ void SaveFileInfo::DoState(PointerWrap &p)
 
 SavedataParam::SavedataParam() { }
 
-void SavedataParam::Init()
-{
-	if (!pspFileSystem.GetFileInfo(savePath).exists)
-	{
-		pspFileSystem.MkDir(savePath);
-	}
+void SavedataParam::Init() {
+	// If the folder already exists, this is a no-op.
+	pspFileSystem.MkDir(savePath);
 	// Create a nomedia file to hide save icons form Android image viewer
 #if PPSSPP_PLATFORM(ANDROID)
 	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
@@ -459,7 +456,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}
 	}
 
-	u8* cryptedData = 0;
+	u8* cryptedData = nullptr;
 	int cryptedSize = 0;
 	u8 cryptedHash[0x10]{};
 	// Encrypt save.
