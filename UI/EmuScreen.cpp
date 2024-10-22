@@ -1281,14 +1281,16 @@ bool EmuScreen::checkPowerDown() {
 	}
 
 	if (coreState == CORE_POWERDOWN && !PSP_IsIniting() && !PSP_IsRebooting()) {
+		bool shutdown = false;
 		if (PSP_IsInited()) {
 			PSP_Shutdown();
+			shutdown = true;
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
 		invalid_ = true;
-		return true;
+		return shutdown;
 	}
 	return false;
 }
@@ -1513,6 +1515,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+		framebufferBound = true;
 	}
 
 	Draw::BackendState state = draw->GetCurrentBackendState();
@@ -1533,7 +1536,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	// NOTE: We don't check for powerdown if we're not the top screen.
-	checkPowerDown();
+	if (checkPowerDown()) {
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_PowerDown");
+	}
 
 	if (hasVisibleUI()) {
 		draw->SetViewport(viewport);

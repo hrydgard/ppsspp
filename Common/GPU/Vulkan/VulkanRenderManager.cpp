@@ -370,6 +370,8 @@ void VulkanRenderManager::StartThreads() {
 
 // Called from main thread.
 void VulkanRenderManager::StopThreads() {
+	// Make sure we don't have an open render pass.
+	EndCurRenderStep();
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
