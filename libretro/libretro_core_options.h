@@ -459,6 +459,48 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_analog_deadzone",
+      "Analog Deadzone",
+      NULL,
+      "Select how far you have to push the analog stick before it starts being processed.",
+      NULL,
+      "input",
+      {
+         { "0.0",  "0%" },
+         { "0.05", "5%" },
+         { "0.10", "10%" },
+         { "0.15", "15%" },
+         { "0.20", "20%" },
+         { "0.25", "25%" },
+         { "0.30", "30%" },
+         { "0.35", "35%" },
+         { "0.40", "40%" },
+         { "0.45", "45%" },
+         { "0.50", "50%" },
+         { NULL, NULL },
+      },
+      "0.15"
+   },
+   {
+      "ppsspp_analog_sensitivity",
+      "Analog Axis Scale",
+      NULL,
+      "Sets the analog stick axis scaling factor.",
+      NULL,
+      "input",
+      {
+         {"1.00", NULL}, {"1.01", NULL}, {"1.02", NULL}, {"1.03", NULL}, {"1.04", NULL}, {"1.05", NULL}, {"1.06", NULL},
+         {"1.07", NULL}, {"1.08", NULL}, {"1.09", NULL}, {"1.10", NULL}, {"1.11", NULL}, {"1.12", NULL}, {"1.13", NULL},
+         {"1.14", NULL}, {"1.15", NULL}, {"1.16", NULL}, {"1.17", NULL}, {"1.18", NULL}, {"1.19", NULL}, {"1.20", NULL},
+         {"1.21", NULL}, {"1.22", NULL}, {"1.23", NULL}, {"1.24", NULL}, {"1.25", NULL}, {"1.26", NULL}, {"1.27", NULL},
+         {"1.28", NULL}, {"1.29", NULL}, {"1.30", NULL}, {"1.31", NULL}, {"1.32", NULL}, {"1.33", NULL}, {"1.34", NULL},
+         {"1.35", NULL}, {"1.36", NULL}, {"1.37", NULL}, {"1.38", NULL}, {"1.39", NULL}, {"1.40", NULL}, {"1.41", NULL},
+         {"1.42", NULL}, {"1.43", NULL}, {"1.44", NULL}, {"1.45", NULL}, {"1.46", NULL}, {"1.47", NULL}, {"1.48", NULL},
+         {"1.49", NULL}, {"1.50", NULL}, {NULL, NULL},
+      },
+      "1.10"
+   },
+   {
       "ppsspp_skip_buffer_effects",
       "Skip Buffer Effects",
       NULL,
