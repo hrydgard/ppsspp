@@ -85,6 +85,8 @@ std::string_view StripQuotes(std::string_view s);
 
 std::string_view StripPrefix(std::string_view prefix, std::string_view s);
 
+int countChar(std::string_view haystack, char needle);
+
 // NOTE: str must live at least as long as all uses of output.
 void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output);
 // Try to avoid this when possible, in favor of the string_view version.

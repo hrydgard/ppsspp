@@ -1251,8 +1251,19 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	char versionString[256];
-	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
+	std::string versionString = PPSSPP_GIT_VERSION;
+	// Strip the 'v' from the displayed version, and shorten the commit hash.
+	if (versionString.size() > 2) {
+		if (versionString[0] == 'v' && isdigit(versionString[1])) {
+			versionString = versionString.substr(1);
+		}
+		if (countChar(versionString, '-') == 2) {
+			// Shorten the commit hash.
+			size_t cutPos = versionString.find_last_of('-') + 8;
+			versionString = versionString.substr(0, std::min(cutPos, versionString.size()));
+		}
+	}
+
 	rightColumnItems->SetSpacing(0.0f);
 	AnchorLayout *logos = new AnchorLayout(new AnchorLayoutParams(FILL_PARENT, 60.0f, false));
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
