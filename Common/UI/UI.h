@@ -57,9 +57,3 @@ public:
 private:
 	const std::vector<std::string> *items_;
 };
-
-
-// Begins/flushes the two UI drawbuffers together.
-void UIBegin(Draw::Pipeline *shaderSet);
-void UIFlush();
-

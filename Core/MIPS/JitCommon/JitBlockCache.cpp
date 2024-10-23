@@ -87,7 +87,7 @@ JitBlockCache::~JitBlockCache() {
 bool JitBlock::ContainsAddress(u32 em_address) const {
 	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
 	// However, that doesn't exist yet so meh.
-	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
+	return em_address >= originalAddress && em_address < originalAddress + 4 * originalSize;
 }
 
 bool JitBlockCache::IsFull() const {
@@ -146,6 +146,8 @@ const JitBlock *JitBlockCache::GetBlock(int no) const {
 }
 
 int JitBlockCache::AllocateBlock(u32 startAddress) {
+	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
+
 	JitBlock &b = blocks_[num_blocks_];
 
 	b.proxyFor = 0;
@@ -177,6 +179,8 @@ int JitBlockCache::AllocateBlock(u32 startAddress) {
 }
 
 void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr) {
+	_assert_(num_blocks_ < MAX_NUM_BLOCKS);
+
 	// If there's an existing block at the startAddress, add rootAddress as a proxy root of that block
 	// instead of creating a new block.
 	int num = GetBlockNumberFromStartAddress(startAddress, false);

@@ -238,7 +238,7 @@ private:
 	UI::EventReturn HandleClick(UI::EventParams &e);
 
 	void ChoiceCallback(int num);
-	virtual void PostChoiceCallback(int num) {}
+	virtual bool PostChoiceCallback(int num) { return true; }
 
 	I18NCat category_;
 	ScreenManager *screenManager_;
@@ -274,9 +274,15 @@ public:
 	}
 
 protected:
-	void PostChoiceCallback(int num) override {
-		if (valueStr_) {
+	bool PostChoiceCallback(int num) override {
+		if (!valueStr_) {
+			return true;
+		}
+		if (*valueStr_ != choices_[num]) {
 			*valueStr_ = choices_[num];
+			return true;
+		} else {
+			return false;
 		}
 	}
 

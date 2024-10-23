@@ -418,11 +418,11 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
+	{VIRTKEY_PAUSE, "Pause"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
 	{VIRTKEY_SPEED_CUSTOM2, "Alt speed 2"},
 	{VIRTKEY_SPEED_ANALOG, "Analog speed"},
-	{VIRTKEY_PAUSE, "Pause"},
 	{VIRTKEY_RESET_EMULATION, "Reset"},
 	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
 #if !defined(MOBILE_DEVICE)
@@ -734,7 +734,7 @@ void RestoreDefault() {
 	} else if (IsMOQII7S(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, false);
 	} else if (IsRetroid(name)) {
-		SetDefaultKeyMap(DEFAULT_MAPPING_RETRO_STATION_CONTROLLER, false);
+		SetDefaultKeyMap(DEFAULT_MAPPING_RETROID_CONTROLLER, false);
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
@@ -855,7 +855,7 @@ void AutoConfForPad(const std::string &name) {
 	if (name.find("Xbox") != std::string::npos) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_XBOX, false);
 	} else if (name == "Retro Station Controller") {
-		SetDefaultKeyMap(DEFAULT_MAPPING_RETRO_STATION_CONTROLLER, false);
+		SetDefaultKeyMap(DEFAULT_MAPPING_RETROID_CONTROLLER, false);
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}

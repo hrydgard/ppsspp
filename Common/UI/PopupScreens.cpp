@@ -141,12 +141,12 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		UI::EventParams e{};
 		e.v = this;
 		e.a = num;
+		e.b = PostChoiceCallback(num);
 		OnChoice.Trigger(e);
 
 		if (restoreFocus_) {
 			SetFocusedView(this);
 		}
-		PostChoiceCallback(num);
 	}
 }
 

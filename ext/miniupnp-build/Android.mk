@@ -30,8 +30,6 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/.. $(LOCAL_PATH)/../miniupnp/miniupnpc/src $(L
 
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS)
-else ifeq ($(TARGET_ARCH_ABI),armeabi)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -march=armv6
 else ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 else ifeq ($(TARGET_ARCH_ABI),x86_64)

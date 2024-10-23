@@ -9,12 +9,3 @@
 
 // TODO: UI should probably not own these.
 DrawBuffer ui_draw2d;
-DrawBuffer ui_draw2d_front;
-
-void UIBegin(Draw::Pipeline *pipeline) {
-	ui_draw2d.Begin(pipeline);
-}
-
-void UIFlush() {
-	ui_draw2d.Flush();
-}

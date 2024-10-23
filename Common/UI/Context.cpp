@@ -78,7 +78,7 @@ void UIContext::Begin() {
 
 void UIContext::BeginNoTex() {
 	draw_->BindSamplerStates(0, 1, &sampler_);
-	UIBegin(ui_pipeline_notex_);
+	ui_draw2d.Begin(ui_pipeline_notex_);
 }
 
 void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
@@ -89,7 +89,7 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 	Draw::Texture *textures[2]{};
 	draw_->BindTextures(1, 2, textures);
 	RebindTexture();
-	UIBegin(pipeline);
+	ui_draw2d.Begin(pipeline);
 }
 
 void UIContext::RebindTexture() const {

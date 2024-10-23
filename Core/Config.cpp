@@ -726,6 +726,19 @@ static bool DefaultShowTouchControls() {
 	}
 }
 
+static bool DefaultShowPauseButton() {
+	switch (System_GetPropertyInt(SYSPROP_DEVICE_TYPE)) {
+	case DEVICE_TYPE_MOBILE:
+	case DEVICE_TYPE_DESKTOP:
+		return true;
+	case DEVICE_TYPE_VR:
+	case DEVICE_TYPE_TV:
+		return false;
+	default:
+		return false;
+	}
+}
+
 static const float defaultControlScale = 1.15f;
 static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
 static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
@@ -779,13 +792,9 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", &g_Config.touchCustom[18], defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", &g_Config.touchCustom[19], defaultTouchPosHide, CfgFlag::PER_GAME),
 
-#if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
 	// sense to default this to on.
-	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true, CfgFlag::DEFAULT),
-#else
-	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false, CfgFlag::DEFAULT),
-#endif
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, &DefaultShowPauseButton, CfgFlag::DEFAULT),
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false, CfgFlag::PER_GAME),
 #endif
