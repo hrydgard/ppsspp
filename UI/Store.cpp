@@ -523,9 +523,9 @@ void StoreScreen::CreateViews() {
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, 64.0f)));
 	topBar->Add(new Choice(di->T("Back"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"), ALIGN_VCENTER, false, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT));
+	titleText_->SetTextColor(screenManager()->getUIContext()->GetTheme().itemFocusedStyle.fgColor);
 	topBar->Add(titleText_);
-	UI::Drawable solid(0xFFbd9939);
-	topBar->SetBG(solid);
+	topBar->SetBG(screenManager()->getUIContext()->GetTheme().itemFocusedStyle.background);
 
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
