@@ -62,3 +62,6 @@
 [submodule "ios/MoltenVK"]
 	path = ios/MoltenVK
 	url = https://github.com/hrydgard/ppsspp-moltenvk.git
+[submodule "ext/lua"]
+	path = ext/lua
+	url = https://github.com/hrydgard/ppsspp-lua.git

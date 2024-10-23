@@ -913,6 +913,10 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
+if(IOS)
+	target_compile_definitions(Common PUBLIC GLES_SILENCE_DEPRECATION)
+endif()
+
 target_link_libraries(Common Ext::Snappy cpu_features imgui)
 
 if(ARM64)
@@ -2436,7 +2440,7 @@ endif()
 
 include_directories(ext/libchdr/include)
 
-target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone ${GlslangLibs}
+target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(NOT HTTPS_NOT_AVAILABLE)
@@ -2518,7 +2522,6 @@ if(USE_MINIUPNPC)
 			#${MINIUPNP_DIR}/miniupnpcmodule.c
 			${MINIUPNP_DIR}/src/miniwget.c
 			${MINIUPNP_DIR}/src/minixml.c
-			${MINIUPNP_DIR}/src/minixmlvalid.c
 			${MINIUPNP_DIR}/src/portlistingparse.c
 			${MINIUPNP_DIR}/src/receivedata.c
 			#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
