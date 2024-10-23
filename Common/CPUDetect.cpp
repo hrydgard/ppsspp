@@ -546,8 +546,6 @@ std::string CPUInfo::Summarize() {
 const char *GetCompilerABI() {
 #if PPSSPP_ARCH(ARMV7)
 	return "armeabi-v7a";
-#elif PPSSPP_ARCH(ARM)
-	return "armeabi";
 #elif PPSSPP_ARCH(ARM64)
 	return "arm64";
 #elif PPSSPP_ARCH(X86)

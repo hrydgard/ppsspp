@@ -29,7 +29,6 @@ public class PpssppActivity extends NativeActivity {
 	// Key used for debugging.
 	public static final String ARGS_EXTRA_KEY = "org.ppsspp.ppsspp.Args";
 
-	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
 
 	public static boolean libraryLoaded = false;
@@ -42,16 +41,12 @@ public class PpssppActivity extends NativeActivity {
 	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
 
 	public static void CheckABIAndLoadLibrary() {
-		if (Build.CPU_ABI.equals("armeabi")) {
-			m_hasUnsupportedABI = true;
-		} else {
-			try {
-				System.loadLibrary("ppsspp_jni");
-				libraryLoaded = true;
-			} catch (UnsatisfiedLinkError e) {
-				Log.e(TAG, "LoadLibrary failed, UnsatifiedLinkError: " + e);
-				m_hasNoNativeBinary = true;
-			}
+		try {
+			System.loadLibrary("ppsspp_jni");
+			libraryLoaded = true;
+		} catch (UnsatisfiedLinkError e) {
+			Log.e(TAG, "LoadLibrary failed, UnsatifiedLinkError: " + e);
+			m_hasNoNativeBinary = true;
 		}
 	}
 
@@ -65,17 +60,13 @@ public class PpssppActivity extends NativeActivity {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		if (m_hasUnsupportedABI || m_hasNoNativeBinary) {
+		if (m_hasNoNativeBinary) {
 			new Thread() {
 				@Override
 				public void run() {
 					Looper.prepare();
 					AlertDialog.Builder builder = new AlertDialog.Builder(PpssppActivity.this);
-					if (m_hasUnsupportedABI) {
-						builder.setMessage(Build.CPU_ABI + " target is not supported.").setTitle("Error starting PPSSPP").create().show();
-					} else {
-						builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?").setTitle("Error starting PPSSPP").create().show();
-					}
+					builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?").setTitle("Error starting PPSSPP").create().show();
 					Looper.loop();
 				}
 			}.start();
