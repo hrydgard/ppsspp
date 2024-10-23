@@ -38,9 +38,6 @@
 
 namespace net {
 
-Connection::Connection() {
-}
-
 Connection::~Connection() {
 	Disconnect();
 	if (resolved_ != nullptr)
@@ -173,7 +170,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
 		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
-			struct timeval tv;
+			struct timeval tv{};
 			tv.tv_sec = 0;
 			if (timeoutHalfSeconds > 0) {
 				// Wait up to 0.5 seconds between cancel checks.
@@ -512,13 +509,13 @@ HTTPRequest::HTTPRequest(RequestMethod method, const std::string &url, const std
 }
 
 HTTPRequest::~HTTPRequest() {
-	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
+	g_OSD.RemoveProgressBar(url_, !failed_, 0.5f);
 
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
 void HTTPRequest::Start() {
-	thread_ = std::thread(std::bind(&HTTPRequest::Do, this));
+	thread_ = std::thread([this] { Do(); });
 }
 
 void HTTPRequest::Join() {

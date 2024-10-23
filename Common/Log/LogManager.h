@@ -45,7 +45,7 @@ struct LogMessage {
 // pure virtual interface
 class LogListener {
 public:
-	virtual ~LogListener() {}
+	virtual ~LogListener() = default;
 
 	virtual void Log(const LogMessage &msg) = 0;
 };

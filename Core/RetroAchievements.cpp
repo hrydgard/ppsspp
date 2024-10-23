@@ -255,6 +255,8 @@ bool IsActive() {
 	return GetGameID() != 0;
 }
 
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+
 static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// convert_retroachievements_address_to_real_address
 	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
@@ -263,6 +265,8 @@ static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer
 		memcpy(writePtr, buffer, num_bytes);
 	}
 }
+
+#endif
 
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// Achievements are traditionally defined relative to the base of main memory of the emulated console.

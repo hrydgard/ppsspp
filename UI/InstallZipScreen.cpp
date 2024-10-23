@@ -40,7 +40,7 @@ void InstallZipScreen::CreateViews() {
 	using namespace UI;
 
 	File::FileInfo fileInfo;
-	bool success = File::GetFileInfo(zipPath_, &fileInfo);
+	File::GetFileInfo(zipPath_, &fileInfo);
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
@@ -112,7 +112,6 @@ void InstallZipScreen::CreateViews() {
 
 			installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 			installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-			backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
 
 			showDeleteCheckbox = true;
 		} else if (zipFileInfo_.contents == ZipFileContents::SAVE_DATA) {
@@ -227,7 +226,7 @@ void InstallZipScreen::update() {
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
 			if (doneView_)
-				doneView_->SetText(iz->T(err.c_str()));
+				doneView_->SetText(iz->T(err));
 		} else if (installStarted_) {
 			if (doneView_)
 				doneView_->SetText(iz->T("Installed!"));

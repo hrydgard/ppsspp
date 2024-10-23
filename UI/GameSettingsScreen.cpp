@@ -1001,7 +1001,7 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 
-	const bool showRetroAchievements = true;
+	const bool showRetroAchievements = true; // System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR;
 	if (showRetroAchievements) {
 		auto retro = tools->Add(new Choice(sy->T("RetroAchievements")));
 		retro->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
@@ -1144,7 +1144,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR) {
 		memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder"), I18NCat::NONE));
 		memstickPath->SetEnabled(!PSP_IsInited());
 		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
 
@@ -1161,16 +1161,16 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 #elif defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder"), I18NCat::NONE));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
 #else
-	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
+	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Memory Stick in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
-	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
-	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
+	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickMyDoc);
+	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Memory Stick in installed.txt")));
 	SavePathInOtherChoice->SetEnabled(false);
-	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
+	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
 
 	const Path &PPSSPPpath = File::GetExeDirectory();
@@ -1379,7 +1379,7 @@ UI::EventReturn GameSettingsScreen::OnShowMemstickScreen(UI::EventParams &e) {
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
-UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnMemoryStickMyDoc(UI::EventParams &e) {
 	const Path &PPSSPPpath = File::GetExeDirectory();
 	const Path installedFile = PPSSPPpath / "installed.txt";
 	installed_ = File::Exists(installedFile);
@@ -1406,7 +1406,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnMemoryStickOther(UI::EventParams &e) {
 	const Path &PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -1842,7 +1842,7 @@ void DeveloperToolsScreen::CreateViews() {
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
-	list->Add(new CheckBox(&g_Config.bUseNewAtrac, dev->T("Use experimental sceAtrac")));
+	// list->Add(new CheckBox(&g_Config.bUseExperimentalAtrac, dev->T("Use experimental sceAtrac")));
 
 	AddOverlayList(list, screenManager());
 

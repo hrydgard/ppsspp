@@ -38,7 +38,7 @@ class NoticeView;
 class MemStickScreen : public UIDialogScreenWithBackground {
 public:
 	MemStickScreen(bool initialSetup);
-	~MemStickScreen() {}
+	~MemStickScreen() = default;
 
 	const char *tag() const override { return "MemStick"; }
 
@@ -93,9 +93,13 @@ private:
 #endif
 };
 
+struct SpaceResult {
+	int64_t bytesFree;
+};
+
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
-	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
+	ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup);
 	~ConfirmMemstickMoveScreen();
 
 	const char *tag() const override { return "ConfirmMemstickMove"; }
@@ -121,8 +125,12 @@ private:
 
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
+	UI::TextView *newFreeSpaceView_ = nullptr;
+	UI::TextView *oldFreeSpaceView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;
+	Promise<SpaceResult *> *oldSpaceTask_ = nullptr;
+	Promise<SpaceResult *> *newSpaceTask_ = nullptr;
 
 	std::string error_;
 };

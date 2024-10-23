@@ -181,7 +181,7 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	press.duration = 1;
 	if (!req.ParamU32("duration", &press.duration, false, DebuggerParamType::OPTIONAL))
 		return;
-	if (press.duration < 0)
+	if ((int)press.duration < 0)
 		return req.Fail("Parameter 'duration' must not be negative");
 	const JsonNode *value = req.data.get("ticket");
 	press.ticket = value ? json_stringify(value) : "";

@@ -522,6 +522,10 @@ public:
 						goto handleELF;
 					}
 					ERROR_LOG(Log::Loader, "invalid pbp '%s'\n", pbpLoader->GetPath().c_str());
+					// We can't win here - just mark everything pending as fetched, and let the caller
+					// handle the missing data.
+					std::unique_lock<std::mutex> lock(info_->lock);
+					info_->MarkReadyNoLock(flags_);
 					return;
 				}
 
@@ -720,10 +724,17 @@ handleELF:
 				// few files.
 				auto fl = info_->GetFileLoader();
 				if (!fl) {
+					// BAD! Can't win here.
+					ERROR_LOG(Log::Loader, "Failed getting game info for ISO %s", info_->GetFilePath().ToVisualString().c_str());
+					std::unique_lock<std::mutex> lock(info_->lock);
+					info_->MarkReadyNoLock(flags_);
 					return;
 				}
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
 				if (!bd) {
+					ERROR_LOG(Log::Loader, "Failed constructing block device for ISO %s", info_->GetFilePath().ToVisualString().c_str());
+					std::unique_lock<std::mutex> lock(info_->lock);
+					info_->MarkReadyNoLock(flags_);
 					return;
 				}
 				ISOFileSystem umd(&handles, bd);

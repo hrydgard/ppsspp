@@ -521,7 +521,6 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 		return;
 	}
 
-	std::string toMeasure = std::string(text);
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	if (wrap) {
 		const AtlasFont *font = fontAtlas_->getFont(font_id);
@@ -532,10 +531,13 @@ void DrawBuffer::MeasureTextRect(FontID font_id, std::string_view text, const Bo
 			*h = 0.0f;
 			return;
 		}
+		std::string toMeasure = std::string(text);
 		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure, bounds.w, wrap);
 		toMeasure = wrapper.Wrapped();
+		MeasureText(font_id, toMeasure, w, h);
+	} else {
+		MeasureText(font_id, text, w, h);
 	}
-	MeasureText(font_id, toMeasure, w, h);
 }
 
 void DrawBuffer::DrawTextShadow(FontID font, std::string_view text, float x, float y, Color color, int flags) {
@@ -591,7 +593,7 @@ void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float
 
 	// This allows each line to be horizontally centered by itself.
 	for (const std::string &line : lines) {
-		DrawText(font, line.c_str(), x, baseY, color, align);
+		DrawText(font, line, x, baseY, color, align);
 
 		float tw, th;
 		MeasureText(font, line, &tw, &th);

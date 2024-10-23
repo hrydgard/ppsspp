@@ -28,7 +28,7 @@
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 
-#include <locale.h>
+#include <clocale>
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
@@ -529,7 +529,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	LogManager *logman = LogManager::GetInstance();
 
-	const char *fileToLog = 0;
+	const char *fileToLog = nullptr;
 	Path stateToLoad;
 
 	bool gotBootFilename = false;
@@ -729,8 +729,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	// TODO: Load these in the background instead of synchronously.
-	g_BackgroundAudio.SFX().LoadSamples();
+	g_BackgroundAudio.SFX().Init();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message, void *) {
@@ -1210,7 +1209,7 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		return true;
 	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		std::string msg = StringFromFormat("%s: %d", std::string(sy->T("Savestate Slot")).c_str(), SaveState::GetCurrentSlot() + 1);
+		std::string msg = StringFromFormat("%s: %d", sy->T_cstr("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
 		return true;

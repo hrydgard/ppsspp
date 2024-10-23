@@ -42,8 +42,7 @@
 
 TransformUnit::TransformUnit() {
 	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
-	if (!decoded_)
-		return;
+	_assert_(decoded_);
 	binner_ = new BinManager();
 }
 

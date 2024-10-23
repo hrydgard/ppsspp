@@ -207,19 +207,21 @@ public class PpssppActivity extends NativeActivity {
 			// to handle more than one...
 			ArrayList<Uri> childDirs = new ArrayList<>();
 
-			while (c.moveToNext()) {
-				final String mimeType = c.getString(2);
-				final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
-				if (isDirectory) {
-					final String childDocumentId = c.getString(0);
-					final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
-					childDirs.add(childUri);
-				} else {
-					final long fileSize = c.getLong(1);
-					sizeSum += fileSize;
+			if (c != null) {
+				while (c.moveToNext()) {
+					final String mimeType = c.getString(2);
+					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+					if (isDirectory) {
+						final String childDocumentId = c.getString(0);
+						final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
+						childDirs.add(childUri);
+					} else {
+						final long fileSize = c.getLong(1);
+						sizeSum += fileSize;
+					}
 				}
+				c.close();
 			}
-			c.close();
 			c = null;
 
 			for (Uri childUri : childDirs) {

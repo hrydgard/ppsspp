@@ -51,10 +51,10 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	Wipe();
 
-	width_ = w;
-	height_ = h;
-	depth_ = depth;
-	numMips_ = numMips;
+	width_ = (int16_t)w;
+	height_ = (int16_t)h;
+	depth_ = (int16_t)depth;
+	numMips_ = (int16_t)numMips;
 	format_ = format;
 
 	VkImageAspectFlags aspect = IsDepthStencilFormat(format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
@@ -86,6 +86,14 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	VmaAllocationInfo allocInfo{};
 	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_create_info, &allocCreateInfo, &image_, &allocation_, &allocInfo);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "vmaCreateImage failed: %s. Destroying image.", VulkanResultToString(res));
+		_dbg_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
+		view_ = VK_NULL_HANDLE;
+		image_ = VK_NULL_HANDLE;
+		allocation_ = VK_NULL_HANDLE;
+		return false;
+	}
 
 	// Apply the tag
 	vulkan_->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_);

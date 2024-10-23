@@ -319,6 +319,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			}
 
 			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
+			_assert_msg_(data != nullptr, "Failed to allocate aligned memory for texture level %d: %d bytes (%dx%d)", i, (int)dataSize, mipWidth, mipHeight);
 
 			if (!data) {
 				ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
@@ -341,6 +342,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 		size_t dataSize = levelStride * plan.depth;
 		u8 *data = (u8 *)AllocateAlignedMemory(dataSize, 16);
+		_assert_msg_(data != nullptr, "Failed to allocate aligned memory for 3d texture: %d bytes", (int)dataSize);
 		memset(data, 0, levelStride * plan.depth);
 		u8 *p = data;
 

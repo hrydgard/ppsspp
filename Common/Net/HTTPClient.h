@@ -14,7 +14,6 @@ namespace net {
 
 class Connection {
 public:
-	Connection();
 	virtual ~Connection();
 
 	// Inits the sockaddr_in.

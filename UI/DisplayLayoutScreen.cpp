@@ -442,7 +442,7 @@ void DisplayLayoutScreen::CreateViews() {
 						value = setting.value;
 
 					if (duplicated) {
-						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
+						auto sliderName = StringFromFormat("%s %s", ps->T_cstr(setting.name.c_str()), ps->T_cstr("(duplicated setting, previous slider will be used)"));
 						PopupSliderChoiceFloat *settingValue = settingContainer->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, sliderName, setting.step, screenManager()));
 						settingValue->SetEnabled(false);
 					} else {

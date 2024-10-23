@@ -27,8 +27,7 @@ struct Sample {
 // Mixer for things played on top of everything.
 class SoundEffectMixer {
 public:
-	void LoadSamples();
-
+	void Init();
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
 	void Play(UI::UISound sfx, float volume);
 
@@ -44,7 +43,11 @@ public:
 		bool done;
 	};
 
+	// This can be called on a thread.
+	void LoadSamplesOnThread();
 private:
+	bool samplesLoaded_ = false;
+
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;

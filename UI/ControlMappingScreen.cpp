@@ -69,7 +69,7 @@ private:
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(const MultiInputMapping &key);
+	void MappedCallback(const MultiInputMapping &kdf);
 
 	enum Action {
 		NONE,
@@ -82,7 +82,7 @@ private:
 	UI::Choice *replaceAllButton_ = nullptr;
 	std::vector<UI::View *> rows_;
 	Action action_ = NONE;
-	int actionIndex_;
+	int actionIndex_ = 0;
 	int pspKey_;
 	std::string keyName_;
 	ScreenManager *scrm_;
@@ -124,7 +124,7 @@ void SingleControlMapper::Refresh() {
 		replaceAllButton_ = new Choice(iter->second, new LinearLayoutParams(leftColumnWidth, itemH));
 	} else {
 		// No image? Let's translate.
-		replaceAllButton_ = new Choice(mc->T(keyName_.c_str()), new LinearLayoutParams(leftColumnWidth, itemH));
+		replaceAllButton_ = new Choice(mc->T(keyName_), new LinearLayoutParams(leftColumnWidth, itemH));
 		replaceAllButton_->SetCentered(true);
 	}
 	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
@@ -157,7 +157,7 @@ void SingleControlMapper::Refresh() {
 		d->OnClick.Handle(this, &SingleControlMapper::OnDelete);
 	}
 
-	if (mappings.size() == 0) {
+	if (mappings.empty()) {
 		// look like an empty line
 		Choice *c = rightColumn->Add(new Choice("", new LinearLayoutParams(FILL_PARENT, itemH)));
 		c->OnClick.Handle(this, &SingleControlMapper::OnAdd);
@@ -343,7 +343,7 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 }
 
 void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (result == DR_OK && std::string(dialog->tag()) == "listpopup") {
+	if (result == DR_OK && !strcmp(dialog->tag(), "listpopup")) {
 		UI::ListPopupScreen *popup = (UI::ListPopupScreen *)dialog;
 		KeyMap::AutoConfForPad(popup->GetChoiceString());
 	}
@@ -608,7 +608,7 @@ UI::EventReturn AnalogSetupScreen::OnResetToDefaults(UI::EventParams &e) {
 
 class Backplate : public UI::InertView {
 public:
-	Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {}
+	explicit Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {}
 
 	void Draw(UIContext &dc) override {
 		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {
@@ -682,7 +682,7 @@ protected:
 
 class MockScreen : public UI::InertView {
 public:
-	MockScreen(UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams) {
+	explicit MockScreen(UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -730,8 +730,8 @@ public:
 		return this;
 	}
 
-	MockButton *SetFlipHBG(float f) {
-		flipHBG_ = f;
+	MockButton *SetFlipHBG(bool b) {
+		flipHBG_ = b;
 		return this;
 	}
 
@@ -750,7 +750,7 @@ public:
 		return selectedButton_ && *selectedButton_ == button_;
 	}
 
-	int Button() {
+	int Button() const {
 		return button_;
 	}
 
@@ -776,7 +776,7 @@ class MockPSP : public UI::AnchorLayout {
 public:
 	static constexpr float SCALE = 1.4f;
 
-	MockPSP(UI::LayoutParams *layoutParams = nullptr);
+	explicit MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
 	void FocusButton(int btn);
 	void NotifyPressed(int btn);

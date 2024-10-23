@@ -1820,7 +1820,7 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 	for (IRInst inst : in.GetInstructions()) {
 		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
 		// Note: we only combine word aligned accesses.
-		if (info.size != 0 && inst.src1 == MIPS_REG_SP && info.size == 4) {
+		if (info.size == 4 && inst.src1 == MIPS_REG_SP) {
 			if (spModified) {
 				// No good, it was modified and then we did more accesses.  Can't combine.
 				spUpper = -1;

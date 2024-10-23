@@ -628,6 +628,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	}
 	if (!hasImage) {
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "CopyToCurrentFboFromDisplayRam");
+		presentation_->NotifyPresent();
 		return;
 	}
 
@@ -654,6 +655,17 @@ void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
+}
+
+void SoftGPU::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+	if (presentation_) {
+		presentation_->BeginFrame();
+	}
+}
+
+bool SoftGPU::PresentedThisFrame() const {
+	return presentation_->PresentedThisFrame();
 }
 
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {

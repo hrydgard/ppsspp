@@ -18,6 +18,7 @@
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
+#include <wrl/client.h>
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/D3D11/D3D11Loader.h"
 
@@ -164,13 +165,9 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 		case ShaderStage::Fragment: programType = "ps_3_0"; break;
 		default: return false;
 		}
-		LPD3DBLOB blob = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage);
-		if (blob) {
-			blob->Release();
-			return true;
-		} else {
-			return false;
-		}
+		Microsoft::WRL::ComPtr<ID3DBlob> blob;
+		HRESULT hr = CompileShaderToByteCodeD3D9(buffer, programType, errorMessage, &blob);
+		return SUCCEEDED(hr);
 	}
 #endif
 

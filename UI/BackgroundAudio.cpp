@@ -36,7 +36,7 @@ struct WavData {
 	int raw_bytes_per_frame = 0;
 	uint8_t *raw_data = nullptr;
 	int raw_data_size = 0;
-	u8 at3_extradata[16];
+	u8 at3_extradata[16]{};
 
 	bool Read(RIFFReader &riff);
 
@@ -45,6 +45,7 @@ struct WavData {
 		raw_data = nullptr;
 	}
 
+	[[nodiscard]]
 	bool IsSimpleWAV() const {
 		bool isBad = raw_bytes_per_frame > sizeof(int16_t) * num_channels;
 		return !isBad && num_channels > 0 && sample_rate >= 8000 && codec == 0;
@@ -210,7 +211,7 @@ public:
 		decoder_ = nullptr;
 	}
 
-	bool IsOK() { return wave_.raw_data != nullptr; }
+	bool IsOK() const { return wave_.raw_data != nullptr; }
 
 	bool Read(int *buffer, int len) {
 		if (!wave_.raw_data)
@@ -334,11 +335,13 @@ bool BackgroundAudio::Play() {
 	if (at3Reader_) {
 		if (at3Reader_->Read(buffer, sz)) {
 			if (fadingOut_) {
+                float vol = volume_;
 				for (int i = 0; i < sz*2; i += 2) {
-					buffer[i] *= volume_;
-					buffer[i + 1] *= volume_;
-					volume_ += delta_;
+					buffer[i] = (int)((float)buffer[i] * vol);
+					buffer[i + 1] = (int)((float)buffer[i + 1] * vol);
+					vol += delta_;
 				}
+                volume_ = vol;
 			}
 		}
 	} else {
@@ -561,8 +564,32 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 }
 
-void SoundEffectMixer::LoadSamples() {
+class SampleLoadTask : public Task {
+public:
+	SampleLoadTask(SoundEffectMixer *mixer) : mixer_(mixer) {}
+	TaskType Type() const override { return TaskType::IO_BLOCKING; }
+	TaskPriority Priority() const override {
+		return TaskPriority::NORMAL;
+	}
+	virtual void Run() override {
+		mixer_->LoadSamplesOnThread();
+	}
+private:
+	SoundEffectMixer *mixer_;
+};
+
+void SoundEffectMixer::Init() {
 	samples_.resize((size_t)UI::UISound::COUNT);
+	UI::SetSoundCallback([](UI::UISound sound, float volume) {
+		g_BackgroundAudio.SFX().Play(sound, volume);
+	});
+
+	// Load samples in the background.
+
+	g_threadManager.EnqueueTask(new SampleLoadTask(this));
+}
+
+void SoundEffectMixer::LoadSamplesOnThread() {
 	LoadDefaultSample(UI::UISound::BACK);
 	LoadDefaultSample(UI::UISound::SELECT);
 	LoadDefaultSample(UI::UISound::CONFIRM);
@@ -579,8 +606,4 @@ void SoundEffectMixer::LoadSamples() {
 	} else {
 		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
-
-	UI::SetSoundCallback([](UI::UISound sound, float volume) {
-		g_BackgroundAudio.SFX().Play(sound, volume);
-	});
 }

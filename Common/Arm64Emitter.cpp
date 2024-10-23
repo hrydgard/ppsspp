@@ -934,7 +934,7 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 
 FixupBranch ARM64XEmitter::CBZ(ARM64Reg Rt)
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 0;
 	branch.reg = Rt;
@@ -943,7 +943,7 @@ FixupBranch ARM64XEmitter::CBZ(ARM64Reg Rt)
 }
 FixupBranch ARM64XEmitter::CBNZ(ARM64Reg Rt)
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 1;
 	branch.reg = Rt;
@@ -952,7 +952,7 @@ FixupBranch ARM64XEmitter::CBNZ(ARM64Reg Rt)
 }
 FixupBranch ARM64XEmitter::B(CCFlags cond)
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 2;
 	branch.cond = cond;
@@ -961,7 +961,7 @@ FixupBranch ARM64XEmitter::B(CCFlags cond)
 }
 FixupBranch ARM64XEmitter::TBZ(ARM64Reg Rt, u8 bit)
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 3;
 	branch.reg = Rt;
@@ -971,7 +971,7 @@ FixupBranch ARM64XEmitter::TBZ(ARM64Reg Rt, u8 bit)
 }
 FixupBranch ARM64XEmitter::TBNZ(ARM64Reg Rt, u8 bit)
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 4;
 	branch.reg = Rt;
@@ -981,7 +981,7 @@ FixupBranch ARM64XEmitter::TBNZ(ARM64Reg Rt, u8 bit)
 }
 FixupBranch ARM64XEmitter::B()
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 5;
 	HINT(HINT_NOP);
@@ -989,7 +989,7 @@ FixupBranch ARM64XEmitter::B()
 }
 FixupBranch ARM64XEmitter::BL()
 {
-	FixupBranch branch;
+	FixupBranch branch{};
 	branch.ptr = m_code;
 	branch.type = 6;
 	HINT(HINT_NOP);

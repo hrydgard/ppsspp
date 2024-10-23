@@ -209,6 +209,9 @@ public:
 
 	typedef void (SoftGPU::*CmdFunc)(u32 op, u32 diff);
 
+	void BeginHostFrame() override;
+	bool PresentedThisFrame() const override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);

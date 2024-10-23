@@ -62,7 +62,7 @@ bool GLRBuffer::Unmap() {
 	return glUnmapBuffer(target_) == GL_TRUE;
 }
 
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), size_(size), target_(target), tag_(tag) {
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), nextBufferSize_(size), target_(target), tag_(tag) {
 	AddBuffer();
 	RegisterGPUMemoryManager(this);
 }
@@ -139,10 +139,10 @@ void GLPushBuffer::Flush() {
 void GLPushBuffer::AddBuffer() {
 	// INFO_LOG(Log::G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
 	BufInfo info;
-	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
-	_assert_msg_(info.localMemory != 0, "GLPushBuffer alloc fail: %d (%s)", (int)size_, tag_);
-	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
-	info.size = size_;
+	info.localMemory = (uint8_t *)AllocateAlignedMemory(nextBufferSize_, 16);
+	_assert_msg_(info.localMemory != 0, "GLPushBuffer alloc fail: %d (%s)", (int)nextBufferSize_, tag_);
+	info.buffer = render_->CreateBuffer(target_, nextBufferSize_, GL_DYNAMIC_DRAW);
+	info.size = nextBufferSize_;
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
 }
@@ -169,10 +169,10 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 	Unmap();
 
 	buf_++;
-	if (buf_ >= buffers_.size() || minSize > size_) {
+	if (buf_ >= buffers_.size() || minSize > nextBufferSize_) {
 		// Before creating the buffer, adjust to the new size_ if necessary.
-		while (size_ < minSize) {
-			size_ <<= 1;
+		while (nextBufferSize_ < minSize) {
+			nextBufferSize_ <<= 1;
 		}
 		AddBuffer();
 	}
@@ -208,7 +208,7 @@ void GLPushBuffer::Defragment() {
 	Destroy(false);
 
 	// Set some sane but very free limits. If there's another spike, we'll just allocate more anyway.
-	size_ = std::min(std::max(newSize, (size_t)65536), (size_t)(512 * 1024 * 1024));
+	nextBufferSize_ = std::min(std::max(newSize, (size_t)65536), (size_t)(512 * 1024 * 1024));
 	AddBuffer();
 }
 
@@ -272,5 +272,5 @@ void GLPushBuffer::UnmapDevice() {
 }
 
 void GLPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
-	snprintf(buffer, bufSize, "%s: %s/%s (%d)", tag_, NiceSizeFormat(this->offset_).c_str(), NiceSizeFormat(this->size_).c_str(), (int)buffers_.size());
+	snprintf(buffer, bufSize, "%s: %s/%s (%d)", tag_, NiceSizeFormat(this->offset_).c_str(), NiceSizeFormat(this->nextBufferSize_).c_str(), (int)buffers_.size());
 }

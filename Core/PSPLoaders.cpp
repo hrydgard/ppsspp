@@ -92,9 +92,8 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (!bd)
 			return;
 
-		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
-		fileSystem = iso;
-		blockSystem = std::make_shared<ISOBlockSystem>(iso);
+		fileSystem = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
+		blockSystem = std::make_shared<ISOBlockSystem>(fileSystem);
 	}
 
 	pspFileSystem.Mount("umd0:", blockSystem);

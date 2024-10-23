@@ -130,6 +130,6 @@ bool BlobFileSystem::RemoveFile(const std::string &filename) {
 	return false;
 }
 
-u64 BlobFileSystem::FreeSpace(const std::string &path) {
+u64 BlobFileSystem::FreeDiskSpace(const std::string &path) {
 	return 0;
 }

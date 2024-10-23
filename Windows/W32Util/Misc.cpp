@@ -10,6 +10,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Log.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -101,14 +102,22 @@ namespace W32Util
 		// SHParseDisplayName can't handle relative paths, so normalize first.
 		std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
-		SFGAOF flags{};
+		// Shell also can't handle \\?\UNC\ paths.
+		// TODO: Move this to ResolvePath?
+		if (startsWith(resolved, "\\\\?\\UNC\\")) {
+			resolved = "\\" + resolved.substr(7);
+		}
+
 		PIDLIST_ABSOLUTE pidl = nullptr;
-		HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
+		std::wstring wresolved = ConvertUTF8ToWString(resolved);
+		HRESULT hr = SHParseDisplayName(wresolved.c_str(), nullptr, &pidl, 0, nullptr);
 
 		if (pidl) {
 			if (SUCCEEDED(hr))
 				SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
-			CoTaskMemFree(pidl);
+			ILFree(pidl);
+		} else {
+			ERROR_LOG(Log::System, "SHParseDisplayName failed: %s", resolved.c_str());
 		}
 	}
 

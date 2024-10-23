@@ -26,11 +26,6 @@
 #include "UI/MiscScreens.h"
 #include "UI/Screen.h"
 
-enum class PauseScreenMode {
-	MAIN,
-	DISPLAY_SETTINGS,
-};
-
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
 	GamePauseScreen(const Path &filename);
@@ -67,7 +62,6 @@ private:
 	// hack
 	bool finishNextFrame_ = false;
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
-	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 
 	UI::Button *playButton_ = nullptr;
 };

@@ -15,8 +15,7 @@ using namespace Microsoft::WRL;
 
 struct ID3DXConstantTable;
 
-LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std::string *errorMessage) {
-	ComPtr<ID3DBlob> pShaderCode;
+HRESULT CompileShaderToByteCodeD3D9(const char *code, const char *target, std::string *errorMessage, ID3DBlob **ppShaderCode) {
 	ComPtr<ID3DBlob> pErrorMsg;
 
 	// Compile pixel shader.
@@ -29,7 +28,7 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 		target,
 		0,
 		0,
-		&pShaderCode,
+		ppShaderCode,
 		&pErrorMsg);
 
 	if (pErrorMsg) {
@@ -43,12 +42,13 @@ LPD3DBLOB CompileShaderToByteCodeD3D9(const char *code, const char *target, std:
 		errorMessage->clear();
 	}
 
-	return pShaderCode.Detach();
+	return hr;
 }
 
 bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, std::string *errorMessage) {
-	ComPtr<ID3DBlob> pShaderCode = CompileShaderToByteCodeD3D9(code, "ps_3_0", errorMessage);
-	if (pShaderCode) {
+	ComPtr<ID3DBlob> pShaderCode;
+	HRESULT hr = CompileShaderToByteCodeD3D9(code, "ps_3_0", errorMessage, &pShaderCode);
+	if (SUCCEEDED(hr)) {
 		// Create pixel shader.
 		device->CreatePixelShader((DWORD*)pShaderCode->GetBufferPointer(), pShader);
 		return true;
@@ -58,8 +58,9 @@ bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT
 }
 
 bool CompileVertexShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, std::string *errorMessage) {
-	ComPtr<ID3DBlob> pShaderCode = CompileShaderToByteCodeD3D9(code, "vs_3_0", errorMessage);
-	if (pShaderCode) {
+	ComPtr<ID3DBlob> pShaderCode;
+	HRESULT hr = CompileShaderToByteCodeD3D9(code, "vs_3_0", errorMessage, &pShaderCode);
+	if (SUCCEEDED(hr)) {
 		// Create vertex shader.
 		device->CreateVertexShader((DWORD*)pShaderCode->GetBufferPointer(), pShader);
 		return true;

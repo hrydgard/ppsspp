@@ -44,7 +44,7 @@ public:
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
 	FileSystemFlags Flags() override;
-	u64      FreeSpace(const std::string &path) override { return 0; }
+	u64      FreeDiskSpace(const std::string &path) override { return 0; }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
@@ -106,7 +106,7 @@ private:
 // the filenames to "", to achieve this.
 class ISOBlockSystem : public IFileSystem {
 public:
-	ISOBlockSystem(std::shared_ptr<IFileSystem> isoFileSystem) : isoFileSystem_(isoFileSystem) {}
+	ISOBlockSystem(std::shared_ptr<IFileSystem> isoFileSystem) : isoFileSystem_(std::move(isoFileSystem)) {}
 
 	void DoState(PointerWrap &p) override {
 		// This is a bit iffy, as block device savestates already are iffy (loads/saves multiple times for multiple mounts..)
@@ -146,7 +146,7 @@ public:
 		return isoFileSystem_->DevType(handle);
 	}
 	FileSystemFlags Flags() override { return isoFileSystem_->Flags(); }
-	u64      FreeSpace(const std::string &path) override { return isoFileSystem_->FreeSpace(path); }
+	u64      FreeDiskSpace(const std::string &path) override { return isoFileSystem_->FreeDiskSpace(path); }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override {
 		return isoFileSystem_->WriteFile(handle, pointer, size);

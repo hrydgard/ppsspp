@@ -127,7 +127,7 @@ public:
 	int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
 	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
-	u64  FreeSpace(const std::string &path) override;
+	u64  FreeDiskSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false);

@@ -14,7 +14,7 @@
 #include "UI/OnScreenDisplay.h"
 
 static inline std::string_view DeNull(const char *ptr) {
-	return ptr ? std::string_view(ptr) : "";
+	return std::string_view(ptr ? ptr : "");
 }
 
 // Compound view, creating a FileChooserChoice inside.
@@ -221,9 +221,9 @@ void RetroAchievementsLeaderboardScreen::CreateTabs() {
 			const rc_client_leaderboard_entry_t &entry = entryList_->entries[i];
 
 			char buffer[512];
-			rc_client_leaderboard_entry_get_user_image_url(&entryList_->entries[i], buffer, sizeof(buffer));
+			rc_client_leaderboard_entry_get_user_image_url(&entry, buffer, sizeof(buffer));
 			// Can also show entry.submitted, which is a time_t. And maybe highlight recent ones?
-			layout->Add(new LeaderboardEntryView(&entryList_->entries[i], is_self));
+			layout->Add(new LeaderboardEntryView(&entry, is_self));
 		}
 	}
 }
@@ -244,7 +244,7 @@ void RetroAchievementsLeaderboardScreen::update() {
 	Poll();
 }
 
-RetroAchievementsSettingsScreen::~RetroAchievementsSettingsScreen() {}
+RetroAchievementsSettingsScreen::~RetroAchievementsSettingsScreen() = default;
 
 void RetroAchievementsSettingsScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
@@ -417,7 +417,7 @@ static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *
 	float tw, th;
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
 
-	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description.c_str(), w, h);
+	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description, w, h);
 	*h += 8.0f + th;
 	*w += 8.0f;
 }
@@ -654,7 +654,7 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.5f, 1.5f);
-	dc.DrawTextRect(StringFromFormat("%d", entry->rank).c_str(), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
+	dc.DrawTextRect(StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -695,11 +695,11 @@ void AchievementView::Click() {
 	type++;
 	type = type % 5;
 	switch (type) {
-	case 0: g_OSD.ShowAchievementUnlocked(achievement_->id); break;
-	case 1: g_OSD.ShowAchievementProgress(achievement_->id, true); break;
-	case 2: g_OSD.ShowAchievementProgress(achievement_->id, false); break;
-	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
-	case 4: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
+	case 0: g_OSD.ShowAchievementUnlocked((int)achievement_->id); break;
+	case 1: g_OSD.ShowAchievementProgress((int)achievement_->id, true); break;
+	case 2: g_OSD.ShowAchievementProgress((int)achievement_->id, false); break;
+	case 3: g_OSD.ShowChallengeIndicator((int)achievement_->id, true); break;
+	case 4: g_OSD.ShowChallengeIndicator((int)achievement_->id, false); break;
 	}
 #endif
 }

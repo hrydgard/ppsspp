@@ -1567,9 +1567,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
-			presentation_->NotifyPresent();
 		}
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		presentation_->NotifyPresent();
 		return;
 	}
 
@@ -1628,6 +1628,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
+			// This effectively calls presentation_->NotifyPresent();
 			return;
 		} else {
 			DEBUG_LOG(Log::FrameBuf, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
@@ -1635,8 +1636,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			if (useBufferedRendering_) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
-			}
+			} // For non-buffered rendering, every frame is cleared anyway.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+			presentation_->NotifyPresent();
 			return;
 		}
 	}
@@ -1700,7 +1702,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 	} else if (useBufferedRendering_) {
-		WARN_LOG(Log::FrameBuf, "Current VFB lacks an FBO: %08x", vfb->fb_address);
+		WARN_LOG(Log::FrameBuf, "Using buffered rendering, and current VFB lacks an FBO: %08x", vfb->fb_address);
+	} else {
+		presentation_->NotifyPresent();
 	}
 
 	// This may get called mid-draw if the game uses an immediate flip.
@@ -3182,48 +3186,50 @@ bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
+	if (!vfb || !vfb->fbo) {
+		return;
+	}
+
 	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
 	}
-	if (vfb && vfb->fbo) {
-		if (gameUsesSequentialCopies_) {
-			// Ignore the x/y/etc., read the entire thing.  See below.
-			x = 0;
-			y = 0;
-			w = vfb->width;
-			h = vfb->height;
+	if (gameUsesSequentialCopies_) {
+		// Ignore the x/y/etc., read the entire thing.  See below.
+		x = 0;
+		y = 0;
+		w = vfb->width;
+		h = vfb->height;
+		vfb->memoryUpdated = true;
+		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+	} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+		// Mark it as fully downloaded until next render to it.
+		if (channel == RASTER_COLOR)
 			vfb->memoryUpdated = true;
-			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-		} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-			// Mark it as fully downloaded until next render to it.
-			if (channel == RASTER_COLOR)
-				vfb->memoryUpdated = true;
-			vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-		} else {
-			// Let's try to set the flag eventually, if the game copies a lot.
-			// Some games (like Grand Knights History) copy subranges very frequently.
-			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-			static int frameLastCopy = 0;
-			static u32 bufferLastCopy = 0;
-			static int copiesThisFrame = 0;
-			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-				frameLastCopy = gpuStats.numFlips;
-				bufferLastCopy = vfb->fb_address;
-				copiesThisFrame = 0;
-			}
-			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-				gameUsesSequentialCopies_ = true;
-			}
+		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
+	} else {
+		// Let's try to set the flag eventually, if the game copies a lot.
+		// Some games (like Grand Knights History) copy subranges very frequently.
+		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+		static int frameLastCopy = 0;
+		static u32 bufferLastCopy = 0;
+		static int copiesThisFrame = 0;
+		if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+			frameLastCopy = gpuStats.numFlips;
+			bufferLastCopy = vfb->fb_address;
+			copiesThisFrame = 0;
 		}
-
-		// This handles any required stretching internally.
-		ReadbackFramebuffer(vfb, x, y, w, h, channel, mode);
-
-		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-		textureCache_->ForgetLastTexture();
-		RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
+		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+			gameUsesSequentialCopies_ = true;
+		}
 	}
+
+	// This handles any required stretching internally.
+	ReadbackFramebuffer(vfb, x, y, w, h, channel, mode);
+
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	textureCache_->ForgetLastTexture();
+	RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
 }
 
 void FramebufferManagerCommon::FlushBeforeCopy() {

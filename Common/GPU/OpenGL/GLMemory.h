@@ -116,7 +116,7 @@ public:
 	// again, call Rewind (see below).
 	uint8_t *Allocate(uint32_t numBytes, uint32_t alignment, GLRBuffer **buf, uint32_t *bindOffset) {
 		uint32_t offset = ((uint32_t)offset_ + alignment - 1) & ~(alignment - 1);
-		if (offset + numBytes <= size_) {
+		if (offset + numBytes <= nextBufferSize_) {
 			// Common path.
 			offset_ = offset + numBytes;
 			*buf = buffers_[buf_].buffer;
@@ -175,7 +175,7 @@ private:
 	std::vector<BufInfo> buffers_;
 	size_t buf_ = 0;
 	size_t offset_ = 0;
-	size_t size_ = 0;
+	size_t nextBufferSize_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;

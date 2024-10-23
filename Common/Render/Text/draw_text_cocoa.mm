@@ -117,50 +117,35 @@ void TextDrawerCocoa::ClearFonts() {
 	fontMap_.clear();
 }
 
-void TextDrawerCocoa::MeasureString(std::string_view str, float *w, float *h) {
-	CacheKey key{ std::string(str), fontHash_ };
-	
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
-
-		auto iter = fontMap_.find(fontHash_);
-		NSDictionary *attributes = nil;
-		if (iter != fontMap_.end()) {
-			attributes = iter->second->attributes;
-		}
-
-		std::vector<std::string_view> lines;
-		SplitString(str, '\n', lines);
-
-		int extW = 0, extH = 0;
-		for (auto &line : lines) {
-			NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
-			NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
-			CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
-			CGFloat ascent, descent, leading;
-			double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
-
-			size_t width = (size_t)ceilf(fWidth);
-			size_t height = (size_t)ceilf(ascent + descent);
-	
-			if (width > extW)
-				extW = width;
-			extH += height;
-		}
-
-		entry = new TextMeasureEntry();
-		entry->width = extW;
-		entry->height = extH;
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
+	auto iter = fontMap_.find(fontHash_);
+	NSDictionary *attributes = nil;
+	if (iter != fontMap_.end()) {
+		attributes = iter->second->attributes;
 	}
 
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	std::vector<std::string_view> lines;
+	SplitString(str, '\n', lines);
+
+	int extW = 0, extH = 0;
+	for (auto &line : lines) {
+		NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
+		NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+		CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
+		CGFloat ascent, descent, leading;
+		double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
+
+		size_t width = (size_t)ceilf(fWidth);
+		size_t height = (size_t)ceilf(ascent + descent);
+	
+		if (width > extW)
+			extW = width;
+		extH += height;
+	}
+
+	*w = extW;
+	*h = extH;
 }
 
 bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {

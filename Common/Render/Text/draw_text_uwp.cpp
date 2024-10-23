@@ -204,48 +204,34 @@ void TextDrawerUWP::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerUWP::MeasureString(std::string_view str, float *w, float *h) {
-	CacheKey key{ std::string(str), fontHash_ };
-	
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		IDWriteTextFormat* format = nullptr;
-		auto iter = fontMap_.find(fontHash_);
-		if (iter != fontMap_.end()) {
-			format = iter->second->textFmt;
-		}
-		if (!format) return;
-
-		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str), "\n", "\r\n"));
-
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-		
-		IDWriteTextLayout* layout;
-		m_dwriteFactory->CreateTextLayout(
-			(LPWSTR)wstr.c_str(),
-			(int)wstr.size(),
-			format,
-			MAX_TEXT_WIDTH,
-			MAX_TEXT_HEIGHT,
-			&layout
-		);
-
-		DWRITE_TEXT_METRICS metrics;
-		layout->GetMetrics(&metrics);
-		layout->Release();
-
-		entry = new TextMeasureEntry();
-		entry->width = (int)(metrics.width + 1.0f);
-		entry->height = (int)(metrics.height + 1.0f);
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	IDWriteTextFormat* format = nullptr;
+	auto iter = fontMap_.find(fontHash_);
+	if (iter != fontMap_.end()) {
+		format = iter->second->textFmt;
 	}
+	if (!format) return;
 
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str), "\n", "\r\n"));
+
+	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+		
+	IDWriteTextLayout* layout;
+	m_dwriteFactory->CreateTextLayout(
+		(LPWSTR)wstr.c_str(),
+		(int)wstr.size(),
+		format,
+		MAX_TEXT_WIDTH,
+		MAX_TEXT_HEIGHT,
+		&layout
+	);
+
+	DWRITE_TEXT_METRICS metrics;
+	layout->GetMetrics(&metrics);
+	layout->Release();
+
+	*w = (int)(metrics.width + 1.0f);
+	*h = (int)(metrics.height + 1.0f);
 }
 
 bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {

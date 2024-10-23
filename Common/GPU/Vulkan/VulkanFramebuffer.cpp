@@ -56,23 +56,23 @@ void VKRImage::Delete(VulkanContext *vulkan) {
 	}
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
-	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
+	: vulkan_(vk), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, barriers, initCmd, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, barriers, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, barriers, initCmd, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		CreateImage(vulkan_, barriers, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
 
 	if (_multiSampleLevel > 0) {
 		sampleCount = MultiSampleLevelToFlagBits(_multiSampleLevel);
 
 		// TODO: Create a different tag for these?
-		CreateImage(vulkan_, barriers, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+		CreateImage(vulkan_, barriers, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 		if (createDepthStencilBuffer) {
-			CreateImage(vulkan_, barriers, initCmd, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+			CreateImage(vulkan_, barriers, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		}
 	} else {
 		sampleCount = VK_SAMPLE_COUNT_1_BIT;
@@ -85,6 +85,7 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, 
 }
 
 void VKRFramebuffer::UpdateTag(const char *newTag) {
+    tag_ = newTag;
 	char name[128];
 	snprintf(name, sizeof(name), "fb_color_%s", tag_.c_str());
 	vulkan_->SetDebugName(color.image, VK_OBJECT_TYPE_IMAGE, name);
@@ -161,7 +162,7 @@ VKRFramebuffer::~VKRFramebuffer() {
 
 // NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
 // This requires a different sampling path!
-void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
 	// We don't support more exotic layer setups for now. Mono or stereo.
 	_dbg_assert_(numLayers == 1 || numLayers == 2);
 
@@ -216,6 +217,7 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barr
 
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;  // layered for consistency, even if single image.
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.texAllLayersView);
+	_dbg_assert_(res == VK_SUCCESS);
 	vulkan->SetDebugName(img.texAllLayersView, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
 
 	// Create 2D views for both layers.
@@ -493,6 +495,8 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		}
 		subpass2.pipelineBindPoint = subpass.pipelineBindPoint;
 		subpass2.viewMask = multiview ? viewMask : 0;
+
+		// We check for multisample again, we want this path to also support non-multisample.
 		if (multisample) {
 			colorResolveReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			colorResolveReference2.attachment = colorResolveReference.attachment;  // the non-msaa color buffer.
@@ -504,6 +508,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 		VkAttachmentReference2KHR depthResolveReference2{ VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR };
 		VkSubpassDescriptionDepthStencilResolveKHR depthStencilResolve{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR };
+		// We check for multisample again, we want this path to also support non-multisample.
 		if (hasDepth && multisample) {
 			ChainStruct(subpass2, &depthStencilResolve);
 			depthResolveReference2.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;

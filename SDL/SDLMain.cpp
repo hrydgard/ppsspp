@@ -100,6 +100,10 @@ static bool g_rebootEmuThread = false;
 
 static SDL_AudioSpec g_retFmt;
 
+static bool g_textFocusChanged;
+static bool g_textFocus;
+
+
 // Window state to be transferred to the main SDL thread.
 static std::mutex g_mutexWindow;
 struct WindowState {
@@ -345,6 +349,23 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			exit(1);
 		}
 #endif /* PPSSPP_PLATFORM(WINDOWS) */
+		return true;
+	}
+	case SystemRequestType::NOTIFY_UI_EVENT:
+	{
+		switch ((UIEventNotification)param3) {
+		case UIEventNotification::TEXT_GOTFOCUS:
+			g_textFocus = true;
+			g_textFocusChanged = true;
+			break;
+		case UIEventNotification::POPUP_CLOSED:
+		case UIEventNotification::TEXT_LOSTFOCUS:
+			g_textFocus = false;
+			g_textFocusChanged = true;
+			break;
+		default:
+			break;
+		}
 		return true;
 	}
 	default:
@@ -1087,6 +1108,18 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	}
 }
 
+void UpdateTextFocus() {
+	if (g_textFocusChanged) {
+		INFO_LOG(Log::System, "Updating text focus: %d", g_textFocus);
+		if (g_textFocus) {
+			SDL_StartTextInput();
+		} else {
+			SDL_StopTextInput();
+		}
+		g_textFocusChanged = false;
+	}
+}
+
 void UpdateSDLCursor() {
 #if !defined(MOBILE_DEVICE)
 	if (lastUIState != GetUIState()) {
@@ -1428,7 +1461,8 @@ int main(int argc, char *argv[]) {
 #endif
 
 	// Avoid the IME popup when holding keys. This doesn't affect all versions of SDL.
-	// TODO: Enable it in text input fields
+	// Note: We re-enable it in text input fields! This is necessary otherwise we don't receive
+	// KEY_CHAR events.
 	SDL_StopTextInput();
 
 	InitSDLAudioDevice();
@@ -1465,6 +1499,7 @@ int main(int argc, char *argv[]) {
 			if (g_QuitRequested || g_RestartRequested)
 				break;
 
+			UpdateTextFocus();
 			UpdateSDLCursor();
 
 			inputTracker.MouseCaptureControl();
@@ -1491,6 +1526,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested || g_RestartRequested)
 			break;
 
+		UpdateTextFocus();
 		UpdateSDLCursor();
 
 		inputTracker.MouseCaptureControl();

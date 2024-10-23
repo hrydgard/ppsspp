@@ -70,13 +70,13 @@ static NoticeLevel GetNoticeLevel(OSDType type) {
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float *width, float *height, float *height1) {
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text.c_str(), width, height, align);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text, width, height, align);
 
 	*height1 = *height;
 
 	float width2 = 0.0f, height2 = 0.0f;
 	if (!details.empty()) {
-		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, details.c_str(), &width2, &height2, align);
+		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, details, &width2, &height2, align);
 		*width = std::max(*width, width2);
 		*height += 5.0f + height2;
 	}
@@ -157,7 +157,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	bounds.x += iconW + 5.0f;
 	bounds.w -= iconW + 5.0f;
 
-	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
+	dc.DrawTextShadowRect(text, bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
@@ -187,8 +187,6 @@ static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::En
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
-	uint32_t foreGround = whiteAlpha(alpha);
-
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
@@ -222,11 +220,11 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &en
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
-	dc.DrawTextShadowRect(entry.text.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
+	dc.DrawTextShadowRect(entry.text, bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
 static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), width, height);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, width, height);
 	*width += 16.0f;
 	*height += 10.0f;
 }
@@ -239,7 +237,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	dc.FillRect(background, bounds);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
+	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
@@ -319,11 +317,11 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		measuredEntry.align2 = 0;
 		// If we have newlines, we may be looking at ASCII debug output.  But let's verify.
 		if (entry.text.find('\n') != std::string::npos) {
-			if (!UTF8StringHasNonASCII(entry.text.c_str()))
+			if (!UTF8StringHasNonASCII(entry.text))
 				measuredEntry.align |= FLAG_DYNAMIC_ASCII;
 		}
 		if (entry.text2.find('\n') != std::string::npos) {
-			if (!UTF8StringHasNonASCII(entry.text2.c_str()))
+			if (!UTF8StringHasNonASCII(entry.text2))
 				measuredEntry.align2 |= FLAG_DYNAMIC_ASCII;
 		}
 

@@ -211,7 +211,6 @@ public:
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();
-	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:
 	void Init();

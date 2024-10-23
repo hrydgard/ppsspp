@@ -170,7 +170,7 @@ protected:
 	float prevHighlightProgress_ = 0.0f;
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
-	bool lastVertical_;
+	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
 	UI::ScrollView *scrollAllGames_ = nullptr;
 	bool searchKeyModifier_ = false;
@@ -193,9 +193,9 @@ private:
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 };
 
-class GridSettingsScreen : public PopupScreen {
+class GridSettingsPopupScreen : public PopupScreen {
 public:
-	GridSettingsScreen(std::string_view label) : PopupScreen(label) {}
+	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
 

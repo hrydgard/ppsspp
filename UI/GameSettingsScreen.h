@@ -105,8 +105,8 @@ private:
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 	UI::EventReturn OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
-	UI::EventReturn OnSavePathOther(UI::EventParams &e);
+	UI::EventReturn OnMemoryStickMyDoc(UI::EventParams &e);
+	UI::EventReturn OnMemoryStickOther(UI::EventParams &e);
 #endif
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);

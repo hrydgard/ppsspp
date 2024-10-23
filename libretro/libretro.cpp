@@ -651,6 +651,14 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bAnalogIsCircular = true;
    }
 
+   var.key = "ppsspp_analog_deadzone";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+      g_Config.fAnalogDeadzone = atof(var.value);
+
+   var.key = "ppsspp_analog_sensitivity";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+      g_Config.fAnalogSensitivity = atof(var.value);
+   
    var.key = "ppsspp_memstick_inserted";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {

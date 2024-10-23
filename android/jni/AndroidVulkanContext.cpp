@@ -93,7 +93,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		return false;
 	}
 
-	bool success = true;
+	bool success = false;
 	if (g_Vulkan->InitSwapchain()) {
 		bool useMultiThreading = g_Config.bRenderMultiThreading;
 		if (g_Config.iInflightFrames == 1) {
@@ -108,8 +108,6 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->SetInflightFrames(g_Config.iInflightFrames);
 		success = renderManager->HasBackbuffers();
-	} else {
-		success = false;
 	}
 
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Init completed, %s", success ? "successfully" : "but failed");

@@ -236,7 +236,7 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
-	std::string_view confirmButtonText = "";
+	std::string_view confirmButtonText;
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
 	case CHOICE_BROWSE_FOLDER:
@@ -310,9 +310,9 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
 		std::string newPath = value;
-		size_t pos = newPath.find_last_not_of("/");
+		size_t pos = newPath.find_last_not_of('/');
 		// Gotta have at least something but a /, and also needs to start with a /.
-		if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
@@ -456,7 +456,7 @@ void MemStickScreen::update() {
 	}
 }
 
-ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup)
+ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
 	if (initialSetup_) {
@@ -470,6 +470,14 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 		moveDataTask_->BlockUntilReady();
 		delete moveDataTask_;
 	}
+	if (oldSpaceTask_) {
+		oldSpaceTask_->BlockUntilReady();
+		delete oldSpaceTask_;
+	}
+	if (newSpaceTask_) {
+		newSpaceTask_->BlockUntilReady();
+		delete newSpaceTask_;
+	}
 }
 
 void ConfirmMemstickMoveScreen::CreateViews() {
@@ -479,7 +487,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	Path oldMemstickFolder = g_Config.memStickDirectory;
+	Path &oldMemstickFolder = g_Config.memStickDirectory;
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -488,18 +496,20 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 
-	int64_t freeSpaceNew;
-	int64_t freeSpaceOld;
-	free_disk_space(newMemstickFolder_, freeSpaceNew);
-	free_disk_space(oldMemstickFolder, freeSpaceOld);
-
 	leftColumn->Add(new TextView(ms->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("PPSSPP will restart after the change"), ""));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
-	std::string newFreeSpaceText = std::string(ms->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
-	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
+
+	newFreeSpaceView_ = leftColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
+
+	newSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
+		int64_t freeSpaceNew;
+		free_disk_space(newMemstickFolder_, freeSpaceNew);
+		return new SpaceResult{ freeSpaceNew };
+	}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
+
 	if (existingFilesInNewFolder_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
 		if (!moveData_) {
@@ -511,11 +521,15 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!oldMemstickFolder.empty()) {
-		std::string oldFreeSpaceText = std::string(ms->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
+		oldSpaceTask_ = Promise<SpaceResult *>::Spawn(&g_threadManager, [&]() -> SpaceResult * {
+			int64_t freeSpaceOld;
+			free_disk_space(oldMemstickFolder, freeSpaceOld);
+			return new SpaceResult{ freeSpaceOld };
+		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
-		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
+		oldFreeSpaceView_ = rightColumn->Add(new TextView(ms->T("Free space"), ALIGN_LEFT, false));
 	}
 
 	if (moveDataTask_) {
@@ -565,6 +579,23 @@ void ConfirmMemstickMoveScreen::update() {
 			}
 			delete moveDataTask_;
 			moveDataTask_ = nullptr;
+		}
+	}
+
+	if (newSpaceTask_ && newFreeSpaceView_) {
+		SpaceResult *result = newSpaceTask_->Poll();
+		if (result) {
+			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
+			delete newSpaceTask_;
+			newSpaceTask_ = nullptr;
+		}
+	}
+	if (oldSpaceTask_ && oldFreeSpaceView_) {
+		SpaceResult *result = oldSpaceTask_->Poll();
+		if (result) {
+			oldFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
+			delete oldSpaceTask_;
+			oldSpaceTask_ = nullptr;
 		}
 	}
 }

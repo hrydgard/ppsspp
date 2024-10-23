@@ -37,7 +37,7 @@ TextDrawerAndroid::~TextDrawerAndroid() {
 	// At worst we leak one ref...
 	// env_->DeleteGlobalRef(cls_textRenderer);
 	ClearCache();
-	ClearFonts();
+	fontMap_.clear();  // size is precomputed using dpiScale_.
 }
 
 bool TextDrawerAndroid::IsReady() const {
@@ -58,8 +58,8 @@ uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
-	AndroidFontEntry entry;
-	entry.size = (float)(size * 1.4f) / dpiScale_;
+	AndroidFontEntry entry{};
+	entry.size = ((float)size * 1.4f) / dpiScale_;
 	fontMap_[fontHash] = entry;
 	fontHash_ = fontHash;
 	return fontHash;
@@ -75,41 +75,26 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	}
 }
 
-void TextDrawerAndroid::MeasureString(std::string_view str, float *w, float *h) {
-	if (str.empty()) {
-		*w = 0.0;
-		*h = 0.0;
-		return;
-	}
-
-	CacheKey key{ std::string(str), fontHash_ };
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
+void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, float *h) {
+	float scaledSize = 14;
+	auto iter = fontMap_.find(fontHash_);
+	if (iter != fontMap_.end()) {
+		scaledSize = iter->second.size;
 	} else {
-		float scaledSize = 14;
-		auto iter = fontMap_.find(fontHash_);
-		if (iter != fontMap_.end()) {
-			scaledSize = iter->second.size;
-		} else {
-			ERROR_LOG(Log::G3D, "Missing font");
-		}
-		std::string text(str);
-		auto env = getEnv();
-		// Unfortunate that we can't create a jstr from a std::string_view directly.
-		jstring jstr = env->NewStringUTF(text.c_str());
-		uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
-		env->DeleteLocalRef(jstr);
-
-		entry = new TextMeasureEntry();
-		entry->width = (size >> 16);
-		entry->height = (size & 0xFFFF);
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+		ERROR_LOG(Log::G3D, "Missing font");
 	}
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	std::string text;
+	ConvertUTF8ToJavaModifiedUTF8(&text, str);
+
+	auto env = getEnv();
+	jstring jstr = env->NewStringUTF(text.c_str());
+	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
+	env->DeleteLocalRef(jstr);
+
+	*w = (float)(size >> 16);
+	*h = (float)(size & 0xFFFF);
+
+	WARN_LOG(Log::G3D, "Measure Modified: '%.*s' size: %fx%f", (int)text.length(), text.data(), *w, *h);
 }
 
 bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
@@ -118,7 +103,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		return false;
 	}
 
-	double size = 0.0;
+	float size = 0.0f;
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		size = iter->second.size;
@@ -127,7 +112,11 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	}
 
 	auto env = getEnv();
-	jstring jstr = env->NewStringUTF(std::string(str).c_str());
+
+	std::string text;
+	ConvertUTF8ToJavaModifiedUTF8(&text, str);
+	jstring jstr = env->NewStringUTF(text.c_str());
+
 	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
@@ -135,6 +124,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		imageWidth = 1;
 	if (imageHeight <= 0)
 		imageHeight = 1;
+	WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
 	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
 	env->DeleteLocalRef(jstr);

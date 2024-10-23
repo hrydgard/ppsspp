@@ -71,11 +71,12 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	VmaAllocationInfo allocInfo{};
 	
 	VkResult result = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &block.buffer, &block.allocation, &allocInfo);
-	_assert_(result == VK_SUCCESS);
+
+	_assert_msg_(result == VK_SUCCESS, "VulkanPushPool: Failed to create buffer (result = %s, size = %d)", VulkanResultToString(result), (int)size);
 
 	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
-	_assert_msg_(result == VK_SUCCESS, "VulkanPushPool: Failed to map memory (result = %s)", VulkanResultToString(result));
 
+	_assert_msg_(result == VK_SUCCESS, "VulkanPushPool: Failed to map memory (result = %s, size = %d)", VulkanResultToString(result), (int)size);
 	_assert_msg_(block.writePtr != nullptr, "VulkanPushPool: Failed to map memory on block of size %d", (int)block.size);
 	return block;
 }

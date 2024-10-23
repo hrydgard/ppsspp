@@ -53,7 +53,6 @@ class StringVectorListAdapter : public UIListAdapter {
 public:
 	StringVectorListAdapter(const std::vector<std::string> *items) : items_(items) {}
 	size_t getCount() const override { return items_->size(); }
-	void drawItem(int item, int x, int y, int w, int h, bool active) const override;
 
 private:
 	const std::vector<std::string> *items_;
