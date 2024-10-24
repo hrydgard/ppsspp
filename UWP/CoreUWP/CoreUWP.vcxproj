@@ -633,459 +633,345 @@
     <ClCompile Include="..\..\ext\jpge\jpge.cpp" />
     <ClCompile Include="..\..\ext\libzip\zip_add.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_add_dir.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_add_entry.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_algorithm_deflate.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_buffer.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_close.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_delete.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_dirent.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_dir_add.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_discard.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_entry.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error_clear.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error_get.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error_get_sys_type.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error_strerror.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_error_to_str.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_err_str.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_extra_field.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_extra_field_api.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fclose.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fdopen.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_add.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_error_clear.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_error_get.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_get_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_get_external_attributes.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_get_offset.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_rename.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_replace.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_set_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_set_encryption.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_set_external_attributes.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_set_mtime.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_file_strerror.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fopen.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fopen_encrypted.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fopen_index.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fopen_index_encrypted.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fread.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_fseek.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_ftell.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_archive_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_archive_flag.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_encryption_implementation.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_file_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_name.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_num_entries.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_get_num_files.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_hash.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_io_util.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_libzip_version.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_memdup.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_name_locate.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_new.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_open.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_pkware.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_progress.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_random_uwp.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_rename.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_replace.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_archive_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_archive_flag.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_default_password.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_file_comment.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_file_compression.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_set_name.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_accept_empty.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_begin_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_begin_write_cloning.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_buffer.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_call.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_close.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_commit_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_compress.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_crc.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_error.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_common.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_stdio.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_win32.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_win32_named.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_win32_utf16.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_file_win32_utf8.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_free.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_function.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_get_file_attributes.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_is_deleted.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_layered.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_open.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_pkware_decode.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_pkware_encode.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_read.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_remove.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_rollback_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_seek.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_seek_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_stat.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_supports.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_tell.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_tell_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_window.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_write.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_zip.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_source_zip_new.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_stat.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_stat_index.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_stat_init.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_strerror.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_string.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_unchange.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_unchange_all.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_unchange_archive.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_unchange_data.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\libzip\zip_utf-8.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="..\..\ext\sfmt19937\SFMT.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
