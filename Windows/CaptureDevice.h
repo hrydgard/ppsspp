@@ -25,6 +25,7 @@
 #include <vector>
 #include <queue>
 #include <thread>
+#include <wrl/client.h>
 
 #include "Core/HLE/sceUsbMic.h"
 
@@ -193,7 +194,7 @@ public:
 	std::vector<std::string> getDeviceList(bool forceEnum = false, int *pActuallCount = nullptr);
 
 	void setError(const CAPTUREDEVIDE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
-	void setSelction(const UINT32 &selection) { param.selection = selection; }
+	void setSelection(const UINT32 &selection) { param.selection = selection; }
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
 	bool isShutDown() const { return state == CAPTUREDEVIDE_STATE::SHUTDOWN; }
@@ -226,9 +227,9 @@ protected:
 	bool isDeviceChanged = false;
 
 // MF interface.
-	ReaderCallback *m_pCallback = nullptr;
-	IMFSourceReader *m_pReader = nullptr;
-	IMFMediaSource *m_pSource = nullptr;
+	Microsoft::WRL::ComPtr<ReaderCallback> m_pCallback;
+	Microsoft::WRL::ComPtr<IMFSourceReader> m_pReader;
+	Microsoft::WRL::ComPtr<IMFMediaSource> m_pSource;
 
 // Message loop.
 	std::mutex mutex;
