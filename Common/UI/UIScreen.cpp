@@ -30,34 +30,36 @@ bool UIScreen::UseVerticalLayout() const {
 }
 
 void UIScreen::DoRecreateViews() {
-	if (recreateViews_) {
-		std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
+	if (!recreateViews_) {
+		return;
+	}
 
-		UI::PersistMap persisted;
-		bool persisting = root_ != nullptr;
-		if (persisting) {
-			root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
-		}
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
 
-		delete root_;
-		root_ = nullptr;
-		CreateViews();
-		UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
-		if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
-			defaultView->SetFocus();
-		}
-		recreateViews_ = false;
+	UI::PersistMap persisted;
+	bool persisting = root_ != nullptr;
+	if (persisting) {
+		root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
+	}
 
-		if (persisting && root_ != nullptr) {
-			root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
+	delete root_;
+	root_ = nullptr;
+	CreateViews();
+	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
+	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
+		defaultView->SetFocus();
+	}
+	recreateViews_ = false;
 
-			// Update layout and refocus so things scroll into view.
-			// This is for resizing down, when focused on something now offscreen.
-			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_, ignoreInsets_);
-			UI::View *focused = UI::GetFocusedView();
-			if (focused) {
-				root_->SubviewFocused(focused);
-			}
+	if (persisting && root_ != nullptr) {
+		root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
+
+		// Update layout and refocus so things scroll into view.
+		// This is for resizing down, when focused on something now offscreen.
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_, ignoreInsets_);
+		UI::View *focused = UI::GetFocusedView();
+		if (focused) {
+			root_->SubviewFocused(focused);
 		}
 	}
 }
