@@ -72,6 +72,9 @@ void Event::Add(std::function<EventReturn(EventParams&)> func) {
 
 // Call this from input thread or whatever, it doesn't matter
 void Event::Trigger(EventParams &e) {
+	if (handlers_.empty()) {
+		return;
+	}
 	EventTriggered(this, e);
 }
 
