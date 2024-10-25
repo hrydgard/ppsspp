@@ -1765,5 +1765,6 @@ UI::EventReturn GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
 UI::EventReturn GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
 	g_Config.ClearRecentIsos();
 	OnRecentChanged.Trigger(e);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
