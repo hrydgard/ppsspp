@@ -89,6 +89,7 @@ void FramebufferManagerCommon::Init(int msaaLevel) {
 	NotifyRenderResized(msaaLevel);
 }
 
+// Returns true if we need to stop the render thread
 bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
 
@@ -111,6 +112,11 @@ bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 	useBufferedRendering_ = newBuffered;
 
 	presentation_->UpdateRenderSize(renderWidth_, renderHeight_);
+
+	// If just switching TO buffered rendering, no need to pause the threads. In fact this causes problems due to the open backbuffer renderpass.
+	if (!useBufferedRendering_ && newBuffered) {
+		return false;
+	}
 	return newRender || newSettings;
 }
 
