@@ -1118,7 +1118,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
 				break;
 			default:
-				*errorString = "Bad replace blend eq";
+				*errorString = StringFromFormat("Bad replace blend eq: %d", (int)replaceBlendEq);
 				return false;
 			}
 		}

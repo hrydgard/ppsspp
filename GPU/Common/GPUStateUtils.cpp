@@ -293,11 +293,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	case GE_BLENDMODE_MUL_AND_ADD:
 	case GE_BLENDMODE_MUL_AND_SUBTRACT:
 	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-		// Handled below.
+		// Other blend equations simply don't blend on hardware.
 		break;
 
 	default:
-		// Other blend equations simply don't blend on hardware.
 		return REPLACE_BLEND_NO;
 	}
 
@@ -849,6 +848,8 @@ static const BlendEq eqLookupNoMinMax[] = {
 	BlendEq::ADD,			// GE_BLENDMODE_MIN
 	BlendEq::ADD,			// GE_BLENDMODE_MAX
 	BlendEq::ADD,			// GE_BLENDMODE_ABSDIFF
+	BlendEq::ADD,
+	BlendEq::ADD,
 };
 
 static const BlendEq eqLookup[] = {
@@ -858,6 +859,8 @@ static const BlendEq eqLookup[] = {
 	BlendEq::MIN,			// GE_BLENDMODE_MIN
 	BlendEq::MAX,			// GE_BLENDMODE_MAX
 	BlendEq::MAX,			// GE_BLENDMODE_ABSDIFF
+	BlendEq::ADD,
+	BlendEq::ADD,
 };
 
 static BlendFactor toDualSource(BlendFactor blendfunc) {

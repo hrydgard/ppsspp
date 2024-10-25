@@ -395,6 +395,17 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG header!");
 	}
 
+	u32 psar_id;
+	fileLoader->ReadAt(psarOffset, 4, 1, &psar_id);
+
+	INFO_LOG(Log::Loader, "NPDRM: PSAR ID: %08x");
+	// PS1 PSAR begins with "PSISOIMG0000"
+	if (psar_id == 'SISP') {
+		lbaSize_ = 0;  // Mark invalid
+		ERROR_LOG(Log::Loader, "PSX not supported! Should have been caught earlier.");
+		return;
+	}
+
 	kirk_init();
 
 	// getkey

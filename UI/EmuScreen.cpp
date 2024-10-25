@@ -1395,6 +1395,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		if (!framebufferBound) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
+
+		Draw::BackendState state = draw->GetCurrentBackendState();
+		_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d tag: %s", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, screenManager()->topScreen()->tag());
+
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();
 		draw->SetViewport(viewport);
@@ -1515,13 +1519,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
-		framebufferBound = true;
 	}
 
 	Draw::BackendState state = draw->GetCurrentBackendState();
 
 	// We allow if !state.valid, that means it's not the Vulkan backend.
-	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend);
+	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d bound: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, (int)framebufferBound);
 
 	screenManager()->getUIContext()->BeginFrame();
 

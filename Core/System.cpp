@@ -594,7 +594,6 @@ bool PSP_Reboot(std::string *error_string) {
 }
 
 void PSP_BeginHostFrame() {
-	// Reapply the graphics state of the PSP
 	if (gpu) {
 		gpu->BeginHostFrame();
 	}

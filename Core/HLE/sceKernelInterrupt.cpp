@@ -413,7 +413,11 @@ void __KernelReturnFromInterrupt()
 	PendingInterrupt pend = pendingInterrupts.front();
 	pendingInterrupts.pop_front();
 
-	intrHandlers[pend.intr]->handleResult(pend);
+	if (pend.intr >= 0 && pend.intr < ARRAY_SIZE(intrHandlers)) {
+		intrHandlers[pend.intr]->handleResult(pend);
+	} else {
+		_assert_msg_(false, "Bad pend.intr: %d", pend.intr);
+	}
 	inInterrupt = false;
 
 	// Restore context after running the interrupt.
