@@ -176,7 +176,7 @@ private:
 	UI::EventReturn OnForums(UI::EventParams &e);
 	UI::EventReturn OnDiscord(UI::EventParams &e);
 	UI::EventReturn OnShare(UI::EventParams &e);
-	UI::EventReturn OnTwitter(UI::EventParams &e);
+	UI::EventReturn OnX(UI::EventParams &e);
 
 	double startTime_ = 0.0;
 };
