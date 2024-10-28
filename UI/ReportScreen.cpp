@@ -168,7 +168,7 @@ ReportScreen::ReportScreen(const Path &gamePath)  // unused gamePath, after remo
 
 ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
 	_dbg_assert_(mode & ScreenRenderMode::FIRST);
-	_dbg_assert_(mode & ScreenRenderMode::TOP);
+	// _dbg_assert_(mode & ScreenRenderMode::TOP);
 
 	if (mode & ScreenRenderMode::TOP) {
 		// We do this after render because we need it to be within the frame (so the screenshot works).

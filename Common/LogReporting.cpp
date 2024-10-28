@@ -67,7 +67,7 @@ void ReportMessage(const char *message, ...) {
 		return;
 
 	const int MESSAGE_BUFFER_SIZE = 65536;
-	char temp[MESSAGE_BUFFER_SIZE];
+	char *temp = new char [MESSAGE_BUFFER_SIZE];
 
 	va_list args;
 	va_start(args, message);
@@ -76,6 +76,8 @@ void ReportMessage(const char *message, ...) {
 	va_end(args);
 
 	messageCallback(message, temp);
+
+	delete[] temp;
 }
 
 void ReportMessageFormatted(const char *message, const char *formatted) {
