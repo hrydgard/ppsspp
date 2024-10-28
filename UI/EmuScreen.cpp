@@ -1397,7 +1397,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 
 		Draw::BackendState state = draw->GetCurrentBackendState();
-		_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d tag: %s", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, screenManager()->topScreen()->tag());
+		if (state.valid) {
+			_assert_msg_(state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d tag: %s", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, screenManager()->topScreen()->tag());
+		}
 
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();
@@ -1523,8 +1525,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	Draw::BackendState state = draw->GetCurrentBackendState();
 
-	// We allow if !state.valid, that means it's not the Vulkan backend.
-	_assert_msg_(!state.valid || state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d bound: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, (int)framebufferBound);
+	// State.valid just states whether the passes parameter has a meaningful value.
+	if (state.valid) {
+		_assert_msg_(state.passes >= 1, "skipB: %d sw: %d mode: %d back: %d bound: %d", (int)skipBufferEffects, (int)g_Config.bSoftwareRendering, (int)mode, (int)g_Config.iGPUBackend, (int)framebufferBound);
+	}
 
 	screenManager()->getUIContext()->BeginFrame();
 
