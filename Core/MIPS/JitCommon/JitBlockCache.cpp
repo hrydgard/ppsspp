@@ -91,8 +91,8 @@ bool JitBlock::ContainsAddress(u32 em_address) const {
 }
 
 bool JitBlockCache::IsFull() const {
-	// -10 to safely leave space for some proxy blocks, which we don't check before we allocate (not ideal, but should work).
-	return num_blocks_ >= MAX_NUM_BLOCKS - 10;
+	// Subtract some amount to safely leave space for some proxy blocks, which we don't check before we allocate (not ideal, but should be enough).
+	return num_blocks_ >= MAX_NUM_BLOCKS - 512;
 }
 
 void JitBlockCache::Init() {
@@ -218,7 +218,6 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 void JitBlockCache::AddBlockMap(int block_num) {
 	const JitBlock &b = blocks_[block_num];
 	// Convert the logical address to a physical address for the block map
-	// Yeah, this'll work fine for PSP too I think.
 	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
 	block_map_[std::make_pair(pAddr + 4 * b.originalSize, pAddr)] = block_num;
 }
