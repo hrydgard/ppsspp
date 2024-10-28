@@ -71,6 +71,7 @@ void Shutdown()
 #endif
 }
 
+// NOTE: Due to the nature of getaddrinfo, this can block indefinitely. Not good.
 bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Force IPv4 lookups.

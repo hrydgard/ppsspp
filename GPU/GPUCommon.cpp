@@ -1349,8 +1349,7 @@ void GPUCommon::FlushImm() {
 }
 
 void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
-	if ((op & 0xFFFFFF) != 0)
-		WARN_LOG_REPORT_ONCE(unknowncmd, Log::G3D, "Unknown GE command : %08x ", op);
+	// Do nothing. We used to report here, but we're confident we have them all so no need to report unknown.
 }
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {

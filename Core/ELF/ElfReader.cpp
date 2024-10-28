@@ -164,7 +164,8 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					// It appears the PSP takes any relocation that is not a HI16.
 					if (t_type != R_MIPS_LO16) {
 						if (t_type != R_MIPS_16) {
-							// Let's play it safe for now and skip.  We've only seen this type.
+							// Let's play it safe for now and skip. We've only seen this type.
+							// These exists in some popular games like Assassin's Creed: Bloodlines and GTA: VCS: (https://report.ppsspp.org/logs/kind/1187)
 							ERROR_LOG_REPORT(Log::Loader, "ELF relocation HI16/%d pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
 							continue;
 						} else {

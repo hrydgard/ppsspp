@@ -9,6 +9,7 @@ public:
 	GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPUCommonHW();
 
+	// This can fail, and if so no render pass is active.
 	void CopyDisplayToOutput(bool reallyDirty) override;
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;

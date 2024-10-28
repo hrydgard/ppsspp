@@ -535,6 +535,7 @@ void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
 
 	shaderManager_->DirtyLastShader();
 
+	// after this, render pass is active.
 	framebufferManager_->CopyDisplayToOutput(reallyDirty);
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);

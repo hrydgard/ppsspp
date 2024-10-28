@@ -227,7 +227,8 @@ private:
 	std::pair<u32, u32> blockMemRanges_[3];
 
 	enum {
-		MAX_NUM_BLOCKS = 65536*2
+		// Where does this number come from?
+		MAX_NUM_BLOCKS = 65536 * 4
 	};
 };
 

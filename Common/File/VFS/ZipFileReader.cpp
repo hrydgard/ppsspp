@@ -290,22 +290,26 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 }
 
 void ZipFileReader::Rewind(VFSOpenFile *vfsOpenFile) {
-	ZipFileReaderOpenFile *openFile = (ZipFileReaderOpenFile *)vfsOpenFile;
-	// Close and re-open.
-	zip_fclose(openFile->zf);
-	openFile->zf = zip_fopen_index(zip_file_, openFile->reference->zi, 0);
+	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
+	_assert_(file);
+	_dbg_assert_(file->zf != nullptr);
+	zip_fseek(file->zf, 0, SEEK_SET);
 }
 
 size_t ZipFileReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
+	_assert_(file);
+	_dbg_assert_(file->zf != nullptr);
 	return zip_fread(file->zf, buffer, length);
 }
 
 void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
+	_assert_(file);
 	_dbg_assert_(file->zf != nullptr);
 	zip_fclose(file->zf);
 	file->zf = nullptr;
+	vfsOpenFile = nullptr;
 	lock_.unlock();
 	delete file;
 }
