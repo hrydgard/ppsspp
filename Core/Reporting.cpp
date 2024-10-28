@@ -308,30 +308,14 @@ namespace Reporting
 
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
-		http::Client http;
-		net::RequestProgress progress(&pendingMessagesDone);
-		Buffer theVoid = Buffer::Void();
-
-		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-
-		if (output == nullptr)
-			output = &theVoid;
-
-		const char *serverHost = ServerHostname();
-		if (!serverHost)
-			return false;
-
-		if (http.Resolve(serverHost, ServerPort())) {
-			int result = -1;
-			if (http.Connect()) {
-				result = http.POST(http::RequestParams(uri), data, mimeType, output, &progress);
-				http.Disconnect();
-			}
-
-			return result >= 200 && result < 300;
-		} else {
-			return false;
-		}
+		char url[1024];
+		const char *hostname = ServerHostname();
+		int port = ServerPort();
+		snprintf(url, sizeof(url), "http://%s:%d%s", hostname, port, uri);
+		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::ProgressBarMode::NONE, [=](http::Request &req) {
+			serverWorking = !req.Failed();
+		});
+		return true;
 	}
 
 	std::string StripTrailingNull(const std::string &str)
@@ -514,12 +498,8 @@ namespace Reporting
 		}
 	}
 
-	int Process(int pos)
-	{
-		SetCurrentThreadName("Report");
-
-		AndroidJNIThreadContext jniContext;  // destructor detaches
-
+	// Not the thread func, but called from it.
+	int Process(int pos) {
 		Payload &payload = payloadBuffer[pos];
 		Buffer output;
 
@@ -671,7 +651,7 @@ namespace Reporting
 		return -1;
 	}
 
-	int ProcessPending() {
+	int SendPendingReportsThread() {
 		SetCurrentThreadName("Report");
 
 		std::unique_lock<std::mutex> guard(pendingMessageLock);
@@ -714,7 +694,7 @@ namespace Reporting
 		pendingMessageCond.notify_one();
 
 		if (!messageThread.joinable()) {
-			messageThread = std::thread(ProcessPending);
+			messageThread = std::thread(SendPendingReportsThread);
 		}
 	}
 
