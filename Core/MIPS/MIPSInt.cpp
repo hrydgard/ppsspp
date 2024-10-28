@@ -101,7 +101,7 @@ namespace MIPSInt
 		int func = (op >> 16) & 0x1F;
 
 		// Let's only report this once per run to be safe from impacting perf.
-		static bool reportedAlignment = false;
+		static bool loggedAlignment = false;
 
 		// It appears that a cache line is 0x40 (64) bytes, loops in games
 		// issue the cache instruction at that interval.
@@ -120,9 +120,10 @@ namespace MIPSInt
 				int size = 0x40 + (addr & 0x3F);
 				MIPSComp::jit->InvalidateCacheAt(alignedAddr, size);
 				// Using a bool to avoid locking/etc. in case it's slow.
-				if (!reportedAlignment && (addr & 0x3F) != 0) {
-					WARN_LOG_REPORT(Log::JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
-					reportedAlignment = true;
+				if (!loggedAlignment && (addr & 0x3F) != 0) {
+					// These are seen exclusively in Lego games, and are really no big deal. Reporting removed.
+					WARN_LOG(Log::JIT, "Unaligned icache invalidation of %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					loggedAlignment = true;
 				}
 				if (alignedAddr <= PC + 4 && alignedAddr + size >= PC - 4) {
 					// This is probably rare so we don't use a static bool.

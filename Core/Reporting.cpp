@@ -254,7 +254,7 @@ namespace Reporting
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)
 	static std::string ServerHostname() {
 		if (!IsEnabled())
-			return NULL;
+			return "";
 
 		std::string host = ServerHost();
 		size_t length = ServerHostnameLength();
