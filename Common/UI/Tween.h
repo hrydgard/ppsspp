@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -65,7 +65,7 @@ template <typename Value>
 class TweenBase: public Tween {
 public:
 	TweenBase(float duration, float (*curve)(float) = [](float f) { return f; })
-		: Tween(duration, curve) {
+		: Tween(duration, curve), from{}, to_{} {
 	}
 	TweenBase(Value from, Value to, float duration, float (*curve)(float) = [](float f) { return f; })
 		: Tween(duration, curve), from_(from), to_(to) {

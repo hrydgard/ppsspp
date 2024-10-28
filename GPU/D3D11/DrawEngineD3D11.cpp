@@ -80,16 +80,7 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
-	// Allocate nicely aligned memory. Maybe graphics drivers will
-	// appreciate it.
-	// All this is a LOT of memory, need to see if we can cut down somehow.
-	indexGen.Setup(decIndex_);
-
 	InitDeviceObjects();
-
-	// Vertex pushing buffers. For uniforms we use short DISCARD buffers, but we could use
-	// this kind of buffer there as well with D3D11.1. We might be able to use the same buffer
-	// for both vertices and indices, and possibly all three data types.
 }
 
 DrawEngineD3D11::~DrawEngineD3D11() {

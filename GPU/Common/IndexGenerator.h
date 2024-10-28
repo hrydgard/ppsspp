@@ -24,9 +24,12 @@
 
 class IndexGenerator {
 public:
-	void Setup(u16 *indexptr);
+	void Setup(u16 *indexptr) {
+		indsBase_ = indexptr;
+		inds_ = indexptr;
+	}
 	void Reset() {
-		this->inds_ = indsBase_;
+		inds_ = indsBase_;
 	}
 
 	static bool PrimCompatible(int prim1, int prim2) {
