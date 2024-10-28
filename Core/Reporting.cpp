@@ -68,9 +68,6 @@ namespace Reporting
 
 	// Internal limiter on number of requests per instance.
 	static u32 spamProtectionCount = 0;
-	// Temporarily stores a reference to the hostname.
-	static std::string lastHostname;
-
 	// Keeps track of whether a harmful setting was ever used.
 	static bool everUnsupported = false;
 	// Support is cached here to avoid checking it on every single request.
@@ -231,7 +228,7 @@ namespace Reporting
 	// Returns the full host (e.g. report.ppsspp.org:80.)
 	std::string ServerHost() {
 		if (g_Config.sReportHost.compare("default") == 0)
-			return "";
+			return "report.ppsspp.org";
 		return g_Config.sReportHost;
 	}
 
@@ -255,8 +252,7 @@ namespace Reporting
 	}
 
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)
-	static const char *ServerHostname()
-	{
+	static std::string ServerHostname() {
 		if (!IsEnabled())
 			return NULL;
 
@@ -265,10 +261,9 @@ namespace Reporting
 
 		// This means there's no port number - it's already the hostname.
 		if (length == host.npos)
-			lastHostname = host;
+			return host;
 		else
-			lastHostname = host.substr(0, length);
-		return lastHostname.c_str();
+			return host.substr(0, length);
 	}
 
 	// Returns only the port part (e.g. 80) as an int.
@@ -296,9 +291,9 @@ namespace Reporting
 
 	static void SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
 		char url[1024];
-		const char *hostname = ServerHostname();
+		std::string hostname = ServerHostname();
 		int port = ServerPort();
-		snprintf(url, sizeof(url), "http://%s:%d%s", hostname, port, uri);
+		snprintf(url, sizeof(url), "http://%s:%d%s", hostname.c_str(), port, uri);
 		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::ProgressBarMode::NONE, callback);
 	}
 
