@@ -12,8 +12,8 @@ class VFSInterface;
 struct GameDBInfo {
 	std::string title;
 	std::string foreignTitle;
-	uint32_t crc;
-	uint64_t size;
+	uint32_t crc = 0;
+	uint64_t size = 0;
 };
 
 class GameDB {

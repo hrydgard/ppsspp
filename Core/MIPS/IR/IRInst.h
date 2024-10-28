@@ -379,7 +379,7 @@ public:
 		insts_ = w.insts_;
 		return *this;
 	}
-	IRWriter &operator =(IRWriter &&w) {
+	IRWriter &operator =(IRWriter &&w) noexcept {
 		insts_ = std::move(w.insts_);
 		return *this;
 	}

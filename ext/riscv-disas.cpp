@@ -2233,7 +2233,7 @@ static void decode_inst_operands(rv_decode *dec)
 
 static void decode_inst_decompress(rv_decode *dec, rv_isa isa)
 {
-    int decomp_op;
+    int decomp_op = 0;
     switch (isa) {
     case rv32: decomp_op = opcode_data[dec->op].decomp_rv32; break;
     case rv64: decomp_op = opcode_data[dec->op].decomp_rv64; break;

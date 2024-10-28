@@ -883,7 +883,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 
 	std::set<std::string> secureFileNames;
 	for (const auto &entry : entries) {
-		char temp[14];
+		char temp[14]{};
 		truncate_cpy(temp, entry.filename);
 		secureFileNames.insert(temp);
 	}

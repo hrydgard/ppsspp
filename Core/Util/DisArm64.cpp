@@ -418,7 +418,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		int opcode2 = (w >> 16) & 0x1F;
 		int opcode = (w >> 10) & 0x3F;
 		// Data-processing (1 source)
-		const char *opname[8] = { "rbit", "rev16", "rev32", "(unk)", "clz", "cls" };
+		const char *opname[64] = { "rbit", "rev16", "rev32", "(unk)", "clz", "cls" };
 		const char *op = opcode2 >= 8 ? "unk" : opname[opcode];
 		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", op, r, Rd, r, Rn);
 	} else if (((w >> 21) & 0x2FF) == 0x0D6) {
@@ -749,7 +749,7 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				int dst_index = imm5 >> (size + 1);
 				int src_index = imm4 >> size;
 				int op = (w >> 29) & 1;
-				char s;
+				char s = '_';
 				switch (size) {
 				case 0x00: s = 'b'; break;
 				case 0x01: s = 'h'; break;

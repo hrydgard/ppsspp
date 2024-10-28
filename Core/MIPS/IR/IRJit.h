@@ -51,7 +51,7 @@ public:
 	IRBlock() {}
 	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
 		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
-	IRBlock(IRBlock &&b) {
+	IRBlock(IRBlock &&b) noexcept {
 		arenaOffset_ = b.arenaOffset_;
 		hash_ = b.hash_;
 		origAddr_ = b.origAddr_;

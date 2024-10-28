@@ -1208,7 +1208,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	
 	if (PSP_CoreParameter().compat.flags().Fontltn12Hack && requestedStyle->fontLanguage == 2) {
 		for (size_t j = 0; j < internalFonts.size(); j++) {
-			const auto tempmatchStyle = internalFonts[j]->GetFontStyle();
+			const auto &tempmatchStyle = internalFonts[j]->GetFontStyle();
 			const std::string str(tempmatchStyle.fontFileName);
 			if (str == "ltn12.pgf") {
 				optimumFont = internalFonts[j];
