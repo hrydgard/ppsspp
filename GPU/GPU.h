@@ -105,6 +105,7 @@ struct GPUStatistics {
 		numBlockTransfers = 0;
 		numReplacerTrackedTex = 0;
 		numCachedReplacedTextures = 0;
+		numClutTextures = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -142,6 +143,7 @@ struct GPUStatistics {
 	int numBlockTransfers;
 	int numReplacerTrackedTex;
 	int numCachedReplacedTextures;
+	int numClutTextures;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;

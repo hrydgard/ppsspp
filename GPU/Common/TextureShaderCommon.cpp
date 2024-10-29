@@ -194,6 +194,7 @@ void TextureShaderCache::Decimate() {
 			++tex;
 		}
 	}
+	gpuStats.numClutTextures = (int)texCache_.size();
 }
 
 Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {
