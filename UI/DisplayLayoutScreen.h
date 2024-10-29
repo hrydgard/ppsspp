@@ -50,7 +50,7 @@ private:
 	UI::ChoiceStrip *mode_ = nullptr;
 	UI::Choice *postProcChoice_ = nullptr;
 	std::string shaderNames_[256];
-	std::deque<bool> settingsVisible_;  // vector<bool> is an insane bitpacked specialization!
+	std::deque<bool> settingsVisible_;  // vector<bool> is an insane bitpacked specialization! Not to be used with checkboxes!
 };
 
 class PostProcScreen : public UI::ListPopupScreen {
