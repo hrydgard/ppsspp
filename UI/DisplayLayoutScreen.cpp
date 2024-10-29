@@ -378,14 +378,22 @@ void DisplayLayoutScreen::CreateViews() {
 
 			auto removeButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
 			removeButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
-				g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-				RecreateViews();
+				if (i < g_Config.vPostShaderNames.size()) {
+					// Protect against possible race conditions.
+					g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
+					System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+					RecreateViews();
+				}
 				return UI::EVENT_DONE;
 			});
 
 			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+				if (i >= g_Config.vPostShaderNames.size()) {
+					// Protect against possible race conditions.
+					return UI::EVENT_DONE;
+				}
+
 				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), I18NCat::DIALOG, moreButton);
 				screenManager()->push(contextMenu);
 				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
