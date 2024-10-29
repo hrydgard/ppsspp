@@ -147,11 +147,7 @@ void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult resu
 	RecreateViews();
 }
 
-UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
-	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
-	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
-	FixPostShaderOrder(&g_Config.vPostShaderNames);
-
+static void NotifyPostChanges() {
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);  // To deal with shaders that can change render resolution like upscaling.
 	System_PostUIMessage(UIMessage::POSTSHADER_UPDATED);
@@ -159,6 +155,13 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 	if (gpu) {
 		gpu->NotifyConfigChanged();
 	}
+}
+
+UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	// Remove the virtual "Off" entry. TODO: Get rid of it generally.
+	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	FixPostShaderOrder(&g_Config.vPostShaderNames);
+	NotifyPostChanges();
 	return UI::EVENT_DONE;
 }
 
@@ -378,10 +381,11 @@ void DisplayLayoutScreen::CreateViews() {
 
 			auto removeButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
 			removeButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
+				// Protect against possible race conditions.
 				if (i < g_Config.vPostShaderNames.size()) {
-					// Protect against possible race conditions.
 					g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
-					System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+					FixPostShaderOrder(&g_Config.vPostShaderNames);
+					NotifyPostChanges();
 					RecreateViews();
 				}
 				return UI::EVENT_DONE;
@@ -415,7 +419,7 @@ void DisplayLayoutScreen::CreateViews() {
 						return UI::EVENT_DONE;
 					}
 					FixPostShaderOrder(&g_Config.vPostShaderNames);
-					System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+					NotifyPostChanges();
 					RecreateViews();
 					return UI::EVENT_DONE;
 				});
