@@ -25,6 +25,52 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.18
+------------------ 
+- Platform support
+	- Improved iOS/Mac support, Game Mode support ([#19287], [#19281], [#19269], [#19270], [#19257], [#19254], [#19244], [#19227], [#19224], [#19213], [#19200], [#19187], [#19184], [#19161], [#19118])
+	- IR Interpreter: work on correctness and optimizations ([#19299], [#19280], [#19268], [#19265], [#19262], [#19260], [#19255], [#19252], [#19240], [#19233], [#19231], [#19193], [#19189], [#19173], [#19128])
+	- Interpreted Vertex Decoder optimizations:  #19243 #19241
+	- SDL fixes: ([#19131])
+	- Legacy Edition for old Android TV (only for download on the website): ([#19401])
+	- Android and Windows shortcuts - add icons and bugfixes: ([#19139], [#19142], [#19138])
+	- Improve performance of CHD loading ([#18931])
+- UI
+	- Many crash, hang and performance fixes around the UI ([#18950], [#19561], [#19556], [#19531], [#19507], [#19523], [#19529], [#19482], [#19473], [#19438] #19165)
+	- New post proc filter "Sharp bilinear" ([#19530])
+	- Misc UI fixes ([#19505], [#19492], [#19126], [#19020])
+	- 3 new themes ([#19504])
+	- Game info in-game ([#19471])
+	- New remote iso UI ([#19293])
+	- Install save games from ZIP file ([#19443], [#19436])
+	- More input-mappable actions like Reset, allow mapping Alt key ([#19472], [#19484], [#19304])
+	- Homebrew Store: Added website links, license info: ([#19425], [#19426])
+	- RetroAchievements: Can now hash homebrew apps ([#19096]), RAIntegration support ([#19002])
+	- Fix regression of the AxisSwap feature ([#19059])
+- Emulation
+	- crash fixes: ([#19563], [#19546], [#19491], [#19358], [#19347], [#19198])
+	- barrier fixes: ( #19009 [#19017], [#19018])
+	- Misc compatibility fixes ([#19560])
+	- Misc filesystem fixes (FDs, date/time) ([#19459], [#19340])
+	- Workaround for The Warriors video playback ([#19450])
+	- Expose GPI switches and GPO leds, accessible in developer settings
+	- Fix regression caused by the fix for ([#18806])
+	- Broke out the Atrac3+ code from ffmpeg for easier debugging and maintenance ([#19033], [#19053], more)
+	- implement sysclib_sprintf ([#19097])
+- Rendering fixes
+	- Socom FB3 depth buffer problem in menu ([#19490])
+	- Platypus: Glitchy transparency with OpenGL ([#19364])
+	- Syphon Filter: Logan's Shadow: Dark lighting in OpenGL ([#19489])
+	- MGS2 Acid errors on AMD GPUs ([#19439])
+	- Fix regression in Genshou Suikoden ([#19122])
+	- Fix HUD glitch in GTA LCS by emulating "provoking vertex" correctly ([#19334])
+- Debugging improvements
+	- MIPSTracer - a new (rough) debugging tool by Nemoumbra ([#19457])
+- VR
+	- A lot of fixes by Lubos ([#19420], [#19416], [#19389], [#19390], [#19361], [#19092], ...)
+- Misc
+	- The CHD file format is better supported and performance has been drastically improved ([#18924], [#18931])
+
 What's new in 1.17.1
 --------------------
 - Fixed green rendering errors on some PowerVR GPUs ([#18781])
