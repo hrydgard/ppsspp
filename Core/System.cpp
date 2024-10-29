@@ -550,6 +550,9 @@ bool PSP_IsQuitting() {
 }
 
 void PSP_Shutdown() {
+	// Reduce the risk for weird races with the Windows GE debugger.
+	gpuDebug = nullptr;
+
 	Achievements::UnloadGame();
 
 	// Do nothing if we never inited.

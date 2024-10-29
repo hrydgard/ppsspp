@@ -225,10 +225,10 @@ namespace Reporting
 		PurgeCRC();
 	}
 
-	// Returns the full host (e.g. report.ppsspp.org:80.)
+	// Returns the full host
 	std::string ServerHost() {
 		if (g_Config.sReportHost.compare("default") == 0)
-			return "report.ppsspp.org";
+			return "";
 		return g_Config.sReportHost;
 	}
 

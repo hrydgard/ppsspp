@@ -539,9 +539,9 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				// so the operations are exact.
 				bool pixelMapped = true;
 				const u16 *indsIn = (const u16 *)inds;
+				const float uscale = gstate_c.curTextureWidth;
+				const float vscale = gstate_c.curTextureHeight;
 				for (int t = 0; t < vertexCount; t += 3) {
-					float uscale = gstate_c.curTextureWidth;
-					float vscale = gstate_c.curTextureHeight;
 					struct { int a; int b; } pairs[] = { {0, 1}, {1, 2}, {2, 0} };
 					for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
 						int a = indsIn[t + pairs[i].a];
