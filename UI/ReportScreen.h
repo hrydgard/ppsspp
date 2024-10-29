@@ -54,7 +54,6 @@ protected:
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
-	UI::EventReturn HandleShowCRC(UI::EventParams &e);
 	UI::EventReturn HandleReportingChange(UI::EventParams &e);
 
 	UI::Choice *submit_ = nullptr;
@@ -62,7 +61,6 @@ protected:
 	UI::TextView *reportingNotice_ = nullptr;
 	UI::TextView *overallDescription_ = nullptr;
 	UI::TextView *crcInfo_ = nullptr;
-	UI::Choice *showCrcButton_ = nullptr;
 	Path gamePath_;
 	Path screenshotFilename_;
 
@@ -74,7 +72,6 @@ protected:
 	bool ratingEnabled_;
 	bool tookScreenshot_ = false;
 	bool includeScreenshot_ = true;
-	bool showCRC_ = false;
 };
 
 class ReportFinishScreen : public UIDialogScreen {

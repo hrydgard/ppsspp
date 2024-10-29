@@ -160,10 +160,13 @@ void CompatRatingChoice::SetupChoices() {
 	AddChoice(4, rp->T("Nothing"));
 }
 
-ReportScreen::ReportScreen(const Path &gamePath)  // unused gamePath, after removing the background
+ReportScreen::ReportScreen(const Path &gamePath)
 	: UIDialogScreen(), gamePath_(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
+	// Start computing a CRC immediately, we'll need it on submit.
+	// We won't enable the submit button until it's done.
+	Reporting::QueueCRC(gamePath_);
 }
 
 ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
@@ -296,7 +299,7 @@ void ReportScreen::CreateViews() {
 
 	if (tookScreenshot_ && !screenshotFilename_.empty()) {
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
-		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(300, WRAP_CONTENT, Margins(12, 0))));
 	} else {
 		if (tookScreenshot_) {
 			includeScreenshot_ = false;
@@ -317,10 +320,9 @@ void ReportScreen::CreateViews() {
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("Open Browser")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
-	showCrcButton_ = new Choice(rp->T("Show disc CRC"));
-	rightColumnItems->Add(showCrcButton_)->OnClick.Handle(this, &ReportScreen::HandleShowCRC);
 	submit_ = new Choice(rp->T("Submit Feedback"));
 	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
+	submit_->SetEnabled(false); // Waiting for CRC
 	UpdateSubmit();
 	UpdateOverallDescription();
 
@@ -348,14 +350,14 @@ void ReportScreen::UpdateCRCInfo() {
 	if (Reporting::HasCRC(gamePath_)) {
 		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
 		updated = ApplySafeSubstitutions(rp->T("FeedbackCRCValue", "Disc CRC: %1"), crc);
-	} else if (showCRC_) {
+		submit_->SetEnabled(true);
+	} else {
 		updated = rp->T("FeedbackCRCCalculating", "Disc CRC: Calculating...");
 	}
 
 	if (!updated.empty()) {
 		crcInfo_->SetText(updated);
 		crcInfo_->SetVisibility(V_VISIBLE);
-		showCrcButton_->SetEnabled(false);
 	}
 }
 
@@ -402,12 +404,6 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 	const std::string url = "https://" + Reporting::ServerHost() + "/";
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
-	return EVENT_DONE;
-}
-
-EventReturn ReportScreen::HandleShowCRC(EventParams &e) {
-	Reporting::QueueCRC(gamePath_);
-	showCRC_ = true;
 	return EVENT_DONE;
 }
 

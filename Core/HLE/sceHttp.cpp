@@ -23,7 +23,6 @@
 
 // If http isn't loaded (seems unlikely), most functions should return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND
 
-
 // Could come in handy someday if we ever implement sceHttp* for real.
 enum PSPHttpMethod {
 	PSP_HTTP_METHOD_GET,
@@ -35,15 +34,6 @@ enum PSPHttpMethod {
 class HTTPTemplate {
 	char useragent[512];
 };
-
-class HTTPConnection {
-
-};
-
-class HTTPRequest {
-
-};
-
 
 int sceHttpSetResolveRetry(int connectionID, int retryCount) {
 	ERROR_LOG(Log::sceNet, "UNIMPL sceHttpSetResolveRetry(%d, %d)", connectionID, retryCount);
