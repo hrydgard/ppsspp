@@ -1911,8 +1911,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 struct CopyCandidate {
 	VirtualFramebuffer *vfb = nullptr;
-	int y;
-	int h;
+	int y = 0;
+	int h = 0;
 
 	std::string ToString(RasterChannel channel) const {
 		return StringFromFormat("%08x %s %dx%d y=%d h=%d", vfb->Address(channel), GeBufferFormatToString(vfb->Format(channel)), vfb->width, vfb->height, y, h);

@@ -27,10 +27,6 @@
 
 // Slow freaking thing but works (eventually) :)
 
-BlockAllocator::BlockAllocator(int grain) : bottom_(NULL), top_(NULL), grain_(grain)
-{
-}
-
 BlockAllocator::~BlockAllocator()
 {
 	Shutdown();

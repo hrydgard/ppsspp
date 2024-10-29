@@ -89,8 +89,6 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclM
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
-	indexGen.Setup(decIndex_);
-
 	InitDeviceObjects();
 
 	tessDataTransferDX9 = new TessellationDataTransferDX9();

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -65,7 +65,7 @@ template <typename Value>
 class TweenBase: public Tween {
 public:
 	TweenBase(float duration, float (*curve)(float) = [](float f) { return f; })
-		: Tween(duration, curve) {
+		: Tween(duration, curve), from_{}, to_{} {
 	}
 	TweenBase(Value from, Value to, float duration, float (*curve)(float) = [](float f) { return f; })
 		: Tween(duration, curve), from_(from), to_(to) {
@@ -77,8 +77,9 @@ public:
 	void Divert(const Value &newTo, float newDuration = -1.0f) {
 		const Value newFrom = valid_ ? Current(Position()) : newTo;
 
+		double now = time_now_d();
 		// Are we already part way through another transition?
-		if (time_now_d() < start_ + delay_ + duration_ && valid_) {
+		if (now < start_ + delay_ + duration_ && valid_) {
 			if (newTo == to_) {
 				// Already on course.  Don't change.
 				return;
@@ -88,17 +89,17 @@ public:
 				if (newDuration >= 0.0f) {
 					newOffset *= newDuration / duration_;
 				}
-				start_ = time_now_d() - newOffset - delay_;
-			} else if (time_now_d() <= start_ + delay_) {
+				start_ = now - newOffset - delay_;
+			} else if (now <= start_ + delay_) {
 				// Start the delay over again.
-				start_ = time_now_d();
+				start_ = now;
 			} else {
 				// Since we've partially animated to the other value, skip delay.
-				start_ = time_now_d() - delay_;
+				start_ = now - delay_;
 			}
 		} else {
 			// Already finished, so restart.
-			start_ = time_now_d();
+			start_ = now;
 			finishApplied_ = false;
 		}
 

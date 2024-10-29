@@ -48,11 +48,6 @@ const u8 IndexGenerator::indexedPrimitiveType[7] = {
 	GE_PRIM_RECTANGLES,
 };
 
-void IndexGenerator::Setup(u16 *inds) {
-	this->indsBase_ = inds;
-	Reset();
-}
-
 void IndexGenerator::AddPrim(int prim, int vertexCount, int indexOffset, bool clockwise) {
 	switch (prim) {
 	case GE_PRIM_POINTS: AddPoints(vertexCount, indexOffset); break;

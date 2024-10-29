@@ -207,6 +207,8 @@ void MIPSState::Init() {
 	nextPC = 0;
 	downcount = 0;
 
+	memset(vcmpResult, 0, sizeof(vcmpResult));
+
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);

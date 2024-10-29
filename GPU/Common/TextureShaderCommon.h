@@ -27,7 +27,6 @@
 #include "GPU/Common/Draw2D.h"
 #include "GPU/Common/ShaderCommon.h"
 
-
 class ClutTexture {
 public:
 	enum { MAX_RAMPS = 3 };

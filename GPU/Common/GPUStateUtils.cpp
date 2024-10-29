@@ -91,7 +91,7 @@ bool IsAlphaTestTriviallyTrue() {
 			return false;
 		}
 		// Fallthrough on purpose
-
+		[[fallthrough]];
 	case GE_COMP_GREATER:
 	{
 		// If the texture and vertex only use 1.0 alpha, then the ref value doesn't matter.

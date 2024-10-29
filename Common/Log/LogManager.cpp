@@ -363,7 +363,7 @@ void RingbufferLogListener::Log(const LogMessage &message) {
 #ifdef _WIN32
 
 void OutputDebugStringUTF8(const char *p) {
-	wchar_t temp[16384*4];
+	wchar_t *temp = new wchar_t[65536];
 
 	int len = std::min(16383*4, (int)strlen(p));
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, p, len, NULL, 0);
@@ -371,6 +371,7 @@ void OutputDebugStringUTF8(const char *p) {
 	temp[size] = 0;
 
 	OutputDebugString(temp);
+	delete[] temp;
 }
 
 #else

@@ -961,9 +961,11 @@ namespace MIPSInt
 			case V_Triple:
 				sz = V_Pair;
 				// Intentional fallthrough.
+				[[fallthrough]];
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
+				[[fallthrough]];
 			case V_Single:
 				for (int i = 0; i < GetNumVectorElements(sz); i++) {
 					u32 value = s[i];
@@ -985,9 +987,11 @@ namespace MIPSInt
 			case V_Triple:
 				sz = V_Pair;
 				// Intentional fallthrough.
+				[[fallthrough]];
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
+				[[fallthrough]];
 			case V_Single:
 				for (int i = 0; i < GetNumVectorElements(sz); i++) {
 					u32 value = s[i];

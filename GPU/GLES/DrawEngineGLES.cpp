@@ -67,8 +67,6 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
-	indexGen.Setup(decIndex_);
-
 	InitDeviceObjects();
 
 	tessDataTransferGLES = new TessellationDataTransferGLES(render_);
