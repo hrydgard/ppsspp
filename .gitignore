@@ -103,6 +103,7 @@ r.sh
 Windows/compileData*
 Windows/*.ipch
 Windows/imgui.ini
+imgui.ini
 
 # For vim
 *.swp
