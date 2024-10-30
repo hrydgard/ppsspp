@@ -444,7 +444,7 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
-	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw> draws);
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw> draws) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 

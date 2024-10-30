@@ -1,11 +1,14 @@
 #pragma once
 
+#include <winapifamily.h>
+
 // Utility file for using the MS CRT's memory tracking.
 // crtdbg.h overloads malloc with malloc_dbg etc, but does not catch new. So here we go.
 
 // To add a full check of memory overruns, throw in a _CrtCheckMemory(). Useful to narrow things down.
 
-#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+
 #include <crtdbg.h>
 
 #if defined(_DEBUG)
