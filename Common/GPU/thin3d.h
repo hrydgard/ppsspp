@@ -586,6 +586,7 @@ struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
 
+	CoordConvention coordConvention;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;

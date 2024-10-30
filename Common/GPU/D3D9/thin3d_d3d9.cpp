@@ -717,6 +717,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ERROR_LOG(Log::G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
+
+	caps_.coordConvention = CoordConvention::Direct3D9;
+
 	switch (identifier_.VendorId) {
 	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case 0x1002:

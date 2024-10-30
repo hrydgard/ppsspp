@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/GPU/MiscTypes.h"
 
 // This is meant to be a framework for handling DPI scaling etc.
 // For now, it just consists of these ugly globals.
@@ -50,3 +51,5 @@ struct DisplayRect {
 
 void RotateRectToDisplay(DisplayRect<float> &rect, float rtWidth, float rtHeight);
 void RotateRectToDisplay(DisplayRect<int> &rect, int rtWidth, int rtHeight);
+
+Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention);

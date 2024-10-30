@@ -259,6 +259,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	// We no longer support Windows Phone.
 	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
 
+	caps_.coordConvention = CoordConvention::Direct3D11;
+
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	caps_.depthClampSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;

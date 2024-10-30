@@ -880,6 +880,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	INFO_LOG(Log::G3D, "Determining Vulkan device caps");
 
+	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
