@@ -1380,10 +1380,10 @@ static void SendMouseDeltaAxis() {
 }
 
 void NativeMouseDelta(float dx, float dy) {
-	// Remap, shared code. Then send it as a regular axis event.
 	if (!g_Config.bMouseControl)
 		return;
 
+	// Remap, shared code. Then send it as a regular axis event.
 	MouseEventProcessor::ProcessDelta(time_now_d(), dx, dy);
 
 	SendMouseDeltaAxis();

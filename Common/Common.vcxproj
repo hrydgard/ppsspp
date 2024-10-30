@@ -403,6 +403,13 @@
     <ClInclude Include="..\ext\basis_universal\basisu_transcoder.h" />
     <ClInclude Include="..\ext\basis_universal\basisu_transcoder_internal.h" />
     <ClInclude Include="..\ext\basis_universal\basisu_transcoder_uastc.h" />
+    <ClInclude Include="..\ext\imgui\imconfig.h" />
+    <ClInclude Include="..\ext\imgui\imgui.h" />
+    <ClInclude Include="..\ext\imgui\imgui_impl_thin3d.h" />
+    <ClInclude Include="..\ext\imgui\imgui_internal.h" />
+    <ClInclude Include="..\ext\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\ext\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\ext\imgui\imstb_truetype.h" />
     <ClInclude Include="..\ext\libpng17\png.h" />
     <ClInclude Include="..\ext\libpng17\pngconf.h" />
     <ClInclude Include="..\ext\libpng17\pngdebug.h" />
@@ -616,6 +623,12 @@
     <ClCompile Include="..\ext\at3_standalone\fft.cpp" />
     <ClCompile Include="..\ext\at3_standalone\mem.cpp" />
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui_impl_thin3d.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\ext\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>

@@ -327,6 +327,14 @@ SOURCES_CXX += \
 	$(EXTDIR)/basis_universal/basisu_transcoder.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/imgui/imgui.cpp \
+	$(EXTDIR)/imgui/imgui_demo.cpp \
+	$(EXTDIR)/imgui/imgui_draw.cpp \
+	$(EXTDIR)/imgui/imgui_impl_thin3d.cpp \
+	$(EXTDIR)/imgui/imgui_tables.cpp \
+	$(EXTDIR)/imgui/imgui_widgets.cpp
+
+SOURCES_CXX += \
 	$(EXTDIR)/armips/Core/Types.cpp
 
 SOURCES_CXX += \
