@@ -190,6 +190,7 @@ EXT_FILES := \
   $(SRC)/ext/imgui_demo.cpp \
   $(SRC)/ext/imgui_draw.cpp \
   $(SRC)/ext/imgui_impl_thin3d.cpp \
+  $(SRC)/ext/imgui_impl_platform.cpp \
   $(SRC)/ext/imgui_tables.cpp \
   $(SRC)/ext/imgui_widgets.cpp \
   $(SRC)/ext/jpge/jpgd.cpp \

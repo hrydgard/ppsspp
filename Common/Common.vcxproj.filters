@@ -586,6 +586,9 @@
     <ClInclude Include="..\ext\imgui\imgui_internal.h">
       <Filter>ext\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\imgui\imgui_impl_platform.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1094,6 +1097,9 @@
       <Filter>ext\imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\imgui\imgui_tables.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\imgui\imgui_impl_platform.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
   </ItemGroup>

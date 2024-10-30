@@ -5,6 +5,7 @@ set(IMGUI_FILES
 	imgui_tables.cpp
 	imgui_widgets.cpp
 	imgui_impl_thin3d.cpp
+	imgui_impl_platform.cpp
 )
 
 add_library(imgui ${IMGUI_FILES})

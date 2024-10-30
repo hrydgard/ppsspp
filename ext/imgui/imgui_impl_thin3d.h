@@ -42,8 +42,6 @@ IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateFontsTexture(Draw::DrawContex
 IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_SetMinImageCount(uint32_t min_image_count); // To override MinImageCount after initialization (e.g. if swap chain is recreated)
 
-void ImGui_ImplPlatform_NewFrame();
-
 IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTexture(Draw::Texture *texture);
 IMGUI_IMPL_API Draw::Texture *ImGui_ImplThin3d_RemoveTexture(ImTextureID texture);
 

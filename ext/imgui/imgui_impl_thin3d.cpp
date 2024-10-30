@@ -26,12 +26,6 @@ static ImGui_ImplThin3d_Data* ImGui_ImplThin3d_GetBackendData() {
 	return ImGui::GetCurrentContext() ? (ImGui_ImplThin3d_Data *)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
 
-void ImGui_ImplPlatform_NewFrame() {
-	ImGuiIO &io = ImGui::GetIO();
-	io.DisplaySize = ImVec2(g_display.pixel_xres, g_display.pixel_yres);
-	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-}
-
 static void ImGui_ImplThin3d_SetupRenderState(Draw::DrawContext *draw, ImDrawData* draw_data, Draw::Pipeline *pipeline, int fb_width, int fb_height) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 

@@ -56,6 +56,7 @@ public:
 
 	// We also need to do some special handling of queued UI events to handle closing the chat window.
 	bool key(const KeyInput &key) override;
+	void touch(const TouchInput &key) override;
 
 protected:
 	void darken();
@@ -126,4 +127,5 @@ private:
 	ControlMapper controlMapper_;
 
 	bool imguiInited_ = false;
+	bool imguiVisible_ = false;
 };

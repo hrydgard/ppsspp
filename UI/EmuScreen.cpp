@@ -96,6 +96,7 @@ using namespace std::placeholders;
 
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
+#include "ext/imgui/imgui_impl_platform.h"
 
 #include "Core/Reporting.h"
 
@@ -654,7 +655,9 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	GamepadTouch();
+	if (!(imguiVisible_ && imguiInited_)) {
+		GamepadTouch();
+	}
 
 	if (root_) {
 		UIScreen::UnsyncTouch(touch);
@@ -944,7 +947,12 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 
-	if (UI::IsFocusMovementEnabled()) {
+	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_GRAVE) {  // The key to the left of '1' on a standard keyboard.
+		// it's ok that this is unsynchronized.
+		imguiVisible_ = !imguiVisible_;
+	}
+
+	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
 		return UIScreen::UnsyncKey(key);
 	}
 	return controlMapper_.Key(key, &pauseTrigger_);
@@ -952,6 +960,10 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
+
+	if (!retval && imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_KeyEvent(key);
+	}
 
 	if (!retval && (key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 		if (chatMenu_)
@@ -963,6 +975,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	}
 
 	return retval;
+}
+
+void EmuScreen::touch(const TouchInput &touch) {
+	if (imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_TouchEvent(touch);
+	} else {
+		UIScreen::touch(touch);
+	}
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1584,23 +1604,25 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		darken();
 	}
 
-	if (!imguiInited_) {
+	if (imguiVisible_ && !imguiInited_) {
 		imguiInited_ = true;
 		ImGui_ImplThin3d_Init(draw);
 	}
 
-	ImGui_ImplPlatform_NewFrame();
-	ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
+	if (imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_NewFrame();
+		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
-	// Draw imgui on top
-	ImGui::NewFrame();
-	ImGui::ShowDemoWindow(nullptr);
-	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-	ImGui::End();
-	ImGui::Render();
+		// Draw imgui on top
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow(nullptr);
+		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+		ImGui::End();
+		ImGui::Render();
 
-	ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+		ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+	}
 	return flags;
 }
 

@@ -511,6 +511,9 @@
     <ClCompile Include="..\..\ext\imgui\imgui_draw.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_impl_platform.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -979,6 +982,9 @@
       <Filter>ext\imgui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\imgui\imgui_internal.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_impl_platform.h">
       <Filter>ext\imgui</Filter>
     </ClInclude>
   </ItemGroup>
