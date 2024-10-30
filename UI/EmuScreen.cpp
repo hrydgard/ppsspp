@@ -94,6 +94,9 @@ using namespace std::placeholders;
 #include "UI/ChatScreen.h"
 #include "UI/DebugOverlay.h"
 
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
+
 #include "Core/Reporting.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -198,6 +201,10 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Usually, we don't want focus movement enabled on this screen, so disable on start.
 	// Only if you open chat or dev tools do we want it to start working.
 	UI::EnableFocusMovement(false);
+
+	// TODO: Do this only on demand.
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
@@ -438,6 +445,11 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	ImGui_ImplThin3d_Shutdown(draw);
+
+	ImGui::DestroyContext();
+
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
@@ -1571,6 +1583,23 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (!(mode & ScreenRenderMode::TOP)) {
 		darken();
 	}
+
+	if (!imguiInited_) {
+		imguiInited_ = true;
+		ImGui_ImplThin3d_Init(draw);
+	}
+
+	ImGui_ImplPlatform_NewFrame();
+
+	// Draw imgui on top
+	ImGui::NewFrame();
+	ImGui::ShowDemoWindow(nullptr);
+	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+	ImGui::End();
+	ImGui::Render();
+
+	ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
 	return flags;
 }
 

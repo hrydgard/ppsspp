@@ -124,4 +124,6 @@ private:
 	std::atomic<bool> doFrameAdvance_{};
 
 	ControlMapper controlMapper_;
+
+	bool imguiInited_ = false;
 };
