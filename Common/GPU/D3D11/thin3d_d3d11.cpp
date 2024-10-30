@@ -132,6 +132,7 @@ public:
 	void DrawIndexed(int indexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw> draws) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -1376,6 +1377,31 @@ void D3D11DrawContext::DrawIndexedUP(const void *vdata, int vertexCount, const v
 	// Override the index buffer format.
 	nextIndexBufferFormat_ = ifmt == IndexFormat::U32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
 	DrawIndexed(indexCount, 0);
+}
+
+void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw> draws) {
+	int vbyteSize = vertexCount * curPipeline_->input->stride;
+	int ibyteSize = indexCount * (ifmt == IndexFormat::U32 ? 4 : 2);
+
+	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, vbyteSize, Draw::UPDATE_DISCARD);
+	BindVertexBuffer(upBuffer_, 0);
+
+	UpdateBuffer(upIBuffer_, (const uint8_t *)idata, 0, ibyteSize, Draw::UPDATE_DISCARD);
+	BindIndexBuffer(upIBuffer_, 0);
+	// Override the index buffer format.
+	nextIndexBufferFormat_ = ifmt == IndexFormat::U32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+
+	ApplyCurrentState();
+
+	for (int i = 0; i < draws.size(); i++) {
+		D3D11_RECT rc;
+		rc.left = draws[i].clipx;
+		rc.top = draws[i].clipy;
+		rc.right = draws[i].clipx + draws[i].clipw;
+		rc.bottom = draws[i].clipy + draws[i].cliph;
+		context_->RSSetScissorRects(1, &rc);
+		context_->DrawIndexed(draws[i].indexCount, draws[i].indexOffset, 0);
+	}
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {

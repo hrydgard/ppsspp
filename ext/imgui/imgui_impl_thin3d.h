@@ -31,11 +31,12 @@
 #include "imgui.h"      // IMGUI_IMPL_API
 
 #include "Common/GPU/thin3d.h"
+#include "Common/Math/lin/matrix4x4.h"
 
 // Called by user code
 IMGUI_IMPL_API bool         ImGui_ImplThin3d_Init(Draw::DrawContext *draw);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw);
+IMGUI_IMPL_API void         ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw);
 IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateFontsTexture(Draw::DrawContext *draw);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw);

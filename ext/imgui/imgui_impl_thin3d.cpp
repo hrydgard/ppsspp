@@ -5,11 +5,13 @@
 #include <cstdio>
 
 #include "Common/System/Display.h"
+#include "Common/Math/lin/matrix4x4.h"
 
 // Forward Declarations
-
 bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
 void ImGui_ImplThin3d_DestroyDeviceObjects(Draw::DrawContext *draw);
+
+Lin::Matrix4x4 g_drawMatrix;
 
 struct ImGui_ImplThin3d_Data {
 	Draw::SamplerState *fontSampler = nullptr;
@@ -33,10 +35,10 @@ void ImGui_ImplPlatform_NewFrame() {
 static void ImGui_ImplThin3d_SetupRenderState(Draw::DrawContext *draw, ImDrawData* draw_data, Draw::Pipeline *pipeline, int fb_width, int fb_height) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 
-	// Bind pipeline:
-	{
-		draw->BindPipeline(pipeline);
-	}
+	// Bind pipeline and texture
+	draw->BindPipeline(pipeline);
+	draw->BindTexture(0, bd->fontImage);
+	draw->BindSamplerStates(0, 1, &bd->fontSampler);
 
 	// Setup viewport:
 	{
@@ -52,16 +54,14 @@ static void ImGui_ImplThin3d_SetupRenderState(Draw::DrawContext *draw, ImDrawDat
 
 	// Setup scale and translation:
 	// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+	// We currently ignore DisplayPos.
 	{
-		float scale[2];
-		scale[0] = 2.0f / draw_data->DisplaySize.x;
-		scale[1] = 2.0f / draw_data->DisplaySize.y;
-		float translate[2];
-		translate[0] = -1.0f - draw_data->DisplayPos.x * scale[0];
-		translate[1] = -1.0f - draw_data->DisplayPos.y * scale[1];
+		Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention);
 
-		// vkCmdPushConstants(command_buffer, bd->PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 0, sizeof(float) * 2, scale);
-		// vkCmdPushConstants(command_buffer, bd->PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
+		Draw::VsTexColUB ub{};
+		memcpy(ub.WorldViewProj, mtx.getReadPtr(), sizeof(Lin::Matrix4x4));
+		ub.saturation = 1.0f;
+		draw->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	}
 }
 
@@ -82,9 +82,13 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
 	ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
+	const Draw::IndexFormat idxFormat = sizeof(ImDrawIdx) == 2 ? Draw::IndexFormat::U16 : Draw::IndexFormat::U32;
+
+	std::vector<Draw::ClippedDraw> draws;
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList* cmd_list = draw_data->CmdLists[n];
+		draws.clear();
 		for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++) {
 			const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
 			if (pcmd->UserCallback != nullptr) {
@@ -108,17 +112,17 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 				if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
 					continue;
 
-				// Apply scissor/clipping rectangle
-				draw->SetScissorRect(clip_min.x, clip_min.y, clip_max.x - clip_min.x, clip_max.y - clip_min.y);
-				draw->BindTexture(0, (Draw::Texture *)pcmd->TextureId);
-
-
-				// Draw
-				// vkCmdDrawIndexed(command_buffer, pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
+				Draw::ClippedDraw draw;
+				draw.clipx = clip_min.x;
+				draw.clipy = clip_min.y;
+				draw.clipw = clip_max.x - clip_min.x;
+				draw.cliph = clip_max.y - clip_min.y;
+				draw.indexCount = pcmd->ElemCount;
+				draw.indexOffset = pcmd->IdxOffset;
+				draws.push_back(draw);
 			}
 		}
-		// global_idx_offset += cmd_list->IdxBuffer.Size;
-		// global_vtx_offset += cmd_list->VtxBuffer.Size;
+		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), idxFormat, draws);
 	}
 
 	draw->SetScissorRect(0, 0, fb_width, fb_height);
@@ -159,8 +163,7 @@ bool ImGui_ImplThin3d_CreateFontsTexture(Draw::DrawContext *draw) {
 }
 
 // You probably never need to call this, as it is called by ImGui_ImplThin3d_CreateFontsTexture() and ImGui_ImplThin3d_Shutdown().
-void ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw)
-{
+void ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 	if (bd->fontImage) {
@@ -209,8 +212,7 @@ static void ImGui_ImplThin3d_CreatePipeline(Draw::DrawContext *draw) {
 	bd->pipeline = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
 }
 
-bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw)
-{
+bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 
 	if (!bd->fontSampler) {
@@ -237,6 +239,8 @@ void ImGui_ImplThin3d_DestroyDeviceObjects(Draw::DrawContext *draw) {
 	ImGui_ImplThin3d_DestroyFontsTexture(draw);
 	bd->pipeline->Release();
 	bd->pipeline = nullptr;
+	bd->fontSampler->Release();
+	bd->fontSampler = nullptr;
 }
 
 bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw) {
@@ -253,8 +257,7 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw) {
 	return true;
 }
 
-void ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw)
-{
+void ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 	IM_ASSERT(bd != nullptr && "No renderer backend to shutdown, or already shutdown?");
 	ImGuiIO& io = ImGui::GetIO();
@@ -266,12 +269,12 @@ void ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw)
 	IM_DELETE(bd);
 }
 
-void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw)
-{
+void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 	IM_ASSERT(bd != nullptr && "Context or backend not initialized! Did you call ImGui_ImplThin3d_Init()?");
 	if (!bd->fontImage)
 		ImGui_ImplThin3d_CreateFontsTexture(draw);
+	g_drawMatrix = drawMatrix;
 }
 
 // Register a texture. No-op.

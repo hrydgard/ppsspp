@@ -1590,6 +1590,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	ImGui_ImplPlatform_NewFrame();
+	ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
 	// Draw imgui on top
 	ImGui::NewFrame();

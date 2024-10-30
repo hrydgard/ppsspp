@@ -492,6 +492,8 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
+	// Specialized for quick IMGUI drawing.
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw>) override;
 
 	void BindCurrentPipeline();
 	void ApplyDynamicState();
@@ -1553,6 +1555,43 @@ void VKContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *id
 	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
 	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, indexCount, 1, ifmt == IndexFormat::U32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
+}
+
+void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt, Slice<ClippedDraw> draws) {
+	_dbg_assert_(vertexCount >= 0);
+	_dbg_assert_(indexCount >= 0);
+	if (vertexCount <= 0 || indexCount <= 0 || draws.is_empty()) {
+		return;
+	}
+
+	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
+	size_t vdataSize = vertexCount * curPipeline_->stride;
+	uint32_t vbBindOffset;
+	uint8_t *vdataPtr = push_->Allocate(vdataSize, 4, &vulkanVbuf, &vbBindOffset);
+	_assert_(vdataPtr != nullptr);
+	memcpy(vdataPtr, vdata, vdataSize);
+
+	int indexSize = (ifmt == IndexFormat::U32 ? 4 : 2);
+
+	size_t idataSize = indexCount * indexSize;
+	uint32_t ibBindOffset;
+	uint8_t *idataPtr = push_->Allocate(idataSize, 4, &vulkanIbuf, &ibBindOffset);
+	_assert_(idataPtr != nullptr);
+	memcpy(idataPtr, idata, idataSize);
+
+	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+
+	BindCurrentPipeline();
+	ApplyDynamicState();
+	int descSetIndex;
+	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
+
+	for (auto &draw : draws) {
+		BindDescriptors(vulkanUBObuf, descriptors);
+		renderManager_.SetScissor(draw.clipx, draw.clipy, draw.clipw, draw.cliph);
+		renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf,
+			(int)ibBindOffset + draw.indexOffset * indexSize, draw.indexCount, 1, ifmt == IndexFormat::U32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
+	}
 }
 
 void VKContext::BindCurrentPipeline() {
