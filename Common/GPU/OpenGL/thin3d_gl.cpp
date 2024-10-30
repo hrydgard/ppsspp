@@ -443,6 +443,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -1415,6 +1416,29 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
 	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
+}
+
+void OpenGLContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) {
+	_assert_(curPipeline_->inputLayout != nullptr);
+	int stride = curPipeline_->inputLayout->stride;
+	uint32_t vdataSize = stride * vertexCount;
+	uint32_t idataSize = indexCount * (ifmt == IndexFormat::U32 ? 4 : 2);
+
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+
+	GLRBuffer *vbuf;
+	uint32_t voffset;
+	uint8_t *dest = frameData.push->Allocate(vdataSize, 4, &vbuf, &voffset);
+	memcpy(dest, vdata, vdataSize);
+
+	GLRBuffer *ibuf;
+	uint32_t ioffset;
+	dest = frameData.push->Allocate(idataSize, 4, &ibuf, &ioffset);
+	memcpy(dest, idata, idataSize);
+
+	ApplySamplers();
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset, curPipeline_->prim, 0, ifmt == IndexFormat::U32 ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT, vertexCount);
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

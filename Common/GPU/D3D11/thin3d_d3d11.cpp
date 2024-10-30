@@ -131,6 +131,8 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int indexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void BeginFrame(DebugFlags debugFlags) override;
@@ -218,6 +220,7 @@ private:
 
 	bool dirtyIndexBuffer_ = false;
 	ID3D11Buffer *nextIndexBuffer_ = nullptr;
+	DXGI_FORMAT nextIndexBufferFormat_ = DXGI_FORMAT_R16_UINT;
 	UINT nextIndexBufferOffset_ = 0;
 
 	InvalidationCallback invalidationCallback_;
@@ -235,6 +238,7 @@ private:
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
 	Buffer *upBuffer_ = nullptr;
+	Buffer *upIBuffer_ = nullptr;
 
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
@@ -351,6 +355,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	const size_t UP_MAX_BYTES = 65536 * 24;
 
 	upBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	upIBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
 	IDXGIDevice1 *dxgiDevice1 = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void **>(&dxgiDevice1));
@@ -364,6 +369,7 @@ D3D11DrawContext::~D3D11DrawContext() {
 	DestroyPresets();
 
 	upBuffer_->Release();
+	upIBuffer_->Release();
 	packTexture_->Release();
 
 	// Release references.
@@ -1255,7 +1261,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 		context_->IASetVertexBuffers(0, 1, &nextVertexBuffer_, &curPipeline_->input->stride, &nextVertexBufferOffset_);
 	}
 	if (dirtyIndexBuffer_) {
-		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
+		context_->IASetIndexBuffer(nextIndexBuffer_, nextIndexBufferFormat_, nextIndexBufferOffset_);
 		dirtyIndexBuffer_ = false;
 	}
 	if (curPipeline_->dynamicUniforms) {
@@ -1334,6 +1340,7 @@ void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
 	dirtyIndexBuffer_ = true;
 	nextIndexBuffer_ = buf ? buf->buf : 0;
 	nextIndexBufferOffset_ = buf ? offset : 0;
+	nextIndexBufferFormat_ = DXGI_FORMAT_R16_UINT;
 }
 
 void D3D11DrawContext::Draw(int vertexCount, int offset) {
@@ -1347,14 +1354,26 @@ void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
 }
 
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
-	ApplyCurrentState();
-
 	int byteSize = vertexCount * curPipeline_->input->stride;
 
 	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
 	BindVertexBuffer(upBuffer_, 0);
 	int offset = 0;
 	Draw(vertexCount, offset);
+}
+
+void D3D11DrawContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) {
+	int vbyteSize = vertexCount * curPipeline_->input->stride;
+	int ibyteSize = indexCount * (ifmt == IndexFormat::U32 ? 4 : 2);
+
+	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, vbyteSize, Draw::UPDATE_DISCARD);
+	BindVertexBuffer(upBuffer_, 0);
+
+	UpdateBuffer(upIBuffer_, (const uint8_t *)idata, 0, ibyteSize, Draw::UPDATE_DISCARD);
+	BindIndexBuffer(upIBuffer_, 0);
+	// Override the index buffer format.
+	nextIndexBufferFormat_ = ifmt == IndexFormat::U32 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+	DrawIndexed(indexCount, 0);
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {

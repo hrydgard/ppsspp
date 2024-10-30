@@ -573,6 +573,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
@@ -1170,6 +1171,16 @@ void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	device_->DrawPrimitiveUP(curPipeline_->prim, D3DPrimCount(curPipeline_->prim, vertexCount), vdata, curPipeline_->inputLayout->GetStride());
+}
+
+void D3D9Context::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) {
+	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
+
+	device_->DrawIndexedPrimitiveUP(curPipeline_->prim, 0, vertexCount, D3DPrimCount(curPipeline_->prim, indexCount),
+		idata, ifmt == IndexFormat::U32 ? D3DFMT_INDEX32 : D3DFMT_INDEX16,
+		vdata, curPipeline_->inputLayout->GetStride());
 }
 
 static uint32_t SwapRB(uint32_t c) {

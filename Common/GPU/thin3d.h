@@ -180,6 +180,11 @@ enum class Facing {
 	CW,
 };
 
+enum class IndexFormat {
+	U16,
+	U32,
+};
+
 enum BorderColor {
 	DONT_CARE,
 	TRANSPARENT_BLACK,
@@ -827,7 +832,8 @@ public:
 	virtual void Draw(int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
-	
+	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount, IndexFormat ifmt) = 0;  // Supports 32-bit indices, for IMGUI use.
+
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
