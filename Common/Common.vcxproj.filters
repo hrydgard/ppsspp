@@ -1235,6 +1235,9 @@
     <Text Include="..\ext\at3_standalone\CMakeLists.txt">
       <Filter>ext\at3_standalone</Filter>
     </Text>
+    <Text Include="..\ext\imgui\CMakeLists.txt">
+      <Filter>ext\imgui</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc.inc">

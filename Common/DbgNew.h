@@ -5,6 +5,7 @@
 
 // To add a full check of memory overruns, throw in a _CrtCheckMemory(). Useful to narrow things down.
 
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP
 #include <crtdbg.h>
 
 #if defined(_DEBUG)
@@ -15,3 +16,5 @@
 #endif
 
 #endif  // _DEBUG
+
+#endif

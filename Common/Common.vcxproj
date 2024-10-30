@@ -1066,6 +1066,7 @@
   <ItemGroup>
     <Text Include="..\ext\at3_standalone\CMakeLists.txt" />
     <Text Include="..\ext\at3_standalone\README.txt" />
+    <Text Include="..\ext\imgui\CMakeLists.txt" />
     <Text Include="..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>

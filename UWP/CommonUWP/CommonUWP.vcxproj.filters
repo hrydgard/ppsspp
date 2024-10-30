@@ -514,6 +514,9 @@
     <ClCompile Include="..\..\ext\imgui\imgui_impl_platform.cpp">
       <Filter>ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_impl_thin3d.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -987,6 +990,9 @@
     <ClInclude Include="..\..\ext\imgui\imgui_impl_platform.h">
       <Filter>ext\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_impl_thin3d.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
@@ -1033,9 +1039,6 @@
     </Text>
     <Text Include="..\..\ext\at3_standalone\README.txt">
       <Filter>ext\at3_standalone</Filter>
-    </Text>
-    <Text Include="..\..\ext\imgui\CMakeLists.txt">
-      <Filter>ext\imgui</Filter>
     </Text>
   </ItemGroup>
 </Project>

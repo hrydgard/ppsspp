@@ -263,6 +263,7 @@
     <ClInclude Include="..\..\ext\imgui\imconfig.h" />
     <ClInclude Include="..\..\ext\imgui\imgui.h" />
     <ClInclude Include="..\..\ext\imgui\imgui_impl_platform.h" />
+    <ClInclude Include="..\..\ext\imgui\imgui_impl_thin3d.h" />
     <ClInclude Include="..\..\ext\imgui\imgui_internal.h" />
     <ClInclude Include="..\..\ext\imgui\imstb_rectpack.h" />
     <ClInclude Include="..\..\ext\imgui\imstb_textedit.h" />
@@ -416,6 +417,7 @@
     <ClCompile Include="..\..\ext\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_impl_platform.cpp" />
+    <ClCompile Include="..\..\ext\imgui\imgui_impl_thin3d.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\..\ext\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c" />
@@ -462,7 +464,6 @@
   <ItemGroup>
     <Text Include="..\..\ext\at3_standalone\CMakeLists.txt" />
     <Text Include="..\..\ext\at3_standalone\README.txt" />
-    <Text Include="..\..\ext\imgui\CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
