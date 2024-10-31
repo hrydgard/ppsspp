@@ -30,7 +30,7 @@ What's new in 1.18
 - Platform support
 	- Improved iOS/Mac support, Game Mode support ([#19287], [#19281], [#19269], [#19270], [#19257], [#19254], [#19244], [#19227], [#19224], [#19213], [#19200], [#19187], [#19184], [#19161], [#19118])
 	- IR Interpreter: work on correctness and optimizations ([#19299], [#19280], [#19268], [#19265], [#19262], [#19260], [#19255], [#19252], [#19240], [#19233], [#19231], [#19193], [#19189], [#19173], [#19128])
-	- Interpreted Vertex Decoder optimizations:  #19243 #19241
+	- Interpreted Vertex Decoder optimizations:  ([#19243], [#19241])
 	- SDL fixes: ([#19131])
 	- Legacy Edition for old Android TV (only for download on the website): ([#19401])
 	- Android and Windows shortcuts - add icons and bugfixes: ([#19139], [#19142], [#19138])
@@ -48,13 +48,13 @@ What's new in 1.18
 	- RetroAchievements: Can now hash homebrew apps ([#19096]), RAIntegration support ([#19002])
 	- Fix regression of the AxisSwap feature ([#19059])
 - Emulation
-	- crash fixes: ([#19563], [#19546], [#19491], [#19358], [#19347], [#19198])
-	- barrier fixes: ( #19009 [#19017], [#19018])
+	- Misc crash fixes: ([#19563], [#19546], [#19491], [#19358], [#19347], [#19198])
+	- Vulkan barrier fixes: ( [#19009], [#19017], [#19018])
 	- Misc compatibility fixes ([#19560])
 	- Misc filesystem fixes (FDs, date/time) ([#19459], [#19340])
 	- Workaround for The Warriors video playback ([#19450])
 	- Expose GPI switches and GPO leds, accessible in developer settings
-	- Fix regression caused by the fix for ([#18806])
+	- Fix regression caused by the fix for UFC Undisputed ([#18806])
 	- Broke out the Atrac3+ code from ffmpeg for easier debugging and maintenance ([#19033], [#19053], more)
 	- implement sysclib_sprintf ([#19097])
 - Rendering fixes
@@ -67,6 +67,7 @@ What's new in 1.18
 - Debugging improvements
 	- MIPSTracer - a new (rough) debugging tool by Nemoumbra ([#19457])
 - VR
+	- New immersive mode (makes better use of reprojection by extending the rendered area) ([#19361])
 	- A lot of fixes by Lubos ([#19420], [#19416], [#19389], [#19390], [#19361], [#19092], ...)
 - Misc
 	- The CHD file format is better supported and performance has been drastically improved ([#18924], [#18931])
