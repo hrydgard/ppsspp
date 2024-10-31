@@ -289,8 +289,8 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 		break;
 	default:
 		// Can we even get here?
-		WARN_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
-		break;
+		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		return false;
 	}
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.

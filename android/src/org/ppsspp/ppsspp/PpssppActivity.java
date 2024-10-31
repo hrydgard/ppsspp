@@ -237,8 +237,7 @@ public class PpssppActivity extends NativeActivity {
 	public long computeRecursiveDirectorySize(String uriString) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			long totalSize = directorySizeRecursion(uri);
-			return totalSize;
+			return directorySizeRecursion(uri);
 		}
 		catch (Exception e) {
 			Log.e(TAG, "computeRecursiveSize exception: " + e);

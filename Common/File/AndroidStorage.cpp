@@ -6,6 +6,7 @@
 #include "Common/TimeUtil.h"
 
 #include "android/jni/app-android.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
@@ -69,6 +70,13 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 	if (!g_nativeActivity) {
 		return -1;
 	}
+
+	/*
+	// Should breakpoint here to try to find and move as many of these off the EmuThread as possible
+	if (!strcmp(GetCurrentThreadName(), "EmuThread")) {
+		WARN_LOG(Log::IO, "Content URI opened on EmuThread: %.*s", (int)filename.size(), filename.data());
+	}
+	*/
 
 	std::string fname(filename);
 	// PPSSPP adds an ending slash to directories before looking them up.
