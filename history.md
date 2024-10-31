@@ -1,6 +1,126 @@
 This is history moved out from README.md, which was getting a bit long.
 
 
+What's new in 1.16.6
+--------------------
+- Fix performance issue with Vulkan descriptor set allocation ([#18332])
+- Smoother loading of replacement textures
+- Fix the store on iOS ([#18323])
+- Fix problem with waves background ([#18310])
+- Some translation updates
+- Other minor fixes
+
+What's new in 1.16.5
+--------------------
+- Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
+- Revert bad change that broke things with hardware transform turned off ([#18261])
+- Fix menu texture problem in Naruto Kizuna Drive in OpenGL ([#18255])
+- Apply flicker fix to WWE SvR 2007
+- More efficient handling of accelerometer events ([#18250])
+- Fix for jumpy graphics in Harvest Moon ([#18249])
+
+What's new in 1.16.4
+--------------------
+- Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
+- Assorted improvements to the IR JITs ([#18228], [#18235], [#18211], more)
+- Other crash and stability fixes ([#18221], [#18220], [#18230], [#18216])
+- Some translation updates ([#18237], more)
+- Cleanups and assert fixes ([#18205], [#18201], [#18206])
+
+What's new in 1.16.3
+--------------------
+- Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
+- Fix crash in icon loading in homebrew store ([#18185])
+- Add some memory safety check ([#18184], [#18194])
+- Fix problem when changing backend from the Windows menu ([#18182])
+
+What's new in 1.16.2
+--------------------
+- Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
+- Assorted fixes for leaks and crashes ([#18169], [#18151])
+- Fix hang when switching UMD with RetroAchievements enabled ([#18143])
+- Fix math bug in new IR JIT for x86 ([#18165])
+- Minor math optimization -fno-math-errno ([#18158])
+- Fix for software renderer crash
+
+What's new in 1.16.1
+--------------------
+
+- Move RetroAchievements to the Tools tab in settings ([#18127])
+- Fix graphics regressions in Hot Shots Golf 2 / Everybody's Golf 2 and Final Fantasy Tactics ([#18142])
+- Fix hang on startup with OpenGL, that happened often if "buffer commands" was set to off.
+- Fix problem with the sc instruction that broke Beats ([#18133], [#18140])
+- Fix problem with the chat window accidentally closing on typing X ([#18135])
+- Fix some crashes, add some asserts and reporting hooks ([#18129])
+- Fix some text rendering in the software renderer ([#18126])
+
+What's new in 1.16
+------------------
+Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finally cracking the vrnd instruction.
+
+- RetroAchievements support ([#17589], [#17631], many more). See [RetroAchievements on ppsspp.org](https://www.ppsspp.org/docs/reference/retro-achievements).
+- New JIT backends:
+  - RISC-V, based on IR
+  - x86 JIT based on IR. Often faster than the existing one.
+- Input fixes
+  - Improve behavior when analog and digital inputs clash ([#17960])
+  - Combo mapping is now disabled by default ([#17673])
+  - Android: Better tracking of devices names ([#17562], auto config)
+  - Fix mapping custom touch buttons to analog inputs ([#17433])
+- Rendering performance and fixes
+  - Fix flicker in WWE Smackdown vs Raw 2006 ([#18009]), video flicker in Naruto 2 ([#18008])
+  - Fix bad colors in Syphon Filter: Logan's Shadow menu ([#17965])
+  - On lower-end devices, avoid "uber" shaders due to performance and driver bugs ([#17449], [#17922])
+  - Allow disabling V-sync on Android with Vulkan, more SDL platforms ([#17903], [#18087])
+  - On Vulkan, reduce input lag when "Buffer graphics commands" is set to off ([#17831])
+  - Assorted minor perf ([#17810], [#17505], [#17478], [#17471], [#17452], [#17446], [#17442])
+  - Fix shadows in MotorStorm ([#17602]) (not actually a rendering problem)
+  - Fix rendering issue in Lunar Silver Star ([#17451])
+  - Add a cache for MakePixelsTexture, improving perf in God of War ([#17534])
+  - Lots of software renderer improvements ([#17571], [#17569], [#17619], [#17621], [#17618], [#17609], ...)
+- Networking
+  - HTTPS support now enabled in store and for RA on Windows, Android, Mac, iOS ([#17744], ...)
+  - Ad-hoc: Fix for Metal Gear Acid issue with Link Battle ([#17947])
+- Texture replacement fixes
+  - Fix Tactics Ogre texture issues ([#18001], [#18011])
+  - Fix problem with anisotropic filtering ([#17930])
+  - Fix glitches on D3D11 with KTX2 textures ([#17749])
+- UI changes
+  - Color emoji support on some platforms ([#17854], [#17856])
+  - Use TTF fonts on SDL where available (macOS, Linux/Steam Deck) ([#17844]), support HiDPI ([#17651])
+  - Allow setting the PSP's MAC address directly ([#17755])
+  - Better looking notifications ([#17606], [#17674], [#17672])
+- Cheats
+  - Fix loading cheat dbs on Android devices with scoped storage ([#17834])
+- VR (Quest, other Android VR devices)
+  - Cinema screen mode improvements ([#17704], [#17752])
+  - Quest-only passthrough mode ([#17591])
+  - Cleanups, compatibility fixes, make VR settings per-game ([#17636], [#17656], [#17598], [#17518])
+- Other
+  - Fix horrible audio glitch in After Burner ([#18076])
+  - Emulate the vrnd instruction accurately ([#17506], [#17549])
+  - Fix timing issue causing slowdowns in MLB games ([#17676], [#17677])
+  - UWP keyboard support, many other updates ([#17952], [#17974])
+  - Allow choosing the display resolution on Android again ([#17473])
+  - Fix issue running some file types out of the Download folder on Android ([#17466])
+
+Older news
+----------
+Looking for [older news](history.md)?
+
+You can also find the full update history on [the website](https://www.ppsspp.org/news).
+
+Adhoc support
+-------------
+Not fully functional, but some games work.  Check the [Ad-Hoc section of the forum](https://forums.ppsspp.org/forumdisplay.php?fid=34) for help.
+
+Credit goes to:
+ - ANR2ME
+ - Igor Calabria
+ - [coldbird's code](https://code.google.com/archive/p/aemu/)
+ - Kyhel
+ - And more, of course.
+
 What's new in 1.15.4
 ====================
 - Tilt controls: Restore "Low end radius" control ([#17489])
