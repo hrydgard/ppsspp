@@ -398,7 +398,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	u32 psar_id;
 	fileLoader->ReadAt(psarOffset, 4, 1, &psar_id);
 
-	INFO_LOG(Log::Loader, "NPDRM: PSAR ID: %08x");
+	INFO_LOG(Log::Loader, "NPDRM: PSAR ID: %08x", psar_id);
 	// PS1 PSAR begins with "PSISOIMG0000"
 	if (psar_id == 'SISP') {
 		lbaSize_ = 0;  // Mark invalid
@@ -424,8 +424,11 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	lbaSize_     = (lbaEnd-lbaStart+1);     // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
+	char psarStr[5] = {};
+	memcpy(psarStr, &psar_id, 4);
+
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
-	_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s)", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str());
+	_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
