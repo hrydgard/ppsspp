@@ -21,6 +21,7 @@
 
 #include "Common/File/Path.h"
 #include "Core/Compatibility.h"
+#include "Core/Loaders.h"
 
 enum GPUCore {
 	GPUCORE_GLES,
@@ -86,6 +87,7 @@ struct CoreParameter {
 	bool frozen = false;
 
 	FileLoader *mountIsoLoader = nullptr;
+	IdentifiedFileType fileType = IdentifiedFileType::UNKNOWN;
 
 	Compatibility compat;
 };
