@@ -50,10 +50,10 @@ public:
 	bool IsValid() const { return file_ != nullptr; }
 	bool IsELF() const { return file_ == nullptr && isELF_; }
 
-	bool GetSubFile(PBPSubFile file, std::vector<u8> *out);
-	void GetSubFileAsString(PBPSubFile file, std::string *out);
+	bool GetSubFile(PBPSubFile file, std::vector<u8> *out) const;
+	bool GetSubFileAsString(PBPSubFile file, std::string *out) const;
 
-	size_t GetSubFileSize(PBPSubFile file) {
+	size_t GetSubFileSize(PBPSubFile file) const {
 		int num = (int)file;
 		if (num < 7) {
 			return header_.offsets[file + 1] - header_.offsets[file];
@@ -63,8 +63,8 @@ public:
 	}
 
 private:
-	FileLoader *file_;
-	size_t fileSize_;
-	const PBPHeader header_;
-	bool isELF_;
+	FileLoader *file_ = nullptr;
+	size_t fileSize_ = 0;
+	const PBPHeader header_{};
+	bool isELF_ = false;
 };

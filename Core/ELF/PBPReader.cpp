@@ -23,7 +23,7 @@
 #include "Core/Loaders.h"
 #include "Core/ELF/PBPReader.h"
 
-PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_(false) {
+PBPReader::PBPReader(FileLoader *fileLoader) {
 	if (!fileLoader->Exists()) {
 		ERROR_LOG(Log::Loader, "Failed to open PBP file %s", fileLoader->GetPath().c_str());
 		return;
@@ -48,12 +48,19 @@ PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_
 	file_ = fileLoader;
 }
 
-bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
+bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) const {
 	if (!file_) {
 		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
+
+	// This is only used to get the PARAM.SFO, so let's have a strict 256MB file size limit for sanity.
+	if (expected > 256 * 1024 * 1024) {
+		ERROR_LOG(Log::Loader, "Bad subfile size: %d", (int)expected);
+		return false;
+	}
+
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
@@ -67,13 +74,19 @@ bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
 	return true;
 }
 
-void PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) {
+bool PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) const {
 	if (!file_) {
 		out->clear();
-		return;
+		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
+
+	// This is only used to get the PNG, AT3 etc, so let's have a strict 256MB file size limit for sanity.
+	if (expected > 256 * 1024 * 1024) {
+		ERROR_LOG(Log::Loader, "Bad subfile size: %d", (int)expected);
+		return false;
+	}
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
