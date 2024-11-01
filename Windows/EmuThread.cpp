@@ -285,7 +285,7 @@ void MainThreadFunc() {
 	if (g_Config.bBrowse)
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
 
-	Core_EnableStepping(false);
+	Core_Resume();
 
 	if (useEmuThread) {
 		while (emuThreadState != (int)EmuThreadState::DISABLED) {

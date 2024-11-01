@@ -1196,7 +1196,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::Break:
-			Core_Break(mips->pc);
+			Core_BreakException(mips->pc);
 			return mips->pc + 4;
 
 		case IROp::Breakpoint:

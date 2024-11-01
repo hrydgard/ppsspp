@@ -64,7 +64,7 @@ static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplace
 	if (Core_IsStepping()) {
 		result.wasStepping = true;
 	} else {
-		Core_EnableStepping(true, "memory.access", addr);
+		Core_Break("memory.access", addr);
 		Core_WaitInactive();
 	}
 
@@ -99,7 +99,7 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 		RestoreSavedReplacements(replacements);
 	}
 	if (!wasStepping)
-		Core_EnableStepping(false);
+		Core_Resume();
 	delete lock;
 }
 

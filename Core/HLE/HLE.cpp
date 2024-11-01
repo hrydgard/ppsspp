@@ -361,7 +361,7 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 			return false;
 	}
 
-	Core_EnableStepping(true, "hle.step", latestSyscallPC);
+	Core_Break("hle.step", latestSyscallPC);
 	return true;
 }
 

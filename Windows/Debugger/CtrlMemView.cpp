@@ -427,7 +427,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 
 	bool active = Core_IsActive();
 	if (active)
-		Core_EnableStepping(true, "memory.access", curAddress_);
+		Core_Break("memory.access", curAddress_);
 
 	if (asciiSelected_) {
 		Memory::WriteUnchecked_U8((u8)wParam, curAddress_);
@@ -452,7 +452,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 
 	Reporting::NotifyDebugger();
 	if (active)
-		Core_EnableStepping(false);
+		Core_Resume();
 }
 
 void CtrlMemView::redraw() {

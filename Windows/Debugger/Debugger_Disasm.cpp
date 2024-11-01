@@ -286,7 +286,7 @@ void CDisasm::stepOver()
 	}
 
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_EnableStepping(false);
+	Core_Resume();
 	Sleep(1);
 	ptr->gotoAddr(breakpointAddress);
 	UpdateDialog();
@@ -322,7 +322,7 @@ void CDisasm::stepOut() {
 	ptr->setDontRedraw(true);
 
 	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_EnableStepping(false);
+	Core_Resume();
 	Sleep(1);
 	ptr->gotoAddr(breakpointAddress);
 	UpdateDialog();
@@ -340,7 +340,7 @@ void CDisasm::runToLine()
 	lastTicks = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
 	CBreakPoints::AddBreakPoint(pos,true);
-	Core_EnableStepping(false);
+	Core_Resume();
 }
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
@@ -418,7 +418,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
-						Core_EnableStepping(true, "cpu.breakpoint.add", 0);
+						Core_Break("cpu.breakpoint.add", 0);
 						Core_WaitInactive(200);
 					}
 
@@ -426,7 +426,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
-						Core_EnableStepping(false);
+						Core_Resume();
 					view->UnlockPosition();
 					keepStatusBarText = false;
 				}
@@ -519,7 +519,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (!Core_IsStepping())		// stop
 					{
 						ptr->setDontRedraw(false);
-						Core_EnableStepping(true, "ui.break", 0);
+						Core_Break("ui.break", 0);
 						Sleep(1); //let cpu catch up
 						ptr->gotoPC();
 						UpdateDialog();
@@ -529,7 +529,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-						Core_EnableStepping(false);
+						Core_Resume();
 					}
 				}
 				break;
@@ -556,7 +556,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
-					Core_EnableStepping(false);
+					Core_Resume();
 				}
 				break;
 

@@ -333,24 +333,24 @@ bool Core_Run(GraphicsContext *ctx) {
 	}
 }
 
-void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
-	if (step) {
-		// Stop the tracer
-		mipsTracer.stop_tracing();
+void Core_Break(const char *reason, u32 relatedAddress) {
+	// Stop the tracer
+	mipsTracer.stop_tracing();
 
-		Core_UpdateState(CORE_STEPPING);
-		steppingCounter++;
-		_assert_msg_(reason != nullptr, "No reason specified for break");
-		steppingReason = reason;
-		steppingAddress = relatedAddress;
-	} else {
-		// Clear the exception if we resume.
-		Core_ResetException();
-		coreState = CORE_RUNNING;
-		coreStatePending = false;
-		m_StepCond.notify_all();
-	}
+	Core_UpdateState(CORE_STEPPING);
+	steppingCounter++;
+	_assert_msg_(reason != nullptr, "No reason specified for break");
+	steppingReason = reason;
+	steppingAddress = relatedAddress;
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+void Core_Resume() {
+	// Clear the exception if we resume.
+	Core_ResetException();
+	coreState = CORE_RUNNING;
+	coreStatePending = false;
+	m_StepCond.notify_all();
 }
 
 bool Core_NextFrame() {
@@ -428,7 +428,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break("memory.exception", address);
 	}
 }
 
@@ -456,7 +456,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExcepti
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break("memory.exception", address);
 	}
 }
 
@@ -475,10 +475,10 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];
-	Core_EnableStepping(true, "cpu.exception", address);
+	Core_Break("cpu.exception", address);
 }
 
-void Core_Break(u32 pc) {
+void Core_BreakException(u32 pc) {
 	ERROR_LOG(Log::CPU, "BREAK!");
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
@@ -488,7 +488,7 @@ void Core_Break(u32 pc) {
 	e.pc = pc;
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);
+		Core_Break("cpu.breakInstruction", currentMIPS->pc);
 	}
 }
 

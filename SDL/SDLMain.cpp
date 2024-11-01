@@ -843,7 +843,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				if (ctrl && (k == SDLK_w))
 				{
 					if (Core_IsStepping())
-						Core_EnableStepping(false);
+						Core_Resume();
 					Core_Stop();
 					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
 					// NOTE: Unlike Windows version, this
@@ -854,7 +854,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				if (ctrl && (k == SDLK_b))
 				{
 					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-					Core_EnableStepping(false);
+					Core_Resume();
 				}
 			}
 			break;

@@ -28,23 +28,36 @@ class GraphicsContext;
 // called from emu thread
 void UpdateRunLoop(GraphicsContext *ctx);
 
+// For platforms that don't call Core_Run
+void Core_SetGraphicsContext(GraphicsContext *ctx);
+
 // Returns false when an UI exit state is detected.
 bool Core_Run(GraphicsContext *ctx);
 void Core_Stop();
 
-// For platforms that don't call Core_Run
-void Core_SetGraphicsContext(GraphicsContext *ctx);
+/*
+enum class CPUStepType {
+	None,
+	Into,
+	Over,
+	Out,
+};
+*/
 
-// called from gui
-void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
+// Async, called from gui
+void Core_Break(const char *reason, u32 relatedAddress = 0);
+// void Core_Step(CPUStepType type);  // CPUStepType::None not allowed
+void Core_Resume();
+
+// Refactor.
+void Core_DoSingleStep();
+void Core_UpdateSingleStep();
+void Core_ProcessStepping();
 
 bool Core_ShouldRunBehind();
 bool Core_MustRunBehind();
 
 bool Core_NextFrame();
-void Core_DoSingleStep();
-void Core_UpdateSingleStep();
-void Core_ProcessStepping();
 
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
@@ -113,7 +126,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport);
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
-void Core_Break(u32 pc);
+void Core_BreakException(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
 

@@ -841,10 +841,15 @@ namespace MainWindow
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {
-						if (disasmWindow)
+						if (disasmWindow) {
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
-						else
-							Core_EnableStepping(pause, "ui.lost_focus", 0);
+						} else {
+							if (pause) {
+								Core_Break("ui.lost_focus", 0);
+							} else {
+								Core_Resume();
+							}
+						}
 					}
 				}
 
@@ -1018,7 +1023,7 @@ namespace MainWindow
 					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
 						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
-						Core_EnableStepping(false);
+						Core_Resume();
 					}
 				}
 				DragFinish(hdrop);

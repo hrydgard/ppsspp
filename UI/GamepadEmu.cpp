@@ -918,7 +918,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 		fastForward->SetAngle(180.0f);
 		fastForward->OnChange.Add([](UI::EventParams &e) {
 			if (e.a && coreState == CORE_STEPPING) {
-				Core_EnableStepping(false);
+				Core_Resume();
 			}
 			return UI::EVENT_DONE;
 		});

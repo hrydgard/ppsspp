@@ -255,7 +255,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		RestoreRoundingMode(true);
 		SaveStaticRegisters();
 		MovFromPC(SCRATCH1);
-		ABI_CallFunctionR((const void *)&Core_Break, SCRATCH1);
+		ABI_CallFunctionR((const void *)&Core_BreakException, SCRATCH1);
 		LoadStaticRegisters();
 		ApplyRoundingMode(true);
 		MovFromPC(SCRATCH1);
