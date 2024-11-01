@@ -151,7 +151,12 @@ static void DirtyDrawnVRAM() {
 	DirtyVRAM(gstate.getFrameBufAddress(), bytes, DirtyVRAMFlag::DRAWN);
 }
 
-static void BeginRecording() {
+static bool BeginRecording() {
+	if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+		// Can't record a GE dump.
+		return false;
+	}
+
 	active = true;
 	nextFrame = false;
 	lastTextures.clear();
@@ -178,6 +183,7 @@ static void BeginRecording() {
 	}
 
 	DirtyAllVRAM(DirtyVRAMFlag::DIRTY);
+	return true;
 }
 
 static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
@@ -619,6 +625,10 @@ void ClearCallback() {
 
 static void FinishRecording() {
 	// We're done - this was just to write the result out.
+	if (!active) {
+		return;
+	}
+
 	Path filename = WriteRecording();
 	commands.clear();
 	pushbuf.clear();
@@ -785,7 +795,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	}
 	if (!active && nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
 		NOTICE_LOG(Log::System, "Recording starting on display...");
-		BeginRecording();
+		BeginRecording();  // TODO: Handle return value.
 	}
 	if (!active) {
 		return;

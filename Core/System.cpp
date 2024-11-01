@@ -254,6 +254,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	if (!g_CoreParameter.mountIso.empty()) {
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
+	g_CoreParameter.fileType = type;
 
 	MIPSAnalyst::Reset();
 	Replacement_Init();
