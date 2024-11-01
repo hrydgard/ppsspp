@@ -428,10 +428,12 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
-	_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+	_dbg_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 
 	// When we remove the above assert, let's just try to survive.
 	if (blockLBAs_ > 4096) {
+		ERROR_LOG(Log::Loader, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+		// We'll end up displaying an error message since ReadBlock will fail.
 		return;
 	}
 
@@ -447,7 +449,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	table_ = new table_info[numBlocks_];
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
-	if (readSize!=tableSize_){
+	if (readSize != tableSize_){
 		ERROR_LOG(Log::Loader, "Invalid NPUMDIMG table!");
 	}
 
