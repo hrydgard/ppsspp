@@ -80,7 +80,6 @@ struct VkRenderData {
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
-			VkIndexType itype;  // TODO: pack this into one of the others, it's really a single bit
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;

@@ -76,7 +76,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
 	ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-	const Draw::IndexFormat idxFormat = sizeof(ImDrawIdx) == 2 ? Draw::IndexFormat::U16 : Draw::IndexFormat::U32;
+	_assert_(sizeof(ImDrawIdx) == 2);
 
 	std::vector<Draw::ClippedDraw> draws;
 	// Render command lists
@@ -116,7 +116,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 				draws.push_back(draw);
 			}
 		}
-		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), idxFormat, draws);
+		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), draws);
 	}
 
 	draw->SetScissorRect(0, 0, fb_width, fb_height);

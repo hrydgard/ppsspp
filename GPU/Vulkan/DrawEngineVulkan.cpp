@@ -374,7 +374,7 @@ void DrawEngineVulkan::DoFlush() {
 			if (!ibuf) {
 				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
 			}
-			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, VK_INDEX_TYPE_UINT16);
+			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
 			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
@@ -539,7 +539,7 @@ void DrawEngineVulkan::DoFlush() {
 			VkBuffer vbuf, ibuf;
 			vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
 			ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
-			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1, VK_INDEX_TYPE_UINT16);
+			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 			bool clearColor = gstate.isClearModeColorMask();
