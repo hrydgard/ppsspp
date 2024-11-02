@@ -205,17 +205,16 @@ void CDisasm::stepInto()
 	}
 
 	CtrlDisAsmView *ptr = DisAsmView();
+	ptr->setDontRedraw(true);
 	lastTicks_ = CoreTiming::GetTicks();
 
 	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
 	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Into, stepSize);
 
-	ptr->scrollStepping(newAddress);
 	Sleep(1);
-	ptr->gotoPC();
+	ptr->scrollStepping(newAddress);
+	ptr->gotoAddr(newAddress);
 	UpdateDialog();
-	threadList->reloadThreads();
-	stackTraceView->loadStackTrace();
 }
 
 void CDisasm::stepOver()
@@ -225,24 +224,19 @@ void CDisasm::stepOver()
 	}
 	
 	CtrlDisAsmView *ptr = DisAsmView();
+	ptr->setDontRedraw(true);
 	lastTicks_ = CoreTiming::GetTicks();
 
-	// Not really sure why this is needed here.
-	ptr->setDontRedraw(true);
-
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	u32 currentPc = cpu->GetPC();
-	u32 stepSize = ptr->getInstructionSizeAt(currentPc);
-	u32 breakpointAddress = Core_PerformStep(cpu, CPUStepType::Over, stepSize);
+	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
+	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Over, stepSize);
 
 	Sleep(1);
-	ptr->scrollStepping(breakpointAddress);
-	ptr->gotoAddr(breakpointAddress);
+	ptr->scrollStepping(newAddress);
+	ptr->gotoAddr(newAddress);
 	UpdateDialog();
 }
 
 void CDisasm::stepOut() {
-	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
@@ -250,10 +244,12 @@ void CDisasm::stepOut() {
 	ptr->setDontRedraw(true);
 	lastTicks_ = CoreTiming::GetTicks();
 
-	u32 breakpointAddress = Core_PerformStep(cpu, CPUStepType::Out, 0);
+	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
+	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Out, stepSize);
 
 	Sleep(1);
-	ptr->gotoAddr(breakpointAddress);
+	ptr->scrollStepping(newAddress);
+	ptr->gotoAddr(newAddress);
 	UpdateDialog();
 }
 

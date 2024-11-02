@@ -426,6 +426,7 @@ void Core_Resume() {
 	coreState = CORE_RUNNING;
 	coreStatePending = false;
 	m_StepCond.notify_all();
+	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
 bool Core_NextFrame() {
