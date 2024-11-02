@@ -32,6 +32,7 @@ public:
 	void onFinish(DialogResult reason) override;
 	void update() override;
 	void resized() override;
+	void touch(const TouchInput& touch) override;
 
 	const char *tag() const override { return "TouchControlLayout"; }
 
@@ -43,4 +44,6 @@ protected:
 private:
 	UI::ChoiceStrip *mode_ = nullptr;
 	ControlLayoutView *layoutView_ = nullptr;
+	bool fullscreenEdit_ = false;
+	double timestamps[10] = { -1.0 };
 };
