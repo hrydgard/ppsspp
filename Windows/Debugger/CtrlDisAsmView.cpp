@@ -1428,5 +1428,5 @@ u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
 {
 	u32 start = manager.getStartAddress(address);
 	u32 next  = manager.getNthNextAddress(start,1);
-	return next-address;
+	return next - address;
 }

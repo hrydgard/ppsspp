@@ -237,11 +237,24 @@ void Core_UpdateSingleStep() {
 	m_StepCond.notify_all();
 }
 
-void Core_SingleStep() {
-	Core_ResetException();
-	currentMIPS->SingleStep();
-	if (coreState == CORE_STEPPING)
-		steppingCounter++;
+// See comment in header.
+u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
+	switch (stepType) {
+	case CPUStepType::Into:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 newAddress = currentPc + stepSize;
+		// If the current PC is on a breakpoint, the user still wants the step to happen.
+		CBreakPoints::SetSkipFirst(currentMIPS->pc);
+		for (int i = 0; i < (newAddress - currentPc) / 4; i++) {
+			Core_DoSingleStep();
+		}
+		return newAddress;
+	}
+	default:
+		// Not yet implemented
+		return cpu->GetPC();
+	}
 }
 
 static inline bool Core_WaitStepping() {
@@ -284,7 +297,10 @@ void Core_ProcessStepping() {
 
 	// We may still be stepping without singleStepPending to process a save state.
 	if (doStep && coreState == CORE_STEPPING) {
-		Core_SingleStep();
+		Core_ResetException();
+		currentMIPS->SingleStep();
+		steppingCounter++;
+
 		// Update disasm dialog.
 		System_Notify(SystemNotification::DISASSEMBLY);
 		System_Notify(SystemNotification::MEM_VIEW);

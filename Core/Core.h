@@ -24,6 +24,7 @@
 #include "Core/CoreParameter.h"
 
 class GraphicsContext;
+class DebugInterface;
 
 // called from emu thread
 void UpdateRunLoop(GraphicsContext *ctx);
@@ -35,19 +36,28 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 bool Core_Run(GraphicsContext *ctx);
 void Core_Stop();
 
-/*
+// X11, sigh.
+#ifdef None
+#undef None
+#endif
+
 enum class CPUStepType {
 	None,
 	Into,
 	Over,
 	Out,
 };
-*/
 
 // Async, called from gui
 void Core_Break(const char *reason, u32 relatedAddress = 0);
 // void Core_Step(CPUStepType type);  // CPUStepType::None not allowed
 void Core_Resume();
+
+// Handles more advanced step types (used by the debugger).
+// stepSize is to support stepping through compound instructions like fused lui+ladd (li).
+// Yes, our disassembler does support those.
+// Returns the new address.
+uint32_t Core_PerformStep(DebugInterface *mips, CPUStepType stepType, int stepSize);
 
 // Refactor.
 void Core_DoSingleStep();

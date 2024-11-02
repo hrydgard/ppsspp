@@ -18,7 +18,7 @@ private:
 	int minWidth;
 	int minHeight;
 	DebugInterface *cpu;
-	u64 lastTicks;
+	u64 lastTicks_;
 
 	HWND statusBarWnd;
 	CtrlBreakpointList* breakpointList;
