@@ -208,14 +208,15 @@ void CDisasm::step(CPUStepType stepType)
 	ptr->setDontRedraw(true);
 	lastTicks_ = CoreTiming::GetTicks();
 
-	u32 oldAddress = cpu->GetPC();
-	u32 stepSize = ptr->getInstructionSizeAt(oldAddress);
+	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
 	Core_PerformStep(cpu, stepType, stepSize);
 
 	Sleep(1);
+
 	// At this point, the step should be done, and the new address is just PC.
 	// Ideally, this part should be done as a reaction to an update message and not directly here.
 	// That way we could get rid of the sleep.
+	u32 oldAddress = ptr->getSelection();
 	u32 newAddress = cpu->GetPC();
 	if (newAddress > oldAddress && newAddress < oldAddress + 12) {
 		// Heuristic for when to scroll at the edge rather than jump the window.

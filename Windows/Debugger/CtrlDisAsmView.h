@@ -169,7 +169,7 @@ public:
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
 		newAddress = manager.getStartAddress(newAddress);
-		u32 after = manager.getNthNextAddress(newAddress,1);
+		const u32 after = manager.getNthNextAddress(newAddress,1);
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
