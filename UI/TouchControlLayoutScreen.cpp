@@ -284,6 +284,7 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		scale_ = theScale_ * layoutAreaScale;
 		float opacity = GamepadGetOpacity();
 		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 
@@ -292,6 +293,7 @@ public:
 
 		dc.Draw()->DrawImage(stickBg, bounds_.centerX(), bounds_.centerY(), scale_, colorBg, ALIGN_CENTER);
 		dc.Draw()->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
+		scale_ = theScale_ / layoutAreaScale;
 	}
 
 	float GetSpacing() const override { return spacing_ * 3; }
@@ -622,7 +624,6 @@ void TouchControlLayoutScreen::CreateViews() {
 	InitPadLayout(bounds.w, bounds.h);
 
 	const float leftColumnWidth = 200.0f;
-	layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -631,31 +632,56 @@ void TouchControlLayoutScreen::CreateViews() {
 	rootLayout->SetSpacing(0.0f);
 	root_ = rootLayout;
 
-	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT)));
-	leftColumnScroll->SetAlignOpposite(true);
-	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(12.0f, 0.0f))));
+	if (fullscreenEdit_) {
+		layoutAreaScale = 1.0f;
+		LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 0.0f, 0.0f, 0.0f))));
+		layoutView_ = rightColumn->Add(new ControlLayoutView(new LinearLayoutParams(FILL_PARENT, FILL_PARENT)));
+	} else {
+		layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
+		ScrollView* leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT)));
+		leftColumnScroll->SetAlignOpposite(true);
+		LinearLayout* leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(12.0f, 0.0f))));
 
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL);
-	mode_->AddChoice(di->T("Move"));
-	mode_->AddChoice(di->T("Resize"));
-	mode_->SetSelection(0, false);
-	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
+		mode_ = new ChoiceStrip(ORIENT_VERTICAL);
+		mode_->AddChoice(di->T("Move"));
+		mode_->AddChoice(di->T("Resize"));
+		mode_->SetSelection(0, false);
+		mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
-	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
-	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, 64, di->T("Grid"), screenManager(), "");
-	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
+		CheckBox* snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
+		PopupSliderChoice* gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, 64, di->T("Grid"), screenManager(), "");
+		gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
-	leftColumn->Add(mode_);
-	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
-	leftColumn->Add(snap);
-	leftColumn->Add(gridSize);
-	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	leftColumn->Add(new Spacer(12.0f));
-	leftColumn->Add(new Choice(di->T("Back"), "", false))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	leftColumn->Add(new Spacer(0.0f));
+		leftColumn->Add(mode_);
+		leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
+		leftColumn->Add(snap);
+		leftColumn->Add(gridSize);
+		leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
+		leftColumn->Add(new Spacer(12.0f));
+		leftColumn->Add(new Choice(di->T("Back"), "", false))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		leftColumn->Add(new Spacer(0.0f));
 
-	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
-	rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	float previewHeight = bounds.h * layoutAreaScale;
-	layoutView_ = rightColumn->Add(new ControlLayoutView(new LinearLayoutParams(FILL_PARENT, previewHeight)));
+		LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
+		rightColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
+		rightColumn->Add(new ItemHeader(co->T("Double tap to toggle fullscreen configuration mode.")));
+		float previewHeight = bounds.h * layoutAreaScale;
+		layoutView_ = rightColumn->Add(new ControlLayoutView(new LinearLayoutParams(FILL_PARENT, previewHeight)));
+	}
+}
+
+void TouchControlLayoutScreen::touch(const TouchInput& touch) {
+	if (!ignoreInput_ && root_) {
+		UIDialogScreenWithGameBackground::touch(touch);
+
+		if (touch.flags & TOUCH_DOWN) {
+			double time = time_now_d();
+			if (timestamps[touch.id] > 0.0 && time - timestamps[touch.id] < 0.5) {
+				timestamps[touch.id] = -1.0;
+				fullscreenEdit_ = !fullscreenEdit_;
+				RecreateViews();
+			} else {
+				timestamps[touch.id] = time;
+			}
+		}
+	}
 }
