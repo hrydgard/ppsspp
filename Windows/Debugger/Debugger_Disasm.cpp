@@ -227,41 +227,16 @@ void CDisasm::stepOver()
 	CtrlDisAsmView *ptr = DisAsmView();
 	lastTicks_ = CoreTiming::GetTicks();
 
+	// Not really sure why this is needed here.
+	ptr->setDontRedraw(true);
+
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	u32 currentPc = cpu->GetPC();
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	u32 stepSize = ptr->getInstructionSizeAt(currentPc);
+	u32 breakpointAddress = Core_PerformStep(cpu, CPUStepType::Over, stepSize);
 
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
-	ptr->setDontRedraw(true);
-	u32 breakpointAddress = currentPc + ptr->getInstructionSizeAt(currentPc);
-	if (info.isBranch)
-	{
-		if (info.isConditional == false)
-		{
-			if (info.isLinkedBranch)	// jal, jalr
-			{
-				// it's a function call with a delay slot - skip that too
-				breakpointAddress += cpu->getInstructionSize(0);
-			} else {					// j, ...
-				// in case of absolute branches, set the breakpoint at the branch target
-				breakpointAddress = info.branchTarget;
-			}
-		} else {						// beq, ...
-			if (info.conditionMet)
-			{
-				breakpointAddress = info.branchTarget;
-			} else {
-				breakpointAddress = currentPc+2*cpu->getInstructionSize(0);
-				ptr->scrollStepping(breakpointAddress);
-			}
-		}
-	} else {
-		ptr->scrollStepping(breakpointAddress);
-	}
-
-	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_Resume();
 	Sleep(1);
+	ptr->scrollStepping(breakpointAddress);
 	ptr->gotoAddr(breakpointAddress);
 	UpdateDialog();
 }
@@ -271,21 +246,25 @@ void CDisasm::stepOut() {
 	if (!PSP_IsInited())
 		return;
 
-	auto threads = GetThreadsInfo();
 
-	u32 entry = cpu->GetPC(), stackTop = 0;
-	for (size_t i = 0; i < threads.size(); i++)
-	{
-		if (threads[i].isCurrent)
-		{
+	u32 entry = cpu->GetPC();
+	u32 stackTop = 0;
+
+	auto threads = GetThreadsInfo();
+	for (size_t i = 0; i < threads.size(); i++) {
+		if (threads[i].isCurrent) {
 			entry = threads[i].entrypoint;
 			stackTop = threads[i].initialStack;
 			break;
 		}
 	}
 
-	auto frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
-	if (frames.size() < 2) return;
+	auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0,31), cpu->GetRegValue(0,29), entry, stackTop);
+	if (frames.size() < 2) {
+		// Failure
+		return;
+	}
+
 	u32 breakpointAddress = frames[1].pc;
 	lastTicks_ = CoreTiming::GetTicks();
 	

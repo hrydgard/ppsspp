@@ -41,6 +41,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
 #include "Core/MIPS/MIPSTracer.h"
@@ -245,11 +246,41 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		u32 currentPc = cpu->GetPC();
 		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
-		CBreakPoints::SetSkipFirst(currentMIPS->pc);
+		CBreakPoints::SetSkipFirst(currentPc);
 		for (int i = 0; i < (newAddress - currentPc) / 4; i++) {
 			Core_DoSingleStep();
 		}
 		return newAddress;
+	}
+	case CPUStepType::Over:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 breakpointAddress = currentPc + stepSize;
+
+		CBreakPoints::SetSkipFirst(currentPc);
+
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
+		if (info.isBranch) {
+			if (info.isConditional == false) {
+				if (info.isLinkedBranch) { // jal, jalr
+					// it's a function call with a delay slot - skip that too
+					breakpointAddress += cpu->getInstructionSize(0);
+				} else {					// j, ...
+					// in case of absolute branches, set the breakpoint at the branch target
+					breakpointAddress = info.branchTarget;
+				}
+			} else {						// beq, ...
+				if (info.conditionMet) {
+					breakpointAddress = info.branchTarget;
+				} else {
+					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
+				}
+			}
+		}
+
+		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		return breakpointAddress;
 	}
 	default:
 		// Not yet implemented
