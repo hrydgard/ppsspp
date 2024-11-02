@@ -38,9 +38,7 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void updateThreadLabel(bool clear);
-	void stepInto();
-	void stepOver();
-	void stepOut();
+	void step(CPUStepType stepType);
 	void runToLine();
 
 public:

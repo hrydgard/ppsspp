@@ -198,7 +198,7 @@ CDisasm::~CDisasm()
 	delete moduleList;
 }
 
-void CDisasm::stepInto()
+void CDisasm::step(CPUStepType stepType)
 {
 	if (!PSP_IsInited() || !Core_IsStepping()) {
 		return;
@@ -209,43 +209,7 @@ void CDisasm::stepInto()
 	lastTicks_ = CoreTiming::GetTicks();
 
 	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
-	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Into, stepSize);
-
-	Sleep(1);
-	ptr->scrollStepping(newAddress);
-	ptr->gotoAddr(newAddress);
-	UpdateDialog();
-}
-
-void CDisasm::stepOver()
-{
-	if (!PSP_IsInited() || Core_IsActive()) {
-		return;
-	}
-	
-	CtrlDisAsmView *ptr = DisAsmView();
-	ptr->setDontRedraw(true);
-	lastTicks_ = CoreTiming::GetTicks();
-
-	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
-	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Over, stepSize);
-
-	Sleep(1);
-	ptr->scrollStepping(newAddress);
-	ptr->gotoAddr(newAddress);
-	UpdateDialog();
-}
-
-void CDisasm::stepOut() {
-	if (!PSP_IsInited())
-		return;
-
-	CtrlDisAsmView *ptr = DisAsmView();
-	ptr->setDontRedraw(true);
-	lastTicks_ = CoreTiming::GetTicks();
-
-	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
-	u32 newAddress = Core_PerformStep(cpu, CPUStepType::Out, stepSize);
+	u32 newAddress = Core_PerformStep(cpu, stepType, stepSize);
 
 	Sleep(1);
 	ptr->scrollStepping(newAddress);
@@ -357,11 +321,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_DEBUG_STEPOVER:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOver();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Over);
 				break;
 
 			case ID_DEBUG_STEPINTO:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepInto();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Into);
 				break;
 
 			case ID_DEBUG_RUNTOLINE:
@@ -369,7 +333,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_DEBUG_STEPOUT:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Out);
 				break;
 
 			case ID_DEBUG_HIDEBOTTOMTABS:
@@ -459,15 +423,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_STEP:
-				stepInto();
+				step(CPUStepType::Into);
 				break;
 
 			case IDC_STEPOVER:
-				stepOver();
+				step(CPUStepType::Over);
 				break;
 
 			case IDC_STEPOUT:
-				stepOut();
+				step(CPUStepType::Out);
 				break;
 				
 			case IDC_STEPHLE:
