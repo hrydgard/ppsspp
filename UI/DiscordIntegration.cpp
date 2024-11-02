@@ -54,7 +54,7 @@ bool Discord::IsAvailable() {
 }
 
 bool Discord::IsEnabled() const {
-	return g_Config.bDiscordPresence;
+	return g_Config.bDiscordRichPresence;
 }
 
 void Discord::Init() {

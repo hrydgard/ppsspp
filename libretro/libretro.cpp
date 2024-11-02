@@ -1272,7 +1272,7 @@ void retro_init(void)
    g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
    g_Config.bEnableNetworkChat = false;
-   g_Config.bDiscordPresence = false;
+   g_Config.bDiscordRichPresence = false;
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
 
