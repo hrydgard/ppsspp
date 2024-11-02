@@ -246,36 +246,12 @@ void CDisasm::stepOut() {
 	if (!PSP_IsInited())
 		return;
 
-
-	u32 entry = cpu->GetPC();
-	u32 stackTop = 0;
-
-	auto threads = GetThreadsInfo();
-	for (size_t i = 0; i < threads.size(); i++) {
-		if (threads[i].isCurrent) {
-			entry = threads[i].entrypoint;
-			stackTop = threads[i].initialStack;
-			break;
-		}
-	}
-
-	auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0,31), cpu->GetRegValue(0,29), entry, stackTop);
-	if (frames.size() < 2) {
-		// Failure
-		return;
-	}
-
-	u32 breakpointAddress = frames[1].pc;
-	lastTicks_ = CoreTiming::GetTicks();
-	
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
-	
 	CtrlDisAsmView *ptr = DisAsmView();
 	ptr->setDontRedraw(true);
+	lastTicks_ = CoreTiming::GetTicks();
 
-	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_Resume();
+	u32 breakpointAddress = Core_PerformStep(cpu, CPUStepType::Out, 0);
+
 	Sleep(1);
 	ptr->gotoAddr(breakpointAddress);
 	UpdateDialog();

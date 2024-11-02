@@ -282,6 +282,34 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		Core_Resume();
 		return breakpointAddress;
 	}
+	case CPUStepType::Out:
+	{
+		u32 entry = cpu->GetPC();
+		u32 stackTop = 0;
+
+		auto threads = GetThreadsInfo();
+		for (size_t i = 0; i < threads.size(); i++) {
+			if (threads[i].isCurrent) {
+				entry = threads[i].entrypoint;
+				stackTop = threads[i].initialStack;
+				break;
+			}
+		}
+
+		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
+		if (frames.size() < 2) {
+			// Failure. PC not moving.
+			return cpu->GetPC();
+		}
+
+		u32 breakpointAddress = frames[1].pc;
+
+		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+		CBreakPoints::SetSkipFirst(currentMIPS->pc);
+		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		return breakpointAddress;
+	}
 	default:
 		// Not yet implemented
 		return cpu->GetPC();
