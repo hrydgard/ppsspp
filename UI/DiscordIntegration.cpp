@@ -45,8 +45,16 @@ Discord::~Discord() {
 	}
 }
 
+bool Discord::IsAvailable() {
+#ifdef ENABLE_DISCORD
+	return true;
+#else
+	return false;
+#endif
+}
+
 bool Discord::IsEnabled() const {
-	return g_Config.bDiscordPresence;
+	return g_Config.bDiscordRichPresence;
 }
 
 void Discord::Init() {

@@ -58,6 +58,7 @@
 #include "UI/Theme.h"
 #include "UI/RetroAchievementScreens.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/DiscordIntegration.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -915,7 +916,10 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		wlanChannelChoice->HideChoice(i + 2);
 		wlanChannelChoice->HideChoice(i + 7);
 	}
-	networkingSettings->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord Presence information")));
+
+	if (Discord::IsAvailable()) {
+		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
+	}
 
 	networkingSettings->Add(new ItemHeader(n->T("AdHoc Server")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));

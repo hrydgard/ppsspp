@@ -145,7 +145,7 @@ public:
 
 	std::string sIgnoreCompatSettings;
 
-	bool bDiscordPresence;  // Enables setting the Discord presence to the current game (or menu)
+	bool bDiscordRichPresence;  // Enables setting the Discord presence to the current game (or menu)
 
 	// GFX
 	int iGPUBackend;

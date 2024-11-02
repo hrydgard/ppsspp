@@ -19,6 +19,8 @@ public:
 	void SetPresenceMenu();
 	void ClearPresence();
 
+	static bool IsAvailable();
+
 private:
 	void Init();
 	bool IsEnabled() const;

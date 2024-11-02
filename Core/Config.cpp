@@ -209,7 +209,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true, CfgFlag::DEFAULT),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion, CfgFlag::DEFAULT),
 	ConfigSetting("ForceLagSync2", &g_Config.bForceLagSync, false, CfgFlag::PER_GAME),
-	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, true, CfgFlag::DEFAULT),  // Or maybe it makes sense to have it per-game? Race conditions abound...
+	ConfigSetting("DiscordRichPresence", &g_Config.bDiscordRichPresence, false, CfgFlag::DEFAULT),
 	ConfigSetting("UISound", &g_Config.bUISound, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("DisableHTTPS", &g_Config.bDisableHTTPS, false, CfgFlag::DONT_SAVE),
