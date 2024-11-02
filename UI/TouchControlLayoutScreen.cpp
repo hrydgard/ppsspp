@@ -261,7 +261,7 @@ public:
 			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
 			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
-		scale_ = theScale_/layoutAreaScale;
+		scale_ = theScale_ / layoutAreaScale;
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -284,6 +284,8 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
+		scale_ = theScale_ * layoutAreaScale;
+
 		float opacity = GamepadGetOpacity();
 		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 
@@ -292,6 +294,8 @@ public:
 
 		dc.Draw()->DrawImage(stickBg, bounds_.centerX(), bounds_.centerY(), scale_, colorBg, ALIGN_CENTER);
 		dc.Draw()->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
+
+		scale_ = theScale_ / layoutAreaScale;
 	}
 
 	float GetSpacing() const override { return spacing_ * 3; }
