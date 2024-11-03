@@ -398,13 +398,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (!PSP_IsInited()) {
 						break;
 					}
-					if (!Core_IsStepping())		// stop
-					{
+					if (!Core_IsStepping())	{  // stop
 						ptr->setDontRedraw(false);
 						Core_Break("ui.break", 0);
-						Sleep(1); //let cpu catch up
-						ptr->gotoPC();
-						UpdateDialog();
 					} else {					// go
 						lastTicks_ = CoreTiming::GetTicks();
 
