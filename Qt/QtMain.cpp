@@ -473,7 +473,7 @@ static int mainInternal(QApplication &a) {
 }
 
 void MainUI::EmuThreadFunc() {
-	SetCurrentThreadName("Emu");
+	SetCurrentThreadName("EmuThread");
 
 	// There's no real requirement that NativeInit happen on this thread, though it can't hurt...
 	// We just call the update/render loop here. NativeInitGraphics should be here though.
