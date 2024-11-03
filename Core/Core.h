@@ -56,8 +56,8 @@ void Core_Resume();
 // Handles more advanced step types (used by the debugger).
 // stepSize is to support stepping through compound instructions like fused lui+ladd (li).
 // Yes, our disassembler does support those.
-// Returns the new address.
-uint32_t Core_PerformStep(DebugInterface *mips, CPUStepType stepType, int stepSize);
+// Doesn't return the new address, as that's just mips->getPC().
+void Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize);
 
 // Refactor.
 void Core_DoSingleStep();

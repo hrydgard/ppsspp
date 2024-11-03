@@ -239,7 +239,7 @@ void Core_UpdateSingleStep() {
 }
 
 // See comment in header.
-u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
+void Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 	switch (stepType) {
 	case CPUStepType::Into:
 	{
@@ -250,7 +250,7 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		for (int i = 0; i < (newAddress - currentPc) / 4; i++) {
 			Core_DoSingleStep();
 		}
-		return cpu->GetPC();
+		return;
 	}
 	case CPUStepType::Over:
 	{
@@ -280,7 +280,7 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
-		return breakpointAddress;
+		break;
 	}
 	case CPUStepType::Out:
 	{
@@ -299,7 +299,7 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
 		if (frames.size() < 2) {
 			// Failure. PC not moving.
-			return cpu->GetPC();
+			return;
 		}
 
 		u32 breakpointAddress = frames[1].pc;
@@ -308,11 +308,11 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		CBreakPoints::SetSkipFirst(currentMIPS->pc);
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
-		return breakpointAddress;
+		break;
 	}
 	default:
 		// Not yet implemented
-		return cpu->GetPC();
+		break;
 	}
 }
 
