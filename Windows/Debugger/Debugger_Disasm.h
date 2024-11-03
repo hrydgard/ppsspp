@@ -59,6 +59,7 @@ public:
 
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
+	void NotifyStepDone();
 
 private:
 	CtrlDisAsmView *DisAsmView();
