@@ -217,6 +217,7 @@ enum class SystemNotification {
 	UI,
 	MEM_VIEW,
 	DISASSEMBLY,
+	DISASSEMBLY_AFTERSTEP,
 	DEBUG_MODE_CHANGE,
 	BOOT_DONE,  // this is sent from EMU thread! Make sure that Host handles it properly!
 	SYMBOL_MAP_UPDATED,

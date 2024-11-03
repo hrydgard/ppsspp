@@ -364,7 +364,7 @@ void Core_ProcessStepping() {
 		}
 
 		// Update disasm dialog.
-		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 	}
 }

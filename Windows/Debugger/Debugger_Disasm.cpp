@@ -209,15 +209,6 @@ void CDisasm::step(CPUStepType stepType) {
 
 	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
 	Core_PerformStep(cpu, stepType, stepSize);
-
-	Sleep(1);
-
-	// TODO: This should be called from ProcessStep
-	NotifyStepDone();
-}
-
-void CDisasm::NotifyStepDone() {
-	PostMessage(m_hDlg, WM_DEB_AFTERSTEP, 0, 0);
 }
 
 void CDisasm::runToLine() {
@@ -479,23 +470,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		NotifyMapLoaded();
 		break;
 
-	case WM_DEB_AFTERSTEP:
-	{
-		CtrlDisAsmView *ptr = DisAsmView();
-		// At this point, the step should be done, and the new address is just PC.
-		// Ideally, this part should be done as a reaction to an update message and not directly here.
-		// That way we could get rid of the sleep.
-		u32 oldAddress = ptr->getSelection();
-		u32 newAddress = cpu->GetPC();
-		if (newAddress > oldAddress && newAddress < oldAddress + 12) {
-			// Heuristic for when to scroll at the edge rather than jump the window.
-			ptr->scrollStepping(newAddress);
-		}
-		ptr->gotoAddr(newAddress);
-		UpdateDialog();
-		break;
-	}
-
 	case WM_DEB_GOTOWPARAM:
 	{
 		CtrlDisAsmView *ptr = DisAsmView();
@@ -531,6 +505,23 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DEB_UPDATE:
 		Update();
 		return TRUE;
+
+	case WM_DEB_AFTERSTEP:
+	{
+		CtrlDisAsmView *ptr = DisAsmView();
+		// At this point, the step should be done, and the new address is just PC.
+		// Ideally, this part should be done as a reaction to an update message and not directly here.
+		// That way we could get rid of the sleep.
+		u32 oldAddress = ptr->getSelection();
+		u32 newAddress = cpu->GetPC();
+		if (newAddress > oldAddress && newAddress < oldAddress + 12) {
+			// Heuristic for when to scroll at the edge rather than jump the window.
+			ptr->scrollStepping(newAddress);
+		}
+		ptr->gotoAddr(newAddress);
+		Update();
+		break;
+	}
 
 	case WM_DEB_TABPRESSED:
 		bottomTabs->NextTab(true);
