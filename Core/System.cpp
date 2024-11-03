@@ -118,6 +118,9 @@ static volatile bool pspIsIniting = false;
 static volatile bool pspIsQuitting = false;
 static volatile bool pspIsRebooting = false;
 
+// This is called on EmuThread before RunLoop.
+void Core_ProcessStepping(MIPSDebugInterface *cpu);
+
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
 }
@@ -386,7 +389,6 @@ void Core_UpdateState(CoreState newState) {
 	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
 		coreStatePending = true;
 	coreState = newState;
-	Core_UpdateSingleStep();
 }
 
 void Core_UpdateDebugStats(bool collectStats) {
@@ -629,7 +631,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
 		return;
 	} else if (coreState == CORE_STEPPING) {
-		Core_ProcessStepping();
+		Core_ProcessStepping(currentDebugMIPS);
 		return;
 	}
 

@@ -90,7 +90,7 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 
 	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	if (currentMIPS->inDelaySlot) {
-		Core_DoSingleStep();
+		Core_RequestSingleStep(CPUStepType::Into, 1);
 	}
 	Core_Resume();
 }
