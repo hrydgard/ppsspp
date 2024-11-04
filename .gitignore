@@ -57,6 +57,7 @@ include/glslang/build_info.h
 
 # For ppsspp.ini, etc.
 ppsspp.ini
+imgui.ini
 PPSSPPControls.dat
 
 # Qt Linguist files
@@ -101,6 +102,7 @@ local.properties
 r.sh
 Windows/compileData*
 Windows/*.ipch
+Windows/imgui.ini
 
 # For vim
 *.swp
