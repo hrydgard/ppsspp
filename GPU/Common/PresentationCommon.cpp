@@ -91,7 +91,7 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
 		// sets standard aspect ratio because actually stretching will just look silly.
 		bool globalRotated = g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270;
-		if (rotated == g_display.dp_yres > g_display.dp_xres) {
+		if (rotated == (g_display.dp_yres > g_display.dp_xres)) {
 			origRatio = frameRatio;
 		} else {
 			origRatio *= aspectRatioAdjust;
