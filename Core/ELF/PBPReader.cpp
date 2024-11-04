@@ -95,8 +95,10 @@ bool PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) const {
 		ERROR_LOG(Log::Loader, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 		if (bytes < expected) {
 			out->resize(bytes);
+			// should we still return true here?
 		}
 	}
+	return true;
 }
 
 PBPReader::~PBPReader() {
