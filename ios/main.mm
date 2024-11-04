@@ -417,7 +417,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
         dispatch_async(dispatch_get_main_queue(), ^{
 			[(AppDelegate *)[[UIApplication sharedApplication] delegate] restart:param1.c_str()];
 		});
-		break;
+		return true;
 
 	case SystemRequestType::EXIT_APP:
 		// NOTE: on iOS, this is considered a crash and not a valid way to exit.
@@ -508,8 +508,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
         });
 		return true;
 	default:
-		return false;
+		break;
 	}
+	return false;
 }
 
 void System_Toast(std::string_view text) {}
