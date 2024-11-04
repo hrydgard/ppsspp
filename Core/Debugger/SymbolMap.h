@@ -21,6 +21,7 @@
 #include <set>
 #include <map>
 #include <string>
+#include <functional>
 #include <mutex>
 
 #include "Common/CommonTypes.h"

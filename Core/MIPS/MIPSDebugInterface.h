@@ -40,7 +40,7 @@ public:
 	void setPC(unsigned int address) override { cpu->pc = address; }
 	void step() override {}
 	void runToBreakpoint() override;
-	int getColor(unsigned int address) override;
+	int getColor(unsigned int address, bool darkMode) const override;
 	std::string getDescription(unsigned int address) override;
 	bool initExpression(const char* exp, PostfixExpression& dest) override;
 	bool parseExpression(PostfixExpression& exp, u32& dest) override;

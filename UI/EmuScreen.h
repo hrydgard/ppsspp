@@ -29,6 +29,8 @@
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 
+#include "UI/ImDebugger/ImDebugger.h"
+
 struct AxisInput;
 
 class AsyncImageFileView;
@@ -128,6 +130,8 @@ private:
 	std::atomic<bool> doFrameAdvance_{};
 
 	ControlMapper controlMapper_;
+
+	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
 
 	bool imguiInited_ = false;
 	bool imguiVisible_ = false;

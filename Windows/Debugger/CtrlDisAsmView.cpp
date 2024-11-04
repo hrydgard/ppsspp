@@ -60,7 +60,7 @@ void CtrlDisAsmView::deinit()
 	//UnregisterClass(szClassName, hInst)
 }
 
-void CtrlDisAsmView::scanFunctions()
+void CtrlDisAsmView::scanVisibleFunctions()
 {
 	manager.analyze(windowStart,manager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
@@ -322,7 +322,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{
-		scanFunctions();
+		scanVisibleFunctions();
 
 		if (address == curAddress)
 			gotoAddr(manager.getNthNextAddress(curAddress,1));
@@ -527,7 +527,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		addressPositions[address] = rowY1;
 
 		// draw background
-		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address);
+		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address, false);
 		COLORREF textColor = 0x000000;
 
 		if (isInInterval(address,line.totalSize,debugger->getPC()))
@@ -641,7 +641,7 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 		return;
 	}
 
-	scanFunctions();
+	scanVisibleFunctions();
 	redraw();
 }
 
@@ -750,11 +750,11 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case VK_UP:
 			scrollWindow(-1);
-			scanFunctions();
+			scanVisibleFunctions();
 			break;
 		case VK_DOWN:
 			scrollWindow(1);
-			scanFunctions();
+			scanVisibleFunctions();
 			break;
 		case VK_NEXT:
 			setCurAddress(manager.getNthPreviousAddress(windowEnd,1),KeyDownAsync(VK_SHIFT));
@@ -836,7 +836,7 @@ void CtrlDisAsmView::scrollAddressIntoView()
 	else if (curAddress >= windowEnd)
 		windowStart =  manager.getNthPreviousAddress(curAddress,visibleRows-1);
 
-	scanFunctions();
+	scanVisibleFunctions();
 }
 
 bool CtrlDisAsmView::curAddressIsVisible()

@@ -73,8 +73,9 @@ using namespace std::placeholders;
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
+#include "UI/ImDebugger/ImDebugger.h"
 #include "Core/HLE/__sceAudio.h"
-#include "Core/HLE/proAdhoc.h"
+// #include "Core/HLE/proAdhoc.h"
 #include "Core/HW/Display.h"
 
 #include "UI/BackgroundAudio.h"
@@ -1240,6 +1241,9 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+// To avoid including proAdhoc.h, which includes a lot of stuff.
+int GetChatMessageCount();
+
 void EmuScreen::update() {
 	using namespace UI;
 
@@ -1635,18 +1639,20 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (imguiVisible_ && !imguiInited_) {
 		imguiInited_ = true;
+		imDebugger_ = std::make_unique<ImDebugger>();
 		ImGui_ImplThin3d_Init(draw);
 	}
 
 	if (imguiVisible_ && imguiInited_) {
+		_dbg_assert_(imDebugger_);
+
 		ImGui_ImplPlatform_NewFrame();
 		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
-		// Draw imgui on top. For now, all we have is the demo window.
 		ImGui::NewFrame();
-		ImGui::ShowDemoWindow(nullptr);
-		ImGui::Render();
+		imDebugger_->Frame(currentDebugMIPS);
 
+		ImGui::Render();
 		ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
 	}
 	return flags;

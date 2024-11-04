@@ -100,7 +100,7 @@ public:
 	void scrollAddressIntoView();
 	bool curAddressIsVisible();
 	void redraw();
-	void scanFunctions();
+	void scanVisibleFunctions();
 	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest, int bufsize);
@@ -135,7 +135,7 @@ public:
 		}
 
 		setCurAddress(newAddress);
-		scanFunctions();
+		scanVisibleFunctions();
 		redraw();
 	}
 	void gotoPC()
@@ -162,7 +162,7 @@ public:
 		else
 			windowStart = manager.getNthNextAddress(windowStart,lines);
 
-		scanFunctions();
+		scanVisibleFunctions();
 		redraw();
 	}
 

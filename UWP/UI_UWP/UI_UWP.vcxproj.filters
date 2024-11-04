@@ -39,6 +39,12 @@
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImDisasmView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -79,5 +85,16 @@
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
     <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
+    <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImDisasmView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ImDebugger">
+      <UniqueIdentifier>{4013cb89-6145-451c-9cb1-d63d01f66bd5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

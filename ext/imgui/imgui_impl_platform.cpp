@@ -8,7 +8,7 @@
 #include "imgui_impl_platform.h"
 
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO &io = ImGui::GetIO();
 
 	if (key.flags & KEY_DOWN) {
 		// Specially handle scroll events and any other special keys.

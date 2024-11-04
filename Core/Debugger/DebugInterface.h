@@ -39,7 +39,7 @@ public:
 	virtual void setPC(unsigned int address) {}
 	virtual void step() {}
 	virtual void runToBreakpoint() {}
-	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
+	virtual int getColor(unsigned int address, bool darkMode) const {return darkMode ? 0xFF101010 : 0xFFFFFFFF;}
 	virtual std::string getDescription(unsigned int address) {return "";}
 	virtual bool initExpression(const char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
