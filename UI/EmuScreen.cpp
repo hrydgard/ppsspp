@@ -670,6 +670,11 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	switch (virtualKeyCode) {
+	case VIRTKEY_TOGGLE_DEBUGGER:
+		if (down) {
+			imguiVisible_ = !imguiVisible_;
+		}
+		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down) {
 			if (coreState == CORE_STEPPING) {
@@ -946,13 +951,23 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
-
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_GRAVE) {  // The key to the left of '1' on a standard keyboard.
-		// it's ok that this is unsynchronized.
-		imguiVisible_ = !imguiVisible_;
-	}
-
 	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
+		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
+		// We need to manually implement it here :/
+		if (imguiVisible_ && imguiInited_ && (key.flags & KEY_DOWN)) {
+			InputMapping mapping(key.deviceId, key.keyCode);
+			std::vector<int> pspButtons;
+			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+			if (mappingFound) {
+				for (auto b : pspButtons) {
+					if (b == VIRTKEY_TOGGLE_DEBUGGER) {
+						imguiVisible_ = false;
+						return true;
+					}
+				}
+			}
+		}
+
 		return UIScreen::UnsyncKey(key);
 	}
 	return controlMapper_.Key(key, &pauseTrigger_);
@@ -1613,12 +1628,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		ImGui_ImplPlatform_NewFrame();
 		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
-		// Draw imgui on top
+		// Draw imgui on top. For now, all we have is the demo window.
 		ImGui::NewFrame();
 		ImGui::ShowDemoWindow(nullptr);
-		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-		ImGui::End();
 		ImGui::Render();
 
 		ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
