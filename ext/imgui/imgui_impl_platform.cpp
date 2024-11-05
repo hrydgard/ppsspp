@@ -42,11 +42,17 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 	}
 	if (touch.flags & TOUCH_DOWN) {
 		io.AddMousePosEvent(x, y);
-		io.AddMouseButtonEvent(0, true);
+		if (touch.buttons & 1)
+			io.AddMouseButtonEvent(0, true);
+		if (touch.buttons & 2)
+			io.AddMouseButtonEvent(1, true);
 	}
 	if (touch.flags & TOUCH_UP) {
 		io.AddMousePosEvent(x, y);
-		io.AddMouseButtonEvent(0, false);
+		if (touch.buttons & 1)
+			io.AddMouseButtonEvent(0, false);
+		if (touch.buttons & 2)
+			io.AddMouseButtonEvent(1, false);
 	}
 }
 

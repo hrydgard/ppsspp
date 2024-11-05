@@ -954,15 +954,14 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
-		if (imguiVisible_ && imguiInited_ && (key.flags & KEY_DOWN)) {
+		if (imguiVisible_ && imguiInited_) {
 			InputMapping mapping(key.deviceId, key.keyCode);
 			std::vector<int> pspButtons;
 			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
 			if (mappingFound) {
 				for (auto b : pspButtons) {
-					if (b == VIRTKEY_TOGGLE_DEBUGGER) {
-						imguiVisible_ = false;
-						return true;
+					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+						return controlMapper_.Key(key, &pauseTrigger_);
 					}
 				}
 			}
