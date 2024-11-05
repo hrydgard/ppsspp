@@ -32,6 +32,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "ext/lua/lapi.h"
+
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/File/Path.h"
@@ -526,6 +528,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+	// Spawn a lua instance
+
 	if (!PSP_InitStart(coreParam, error_string))
 		return false;
 
