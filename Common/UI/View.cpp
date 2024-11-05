@@ -250,7 +250,7 @@ bool Clickable::Touch(const TouchInput &input) {
 	}
 
 	// Ignore buttons other than the left one.
-	if ((input.flags & TOUCH_MOUSE) && input.id != 0) {
+	if ((input.flags & TOUCH_MOUSE) && (input.buttons & 1) == 0) {
 		return contains;
 	}
 
