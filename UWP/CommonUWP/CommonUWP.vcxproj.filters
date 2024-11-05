@@ -103,6 +103,9 @@
     <Filter Include="ext\at3_standalone">
       <UniqueIdentifier>{47e3b9c8-3a5f-4c78-b62b-3fa65bf23594}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\imgui">
+      <UniqueIdentifier>{06799036-06fd-4b7b-8c1d-5bdad62c2a24}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -492,6 +495,27 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\at3_standalone\mem.cpp">
       <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_tables.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_widgets.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_demo.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_draw.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_impl_platform.cpp">
+      <Filter>ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\imgui\imgui_impl_thin3d.cpp">
+      <Filter>ext\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -944,6 +968,30 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\at3_standalone\mem.h">
       <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imstb_rectpack.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imstb_textedit.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imstb_truetype.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imconfig.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_internal.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_impl_platform.h">
+      <Filter>ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\imgui\imgui_impl_thin3d.h">
+      <Filter>ext\imgui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

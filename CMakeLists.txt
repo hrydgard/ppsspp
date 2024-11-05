@@ -913,7 +913,7 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
-target_link_libraries(Common Ext::Snappy cpu_features)
+target_link_libraries(Common Ext::Snappy cpu_features imgui)
 
 if(ARM64)
     if(ANDROID)

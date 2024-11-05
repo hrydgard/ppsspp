@@ -131,6 +131,9 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int indexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void BeginFrame(DebugFlags debugFlags) override;
@@ -235,6 +238,7 @@ private:
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
 	Buffer *upBuffer_ = nullptr;
+	Buffer *upIBuffer_ = nullptr;
 
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
@@ -254,6 +258,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	// We no longer support Windows Phone.
 	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
+
+	caps_.coordConvention = CoordConvention::Direct3D11;
 
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
@@ -351,6 +357,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	const size_t UP_MAX_BYTES = 65536 * 24;
 
 	upBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	upIBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
 	IDXGIDevice1 *dxgiDevice1 = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void **>(&dxgiDevice1));
@@ -364,6 +371,7 @@ D3D11DrawContext::~D3D11DrawContext() {
 	DestroyPresets();
 
 	upBuffer_->Release();
+	upIBuffer_->Release();
 	packTexture_->Release();
 
 	// Release references.
@@ -1347,14 +1355,47 @@ void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
 }
 
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
-	ApplyCurrentState();
-
 	int byteSize = vertexCount * curPipeline_->input->stride;
 
 	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
 	BindVertexBuffer(upBuffer_, 0);
 	int offset = 0;
 	Draw(vertexCount, offset);
+}
+
+void D3D11DrawContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {
+	int vbyteSize = vertexCount * curPipeline_->input->stride;
+	int ibyteSize = indexCount * sizeof(u16);
+
+	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, vbyteSize, Draw::UPDATE_DISCARD);
+	BindVertexBuffer(upBuffer_, 0);
+
+	UpdateBuffer(upIBuffer_, (const uint8_t *)idata, 0, ibyteSize, Draw::UPDATE_DISCARD);
+	BindIndexBuffer(upIBuffer_, 0);
+	DrawIndexed(indexCount, 0);
+}
+
+void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+	int vbyteSize = vertexCount * curPipeline_->input->stride;
+	int ibyteSize = indexCount * sizeof(u16);
+
+	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, vbyteSize, Draw::UPDATE_DISCARD);
+	BindVertexBuffer(upBuffer_, 0);
+
+	UpdateBuffer(upIBuffer_, (const uint8_t *)idata, 0, ibyteSize, Draw::UPDATE_DISCARD);
+	BindIndexBuffer(upIBuffer_, 0);
+
+	ApplyCurrentState();
+
+	for (int i = 0; i < draws.size(); i++) {
+		D3D11_RECT rc;
+		rc.left = draws[i].clipx;
+		rc.top = draws[i].clipy;
+		rc.right = draws[i].clipx + draws[i].clipw;
+		rc.bottom = draws[i].clipy + draws[i].cliph;
+		context_->RSSetScissorRects(1, &rc);
+		context_->DrawIndexed(draws[i].indexCount, draws[i].indexOffset, 0);
+	}
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {

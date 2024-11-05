@@ -1016,38 +1016,6 @@ void CallbackPostRender(UIContext *dc, void *userdata) {
 	}
 }
 
-static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
-	// TODO: Should be able to share the y-flip logic here with the one in postprocessing/presentation, for example.
-	Matrix4x4 ortho;
-	switch (GetGPUBackend()) {
-	case GPUBackend::VULKAN:
-		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
-		break;
-	case GPUBackend::DIRECT3D9:
-		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		Matrix4x4 translation;
-		// Account for the small window adjustment.
-		translation.setTranslation(Vec3(
-			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
-			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
-		ortho = translation * ortho;
-		break;
-	case GPUBackend::DIRECT3D11:
-		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		break;
-	case GPUBackend::OPENGL:
-	default:
-		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		break;
-	}
-
-	// Compensate for rotated display if needed.
-	if (g_display.rotation != DisplayRotation::ROTATE_0) {
-		ortho = ortho * g_display.rot_matrix;
-	}
-	return ortho;
-}
-
 static void SendMouseDeltaAxis();
 
 void NativeFrame(GraphicsContext *graphicsContext) {
@@ -1115,8 +1083,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_requestManager.ProcessRequests();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
-	// TODO: This should be moved into the draw context...
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres);
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
 
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
@@ -1413,10 +1380,10 @@ static void SendMouseDeltaAxis() {
 }
 
 void NativeMouseDelta(float dx, float dy) {
-	// Remap, shared code. Then send it as a regular axis event.
 	if (!g_Config.bMouseControl)
 		return;
 
+	// Remap, shared code. Then send it as a regular axis event.
 	MouseEventProcessor::ProcessDelta(time_now_d(), dx, dy);
 
 	SendMouseDeltaAxis();

@@ -2,6 +2,9 @@
 
 #include "Common/Common.h"
 
+#include <functional>
+#include <cstdint>
+
 // Flags and structs shared between backends that haven't found a good home.
 
 enum class InvalidationFlags {
@@ -35,3 +38,11 @@ struct FrameTimeData {
 	double presentMargin;
 };
 constexpr size_t FRAME_TIME_HISTORY_LENGTH = 32;
+
+// Different APIs use different coordinate conventions
+enum class CoordConvention {
+	Direct3D9,
+	Direct3D11,
+	Vulkan,
+	OpenGL,
+};

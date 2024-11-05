@@ -94,6 +94,10 @@ using namespace std::placeholders;
 #include "UI/ChatScreen.h"
 #include "UI/DebugOverlay.h"
 
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
+#include "ext/imgui/imgui_impl_platform.h"
+
 #include "Core/Reporting.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -198,6 +202,10 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Usually, we don't want focus movement enabled on this screen, so disable on start.
 	// Only if you open chat or dev tools do we want it to start working.
 	UI::EnableFocusMovement(false);
+
+	// TODO: Do this only on demand.
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
@@ -438,6 +446,11 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	ImGui_ImplThin3d_Shutdown(draw);
+
+	ImGui::DestroyContext();
+
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
@@ -642,7 +655,9 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	GamepadTouch();
+	if (!(imguiVisible_ && imguiInited_)) {
+		GamepadTouch();
+	}
 
 	if (root_) {
 		UIScreen::UnsyncTouch(touch);
@@ -655,6 +670,11 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
 	switch (virtualKeyCode) {
+	case VIRTKEY_TOGGLE_DEBUGGER:
+		if (down) {
+			imguiVisible_ = !imguiVisible_;
+		}
+		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down) {
 			if (coreState == CORE_STEPPING) {
@@ -931,8 +951,22 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
+	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
+		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
+		// We need to manually implement it here :/
+		if (imguiVisible_ && imguiInited_) {
+			InputMapping mapping(key.deviceId, key.keyCode);
+			std::vector<int> pspButtons;
+			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+			if (mappingFound) {
+				for (auto b : pspButtons) {
+					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+						return controlMapper_.Key(key, &pauseTrigger_);
+					}
+				}
+			}
+		}
 
-	if (UI::IsFocusMovementEnabled()) {
 		return UIScreen::UnsyncKey(key);
 	}
 	return controlMapper_.Key(key, &pauseTrigger_);
@@ -940,6 +974,10 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
+
+	if (!retval && imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_KeyEvent(key);
+	}
 
 	if (!retval && (key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 		if (chatMenu_)
@@ -951,6 +989,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	}
 
 	return retval;
+}
+
+void EmuScreen::touch(const TouchInput &touch) {
+	if (imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_TouchEvent(touch);
+	} else {
+		UIScreen::touch(touch);
+	}
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1570,6 +1616,23 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (!(mode & ScreenRenderMode::TOP)) {
 		darken();
+	}
+
+	if (imguiVisible_ && !imguiInited_) {
+		imguiInited_ = true;
+		ImGui_ImplThin3d_Init(draw);
+	}
+
+	if (imguiVisible_ && imguiInited_) {
+		ImGui_ImplPlatform_NewFrame();
+		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
+
+		// Draw imgui on top. For now, all we have is the demo window.
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow(nullptr);
+		ImGui::Render();
+
+		ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
 	}
 	return flags;
 }

@@ -581,6 +581,7 @@ struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
 
+	CoordConvention coordConvention;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;
@@ -691,6 +692,15 @@ ENUM_CLASS_BITOPS(DebugFlags);
 struct BackendState {
 	u32 passes;
 	bool valid;
+};
+
+struct ClippedDraw {
+	int indexOffset;
+	int indexCount;
+	s16 clipx;
+	s16 clipy;
+	s16 clipw;
+	s16 cliph;
 };
 
 class DrawContext {
@@ -827,7 +837,9 @@ public:
 	virtual void Draw(int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
-	
+	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) = 0;  // Supports 32-bit indices, for IMGUI use.
+	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {}
+
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;

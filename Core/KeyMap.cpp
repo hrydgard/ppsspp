@@ -436,6 +436,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #if !defined(MOBILE_DEVICE)
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
+	{VIRTKEY_TOGGLE_DEBUGGER, "Toggle Debugger"},
 
 	{VIRTKEY_OPENCHAT, "OpenChat" },
 

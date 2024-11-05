@@ -443,6 +443,8 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -572,6 +574,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.textureDepthSupported = true;
 	}
 
+	caps_.coordConvention = CoordConvention::OpenGL;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
 	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
@@ -1415,6 +1418,59 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
 	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
+}
+
+void OpenGLContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {
+	_assert_(curPipeline_->inputLayout != nullptr);
+	int stride = curPipeline_->inputLayout->stride;
+	uint32_t vdataSize = stride * vertexCount;
+	uint32_t idataSize = indexCount * sizeof(u16);
+
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+
+	GLRBuffer *vbuf;
+	uint32_t voffset;
+	uint8_t *dest = frameData.push->Allocate(vdataSize, 4, &vbuf, &voffset);
+	memcpy(dest, vdata, vdataSize);
+
+	GLRBuffer *ibuf;
+	uint32_t ioffset;
+	dest = frameData.push->Allocate(idataSize, 4, &ibuf, &ioffset);
+	memcpy(dest, idata, idataSize);
+
+	ApplySamplers();
+	renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset, curPipeline_->prim, 0, GL_UNSIGNED_SHORT, vertexCount);
+}
+
+void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+	_assert_(curPipeline_->inputLayout != nullptr);
+	int stride = curPipeline_->inputLayout->stride;
+	uint32_t vdataSize = stride * vertexCount;
+	int indexSize = sizeof(u16);
+	uint32_t idataSize = indexCount * indexSize;
+
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+
+	GLRBuffer *vbuf;
+	uint32_t voffset;
+	uint8_t *dest = frameData.push->Allocate(vdataSize, 4, &vbuf, &voffset);
+	memcpy(dest, vdata, vdataSize);
+
+	GLRBuffer *ibuf;
+	uint32_t ioffset;
+	dest = frameData.push->Allocate(idataSize, 4, &ibuf, &ioffset);
+	memcpy(dest, idata, idataSize);
+
+	ApplySamplers();
+	for (auto &draw : draws) {
+		GLRect2D scissor;
+		scissor.x = draw.clipx;
+		scissor.y = draw.clipy;
+		scissor.w = draw.clipw;
+		scissor.h = draw.cliph;
+		renderManager_.SetScissor(scissor);
+		renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset + draw.indexOffset * indexSize, curPipeline_->prim, 0, GL_UNSIGNED_SHORT, draw.indexCount);
+	}
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

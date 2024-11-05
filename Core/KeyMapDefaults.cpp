@@ -45,6 +45,7 @@ static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
 	{VIRTKEY_REWIND      , NKCODE_DEL},
 	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
+	{VIRTKEY_TOGGLE_DEBUGGER, NKCODE_F12},
 };
 
 static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {

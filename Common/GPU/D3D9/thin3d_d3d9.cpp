@@ -573,6 +573,7 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
@@ -716,6 +717,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ERROR_LOG(Log::G3D,  "Failed to get adapter identifier: %d", adapterId);
 	}
+
+	caps_.coordConvention = CoordConvention::Direct3D9;
+
 	switch (identifier_.VendorId) {
 	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case 0x1002:
@@ -1170,6 +1174,16 @@ void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	device_->DrawPrimitiveUP(curPipeline_->prim, D3DPrimCount(curPipeline_->prim, vertexCount), vdata, curPipeline_->inputLayout->GetStride());
+}
+
+void D3D9Context::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {
+	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
+
+	device_->DrawIndexedPrimitiveUP(curPipeline_->prim, 0, vertexCount, D3DPrimCount(curPipeline_->prim, indexCount),
+		idata, D3DFMT_INDEX16,
+		vdata, curPipeline_->inputLayout->GetStride());
 }
 
 static uint32_t SwapRB(uint32_t c) {
