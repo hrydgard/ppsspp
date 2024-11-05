@@ -190,9 +190,9 @@ void UIScreen::deviceLost() {
 		root_->DeviceLost();
 }
 
-void UIScreen::deviceRestored() {
+void UIScreen::deviceRestored(Draw::DrawContext *draw) {
 	if (root_)
-		root_->DeviceRestored(screenManager()->getDrawContext());
+		root_->DeviceRestored(draw);
 }
 
 void UIScreen::SetupViewport() {

@@ -155,9 +155,10 @@ void ScreenManager::deviceLost() {
 		iter.screen->deviceLost();
 }
 
-void ScreenManager::deviceRestored() {
+void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
+	draw_ = draw;
 	for (auto &iter : stack_)
-		iter.screen->deviceRestored();
+		iter.screen->deviceRestored(draw);
 }
 
 void ScreenManager::resized() {

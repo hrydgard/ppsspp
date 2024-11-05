@@ -830,9 +830,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
 	g_screenManager->setUIContext(uiContext);
-	g_screenManager->setDrawContext(g_draw);
 	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
-	g_screenManager->deviceRestored();
+	g_screenManager->deviceRestored(g_draw);
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);

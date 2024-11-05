@@ -7,10 +7,6 @@
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
 
-// Forward Declarations
-bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
-void ImGui_ImplThin3d_DestroyDeviceObjects(Draw::DrawContext *draw);
-
 Lin::Matrix4x4 g_drawMatrix;
 
 struct ImGui_ImplThin3d_Data {
@@ -122,90 +118,6 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	draw->SetScissorRect(0, 0, fb_width, fb_height);
 }
 
-bool ImGui_ImplThin3d_CreateFontsTexture(Draw::DrawContext *draw) {
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
-
-	// Destroy existing texture (if any)
-	if (bd->fontImage) {
-		ImGui_ImplThin3d_DestroyFontsTexture(draw);
-	}
-
-	unsigned char* pixels;
-	int width, height;
-	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-	size_t upload_size = width * height * 4 * sizeof(char);
-
-	// Create the Image:
-	{
-		Draw::TextureDesc desc;
-		desc.width = width;
-		desc.height = height;
-		desc.mipLevels = 1;
-		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		desc.type = Draw::TextureType::LINEAR2D;
-		desc.depth = 1;
-		desc.tag = "imgui-font";
-		desc.initData.push_back((const uint8_t *)pixels);
-		bd->fontImage = draw->CreateTexture(desc);
-	}
-
-	// Store our identifier
-
-	io.Fonts->SetTexID((ImTextureID)bd->fontImage);
-	return true;
-}
-
-// You probably never need to call this, as it is called by ImGui_ImplThin3d_CreateFontsTexture() and ImGui_ImplThin3d_Shutdown().
-void ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw) {
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
-	if (bd->fontImage) {
-		bd->fontImage->Release();
-		io.Fonts->SetTexID(0);
-	}
-}
-
-static void ImGui_ImplThin3d_CreatePipeline(Draw::DrawContext *draw) {
-	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
-
-	using namespace Draw;
-
-	static const Draw::InputLayoutDesc ilDesc = {
-		sizeof(ImDrawVert),
-		{
-			{ SEM_POSITION, DataFormat::R32G32_FLOAT, offsetof(ImDrawVert, pos) },
-			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, offsetof(ImDrawVert, uv) },
-			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, offsetof(ImDrawVert, col) },
-		},
-	};
-	InputLayout *inputLayout = draw->CreateInputLayout(ilDesc);
-
-	BlendState *blend = draw->CreateBlendState({ true, 0xF,
-		BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
-		BlendFactor::ONE, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
-		});
-
-	DepthStencilStateDesc dsDesc{};
-	DepthStencilState *depthStencil = draw->CreateDepthStencilState(dsDesc);
-	RasterState *rasterNoCull = draw->CreateRasterState({});
-
-	ShaderModule *vs_texture_color_2d = draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-	ShaderModule *fs_texture_color_2d = draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D);
-
-	PipelineDesc pipelineDesc{
-		Primitive::TRIANGLE_LIST,
-		{ vs_texture_color_2d, fs_texture_color_2d },
-		inputLayout,
-		depthStencil,
-		blend,
-		rasterNoCull,
-		&vsTexColBufDesc
-	};
-
-	bd->pipeline = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
-}
-
 bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 
@@ -222,19 +134,87 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		bd->fontSampler = draw->CreateSamplerState(desc);
 	}
 
-	ImGui_ImplThin3d_CreatePipeline(draw);
-	ImGui_ImplThin3d_CreateFontsTexture(draw);
+	if (!bd->pipeline) {
+		ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
+
+		using namespace Draw;
+
+		static const Draw::InputLayoutDesc ilDesc = {
+			sizeof(ImDrawVert),
+			{
+				{ SEM_POSITION, DataFormat::R32G32_FLOAT, offsetof(ImDrawVert, pos) },
+				{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, offsetof(ImDrawVert, uv) },
+				{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, offsetof(ImDrawVert, col) },
+			},
+		};
+		InputLayout *inputLayout = draw->CreateInputLayout(ilDesc);
+
+		BlendState *blend = draw->CreateBlendState({ true, 0xF,
+			BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
+			BlendFactor::ONE, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
+			});
+
+		DepthStencilStateDesc dsDesc{};
+		DepthStencilState *depthStencil = draw->CreateDepthStencilState(dsDesc);
+		RasterState *rasterNoCull = draw->CreateRasterState({});
+
+		ShaderModule *vs_texture_color_2d = draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+		ShaderModule *fs_texture_color_2d = draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D);
+
+		PipelineDesc pipelineDesc{
+			Primitive::TRIANGLE_LIST,
+			{ vs_texture_color_2d, fs_texture_color_2d },
+			inputLayout,
+			depthStencil,
+			blend,
+			rasterNoCull,
+			&vsTexColBufDesc
+		};
+
+		bd->pipeline = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
+	}
+
+	if (!bd->fontImage) {
+		ImGuiIO& io = ImGui::GetIO();
+		ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
+
+		unsigned char* pixels;
+		int width, height;
+		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+		size_t upload_size = width * height * 4 * sizeof(char);
+
+		Draw::TextureDesc desc;
+		desc.width = width;
+		desc.height = height;
+		desc.mipLevels = 1;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.depth = 1;
+		desc.tag = "imgui-font";
+		desc.initData.push_back((const uint8_t *)pixels);
+		bd->fontImage = draw->CreateTexture(desc);
+		io.Fonts->SetTexID((ImTextureID)bd->fontImage);
+	}
 
 	return true;
 }
 
-void ImGui_ImplThin3d_DestroyDeviceObjects(Draw::DrawContext *draw) {
+void ImGui_ImplThin3d_DestroyDeviceObjects() {
+	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
-	ImGui_ImplThin3d_DestroyFontsTexture(draw);
-	bd->pipeline->Release();
-	bd->pipeline = nullptr;
-	bd->fontSampler->Release();
-	bd->fontSampler = nullptr;
+	if (bd->fontImage) {
+		bd->fontImage->Release();
+		bd->fontImage = nullptr;
+		io.Fonts->SetTexID(0);
+	}
+	if (bd->pipeline) {
+		bd->pipeline->Release();
+		bd->pipeline = nullptr;
+	}
+	if (bd->fontSampler) {
+		bd->fontSampler->Release();
+		bd->fontSampler = nullptr;
+	}
 }
 
 bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw) {
@@ -251,12 +231,12 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw) {
 	return true;
 }
 
-void ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw) {
+void ImGui_ImplThin3d_Shutdown() {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 	IM_ASSERT(bd != nullptr && "No renderer backend to shutdown, or already shutdown?");
 	ImGuiIO& io = ImGui::GetIO();
 
-	ImGui_ImplThin3d_DestroyDeviceObjects(draw);
+	ImGui_ImplThin3d_DestroyDeviceObjects();
 	io.BackendRendererName = nullptr;
 	io.BackendRendererUserData = nullptr;
 	io.BackendFlags &= ~ImGuiBackendFlags_RendererHasVtxOffset;
@@ -266,8 +246,9 @@ void ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw) {
 void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix) {
 	ImGui_ImplThin3d_Data* bd = ImGui_ImplThin3d_GetBackendData();
 	IM_ASSERT(bd != nullptr && "Context or backend not initialized! Did you call ImGui_ImplThin3d_Init()?");
-	if (!bd->fontImage)
-		ImGui_ImplThin3d_CreateFontsTexture(draw);
+
+	// This one checks if objects already have been created, so ok to call every time.
+	ImGui_ImplThin3d_CreateDeviceObjects(draw);
 	g_drawMatrix = drawMatrix;
 }
 

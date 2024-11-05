@@ -2,6 +2,8 @@
 #include "Common/Input/KeyCodes.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
+#include "Common/TimeUtil.h"
+
 
 #include "imgui_impl_platform.h"
 
@@ -61,9 +63,18 @@ void ImGui_ImplPlatform_AxisEvent(const AxisInput &axis) {
 }
 
 void ImGui_ImplPlatform_NewFrame() {
+	static double lastTime = 0.0;
+	if (lastTime == 0.0) {
+		lastTime = time_now_d();
+	}
+
+	double now = time_now_d();
+
 	ImGuiIO &io = ImGui::GetIO();
 	io.DisplaySize = ImVec2(g_display.pixel_xres, g_display.pixel_yres);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+	io.DeltaTime = now - lastTime;
+	lastTime = now;
 }
 
 // Written by chatgpt

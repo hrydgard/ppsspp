@@ -35,12 +35,11 @@
 
 // Called by user code
 IMGUI_IMPL_API bool         ImGui_ImplThin3d_Init(Draw::DrawContext *draw);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_Shutdown(Draw::DrawContext *draw);
+IMGUI_IMPL_API void         ImGui_ImplThin3d_Shutdown();
 IMGUI_IMPL_API void         ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw);
-IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateFontsTexture(Draw::DrawContext *draw);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyFontsTexture(Draw::DrawContext *draw);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_SetMinImageCount(uint32_t min_image_count); // To override MinImageCount after initialization (e.g. if swap chain is recreated)
+IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
+IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyDeviceObjects();
 
 IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTexture(Draw::Texture *texture);
 IMGUI_IMPL_API Draw::Texture *ImGui_ImplThin3d_RemoveTexture(ImTextureID texture);
