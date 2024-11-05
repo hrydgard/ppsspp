@@ -118,7 +118,7 @@ static void __EmuScreenVblank()
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
 		frameStep_ = false;
-		Core_EnableStepping(true, "ui.frameAdvance", 0);
+		Core_Break("ui.frameAdvance", 0);
 		lastNumFlips = gpuStats.numFlips;
 	}
 #ifndef MOBILE_DEVICE
@@ -495,7 +495,7 @@ static void AfterSaveStateAction(SaveState::Status status, std::string_view mess
 
 static void AfterStateBoot(SaveState::Status status, std::string_view message, void *ignored) {
 	AfterSaveStateAction(status, message, ignored);
-	Core_EnableStepping(false);
+	Core_Resume();
 	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
@@ -658,7 +658,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	case VIRTKEY_FASTFORWARD:
 		if (down) {
 			if (coreState == CORE_STEPPING) {
-				Core_EnableStepping(false);
+				Core_Resume();
 			}
 			PSP_CoreParameter().fastForward = true;
 		} else {
@@ -1452,10 +1452,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// If game is running, pause emulation immediately. Otherwise, advance a single frame.
 			if (Core_IsStepping()) {
 				frameStep_ = true;
-				Core_EnableStepping(false);
+				Core_Resume();
 			} else if (!frameStep_) {
 				lastNumFlips = gpuStats.numFlips;
-				Core_EnableStepping(true, "ui.frameAdvance", 0);
+				Core_Break("ui.frameAdvance", 0);
 			}
 		}
 	}

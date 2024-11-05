@@ -330,7 +330,7 @@ namespace MainWindow {
 		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
-				Core_EnableStepping(true, "ui.boot", 0);
+				Core_Break("ui.boot", 0);
 		}
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -349,7 +349,7 @@ namespace MainWindow {
 
 	void BrowseAndBootDone(std::string filename) {
 		if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
-			Core_EnableStepping(false);
+			Core_Resume();
 		}
 		filename = ReplaceAll(filename, "\\", "/");
 		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename);
@@ -475,12 +475,12 @@ namespace MainWindow {
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
-					Core_EnableStepping(false);
+					Core_Resume();
 			} else {
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 				else
-					Core_EnableStepping(true, "ui.break", 0);
+					Core_Break("ui.break", 0);
 			}
 			noFocusPause = !noFocusPause;	// If we pause, override pause on lost focus
 			break;
@@ -491,7 +491,7 @@ namespace MainWindow {
 
 		case ID_EMULATION_STOP:
 			if (Core_IsStepping())
-				Core_EnableStepping(false);
+				Core_Resume();
 
 			Core_Stop();
 			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
@@ -500,7 +500,7 @@ namespace MainWindow {
 
 		case ID_EMULATION_RESET:
 			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			Core_EnableStepping(false);
+			Core_Resume();
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:

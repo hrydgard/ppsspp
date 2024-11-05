@@ -232,7 +232,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		RestoreRoundingMode(true);
 		SaveStaticRegisters();
 		MovFromPC(X10);
-		QuickCallFunction(&Core_Break, SCRATCH2);
+		QuickCallFunction(&Core_BreakException, SCRATCH2);
 		LoadStaticRegisters();
 		ApplyRoundingMode(true);
 		MovFromPC(SCRATCH1);

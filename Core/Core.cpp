@@ -41,6 +41,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
 #include "Core/MIPS/MIPSTracer.h"
@@ -54,7 +55,7 @@ static std::condition_variable m_StepCond;
 static std::mutex m_hStepMutex;
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
-static bool singleStepPending = false;
+static int g_singleStepsPending = 0;
 static int steppingCounter = 0;
 static const char *steppingReason = "";
 static uint32_t steppingAddress = 0;
@@ -228,7 +229,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 void Core_DoSingleStep() {
 	std::lock_guard<std::mutex> guard(m_hStepMutex);
-	singleStepPending = true;
+	g_singleStepsPending++;
 	m_StepCond.notify_all();
 }
 
@@ -237,24 +238,95 @@ void Core_UpdateSingleStep() {
 	m_StepCond.notify_all();
 }
 
-void Core_SingleStep() {
-	Core_ResetException();
-	currentMIPS->SingleStep();
-	if (coreState == CORE_STEPPING)
-		steppingCounter++;
+// See comment in header.
+u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
+	switch (stepType) {
+	case CPUStepType::Into:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 newAddress = currentPc + stepSize;
+		// If the current PC is on a breakpoint, the user still wants the step to happen.
+		CBreakPoints::SetSkipFirst(currentPc);
+		for (int i = 0; i < (newAddress - currentPc) / 4; i++) {
+			Core_DoSingleStep();
+		}
+		return cpu->GetPC();
+	}
+	case CPUStepType::Over:
+	{
+		u32 currentPc = cpu->GetPC();
+		u32 breakpointAddress = currentPc + stepSize;
+
+		CBreakPoints::SetSkipFirst(currentPc);
+
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
+		if (info.isBranch) {
+			if (info.isConditional == false) {
+				if (info.isLinkedBranch) { // jal, jalr
+					// it's a function call with a delay slot - skip that too
+					breakpointAddress += cpu->getInstructionSize(0);
+				} else {					// j, ...
+					// in case of absolute branches, set the breakpoint at the branch target
+					breakpointAddress = info.branchTarget;
+				}
+			} else {						// beq, ...
+				if (info.conditionMet) {
+					breakpointAddress = info.branchTarget;
+				} else {
+					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
+				}
+			}
+		}
+
+		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		return breakpointAddress;
+	}
+	case CPUStepType::Out:
+	{
+		u32 entry = cpu->GetPC();
+		u32 stackTop = 0;
+
+		auto threads = GetThreadsInfo();
+		for (size_t i = 0; i < threads.size(); i++) {
+			if (threads[i].isCurrent) {
+				entry = threads[i].entrypoint;
+				stackTop = threads[i].initialStack;
+				break;
+			}
+		}
+
+		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
+		if (frames.size() < 2) {
+			// Failure. PC not moving.
+			return cpu->GetPC();
+		}
+
+		u32 breakpointAddress = frames[1].pc;
+
+		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+		CBreakPoints::SetSkipFirst(currentMIPS->pc);
+		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		return breakpointAddress;
+	}
+	default:
+		// Not yet implemented
+		return cpu->GetPC();
+	}
 }
 
-static inline bool Core_WaitStepping() {
+static inline int Core_WaitStepping() {
 	std::unique_lock<std::mutex> guard(m_hStepMutex);
 	// We only wait 16ms so that we can still draw UI or react to events.
 	double sleepStart = time_now_d();
-	if (!singleStepPending && coreState == CORE_STEPPING)
+	if (!g_singleStepsPending && coreState == CORE_STEPPING)
 		m_StepCond.wait_for(guard, std::chrono::milliseconds(16));
 	double sleepEnd = time_now_d();
 	DisplayNotifySleep(sleepEnd - sleepStart);
 
-	bool result = singleStepPending;
-	singleStepPending = false;
+	int result = g_singleStepsPending;
+	g_singleStepsPending = 0;
 	return result;
 }
 
@@ -274,19 +346,25 @@ void Core_ProcessStepping() {
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
 		CBreakPoints::ClearTemporaryBreakPoints();
-		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;
 	}
 
 	// Need to check inside the lock to avoid races.
-	bool doStep = Core_WaitStepping();
+	int doSteps = Core_WaitStepping();
 
 	// We may still be stepping without singleStepPending to process a save state.
-	if (doStep && coreState == CORE_STEPPING) {
-		Core_SingleStep();
+	if (doSteps && coreState == CORE_STEPPING) {
+		Core_ResetException();
+
+		for (int i = 0; i < doSteps; i++) {
+			currentMIPS->SingleStep();
+			steppingCounter++;
+		}
+
 		// Update disasm dialog.
-		System_Notify(SystemNotification::DISASSEMBLY);
+		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 	}
 }
@@ -333,23 +411,24 @@ bool Core_Run(GraphicsContext *ctx) {
 	}
 }
 
-void Core_EnableStepping(bool step, const char *reason, u32 relatedAddress) {
-	if (step) {
-		// Stop the tracer
-		mipsTracer.stop_tracing();
+void Core_Break(const char *reason, u32 relatedAddress) {
+	// Stop the tracer
+	mipsTracer.stop_tracing();
 
-		Core_UpdateState(CORE_STEPPING);
-		steppingCounter++;
-		_assert_msg_(reason != nullptr, "No reason specified for break");
-		steppingReason = reason;
-		steppingAddress = relatedAddress;
-	} else {
-		// Clear the exception if we resume.
-		Core_ResetException();
-		coreState = CORE_RUNNING;
-		coreStatePending = false;
-		m_StepCond.notify_all();
-	}
+	Core_UpdateState(CORE_STEPPING);
+	steppingCounter++;
+	_assert_msg_(reason != nullptr, "No reason specified for break");
+	steppingReason = reason;
+	steppingAddress = relatedAddress;
+	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+void Core_Resume() {
+	// Clear the exception if we resume.
+	Core_ResetException();
+	coreState = CORE_RUNNING;
+	coreStatePending = false;
+	m_StepCond.notify_all();
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
@@ -428,7 +507,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break("memory.exception", address);
 	}
 }
 
@@ -456,7 +535,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExcepti
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
-		Core_EnableStepping(true, "memory.exception", address);
+		Core_Break("memory.exception", address);
 	}
 }
 
@@ -475,10 +554,10 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];
-	Core_EnableStepping(true, "cpu.exception", address);
+	Core_Break("cpu.exception", address);
 }
 
-void Core_Break(u32 pc) {
+void Core_BreakException(u32 pc) {
 	ERROR_LOG(Log::CPU, "BREAK!");
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
@@ -488,7 +567,7 @@ void Core_Break(u32 pc) {
 	e.pc = pc;
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		Core_EnableStepping(true, "cpu.breakInstruction", currentMIPS->pc);
+		Core_Break("cpu.breakInstruction", currentMIPS->pc);
 	}
 }
 

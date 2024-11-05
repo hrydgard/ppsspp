@@ -436,6 +436,11 @@ void System_Notify(SystemNotification notification) {
 			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
 		break;
 
+	case SystemNotification::DISASSEMBLY_AFTERSTEP:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_AFTERSTEP);
+		break;
+
 	case SystemNotification::SYMBOL_MAP_UPDATED:
 		if (g_symbolMap)
 			g_symbolMap->SortSymbols();  // internal locking is performed here

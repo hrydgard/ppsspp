@@ -92,7 +92,7 @@ static constexpr UINT UPDATE_DELAY = 1000 / 60;
 
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
-	lastTicks = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
+	lastTicks_ = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 
@@ -198,138 +198,20 @@ CDisasm::~CDisasm()
 	delete moduleList;
 }
 
-void CDisasm::stepInto()
-{
+void CDisasm::step(CPUStepType stepType) {
 	if (!PSP_IsInited() || !Core_IsStepping()) {
 		return;
 	}
 
 	CtrlDisAsmView *ptr = DisAsmView();
-	lastTicks = CoreTiming::GetTicks();
-	u32 currentPc = cpu->GetPC();
-
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
-	u32 newAddress = currentPc+ptr->getInstructionSizeAt(currentPc);
-
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc);
-	if (info.isBranch)
-	{
-		ptr->scrollStepping(newAddress);
-	} else {
-		bool scroll = true;
-		if (currentMIPS->inDelaySlot)
-		{
-			MIPSAnalyst::MipsOpcodeInfo prevInfo = MIPSAnalyst::GetOpcodeInfo(cpu,currentPc-cpu->getInstructionSize(0));
-			if (!prevInfo.isConditional || prevInfo.conditionMet)
-				scroll = false;
-		}
-
-		if (scroll)
-		{
-			ptr->scrollStepping(newAddress);
-		}
-	}
-
-	for (u32 i = 0; i < (newAddress-currentPc)/4; i++)
-	{
-		Core_DoSingleStep();
-		Sleep(1);
-	}
-
-	ptr->gotoPC();
-	UpdateDialog();
-
-	threadList->reloadThreads();
-	stackTraceView->loadStackTrace();
-}
-
-void CDisasm::stepOver()
-{
-	if (!PSP_IsInited() || Core_IsActive()) {
-		return;
-	}
-	
-	CtrlDisAsmView *ptr = DisAsmView();
-	lastTicks = CoreTiming::GetTicks();
-
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
-	u32 currentPc = cpu->GetPC();
-
-	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 	ptr->setDontRedraw(true);
-	u32 breakpointAddress = currentPc+ptr->getInstructionSizeAt(currentPc);
-	if (info.isBranch)
-	{
-		if (info.isConditional == false)
-		{
-			if (info.isLinkedBranch)	// jal, jalr
-			{
-				// it's a function call with a delay slot - skip that too
-				breakpointAddress += cpu->getInstructionSize(0);
-			} else {					// j, ...
-				// in case of absolute branches, set the breakpoint at the branch target
-				breakpointAddress = info.branchTarget;
-			}
-		} else {						// beq, ...
-			if (info.conditionMet)
-			{
-				breakpointAddress = info.branchTarget;
-			} else {
-				breakpointAddress = currentPc+2*cpu->getInstructionSize(0);
-				ptr->scrollStepping(breakpointAddress);
-			}
-		}
-	} else {
-		ptr->scrollStepping(breakpointAddress);
-	}
+	lastTicks_ = CoreTiming::GetTicks();
 
-	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_EnableStepping(false);
-	Sleep(1);
-	ptr->gotoAddr(breakpointAddress);
-	UpdateDialog();
+	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
+	Core_PerformStep(cpu, stepType, stepSize);
 }
 
-void CDisasm::stepOut() {
-	auto memLock = Memory::Lock();
-	if (!PSP_IsInited())
-		return;
-
-	auto threads = GetThreadsInfo();
-
-	u32 entry = cpu->GetPC(), stackTop = 0;
-	for (size_t i = 0; i < threads.size(); i++)
-	{
-		if (threads[i].isCurrent)
-		{
-			entry = threads[i].entrypoint;
-			stackTop = threads[i].initialStack;
-			break;
-		}
-	}
-
-	auto frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
-	if (frames.size() < 2) return;
-	u32 breakpointAddress = frames[1].pc;
-	lastTicks = CoreTiming::GetTicks();
-	
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
-	
-	CtrlDisAsmView *ptr = DisAsmView();
-	ptr->setDontRedraw(true);
-
-	CBreakPoints::AddBreakPoint(breakpointAddress,true);
-	Core_EnableStepping(false);
-	Sleep(1);
-	ptr->gotoAddr(breakpointAddress);
-	UpdateDialog();
-}
-
-void CDisasm::runToLine()
-{
+void CDisasm::runToLine() {
 	if (!PSP_IsInited()) {
 		return;
 	}
@@ -337,10 +219,10 @@ void CDisasm::runToLine()
 	CtrlDisAsmView *ptr = DisAsmView();
 	u32 pos = ptr->getSelection();
 
-	lastTicks = CoreTiming::GetTicks();
+	lastTicks_ = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
 	CBreakPoints::AddBreakPoint(pos,true);
-	Core_EnableStepping(false);
+	Core_Resume();
 }
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
@@ -418,7 +300,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
-						Core_EnableStepping(true, "cpu.breakpoint.add", 0);
+						Core_Break("cpu.breakpoint.add", 0);
 						Core_WaitInactive(200);
 					}
 
@@ -426,18 +308,18 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
-						Core_EnableStepping(false);
+						Core_Resume();
 					view->UnlockPosition();
 					keepStatusBarText = false;
 				}
 				break;
 
 			case ID_DEBUG_STEPOVER:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOver();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Over);
 				break;
 
 			case ID_DEBUG_STEPINTO:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepInto();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Into);
 				break;
 
 			case ID_DEBUG_RUNTOLINE:
@@ -445,7 +327,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_DEBUG_STEPOUT:
-				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) step(CPUStepType::Out);
 				break;
 
 			case ID_DEBUG_HIDEBOTTOMTABS:
@@ -516,47 +398,43 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					if (!PSP_IsInited()) {
 						break;
 					}
-					if (!Core_IsStepping())		// stop
-					{
+					if (!Core_IsStepping())	{  // stop
 						ptr->setDontRedraw(false);
-						Core_EnableStepping(true, "ui.break", 0);
-						Sleep(1); //let cpu catch up
-						ptr->gotoPC();
-						UpdateDialog();
+						Core_Break("ui.break", 0);
 					} else {					// go
-						lastTicks = CoreTiming::GetTicks();
+						lastTicks_ = CoreTiming::GetTicks();
 
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-						Core_EnableStepping(false);
+						Core_Resume();
 					}
 				}
 				break;
 
 			case IDC_STEP:
-				stepInto();
+				step(CPUStepType::Into);
 				break;
 
 			case IDC_STEPOVER:
-				stepOver();
+				step(CPUStepType::Over);
 				break;
 
 			case IDC_STEPOUT:
-				stepOut();
+				step(CPUStepType::Out);
 				break;
 				
 			case IDC_STEPHLE:
 				{
 					if (Core_IsActive())
 						break;
-					lastTicks = CoreTiming::GetTicks();
+					lastTicks_ = CoreTiming::GetTicks();
 
 					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
-					Core_EnableStepping(false);
+					Core_Resume();
 				}
 				break;
 
@@ -623,6 +501,23 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DEB_UPDATE:
 		Update();
 		return TRUE;
+
+	case WM_DEB_AFTERSTEP:
+	{
+		CtrlDisAsmView *ptr = DisAsmView();
+		// At this point, the step should be done, and the new address is just PC.
+		// Ideally, this part should be done as a reaction to an update message and not directly here.
+		// That way we could get rid of the sleep.
+		u32 oldAddress = ptr->getSelection();
+		u32 newAddress = cpu->GetPC();
+		if (newAddress > oldAddress && newAddress < oldAddress + 12) {
+			// Heuristic for when to scroll at the edge rather than jump the window.
+			ptr->scrollStepping(newAddress);
+		}
+		ptr->gotoAddr(newAddress);
+		Update();
+		break;
+	}
 
 	case WM_DEB_TABPRESSED:
 		bottomTabs->NextTab(true);
@@ -904,7 +799,7 @@ void CDisasm::ProcessUpdateDialog() {
 	// Update Debug Counter
 	if (PSP_IsInited()) {
 		wchar_t tempTicks[24]{};
-		_snwprintf(tempTicks, 23, L"%lld", CoreTiming::GetTicks() - lastTicks);
+		_snwprintf(tempTicks, 23, L"%lld", CoreTiming::GetTicks() - lastTicks_);
 		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 	}
 

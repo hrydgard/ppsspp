@@ -426,7 +426,7 @@ namespace SaveState
 	{
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_EnableStepping(true, "savestate.load", 0);
+			Core_Break("savestate.load", 0);
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
@@ -434,7 +434,7 @@ namespace SaveState
 	{
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_EnableStepping(true, "savestate.save", 0);
+			Core_Break("savestate.save", 0);
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
@@ -446,7 +446,7 @@ namespace SaveState
 	void Rewind(Callback callback, void *cbUserData)
 	{
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_EnableStepping(true, "savestate.rewind", 0);
+			Core_Break("savestate.rewind", 0);
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 

@@ -1004,7 +1004,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			if (hasBPs && CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
 				auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
 				if (!cond || cond->Evaluate()) {
-					Core_EnableStepping(true, "cpu.breakpoint", curMips->pc);
+					Core_Break("cpu.breakpoint", curMips->pc);
 					if (CBreakPoints::IsTempBreakPoint(curMips->pc))
 						CBreakPoints::RemoveBreakPoint(curMips->pc);
 					break;

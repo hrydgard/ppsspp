@@ -438,10 +438,10 @@ void OSXOpenURL(const char *url) {
    std::shared_ptr<I18NCategory> developerUILocalization = GetI18NCategory(I18NCat::DEVELOPER);
 #define DEVELOPERUI_LOCALIZED(key) @(developerUILocalization->T_cstr(key))
     if (Core_IsStepping()) {
-        Core_EnableStepping(false, "ui.break");
+        Core_Resume();
         item.title = DESKTOPUI_LOCALIZED("Break");
     } else {
-        Core_EnableStepping(true, "ui.break");
+        Core_Break("ui.break", 0);
         item.title = DEVELOPERUI_LOCALIZED("Resume");
     }
 }
@@ -452,7 +452,7 @@ void OSXOpenURL(const char *url) {
 
 -(void)resetAction: (NSMenuItem *)item {
     System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-	Core_EnableStepping(false);
+	Core_Resume();
 }
 
 -(void)chatAction: (NSMenuItem *)item {

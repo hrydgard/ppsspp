@@ -71,7 +71,7 @@ void WebSocketCPUStepping(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 	if (!Core_IsStepping() && Core_IsActive()) {
-		Core_EnableStepping(true, "cpu.stepping", 0);
+		Core_Break("cpu.stepping", 0);
 	}
 }
 
@@ -92,7 +92,7 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 	if (currentMIPS->inDelaySlot) {
 		Core_DoSingleStep();
 	}
-	Core_EnableStepping(false);
+	Core_Resume();
 }
 
 // Request the current CPU status (cpu.status)

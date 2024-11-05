@@ -260,7 +260,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		RestoreRoundingMode(true);
 		SaveStaticRegisters();
 		MovFromPC(W0);
-		QuickCallFunction(SCRATCH2_64, &Core_Break);
+		QuickCallFunction(SCRATCH2_64, &Core_BreakException);
 		LoadStaticRegisters();
 		ApplyRoundingMode(true);
 		MovFromPC(SCRATCH1);

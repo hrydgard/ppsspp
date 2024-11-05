@@ -93,7 +93,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive())
 		return req.Fail("CPU not started");
 	if (!Core_IsStepping()) {
-		Core_EnableStepping(true, "cpu.stepInto", 0);
+		Core_Break("cpu.stepInto", 0);
 		return;
 	}
 
@@ -119,7 +119,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 		if (cpuDebug != currentDebugMIPS) {
 			CBreakPoints::AddBreakPoint(breakpointAddress, true);
 			AddThreadCondition(breakpointAddress, threadID);
-			Core_EnableStepping(false);
+			Core_Resume();
 		}
 	}
 }
@@ -173,7 +173,7 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		if (cpuDebug != currentDebugMIPS)
 			AddThreadCondition(breakpointAddress, threadID);
-		Core_EnableStepping(false);
+		Core_Resume();
 	}
 }
 
@@ -222,7 +222,7 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		if (cpuDebug != currentDebugMIPS)
 			AddThreadCondition(breakpointAddress, threadID);
-		Core_EnableStepping(false);
+		Core_Resume();
 	}
 }
 
@@ -248,7 +248,7 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	// We may have arrived already if PauseResume() stepped out of a delay slot.
 	if (currentMIPS->pc != address || wasAtAddress) {
 		CBreakPoints::AddBreakPoint(address, true);
-		Core_EnableStepping(false);
+		Core_Resume();
 	}
 }
 
@@ -264,7 +264,7 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 
 	PrepareResume();
 	hleDebugBreak();
-	Core_EnableStepping(false);
+	Core_Resume();
 }
 
 uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {

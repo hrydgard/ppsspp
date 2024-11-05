@@ -75,7 +75,7 @@ BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char 
 	// Conditions have always already been checked if we get here.
 	Log(addr, write, size, pc, reason);
 	if ((result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
-		Core_EnableStepping(true, "memory.breakpoint", start);
+		Core_Break("memory.breakpoint", start);
 	}
 
 	return result;
@@ -331,7 +331,7 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 			}
 		}
 		if ((info.result & BREAK_ACTION_PAUSE) && coreState != CORE_POWERUP) {
-			Core_EnableStepping(true, "cpu.breakpoint", info.addr);
+			Core_Break("cpu.breakpoint", info.addr);
 		}
 
 		return info.result;
@@ -653,7 +653,7 @@ void CBreakPoints::Update(u32 addr) {
 	if (MIPSComp::jit && addr != -1) {
 		bool resume = false;
 		if (Core_IsStepping() == false) {
-			Core_EnableStepping(true, "cpu.breakpoint.update", addr);
+			Core_Break("cpu.breakpoint.update", addr);
 			Core_WaitInactive(200);
 			resume = true;
 		}
@@ -665,7 +665,7 @@ void CBreakPoints::Update(u32 addr) {
 			mipsr4k.ClearJitCache();
 
 		if (resume)
-			Core_EnableStepping(false);
+			Core_Resume();
 	}
 
 	if (anyMemChecks_ && addr != -1)
