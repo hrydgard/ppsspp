@@ -74,8 +74,8 @@ static void SetPauseAction(PauseAction act, bool waitComplete = true) {
 	pauseAction = act;
 	pauseLock.unlock();
 
-	if (coreState == CORE_STEPPING && act != PAUSE_CONTINUE)
-		Core_UpdateSingleStep();
+	// if (coreState == CORE_STEPPING && act != PAUSE_CONTINUE)
+	// 	Core_UpdateSingleStep();
 
 	actionComplete = false;
 	pauseWait.notify_all();

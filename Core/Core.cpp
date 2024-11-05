@@ -35,6 +35,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MemFault.h"
@@ -51,16 +52,33 @@
 #include "Windows/InputDevice.h"
 #endif
 
-static std::condition_variable m_StepCond;
-static std::mutex m_hStepMutex;
+// Step command to execute next
+static std::mutex g_stepMutex;
+struct StepCommand {
+	CPUStepType type;
+	int param;
+	const char *reason;
+	u32 relatedAddr;
+	bool empty() const {
+		return type == CPUStepType::None;
+	}
+	void clear() {
+		type = CPUStepType::None;
+		param = 0;
+		reason = "";
+		relatedAddr = 0;
+	}
+};
+static StepCommand g_stepCommand;
+
+// This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
-static int g_singleStepsPending = 0;
+
 static int steppingCounter = 0;
-static const char *steppingReason = "";
-static uint32_t steppingAddress = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
+
 static bool windowHidden = false;
 static bool powerSaving = false;
 
@@ -124,14 +142,6 @@ bool Core_IsActive() {
 
 bool Core_IsInactive() {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
-}
-
-static inline void Core_StateProcessed() {
-	if (coreStatePending) {
-		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
-		coreStatePending = false;
-		m_InactiveCond.notify_all();
-	}
 }
 
 void Core_WaitInactive() {
@@ -227,19 +237,23 @@ void Core_RunLoop(GraphicsContext *ctx) {
 	NativeFrame(ctx);
 }
 
-void Core_DoSingleStep() {
-	std::lock_guard<std::mutex> guard(m_hStepMutex);
-	g_singleStepsPending++;
-	m_StepCond.notify_all();
-}
-
-void Core_UpdateSingleStep() {
-	std::lock_guard<std::mutex> guard(m_hStepMutex);
-	m_StepCond.notify_all();
+bool Core_RequestSingleStep(CPUStepType type, int stepSize) {
+	std::lock_guard<std::mutex> guard(g_stepMutex);
+	if (g_stepCommand.type != CPUStepType::None) {
+		ERROR_LOG(Log::CPU, "Can't submit two steps in one frame");
+		return false;
+	}
+	g_stepCommand = { type, stepSize };
+	return true;
 }
 
 // See comment in header.
-u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
+// Handles more advanced step types (used by the debugger).
+// stepSize is to support stepping through compound instructions like fused lui+ladd (li).
+// Yes, our disassembler does support those.
+// Doesn't return the new address, as that's just mips->getPC().
+// Internal use.
+static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
 	switch (stepType) {
 	case CPUStepType::Into:
 	{
@@ -247,10 +261,10 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
 		CBreakPoints::SetSkipFirst(currentPc);
-		for (int i = 0; i < (newAddress - currentPc) / 4; i++) {
-			Core_DoSingleStep();
+		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
+			currentMIPS->SingleStep();
 		}
-		return cpu->GetPC();
+		return;
 	}
 	case CPUStepType::Over:
 	{
@@ -280,7 +294,7 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
-		return breakpointAddress;
+		break;
 	}
 	case CPUStepType::Out:
 	{
@@ -299,7 +313,7 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
 		if (frames.size() < 2) {
 			// Failure. PC not moving.
-			return cpu->GetPC();
+			return;
 		}
 
 		u32 breakpointAddress = frames[1].pc;
@@ -308,30 +322,16 @@ u32 Core_PerformStep(DebugInterface *cpu, CPUStepType stepType, int stepSize) {
 		CBreakPoints::SetSkipFirst(currentMIPS->pc);
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
-		return breakpointAddress;
+		break;
 	}
 	default:
 		// Not yet implemented
-		return cpu->GetPC();
+		break;
 	}
 }
 
-static inline int Core_WaitStepping() {
-	std::unique_lock<std::mutex> guard(m_hStepMutex);
-	// We only wait 16ms so that we can still draw UI or react to events.
-	double sleepStart = time_now_d();
-	if (!g_singleStepsPending && coreState == CORE_STEPPING)
-		m_StepCond.wait_for(guard, std::chrono::milliseconds(16));
-	double sleepEnd = time_now_d();
-	DisplayNotifySleep(sleepEnd - sleepStart);
-
-	int result = g_singleStepsPending;
-	g_singleStepsPending = 0;
-	return result;
-}
-
-void Core_ProcessStepping() {
-	Core_StateProcessed();
+void Core_ProcessStepping(MIPSDebugInterface *cpu) {
+	coreStatePending = false;
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
@@ -352,21 +352,26 @@ void Core_ProcessStepping() {
 	}
 
 	// Need to check inside the lock to avoid races.
-	int doSteps = Core_WaitStepping();
+	std::lock_guard<std::mutex> guard(g_stepMutex);
 
-	// We may still be stepping without singleStepPending to process a save state.
-	if (doSteps && coreState == CORE_STEPPING) {
-		Core_ResetException();
-
-		for (int i = 0; i < doSteps; i++) {
-			currentMIPS->SingleStep();
-			steppingCounter++;
-		}
-
-		// Update disasm dialog.
-		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
-		System_Notify(SystemNotification::MEM_VIEW);
+	if (coreState != CORE_STEPPING || g_stepCommand.empty()) {
+		return;
 	}
+
+	Core_ResetException();
+
+	if (!g_stepCommand.empty()) {
+		Core_PerformStep(cpu, g_stepCommand.type, g_stepCommand.param);
+		if (g_stepCommand.type == CPUStepType::Into) {
+			// We're already done. The other step types will resume the CPU.
+			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
+		}
+		g_stepCommand.clear();
+		steppingCounter++;
+	}
+
+	// Update disasm dialog.
+	System_Notify(SystemNotification::MEM_VIEW);
 }
 
 // Many platforms, like Android, do not call this function but handle things on their own.
@@ -375,7 +380,6 @@ bool Core_Run(GraphicsContext *ctx) {
 	System_Notify(SystemNotification::DISASSEMBLY);
 	while (true) {
 		if (GetUIState() != UISTATE_INGAME) {
-			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
 				// Not sure why we do a final frame here?
 				NativeFrame(ctx);
@@ -388,11 +392,9 @@ bool Core_Run(GraphicsContext *ctx) {
 		switch (coreState) {
 		case CORE_RUNNING:
 		case CORE_STEPPING:
-			Core_StateProcessed();
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
-				Core_StateProcessed();
 				return true;
 			}
 			break;
@@ -402,7 +404,6 @@ bool Core_Run(GraphicsContext *ctx) {
 		case CORE_BOOT_ERROR:
 		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
-			Core_StateProcessed();
 			return true;
 
 		case CORE_NEXTFRAME:
@@ -411,27 +412,30 @@ bool Core_Run(GraphicsContext *ctx) {
 	}
 }
 
+// Free-threaded (hm, possibly except tracing).
 void Core_Break(const char *reason, u32 relatedAddress) {
 	// Stop the tracer
 	mipsTracer.stop_tracing();
 
-	Core_UpdateState(CORE_STEPPING);
-	steppingCounter++;
-	_assert_msg_(reason != nullptr, "No reason specified for break");
-	steppingReason = reason;
-	steppingAddress = relatedAddress;
+	{
+		std::lock_guard<std::mutex> lock(g_stepMutex);
+		steppingCounter++;
+		_assert_msg_(reason != nullptr, "No reason specified for break");
+
+		Core_UpdateState(CORE_STEPPING);
+	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
+// Free-threaded (or at least should be)
 void Core_Resume() {
 	// Clear the exception if we resume.
 	Core_ResetException();
 	coreState = CORE_RUNNING;
-	coreStatePending = false;
-	m_StepCond.notify_all();
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
+// Should be called from the EmuThread.
 bool Core_NextFrame() {
 	if (coreState == CORE_RUNNING) {
 		coreState = CORE_NEXTFRAME;
@@ -447,8 +451,11 @@ int Core_GetSteppingCounter() {
 
 SteppingReason Core_GetSteppingReason() {
 	SteppingReason r;
-	r.reason = steppingReason;
-	r.relatedAddress = steppingAddress;
+	std::lock_guard<std::mutex> lock(g_stepMutex);
+	if (!g_stepCommand.empty()) {
+		r.reason = g_stepCommand.reason;
+		r.relatedAddress = g_stepCommand.relatedAddr;
+	}
 	return r;
 }
 

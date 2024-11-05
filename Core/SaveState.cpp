@@ -419,7 +419,6 @@ namespace SaveState
 		// Don't actually run it until next frame.
 		// It's possible there might be a duplicate but it won't hurt us.
 		needsProcess = true;
-		Core_UpdateSingleStep();
 	}
 
 	void Load(const Path &filename, int slot, Callback callback, void *cbUserData)

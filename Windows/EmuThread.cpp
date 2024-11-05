@@ -76,7 +76,7 @@ bool MainThread_Ready() {
 }
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext) {
-	SetCurrentThreadName("Emu");
+	SetCurrentThreadName("EmuThread");
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
@@ -152,7 +152,7 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 
 void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
-	SetCurrentThreadName(useEmuThread ? "Render" : "Emu");
+	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
 	SetConsolePosition();
 
@@ -180,7 +180,7 @@ void MainThreadFunc() {
 	} else if (useEmuThread) {
 		// We must've failed over from OpenGL, flip the emu thread off.
 		useEmuThread = false;
-		SetCurrentThreadName("Emu");
+		SetCurrentThreadName("EmuThread");
 	}
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
