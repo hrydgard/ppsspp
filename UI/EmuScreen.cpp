@@ -446,10 +446,10 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	ImGui_ImplThin3d_Shutdown(draw);
-
-	ImGui::DestroyContext();
+	if (imguiInited_) {
+		ImGui_ImplThin3d_Shutdown();
+		ImGui::DestroyContext();
+	}
 
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
@@ -1180,6 +1180,21 @@ void EmuScreen::CreateViews() {
 	});
 	// Will become visible along with the loadingView.
 	loadingBG->SetVisibility(V_INVISIBLE);
+}
+
+void EmuScreen::deviceLost() {
+	UIScreen::deviceLost();
+
+	if (imguiInited_) {
+		ImGui_ImplThin3d_DestroyDeviceObjects();
+	}
+}
+
+void EmuScreen::deviceRestored(Draw::DrawContext *draw) {
+	UIScreen::deviceRestored(draw);
+	if (imguiInited_) {
+		ImGui_ImplThin3d_CreateDeviceObjects(draw);
+	}
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {

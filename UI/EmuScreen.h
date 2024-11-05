@@ -58,6 +58,9 @@ public:
 	bool key(const KeyInput &key) override;
 	void touch(const TouchInput &key) override;
 
+	void deviceLost() override;
+	void deviceRestored(Draw::DrawContext *draw) override;
+
 protected:
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;

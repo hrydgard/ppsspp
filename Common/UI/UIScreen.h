@@ -38,7 +38,7 @@ public:
 	void update() override;
 	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void deviceLost() override;
-	void deviceRestored() override;
+	void deviceRestored(Draw::DrawContext *draw) override;
 
 	virtual void touch(const TouchInput &touch);
 	virtual bool key(const KeyInput &key);
