@@ -680,19 +680,18 @@ namespace MainWindow
 				float y = (float)cursorY * g_display.dpi_scale_y;
 				WindowsRawInput::SetMousePos(x, y);
 
-				if (wParam & (MK_LBUTTON | MK_RBUTTON)) {
-					TouchInput touch{};
-					touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
-					if (wParam & MK_LBUTTON) {
-						touch.buttons |= 1;
-					}
-					if (wParam & MK_RBUTTON) {
-						touch.buttons |= 2;
-					}
-					touch.x = x;
-					touch.y = y;
-					NativeTouch(touch);
+				// Mouse moves now happen also when no button is pressed.
+				TouchInput touch{};
+				touch.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				if (wParam & MK_LBUTTON) {
+					touch.buttons |= 1;
 				}
+				if (wParam & MK_RBUTTON) {
+					touch.buttons |= 2;
+				}
+				touch.x = x;
+				touch.y = y;
+				NativeTouch(touch);
 			}
 			break;
 

@@ -1413,6 +1413,7 @@ bool TriggerButton::Touch(const TouchInput &input) {
 			down_ |= 1 << input.id;
 		}
 	}
+
 	if (input.flags & TOUCH_MOVE) {
 		if (contains)
 			down_ |= 1 << input.id;

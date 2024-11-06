@@ -180,6 +180,11 @@ struct KeyInput {
 		int unicodeChar;  // for KEY_CHAR
 	};
 	int flags;
+
+	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags.
+	int Delta() const {
+		return flags >> 16;
+	}
 };
 
 struct AxisInput {

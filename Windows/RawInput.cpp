@@ -156,6 +156,7 @@ namespace WindowsRawInput {
 		{ VK_OEM_5, NKCODE_BACKSLASH },
 		{ VK_OEM_6, NKCODE_RIGHT_BRACKET },
 		{ VK_OEM_7, NKCODE_APOSTROPHE },
+		{ VK_OEM_8, NKCODE_GRAVE }, // Key left of 1 (above Q) on a lot of layouts.
 		{ VK_RETURN, NKCODE_ENTER },
 		{ VK_APPS, NKCODE_MENU }, // Context menu key, let's call this "menu".
 		{ VK_PAUSE, NKCODE_BREAK },
