@@ -195,7 +195,11 @@ static void UpdateScreenDPI(SDL_Window *window) {
 		SDL_GL_GetDrawableSize(window, &drawable_width, NULL);
 	else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN)
 		SDL_Vulkan_GetDrawableSize(window, &drawable_width, NULL);
-
+	else {
+		// If we add SDL support for more platforms, we'll end up here.
+		g_DesktopDPI = 1.0f;
+		return;
+	}
 	// Round up a little otherwise there would be a gap sometimes
 	// in fractional scaling
 	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
@@ -729,7 +733,7 @@ struct InputStateTracker {
 		}
 	}
 
-	bool mouseDown;
+	int mouseDown;  // bitflags
 	bool mouseCaptured;
 };
 
@@ -943,7 +947,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
-				inputTracker->mouseDown = true;
+				inputTracker->mouseDown |= 1;
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
@@ -957,6 +961,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				inputTracker->mouseDown |= 2;
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
@@ -1018,21 +1023,22 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		}
 	case SDL_MOUSEMOTION:
-		if (inputTracker->mouseDown) {
+		{
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
 			input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+			input.buttons = inputTracker->mouseDown;
 			input.id = 0;
 			NativeTouch(input);
+			NativeMouseDelta(event.motion.xrel, event.motion.yrel);
+			break;
 		}
-		NativeMouseDelta(event.motion.xrel, event.motion.yrel);
-		break;
 	case SDL_MOUSEBUTTONUP:
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
-				inputTracker->mouseDown = false;
+				inputTracker->mouseDown &= ~1;
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
@@ -1045,6 +1051,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				inputTracker->mouseDown &= ~2;
 				// Right button only emits mouse move events. This is weird,
 				// but consistent with Windows. Needs cleanup.
 				TouchInput input{};

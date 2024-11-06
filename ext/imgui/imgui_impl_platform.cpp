@@ -11,9 +11,24 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	ImGuiIO& io = ImGui::GetIO();
 
 	if (key.flags & KEY_DOWN) {
-		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
-		if (keyCode != ImGuiKey_None) {
-			io.AddKeyEvent(keyCode, true);
+		// Specially handle scroll events and any other special keys.
+		switch (key.keyCode) {
+		case NKCODE_EXT_MOUSEWHEEL_UP:
+			io.AddMouseWheelEvent(0, key.Delta() * 0.010f);
+			break;
+		case NKCODE_EXT_MOUSEWHEEL_DOWN:
+			io.AddMouseWheelEvent(0, -key.Delta() * 0.010f);
+			break;
+		default:
+		{
+			ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
+			if (keyCode == ImGuiKey_None) {
+				WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", key.keyCode);
+			} else {
+				io.AddKeyEvent(keyCode, true);
+			}
+			break;
+		}
 		}
 	}
 	if (key.flags & KEY_UP) {
@@ -103,7 +118,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_MOVE_END: return ImGuiKey_End;
 	case NKCODE_INSERT: return ImGuiKey_Insert;
 
-		// Numeric keys
+	// Numeric keys
 	case NKCODE_0: return ImGuiKey_0;
 	case NKCODE_1: return ImGuiKey_1;
 	case NKCODE_2: return ImGuiKey_2;
@@ -115,7 +130,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_8: return ImGuiKey_8;
 	case NKCODE_9: return ImGuiKey_9;
 
-		// Letter keys
+	// Letter keys
 	case NKCODE_A: return ImGuiKey_A;
 	case NKCODE_B: return ImGuiKey_B;
 	case NKCODE_C: return ImGuiKey_C;
@@ -143,7 +158,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_Y: return ImGuiKey_Y;
 	case NKCODE_Z: return ImGuiKey_Z;
 
-		// Symbols
+	// Symbols
 	case NKCODE_COMMA: return ImGuiKey_Comma;
 	case NKCODE_PERIOD: return ImGuiKey_Period;
 	case NKCODE_MINUS: return ImGuiKey_Minus;
@@ -156,7 +171,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_SLASH: return ImGuiKey_Slash;
 	case NKCODE_GRAVE: return ImGuiKey_GraveAccent;
 
-		// Function keys
+	// Function keys
 	case NKCODE_F1: return ImGuiKey_F1;
 	case NKCODE_F2: return ImGuiKey_F2;
 	case NKCODE_F3: return ImGuiKey_F3;
@@ -170,7 +185,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_F11: return ImGuiKey_F11;
 	case NKCODE_F12: return ImGuiKey_F12;
 
-		// Keypad
+	// Keypad
 	case NKCODE_NUMPAD_0: return ImGuiKey_Keypad0;
 	case NKCODE_NUMPAD_1: return ImGuiKey_Keypad1;
 	case NKCODE_NUMPAD_2: return ImGuiKey_Keypad2;
@@ -188,7 +203,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_NUMPAD_ENTER: return ImGuiKey_KeypadEnter;
 	case NKCODE_NUMPAD_EQUALS: return ImGuiKey_KeypadEqual;
 
-		// Lock keys
+	// Lock keys
 	case NKCODE_NUM_LOCK: return ImGuiKey_NumLock;
 	case NKCODE_SCROLL_LOCK: return ImGuiKey_ScrollLock;
 
