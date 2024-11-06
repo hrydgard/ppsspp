@@ -1483,9 +1483,6 @@
     <ProjectReference Include="..\ext\libchdr.vcxproj">
       <Project>{956f1f48-b612-46d8-89ee-96996dcd9383}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\ext\lua.vcxproj">
-      <Project>{f01c5d9d-282c-4357-8fe3-edb83a80b49b}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\ext\miniupnpc.vcxproj">
       <Project>{d8a71225-178b-424e-96c1-cc3be2c1b047}</Project>
     </ProjectReference>
