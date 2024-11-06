@@ -429,6 +429,9 @@
     <ProjectReference Include="..\ext\libzstd.vcxproj">
       <Project>{8bfd8150-94d5-4bf9-8a50-7bd9929a0850}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\lua.vcxproj">
+      <Project>{f01c5d9d-282c-4357-8fe3-edb83a80b49b}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ext\rcheevos-build\rcheevos.vcxproj">
       <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
     </ProjectReference>
