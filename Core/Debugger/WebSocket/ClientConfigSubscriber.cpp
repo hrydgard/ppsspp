@@ -43,7 +43,7 @@ void WebSocketBroadcastConfigGet(DebuggerRequest & req) {
 
 	json.pushDict("disallowed");
 
-	for (const auto[name, status] : disallowed_config) {
+	for (const auto &[name, status] : disallowed_config) {
 		if (status)
 			json.writeBool(name, true);
 	}
@@ -97,7 +97,7 @@ void WebSocketBroadcastConfigSet(DebuggerRequest & req) {
 
 	json.pushDict("disallowed");
 
-	for (const auto[name, status] : disallowed_config) {
+	for (const auto &[name, status] : disallowed_config) {
 		if (status)
 			json.writeBool(name, true);
 	}

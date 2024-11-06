@@ -178,6 +178,7 @@ bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 
 	if (size.cx == 0 || size.cy == 0) {
 		// Don't draw zero-sized textures.
+		WARN_LOG(Log::G3D, "Text '%.*s' caused a zero size image", (int)str.length(), str.data());
 		return false;
 	}
 
