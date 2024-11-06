@@ -948,6 +948,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				input.x = mx;
 				input.y = my;
 				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.buttons = 1;
 				input.id = 0;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
@@ -956,12 +957,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
-				// Right button only emits mouse move events. This is weird,
-				// but consistent with Windows. Needs cleanup.
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.buttons = 2;
 				input.id = 0;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
@@ -1037,6 +1037,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				input.x = mx;
 				input.y = my;
 				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.buttons = 1;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
 				NativeKey(key);
@@ -1049,7 +1050,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				TouchInput input{};
 				input.x = mx;
 				input.y = my;
-				input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.buttons = 2;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
 				NativeKey(key);

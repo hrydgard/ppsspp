@@ -383,8 +383,12 @@ if(NOT MSVC)
 	add_definitions(-DPNG_ARM_NEON_OPT=0)
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror=return-type -Wno-unused-function -Wno-sign-compare -Wno-unused-but-set-variable -Wno-reorder -Wno-unknown-pragmas -Wno-unused-value -Wno-unused-variable")
-	# This one is very useful but has many false positives.
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-class-memaccess")
+	if(NOT CLANG)
+		# This one is very useful but has many false positives.
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-class-memaccess")
+	else()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+	endif()
 
 	if(ANDROID)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
