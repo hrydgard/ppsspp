@@ -1491,16 +1491,11 @@ bool VulkanContext::InitSwapchain() {
 
 	presentMode_ = swapchainPresentMode;
 
-	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
-	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-	//	swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-#ifndef ANDROID
-	// We don't support screenshots on Android
-	// Add more usage flags if they're supported.
-	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+	// We don't support screenshots on Android if TRANSFER_SRC usage flag is not supported.
+	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
+		INFO_LOG(Log::G3D, "Swapchain supports TRANSFER_SRC");
 		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-#endif
+	}
 
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
