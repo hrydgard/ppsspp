@@ -3,7 +3,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
-
+#include "Common/Log.h"
 
 #include "imgui_impl_platform.h"
 
@@ -12,10 +12,9 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 
 	if (key.flags & KEY_DOWN) {
 		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
-		if (keyCode == ImGuiKey_None) {
-			WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", key.keyCode);
+		if (keyCode != ImGuiKey_None) {
+			io.AddKeyEvent(keyCode, true);
 		}
-		io.AddKeyEvent(keyCode, true);
 	}
 	if (key.flags & KEY_UP) {
 		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
@@ -192,6 +191,19 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 		// Lock keys
 	case NKCODE_NUM_LOCK: return ImGuiKey_NumLock;
 	case NKCODE_SCROLL_LOCK: return ImGuiKey_ScrollLock;
-	default: return ImGuiKey_None;
+
+	case NKCODE_EXT_MOUSEBUTTON_1:
+	case NKCODE_EXT_MOUSEBUTTON_2:
+	case NKCODE_EXT_MOUSEBUTTON_3:
+	case NKCODE_EXT_MOUSEBUTTON_4:
+	case NKCODE_EXT_MOUSEBUTTON_5:
+	case NKCODE_EXT_MOUSEWHEEL_DOWN:
+	case NKCODE_EXT_MOUSEWHEEL_UP:
+		// Keys ignored for imgui
+	 	return ImGuiKey_None;
+
+	default:
+		WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", keyCode);
+	 	return ImGuiKey_None;
 	}
 }
