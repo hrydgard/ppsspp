@@ -69,6 +69,8 @@
 
 #endif
 
+static const char *const RAINTEGRATION_FILENAME = "RAIntegration.dll";
+
 static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_context *md5) {
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
 	if (handle < 0) {
@@ -563,7 +565,7 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
 	default:
-		ERROR_LOG(Log::Achievements, "Unsupported raintegration event %u\n", event->type);
+		ERROR_LOG(Log::Achievements, "Unsupported RAIntegration event %u\n", event->type);
 		break;
 	}
 }
@@ -576,7 +578,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 	case RC_OK:
 	{
 		// DLL was loaded correctly.
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ac->T("RAIntegration DLL loaded."));
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(ac->T("%1 loaded."), RAINTEGRATION_FILENAME));
 
 		rc_client_raintegration_set_console_id(g_rcClient, RC_CONSOLE_PSP);
 		rc_client_raintegration_set_event_handler(g_rcClient, &raintegration_event_handler);
@@ -591,11 +593,11 @@ static void load_integration_callback(int result, const char *error_message, rc_
 	}
 	case RC_MISSING_VALUE:
 		// This is fine, proceeding to login.
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but RAIntegration-x64.dll was not found."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but %1 was not found."));
 		break;
 	case RC_ABORTED:
-		// This is fine, proceeding to login.
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Wrong version of RAIntegration-x64.dll?"));
+		// This is fine(-ish), proceeding to login.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions("Wrong version of %1?", RAINTEGRATION_FILENAME));
 		break;
 	default:
 		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("RAIntegration init failed: %s", error_message));
