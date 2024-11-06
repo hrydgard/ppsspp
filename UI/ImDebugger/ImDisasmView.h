@@ -134,7 +134,7 @@ private:
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
-	void drawBranchLine(ImDrawList *list, ImDisasmView::Rect rc, std::map<u32, int> &addressPositions, const BranchLine &line);
+	void drawBranchLine(ImDrawList *list, ImDisasmView::Rect rc, std::map<u32, float> &addressPositions, const BranchLine &line);
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
 	void NopInstructions(u32 startAddr, u32 endAddr);
 	std::set<std::string> getSelectedLineArguments();

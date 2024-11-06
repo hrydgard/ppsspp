@@ -60,4 +60,5 @@ struct ImDebugger {
 	// Open variables.
 	bool disasmOpen_ = true;
 	bool demoOpen_ = false;
+	bool regsOpen_ = true;
 };

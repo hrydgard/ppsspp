@@ -14,6 +14,38 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 
+void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
+	if (!ImGui::Begin("Registers", open)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::BeginTabBar("RegisterGroups", ImGuiTabBarFlags_None)) {
+		if (ImGui::BeginTabItem("GPR")) {
+			for (int i = 0; i < 32; i++) {
+				const u32 value = mipsDebug->GetGPR32Value(i);
+				ImGui::Text("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value);
+			}
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("FPR")) {
+			for (int i = 0; i < 32; i++) {
+				float fvalue = mipsDebug->GetFPR32Value(i);
+				u32 fivalue;
+				memcpy(&fivalue, &fvalue, sizeof(fivalue));
+				ImGui::Text("%s: %0.6f (%08x)", mipsDebug->GetRegName(1, i).c_str(), fvalue, fivalue);
+			}
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("VPR")) {
+			ImGui::Text("TODO");
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+	ImGui::End();
+}
+
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
@@ -47,6 +79,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 		if (ImGui::BeginMenu("Window")) {
 			ImGui::Checkbox("Dear ImGUI Demo", &demoOpen_);
 			ImGui::Checkbox("CPU debugger", &disasmOpen_);
+			ImGui::Checkbox("Registers", &regsOpen_);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -58,6 +91,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	if (disasmOpen_) {
 		disasm_.Draw(mipsDebug, &disasmOpen_);
+	}
+
+	if (regsOpen_) {
+		DrawRegisterView(mipsDebug, &regsOpen_);
 	}
 
 	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.

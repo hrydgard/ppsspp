@@ -51,6 +51,9 @@ public:
 	virtual const char *GetName() = 0;
 	virtual u32 GetGPR32Value(int reg) {return 0;}
 	virtual void SetGPR32Value(int reg) {}
+	virtual float GetFPR32Value(int reg) { return -1.0f; }
+	virtual float GetVPR32Value(int reg) { return -1.0f; }
+
 	virtual u32 GetPC() = 0;
 	virtual void SetPC(u32 _pc) = 0;
 	virtual u32 GetLR() {return GetPC();}

@@ -48,6 +48,7 @@ public:
 	//overridden functions
 	const char *GetName() override;
 	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
+	float GetFPR32Value(int reg) override { return cpu->f[reg]; }
 	u32 GetPC() override { return cpu->pc; }
 	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
 	void DisAsm(u32 pc, char *out, size_t outSize) override;

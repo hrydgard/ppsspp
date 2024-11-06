@@ -156,7 +156,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 	*/
 }
 
-void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32, int> &addressPositions, const BranchLine &line) {
+void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 
 	float topY;
@@ -185,6 +185,7 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 	ImColor pen;
 
 	// highlight line in a different color if it affects the currently selected opcode
+	// TODO: Color line differently if forward or backward too!
 	if (line.first == curAddress_ || line.second == curAddress_) {
 		pen = ImColor(0xFF257AFA);
 	} else {
@@ -354,15 +355,15 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	//HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0), (LPCWSTR)IDI_STOPDISABLE);
 
 	unsigned int address = windowStart_;
-	std::map<u32, int> addressPositions;
+	std::map<u32, float> addressPositions;
 
 	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows_; i++) {
 		manager.getLine(address, displaySymbols_, line);
 
-		int rowY1 = rowHeight_ * i;
-		int rowY2 = rowHeight_ * (i + 1);
+		float rowY1 = rowHeight_ * i;
+		float rowY2 = rowHeight_ * (i + 1);
 
 		addressPositions[address] = rowY1;
 
