@@ -46,8 +46,6 @@ public:
 	// This can be called on a thread.
 	void LoadSamplesOnThread();
 private:
-	bool samplesLoaded_ = false;
-
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;

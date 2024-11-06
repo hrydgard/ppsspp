@@ -1149,8 +1149,8 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 				found = true;
 			}
 		}
-		if (!found) {
-			WARN_LOG(Log::System, "Move without touch down: %d", touch.id);
+		if (!found && touch.buttons) {
+			WARN_LOG(Log::System, "Move with buttons %d without touch down: %d", touch.buttons, touch.id);
 		}
 	}
 	if (touch.flags & TOUCH_UP) {
