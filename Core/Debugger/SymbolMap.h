@@ -21,7 +21,6 @@
 #include <set>
 #include <map>
 #include <string>
-#include <functional>
 #include <mutex>
 
 #include "Common/CommonTypes.h"
@@ -163,6 +162,7 @@ private:
 	// This is indexed by the end address of the module.
 	std::map<u32, const ModuleEntry> activeModuleEnds;
 
+	// Module ID, index
 	typedef std::pair<int, u32> SymbolKey;
 
 	// These are indexed by the module id and relative address in the module.

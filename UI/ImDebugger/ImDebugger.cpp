@@ -196,13 +196,21 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TableSetColumnIndex(0);
 		ImVec2 sz = ImGui::GetContentRegionAvail();
 		if (ImGui::BeginListBox("##symbols", ImVec2(150.0, sz.y - ImGui::GetTextLineHeightWithSpacing() * 2))) {
-			std::vector<SymbolEntry> syms = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
-			for (auto &sym : syms) {
-				if (ImGui::Selectable(sym.name.c_str(), false)) {
-					disasmView_.setCurAddress(sym.address);
-					disasmView_.scrollAddressIntoView();
+			if (symCache_.empty()) {
+				symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
+			}
+			ImGuiListClipper clipper;
+			clipper.Begin((int)symCache_.size(), -1);
+			while (clipper.Step()) {
+				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+					if (ImGui::Selectable(symCache_[i].name.c_str(), false)) {
+						disasmView_.setCurAddress(symCache_[i].address);
+						disasmView_.scrollAddressIntoView();
+					}
 				}
 			}
+
+			clipper.End();
 			ImGui::EndListBox();
 		}
 

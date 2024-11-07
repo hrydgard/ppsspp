@@ -37,6 +37,9 @@ private:
 
 	u32 gotoAddr_ = 0x1000;
 
+	// Symbol cache
+	std::vector<SymbolEntry> symCache_;
+
 	ImDisasmView disasmView_;
 };
 
