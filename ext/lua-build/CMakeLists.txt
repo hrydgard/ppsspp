@@ -53,8 +53,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/ltable.c
 	${SRC_DIR}/ltable.h
 	${SRC_DIR}/ltablib.c
-	${SRC_DIR}/ltests.c
-	${SRC_DIR}/ltests.h
 	${SRC_DIR}/ltm.c
 	${SRC_DIR}/ltm.h
 	${SRC_DIR}/lua.h
