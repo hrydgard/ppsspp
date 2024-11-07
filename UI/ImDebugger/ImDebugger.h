@@ -58,4 +58,7 @@ struct ImDebugger {
 	bool disasmOpen_ = true;
 	bool demoOpen_ = false;
 	bool regsOpen_ = true;
+	bool threadsOpen_ = true;
+	bool callstackOpen_ = true;
+	bool modulesOpen_ = true;
 };
