@@ -652,6 +652,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/KeyMapDefaults.cpp \
+	       $(COREDIR)/LuaContext.cpp \
 	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \

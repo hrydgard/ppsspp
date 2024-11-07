@@ -497,6 +497,9 @@
     <ProjectReference Include="libzstd_UWP\libzstd_UWP.vcxproj">
       <Project>{75286959-e7a2-4cbe-8b95-bf05c9c540fe}</Project>
     </ProjectReference>
+    <ProjectReference Include="lua\lua.vcxproj">
+      <Project>{3cea9e74-a31d-4044-a378-ed2e485931f2}</Project>
+    </ProjectReference>
     <ProjectReference Include="SPIRVCross_UWP\SPIRVCross_UWP.vcxproj">
       <Project>{2b2d16bd-1d37-46af-a3f8-552900951b26}</Project>
     </ProjectReference>

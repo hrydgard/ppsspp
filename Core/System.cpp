@@ -58,6 +58,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
+#include "Core/LuaContext.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -217,6 +218,8 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 
 	g_symbolMap = new SymbolMap();
 
+	g_lua.Init();
+
 	// Default memory settings
 	// Seems to be the safest place currently..
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
@@ -361,6 +364,8 @@ void CPU_Shutdown() {
 	delete g_CoreParameter.mountIsoLoader;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
+
+	g_lua.Shutdown();
 
 	g_CoreParameter.mountIsoLoader = nullptr;
 }

@@ -126,6 +126,7 @@
     <ClInclude Include="..\..\UI\GameScreen.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
+    <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImDisasmView.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImGe.h" />
@@ -171,6 +172,7 @@
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImDisasmView.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImGe.cpp" />
@@ -203,6 +205,9 @@
   <ItemGroup>
     <ProjectReference Include="..\CommonUWP\CommonUWP.vcxproj">
       <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\lua\lua.vcxproj">
+      <Project>{3cea9e74-a31d-4044-a378-ed2e485931f2}</Project>
     </ProjectReference>
     <ProjectReference Include="..\rcheevos_UWP\rcheevos_UWP.vcxproj">
       <Project>{4c9d52d0-310a-4347-8991-e3788cb22169}</Project>
