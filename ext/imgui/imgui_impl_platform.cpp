@@ -22,10 +22,10 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 		default:
 		{
 			ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
-			if (keyCode == ImGuiKey_None) {
-				WARN_LOG(Log::System, "Unmapped ImGui keycode conversion from %d", key.keyCode);
-			} else {
+			if (keyCode != ImGuiKey_None) {
 				io.AddKeyEvent(keyCode, true);
+			} else {
+				WARN_LOG(Log::System, "KeyDown: Unmapped ImGui keycode conversion from %d", key.keyCode);
 			}
 			break;
 		}
@@ -33,10 +33,15 @@ void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	}
 	if (key.flags & KEY_UP) {
 		ImGuiKey keyCode = KeyCodeToImGui(key.keyCode);
-		io.AddKeyEvent(keyCode, false);
+		if (keyCode != ImGuiKey_None) {
+			io.AddKeyEvent(keyCode, false);
+		} else {
+			WARN_LOG(Log::System, "KeyUp: Unmapped ImGui keycode conversion from %d", key.keyCode);
+		}
 	}
 	if (key.flags & KEY_CHAR) {
 		const int unichar = key.unicodeChar;
+
 		if (unichar >= 0x20) {
 			// Insert it! (todo: do it with a string insert)
 			char buf[16];
