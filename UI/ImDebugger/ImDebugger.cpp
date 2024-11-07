@@ -23,8 +23,14 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 	if (ImGui::BeginTabBar("RegisterGroups", ImGuiTabBarFlags_None)) {
 		if (ImGui::BeginTabItem("GPR")) {
 			for (int i = 0; i < 32; i++) {
-				const u32 value = mipsDebug->GetGPR32Value(i);
-				ImGui::Text("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value);
+				const int value = mipsDebug->GetGPR32Value(i);
+				if (value >= -1000000 && value <= 1000000) {
+					// Display small values in decimal.
+					ImGui::Text("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value);
+				} else {
+					// But not big ones to reduce clutter.
+					ImGui::Text("%s: %08x", mipsDebug->GetRegName(0, i).c_str(), value);
+				}
 			}
 			ImGui::EndTabItem();
 		}
@@ -90,7 +96,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	}
 
 	if (disasmOpen_) {
-		disasm_.Draw(mipsDebug, &disasmOpen_);
+		disasm_.Draw(mipsDebug, &disasmOpen_, coreState);
 	}
 
 	if (regsOpen_) {
@@ -102,7 +108,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	ImGui::End();
 }
 
-void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open) {
+void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {
 	char title[256];
 	snprintf(title, sizeof(title), "%s - Disassembly", "Allegrex MIPS");
 
@@ -114,14 +120,18 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open) {
 		return;
 	}
 
+	ImGui::BeginDisabled(coreState != CORE_STEPPING);
 	if (ImGui::SmallButton("Run")) {
 		Core_Resume();
 	}
+	ImGui::EndDisabled();
 
 	ImGui::SameLine();
+	ImGui::BeginDisabled(coreState != CORE_RUNNING);
 	if (ImGui::SmallButton("Pause")) {
 		Core_Break("Pause");
 	}
+	ImGui::EndDisabled();
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Into")) {
@@ -171,9 +181,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open) {
 		}
 
 		ImGui::TableSetColumnIndex(1);
-		// Draw border and background color
 		disasmView_.Draw(ImGui::GetWindowDrawList());
 		ImGui::EndTable();
+
+		ImGui::Text("%s", disasmView_.StatusBarText().c_str());
 	}
 	ImGui::End();
 }

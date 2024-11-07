@@ -22,15 +22,16 @@ public:
 
 	void PopupMenu();
 
+	void ScrollRelative(int amount);
+
 	void onChar(int c);
-	void onVScroll(int amount);
 	void onKeyDown(ImGuiKey key);
 	void onMouseDown(int x, int y, int button);
 	void onMouseUp(int x, int y, int button);
 	void onMouseMove(int x, int y, int button);
 	void scrollAddressIntoView();
 	bool curAddressIsVisible();
-	void scanVisibleFunctions();
+	void ScanVisibleFunctions();
 	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest, int bufsize);
@@ -61,7 +62,7 @@ public:
 		}
 
 		setCurAddress(newAddress);
-		scanVisibleFunctions();
+		ScanVisibleFunctions();
 	}
 	void gotoPC() {
 		gotoAddr(debugger->getPC());
@@ -69,21 +70,11 @@ public:
 	u32 getSelection() {
 		return curAddress_;
 	}
-
 	void setShowMode(bool s) {
 		showHex_ = s;
 	}
-
 	void toggleBreakpoint(bool toggleEnabled = false);
 	void editBreakpoint();
-
-	void scrollWindow(int lines) {
-		if (lines < 0)
-			windowStart_ = manager.getNthPreviousAddress(windowStart_, abs(lines));
-		else
-			windowStart_ = manager.getNthNextAddress(windowStart_, lines);
-		scanVisibleFunctions();
-	}
 
 	void setCurAddress(u32 newAddress, bool extend = false) {
 		newAddress = manager.getStartAddress(newAddress);
@@ -173,6 +164,7 @@ private:
 	bool mapReloaded_ = false;
 
 	int positionLocked_ = 0;
+	int lastSteppingCount_ = 0;
 
 	std::string statusBarText_;
 };

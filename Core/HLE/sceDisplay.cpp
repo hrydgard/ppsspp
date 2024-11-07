@@ -651,6 +651,8 @@ void __DisplayFlip(int cyclesLate) {
 			if (fbReallyDirty) {
 				DisplayFireActualFlip();
 			}
+		} else {
+			WARN_LOG(Log::sceDisplay, "Core_NextFrame returned false");
 		}
 	}
 

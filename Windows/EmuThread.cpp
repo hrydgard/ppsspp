@@ -295,7 +295,7 @@ void MainThreadFunc() {
 			}
 		}
 	} else {
-		while (GetUIState() != UISTATE_EXIT) {
+		while (GetUIState() != UISTATE_EXIT) {  //  && GetUIState() != UISTATE_EXCEPTION
 			// We're here again, so the game quit.  Restart Core_Run() which controls the UI.
 			// This way they can load a new game.
 			if (!Core_IsActive())

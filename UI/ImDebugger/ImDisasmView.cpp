@@ -33,7 +33,7 @@ ImDisasmView::~ImDisasmView() {
 	manager.clear();
 }
 
-void ImDisasmView::scanVisibleFunctions() {
+void ImDisasmView::ScanVisibleFunctions() {
 	manager.analyze(windowStart_, manager.getNthNextAddress(windowStart_, visibleRows_) - windowStart_);
 }
 
@@ -143,7 +143,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{
-		scanVisibleFunctions();
+		ScanVisibleFunctions();
 
 		if (address == curAddress)
 			gotoAddr(manager.getNthNextAddress(curAddress, 1));
@@ -314,15 +314,20 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 }
 
 void ImDisasmView::Draw(ImDrawList *drawList) {
+	// TODO: Don't need to do these every frame.
+	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
+	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
+
 	ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
 	ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
-	int lineHeight = (int)ImGui::GetTextLineHeightWithSpacing();
 	if (canvas_sz.x < 50.0f) canvas_sz.x = 50.0f;
 	if (canvas_sz.y < 50.0f) canvas_sz.y = 50.0f;
-	canvas_sz.y -= lineHeight * 2;
+	canvas_sz.y -= rowHeight_ * 2.0f;  // space for status bar
 
 	// This will catch our interactions
 	bool pressed = ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
+	const bool is_active = ImGui::IsItemActive();   // Held
 
 	if (pressed) {
 		INFO_LOG(Log::System, "Pressed");
@@ -333,6 +338,9 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 	drawList->PushClipRect(canvas_p0, canvas_p1, true);
 	drawList->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
+	if (is_active) {
+		drawList->AddRect(canvas_p0, canvas_p1, IM_COL32(255, 255, 255, 255));
+	}
 
 	Rect rect;
 	rect.left = canvas_p0.x;
@@ -340,8 +348,6 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	rect.right = canvas_p1.x;
 	rect.bottom = canvas_p1.y;
 
-	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
-	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
 	calculatePixelPositions();
 
 	visibleRows_ = (int)((rect.bottom - rect.top + rowHeight_ - 1.f) / rowHeight_);
@@ -350,9 +356,6 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	if (!debugger->isAlive()) {
 		return;
 	}
-
-	//HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0), (LPCWSTR)IDI_STOP);
-	//HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0), (LPCWSTR)IDI_STOPDISABLE);
 
 	unsigned int address = windowStart_;
 	std::map<u32, float> addressPositions;
@@ -372,7 +375,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		ImColor textColor = 0xFFFFFFFF;
 
 		if (isInInterval(address, line.totalSize, debugger->getPC())) {
-			backgroundColor = scaleColor(backgroundColor, 1.05f);
+			backgroundColor = scaleColor(backgroundColor, 1.15f);
 		}
 
 		if (address >= selectRangeStart_ && address < selectRangeEnd_ && searching_ == false) {
@@ -389,11 +392,11 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		// display breakpoint, if any
 		bool enabled;
 		if (CBreakPoints::IsAddressBreakPoint(address, &enabled)) {
-			if (enabled)
-				textColor = 0x0000FF;
+			ImColor breakColor = 0xFF0000FF;
+			if (!enabled)
+				breakColor = 0xFF909090;
 			float yOffset = std::max(-1.0f, (rowHeight_ - 14.f + 1.f) / 2.0f);
-			// drawList->AddCircleFilled(ImVec2(canvas_p0.x + lineHeight * 0.5f, lineStart.y + lineHeight * 0.5f), lineHeight * 0.45f, 0xFF0000FF, 12);
-			// DrawIconEx(hdc, 2, rowY1 + 1 + yOffset, enabled ? breakPoint : breakPointDisable, 32, 32, 0, 0, DI_NORMAL);
+			drawList->AddCircleFilled(ImVec2(canvas_p0.x + rowHeight_ * 0.5f, canvas_p0.y + rowY1 + rowHeight_ * 0.5f), rowHeight_ * 0.4f, breakColor, 12);
 		}
 
 		char addressText[64];
@@ -401,8 +404,10 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		drawList->AddText(ImVec2(rect.left + pixelPositions_.addressStart, rect.top + rowY1 + 2), textColor, addressText);
 
 		if (isInInterval(address, line.totalSize, debugger->getPC())) {
-			// emoji???
-			// drawList->AddText(ImVec2(pixelPositions.opcodeStart - 8, rowY1), textColor, "\x25A0");
+			// Show the current PC with a little square.
+			drawList->AddRectFilled(
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_, canvas_p0.y + rowY1 + 2),
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - 4, canvas_p0.y + rowY1 + rowHeight_ - 2), 0xFFFFFFFF);
 		}
 
 		// display whether the condition of a branch is met
@@ -425,28 +430,49 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	}
 
 	ImGuiIO& io = ImGui::GetIO();
-	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
-	const bool is_active = ImGui::IsItemActive();   // Held
 	ImVec2 mousePos = ImVec2(io.MousePos.x - canvas_p0.x, io.MousePos.y - canvas_p0.y);
-	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mousedown %f,%f", mousePos.x, mousePos.y);
+	if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+		INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		onMouseDown(mousePos.x, mousePos.y, 1);
 	}
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mouseup %f,%f", mousePos.x, mousePos.y);
-		onMouseUp(mousePos.x, mousePos.y, 1);
+		INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		if (is_hovered) {
+			onMouseUp(mousePos.x, mousePos.y, 1);
+		}
 	}
 	if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mousedrag %f,%f", mousePos.x, mousePos.y);
-		onMouseMove(mousePos.x, mousePos.y, 1);
+		INFO_LOG(Log::CPU, "Mousedrag %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		if (is_hovered) {
+			onMouseMove(mousePos.x, mousePos.y, 1);
+		}
 	}
+
+	if (is_hovered) {
+		if (io.MouseWheel > 0.0f) {  // TODO: Scale steps by the value.
+			windowStart_ = manager.getNthPreviousAddress(windowStart_, 4);
+		} else if (io.MouseWheel < 0.0f) {
+			windowStart_ = manager.getNthNextAddress(windowStart_, 4);
+		}
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+	}
+
+	int coreStep = Core_GetSteppingCounter();
+	if (coreStep != lastSteppingCount_) {
+		// A step has happened since last time. This means that we should re-center the cursor.
+		lastSteppingCount_ = coreStep;
+	}
+
 	if (pressed) {
 		INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
-		if (mousePos.x < lineHeight) {  // Left column
+		if (mousePos.x < rowHeight_) {  // Left column
 			// Toggle breakpoint at dragAddr_.
-			// debugger->toggleBreakpoint()
-			
-			// system->GetBreakpoints(core)->AddExecBreakpoint(dragAddr_);
+			debugger->toggleBreakpoint(curAddress_);
 			bpPopup_ = true;
 		} else {
 			// disasmView_.selectedAddr_ = dragAddr_;
@@ -460,26 +486,13 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	drawList->PopClipRect();
 }
 
-void ImDisasmView::onVScroll(int amount) {
-	/*
-	switch (wParam & 0xFFFF) {
-	case SB_LINEDOWN:
-		windowStart_ = manager.getNthNextAddress(windowStart_, 1);
-		break;
-	case SB_LINEUP:
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, 1);
-		break;
-	case SB_PAGEDOWN:
-		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
-		break;
-	case SB_PAGEUP:
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
-		break;
-	default:
-		return;
+void ImDisasmView::ScrollRelative(int amount) {
+	if (amount > 0) {
+		windowStart_ = manager.getNthNextAddress(windowStart_, amount);
+	} else if (amount < 0) {
+		windowStart_ = manager.getNthPreviousAddress(windowStart_, amount);
 	}
-	*/
-	scanVisibleFunctions();
+	ScanVisibleFunctions();
 }
 
 void ImDisasmView::followBranch() {
@@ -576,11 +589,11 @@ void ImDisasmView::onKeyDown(ImGuiKey key) {
 			break;
 		case VK_UP:
 			scrollWindow(-1);
-			scanVisibleFunctions();
+			ScanVisibleFunctions();
 			break;
 		case VK_DOWN:
 			scrollWindow(1);
-			scanVisibleFunctions();
+			ScanVisibleFunctions();
 			break;
 		case VK_NEXT:
 			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
@@ -655,7 +668,7 @@ void ImDisasmView::scrollAddressIntoView() {
 	else if (curAddress_ >= windowEnd)
 		windowStart_ = manager.getNthPreviousAddress(curAddress_, visibleRows_ - 1);
 
-	scanVisibleFunctions();
+	ScanVisibleFunctions();
 }
 
 bool ImDisasmView::curAddressIsVisible() {
@@ -741,7 +754,9 @@ void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 
 void ImDisasmView::onMouseUp(int x, int y, int button) {
 	if (button == 1) {
-		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
+		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+			setCurAddress(yToAddress(y), true);
+		}
 	}
 }
 

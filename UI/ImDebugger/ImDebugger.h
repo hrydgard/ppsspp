@@ -8,6 +8,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Core/Core.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -25,7 +26,7 @@ class MIPSDebugInterface;
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, bool *open);
+	void Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState);
 
 	void PCChanged() {
 		pcChanged_ = true;
