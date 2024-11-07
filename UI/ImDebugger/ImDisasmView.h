@@ -18,6 +18,10 @@ public:
 	ImDisasmView();
 	~ImDisasmView();
 
+	// Public variables bounds to imgui checkboxes
+	bool followPC_ = true;
+
+
 	void Draw(ImDrawList *drawList);
 
 	void PopupMenu();

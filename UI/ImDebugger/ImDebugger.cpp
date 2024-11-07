@@ -22,24 +22,54 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 
 	if (ImGui::BeginTabBar("RegisterGroups", ImGuiTabBarFlags_None)) {
 		if (ImGui::BeginTabItem("GPR")) {
-			for (int i = 0; i < 32; i++) {
-				const int value = mipsDebug->GetGPR32Value(i);
-				if (value >= -1000000 && value <= 1000000) {
-					// Display small values in decimal.
-					ImGui::Text("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value);
-				} else {
-					// But not big ones to reduce clutter.
-					ImGui::Text("%s: %08x", mipsDebug->GetRegName(0, i).c_str(), value);
+			if (ImGui::BeginTable("gpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+				ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableNextRow();
+
+				auto gprLine = [&](const char *regname, int value) {
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text("%s", regname);
+					ImGui::TableSetColumnIndex(1);
+					ImGui::Text("%08x", value);
+					if (value >= -1000000 && value <= 1000000) {
+						ImGui::TableSetColumnIndex(2);
+						ImGui::Text("%d", value);
+					}
+					ImGui::TableNextRow();
+				};
+				for (int i = 0; i < 32; i++) {
+					gprLine(mipsDebug->GetRegName(0, i).c_str(), mipsDebug->GetGPR32Value(i));
 				}
+				gprLine("hi", mipsDebug->GetHi());
+				gprLine("lo", mipsDebug->GetLo());
+				gprLine("pc", mipsDebug->GetPC());
+				gprLine("ll", mipsDebug->GetLLBit());
+				ImGui::EndTable();
 			}
+
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("FPR")) {
-			for (int i = 0; i < 32; i++) {
-				float fvalue = mipsDebug->GetFPR32Value(i);
-				u32 fivalue;
-				memcpy(&fivalue, &fvalue, sizeof(fivalue));
-				ImGui::Text("%s: %0.6f (%08x)", mipsDebug->GetRegName(1, i).c_str(), fvalue, fivalue);
+			if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+				ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableNextRow();
+				for (int i = 0; i < 32; i++) {
+					float fvalue = mipsDebug->GetFPR32Value(i);
+					u32 fivalue;
+					memcpy(&fivalue, &fvalue, sizeof(fivalue));
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text("%s", mipsDebug->GetRegName(1, i).c_str());
+					ImGui::TableSetColumnIndex(1);
+					ImGui::Text("%0.7f", fvalue);
+					ImGui::TableSetColumnIndex(2);
+					ImGui::Text("%08x", fivalue);
+					ImGui::TableNextRow();
+				}
+				ImGui::EndTable();
 			}
 			ImGui::EndTabItem();
 		}
@@ -102,10 +132,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	if (regsOpen_) {
 		DrawRegisterView(mipsDebug, &regsOpen_);
 	}
-
-	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-	ImGui::End();
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {
@@ -155,7 +181,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	}
 
 	ImGui::SameLine();
-	ImGui::Checkbox("Follow PC", &followPC_);
+	ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
 
 	ImGui::SetNextItemWidth(100);
 	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {

@@ -465,6 +465,9 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	int coreStep = Core_GetSteppingCounter();
 	if (coreStep != lastSteppingCount_) {
 		// A step has happened since last time. This means that we should re-center the cursor.
+		if (followPC_) {
+			gotoPC();
+		}
 		lastSteppingCount_ = coreStep;
 	}
 

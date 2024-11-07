@@ -28,10 +28,6 @@ class ImDisasmWindow {
 public:
 	void Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState);
 
-	void PCChanged() {
-		pcChanged_ = true;
-	}
-
 private:
 	// We just keep the state directly in the window. Can refactor later.
 
@@ -40,9 +36,6 @@ private:
 	};
 
 	u32 gotoAddr_ = 0x1000;
-
-	bool followPC_ = true;
-	bool pcChanged_ = false;
 
 	ImDisasmView disasmView_;
 };
