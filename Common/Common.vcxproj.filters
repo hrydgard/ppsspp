@@ -649,9 +649,6 @@
     <ClInclude Include="..\ext\lua\ltable.h">
       <Filter>ext\lua</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\lua\ltests.h">
-      <Filter>ext\lua</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\lua\ltm.h">
       <Filter>ext\lua</Filter>
     </ClInclude>
@@ -1265,9 +1262,6 @@
       <Filter>ext\lua</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\lua\ltablib.c">
-      <Filter>ext\lua</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\lua\ltests.c">
       <Filter>ext\lua</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\lua\ltm.c">

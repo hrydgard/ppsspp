@@ -66,7 +66,6 @@ LUA_FILES := \
 	$(SRC)/ext/lua/lstrlib.c \
 	$(SRC)/ext/lua/ltable.c \
 	$(SRC)/ext/lua/ltablib.c \
-	$(SRC)/ext/lua/ltests.c \
 	$(SRC)/ext/lua/ltm.c \
 	$(SRC)/ext/lua/lundump.c \
 	$(SRC)/ext/lua/lutf8lib.c \

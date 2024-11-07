@@ -229,7 +229,6 @@ SOURCES_C += \
 	$(EXTDIR)/lua/lstrlib.c \
 	$(EXTDIR)/lua/ltable.c \
 	$(EXTDIR)/lua/ltablib.c \
-	$(EXTDIR)/lua/ltests.c \
 	$(EXTDIR)/lua/ltm.c \
 	$(EXTDIR)/lua/lundump.c \
 	$(EXTDIR)/lua/lutf8lib.c \

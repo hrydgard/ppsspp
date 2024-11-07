@@ -438,7 +438,6 @@
     <ClInclude Include="..\ext\lua\lstate.h" />
     <ClInclude Include="..\ext\lua\lstring.h" />
     <ClInclude Include="..\ext\lua\ltable.h" />
-    <ClInclude Include="..\ext\lua\ltests.h" />
     <ClInclude Include="..\ext\lua\ltm.h" />
     <ClInclude Include="..\ext\lua\lua.h" />
     <ClInclude Include="..\ext\lua\luaconf.h" />
@@ -934,7 +933,6 @@
     <ClCompile Include="..\ext\lua\lstrlib.c" />
     <ClCompile Include="..\ext\lua\ltable.c" />
     <ClCompile Include="..\ext\lua\ltablib.c" />
-    <ClCompile Include="..\ext\lua\ltests.c" />
     <ClCompile Include="..\ext\lua\ltm.c" />
     <ClCompile Include="..\ext\lua\lundump.c" />
     <ClCompile Include="..\ext\lua\lutf8lib.c" />
