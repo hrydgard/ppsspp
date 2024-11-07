@@ -17,7 +17,6 @@ ImConsole::ImConsole() {
 	Commands.push_back("HELP");
 	Commands.push_back("HISTORY");
 	Commands.push_back("CLEAR");
-	Commands.push_back("CLASSIFY");
 	AutoScroll = true;
 	ScrollToBottom = false;
 	AddLog("Welcome to Dear ImGui!");
@@ -27,6 +26,7 @@ ImConsole::~ImConsole() {
 	ClearLog();
 	for (int i = 0; i < History.Size; i++)
 		ImGui::MemFree(History[i]);
+	AddLog("# Enter 'HELP' for help.");
 }
 
 // Portable helpers
@@ -90,7 +90,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 	}
 
 	// Options, Filter
-	ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_O, ImGuiInputFlags_Tooltip);
+	//ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_O, ImGuiInputFlags_Tooltip);
 	if (ImGui::Button("Options"))
 		ImGui::OpenPopup("Options");
 	ImGui::SameLine();

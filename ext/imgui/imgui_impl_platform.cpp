@@ -189,6 +189,7 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_COMMA: return ImGuiKey_Comma;
 	case NKCODE_PERIOD: return ImGuiKey_Period;
 	case NKCODE_MINUS: return ImGuiKey_Minus;
+	case NKCODE_PLUS: return ImGuiKey_Equal;  // Hmm
 	case NKCODE_EQUALS: return ImGuiKey_Equal;
 	case NKCODE_LEFT_BRACKET: return ImGuiKey_LeftBracket;
 	case NKCODE_RIGHT_BRACKET: return ImGuiKey_RightBracket;

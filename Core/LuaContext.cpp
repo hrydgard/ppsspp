@@ -4,73 +4,48 @@
 #include "Common/StringUtils.h"
 #include "Core/LuaContext.h"
 
-// lua_writeline
-
-/*
-
-#define lua_writestring(s,l)   fwrite((s), sizeof(char), (l), stdout)
-#define lua_writeline()        (lua_writestring("\n", 1), fflush(stdout))
-#define lua_writestringerror(s,p) \
-        (fprintf(stderr, (s), (p)), fflush(stderr))
-
-		*/
-
-extern "C" {
-#include "ext/lua/lua.h"
-#include "ext/lua/lauxlib.h"
-#include "ext/lua/lualib.h"
-}
+std::string g_stringBuf;
 
 // Sol is expensive to include so we only do it here.
 #include "ext/sol/sol.hpp"
 
 LuaContext g_lua;
 
-void LuaContext::Init() {
-	_dbg_assert_(L == nullptr);
+// Custom print function
+static void log(const std::string& message) {
+	INFO_LOG(Log::System, "%s", message.c_str());
+	g_stringBuf = message;
+}
 
-	L = luaL_newstate();
-	luaopen_base(L);
-	luaopen_table(L);
-	luaopen_string(L);
-	luaopen_math(L);
+void LuaContext::Init() {
+
+	_dbg_assert_(lua_ == nullptr);
+	lua_.reset(new sol::state());
+	lua_->open_libraries(sol::lib::base);
+	lua_->open_libraries(sol::lib::table);
+	lua_->open_libraries(sol::lib::bit32);
+	lua_->open_libraries(sol::lib::string);
+	lua_->open_libraries(sol::lib::math);
+
+	// Not sure if we can safely override print(). So making a new function.
+	lua_->set("log", &log);
 }
 
 void LuaContext::Shutdown() {
-	lua_close(L);
-	L = nullptr;
+	lua_.reset();
 }
 
 void LuaContext::Load(const char *code) {
-	/*
-	while (fgets(buff, sizeof(buff), stdin) != NULL) {
-		error = luaL_loadbuffer(L, buff, strlen(buff), "line") ||
-			lua_pcall(L, 0, 0, 0);
-		if (error) {
-			fprintf(stderr, "%s", lua_tostring(L, -1));
-			lua_pop(L, 1);  // pop error message from the stack
-		}
-	}*/
+
 }
 
 void LuaContext::Execute(std::string_view cmd, std::string *output) {
-	int error = luaL_loadbuffer(L, cmd.data(), cmd.length(), "line");
-	if (error) {
-		ERROR_LOG(Log::System, "%s", lua_tostring(L, -1));
-		*output = lua_tostring(L, -1);
-		lua_pop(L, 1);  /* pop error message from the stack */
-		return;
+	try {
+		lua_->script(cmd);
+		*output = g_stringBuf;
+		g_stringBuf.clear();
+	} catch (sol::error e) {
+		ERROR_LOG(Log::System, "Exception: %s", e.what());
+		*output = e.what();
 	}
-
-	lua_pcall(L, 0, 0, 0);
-
-	/* Get the number of values which have been pushed */
-	int res_count = lua_tointeger(L, -1);
-	if (!lua_isnumber(L, -1))
-		*output = "function `f' must return a number";
-	int value = lua_tonumber(L, -1);
-	/* Remove the number of values */
-	lua_pop(L, 1);
-
-	*output = StringFromFormat("%d", value);
 }
