@@ -32,6 +32,12 @@
 #ifndef SOL_HPP
 #define SOL_HPP
 
+// Can't use our debug memory handling with this.
+#ifdef new
+#undef new
+#define DBG_MEM
+#endif
+
 // beginning of sol/version.hpp
 
 #include <sol/config.hpp>
@@ -4412,9 +4418,9 @@ COMPAT53_API void luaL_requiref(lua_State* L, const char* modname, lua_CFunction
 #if defined(__cplusplus) && !defined(COMPAT53_LUA_CPP)
 extern "C" {
 #endif
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include <ext/lua/lua.h>
+#include <ext/lua/lauxlib.h>
+#include <ext/lua/lualib.h>
 #if defined(__cplusplus) && !defined(COMPAT53_LUA_CPP)
 }
 #endif
