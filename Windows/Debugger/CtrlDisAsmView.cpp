@@ -527,10 +527,10 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		addressPositions[address] = rowY1;
 
 		// draw background
-		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address, false);
+		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : (debugger->getColor(address, false) & 0xFFFFFF);
 		COLORREF textColor = 0x000000;
 
-		if (isInInterval(address,line.totalSize,debugger->getPC()))
+		if (isInInterval(address, line.totalSize, debugger->getPC()))
 		{
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
