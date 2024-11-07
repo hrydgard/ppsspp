@@ -346,7 +346,7 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
-		success = ::GetOutputFramebuffer(draw, buf);
+		success = ::GetOutputFramebuffer(draw, temp);
 		if (success) {
 			buf = ApplyRotation(temp, g_display.rotation);
 		}
