@@ -141,9 +141,19 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(title, open)) {
+	if (!ImGui::Begin(title, open, ImGuiWindowFlags_NoNavInputs)) {
 		ImGui::End();
 		return;
+	}
+
+	if (ImGui::IsWindowFocused()) {
+		// Process stepping keyboard shortcuts.
+		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
+			Core_RequestSingleStep(CPUStepType::Over, 0);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
+			Core_RequestSingleStep(CPUStepType::Into, 0);
+		}
 	}
 
 	ImGui::BeginDisabled(coreState != CORE_STEPPING);
