@@ -1,0 +1,1187 @@
+
+#include "ext/imgui/imgui_internal.h"
+
+#include "Common/StringUtils.h"
+#include "Core/Core.h"
+#include "Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/DisassemblyManager.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/MemMap.h"
+#include "Common/System/Request.h"
+
+#include "Core/Core.h"
+#include "Core/CoreParameter.h"
+#include "UI/ImDebugger/ImDisasmView.h"
+
+ImDisasmView::ImDisasmView() {
+	curAddress_ = 0;
+	showHex_ = false;
+	hasFocus_ = false;
+	keyTaken = false;
+
+	matchAddress_ = -1;
+	searching_ = false;
+	searchQuery_.clear();
+	windowStart_ = curAddress_;
+	displaySymbols_ = true;
+}
+
+ImDisasmView::~ImDisasmView() {
+	manager.clear();
+}
+
+void ImDisasmView::ScanVisibleFunctions() {
+	manager.analyze(windowStart_, manager.getNthNextAddress(windowStart_, visibleRows_) - windowStart_);
+}
+
+static ImColor scaleColor(ImColor color, float factor) {
+	if (factor <= 0.0f) {
+		return color;
+	}
+	color.Value.x = std::min(color.Value.x * factor, 1.0f);
+	color.Value.y = std::min(color.Value.y * factor, 1.0f);
+	color.Value.z = std::min(color.Value.z * factor, 1.0f);
+	return color;
+}
+
+bool ImDisasmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData) {
+	if (!PSP_IsInited())
+		return false;
+
+	if (displaySymbols_) {
+		const std::string addressSymbol = g_symbolMap->GetLabelString(address);
+		if (!addressSymbol.empty()) {
+			for (int k = 0; addressSymbol[k] != 0; k++) {
+				// abbreviate long names
+				if (abbreviateLabels && k == 16 && addressSymbol[k + 1] != 0) {
+					*dest++ = '+';
+					break;
+				}
+				*dest++ = addressSymbol[k];
+			}
+			*dest++ = ':';
+			*dest = 0;
+			return true;
+		} else {
+			sprintf(dest, "    %08X", address);
+			return false;
+		}
+	} else {
+		if (showData) {
+			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
+			sprintf(dest, "%08X %08X", address, encoding);
+		} else {
+			sprintf(dest, "%08X", address);
+		}
+		return false;
+	}
+}
+
+// TODO: Replace with another impl.
+/*
+static std::string trimString(std::string input) {
+	size_t pos = input.find_first_not_of(" \t");
+	if (pos != 0 && pos != std::string::npos) {
+		input = input.erase(0, pos);
+	}
+
+	pos = input.find_last_not_of(" \t");
+	if (pos != std::string::npos) {
+		size_t size = input.length() - pos - 1;
+		input = input.erase(pos + 1, size);
+	}
+
+	return input;
+}
+*/
+
+void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
+	/*
+	auto memLock = Memory::Lock();
+	if (!Core_IsStepping()) {
+		MessageBox(wnd, L"Cannot change code while the core is running!", L"Error", MB_OK);
+		return;
+	}
+	std::string op;
+	bool result = InputBox_GetString(MainWindow::GetHInstance(), wnd, L"Assemble opcode", defaultText, op, InputBoxFlags::Default);
+	if (!result) {
+		return;
+	}
+
+	// check if it changes registers first
+	auto separator = op.find('=');
+	if (separator != std::string::npos)
+	{
+		std::string registerName = trimString(op.substr(0, separator));
+		std::string expression = trimString(op.substr(separator + 1));
+
+		u32 value;
+		if (parseExpression(expression.c_str(), debugger, value) == true)
+		{
+			for (int cat = 0; cat < debugger->GetNumCategories(); cat++)
+			{
+				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
+				{
+					if (strcasecmp(debugger->GetRegName(cat, reg).c_str(), registerName.c_str()) == 0)
+					{
+						debugger->SetRegValue(cat, reg, value);
+						Reporting::NotifyDebugger();
+						SendMessage(GetParent(wnd), WM_DEB_UPDATE, 0, 0);
+						return;
+					}
+				}
+			}
+		}
+
+		// try to assemble the input if it failed
+	}
+
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
+	Reporting::NotifyDebugger();
+	if (result == true)
+	{
+		ScanVisibleFunctions();
+
+		if (address == curAddress)
+			gotoAddr(manager.getNthNextAddress(curAddress, 1));
+
+		redraw();
+	} else {
+		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
+		MessageBox(wnd, error.c_str(), L"Error", MB_OK);
+	}
+	*/
+}
+
+void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
+	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+
+	float topY;
+	float bottomY;
+	if (line.first < windowStart_) {
+		topY = -1;
+	} else if (line.first >= windowEnd) {
+		topY = rect.bottom + 1.0f;
+	} else {
+		topY = (float)addressPositions[line.first] + rowHeight_ / 2;
+	}
+
+	if (line.second < windowStart_) {
+		bottomY = -1;
+	} else if (line.second >= windowEnd) {
+		bottomY = rect.bottom + 1.0f;
+	} else {
+		bottomY = (float)addressPositions[line.second] + rowHeight_ / 2;
+	}
+
+	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
+	{
+		return;
+	}
+
+	ImColor pen;
+
+	// highlight line in a different color if it affects the currently selected opcode
+	// TODO: Color line differently if forward or backward too!
+	if (line.first == curAddress_ || line.second == curAddress_) {
+		pen = ImColor(0xFF257AFA);
+	} else {
+		pen = ImColor(0xFFFF3020);
+	}
+
+	float x = (float)pixelPositions_.arrowsStart + (float)line.laneIndex * 8.0f;
+
+	float curX, curY;
+	auto moveTo = [&](float x, float y) {
+		curX = x;
+		curY = y;
+	};
+	auto lineTo = [&](float x, float y) {
+		drawList->AddLine(ImVec2(rect.left + curX, rect.top + curY), ImVec2(rect.left + (float)x, rect.top + (float)y), pen, 1.0f);
+		curX = x;
+		curY = y;
+	};
+
+	if (topY < 0) { // first is not visible, but second is
+		moveTo(x - 2.f, bottomY);
+		lineTo(x + 2.f, bottomY);
+		lineTo(x + 2.f, 0.0f);
+
+		if (line.type == LINE_DOWN) {
+			moveTo(x, bottomY - 4.f);
+			lineTo(x - 4.f, bottomY);
+			lineTo(x + 1.f, bottomY + 5.f);
+		}
+	} else if (bottomY > rect.bottom) {// second is not visible, but first is
+		moveTo(x - 2.f, topY);
+		lineTo(x + 2.f, topY);
+		lineTo(x + 2.f, rect.bottom);
+
+		if (line.type == LINE_UP) {
+			moveTo(x, topY - 4.f);
+			lineTo(x - 4.f, topY);
+			lineTo(x + 1.f, topY + 5.f);
+		}
+	} else { // both are visible
+		if (line.type == LINE_UP) {
+			moveTo(x - 2.f, bottomY);
+			lineTo(x + 2.f, bottomY);
+			lineTo(x + 2.f, topY);
+			lineTo(x - 4.f, topY);
+
+			moveTo(x, topY - 4.f);
+			lineTo(x - 4.f, topY);
+			lineTo(x + 1.f, topY + 5.f);
+		} else {
+			moveTo(x - 2.f, topY);
+			lineTo(x + 2.f, topY);
+			lineTo(x + 2.f, bottomY);
+			lineTo(x - 4.f, bottomY);
+
+			moveTo(x, bottomY - 4.f);
+			lineTo(x - 4.f, bottomY);
+			lineTo(x + 1.f, bottomY + 5.f);
+		}
+	}
+}
+
+std::set<std::string> ImDisasmView::getSelectedLineArguments() {
+	std::set<std::string> args;
+	DisassemblyLineInfo line;
+	for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
+		manager.getLine(addr, displaySymbols_, line);
+		size_t p = 0, nextp = line.params.find(',');
+		while (nextp != line.params.npos) {
+			args.emplace(line.params.substr(p, nextp - p));
+			p = nextp + 1;
+			nextp = line.params.find(',', p);
+		}
+		if (p < line.params.size()) {
+			args.emplace(line.params.substr(p));
+		}
+	}
+	return args;
+}
+
+void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, int x, int y, ImColor textColor, const std::set<std::string> &currentArguments) {
+	if (line.params.empty()) {
+		return;
+	}
+	// Don't highlight the selected lines.
+	if (isInInterval(selectRangeStart_, selectRangeEnd_ - selectRangeStart_, line.info.opcodeAddress)) {
+		drawList->AddText(ImVec2((float)(rc.left + x), (float)(rc.top + y)), textColor, line.params.data(), line.params.data() + line.params.size());
+		return;
+	}
+
+	ImColor highlightedColor(0xFFaabb00);
+	if (textColor == 0xFF0000ff) {
+		highlightedColor = ImColor(0xFFaabb77);
+	}
+
+	float curX = (float)x, curY = (float)y;
+
+	ImColor curColor = textColor;
+
+	auto Print = [&](std::string_view text) {
+		drawList->AddText(ImVec2(rc.left + curX, rc.top + curY), curColor, text.data(), text.data() + text.size());
+		ImVec2 sz = ImGui::CalcTextSize(text.data(), text.data() + text.size(), false, -1.0f);
+		curX += sz.x;
+	};
+
+	size_t p = 0, nextp = line.params.find(',');
+	while (nextp != line.params.npos) {
+		const std::string arg = line.params.substr(p, nextp - p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			curColor = highlightedColor;
+		}
+		Print(arg);
+		curColor = textColor;
+		p = nextp + 1;
+		nextp = line.params.find(',', p);
+		Print(",");
+	}
+	if (p < line.params.size()) {
+		const std::string arg = line.params.substr(p);
+		if (currentArguments.find(arg) != currentArguments.end() && textColor != 0xffffff) {
+			curColor = highlightedColor;
+		}
+		Print(arg);
+		curColor = textColor;
+	}
+}
+
+void ImDisasmView::Draw(ImDrawList *drawList) {
+	// TODO: Don't need to do these every frame.
+	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
+	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
+
+	ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
+	ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
+	if (canvas_sz.x < 50.0f) canvas_sz.x = 50.0f;
+	if (canvas_sz.y < 50.0f) canvas_sz.y = 50.0f;
+	canvas_sz.y -= rowHeight_ * 2.0f;  // space for status bar
+
+	// This will catch our interactions
+	bool pressed = ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
+	const bool is_active = ImGui::IsItemActive();   // Held
+
+	if (pressed) {
+		INFO_LOG(Log::System, "Pressed");
+	}
+	ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+
+	ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+
+	drawList->PushClipRect(canvas_p0, canvas_p1, true);
+	drawList->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
+	if (is_active) {
+		drawList->AddRect(canvas_p0, canvas_p1, IM_COL32(255, 255, 255, 255));
+	}
+
+	Rect rect;
+	rect.left = canvas_p0.x;
+	rect.top = canvas_p0.y;
+	rect.right = canvas_p1.x;
+	rect.bottom = canvas_p1.y;
+
+	calculatePixelPositions();
+
+	visibleRows_ = (int)((rect.bottom - rect.top + rowHeight_ - 1.f) / rowHeight_);
+
+	auto memLock = Memory::Lock();
+	if (!debugger->isAlive()) {
+		return;
+	}
+
+	unsigned int address = windowStart_;
+	std::map<u32, float> addressPositions;
+
+	const std::set<std::string> currentArguments = getSelectedLineArguments();
+	DisassemblyLineInfo line;
+	for (int i = 0; i < visibleRows_; i++) {
+		manager.getLine(address, displaySymbols_, line);
+
+		float rowY1 = rowHeight_ * i;
+		float rowY2 = rowHeight_ * (i + 1);
+
+		addressPositions[address] = rowY1;
+
+		// draw background
+		ImColor backgroundColor = ImColor(0xFF000000 | debugger->getColor(address, true));
+		ImColor textColor = 0xFFFFFFFF;
+
+		if (isInInterval(address, line.totalSize, debugger->getPC())) {
+			backgroundColor = scaleColor(backgroundColor, 1.15f);
+		}
+
+		if (address >= selectRangeStart_ && address < selectRangeEnd_ && searching_ == false) {
+			if (hasFocus_) {
+				backgroundColor = ImColor(address == curAddress_ ? 0xFFFF8822 : 0xFFFF9933);
+				textColor = ImColor(0xFF000000);
+			} else {
+				backgroundColor = ImColor(0xFFC0C0C0);
+			}
+		}
+
+		drawList->AddRectFilled(ImVec2(rect.left, rect.top + rowY1), ImVec2(rect.right, rect.top + rowY1 + rowHeight_), backgroundColor);
+
+		// display breakpoint, if any
+		bool enabled;
+		if (CBreakPoints::IsAddressBreakPoint(address, &enabled)) {
+			ImColor breakColor = 0xFF0000FF;
+			if (!enabled)
+				breakColor = 0xFF909090;
+			float yOffset = std::max(-1.0f, (rowHeight_ - 14.f + 1.f) / 2.0f);
+			drawList->AddCircleFilled(ImVec2(canvas_p0.x + rowHeight_ * 0.5f, canvas_p0.y + rowY1 + rowHeight_ * 0.5f), rowHeight_ * 0.4f, breakColor, 12);
+		}
+
+		char addressText[64];
+		getDisasmAddressText(address, addressText, true, line.type == DISTYPE_OPCODE);
+		drawList->AddText(ImVec2(rect.left + pixelPositions_.addressStart, rect.top + rowY1 + 2), textColor, addressText);
+
+		if (isInInterval(address, line.totalSize, debugger->getPC())) {
+			// Show the current PC with a little square.
+			drawList->AddRectFilled(
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_, canvas_p0.y + rowY1 + 2),
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - 4, canvas_p0.y + rowY1 + rowHeight_ - 2), 0xFFFFFFFF);
+		}
+
+		// display whether the condition of a branch is met
+		if (line.info.isConditional && address == debugger->getPC()) {
+			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
+		}
+
+		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2, textColor, currentArguments);
+
+		// The actual opcode.
+		// Should be bold!
+		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2), textColor, line.name.c_str());
+
+		address += line.totalSize;
+	}
+
+	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart_, address - windowStart_);
+	for (size_t i = 0; i < branchLines.size(); i++) {
+		drawBranchLine(drawList, rect, addressPositions, branchLines[i]);
+	}
+
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 mousePos = ImVec2(io.MousePos.x - canvas_p0.x, io.MousePos.y - canvas_p0.y);
+	if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+		INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		onMouseDown(mousePos.x, mousePos.y, 1);
+	}
+	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+		INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		if (is_hovered) {
+			onMouseUp(mousePos.x, mousePos.y, 1);
+		}
+	}
+	if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+		INFO_LOG(Log::CPU, "Mousedrag %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		if (is_hovered) {
+			onMouseMove(mousePos.x, mousePos.y, 1);
+		}
+	}
+
+	if (is_hovered) {
+		if (io.MouseWheel > 0.0f) {  // TODO: Scale steps by the value.
+			windowStart_ = manager.getNthPreviousAddress(windowStart_, 4);
+		} else if (io.MouseWheel < 0.0f) {
+			windowStart_ = manager.getNthNextAddress(windowStart_, 4);
+		}
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+	}
+
+	int coreStep = Core_GetSteppingCounter();
+	if (coreStep != lastSteppingCount_) {
+		// A step has happened since last time. This means that we should re-center the cursor.
+		if (followPC_) {
+			gotoPC();
+		}
+		lastSteppingCount_ = coreStep;
+	}
+
+	if (pressed) {
+		INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
+		if (mousePos.x < rowHeight_) {  // Left column
+			// Toggle breakpoint at dragAddr_.
+			debugger->toggleBreakpoint(curAddress_);
+			bpPopup_ = true;
+		} else {
+			// disasmView_.selectedAddr_ = dragAddr_;
+			bpPopup_ = false;
+		}
+	}
+
+	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
+	PopupMenu();
+
+	drawList->PopClipRect();
+}
+
+void ImDisasmView::ScrollRelative(int amount) {
+	if (amount > 0) {
+		windowStart_ = manager.getNthNextAddress(windowStart_, amount);
+	} else if (amount < 0) {
+		windowStart_ = manager.getNthPreviousAddress(windowStart_, amount);
+	}
+	ScanVisibleFunctions();
+}
+
+void ImDisasmView::followBranch() {
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress_, true, line);
+
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
+		if (line.info.isBranch) {
+			jumpStack_.push_back(curAddress_);
+			gotoAddr(line.info.branchTarget);
+		} else if (line.info.hasRelevantAddress) {
+			// well, not  exactly a branch, but we can do something anyway
+			// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, line.info.relevantAddress, 0);
+			// SetFocus(wnd);
+		}
+	} else if (line.type == DISTYPE_DATA) {
+		// jump to the start of the current line
+		// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, curAddress, 0);
+		// SetFocus(wnd);
+	}
+}
+
+void ImDisasmView::onChar(int c) {
+	if (keyTaken) return;
+
+	char str[2];
+	str[0] = c;
+	str[1] = 0;
+	assembleOpcode(curAddress_, str);
+}
+
+
+void ImDisasmView::editBreakpoint() {
+	/*
+	BreakpointWindow win(wnd, debugger);
+
+	bool exists = false;
+	if (CBreakPoints::IsAddressBreakPoint(curAddress)) {
+		auto breakpoints = CBreakPoints::GetBreakpoints();
+		for (size_t i = 0; i < breakpoints.size(); i++) {
+			if (breakpoints[i].addr == curAddress) {
+				win.loadFromBreakpoint(breakpoints[i]);
+				exists = true;
+				break;
+			}
+		}
+	}
+
+	if (!exists) {
+		win.initBreakpoint(curAddress);
+	}
+
+	if (win.exec()) {
+		if (exists)
+			CBreakPoints::RemoveBreakPoint(curAddress);
+		win.addBreakpoint();
+	}
+	*/
+}
+
+void ImDisasmView::onKeyDown(ImGuiKey key) {
+	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	keyTaken = true;
+
+	/*
+	if (KeyDownAsync(VK_CONTROL)) {
+		switch (tolower(wParam & 0xFFFF)) {
+		case 'f':
+		case 's':
+			search(false);
+			break;
+		case 'c':
+		case VK_INSERT:
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
+			break;
+		case 'x':
+			disassembleToFile();
+			break;
+		case 'a':
+			assembleOpcode(curAddress, "");
+			break;
+		case 'g':
+		{
+			u32 addr;
+			if (executeExpressionWindow(wnd, debugger, addr) == false) return;
+			gotoAddr(addr);
+		}
+		break;
+		case 'e':	// edit breakpoint
+			editBreakpoint();
+			break;
+		case 'd':	// toogle breakpoint enabled
+			toggleBreakpoint(true);
+			break;
+		case VK_UP:
+			scrollWindow(-1);
+			ScanVisibleFunctions();
+			break;
+		case VK_DOWN:
+			scrollWindow(1);
+			ScanVisibleFunctions();
+			break;
+		case VK_NEXT:
+			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
+			break;
+		case VK_PRIOR:
+			setCurAddress(windowStart_, KeyDownAsync(VK_SHIFT));
+			break;
+		}
+	} else {
+		switch (wParam & 0xFFFF) {
+		case VK_DOWN:
+			setCurAddress(manager.getNthNextAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
+			scrollAddressIntoView();
+			break;
+		case VK_UP:
+			setCurAddress(manager.getNthPreviousAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
+			scrollAddressIntoView();
+			break;
+		case VK_NEXT:
+			if (manager.getNthNextAddress(curAddress, 1) != windowEnd && curAddressIsVisible()) {
+				setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
+				scrollAddressIntoView();
+			} else {
+				setCurAddress(manager.getNthNextAddress(windowEnd, visibleRows_ - 1), KeyDownAsync(VK_SHIFT));
+				scrollAddressIntoView();
+			}
+			break;
+		case VK_PRIOR:
+			if (curAddress_ != windowStart_ && curAddressIsVisible()) {
+				setCurAddress(windowStart_, KeyDownAsync(VK_SHIFT));
+				scrollAddressIntoView();
+			} else {
+				setCurAddress(manager.getNthPreviousAddress(windowStart_, visibleRows_), KeyDownAsync(VK_SHIFT));
+				scrollAddressIntoView();
+			}
+			break;
+		case VK_LEFT:
+			if (jumpStack.empty())
+			{
+				gotoPC();
+			} else {
+				u32 addr = jumpStack[jumpStack.size() - 1];
+				jumpStack.pop_back();
+				gotoAddr(addr);
+			}
+			return;
+		case VK_RIGHT:
+			followBranch();
+			return;
+		case VK_TAB:
+			displaySymbols_ = !displaySymbols_;
+			break;
+		case VK_SPACE:
+			debugger->toggleBreakpoint(curAddress);
+			break;
+		case VK_F3:
+			search(true);
+			break;
+		default:
+			keyTaken = false;
+			return;
+		}
+	}
+	*/
+}
+
+void ImDisasmView::scrollAddressIntoView() {
+	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+
+	if (curAddress_ < windowStart_)
+		windowStart_ = curAddress_;
+	else if (curAddress_ >= windowEnd)
+		windowStart_ = manager.getNthPreviousAddress(curAddress_, visibleRows_ - 1);
+
+	ScanVisibleFunctions();
+}
+
+bool ImDisasmView::curAddressIsVisible() {
+	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	return curAddress_ >= windowStart_ && curAddress_ < windowEnd;
+}
+
+void ImDisasmView::toggleBreakpoint(bool toggleEnabled) {
+	bool enabled;
+	if (CBreakPoints::IsAddressBreakPoint(curAddress_, &enabled)) {
+		if (!enabled) {
+			// enable disabled breakpoints
+			CBreakPoints::ChangeBreakPoint(curAddress_, true);
+		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress_) != nullptr) {
+			// don't just delete a breakpoint with a custom condition
+			/*
+			int ret = MessageBox(wnd, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
+			if (ret == IDYES)
+				CBreakPoints::RemoveBreakPoint(curAddress);
+			*/
+		} else if (toggleEnabled) {
+			// disable breakpoint
+			CBreakPoints::ChangeBreakPoint(curAddress_, false);
+		} else {
+			// otherwise just remove breakpoint
+			CBreakPoints::RemoveBreakPoint(curAddress_);
+		}
+	} else {
+		CBreakPoints::AddBreakPoint(curAddress_);
+	}
+}
+
+void ImDisasmView::onMouseDown(int x, int y, int button) {
+	u32 newAddress = yToAddress(y);
+	bool extend = ImGui::IsKeyDown(ImGuiKey_LeftShift);
+	if (button == 1) {
+		if (newAddress == curAddress_ && hasFocus_) {
+			toggleBreakpoint();
+		}
+	} else if (button == 2) {
+		// Maintain the current selection if right clicking into it.
+		if (newAddress >= selectRangeStart_ && newAddress < selectRangeEnd_)
+			extend = true;
+	}
+	setCurAddress(newAddress, extend);
+}
+
+void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
+	_assert_msg_((startAddr & 3) == 0, "readMemory() can't handle unaligned reads");
+
+	if (mode != CopyInstructionsMode::DISASM) {
+		int instructionSize = debugger->getInstructionSize(0);
+		int count = (endAddr - startAddr) / instructionSize;
+		int space = count * 32;
+		char *temp = new char[space];
+
+		char *p = temp, *end = temp + space;
+		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize) {
+			u32 data = mode == CopyInstructionsMode::OPCODES ? debugger->readMemory(pos) : pos;
+			p += snprintf(p, end - p, "%08X", data);
+
+			// Don't leave a trailing newline.
+			if (pos + instructionSize < endAddr && p < end)
+				p += snprintf(p, end - p, "\r\n");
+		}
+		System_CopyStringToClipboard(temp);
+		delete[] temp;
+	} else {
+		std::string disassembly = disassembleRange(startAddr, endAddr - startAddr);
+		System_CopyStringToClipboard(disassembly);
+	}
+}
+
+void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		Memory::Write_U32(0, addr);
+	}
+
+	if (currentMIPS) {
+		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
+	}
+}
+
+void ImDisasmView::onMouseUp(int x, int y, int button) {
+	if (button == 1) {
+		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+			setCurAddress(yToAddress(y), true);
+		}
+	}
+}
+
+void ImDisasmView::PopupMenu() {
+	if (ImGui::BeginPopup("context")) {
+		ImGui::Text("Address: %08x", curAddress_);
+		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
+			toggleBreakpoint();
+		}
+		if (ImGui::MenuItem("Go to in memory view")) {
+			// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, curAddress, 0);
+		}
+		if (ImGui::MenuItem("Copy instruction (disasm)")) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
+		}
+		if (ImGui::MenuItem("Copy address")) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::ADDRESSES);
+		}
+		if (ImGui::MenuItem("Copy instruction (hex)")) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::OPCODES);
+		}
+		ImGui::Separator();
+
+		/*
+		if (ImGui::MenuItem("Edit symbol")) {
+			EditSymbolsWindow esw(wnd, debugger);
+			if (esw.exec()) {
+				esw.eval();
+				SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
+				redraw();
+			}
+		}
+		*/
+		if (ImGui::MenuItem("Set PC to here")) {
+			debugger->setPC(curAddress_);
+		}
+		if (ImGui::MenuItem("Follow branch")) {
+			followBranch();
+		}
+		if (ImGui::MenuItem("Run to here")) {
+			// CBreakPoints::AddBreakPoint(pos, true);
+			// Core_Resume();
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("Assemble")) {
+			assembleOpcode(curAddress_, "");
+		}
+		if (ImGui::MenuItem("NOP instructions (destructive)")) {
+			NopInstructions(selectRangeStart_, selectRangeEnd_);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("Rename function")) {
+			u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress_);
+			/*
+			if (funcBegin != -1) {
+				char name[256];
+				std::string newname;
+				truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
+				if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
+					g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
+					u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
+					MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
+					MIPSAnalyst::UpdateHashMap();
+					MIPSAnalyst::ApplyHashMap();
+					mapReloaded_ = true;
+				}
+			} else {
+				MessageBox(MainWindow::GetHWND(), L"No symbol selected", 0, 0);
+			}
+			*/
+		}
+		if (ImGui::MenuItem("Remove function")) {
+			u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress_);
+			if (funcBegin != -1) {
+				u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin - 1);
+				if (prevBegin != -1)
+				{
+					u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + g_symbolMap->GetFunctionSize(funcBegin);
+					g_symbolMap->SetFunctionSize(prevBegin, expandedSize);
+				}
+
+				g_symbolMap->RemoveFunction(funcBegin, true);
+				g_symbolMap->SortSymbols();
+				manager.clear();
+
+				mapReloaded_ = true;
+			} else {
+				statusBarText_ = "WARNING: unable to find function symbol here";
+			}
+		}
+		if (ImGui::MenuItem("Add function")) {
+			char statusBarTextBuff[256];
+			u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
+			if (prevBegin != -1) {
+				if (prevBegin == curAddress_) {
+					snprintf(statusBarTextBuff, 256, "WARNING: There's already a function entry point at this adress");
+					statusBarText_ = statusBarTextBuff;
+				} else {
+					char symname[128];
+					u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
+					u32 newSize = curAddress_ - prevBegin;
+					g_symbolMap->SetFunctionSize(prevBegin, newSize);
+
+					newSize = prevSize - newSize;
+					snprintf(symname, 128, "u_un_%08X", curAddress_);
+					g_symbolMap->AddFunction(symname, curAddress_, newSize);
+					g_symbolMap->SortSymbols();
+					manager.clear();
+
+					mapReloaded_ = true;
+				}
+			} else {
+				char symname[128];
+				int newSize = selectRangeEnd_ - selectRangeStart_;
+				snprintf(symname, 128, "u_un_%08X", selectRangeStart_);
+				g_symbolMap->AddFunction(symname, selectRangeStart_, newSize);
+				g_symbolMap->SortSymbols();
+
+				mapReloaded_ = true;
+			}
+		}
+		if (ImGui::MenuItem("Disassemble to file")) {
+			disassembleToFile();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+void ImDisasmView::onMouseMove(int x, int y, int button) {
+	if ((button & 1) != 0) {
+		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
+	}
+}
+
+void ImDisasmView::updateStatusBarText() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
+	char text[512];
+	DisassemblyLineInfo line;
+	manager.getLine(curAddress_, true, line);
+
+	text[0] = 0;
+	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
+		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
+			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
+		}
+
+		if (line.info.isDataAccess) {
+			if (!Memory::IsValidAddress(line.info.dataAddress)) {
+				snprintf(text, sizeof(text), "Invalid address %08X", line.info.dataAddress);
+			} else {
+				bool isFloat = MIPSGetInfo(line.info.encodedOpcode) & (IS_FPU | IS_VFPU);
+				switch (line.info.dataSize) {
+				case 1:
+					snprintf(text, sizeof(text), "[%08X] = %02X", line.info.dataAddress, Memory::Read_U8(line.info.dataAddress));
+					break;
+				case 2:
+					snprintf(text, sizeof(text), "[%08X] = %04X", line.info.dataAddress, Memory::Read_U16(line.info.dataAddress));
+					break;
+				case 4:
+				{
+					u32 dataInt = Memory::Read_U32(line.info.dataAddress);
+					u32 dataFloat = Memory::Read_Float(line.info.dataAddress);
+					std::string dataString;
+					if (isFloat)
+						dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
+					else
+						dataString = StringFromFormat("%08X", dataInt);
+
+					const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
+					if (!addressSymbol.empty()) {
+						snprintf(text, sizeof(text), "[%08X] = %s (%s)", line.info.dataAddress, addressSymbol.c_str(), dataString.c_str());
+					} else {
+						snprintf(text, sizeof(text), "[%08X] = %s", line.info.dataAddress, dataString.c_str());
+					}
+					break;
+				}
+				case 16:
+				{
+					uint32_t dataInt[4];
+					float dataFloat[4];
+					for (int i = 0; i < 4; ++i) {
+						dataInt[i] = Memory::Read_U32(line.info.dataAddress + i * 4);
+						dataFloat[i] = Memory::Read_Float(line.info.dataAddress + i * 4);
+					}
+					std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
+					std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
+
+					snprintf(text, sizeof(text), "[%08X] = %s / %s", line.info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
+					break;
+				}
+				}
+			}
+		}
+
+		if (line.info.isBranch) {
+			const std::string addressSymbol = g_symbolMap->GetLabelString(line.info.branchTarget);
+			if (addressSymbol.empty()) {
+				snprintf(text, sizeof(text), "%08X", line.info.branchTarget);
+			} else {
+				snprintf(text, sizeof(text), "%08X = %s", line.info.branchTarget, addressSymbol.c_str());
+			}
+		}
+	} else if (line.type == DISTYPE_DATA) {
+		u32 start = g_symbolMap->GetDataStart(curAddress_);
+		if (start == -1)
+			start = curAddress_;
+
+		u32 diff = curAddress_ - start;
+		const std::string label = g_symbolMap->GetLabelString(start);
+
+		if (!label.empty()) {
+			if (diff != 0)
+				snprintf(text, sizeof(text), "%08X (%s) + %08X", start, label.c_str(), diff);
+			else
+				snprintf(text, sizeof(text), "%08X (%s)", start, label.c_str());
+		} else {
+			if (diff != 0)
+				snprintf(text, sizeof(text), "%08X + %08X", start, diff);
+			else
+				snprintf(text, sizeof(text), "%08X", start);
+		}
+	}
+
+	statusBarText_ = text;
+
+	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	if (!label.empty()) {
+		statusBarText_ = label;
+	}
+}
+
+u32 ImDisasmView::yToAddress(int y) {
+	int line = y / rowHeight_;
+	return manager.getNthNextAddress(windowStart_, line);
+}
+
+void ImDisasmView::calculatePixelPositions() {
+	pixelPositions_.addressStart = 16;
+	pixelPositions_.opcodeStart = pixelPositions_.addressStart + 18 * charWidth_;
+	pixelPositions_.argumentsStart = pixelPositions_.opcodeStart + 9 * charWidth_;
+	pixelPositions_.arrowsStart = pixelPositions_.argumentsStart + 30 * charWidth_;
+}
+
+void ImDisasmView::search(bool continueSearch) {
+	auto memLock = Memory::Lock();
+	u32 searchAddress;
+
+	if (continueSearch == false || searchQuery_[0] == 0) {
+		/*
+		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"Search for:", searchQuery, searchQuery) == false
+			|| searchQuery[0] == 0) {
+			SetFocus(wnd);
+			return;
+		}
+		*/
+
+		for (size_t i = 0; i < searchQuery_.size(); i++) {
+			searchQuery_[i] = tolower(searchQuery_[i]);
+		}
+		searchAddress = manager.getNthNextAddress(curAddress_, 1);
+	} else {
+		searchAddress = manager.getNthNextAddress(matchAddress_, 1);
+	}
+
+	// limit address to sensible ranges
+	if (searchAddress < 0x04000000)
+		searchAddress = 0x04000000;
+	if (searchAddress >= 0x04200000 && searchAddress < 0x08000000)
+		searchAddress = 0x08000000;
+	if (searchAddress >= 0x0A000000) {
+		// MessageBox(wnd, L"Not found", L"Search", MB_OK);
+		return;
+	}
+
+	searching_ = true;
+
+	DisassemblyLineInfo lineInfo;
+	while (searchAddress < 0x0A000000) {
+		manager.getLine(searchAddress, displaySymbols_, lineInfo);
+
+		char addressText[64];
+		getDisasmAddressText(searchAddress, addressText, true, lineInfo.type == DISTYPE_OPCODE);
+
+		const char* opcode = lineInfo.name.c_str();
+		const char* arguments = lineInfo.params.c_str();
+
+		char merged[512];
+		int mergePos = 0;
+
+		// I'm doing it manually to convert everything to lowercase at the same time
+		for (int i = 0; addressText[i] != 0; i++) merged[mergePos++] = tolower(addressText[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; opcode[i] != 0; i++) merged[mergePos++] = tolower(opcode[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; arguments[i] != 0; i++) merged[mergePos++] = tolower(arguments[i]);
+		merged[mergePos] = 0;
+
+		// match!
+		if (strstr(merged, searchQuery_.c_str()) != NULL) {
+			matchAddress_ = searchAddress;
+			searching_ = false;
+			gotoAddr(searchAddress);
+			return;
+		}
+
+		// cancel search
+		if ((searchAddress % 256) == 0 && ImGui::GetKeyPressedAmount(ImGuiKey_Escape, 0.0f, 0.0f)) {
+			searching_ = false;
+			return;
+		}
+
+		searchAddress = manager.getNthNextAddress(searchAddress, 1);
+		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
+	}
+
+	// MessageBox(wnd, L"Not found", L"Search", MB_OK);
+
+	searching_ = false;
+}
+
+std::string ImDisasmView::disassembleRange(u32 start, u32 size) {
+	auto memLock = Memory::Lock();
+	std::string result;
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0)) {
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger, start + i);
+
+		if (info.isBranch && g_symbolMap->GetLabelString(info.branchTarget).empty()) {
+			if (branchAddresses.find(info.branchTarget) == branchAddresses.end()) {
+				branchAddresses.insert(info.branchTarget);
+			}
+		}
+	}
+
+	u32 disAddress = start;
+	bool previousLabel = true;
+	DisassemblyLineInfo line;
+	while (disAddress < start + size) {
+		char addressText[64], buffer[512];
+
+		manager.getLine(disAddress, displaySymbols_, line);
+		bool isLabel = getDisasmAddressText(disAddress, addressText, false, line.type == DISTYPE_OPCODE);
+
+		if (isLabel) {
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer, "%s\r\n\r\n", addressText);
+			result += buffer;
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end()) {
+			if (!previousLabel) result += "\r\n";
+			sprintf(buffer, "pos_%08X:\r\n\r\n", disAddress);
+			result += buffer;
+		}
+
+		if (line.info.isBranch && !line.info.isBranchToRegister
+			&& g_symbolMap->GetLabelString(line.info.branchTarget).empty()
+			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end())
+		{
+			sprintf(buffer, "pos_%08X", line.info.branchTarget);
+			line.params = line.params.substr(0, line.params.find("0x")) + buffer;
+		}
+
+		sprintf(buffer, "\t%s\t%s\r\n", line.name.c_str(), line.params.c_str());
+		result += buffer;
+		previousLabel = isLabel;
+		disAddress += line.totalSize;
+	}
+
+	return result;
+}
+
+void ImDisasmView::disassembleToFile() { 	// get size
+	/*
+	u32 size;
+	if (executeExpressionWindow(wnd, debugger, size) == false)
+		return;
+	if (size == 0 || size > 10 * 1024 * 1024) {
+		MessageBox(wnd, L"Invalid size!", L"Error", MB_OK);
+		return;
+	}
+
+	std::string filename;
+	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
+		std::wstring fileName = ConvertUTF8ToWString(filename);
+		FILE *output = _wfopen(fileName.c_str(), L"wb");
+		if (output == nullptr) {
+			MessageBox(wnd, L"Could not open file!", L"Error", MB_OK);
+			return;
+		}
+
+		std::string disassembly = disassembleRange(curAddress, size);
+		fprintf(output, "%s", disassembly.c_str());
+
+		fclose(output);
+		MessageBox(wnd, L"Finished!", L"Done", MB_OK);
+	}
+	*/
+}
+
+void ImDisasmView::getOpcodeText(u32 address, char* dest, int bufsize) {
+	DisassemblyLineInfo line;
+	address = manager.getStartAddress(address);
+	manager.getLine(address, displaySymbols_, line);
+	snprintf(dest, bufsize, "%s  %s", line.name.c_str(), line.params.c_str());
+}
+
+void ImDisasmView::scrollStepping(u32 newPc) {
+	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+
+	newPc = manager.getStartAddress(newPc);
+	if (newPc >= windowEnd || newPc >= manager.getNthPreviousAddress(windowEnd, 1))
+	{
+		windowStart_ = manager.getNthPreviousAddress(newPc, visibleRows_ - 2);
+	}
+}
+
+u32 ImDisasmView::getInstructionSizeAt(u32 address) {
+	u32 start = manager.getStartAddress(address);
+	u32 next = manager.getNthNextAddress(start, 1);
+	return next - address;
+}

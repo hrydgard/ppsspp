@@ -707,7 +707,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		if (switchPC)
 			ptr->gotoPC();
 		
-		ptr->scanFunctions();
+		ptr->scanVisibleFunctions();
 	}
 	else
 	{

@@ -98,6 +98,12 @@
     <ClCompile Include="JitCompareScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="ImDebugger\ImDebugger.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
+    <ClCompile Include="ImDebugger\ImDisasmView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -196,6 +202,12 @@
     <ClInclude Include="JitCompareScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="ImDebugger\ImDebugger.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImDisasmView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
@@ -203,6 +215,9 @@
     </Filter>
     <Filter Include="Views">
       <UniqueIdentifier>{071baa63-c681-4ad6-945b-e126645d1b55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImDebugger">
+      <UniqueIdentifier>{fda6bc55-1386-4650-a274-44fac9605ea3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

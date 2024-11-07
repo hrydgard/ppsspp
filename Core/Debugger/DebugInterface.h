@@ -28,43 +28,48 @@ class DebugInterface {
 public:
 	virtual int getInstructionSize(int instruction) {return 1;}
 
-	virtual bool isAlive() {return true;}
-	virtual bool isBreakpoint(unsigned int address) {return false;}
-	virtual void setBreakpoint(unsigned int address){}
-	virtual void clearBreakpoint(unsigned int address){}
-	virtual void clearAllBreakpoints() {}
-	virtual void toggleBreakpoint(unsigned int address){}
-	virtual unsigned int readMemory(unsigned int address){return 0;}
-	virtual unsigned int getPC() {return 0;}
+	virtual bool isAlive() = 0;
+	virtual bool isBreakpoint(unsigned int address) = 0;
+	virtual void setBreakpoint(unsigned int address) = 0;
+	virtual void clearBreakpoint(unsigned int address) = 0;
+	virtual void clearAllBreakpoints() = 0;
+	virtual void toggleBreakpoint(unsigned int address) = 0;
+	virtual unsigned int readMemory(unsigned int address) {return 0;}
+	virtual unsigned int getPC() = 0;
 	virtual void setPC(unsigned int address) {}
 	virtual void step() {}
 	virtual void runToBreakpoint() {}
-	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
+	virtual int getColor(unsigned int address, bool darkMode) const {return darkMode ? 0xFF101010 : 0xFFFFFFFF;}
 	virtual std::string getDescription(unsigned int address) {return "";}
 	virtual bool initExpression(const char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 
-	virtual u32 GetHi() { return 0; };
-	virtual u32 GetLo() { return 0; };
+	virtual u32 GetHi() = 0;
+	virtual u32 GetLo() = 0;
+	virtual u32 GetLLBit() = 0;
+
 	virtual void SetHi(u32 val) { };
 	virtual void SetLo(u32 val) { };
 	virtual const char *GetName() = 0;
-	virtual u32 GetGPR32Value(int reg) {return 0;}
-	virtual void SetGPR32Value(int reg) {}
+	virtual u32 GetGPR32Value(int reg) = 0;
+	virtual void SetGPR32Value(int reg, u32 value) = 0;
+	virtual float GetFPR32Value(int reg) { return -1.0f; }
+	virtual float GetVPR32Value(int reg) { return -1.0f; }
+
 	virtual u32 GetPC() = 0;
 	virtual void SetPC(u32 _pc) = 0;
-	virtual u32 GetLR() {return GetPC();}
-	virtual void DisAsm(u32 pc, char *out, size_t outSize) {
-		snprintf(out, outSize, "[%08x] UNKNOWN", pc);
-	}
+	virtual u32 GetLR() = 0;
+
+	virtual void DisAsm(u32 pc, char *out, size_t outSize) = 0;
+
 	// More stuff for debugger
-	virtual int GetNumCategories() {return 0;}
-	virtual int GetNumRegsInCategory(int cat) {return 0;}
-	virtual const char *GetCategoryName(int cat) {return 0;}
-	virtual std::string GetRegName(int cat, int index) { return ""; }
+	virtual int GetNumCategories() = 0;
+	virtual int GetNumRegsInCategory(int cat) = 0;
+	virtual const char *GetCategoryName(int cat) = 0;
+	virtual std::string GetRegName(int cat, int index) = 0;
 	virtual void PrintRegValue(int cat, int index, char *out, size_t outSize) {
 		snprintf(out, outSize, "%08X", GetGPR32Value(index));
 	}
-	virtual u32 GetRegValue(int cat, int index) {return 0;}
+	virtual u32 GetRegValue(int cat, int index) = 0;
 	virtual void SetRegValue(int cat, int index, u32 value) {}
 };

@@ -8,7 +8,7 @@
 #include "imgui_impl_platform.h"
 
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO &io = ImGui::GetIO();
 
 	if (key.flags & KEY_DOWN) {
 		// Specially handle scroll events and any other special keys.
@@ -88,6 +88,7 @@ void ImGui_ImplPlatform_NewFrame() {
 	io.DisplaySize = ImVec2(g_display.pixel_xres, g_display.pixel_yres);
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 	io.DeltaTime = now - lastTime;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	lastTime = now;
 }
 
