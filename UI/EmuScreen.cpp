@@ -1643,7 +1643,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		ImGui_ImplThin3d_Init(draw);
 	}
 
-	if (imguiVisible_ && imguiInited_) {
+	if (imguiVisible_ && imguiInited_ && PSP_IsInited()) {
 		_dbg_assert_(imDebugger_);
 
 		ImGui_ImplPlatform_NewFrame();

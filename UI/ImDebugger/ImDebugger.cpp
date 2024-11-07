@@ -198,7 +198,7 @@ void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
 }
 
 void DrawModules(MIPSDebugInterface *debug, bool *open) {
-	if (!ImGui::Begin("Modules", open)) {
+	if (!ImGui::Begin("Modules", open) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
