@@ -163,6 +163,11 @@ namespace MIPSStackWalk {
 
 	std::vector<StackFrame> Walk(u32 pc, u32 ra, u32 sp, u32 threadEntry, u32 threadStackTop) {
 		std::vector<StackFrame> frames;
+
+		if (!Memory::IsValidAddress(pc) || !Memory::IsValidAddress(sp) || !Memory::IsValidAddress(ra)) {
+			return frames;
+		}
+
 		StackFrame current;
 		current.pc = pc;
 		current.sp = sp;

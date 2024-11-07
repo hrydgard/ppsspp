@@ -375,7 +375,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		ImColor textColor = 0xFFFFFFFF;
 
 		if (isInInterval(address, line.totalSize, debugger->getPC())) {
-			backgroundColor = scaleColor(backgroundColor, 1.15f);
+			backgroundColor = scaleColor(backgroundColor, 1.3f);
 		}
 
 		if (address >= selectRangeStart_ && address < selectRangeEnd_ && searching_ == false) {
@@ -383,7 +383,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 				backgroundColor = ImColor(address == curAddress_ ? 0xFFFF8822 : 0xFFFF9933);
 				textColor = ImColor(0xFF000000);
 			} else {
-				backgroundColor = ImColor(0xFFC0C0C0);
+				backgroundColor = ImColor(0xFF606060);
 			}
 		}
 
@@ -404,10 +404,12 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		drawList->AddText(ImVec2(rect.left + pixelPositions_.addressStart, rect.top + rowY1 + 2), textColor, addressText);
 
 		if (isInInterval(address, line.totalSize, debugger->getPC())) {
-			// Show the current PC with a little square.
-			drawList->AddRectFilled(
-				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_, canvas_p0.y + rowY1 + 2),
-				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - 4, canvas_p0.y + rowY1 + rowHeight_ - 2), 0xFFFFFFFF);
+			// Show the current PC with a little triangle.
+			drawList->AddTriangleFilled(
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_ * 0.7f, canvas_p0.y + rowY1 + 2),
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_ * 0.7f, canvas_p0.y + rowY1 + rowHeight_ - 2),
+				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - 4, canvas_p0.y + rowY1 + rowHeight_ * 0.5f),
+				0xFFFFFFFF);
 		}
 
 		// display whether the condition of a branch is met
@@ -498,7 +500,8 @@ void ImDisasmView::ScrollRelative(int amount) {
 	ScanVisibleFunctions();
 }
 
-void ImDisasmView::followBranch() {
+// Follows branches and jumps.
+void ImDisasmView::FollowBranch() {
 	DisassemblyLineInfo line;
 	manager.getLine(curAddress_, true, line);
 
@@ -507,7 +510,7 @@ void ImDisasmView::followBranch() {
 			jumpStack_.push_back(curAddress_);
 			gotoAddr(line.info.branchTarget);
 		} else if (line.info.hasRelevantAddress) {
-			// well, not  exactly a branch, but we can do something anyway
+			// well, not exactly a branch, but we can do something anyway
 			// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, line.info.relevantAddress, 0);
 			// SetFocus(wnd);
 		}
@@ -644,7 +647,7 @@ void ImDisasmView::onKeyDown(ImGuiKey key) {
 			}
 			return;
 		case VK_RIGHT:
-			followBranch();
+			FollowBranch();
 			return;
 		case VK_TAB:
 			displaySymbols_ = !displaySymbols_;
@@ -797,7 +800,7 @@ void ImDisasmView::PopupMenu() {
 			debugger->setPC(curAddress_);
 		}
 		if (ImGui::MenuItem("Follow branch")) {
-			followBranch();
+			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
 			// CBreakPoints::AddBreakPoint(pos, true);

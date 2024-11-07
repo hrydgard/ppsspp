@@ -125,7 +125,7 @@ private:
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
 	void search(bool continueSearch);
-	void followBranch();
+	void FollowBranch();
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();

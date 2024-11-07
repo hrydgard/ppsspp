@@ -955,7 +955,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
-		if (imguiVisible_ && imguiInited_) {
+		if (imguiVisible_ && imguiInited_ && (key.flags & (KEY_UP | KEY_DOWN))) {
 			InputMapping mapping(key.deviceId, key.keyCode);
 			std::vector<int> pspButtons;
 			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
@@ -1643,7 +1643,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		ImGui_ImplThin3d_Init(draw);
 	}
 
-	if (imguiVisible_ && imguiInited_) {
+	if (imguiVisible_ && imguiInited_ && PSP_IsInited()) {
 		_dbg_assert_(imDebugger_);
 
 		ImGui_ImplPlatform_NewFrame();

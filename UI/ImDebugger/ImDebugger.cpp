@@ -57,7 +57,7 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 
 			ImGui::EndTabItem();
 		}
-		if (ImGui::BeginTabItem("FPR")) {
+		if (ImGui::BeginTabItem("FPU")) {
 			if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 				ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
@@ -79,7 +79,7 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 			}
 			ImGui::EndTabItem();
 		}
-		if (ImGui::BeginTabItem("VPR")) {
+		if (ImGui::BeginTabItem("VFPU")) {
 			ImGui::Text("TODO");
 			ImGui::EndTabItem();
 		}
@@ -93,10 +93,10 @@ static const char *ThreadStatusToString(u32 status) {
 	case THREADSTATUS_RUNNING: return "Running";
 	case THREADSTATUS_READY: return "Ready";
 	case THREADSTATUS_WAIT: return "Wait";
-	case THREADSTATUS_SUSPEND: return "Suspend";
+	case THREADSTATUS_SUSPEND: return "Suspended";
 	case THREADSTATUS_DORMANT: return "Dormant";
 	case THREADSTATUS_DEAD: return "Dead";
-	case THREADSTATUS_WAITSUSPEND: return "WaitSuspend";
+	case THREADSTATUS_WAITSUSPEND: return "WaitSuspended";
 	default:
 		break;
 	}
@@ -198,7 +198,7 @@ void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
 }
 
 void DrawModules(MIPSDebugInterface *debug, bool *open) {
-	if (!ImGui::Begin("Modules", open)) {
+	if (!ImGui::Begin("Modules", open) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
@@ -379,12 +379,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 			while (clipper.Step()) {
 				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
 					if (ImGui::Selectable(symCache_[i].name.c_str(), false)) {
-						disasmView_.setCurAddress(symCache_[i].address);
+						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
 					}
 				}
 			}
-
 			clipper.End();
 			ImGui::EndListBox();
 		}
