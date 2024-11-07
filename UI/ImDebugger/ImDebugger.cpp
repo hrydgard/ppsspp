@@ -12,6 +12,12 @@
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
 
+// Threads window
+#include "Core/HLE/sceKernelThread.h"
+
+// Callstack window
+#include "Core/MIPS/MIPSStackWalk.h"
+
 #include "UI/ImDebugger/ImDebugger.h"
 
 void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
@@ -82,6 +88,150 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 	ImGui::End();
 }
 
+static const char *ThreadStatusToString(u32 status) {
+	switch (status) {
+	case THREADSTATUS_RUNNING: return "Running";
+	case THREADSTATUS_READY: return "Ready";
+	case THREADSTATUS_WAIT: return "Wait";
+	case THREADSTATUS_SUSPEND: return "Suspend";
+	case THREADSTATUS_DORMANT: return "Dormant";
+	case THREADSTATUS_DEAD: return "Dead";
+	case THREADSTATUS_WAITSUSPEND: return "WaitSuspend";
+	default:
+		break;
+	}
+	return "(unk)";
+}
+
+void DrawThreadView(bool *open) {
+	if (!ImGui::Begin("Threads", open)) {
+		ImGui::End();
+		return;
+	}
+
+	std::vector<DebugThreadInfo> info = GetThreadsInfo();
+	if (ImGui::BeginTable("threads", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("PC", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Priority", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
+		ImGui::TableNextRow();
+
+		// TODO: Add context menu
+		for (auto &thread : info) {
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Text("%s", thread.name);
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Text("%08x", thread.curPC);
+			ImGui::TableSetColumnIndex(2);
+			ImGui::Text("%08x", thread.entrypoint);
+			ImGui::TableSetColumnIndex(3);
+			ImGui::Text("%d", thread.priority);
+			ImGui::TableSetColumnIndex(4);
+			ImGui::Text("%s", ThreadStatusToString(thread.status));
+			ImGui::TableNextRow();
+			// TODO: More fields?
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
+	if (!ImGui::Begin("Callstacks", open)) {
+		ImGui::End();
+		return;
+	}
+
+	std::vector<DebugThreadInfo> info = GetThreadsInfo();
+	// TODO: Add dropdown for thread choice.
+	u32 entry = 0;
+	u32 stackTop = 0;
+	for (auto &thread : info) {
+		if (thread.isCurrent) {
+			entry = thread.entrypoint;
+			stackTop = thread.initialStack;
+			break;
+		}
+	}
+
+	if (entry != 0 && ImGui::BeginTable("frames", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("EntryAddr", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("CurPC", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("CurOpCode", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("CurSP", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
+		ImGui::TableNextRow();
+
+		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(debug->GetPC(), debug->GetRegValue(0, 31), debug->GetRegValue(0, 29), entry, stackTop);
+
+		// TODO: Add context menu and clickability
+		for (auto &frame : frames) {
+			const std::string entrySym = g_symbolMap->GetLabelString(frame.entry);
+
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Text("%s", entrySym.c_str());
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Text("%08x", frame.entry);
+			ImGui::TableSetColumnIndex(2);
+			ImGui::Text("%08x", frame.pc);
+			ImGui::TableSetColumnIndex(3);
+			ImGui::Text("%s", "N/A");  // opcode, see the old debugger
+			ImGui::TableSetColumnIndex(4);
+			ImGui::Text("%08x", frame.sp);
+			ImGui::TableSetColumnIndex(5);
+			ImGui::Text("%d", frame.stackSize);
+			ImGui::TableNextRow();
+			// TODO: More fields?
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+void DrawModules(MIPSDebugInterface *debug, bool *open) {
+	if (!ImGui::Begin("Modules", open)) {
+		ImGui::End();
+		return;
+	}
+
+	std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
+
+	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Active", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+		ImGui::TableNextRow();
+
+		// TODO: Add context menu and clickability
+		for (auto &module : modules) {
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Text("%s", module.name.c_str());
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Text("%08x", module.address);
+			ImGui::TableSetColumnIndex(2);
+			ImGui::Text("%08x", module.size);
+			ImGui::TableSetColumnIndex(3);
+			ImGui::Text("%s", module.active ? "yes" : "no");
+			ImGui::TableNextRow();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
@@ -116,6 +266,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::Checkbox("Dear ImGUI Demo", &demoOpen_);
 			ImGui::Checkbox("CPU debugger", &disasmOpen_);
 			ImGui::Checkbox("Registers", &regsOpen_);
+			ImGui::Checkbox("Callstacks", &callstackOpen_);
+			ImGui::Checkbox("HLE Modules", &modulesOpen_);
+			ImGui::Checkbox("HLE Threads", &threadsOpen_);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -131,6 +284,18 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	if (regsOpen_) {
 		DrawRegisterView(mipsDebug, &regsOpen_);
+	}
+
+	if (threadsOpen_) {
+		DrawThreadView(&threadsOpen_);
+	}
+
+	if (callstackOpen_) {
+		DrawCallStacks(mipsDebug, &callstackOpen_);
+	}
+
+	if (modulesOpen_) {
+		DrawModules(mipsDebug, &modulesOpen_);
 	}
 }
 

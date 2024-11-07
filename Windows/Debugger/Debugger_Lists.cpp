@@ -404,8 +404,7 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 	int index = getBreakpointIndex(itemIndex,isMemory);
 	if (index == -1) return;
 
-	if (isMemory)
-	{
+	if (isMemory) {
 		auto mc = displayedMemChecks_[index];
 		CBreakPoints::RemoveMemCheck(mc.start, mc.end);
 	} else {
