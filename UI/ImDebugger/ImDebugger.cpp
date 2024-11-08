@@ -1,3 +1,5 @@
+#include <algorithm>
+
 
 #include "ext/imgui/imgui_internal.h"
 
@@ -241,11 +243,20 @@ void DrawHLEModules(ImConfig &config) {
 	}
 
 	const int moduleCount = GetNumRegisteredModules();
+	std::vector<const HLEModule *> modules;
+	modules.reserve(moduleCount);
 	for (int i = 0; i < moduleCount; i++) {
-		const HLEModule *module = GetModuleByIndex(i);
-		if (ImGui::TreeNode(module->name)) {
-			for (int j = 0; j < module->numFunctions; j++) {
-				auto &func = module->funcTable[j];
+		modules.push_back(GetModuleByIndex(i));
+	}
+
+	std::sort(modules.begin(), modules.end(), [](const HLEModule* a, const HLEModule* b) {
+		return std::strcmp(a->name, b->name) < 0;
+	});
+
+	for (auto mod : modules) {
+		if (ImGui::TreeNode(mod->name)) {
+			for (int j = 0; j < mod->numFunctions; j++) {
+				auto &func = mod->funcTable[j];
 				ImGui::Text("%s(%s)", func.name, func.argmask);
 			}
 			ImGui::TreePop();
