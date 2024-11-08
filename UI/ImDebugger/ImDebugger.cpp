@@ -11,6 +11,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
 #include "Common/System/Request.h"
 
 // Threads window
@@ -233,6 +234,27 @@ void DrawModules(MIPSDebugInterface *debug, bool *open) {
 	ImGui::End();
 }
 
+void DrawHLEModules(ImConfig &config) {
+	if (!ImGui::Begin("HLE Modules", &config.hleModulesOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	const int moduleCount = GetNumRegisteredModules();
+	for (int i = 0; i < moduleCount; i++) {
+		const HLEModule *module = GetModuleByIndex(i);
+		if (ImGui::TreeNode(module->name)) {
+			for (int j = 0; j < module->numFunctions; j++) {
+				auto &func = module->funcTable[j];
+				ImGui::Text("%s(%s)", func.name, func.argmask);
+			}
+			ImGui::TreePop();
+		}
+	}
+
+	ImGui::End();
+}
+
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
@@ -272,40 +294,42 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Window")) {
-			ImGui::Checkbox("Dear ImGUI Demo", &demoOpen_);
-			ImGui::Checkbox("CPU debugger", &disasmOpen_);
-			ImGui::Checkbox("Registers", &regsOpen_);
-			ImGui::Checkbox("Callstacks", &callstackOpen_);
-			ImGui::Checkbox("HLE Modules", &modulesOpen_);
-			ImGui::Checkbox("HLE Threads", &threadsOpen_);
+			ImGui::Checkbox("Dear ImGUI Demo", &cfg_.demoOpen);
+			ImGui::Checkbox("CPU debugger", &cfg_.disasmOpen);
+			ImGui::Checkbox("Registers", &cfg_.regsOpen);
+			ImGui::Checkbox("Callstacks", &cfg_.callstackOpen);
+			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
+			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
 	}
 
-	if (demoOpen_) {
-		ImGui::ShowDemoWindow(&demoOpen_);
+	if (cfg_.demoOpen) {
+		ImGui::ShowDemoWindow(&cfg_.demoOpen);
 	}
 
-	if (disasmOpen_) {
-		disasm_.Draw(mipsDebug, &disasmOpen_, coreState);
+	if (cfg_.disasmOpen) {
+		disasm_.Draw(mipsDebug, &cfg_.disasmOpen, coreState);
 	}
 
-	if (regsOpen_) {
-		DrawRegisterView(mipsDebug, &regsOpen_);
+	if (cfg_.regsOpen) {
+		DrawRegisterView(mipsDebug, &cfg_.regsOpen);
 	}
 
-	if (threadsOpen_) {
-		DrawThreadView(&threadsOpen_);
+	if (cfg_.threadsOpen) {
+		DrawThreadView(&cfg_.threadsOpen);
 	}
 
-	if (callstackOpen_) {
-		DrawCallStacks(mipsDebug, &callstackOpen_);
+	if (cfg_.callstackOpen) {
+		DrawCallStacks(mipsDebug, &cfg_.callstackOpen);
 	}
 
-	if (modulesOpen_) {
-		DrawModules(mipsDebug, &modulesOpen_);
+	if (cfg_.modulesOpen) {
+		DrawModules(mipsDebug, &cfg_.modulesOpen);
 	}
+
+	DrawHLEModules(cfg_);
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {

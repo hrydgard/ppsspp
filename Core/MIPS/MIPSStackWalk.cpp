@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Log.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -176,6 +177,10 @@ namespace MIPSStackWalk {
 
 		u32 prevEntry = INVALIDTARGET;
 		while (pc != threadEntry) {
+			if (!Memory::IsValidAddress(current.pc)) {
+				break;
+			}
+
 			u32 possibleEntry = GuessEntry(current.pc);
 			if (DetermineFrameInfo(current, possibleEntry, threadEntry, ra)) {
 				frames.push_back(current);

@@ -162,14 +162,20 @@ void HLEShutdown() {
 	mipsCallActions.clear();
 }
 
-void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
-{
+int GetNumRegisteredModules() {
+	return (int)moduleDB.size();
+}
+
+void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable) {
 	HLEModule module = {name, numFunctions, funcTable};
 	moduleDB.push_back(module);
 }
 
-int GetModuleIndex(const char *moduleName)
-{
+const HLEModule *GetModuleByIndex(int index) {
+	return &moduleDB[index];
+}
+
+int GetModuleIndex(const char *moduleName) {
 	for (size_t i = 0; i < moduleDB.size(); i++)
 		if (strcmp(moduleName, moduleDB[i].name) == 0)
 			return (int)i;
