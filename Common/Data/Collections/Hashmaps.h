@@ -2,6 +2,7 @@
 
 #include <cstdint> /* uint32_t */
 #include <cstring>
+#include <functional>
 #include <vector>
 
 #include "ext/xxhash.h"
@@ -140,8 +141,7 @@ public:
 		return count_;
 	}
 
-	template<class T>
-	inline void Iterate(T func) const {
+	inline void Iterate(std::function<void(Key, Value)> func) const {
 		for (size_t i = 0; i < map.size(); i++) {
 			if (state[i] == BucketState::TAKEN) {
 				func(map[i].key, map[i].value);
@@ -149,8 +149,7 @@ public:
 		}
 	}
 
-	template<class T>
-	inline void IterateMut(T func) {
+	inline void IterateMut(std::function<void(Key, Value)> func) {
 		for (size_t i = 0; i < map.size(); i++) {
 			if (state[i] == BucketState::TAKEN) {
 				func(map[i].key, map[i].value);
