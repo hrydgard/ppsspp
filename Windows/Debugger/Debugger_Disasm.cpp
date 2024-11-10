@@ -5,6 +5,7 @@
 
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/RetroAchievements.h"
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -262,6 +263,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_COMMAND:
 		{
+			if (Achievements::HardcoreModeActive())
+				return TRUE;
+
 			CtrlDisAsmView *ptr = DisAsmView();
 			switch (LOWORD(wParam)) {
 			case ID_TOGGLE_BREAK:
