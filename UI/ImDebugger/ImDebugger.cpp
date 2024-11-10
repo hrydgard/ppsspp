@@ -2,6 +2,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Core/RetroAchievements.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -235,6 +236,14 @@ void DrawModules(MIPSDebugInterface *debug, bool *open) {
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
+
+	if (Achievements::HardcoreModeActive()) {
+		ImGui::Begin("RetroAchievements hardcore mode");
+		ImGui::Text("The debugger may not be used when the\nRetroAchievements hardcore mode is enabled.");
+		ImGui::Text("To use the debugger, go into Settings / Tools / RetroAchievements and disable them.");
+		ImGui::End();
+		return;
+	}
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
