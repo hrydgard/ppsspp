@@ -54,6 +54,9 @@ bool IsBlockingExecution();
 //
 // * Savestates
 // * Slowdown time (though hard to fully prevent, could use crazy post shaders or software rendering...)
+// * Debugging
+// * Cheats
+// * and similar...
 bool HardcoreModeActive();
 
 // Same as ChallengeModeActive but comes with a convenient user message. Don't use for every-frame checks or UI enablement,
