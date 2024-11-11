@@ -884,6 +884,8 @@ add_library(Common STATIC
 	Common/FakeCPUDetect.cpp
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
+	Common/GhidraClient.h
+	Common/GhidraClient.cpp
 	Common/Log.h
 	Common/Log.cpp
 	Common/Log/ConsoleListener.cpp

@@ -373,6 +373,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/ExceptionHandlerSetup.cpp \
   $(SRC)/Common/FakeCPUDetect.cpp \
+  $(SRC)/Common/GhidraClient.cpp \
   $(SRC)/Common/Log.cpp \
   $(SRC)/Common/Log/LogManager.cpp \
   $(SRC)/Common/LogReporting.cpp \

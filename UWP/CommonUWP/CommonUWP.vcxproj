@@ -197,6 +197,7 @@
     <ClInclude Include="..\..\Common\Crypto\sha256.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
+    <ClInclude Include="..\..\Common\GhidraClient.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\Log\LogManager.h" />
@@ -360,6 +361,7 @@
     <ClCompile Include="..\..\Common\Crypto\sha1.cpp" />
     <ClCompile Include="..\..\Common\Crypto\sha256.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
+    <ClCompile Include="..\..\Common\GhidraClient.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\Log\LogManager.cpp" />
     <ClCompile Include="..\..\Common\LogReporting.cpp" />

@@ -119,6 +119,7 @@
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
+    <ClCompile Include="..\..\Common\GhidraClient.cpp" />
     <ClCompile Include="..\..\Common\Log.cpp" />
     <ClCompile Include="..\..\Common\Log\LogManager.cpp" />
     <ClCompile Include="..\..\Common\LogReporting.cpp" />
@@ -538,6 +539,7 @@
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
+    <ClInclude Include="..\..\Common\GhidraClient.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\Log\LogManager.h" />
