@@ -14,6 +14,7 @@
 #include "Core/Debugger/DebugInterface.h"
 
 #include "UI/ImDebugger/ImDisasmView.h"
+#include "UI/ImDebugger/ImStructViewer.h"
 
 // This is the main state container of the whole Dear ImGUI-based in-game cross-platform debugger.
 //
@@ -57,6 +58,7 @@ struct ImConfig {
 	bool modulesOpen = true;
 	bool hleModulesOpen = false;
 	bool atracOpen = true;
+	bool structViewerOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -71,6 +73,7 @@ struct ImDebugger {
 
 	ImDisasmWindow disasm_;
 	ImLuaConsole luaConsole_;
+	ImStructViewer structViewer_;
 
 	// Open variables.
 	ImConfig cfg_;

@@ -377,6 +377,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
 			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
 			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
+			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -411,6 +412,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	}
 
 	DrawHLEModules(cfg_);
+
+	if (&cfg_.structViewerOpen) {
+		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);
+	}
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {
