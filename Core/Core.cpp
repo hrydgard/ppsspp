@@ -415,13 +415,18 @@ bool Core_Run(GraphicsContext *ctx) {
 // Free-threaded (hm, possibly except tracing).
 void Core_Break(const char *reason, u32 relatedAddress) {
 	// Stop the tracer
-	mipsTracer.stop_tracing();
-
 	{
 		std::lock_guard<std::mutex> lock(g_stepMutex);
+		if (!g_stepCommand.empty()) {
+			// Already broke.
+			ERROR_LOG(Log::CPU, "Core_Break called with a break already in progress: %s", g_stepCommand.reason);
+			return;
+		}
+		mipsTracer.stop_tracing();
+		g_stepCommand.reason = reason;
+		g_stepCommand.relatedAddr = relatedAddress;
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");
-
 		Core_UpdateState(CORE_STEPPING);
 	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
