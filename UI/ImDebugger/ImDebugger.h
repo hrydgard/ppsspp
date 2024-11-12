@@ -55,10 +55,15 @@ struct ImConfig {
 	bool threadsOpen = true;
 	bool callstackOpen = true;
 	bool modulesOpen = true;
-	bool hleModulesOpen = true;
+	bool hleModulesOpen = false;
+	bool atracOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
+
+	// Various selections
+	int selectedModule = 0;
+	int selectedThread = 0;
 };
 
 struct ImDebugger {

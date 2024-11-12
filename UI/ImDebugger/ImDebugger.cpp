@@ -16,6 +16,8 @@
 #include "Core/HLE/HLE.h"
 #include "Common/System/Request.h"
 
+#include "Core/HLE/sceAtrac.h"
+
 // Threads window
 #include "Core/HLE/sceKernelThread.h"
 
@@ -107,8 +109,8 @@ static const char *ThreadStatusToString(u32 status) {
 	return "(unk)";
 }
 
-void DrawThreadView(bool *open) {
-	if (!ImGui::Begin("Threads", open)) {
+void DrawThreadView(ImConfig &cfg) {
+	if (!ImGui::Begin("Threads", &cfg.threadsOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -122,22 +124,38 @@ void DrawThreadView(bool *open) {
 		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
 
 		ImGui::TableHeadersRow();
-		ImGui::TableNextRow();
 
-		// TODO: Add context menu
-		for (auto &thread : info) {
-			ImGui::TableSetColumnIndex(0);
-			ImGui::Text("%s", thread.name);
-			ImGui::TableSetColumnIndex(1);
-			ImGui::Text("%08x", thread.curPC);
-			ImGui::TableSetColumnIndex(2);
-			ImGui::Text("%08x", thread.entrypoint);
-			ImGui::TableSetColumnIndex(3);
-			ImGui::Text("%d", thread.priority);
-			ImGui::TableSetColumnIndex(4);
-			ImGui::Text("%s", ThreadStatusToString(thread.status));
+		for (int i = 0; i < (int)info.size(); i++) {
+			const auto &thread = info[i];
 			ImGui::TableNextRow();
-			// TODO: More fields?
+			ImGui::TableNextColumn();
+			ImGui::PushID(i);
+			if (ImGui::Selectable(thread.name, cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedThread = i;
+			}
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+				ImGui::OpenPopup("threadPopup");
+			}
+			if (ImGui::BeginPopup("threadPopup")) {
+				DebugThreadInfo &thread = info[i];
+				ImGui::Text("Thread: %s", thread.name);
+				if (ImGui::MenuItem("Kill thread")) {
+					sceKernelTerminateThread(thread.id);
+				}
+				if (ImGui::MenuItem("Force run")) {
+					__KernelResumeThreadFromWait(thread.id, 0);
+				}
+				ImGui::EndPopup();
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", thread.curPC);
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", thread.entrypoint);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", thread.priority);
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", ThreadStatusToString(thread.status));
+			ImGui::PopID();
 		}
 
 		ImGui::EndTable();
@@ -201,14 +219,13 @@ void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
 	ImGui::End();
 }
 
-void DrawModules(MIPSDebugInterface *debug, bool *open) {
-	if (!ImGui::Begin("Modules", open) || !g_symbolMap) {
+void DrawModules(MIPSDebugInterface *debug, ImConfig &cfg) {
+	if (!ImGui::Begin("Modules", &cfg.modulesOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
 
 	std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
-
 	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed);
@@ -216,22 +233,29 @@ void DrawModules(MIPSDebugInterface *debug, bool *open) {
 		ImGui::TableSetupColumn("Active", ImGuiTableColumnFlags_WidthFixed);
 
 		ImGui::TableHeadersRow();
-		ImGui::TableNextRow();
 
 		// TODO: Add context menu and clickability
-		for (auto &module : modules) {
-			ImGui::TableSetColumnIndex(0);
-			ImGui::Text("%s", module.name.c_str());
-			ImGui::TableSetColumnIndex(1);
-			ImGui::Text("%08x", module.address);
-			ImGui::TableSetColumnIndex(2);
-			ImGui::Text("%08x", module.size);
-			ImGui::TableSetColumnIndex(3);
-			ImGui::Text("%s", module.active ? "yes" : "no");
+		for (int i = 0; i < (int)modules.size(); i++) {
+			auto &module = modules[i];
 			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (ImGui::Selectable(module.name.c_str(), cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedModule = i;
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", module.address);
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", module.size);
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", module.active ? "yes" : "no");
 		}
 
 		ImGui::EndTable();
+	}
+
+	if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
+		auto &module = modules[cfg.selectedModule];
+		// TODO: Show details
 	}
 	ImGui::End();
 }
@@ -329,7 +353,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	}
 
 	if (cfg_.threadsOpen) {
-		DrawThreadView(&cfg_.threadsOpen);
+		DrawThreadView(cfg_);
 	}
 
 	if (cfg_.callstackOpen) {
@@ -337,7 +361,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 	}
 
 	if (cfg_.modulesOpen) {
-		DrawModules(mipsDebug, &cfg_.modulesOpen);
+		DrawModules(mipsDebug, cfg_);
 	}
 
 	DrawHLEModules(cfg_);
