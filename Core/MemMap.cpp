@@ -158,8 +158,8 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
+			ERROR_LOG(Log::MemMap, "Failed at view %d", i);
 			goto bail;
-			DEBUG_LOG(Log::MemMap, "Failed at view %d", i);
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -169,7 +169,7 @@ static bool Memory_TryBase(u32 flags) {
 			*view.out_ptr = (u8*)g_arena.CreateView(
 				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
 			if (!*view.out_ptr) {
-				DEBUG_LOG(Log::MemMap, "Failed at view %d", i);
+				ERROR_LOG(Log::MemMap, "Failed at view %d", i);
 				goto bail;
 			}
 		}
@@ -185,11 +185,11 @@ bail:
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (*views[j].out_ptr) {
+		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
 			}
-			*views[j].out_ptr = NULL;
+			*views[j].out_ptr = nullptr;
 		}
 	}
 	return false;
