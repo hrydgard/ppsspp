@@ -63,13 +63,13 @@ struct GhidraType {
 };
 
 class GhidraClient {
-public:
 	enum class Status {
 		Idle,
 		Pending,
 		Ready,
 	};
 
+public:
 	struct Result {
 		std::vector<GhidraSymbol> symbols;
 		std::unordered_map<std::string, GhidraType> types;

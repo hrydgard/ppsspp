@@ -74,7 +74,7 @@ bool GhidraClient::FetchSymbols() {
 		return false;
 	}
 
-	for (const auto pEntry: entries) {
+	for (const auto pEntry : entries) {
 		JsonGet entry = pEntry->value;
 
 		GhidraSymbol symbol;
@@ -104,7 +104,7 @@ bool GhidraClient::FetchTypes() {
 		return false;
 	}
 
-	for (const auto pEntry: entries) {
+	for (const auto pEntry : entries) {
 		const JsonGet entry = pEntry->value;
 
 		GhidraType type;
@@ -124,7 +124,7 @@ bool GhidraClient::FetchTypes() {
 					pendingResult_.error = "missing enum members";
 					return false;
 				}
-				for (const JsonNode* pEnumEntry: enumEntries->value) {
+				for (const JsonNode* pEnumEntry : enumEntries->value) {
 					JsonGet enumEntry = pEnumEntry->value;
 					GhidraEnumMember member;
 					member.name = enumEntry.getStringOr("name", "");
@@ -153,7 +153,7 @@ bool GhidraClient::FetchTypes() {
 					pendingResult_.error = "missing composite members";
 					return false;
 				}
-				for (const JsonNode* pCompositeEntry: compositeEntries->value) {
+				for (const JsonNode* pCompositeEntry : compositeEntries->value) {
 					JsonGet compositeEntry = pCompositeEntry->value;
 					GhidraCompositeMember member;
 					member.fieldName = compositeEntry.getStringOr("fieldName", "");

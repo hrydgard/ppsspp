@@ -67,5 +67,6 @@ private:
 		int length,
 		const std::string& typePathName,
 		const char* name,
-		int watchIndex);
+		int watchIndex,
+		const u64* value);
 };

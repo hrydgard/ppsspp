@@ -3,6 +3,7 @@
 
 #include "ext/imgui/imgui.h"
 
+#include "Common/System/Request.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -190,7 +191,7 @@ static constexpr int COLUMN_CONTENT = 2;
 
 void ImStructViewer::Draw(MIPSDebugInterface* mipsDebug, bool* open) {
 	mipsDebug_ = mipsDebug;
-	ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(750, 550), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Struct viewer", open) || !mipsDebug->isAlive() || !Memory::IsActive()) {
 		ImGui::End();
 		return;
@@ -275,7 +276,7 @@ void ImStructViewer::DrawGlobals() {
 		ImGui::TableSetupColumn("Content");
 		ImGui::TableHeadersRow();
 
-		for (const auto& symbol: ghidraClient_.result.symbols) {
+		for (const auto& symbol : ghidraClient_.result.symbols) {
 			if (!symbol.label || !symbol.userDefined || symbol.dataTypePathName.empty()) {
 				continue;
 			}
@@ -304,7 +305,7 @@ void ImStructViewer::DrawWatch() {
 		ImGui::TableHeadersRow();
 
 		int watchIndex = -1;
-		for (const auto& watch: watches_) {
+		for (const auto& watch : watches_) {
 			watchIndex++;
 			if (!watchFilter_.PassFilter(watch.name.c_str())) {
 				continue;
@@ -313,10 +314,9 @@ void ImStructViewer::DrawWatch() {
 			if (!watch.expression.empty()) {
 				u32 val;
 				PostfixExpression postfix;
-				if (mipsDebug_->initExpression(watch.expression.c_str(), postfix)) {
-					if (mipsDebug_->parseExpression(postfix, val)) {
-						address = val;
-					}
+				if (mipsDebug_->initExpression(watch.expression.c_str(), postfix)
+				    && mipsDebug_->parseExpression(postfix, val)) {
+					address = val;
 				}
 			} else {
 				address = watch.address;
@@ -346,7 +346,7 @@ void ImStructViewer::DrawNewWatchEntry() {
 			ImGui::SetKeyboardFocusHere(0);
 		}
 		newWatch_.typeFilter.Draw();
-		for (const auto& entry: ghidraClient_.result.types) {
+		for (const auto& entry : ghidraClient_.result.types) {
 			const auto& type = entry.second;
 			if (newWatch_.typeFilter.PassFilter(type.displayName.c_str())) {
 				ImGui::PushID(type.pathName.c_str());
@@ -498,7 +498,7 @@ static void DrawPointerContent(
 static std::string FormatEnumValue(const std::vector<GhidraEnumMember>& enumMembers, const u64 value) {
 	std::stringstream ss;
 	bool hasPrevious = false;
-	for (const auto& member: enumMembers) {
+	for (const auto& member : enumMembers) {
 		if (value & member.value) {
 			if (hasPrevious) {
 				ss << " | ";
@@ -559,12 +559,12 @@ void ImStructViewer::DrawType(
 	ImGui::AlignTextToFramePadding();
 	// Flags used for nodes that can't be further opened
 	const ImGuiTreeNodeFlags leafFlags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-	                                     ImGuiTreeNodeFlags_Bullet | extraTreeNodeFlags;
+	                                     extraTreeNodeFlags;
 
 	// Type is missing in fetched types, this can happen e.g. if type used for watch is removed from Ghidra
 	if (!hasType) {
 		ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-		DrawContextMenu(base, offset, 0, typePathName, name, watchIndex);
+		DrawContextMenu(base, offset, 0, typePathName, name, watchIndex, nullptr);
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
 		DrawTypeColumn("<missing type: %s>", typePathName, base, offset);
 		ImGui::PopStyleColor();
@@ -580,7 +580,7 @@ void ImStructViewer::DrawType(
 	// Handle cases where pointers or expressions point to invalid memory
 	if (!Memory::IsValidAddress(address)) {
 		ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-		DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+		DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
 		DrawTypeColumn("%s", typeDisplayName, base, offset);
 		ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
@@ -596,23 +596,24 @@ void ImStructViewer::DrawType(
 	switch (type.kind) {
 		case ENUM: {
 			ImGui::TreeNodeEx("Enum", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			const u64 enumValue = ReadMemoryInt(address, type.length);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &enumValue);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
-			const u64 value = ReadMemoryInt(address, type.length);
-			const std::string stringValue = FormatEnumValue(type.enumMembers, value);
-			ImGui::Text("= %llx (%s)", value, stringValue.c_str());
+			const std::string enumString = FormatEnumValue(type.enumMembers, enumValue);
+			ImGui::Text("= %llx (%s)", enumValue, enumString.c_str());
 			DrawIntBuiltInEditPopup(address, type.length);
 			break;
 		}
 		case POINTER: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Pointer", extraTreeNodeFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			const u32 pointer = Memory::Read_U32(address);
+			const u64 pointer64 = pointer;
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &pointer64);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
-			const u32 pointer = Memory::Read_U32(address);
 			DrawPointerContent(types, type, pointer);
 
 			if (nodeOpen) {
@@ -649,7 +650,7 @@ void ImStructViewer::DrawType(
 		}
 		case ARRAY: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Array", extraTreeNodeFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
@@ -669,11 +670,11 @@ void ImStructViewer::DrawType(
 		case STRUCTURE:
 		case UNION: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Composite", extraTreeNodeFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			if (nodeOpen) {
-				for (const auto& member: type.compositeMembers) {
+				for (const auto& member : type.compositeMembers) {
 					DrawType(base, offset + member.offset, member.typePathName, nullptr,
 					         member.fieldName.c_str(), -1);
 				}
@@ -683,7 +684,7 @@ void ImStructViewer::DrawType(
 		}
 		case FUNCTION_DEFINITION:
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
@@ -691,9 +692,11 @@ void ImStructViewer::DrawType(
 			break;
 		case BUILT_IN: {
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
 
 			if (knownBuiltIns.count(typePathName)) {
+				// This will copy float as int, but we can live with that for now
+				const u64 value = ReadMemoryInt(address, type.alignedLength);
+				DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &value);
 				DrawTypeColumn("%s", typeDisplayName, base, offset);
 				ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 				DrawBuiltInContent(knownBuiltIns.at(typePathName), address);
@@ -709,7 +712,7 @@ void ImStructViewer::DrawType(
 			// At this point there is most likely some issue in the Ghidra plugin and the type wasn't
 			// classified to any category
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
 			ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
 			DrawTypeColumn("<not implemented type: %s>", typeDisplayName, base, offset);
 			ImGui::PopStyleColor();
@@ -721,17 +724,32 @@ void ImStructViewer::DrawType(
 	ImGui::PopID();
 }
 
+static void CopyHexNumberToClipboard(u64 value) {
+	std::stringstream ss;
+	ss << std::hex << value;
+	const std::string valueString = ss.str();
+	System_CopyStringToClipboard(valueString);
+}
+
 void ImStructViewer::DrawContextMenu(
 	const u32 base,
 	const u32 offset,
 	const int length,
 	const std::string& typePathName,
 	const char* name,
-	const int watchIndex
+	const int watchIndex,
+	const u64* value
 ) {
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
 	if (ImGui::BeginPopup("context")) {
 		const u32 address = base + offset;
+
+		if (ImGui::MenuItem("Copy address")) {
+			CopyHexNumberToClipboard(address);
+		}
+		if (value && ImGui::MenuItem("Copy value")) {
+			CopyHexNumberToClipboard(*value);
+		}
 
 		// This might be called when iterating over existing watches so can't modify the watch vector directly here
 		if (watchIndex < 0) {
@@ -760,21 +778,25 @@ void ImStructViewer::DrawContextMenu(
 					CBreakPoints::RemoveMemCheck(address, end);
 				}
 			}
-			if (!hasMemCheck || !(memCheck.cond & MEMCHECK_READ)) {
-				if (ImGui::MenuItem("Add memory read breakpoint")) {
+			const bool canAddRead = !hasMemCheck || !(memCheck.cond & MEMCHECK_READ);
+			const bool canAddWrite = !hasMemCheck || !(memCheck.cond & MEMCHECK_WRITE);
+			const bool canAddWriteOnChange = !hasMemCheck || !(memCheck.cond & MEMCHECK_WRITE_ONCHANGE);
+			if ((canAddRead || canAddWrite || canAddWriteOnChange) && ImGui::BeginMenu("Add memory breakpoint")) {
+				if (canAddRead && canAddWrite && ImGui::MenuItem("Read/Write")) {
+					constexpr auto cond = static_cast<MemCheckCondition>(MEMCHECK_READ | MEMCHECK_WRITE);
+					CBreakPoints::AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
+				}
+				if (canAddRead && ImGui::MenuItem("Read")) {
 					CBreakPoints::AddMemCheck(address, end, MEMCHECK_READ, BREAK_ACTION_PAUSE);
 				}
-			}
-			if (!hasMemCheck || !(memCheck.cond & MEMCHECK_WRITE)) {
-				if (ImGui::MenuItem("Add memory write breakpoint")) {
+				if (canAddWrite && ImGui::MenuItem("Write")) {
 					CBreakPoints::AddMemCheck(address, end, MEMCHECK_WRITE, BREAK_ACTION_PAUSE);
 				}
-			}
-			if (!hasMemCheck || !(memCheck.cond & MEMCHECK_WRITE_ONCHANGE)) {
-				if (ImGui::MenuItem("Add memory write on change breakpoint")) {
+				if (canAddWriteOnChange && ImGui::MenuItem("Write Change")) {
 					constexpr auto cond = static_cast<MemCheckCondition>(MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE);
 					CBreakPoints::AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
 				}
+				ImGui::EndMenu();
 			}
 		}
 
