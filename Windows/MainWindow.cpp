@@ -641,20 +641,20 @@ namespace MainWindow
 				SetCapture(hWnd);
 
 				// Simulate doubleclick, doesn't work with RawInput enabled
-				static double lastMouseDown;
+				static double lastMouseDownTime;
 				static float lastMouseDownX = -1.0f;
 				static float lastMouseDownY = -1.0f;
-				double now = time_now_d();
-				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					float dx = lastMouseDownX - x;
-					float dy = lastMouseDownY - y;
-					float distSq = dx * dx + dy * dy;
-					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+				const double now = time_now_d();
+				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
+					const float dx = lastMouseDownX - x;
+					const float dy = lastMouseDownY - y;
+					const float distSq = dx * dx + dy * dy;
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.UseFullScreen());
 					}
-					lastMouseDown = 0.0;
+					lastMouseDownTime = 0.0;
 				} else {
-					lastMouseDown = now;
+					lastMouseDownTime = now;
 				}
 				lastMouseDownX = x;
 				lastMouseDownY = y;
