@@ -656,7 +656,7 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	if (!(imguiVisible_ && imguiInited_)) {
+	if (!(g_Config.bShowImDebugger && imguiInited_)) {
 		GamepadTouch();
 	}
 
@@ -673,7 +673,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	switch (virtualKeyCode) {
 	case VIRTKEY_TOGGLE_DEBUGGER:
 		if (down) {
-			imguiVisible_ = !imguiVisible_;
+			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 		}
 		break;
 	case VIRTKEY_FASTFORWARD:
@@ -952,10 +952,10 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
-	if (UI::IsFocusMovementEnabled() || (imguiVisible_ && imguiInited_)) {
+	if (UI::IsFocusMovementEnabled() || (g_Config.bShowImDebugger && imguiInited_)) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
-		if (imguiVisible_ && imguiInited_ && (key.flags & (KEY_UP | KEY_DOWN))) {
+		if (g_Config.bShowImDebugger && imguiInited_ && (key.flags & (KEY_UP | KEY_DOWN))) {
 			InputMapping mapping(key.deviceId, key.keyCode);
 			std::vector<int> pspButtons;
 			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
@@ -976,7 +976,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 
-	if (!retval && imguiVisible_ && imguiInited_) {
+	if (!retval && g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_KeyEvent(key);
 	}
 
@@ -993,7 +993,7 @@ bool EmuScreen::key(const KeyInput &key) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
-	if (imguiVisible_ && imguiInited_) {
+	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
 	} else {
 		UIScreen::touch(touch);
@@ -1637,23 +1637,25 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		darken();
 	}
 
-	if (imguiVisible_ && !imguiInited_) {
-		imguiInited_ = true;
-		imDebugger_ = std::make_unique<ImDebugger>();
-		ImGui_ImplThin3d_Init(draw);
-	}
+	if (g_Config.bShowImDebugger) {
+		if (!imguiInited_) {
+			imguiInited_ = true;
+			imDebugger_ = std::make_unique<ImDebugger>();
+			ImGui_ImplThin3d_Init(draw);
+		}
 
-	if (imguiVisible_ && imguiInited_ && PSP_IsInited()) {
-		_dbg_assert_(imDebugger_);
+		if (PSP_IsInited()) {
+			_dbg_assert_(imDebugger_);
 
-		ImGui_ImplPlatform_NewFrame();
-		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
+			ImGui_ImplPlatform_NewFrame();
+			ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
-		ImGui::NewFrame();
-		imDebugger_->Frame(currentDebugMIPS);
+			ImGui::NewFrame();
+			imDebugger_->Frame(currentDebugMIPS);
 
-		ImGui::Render();
-		ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+			ImGui::Render();
+			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+		}
 	}
 	return flags;
 }

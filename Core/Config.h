@@ -190,6 +190,8 @@ public:
 	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
 
+	bool bShowImDebugger;
+
 	int iFrameSkip;
 	int iFrameSkipType;
 	int iFastForwardMode; // See FastForwardMode in ConfigValues.h.
