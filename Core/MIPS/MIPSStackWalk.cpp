@@ -113,6 +113,7 @@ namespace MIPSStackWalk {
 			stop = start - LONGEST_FUNCTION;
 		}
 		for (u32 pc = start; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
+			_dbg_assert_(Memory::IsValidAddress(pc));
 			MIPSOpcode op = Memory::Read_Instruction(pc, true);
 
 			// Here's where they store the ra address.
@@ -162,7 +163,7 @@ namespace MIPSStackWalk {
 		}
 	}
 
-	std::vector<StackFrame> Walk(u32 pc, u32 ra, u32 sp, u32 threadEntry, u32 threadStackTop) {
+	std::vector<StackFrame> Walk(const u32 pc, u32 ra, u32 sp, const u32 threadEntry, u32 threadStackTop) {
 		std::vector<StackFrame> frames;
 
 		if (!Memory::IsValidAddress(pc) || !Memory::IsValidAddress(sp) || !Memory::IsValidAddress(ra)) {
@@ -176,7 +177,7 @@ namespace MIPSStackWalk {
 		current.stackSize = -1;
 
 		u32 prevEntry = INVALIDTARGET;
-		while (pc != threadEntry) {
+		while (current.pc != threadEntry) {
 			if (!Memory::IsValidAddress(current.pc)) {
 				break;
 			}
