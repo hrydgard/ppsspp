@@ -134,5 +134,4 @@ private:
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
 
 	bool imguiInited_ = false;
-	bool imguiVisible_ = false;
 };
