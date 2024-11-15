@@ -1537,13 +1537,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 		PSP_RunLoopWhileState();
 
-		flags |= ScreenRenderFlags::HANDLED_THROTTLING;
 
 		// Hopefully coreState is now CORE_NEXTFRAME
 		switch (coreState) {
 		case CORE_NEXTFRAME:
 			// Reached the end of the frame, all good. Set back to running for the next frame
 			coreState = CORE_RUNNING;
+			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
 			break;
 		case CORE_STEPPING:
 		case CORE_RUNTIME_ERROR:
@@ -1573,6 +1573,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// In this case we need to bind and wipe the backbuffer, at least.
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
 			// So, we don't set framebufferBound here.
+
+			// However, let's not cause a UI sleep in the mainloop.
+			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
 			break;
 		}
 
