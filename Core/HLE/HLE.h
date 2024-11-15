@@ -44,8 +44,7 @@ enum {
 	HLE_KERNEL_SYSCALL = 1 << 11,
 };
 
-struct HLEFunction
-{
+struct HLEFunction {
 	// This is the id, or nid, of the function (which is how it's linked.)
 	// Generally, the truncated least significant 32 bits of a SHA-1 hash.
 	u32 ID;
@@ -72,8 +71,7 @@ struct HLEFunction
 	u32 stackBytesToClear;
 };
 
-struct HLEModule
-{
+struct HLEModule {
 	const char *name;
 	int numFunctions;
 	const HLEFunction *funcTable;
@@ -81,8 +79,7 @@ struct HLEModule
 
 typedef char SyscallModuleName[32];
 
-struct Syscall
-{
+struct Syscall {
 	SyscallModuleName moduleName;
 	u32 symAddr;
 	u32 nid;
@@ -102,6 +99,8 @@ int GetFuncIndex(int moduleIndex, u32 nib);
 int GetModuleIndex(const char *modulename);
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable);
+int GetNumRegisteredModules();
+const HLEModule *GetModuleByIndex(int index);
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();

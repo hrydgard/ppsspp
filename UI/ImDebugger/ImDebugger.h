@@ -48,6 +48,24 @@ public:
 	// Stub
 };
 
+struct ImConfig {
+	bool disasmOpen = true;
+	bool demoOpen  = false;
+	bool regsOpen = true;
+	bool threadsOpen = true;
+	bool callstackOpen = true;
+	bool modulesOpen = true;
+	bool hleModulesOpen = false;
+	bool atracOpen = true;
+
+	// HLE explorer settings
+	// bool filterByUsed = true;
+
+	// Various selections
+	int selectedModule = 0;
+	int selectedThread = 0;
+};
+
 struct ImDebugger {
 	void Frame(MIPSDebugInterface *mipsDebug);
 
@@ -55,10 +73,5 @@ struct ImDebugger {
 	ImLuaConsole luaConsole_;
 
 	// Open variables.
-	bool disasmOpen_ = true;
-	bool demoOpen_ = false;
-	bool regsOpen_ = true;
-	bool threadsOpen_ = true;
-	bool callstackOpen_ = true;
-	bool modulesOpen_ = true;
+	ImConfig cfg_;
 };

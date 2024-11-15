@@ -291,6 +291,7 @@ public:
 	}
 
 	u8 *BufferStart();
+
 	void DoState(PointerWrap &p) override;
 	void WriteContextToPSPMem() override;
 
