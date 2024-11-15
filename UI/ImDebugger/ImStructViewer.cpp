@@ -1,5 +1,6 @@
 #include <regex>
 #include <sstream>
+#include <unordered_map>
 
 #include "ext/imgui/imgui.h"
 
@@ -369,8 +370,9 @@ void ImStructViewer::DrawNewWatchEntry() {
 	ImGui::InputText("Expression", newWatch_.expression, IM_ARRAYSIZE(newWatch_.expression));
 	ImGui::SameLine();
 	ImGui::Checkbox("Dynamic", &newWatch_.dynamic);
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_DelayNormal))
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_DelayNormal)) {
 		ImGui::SetTooltip("When checked the expression will be\nre-evaluated on each frame.");
+	}
 
 	ImGui::PopItemWidth();
 
@@ -399,8 +401,8 @@ void ImStructViewer::DrawNewWatchEntry() {
 			newWatch_.dynamic = false;
 			newWatch_.error = "";
 			newWatch_.typeFilter.Clear();
-			// Not clearing the actual selected type on purpose here, user will have to reselect one anyway and maybe
-			// there is a chance they will reuse the current one
+			// Not clearing the actual selected type on purpose here, user will have to reselect one anyway and
+			// maybe there is a chance they will reuse the current one
 		}
 	}
 	if (!newWatch_.error.empty()) {

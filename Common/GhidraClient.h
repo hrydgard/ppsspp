@@ -1,9 +1,11 @@
 #pragma once
 
-#include <string>
+#include <atomic>
 #include <mutex>
-#include <vector>
+#include <string>
+#include <thread>
 #include <unordered_map>
+#include <vector>
 
 struct GhidraSymbol {
 	u32 address = 0;

@@ -413,7 +413,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	DrawHLEModules(cfg_);
 
-	if (&cfg_.structViewerOpen) {
+	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);
 	}
 }
