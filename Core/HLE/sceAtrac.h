@@ -85,6 +85,12 @@ struct SceAtracContext {
     SceAtracIdInfo info;
 };
 
+const int PSP_NUM_ATRAC_IDS = 6;
+
+class AtracBase;
+
+const AtracBase *__AtracGetCtx(int i, u32 *type);
+
 // External interface used by sceSas.
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
 u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);

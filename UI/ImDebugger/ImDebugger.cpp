@@ -17,6 +17,7 @@
 #include "Common/System/Request.h"
 
 #include "Core/HLE/sceAtrac.h"
+#include "Core/HLE/AtracCtx.h"
 
 // Threads window
 #include "Core/HLE/sceKernelThread.h"
@@ -134,8 +135,17 @@ void DrawThreadView(ImConfig &cfg) {
 				cfg.selectedThread = i;
 			}
 			if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+				cfg.selectedThread = i;
 				ImGui::OpenPopup("threadPopup");
 			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", thread.curPC);
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", thread.entrypoint);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", thread.priority);
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", ThreadStatusToString(thread.status));
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
@@ -147,15 +157,46 @@ void DrawThreadView(ImConfig &cfg) {
 				}
 				ImGui::EndPopup();
 			}
-			ImGui::TableNextColumn();
-			ImGui::Text("%08x", thread.curPC);
-			ImGui::TableNextColumn();
-			ImGui::Text("%08x", thread.entrypoint);
-			ImGui::TableNextColumn();
-			ImGui::Text("%d", thread.priority);
-			ImGui::TableNextColumn();
-			ImGui::Text("%s", ThreadStatusToString(thread.status));
 			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+void DrawAtracView(ImConfig &cfg) {
+	if (!ImGui::Begin("sceAtrac contexts", &cfg.atracOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::BeginTable("atracs", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("OutChans", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < PSP_NUM_ATRAC_IDS; i++) {
+			u32 type = 0;
+			const AtracBase *atracBase = __AtracGetCtx(i, &type);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			if (!atracBase) {
+				ImGui::Text("-", type);
+				continue;
+			}
+
+			ImGui::Text("%d", type);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", atracBase->GetOutputChannels());
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", atracBase->CurrentSample());
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", atracBase->RemainingFrames());
 		}
 
 		ImGui::EndTable();
@@ -335,6 +376,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::Checkbox("Callstacks", &cfg_.callstackOpen);
 			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
 			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
+			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -362,6 +404,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	if (cfg_.modulesOpen) {
 		DrawModules(mipsDebug, cfg_);
+	}
+
+	if (cfg_.atracOpen) {
+		DrawAtracView(cfg_);
 	}
 
 	DrawHLEModules(cfg_);

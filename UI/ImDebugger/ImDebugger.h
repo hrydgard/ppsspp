@@ -56,7 +56,7 @@ struct ImConfig {
 	bool callstackOpen = true;
 	bool modulesOpen = true;
 	bool hleModulesOpen = false;
-	bool atracOpen = false;
+	bool atracOpen = true;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
