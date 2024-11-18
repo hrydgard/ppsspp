@@ -108,7 +108,6 @@ bool GhidraClient::FetchTypes() {
 		const JsonGet entry = pEntry->value;
 
 		GhidraType type;
-		type.name = entry.getStringOr("name", "");
 		type.displayName = entry.getStringOr("displayName", "");
 		type.pathName = entry.getStringOr("pathName", "");
 		type.length = entry.getInt("length", 0);
@@ -197,7 +196,7 @@ bool GhidraClient::FetchResource(const std::string& path, std::string& outResult
 	const int code = http.GET(http::RequestParams(path.c_str()), &result, &progress);
 	http.Disconnect();
 	if (code != 200) {
-		pendingResult_.error = "unsuccessful response code";
+		pendingResult_.error = "unsuccessful response code from API endpoint";
 		return false;
 	}
 	result.TakeAll(&outResult);

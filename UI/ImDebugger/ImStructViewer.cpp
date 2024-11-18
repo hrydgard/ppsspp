@@ -216,9 +216,15 @@ void ImStructViewer::Draw(MIPSDebugInterface* mipsDebug, bool* open) {
 }
 
 void ImStructViewer::DrawConnectionSetup() {
-	ImGui::TextWrapped("Struct viewer visualizes data in memory using types from your Ghidra project.");
-	ImGui::TextWrapped("To get started install the ghidra-rest-api plugin and start the Rest API server.");
-	ImGui::TextWrapped("When ready press the connect button below.");
+	ImGui::TextWrapped(R"(Struct viewer visualizes data in game memory using types from your Ghidra project.
+It also allows to set memory breakpoints and edit field values which is helpful when reverse engineering unknown types.
+To get started:
+ 1. In Ghidra install the ghidra-rest-api extension by Kotcrab.
+ 2. After installing the extension enable the RestApiPlugin in the Miscellaneous plugins configuration window.
+ 3. Open your Ghidra project and click "Start Rest API Server" in the "Tools" menu bar.
+ 4. Press the connect button below.
+)");
+	ImGui::Dummy(ImVec2(1, 6));
 
 	ImGui::BeginDisabled(!ghidraClient_.Idle());
 	ImGui::PushItemWidth(120);
@@ -552,7 +558,7 @@ void ImStructViewer::DrawType(
 
 	const u32 address = base + offset;
 	ImGui::PushID(static_cast<int>(address));
-	ImGui::PushID(watchIndex);
+	ImGui::PushID(watchIndex); // We push watch index too as it's possible to have multiple watches on the same address
 
 	// Text and Tree nodes are less high than framed widgets, using AlignTextToFramePadding() we add vertical spacing
 	// to make the tree lines equal high.
@@ -711,7 +717,7 @@ void ImStructViewer::DrawType(
 			break;
 		}
 		default: {
-			// At this point there is most likely some issue in the Ghidra plugin and the type wasn't
+			// At this point there is most likely some issue in the Ghidra extension and the type wasn't
 			// classified to any category
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
 			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
@@ -726,7 +732,7 @@ void ImStructViewer::DrawType(
 	ImGui::PopID();
 }
 
-static void CopyHexNumberToClipboard(u64 value) {
+static void CopyHexNumberToClipboard(const u64 value) {
 	std::stringstream ss;
 	ss << std::hex << value;
 	const std::string valueString = ss.str();
