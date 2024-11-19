@@ -104,6 +104,9 @@
     <ClCompile Include="ImDebugger\ImDisasmView.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
+    <ClCompile Include="ImDebugger\ImStructViewer.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -206,6 +209,9 @@
       <Filter>ImDebugger</Filter>
     </ClInclude>
     <ClInclude Include="ImDebugger\ImDisasmView.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImStructViewer.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
   </ItemGroup>

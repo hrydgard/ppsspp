@@ -483,6 +483,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Log/StdioListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FakeCPUDetect.cpp \
+	$(COMMONDIR)/GhidraClient.cpp \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \

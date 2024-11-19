@@ -6,6 +6,7 @@
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="CPUDetect.h" />
+    <ClInclude Include="GhidraClient.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
@@ -705,6 +706,7 @@
       <Filter>Serialize</Filter>
     </ClCompile>
     <ClCompile Include="TimeUtil.cpp" />
+    <ClCompile Include="GhidraClient.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="SysError.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">

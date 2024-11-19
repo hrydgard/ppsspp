@@ -884,6 +884,8 @@ add_library(Common STATIC
 	Common/FakeCPUDetect.cpp
 	Common/ExceptionHandlerSetup.cpp
 	Common/ExceptionHandlerSetup.h
+	Common/GhidraClient.h
+	Common/GhidraClient.cpp
 	Common/Log.h
 	Common/Log.cpp
 	Common/Log/ConsoleListener.cpp
@@ -1523,6 +1525,8 @@ list(APPEND NativeAppSource
 	UI/ImDebugger/ImDebugger.h
 	UI/ImDebugger/ImDisasmView.cpp
 	UI/ImDebugger/ImDisasmView.h
+	UI/ImDebugger/ImStructViewer.cpp
+	UI/ImDebugger/ImStructViewer.h
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.h
