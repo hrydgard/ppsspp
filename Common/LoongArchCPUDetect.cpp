@@ -94,15 +94,11 @@ int LoongArchCPUInfoParser::TotalLogicalCount() {
 		int low, high, found;
 		std::getline(presentFile, line);
 		found = sscanf(line.c_str(), "%d-%d", &low, &high);
-		if (found == 1){
-			return 1;
-		}
 		if (found == 2){
 			return high - low + 1;
 		}
-	}else{
-		return 1;
 	}
+	return 1;
 }
 
 #endif
