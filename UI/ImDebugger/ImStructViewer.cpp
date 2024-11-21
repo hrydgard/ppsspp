@@ -1,6 +1,7 @@
 #include <regex>
 #include <sstream>
 #include <unordered_map>
+#include <cctype>
 
 #include "ext/imgui/imgui.h"
 
