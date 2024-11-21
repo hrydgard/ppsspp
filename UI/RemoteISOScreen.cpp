@@ -457,7 +457,7 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 	int maxWait = 5000;
 	scanCancelled = true;
 	while (GetStatus() == ScanStatus::SCANNING || GetStatus() == ScanStatus::LOADING) {
-		sleep_ms(1);
+		sleep_ms(1, "remote-iso-scan");
 		if (--maxWait < 0) {
 			// If it does ever wake up, it may crash... but better than hanging?
 			scanAborted = true;

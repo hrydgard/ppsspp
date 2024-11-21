@@ -279,7 +279,7 @@ public:
 
 void CreateMultiPipelinesTask::WaitForAll() {
 	while (tasksInFlight_.load() > 0) {
-		sleep_ms(2);
+		sleep_ms(2, "create-multi-pipelines-wait");
 	}
 }
 
@@ -522,7 +522,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		}
 
 		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
-		sleep_ms(1);
+		sleep_ms(1, "pipeline-collect");
 	}
 
 	std::unique_lock<std::mutex> lock(compileQueueMutex_);
@@ -579,7 +579,7 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 			waitedId++;
 		} else {
 			// We caught up somehow, which is a bad sign (we should have blocked, right?). Maybe we should break out of the loop?
-			sleep_ms(1);
+			sleep_ms(1, "present-wait-problem");
 			frameTimeHistory_[waitedId].waitCount++;
 		}
 		_dbg_assert_(waitedId <= frameIdGen_);

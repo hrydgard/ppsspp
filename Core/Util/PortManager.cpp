@@ -478,7 +478,7 @@ int upnpService(const unsigned int timeout)
 	// Service Loop
 	while (upnpServiceRunning && coreState != CORE_POWERDOWN) {
 		// Sleep for 1ms for faster response if active, otherwise sleep longer (TODO: Improve on this).
-		sleep_ms(g_Config.bEnableUPnP ? 1 : 100);
+		sleep_ms(g_Config.bEnableUPnP ? 1 : 100, "upnp-poll");
 
 		// Attempts to reconnect if not connected yet or got disconnected
 		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {

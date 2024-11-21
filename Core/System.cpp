@@ -536,7 +536,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 
 	while (!PSP_InitUpdate(error_string))
-		sleep_ms(10);
+		sleep_ms(10, "psp-init-poll");
 	return pspIsInited;
 }
 

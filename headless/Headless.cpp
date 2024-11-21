@@ -222,7 +222,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
 	while (!PSP_InitUpdate(&error_string))
-		sleep_ms(1);
+		sleep_ms(1, "auto-test");
 	if (!PSP_IsInited()) {
 		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
 		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());

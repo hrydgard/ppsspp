@@ -235,7 +235,7 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep. TODO: Replace with condition variable.
 		guard.unlock();
-		sleep_ms(50);
+		sleep_ms(50, "pathbrowser-poll");
 		guard.lock();
 	}
 

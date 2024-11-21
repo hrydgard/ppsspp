@@ -106,7 +106,7 @@ void RamCachingFileLoader::ShutdownCache() {
 	// We can't delete while the thread is running, so have to wait.
 	// This should only happen from the menu.
 	while (aheadThreadRunning_) {
-		sleep_ms(1);
+		sleep_ms(1, "shutdown-ram-cache-poll");
 	}
 	if (aheadThread_.joinable())
 		aheadThread_.join();

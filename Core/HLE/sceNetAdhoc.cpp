@@ -7577,10 +7577,11 @@ int matchingEventThread(int matchingId)
 			}
 
 			// Share CPU Time
-			sleep_ms(10); //1 //sceKernelDelayThread(10000);
+			sleep_ms(10, "pro-adhoc-poll-3"); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning) sleep_ms(10);
+			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning)
+				sleep_ms(10, "pro-adhoc-event-poll-3");
 		}
 
 		// Process Last Messages
@@ -7847,10 +7848,11 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 					break;
 			}
 			// Share CPU Time
-			sleep_ms(10); //1 //sceKernelDelayThread(10000);
+			sleep_ms(10, "pro-adhoc-4"); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning) sleep_ms(10);
+			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning)
+				sleep_ms(10, "pro-adhoc-input-4");
 		}
 
 		if (contexts != NULL) {

@@ -108,7 +108,6 @@ public:
 	void Update();
 	void CancelAll();
 
-	void WaitForAll();
 	void SetUserAgent(const std::string &userAgent) {
 		userAgent_ = userAgent;
 	}

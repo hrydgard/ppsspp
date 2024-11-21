@@ -316,7 +316,7 @@ static void EmuThreadFunc() {
 	// Wait for render loop to get started.
 	INFO_LOG(Log::System, "Runloop: Waiting for displayInit...");
 	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
-		sleep_ms(5);
+		sleep_ms(5, "graphics-poll");
 	}
 
 	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
@@ -1700,7 +1700,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	if (info) {
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
 		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
-			sleep_ms(1);
+			sleep_ms(1, "info-poll");
 		}
 		INFO_LOG(Log::System, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
@@ -1754,7 +1754,7 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameIcon(JNIEnv * env, jclass clazz
 		INFO_LOG(Log::System, "GetInfo successful, waiting");
         int attempts = 1000;
         while (!info->Ready(GameInfoFlags::ICON)) {
-            sleep_ms(1);
+            sleep_ms(1, "icon-poll");
             attempts--;
             if (!attempts) {
                 break;

@@ -935,7 +935,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 			}
 		}
 
-		sleep_ms(10);
+		sleep_ms(10, "game-info-cache-purge-poll");
 	} while (retry);
 }
 

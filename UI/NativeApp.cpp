@@ -1165,7 +1165,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
-			sleep_ms(sleepTime);
+			sleep_ms(sleepTime, "fallback-throttle");
 	}
 }
 

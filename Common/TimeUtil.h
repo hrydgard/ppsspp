@@ -18,7 +18,9 @@ double from_time_raw_relative(uint64_t raw_time);
 double time_now_unix_utc();
 
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
-void sleep_ms(int ms);
+// Requires a "reason" since sleeping generally should be very sparingly used. This
+// can be logged if desired to figure out where we're wasting time.
+void sleep_ms(int ms, const char *reason);
 
 // Precise sleep. Can consume a little bit of CPU on Windows at least.
 void sleep_precise(double seconds);
