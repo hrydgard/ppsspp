@@ -4,6 +4,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -378,6 +379,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
 			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
 			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Misc")) {
+			if (ImGui::MenuItem("Close Debugger")) {
+				g_Config.bShowImDebugger = false;
+			}
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();

@@ -79,8 +79,8 @@ namespace MIPSStackWalk {
 	}
 
 	bool ScanForEntry(StackFrame &frame, u32 entry, u32 &ra) {
-		// Let's hope there are no > 1MB functions on the PSP, for the sake of humanity...
-		const u32 LONGEST_FUNCTION = 1024 * 1024;
+		// Let's hope there are no > 0.5MB functions on the PSP, for the sake of humanity...
+		const u32 LONGEST_FUNCTION = 1024 * 512;
 		// TODO: Check if found entry is in the same symbol?  Might be wrong sometimes...
 
 		if (entry != INVALIDTARGET && frame.pc == entry) {
