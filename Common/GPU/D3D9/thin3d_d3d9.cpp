@@ -574,6 +574,8 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
@@ -1184,6 +1186,26 @@ void D3D9Context::DrawIndexedUP(const void *vdata, int vertexCount, const void *
 	device_->DrawIndexedPrimitiveUP(curPipeline_->prim, 0, vertexCount, D3DPrimCount(curPipeline_->prim, indexCount),
 		idata, D3DFMT_INDEX16,
 		vdata, curPipeline_->inputLayout->GetStride());
+}
+
+void D3D9Context::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+	curPipeline_->inputLayout->Apply(device_);
+	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+	ApplyDynamicState();
+
+	// Suboptimal!
+	for (int i = 0; i < draws.size(); i++) {
+		RECT rc;
+		rc.left = draws[i].clipx;
+		rc.top = draws[i].clipy;
+		rc.right = draws[i].clipx + draws[i].clipw;
+		rc.bottom = draws[i].clipy + draws[i].cliph;
+
+		device_->SetScissorRect(&rc);
+		device_->DrawIndexedPrimitiveUP(curPipeline_->prim, 0, vertexCount, D3DPrimCount(curPipeline_->prim, draws[i].indexCount),
+			(uint16_t *)idata + draws[i].indexOffset, D3DFMT_INDEX16,
+			vdata, curPipeline_->inputLayout->GetStride());
+	}
 }
 
 static uint32_t SwapRB(uint32_t c) {

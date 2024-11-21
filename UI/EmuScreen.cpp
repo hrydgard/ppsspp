@@ -1636,10 +1636,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
 	}
 
-	if (!(mode & ScreenRenderMode::TOP)) {
-		darken();
-	}
-
 	renderImDebugger();
 	return flags;
 }
