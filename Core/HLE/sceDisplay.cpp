@@ -445,7 +445,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 			if (endOfFrame) {
 				g_frameTiming.DeferWaitUntil(nextFrameTime, &curFrameTime);
 			} else {
-				WaitUntil(curFrameTime, nextFrameTime);
+				WaitUntil(curFrameTime, nextFrameTime, "display-wait");
 				curFrameTime = time_now_d();  // I guess we could also just set it to nextFrameTime...
 			}
 		}

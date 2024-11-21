@@ -837,8 +837,9 @@ public:
 	virtual void Draw(int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
-	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) = 0;  // Supports 32-bit indices, for IMGUI use.
-	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {}
+	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) = 0;
+	// Intended for ImGui display lists, easier to do optimally this way.
+	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) = 0;
 
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;

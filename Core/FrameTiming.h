@@ -27,4 +27,4 @@ extern FrameTiming g_frameTiming;
 
 Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval);
 
-void WaitUntil(double now, double timestamp);
+void WaitUntil(double now, double timestamp, const char *reason);

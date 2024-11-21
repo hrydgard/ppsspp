@@ -79,6 +79,7 @@ private:
 	void bootComplete();
 	bool hasVisibleUI();
 	void renderUI();
+	void renderImDebugger();
 
 	void onVKey(int virtualKeyCode, bool down);
 	void onVKeyAnalog(int virtualKeyCode, float value);

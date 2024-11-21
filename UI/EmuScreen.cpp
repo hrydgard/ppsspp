@@ -1537,8 +1537,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 		PSP_RunLoopWhileState();
 
-
-		// Hopefully coreState is now CORE_NEXTFRAME
+		// Hopefully, after running, coreState is now CORE_NEXTFRAME
 		switch (coreState) {
 		case CORE_NEXTFRAME:
 			// Reached the end of the frame, all good. Set back to running for the next frame
@@ -1609,7 +1608,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	screenManager()->getUIContext()->BeginFrame();
 
 	if (!(mode & ScreenRenderMode::TOP)) {
-		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
+		renderImDebugger();
+		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff. We do draw the imdebugger though.
 		// So, darken and bail here.
 		// Reset viewport/scissor to be sure.
 		draw->SetViewport(viewport);
@@ -1636,11 +1636,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
 	}
 
-	if (!(mode & ScreenRenderMode::TOP)) {
-		darken();
-	}
+	renderImDebugger();
+	return flags;
+}
 
+void EmuScreen::renderImDebugger() {
 	if (g_Config.bShowImDebugger) {
+		Draw::DrawContext *draw = screenManager()->getDrawContext();
 		if (!imguiInited_) {
 			imguiInited_ = true;
 			imDebugger_ = std::make_unique<ImDebugger>();
@@ -1660,7 +1662,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
 		}
 	}
-	return flags;
 }
 
 bool EmuScreen::hasVisibleUI() {

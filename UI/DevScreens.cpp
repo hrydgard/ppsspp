@@ -124,6 +124,10 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenuScreen::OnLogView);
 #endif
 	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
+	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
+		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+		return UI::EVENT_DONE;
+	});
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 
 	// Debug overlay

@@ -4,6 +4,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -380,6 +381,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Misc")) {
+			if (ImGui::MenuItem("Close Debugger")) {
+				g_Config.bShowImDebugger = false;
+			}
+			ImGui::EndMenu();
+		}
 		ImGui::EndMainMenuBar();
 	}
 
@@ -411,7 +418,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 		DrawAtracView(cfg_);
 	}
 
-	DrawHLEModules(cfg_);
+	if (cfg_.hleModulesOpen) {
+		DrawHLEModules(cfg_);
+	}
 
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);

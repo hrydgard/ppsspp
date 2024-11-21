@@ -297,6 +297,10 @@ float UIContext::CalculateTextScale(std::string_view str, float availWidth, floa
 }
 
 void UIContext::DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
+	if (bounds.w <= 0 || bounds.h <= 0) {
+		// Probably mid-layout.
+		return;
+	}
 	float origScaleX = fontScaleX_;
 	float origScaleY = fontScaleY_;
 	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
