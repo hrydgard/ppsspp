@@ -418,7 +418,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 		DrawAtracView(cfg_);
 	}
 
-	DrawHLEModules(cfg_);
+	if (cfg_.hleModulesOpen) {
+		DrawHLEModules(cfg_);
+	}
 
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);

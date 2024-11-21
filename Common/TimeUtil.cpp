@@ -252,6 +252,7 @@ double Instant::ElapsedSeconds() const {
 #endif
 
 void sleep_ms(int ms, const char *reason) {
+	// INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
 #ifdef _WIN32
 	Sleep(ms);
 #elif defined(HAVE_LIBNX)
