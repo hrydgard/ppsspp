@@ -222,7 +222,7 @@ bool UpdateScreenScale(int width, int height) {
 void UpdateRunLoop(GraphicsContext *ctx) {
 	NativeFrame(ctx);
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
-		sleep_ms(16);
+		sleep_ms(16, "window-hidden");
 		return;
 	}
 }
@@ -230,7 +230,7 @@ void UpdateRunLoop(GraphicsContext *ctx) {
 // Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
-		sleep_ms(16);
+		sleep_ms(16, "window-hidden");
 		return;
 	}
 

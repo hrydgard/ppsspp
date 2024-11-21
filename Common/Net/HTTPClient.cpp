@@ -211,7 +211,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			break;
 		}
 
-		sleep_ms(1);
+		sleep_ms(1, "connect");
 	}
 
 	// Nothing connected, unfortunately.

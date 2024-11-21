@@ -483,7 +483,7 @@ static void DoFrameIdleTiming() {
 		double cur_time;
 		while ((cur_time = time_now_d()) < goal) {
 #ifdef _WIN32
-			sleep_ms(1);
+			sleep_ms(1, "frame-idle");
 #else
 			const double left = goal - cur_time;
 			if (left > 0.0f && left < 1.0f) {  // Sanity check

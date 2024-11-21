@@ -35,7 +35,7 @@ FrameTiming g_frameTiming;
 void WaitUntil(double now, double timestamp) {
 #ifdef _WIN32
 	while (time_now_d() < timestamp) {
-		sleep_ms(1); // Sleep for 1ms on this thread
+		sleep_ms(1, "wait-until"); // Sleep for 1ms on this thread
 	}
 #else
 	const double left = timestamp - now;

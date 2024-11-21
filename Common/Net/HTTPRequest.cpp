@@ -130,14 +130,6 @@ restart:
 	}
 }
 
-void RequestManager::WaitForAll() {
-	// TODO: Should lock? Though, OK if called from main thread, where Update() is called from.
-	while (!downloads_.empty()) {
-		Update();
-		sleep_ms(10);
-	}
-}
-
 void RequestManager::CancelAll() {
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		downloads_[i]->Cancel();

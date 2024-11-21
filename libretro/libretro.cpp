@@ -1383,7 +1383,7 @@ namespace Libretro
                emuThreadState = EmuThreadState::PAUSED;
                /* fallthrough */
             case EmuThreadState::PAUSED:
-               sleep_ms(1);
+               sleep_ms(1, "libretro-paused");
                break;
             default:
             case EmuThreadState::QUIT_REQUESTED:
@@ -1432,7 +1432,7 @@ namespace Libretro
       ctx->ThreadFrame(); // Eat 1 frame
 
       while (emuThreadState != EmuThreadState::PAUSED)
-         sleep_ms(1);
+         sleep_ms(1, "libretro-pause-poll");
    }
 
 } // namespace Libretro
@@ -1644,7 +1644,7 @@ void retro_run(void)
    {
       std::string error_string;
       while (!PSP_InitUpdate(&error_string))
-         sleep_ms(4);
+         sleep_ms(4, "libretro-init-poll");
 
       if (!PSP_IsInited())
       {
@@ -1736,7 +1736,7 @@ bool retro_serialize(void *data, size_t size)
    if (useEmuThread)
    {
       EmuThreadStart();
-      sleep_ms(4);
+      sleep_ms(4, "libretro-serialize");
    }
 
    return retVal;
@@ -1759,7 +1759,7 @@ bool retro_unserialize(const void *data, size_t size)
    if (useEmuThread)
    {
       EmuThreadStart();
-      sleep_ms(4);
+      sleep_ms(4, "libretro-unserialize");
    }
 
    return retVal;

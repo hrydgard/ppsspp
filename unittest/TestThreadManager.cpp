@@ -19,7 +19,7 @@ struct ResultObject {
 };
 
 ResultObject *ResultProducer() {
-	sleep_ms(250);
+	sleep_ms(250, "test-result");
 	printf("result produced: thread %d\n", GetCurrentThreadIdForDebug());
 	return new ResultObject{ true };
 }
@@ -36,7 +36,7 @@ bool TestMailbox() {
 }
 
 void rangeFunc(int lower, int upper) {
-	sleep_ms(30);
+	sleep_ms(30, "test-range");
 	printf(" - range %d-%d (thread %d)\n", lower, upper, GetCurrentThreadIdForDebug());
 }
 
@@ -135,7 +135,7 @@ bool TestThreadManager() {
 	if (!TestParallelLoop(&manager)) {
 		return false;
 	}
-	sleep_ms(100);
+	sleep_ms(100, "test-threadman");
 
 	ResultObject *result = object->BlockUntilReady();
 	if (result) {

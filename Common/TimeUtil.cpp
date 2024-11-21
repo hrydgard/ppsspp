@@ -251,7 +251,7 @@ double Instant::ElapsedSeconds() const {
 
 #endif
 
-void sleep_ms(int ms) {
+void sleep_ms(int ms, const char *reason) {
 #ifdef _WIN32
 	Sleep(ms);
 #elif defined(HAVE_LIBNX)

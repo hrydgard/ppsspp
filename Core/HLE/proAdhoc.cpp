@@ -1780,10 +1780,11 @@ int friendFinder(){
 			}
 		}
 		// This delay time should be 100ms when there is an event otherwise 500ms ?
-		sleep_ms(10); // Using 1ms for faster response just like AdhocServer?
+		sleep_ms(10, "pro-adhoc-poll-2"); // Using 1ms for faster response just like AdhocServer?
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning) sleep_ms(10);
+		while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning)
+			sleep_ms(10, "pro-adhoc-paused-poll-2");
 	}
 
 	// Groups/Networks should be deallocated isn't?
@@ -2257,7 +2258,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 					errorcode = ETIMEDOUT;
 				break;
 			}
-			sleep_ms(10);
+			sleep_ms(10, "pro-adhoc-socket-poll");
 		}
 		if (!done) {
 			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
