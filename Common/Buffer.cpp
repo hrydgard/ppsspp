@@ -9,9 +9,7 @@
 
 char *Buffer::Append(size_t length) {
 	if (length > 0) {
-		size_t old_size = data_.size();
-		data_.resize(old_size + length);
-		return &data_[0] + old_size;
+		return data_.push_back_write(length);
 	} else {
 		return nullptr;
 	}
@@ -33,8 +31,11 @@ void Buffer::Append(const char *str) {
 void Buffer::Append(const Buffer &other) {
 	size_t len = other.size();
 	if (len > 0) {
-		char *dest = Append(len);
-		memcpy(dest, &other.data_[0], len);
+		// Append other to the current buffer.
+		other.data_.iterate_blocks([&](const char *data, size_t size) {
+			data_.push_back(data, size);
+			return true;
+		});
 	}
 }
 
@@ -57,8 +58,8 @@ void Buffer::Take(size_t length, std::string *dest) {
 }
 
 void Buffer::Take(size_t length, char *dest) {
-	memcpy(dest, &data_[0], length);
-	data_.erase(data_.begin(), data_.begin() + length);
+	size_t retval = data_.pop_front_bulk(dest, length);
+	_dbg_assert_(retval == length);
 }
 
 int Buffer::TakeLineCRLF(std::string *dest) {
@@ -79,7 +80,7 @@ void Buffer::Skip(size_t length) {
 		ERROR_LOG(Log::IO, "Truncating length in Buffer::Skip()");
 		length = data_.size();
 	}
-	data_.erase(data_.begin(), data_.begin() + length);
+	data_.skip(length);
 }
 
 int Buffer::SkipLineCRLF() {
@@ -92,9 +93,10 @@ int Buffer::SkipLineCRLF() {
 	}
 }
 
+// This relies on having buffered data!
 int Buffer::OffsetToAfterNextCRLF() {
 	for (int i = 0; i < (int)data_.size() - 1; i++) {
-		if (data_[i] == '\r' && data_[i + 1] == '\n') {
+		if (data_.peek(i) == '\r' && data_.peek(i + 1) == '\n') {
 			return i + 2;
 		}
 	}
@@ -124,7 +126,11 @@ bool Buffer::FlushToFile(const Path &filename) {
 	if (!f)
 		return false;
 	if (!data_.empty()) {
-		fwrite(&data_[0], 1, data_.size(), f);
+		// Write the buffer to the file.
+		data_.iterate_blocks([=](const char *blockData, size_t blockSize) {
+			return fwrite(blockData, 1, blockSize, f) == blockSize;
+		});
+		data_.clear();
 	}
 	fclose(f);
 	return true;
@@ -132,5 +138,8 @@ bool Buffer::FlushToFile(const Path &filename) {
 
 void Buffer::PeekAll(std::string *dest) {
 	dest->resize(data_.size());
-	memcpy(&(*dest)[0], &data_[0], data_.size());
+	data_.iterate_blocks(([=](const char *blockData, size_t blockSize) {
+		dest->append(blockData, blockSize);
+		return true;
+	}));
 }
