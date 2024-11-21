@@ -1439,7 +1439,7 @@ void OpenGLContext::DrawIndexedUP(const void *vdata, int vertexCount, const void
 	memcpy(dest, idata, idataSize);
 
 	ApplySamplers();
-	renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset, curPipeline_->prim, 0, GL_UNSIGNED_SHORT, vertexCount);
+	renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset, curPipeline_->prim, indexCount, GL_UNSIGNED_SHORT, 1);
 }
 
 void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
@@ -1469,7 +1469,7 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 		scissor.w = draw.clipw;
 		scissor.h = draw.cliph;
 		renderManager_.SetScissor(scissor);
-		renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset + draw.indexOffset * indexSize, curPipeline_->prim, 0, GL_UNSIGNED_SHORT, draw.indexCount);
+		renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset + draw.indexOffset * indexSize, curPipeline_->prim, draw.indexCount, GL_UNSIGNED_SHORT, 1);
 	}
 }
 
