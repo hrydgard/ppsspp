@@ -26,7 +26,11 @@
 // Callstack window
 #include "Core/MIPS/MIPSStackWalk.h"
 
+// GPU things
+#include "GPU/Common/GPUDebugInterface.h"
+
 #include "UI/ImDebugger/ImDebugger.h"
+#include "UI/ImDebugger/ImGe.h"
 
 void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 	if (!ImGui::Begin("Registers", open)) {
@@ -332,7 +336,7 @@ void DrawHLEModules(ImConfig &config) {
 	ImGui::End();
 }
 
-void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
+void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
 
@@ -370,14 +374,23 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Window")) {
-			ImGui::Checkbox("Dear ImGUI Demo", &cfg_.demoOpen);
+		if (ImGui::BeginMenu("CPU")) {
 			ImGui::Checkbox("CPU debugger", &cfg_.disasmOpen);
 			ImGui::Checkbox("Registers", &cfg_.regsOpen);
 			ImGui::Checkbox("Callstacks", &cfg_.callstackOpen);
-			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("OS HLE")) {
 			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
+			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
 			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Ge (GPU)")) {
+			ImGui::Checkbox("Framebuffers", &cfg_.framebuffersOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Tools")) {
 			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
@@ -385,6 +398,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			if (ImGui::MenuItem("Close Debugger")) {
 				g_Config.bShowImDebugger = false;
 			}
+			ImGui::Checkbox("Dear ImGUI Demo", &cfg_.demoOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -420,6 +434,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	if (cfg_.hleModulesOpen) {
 		DrawHLEModules(cfg_);
+	}
+
+	if (cfg_.framebuffersOpen) {
+		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
 	}
 
 	if (cfg_.structViewerOpen) {

@@ -15,6 +15,7 @@
 
 #include "UI/ImDebugger/ImDisasmView.h"
 #include "UI/ImDebugger/ImStructViewer.h"
+#include "UI/ImDebugger/ImGe.h"
 
 // This is the main state container of the whole Dear ImGUI-based in-game cross-platform debugger.
 //
@@ -22,7 +23,7 @@
 // * If windows/objects need state, prefix the class name with Im and just store straight in parent struct
 
 class MIPSDebugInterface;
-
+class GPUDebugInterface;
 
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
@@ -59,6 +60,7 @@ struct ImConfig {
 	bool hleModulesOpen = false;
 	bool atracOpen = true;
 	bool structViewerOpen = false;
+	bool framebuffersOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -66,10 +68,11 @@ struct ImConfig {
 	// Various selections
 	int selectedModule = 0;
 	int selectedThread = 0;
+	int selectedFramebuffer = -1;
 };
 
 struct ImDebugger {
-	void Frame(MIPSDebugInterface *mipsDebug);
+	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
 
 	ImDisasmWindow disasm_;
 	ImLuaConsole luaConsole_;

@@ -2,6 +2,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -417,11 +418,11 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2, textColor, currentArguments);
+		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2.f, textColor, currentArguments);
 
 		// The actual opcode.
 		// Should be bold!
-		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2), textColor, line.name.c_str());
+		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2.f), textColor, line.name.c_str());
 
 		address += line.totalSize;
 	}
@@ -707,7 +708,7 @@ void ImDisasmView::toggleBreakpoint(bool toggleEnabled) {
 	}
 }
 
-void ImDisasmView::onMouseDown(int x, int y, int button) {
+void ImDisasmView::onMouseDown(float x, float y, int button) {
 	u32 newAddress = yToAddress(y);
 	bool extend = ImGui::IsKeyDown(ImGuiKey_LeftShift);
 	if (button == 1) {
@@ -720,6 +721,20 @@ void ImDisasmView::onMouseDown(int x, int y, int button) {
 			extend = true;
 	}
 	setCurAddress(newAddress, extend);
+}
+
+void ImDisasmView::onMouseMove(float x, float y, int button) {
+	if ((button & 1) != 0) {
+		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
+	}
+}
+
+void ImDisasmView::onMouseUp(float x, float y, int button) {
+	if (button == 1) {
+		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+			setCurAddress(yToAddress(y), true);
+		}
+	}
 }
 
 void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
@@ -755,14 +770,6 @@ void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 
 	if (currentMIPS) {
 		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
-	}
-}
-
-void ImDisasmView::onMouseUp(int x, int y, int button) {
-	if (button == 1) {
-		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-			setCurAddress(yToAddress(y), true);
-		}
 	}
 }
 
@@ -891,12 +898,6 @@ void ImDisasmView::PopupMenu() {
 	}
 }
 
-void ImDisasmView::onMouseMove(int x, int y, int button) {
-	if ((button & 1) != 0) {
-		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
-	}
-}
-
 void ImDisasmView::updateStatusBarText() {
 	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
@@ -997,8 +998,8 @@ void ImDisasmView::updateStatusBarText() {
 	}
 }
 
-u32 ImDisasmView::yToAddress(int y) {
-	int line = y / rowHeight_;
+u32 ImDisasmView::yToAddress(float y) {
+	int line = (int)(y / rowHeight_);
 	return manager.getNthNextAddress(windowStart_, line);
 }
 

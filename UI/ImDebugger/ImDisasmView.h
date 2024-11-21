@@ -7,7 +7,6 @@
 #include "ext/imgui/imgui.h"
 
 #include "Common/CommonTypes.h"
-#include "Common/Log.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -31,16 +30,16 @@ public:
 
 	void onChar(int c);
 	void onKeyDown(ImGuiKey key);
-	void onMouseDown(int x, int y, int button);
-	void onMouseUp(int x, int y, int button);
-	void onMouseMove(int x, int y, int button);
+	void onMouseDown(float x, float y, int button);
+	void onMouseUp(float x, float y, int button);
+	void onMouseMove(float x, float y, int button);
 	void scrollAddressIntoView();
 	bool curAddressIsVisible();
 	void ScanVisibleFunctions();
 	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest, int bufsize);
-	u32 yToAddress(int y);
+	u32 yToAddress(float y);
 
 	void setDebugger(DebugInterface *deb) {
 		if (debugger != deb) {

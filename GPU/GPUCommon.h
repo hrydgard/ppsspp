@@ -181,6 +181,10 @@ public:
 	bool GetCurrentDisplayList(DisplayList &list) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
+	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
+		return nullptr;
+	}
+
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
 		return "N/A";
