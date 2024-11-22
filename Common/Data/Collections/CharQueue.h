@@ -4,6 +4,7 @@
 #include "Common/Data/Collections/Slice.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <string_view>
 
 // Queue with a dynamic size, optimized for bulk inserts and retrievals - and optimized
