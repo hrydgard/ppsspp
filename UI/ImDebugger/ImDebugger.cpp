@@ -375,30 +375,31 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("CPU")) {
-			ImGui::Checkbox("CPU debugger", &cfg_.disasmOpen);
-			ImGui::Checkbox("Registers", &cfg_.regsOpen);
-			ImGui::Checkbox("Callstacks", &cfg_.callstackOpen);
+			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
+			ImGui::MenuItem("Registers", nullptr, &cfg_.regsOpen);
+			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("OS HLE")) {
-			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
-			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
-			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
+			ImGui::MenuItem("HLE Threads", nullptr, &cfg_.threadsOpen);
+			ImGui::MenuItem("HLE Modules",nullptr,  &cfg_.modulesOpen);
+			ImGui::MenuItem("sceAtrac", nullptr, &cfg_.atracOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Ge (GPU)")) {
-			ImGui::Checkbox("Framebuffers", &cfg_.framebuffersOpen);
+			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
+			// More to come here...
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Tools")) {
-			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
+			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Misc")) {
 			if (ImGui::MenuItem("Close Debugger")) {
 				g_Config.bShowImDebugger = false;
 			}
-			ImGui::Checkbox("Dear ImGUI Demo", &cfg_.demoOpen);
+			ImGui::MenuItem("Dear ImGUI Demo", nullptr, &cfg_.demoOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -501,6 +502,25 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		disasmView_.gotoPC();
 	}
 
+	if (ImGui::BeginPopup("disSearch")) {
+		if (ImGui::InputText("Search", searchTerm_, sizeof(searchTerm_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+			disasmView_.Search(searchTerm_);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Search")) {
+		// Open a small popup
+		ImGui::OpenPopup("disSearch");
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Next")) {
+		disasmView_.SearchNext(true);
+	}
+
 	ImGui::SameLine();
 	ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
 
@@ -517,8 +537,9 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TableSetColumnIndex(0);
 		ImVec2 sz = ImGui::GetContentRegionAvail();
 		if (ImGui::BeginListBox("##symbols", ImVec2(150.0, sz.y - ImGui::GetTextLineHeightWithSpacing() * 2))) {
-			if (symCache_.empty()) {
+			if (symCache_.empty() || symsDirty_) {
 				symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
+				symsDirty_ = false;
 			}
 			ImGuiListClipper clipper;
 			clipper.Begin((int)symCache_.size(), -1);

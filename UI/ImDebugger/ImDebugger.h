@@ -41,8 +41,10 @@ private:
 
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
+	bool symsDirty_ = true;
 
 	ImDisasmView disasmView_;
+	char searchTerm_[64]{};
 };
 
 class ImLuaConsole {

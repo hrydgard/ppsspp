@@ -458,12 +458,8 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			windowStart_ = manager.getNthNextAddress(windowStart_, 4);
 		}
 	}
-	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
-	}
+
+	ProcessKeyboardShortcuts();
 
 	int coreStep = Core_GetSteppingCounter();
 	if (coreStep != lastSteppingCount_) {
@@ -560,9 +556,21 @@ void ImDisasmView::editBreakpoint() {
 	*/
 }
 
-void ImDisasmView::onKeyDown(ImGuiKey key) {
+void ImDisasmView::ProcessKeyboardShortcuts() {
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 	keyTaken = true;
+	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
+		SearchNext(!ImGui::IsKeyPressed(ImGuiKey_LeftShift));
+	}
+	if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+		disassembleToFile();
+	}
 
 	/*
 	if (KeyDownAsync(VK_CONTROL)) {
@@ -1010,26 +1018,24 @@ void ImDisasmView::calculatePixelPositions() {
 	pixelPositions_.arrowsStart = pixelPositions_.argumentsStart + 30 * charWidth_;
 }
 
-void ImDisasmView::search(bool continueSearch) {
-	auto memLock = Memory::Lock();
-	u32 searchAddress;
-
-	if (continueSearch == false || searchQuery_[0] == 0) {
-		/*
-		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"Search for:", searchQuery, searchQuery) == false
-			|| searchQuery[0] == 0) {
-			SetFocus(wnd);
-			return;
-		}
-		*/
-
-		for (size_t i = 0; i < searchQuery_.size(); i++) {
-			searchQuery_[i] = tolower(searchQuery_[i]);
-		}
-		searchAddress = manager.getNthNextAddress(curAddress_, 1);
-	} else {
-		searchAddress = manager.getNthNextAddress(matchAddress_, 1);
+void ImDisasmView::Search(std::string_view needle) {
+	searchQuery_ = needle;
+	for (size_t i = 0; i < searchQuery_.size(); i++) {
+		searchQuery_[i] = tolower(searchQuery_[i]);
 	}
+	matchAddress_ = curAddress_;
+	SearchNext(true);
+}
+
+void ImDisasmView::SearchNext(bool forward) {
+	if (searchQuery_.empty()) {
+		return;
+	}
+
+	auto memLock = Memory::Lock();
+
+	// Note: Search will replace matchAddress_ with the current address.
+	u32 searchAddress = manager.getNthNextAddress(matchAddress_, 1);
 
 	// limit address to sensible ranges
 	if (searchAddress < 0x04000000)
@@ -1082,7 +1088,8 @@ void ImDisasmView::search(bool continueSearch) {
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 
-	// MessageBox(wnd, L"Not found", L"Search", MB_OK);
+	statusBarText_ = "Not found: ";
+	statusBarText_.append(searchQuery_);
 
 	searching_ = false;
 }

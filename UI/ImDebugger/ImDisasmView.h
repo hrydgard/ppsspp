@@ -29,7 +29,6 @@ public:
 	void ScrollRelative(int amount);
 
 	void onChar(int c);
-	void onKeyDown(ImGuiKey key);
 	void onMouseDown(float x, float y, int button);
 	void onMouseUp(float x, float y, int button);
 	void onMouseMove(float x, float y, int button);
@@ -96,6 +95,8 @@ public:
 		positionLocked_--;
 		_assert_(positionLocked_ >= 0);
 	}
+	void Search(std::string_view needle);
+	void SearchNext(bool forward);
 
 	// Check these every frame!
 	const std::string &StatusBarText() const {
@@ -121,10 +122,10 @@ private:
 		float bottom;
 	};
 
+	void ProcessKeyboardShortcuts();
 	void assembleOpcode(u32 address, const std::string &defaultText);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
-	void search(bool continueSearch);
 	void FollowBranch();
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
