@@ -1076,6 +1076,10 @@ bool TestCharQueue() {
 	queue.pop_front_bulk(dest, 4);
 	EXPECT_EQ_MEM(dest, "opqr", 4);
 	EXPECT_TRUE(queue.empty());
+	queue.push_back("asdf");
+	EXPECT_EQ_INT(queue.next_crlf_offset(), -1);
+	queue.push_back("\r\r\n");
+	EXPECT_EQ_INT(queue.next_crlf_offset(), 5);
 	return true;
 }
 
