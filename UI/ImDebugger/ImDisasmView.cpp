@@ -267,7 +267,7 @@ std::set<std::string> ImDisasmView::getSelectedLineArguments() {
 	return args;
 }
 
-void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, int x, int y, ImColor textColor, const std::set<std::string> &currentArguments) {
+void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments) {
 	if (line.params.empty()) {
 		return;
 	}
@@ -559,74 +559,86 @@ void ImDisasmView::editBreakpoint() {
 void ImDisasmView::ProcessKeyboardShortcuts() {
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 	keyTaken = true;
-	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
-		SearchNext(!ImGui::IsKeyPressed(ImGuiKey_LeftShift));
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_X)) {
-		disassembleToFile();
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	if (io.KeyMods & ImGuiMod_Ctrl) {
+		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+			// Toggle the find popup
+			ImGui::OpenPopup("disSearch");
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_C) || ImGui::IsKeyPressed(ImGuiKey_Insert)) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+			// disassembleToFile();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
+			// assembleOpcode(curAddress, "");
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
+			// Goto. should just focus on the goto input?
+			// u32 addr;
+			// if (executeExpressionWindow(wnd, debugger, addr) == false) return;
+			// gotoAddr(addr);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_E)) {
+			editBreakpoint();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_D)) {
+			toggleBreakpoint(true);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+			ScrollRelative(-1);
+			ScanVisibleFunctions();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+			ScrollRelative(1);
+			ScanVisibleFunctions();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+			setCurAddress(windowStart_, ImGui::IsKeyDown(ImGuiKey_LeftShift));
+		}
+	} else {
+		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+			windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+			windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
+			SearchNext(!ImGui::IsKeyPressed(ImGuiKey_LeftShift));
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+			setCurAddress(manager.getNthNextAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			scrollAddressIntoView();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+			setCurAddress(manager.getNthPreviousAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			scrollAddressIntoView();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+			FollowBranch();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+			if (jumpStack_.empty()) {
+				gotoPC();
+			} else {
+				u32 addr = jumpStack_[jumpStack_.size() - 1];
+				jumpStack_.pop_back();
+				gotoAddr(addr);
+			}
+			return;
+		}
 	}
 
 	/*
 	if (KeyDownAsync(VK_CONTROL)) {
-		switch (tolower(wParam & 0xFFFF)) {
-		case 'f':
-		case 's':
-			search(false);
-			break;
-		case 'c':
-		case VK_INSERT:
-			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
-			break;
-		case 'x':
-			disassembleToFile();
-			break;
-		case 'a':
-			assembleOpcode(curAddress, "");
-			break;
-		case 'g':
-		{
-			u32 addr;
-			if (executeExpressionWindow(wnd, debugger, addr) == false) return;
-			gotoAddr(addr);
-		}
-		break;
-		case 'e':	// edit breakpoint
-			editBreakpoint();
-			break;
-		case 'd':	// toogle breakpoint enabled
-			toggleBreakpoint(true);
-			break;
-		case VK_UP:
-			scrollWindow(-1);
-			ScanVisibleFunctions();
-			break;
-		case VK_DOWN:
-			scrollWindow(1);
-			ScanVisibleFunctions();
-			break;
-		case VK_NEXT:
-			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
-			break;
-		case VK_PRIOR:
-			setCurAddress(windowStart_, KeyDownAsync(VK_SHIFT));
-			break;
-		}
 	} else {
 		switch (wParam & 0xFFFF) {
-		case VK_DOWN:
-			setCurAddress(manager.getNthNextAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
-			scrollAddressIntoView();
-			break;
-		case VK_UP:
-			setCurAddress(manager.getNthPreviousAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
-			scrollAddressIntoView();
-			break;
 		case VK_NEXT:
 			if (manager.getNthNextAddress(curAddress, 1) != windowEnd && curAddressIsVisible()) {
 				setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
@@ -645,27 +657,11 @@ void ImDisasmView::ProcessKeyboardShortcuts() {
 				scrollAddressIntoView();
 			}
 			break;
-		case VK_LEFT:
-			if (jumpStack.empty())
-			{
-				gotoPC();
-			} else {
-				u32 addr = jumpStack[jumpStack.size() - 1];
-				jumpStack.pop_back();
-				gotoAddr(addr);
-			}
-			return;
-		case VK_RIGHT:
-			FollowBranch();
-			return;
 		case VK_TAB:
 			displaySymbols_ = !displaySymbols_;
 			break;
 		case VK_SPACE:
 			debugger->toggleBreakpoint(curAddress);
-			break;
-		case VK_F3:
-			search(true);
 			break;
 		default:
 			keyTaken = false;

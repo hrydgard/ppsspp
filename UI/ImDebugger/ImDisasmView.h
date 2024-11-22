@@ -134,7 +134,7 @@ private:
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
 	void NopInstructions(u32 startAddr, u32 endAddr);
 	std::set<std::string> getSelectedLineArguments();
-	void drawArguments(ImDrawList *list, ImDisasmView::Rect rc, const DisassemblyLineInfo &line, int x, int y, ImColor textColor, const std::set<std::string> &currentArguments);
+	void drawArguments(ImDrawList *list, ImDisasmView::Rect rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments);
 
 	DisassemblyManager manager;
 	u32 curAddress_ = 0;

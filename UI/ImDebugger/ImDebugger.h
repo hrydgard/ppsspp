@@ -73,6 +73,14 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 };
 
+enum ImUiCmd {
+	TRIGGER_FIND_POPUP = 0,
+};
+
+struct ImUiCommand {
+	ImUiCmd cmd;
+};
+
 struct ImDebugger {
 	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
 

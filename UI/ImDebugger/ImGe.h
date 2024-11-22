@@ -7,3 +7,8 @@ struct ImConfig;
 class FramebufferManagerCommon;
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
+
+class ImGeDebugger {
+public:
+
+};
