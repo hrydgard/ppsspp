@@ -36,27 +36,32 @@ void RequestProgress::Update(int64_t downloaded, int64_t totalBytes, bool done) 
 
 bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
-	for (size_t pos = 0, end = data_.size(); pos < end; ) {
-		bool ready = false;
-		double endTimeout = time_now_d() + timeout;
-		while (!ready) {
-			if (cancelled && *cancelled)
-				return false;
-			ready = fd_util::WaitUntilReady(sock, CANCEL_INTERVAL, true);
-			if (!ready && time_now_d() > endTimeout) {
-				ERROR_LOG(Log::IO, "FlushSocket timed out");
+
+	data_.iterate_blocks([&](const char *data, size_t size) {
+		for (size_t pos = 0, end = size; pos < end; ) {
+			bool ready = false;
+			double endTimeout = time_now_d() + timeout;
+			while (!ready) {
+				if (cancelled && *cancelled)
+					return false;
+				ready = fd_util::WaitUntilReady(sock, CANCEL_INTERVAL, true);
+				if (!ready && time_now_d() > endTimeout) {
+					ERROR_LOG(Log::IO, "FlushSocket timed out");
+					return false;
+				}
+			}
+			int sent = send(sock, &data[pos], end - pos, MSG_NOSIGNAL);
+			// TODO: Do we need some retry logic here, instead of just giving up?
+			if (sent < 0) {
+				ERROR_LOG(Log::IO, "FlushSocket failed to send: %d", errno);
 				return false;
 			}
+			pos += sent;
 		}
-		int sent = send(sock, &data_[pos], end - pos, MSG_NOSIGNAL);
-		// TODO: Do we need some retry logic here, instead of just giving up?
-		if (sent < 0) {
-			ERROR_LOG(Log::IO, "FlushSocket failed to send: %d", errno);
-			return false;
-		}
-		pos += sent;
-	}
-	data_.resize(0);
+		return true;
+	});
+
+	data_.clear();
 	return true;
 }
 

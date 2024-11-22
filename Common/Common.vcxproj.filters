@@ -671,6 +671,9 @@
     <ClInclude Include="..\ext\lua\lzio.h">
       <Filter>ext\lua</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Collections\CharQueue.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

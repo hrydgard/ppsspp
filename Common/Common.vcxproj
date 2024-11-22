@@ -456,6 +456,7 @@
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="Data\Collections\ConstMap.h" />
+    <ClInclude Include="Data\Collections\CharQueue.h" />
     <ClInclude Include="Data\Collections\FixedSizeQueue.h" />
     <ClInclude Include="Data\Collections\Hashmaps.h" />
     <ClInclude Include="Data\Collections\Slice.h" />
