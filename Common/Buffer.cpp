@@ -95,12 +95,12 @@ int Buffer::SkipLineCRLF() {
 
 // This relies on having buffered data!
 int Buffer::OffsetToAfterNextCRLF() {
-	for (int i = 0; i < (int)data_.size() - 1; i++) {
-		if (data_.peek(i) == '\r' && data_.peek(i + 1) == '\n') {
-			return i + 2;
-		}
+	int offset = data_.next_crlf_offset();
+	if (offset >= 0) {
+		return offset + 2;
+	} else {
+		return -1;
 	}
-	return -1;
 }
 
 void Buffer::Printf(const char *fmt, ...) {

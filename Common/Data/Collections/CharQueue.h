@@ -186,6 +186,27 @@ public:
 		head_ = b;
 	}
 
+	// If return value is negative, one wasn't found.
+	int next_crlf_offset() {
+		int offset = 0;
+		Block *b = head_;
+		do {
+			int remain = b->tail - b->head;
+			for (int i = 0; i < remain; i++) {
+				if (b->data[b->head + i] == '\r') {
+					// Use peek to avoid handling edge cases.
+					if (peek(offset + i + 1) == '\n') {
+						return offset + i;
+					}
+				}
+			}
+			offset += remain;
+			b = b->next;
+		} while (b);
+		// Ran out of data.
+		return -1;
+	}
+
 private:
 	struct Block {
 		~Block() {

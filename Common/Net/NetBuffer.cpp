@@ -15,6 +15,10 @@
 #define MSG_NOSIGNAL 0x00
 #endif
 
+#if _MSC_VER
+#pragma warning(disable:4267)
+#endif
+
 #include "Common/File/FileDescriptor.h"
 #include "Common/Log.h"
 #include "Common/Net/NetBuffer.h"
