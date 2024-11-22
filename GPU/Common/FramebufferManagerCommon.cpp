@@ -3703,4 +3703,6 @@ void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 		ImGui::PopID();
 	}
 	ImGui::EndTable();
+
+	// Now, draw the actual framebuffer image. This could be refined a lot.
 }

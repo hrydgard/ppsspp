@@ -42,6 +42,8 @@ private:
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
 	bool symsDirty_ = true;
+	int selectedSymbol_ = -1;
+	char selectedSymbolName_[128];
 
 	ImDisasmView disasmView_;
 	char searchTerm_[64]{};

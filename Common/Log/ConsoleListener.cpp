@@ -153,6 +153,7 @@ void ConsoleListener::Close() {
 	if (thread_.joinable()) {
 		logPendingWritePos_.store((u32)-1, std::memory_order_release);
 		SetEvent(hTriggerEvent);
+		// If we seem hung here, it's just that you made a selection in the debug console, blocking output.
 		thread_.join();
 	}
 	if (hTriggerEvent) {

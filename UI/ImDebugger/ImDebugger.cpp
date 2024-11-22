@@ -514,6 +514,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	if (ImGui::SmallButton("Search")) {
 		// Open a small popup
 		ImGui::OpenPopup("disSearch");
+		ImGui::Shortcut(ImGuiKey_F | ImGuiMod_Ctrl);
 	}
 
 	ImGui::SameLine();
@@ -535,19 +536,35 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableNextRow();
 		ImGui::TableSetColumnIndex(0);
+
+		if (symCache_.empty() || symsDirty_) {
+			symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
+			symsDirty_ = false;
+		}
+
+		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
+			auto &sym = symCache_[selectedSymbol_];
+			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
+				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
+					symsDirty_ = true;
+				}
+				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
+				ImGui::TreePop();
+			}
+		}
+
 		ImVec2 sz = ImGui::GetContentRegionAvail();
 		if (ImGui::BeginListBox("##symbols", ImVec2(150.0, sz.y - ImGui::GetTextLineHeightWithSpacing() * 2))) {
-			if (symCache_.empty() || symsDirty_) {
-				symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
-				symsDirty_ = false;
-			}
 			ImGuiListClipper clipper;
 			clipper.Begin((int)symCache_.size(), -1);
 			while (clipper.Step()) {
 				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-					if (ImGui::Selectable(symCache_[i].name.c_str(), false)) {
+					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
+						truncate_cpy(selectedSymbolName_, symCache_[i].name.c_str());
+						selectedSymbol_ = i;
 					}
 				}
 			}

@@ -457,7 +457,7 @@ public:
 	int MultiSampleLevel() const { return multiSampleLevel_; }
 
 	virtual void UpdateTag(const char *tag) {}
-	virtual const char *Tag() { return "(no name)"; }
+	virtual const char *Tag() const { return "(no name)"; }
 
 protected:
 	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;

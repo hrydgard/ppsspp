@@ -565,7 +565,7 @@ void ImDisasmView::ProcessKeyboardShortcuts() {
 	if (io.KeyMods & ImGuiMod_Ctrl) {
 		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
 			// Toggle the find popup
-			ImGui::OpenPopup("disSearch");
+			// ImGui::OpenPopup("disSearch");
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_C) || ImGui::IsKeyPressed(ImGuiKey_Insert)) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
