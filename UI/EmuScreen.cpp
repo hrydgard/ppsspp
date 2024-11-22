@@ -27,7 +27,7 @@ using namespace std::placeholders;
 #include "Common/Render/Text/draw_text.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Battery/Battery.h"
-
+#include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Context.h"
@@ -1646,7 +1646,13 @@ void EmuScreen::renderImDebugger() {
 		if (!imguiInited_) {
 			imguiInited_ = true;
 			imDebugger_ = std::make_unique<ImDebugger>();
-			ImGui_ImplThin3d_Init(draw);
+
+			// Read the TTF font
+			size_t size = 0;
+			uint8_t *fontData = g_VFS.ReadFile("Roboto-Condensed.ttf", &size);
+			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
+			// This takes ownership of the font array.
+			ImGui_ImplThin3d_Init(draw, fontData, size);
 		}
 
 		if (PSP_IsInited()) {

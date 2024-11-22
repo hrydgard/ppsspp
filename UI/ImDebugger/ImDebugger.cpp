@@ -399,7 +399,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			if (ImGui::MenuItem("Close Debugger")) {
 				g_Config.bShowImDebugger = false;
 			}
-			ImGui::MenuItem("Dear ImGUI Demo", nullptr, &cfg_.demoOpen);
+			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
+			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -407,6 +408,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.demoOpen) {
 		ImGui::ShowDemoWindow(&cfg_.demoOpen);
+	}
+
+	if (cfg_.styleEditorOpen) {
+		ImGui::ShowStyleEditor();
 	}
 
 	if (cfg_.disasmOpen) {

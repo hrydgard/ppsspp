@@ -33,8 +33,8 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Math/lin/matrix4x4.h"
 
-// Called by user code
-IMGUI_IMPL_API bool         ImGui_ImplThin3d_Init(Draw::DrawContext *draw);
+// Called by user code. Takes ownership of the font buffer and later deletes it.
+IMGUI_IMPL_API bool         ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_Shutdown();
 IMGUI_IMPL_API void         ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw);

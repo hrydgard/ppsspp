@@ -217,8 +217,16 @@ void ImGui_ImplThin3d_DestroyDeviceObjects() {
 	}
 }
 
-bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw) {
+bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size) {
 	ImGuiIO& io = ImGui::GetIO();
+	if (ttf_font) {
+		io.Fonts->AddFontFromMemoryTTF((void *)ttf_font, size, 18.0f * g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
+	} else {
+		// necessary?
+		io.Fonts->AddFontDefault();
+	}
+	ImGui::GetStyle().ScaleAllSizes(g_display.dpi_scale_x);
+
 	IMGUI_CHECKVERSION();
 	IM_ASSERT(io.BackendRendererUserData == nullptr && "Already initialized a renderer backend!");
 
