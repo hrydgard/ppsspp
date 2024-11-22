@@ -122,7 +122,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 }
 
 int Buffer::Read(int fd, size_t sz) {
-	char buf[1024];
+	char buf[4096];
 	int retval;
 	size_t received = 0;
 	while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), MSG_NOSIGNAL)) > 0) {
