@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <regex>
 #include <sstream>
 #include <unordered_map>
@@ -191,6 +192,10 @@ static constexpr int COLUMN_NAME = 0;
 static constexpr int COLUMN_TYPE = 1;
 static constexpr int COLUMN_CONTENT = 2;
 
+// Those numbers are rather arbitrary, they prevent drawing too many elements at once
+static constexpr int MAX_POINTER_ELEMENTS = 0x100000;
+static constexpr u32 INDEXED_MEMBERS_CHUNK_SIZE = 0x1000;
+
 void ImStructViewer::Draw(MIPSDebugInterface* mipsDebug, bool* open) {
 	mipsDebug_ = mipsDebug;
 	ImGui::SetNextWindowSize(ImVec2(750, 550), ImGuiCond_FirstUseEver);
@@ -221,8 +226,8 @@ void ImStructViewer::DrawConnectionSetup() {
 It also allows to set memory breakpoints and edit field values which is helpful when reverse engineering unknown types.
 To get started:
  1. In Ghidra install the ghidra-rest-api extension by Kotcrab.
- 2. After installing the extension enable the RestApiPlugin in the Miscellaneous plugins configuration window.
- 3. Open your Ghidra project and click "Start Rest API Server" in the "Tools" menu bar.
+ 2. In a CodeBrowser window do File -> Configure, then select Miscellaneous and enable the RestApiPlugin.
+ 3. Click "Start Rest API Server" in the "Tools" menu bar.
  4. Press the connect button below.
 )");
 	ImGui::Dummy(ImVec2(1, 6));
@@ -258,6 +263,17 @@ void ImStructViewer::DrawStructViewer() {
 		ImGui::SameLine();
 		ImGui::TextWrapped("Error: %s", ghidraClient_.result.error.c_str());
 		ImGui::PopStyleColor();
+	}
+
+	// Handle any pending updates to the watches vector
+	if (addWatch_.address != 0) {
+		watches_.push_back(addWatch_);
+		addWatch_ = Watch();
+	}
+	if (removeWatchId_ != -1) {
+		auto pred = [&](const Watch& watch) { return watch.id == removeWatchId_; };
+		watches_.erase(std::remove_if(watches_.begin(), watches_.end(), pred), watches_.end());
+		removeWatchId_ = -1;
 	}
 
 	if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_Reorderable)) {
@@ -312,9 +328,7 @@ void ImStructViewer::DrawWatch() {
 		ImGui::TableSetupColumn("Content");
 		ImGui::TableHeadersRow();
 
-		int watchIndex = -1;
 		for (const auto& watch : watches_) {
-			watchIndex++;
 			if (!watchFilter_.PassFilter(watch.name.c_str())) {
 				continue;
 			}
@@ -329,17 +343,8 @@ void ImStructViewer::DrawWatch() {
 			} else {
 				address = watch.address;
 			}
-			DrawType(address, 0, watch.typePathName, nullptr, watch.name.c_str(), watchIndex);
+			DrawType(address, 0, watch.typePathName, nullptr, watch.name.c_str(), watch.id);
 		}
-		if (removeWatchIndex_ != -1) {
-			watches_.erase(watches_.begin() + removeWatchIndex_);
-			removeWatchIndex_ = -1;
-		}
-		if (addWatch_.address != 0) {
-			watches_.push_back(addWatch_);
-			addWatch_ = Watch();
-		}
-
 		ImGui::EndTable();
 	}
 }
@@ -398,6 +403,7 @@ void ImStructViewer::DrawNewWatchEntry() {
 				watchName = "<watch>";
 			}
 			watches_.emplace_back(Watch{
+				nextWatchId_++,
 				newWatch_.dynamic ? newWatch_.expression : "",
 				newWatch_.dynamic ? 0 : val,
 				newWatch_.typePathName,
@@ -503,25 +509,45 @@ static void DrawPointerContent(
 	ImGui::Text("= \"%s\"", text.c_str());
 }
 
-// Formatting enum value to a nice string as it would look in code with 'or' operator (e.g. "ALIGN_TOP | ALIGN_LEFT")
-static std::string FormatEnumValue(const std::vector<GhidraEnumMember>& enumMembers, const u64 value) {
-	std::stringstream ss;
-	bool hasPrevious = false;
-	for (const auto& member : enumMembers) {
-		if (value & member.value) {
-			if (hasPrevious) {
-				ss << " | ";
-			}
-			ss << member.name;
+// If enum is a bitfield then format as it would look in code with 'or' operator (e.g. "ALIGN_TOP | ALIGN_LEFT")
+// otherwise just try to find exact matching member
+static std::string FormatEnumValue(
+	const std::vector<GhidraEnumMember>& enumMembers,
+	const u64 value,
+	const bool bitfield
+) {
+	if (bitfield) {
+		std::stringstream ss;
+		bool hasPrevious = false;
+
+		// The value for the yet unknown enum members, it will be non-zero if the enum definition is incomplete
+		u64 remainderValue = value;
+		for (const auto& member : enumMembers) {
+			remainderValue &= ~member.value;
+		}
+		if (remainderValue != 0) {
+			ss << std::hex << remainderValue;
 			hasPrevious = true;
 		}
-	}
-	return ss.str();
-}
 
-// This will be potentially called a lot of times in a frame so not using string here
-static void FormatIndexedMember(char* buffer, const size_t bufferSize, const std::string& name, const u32 index) {
-	snprintf(buffer, bufferSize, "%s[%x]", name.c_str(), index);
+		for (const auto& member : enumMembers) {
+			if ((value & member.value) != 0 || (value == 0 && member.value == 0)) {
+				if (hasPrevious) {
+					ss << " | ";
+				}
+				ss << member.name;
+				hasPrevious = true;
+			}
+		}
+		return ss.str();
+	}
+
+	for (const auto& member : enumMembers) {
+		if (value == member.value) {
+			return member.name;
+		}
+	}
+	return "?";
 }
 
 void ImStructViewer::DrawType(
@@ -530,18 +556,18 @@ void ImStructViewer::DrawType(
 	const std::string& typePathName,
 	const char* typeDisplayNameOverride,
 	const char* name,
-	const int watchIndex,
+	const int watchId,
 	const ImGuiTreeNodeFlags extraTreeNodeFlags
 ) {
 	const auto& types = ghidraClient_.result.types;
 	// Generic pointer is not included in the type listing, need to resolve it manually to void*
 	if (typePathName == "/pointer") {
-		DrawType(base, offset, "/void *", "pointer", name, watchIndex);
+		DrawType(base, offset, "/void *", "pointer", name, watchId);
 		return;
 	}
 	// Undefined itself doesn't exist as a type, let's just display first byte in that case
 	if (typePathName == "/undefined") {
-		DrawType(base, offset, "/undefined1", "undefined", name, watchIndex);
+		DrawType(base, offset, "/undefined1", "undefined", name, watchId);
 		return;
 	}
 
@@ -551,15 +577,14 @@ void ImStructViewer::DrawType(
 	if (hasType) {
 		const auto& type = types.at(typePathName);
 		if (type.kind == TYPEDEF) {
-			DrawType(base, offset, type.typedefBaseTypePathName, type.displayName.c_str(), name,
-			         watchIndex);
+			DrawType(base, offset, type.typedefBaseTypePathName, type.displayName.c_str(), name, watchId);
 			return;
 		}
 	}
 
 	const u32 address = base + offset;
 	ImGui::PushID(static_cast<int>(address));
-	ImGui::PushID(watchIndex); // We push watch index too as it's possible to have multiple watches on the same address
+	ImGui::PushID(watchId); // We push watch id too as it's possible to have multiple watches on the same address
 
 	// Text and Tree nodes are less high than framed widgets, using AlignTextToFramePadding() we add vertical spacing
 	// to make the tree lines equal high.
@@ -573,7 +598,7 @@ void ImStructViewer::DrawType(
 	// Type is missing in fetched types, this can happen e.g. if type used for watch is removed from Ghidra
 	if (!hasType) {
 		ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-		DrawContextMenu(base, offset, 0, typePathName, name, watchIndex, nullptr);
+		DrawContextMenu(base, offset, 0, typePathName, name, watchId, nullptr);
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
 		DrawTypeColumn("<missing type: %s>", typePathName, base, offset);
 		ImGui::PopStyleColor();
@@ -589,7 +614,7 @@ void ImStructViewer::DrawType(
 	// Handle cases where pointers or expressions point to invalid memory
 	if (!Memory::IsValidAddress(address)) {
 		ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-		DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
+		DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, nullptr);
 		DrawTypeColumn("%s", typeDisplayName, base, offset);
 		ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
@@ -606,11 +631,11 @@ void ImStructViewer::DrawType(
 		case ENUM: {
 			ImGui::TreeNodeEx("Enum", leafFlags, "%s", name);
 			const u64 enumValue = ReadMemoryInt(address, type.length);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &enumValue);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &enumValue);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
-			const std::string enumString = FormatEnumValue(type.enumMembers, enumValue);
+			const std::string enumString = FormatEnumValue(type.enumMembers, enumValue, type.enumBitfield);
 			ImGui::Text("= %llx (%s)", enumValue, enumString.c_str());
 			DrawIntBuiltInEditPopup(address, type.length);
 			break;
@@ -619,59 +644,56 @@ void ImStructViewer::DrawType(
 			const bool nodeOpen = ImGui::TreeNodeEx("Pointer", extraTreeNodeFlags, "%s", name);
 			const u32 pointer = Memory::Read_U32(address);
 			const u64 pointer64 = pointer;
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &pointer64);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &pointer64);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 			DrawPointerContent(types, type, pointer);
 
 			if (nodeOpen) {
+				int pointerElementAlignedLength = -1;
+				const auto countStateId = ImGui::GetID("PointerElementCount");
+				const int pointerElementCount = ImGui::GetStateStorage()->GetInt(countStateId, 1);
+
+				// To draw more pointer elements the "pointed to" type must exist
+				// It also can't be an unsized type (e.g. it can't be a function or void)
 				if (types.count(type.pointerTypePathName)) {
-					const auto& pointedType = types.at(type.pointerTypePathName);
-
-					const auto countStateId = ImGui::GetID("PointerElementCount");
-					const int pointerElementCount = ImGui::GetStateStorage()->GetInt(countStateId, 1);
-
-					// A pointer to unsized type (e.g. function or void) can't have more than one element
-					if (pointedType.alignedLength > 0) {
+					pointerElementAlignedLength = types.at(type.pointerTypePathName).alignedLength;
+					if (pointerElementAlignedLength > 0) {
 						ImGui::TableNextRow();
 						ImGui::TableSetColumnIndex(COLUMN_NAME);
-						if (ImGui::Button("Show more")) {
-							ImGui::GetStateStorage()->SetInt(countStateId, pointerElementCount + 1);
+						int inputElementCount = pointerElementCount;
+						constexpr int step = 1;
+						constexpr int stepFast = 10;
+						ImGui::PushItemWidth(110);
+						ImGui::InputScalar("Elements", ImGuiDataType_S32, &inputElementCount, &step, &stepFast, "%x");
+						if (ImGui::IsItemDeactivatedAfterEdit()) {
+							const int newValue = std::clamp(inputElementCount, 1, MAX_POINTER_ELEMENTS);
+							ImGui::GetStateStorage()->SetInt(countStateId, newValue);
 						}
-						if (pointerElementCount > 1) {
-							ImGui::SameLine();
-							ImGui::Text("(showing %x)", pointerElementCount);
-						}
-					}
-
-					for (int i = 0; i < pointerElementCount; i++) {
-						char nameBuffer[256];
-						FormatIndexedMember(nameBuffer, sizeof(nameBuffer), name, i);
-						// A pointer always creates extra node in the tree so using DefaultOpen to spare user one click
-						DrawType(pointer, i * pointedType.alignedLength, type.pointerTypePathName,
-						         nullptr, nameBuffer, -1, ImGuiTreeNodeFlags_DefaultOpen);
+						ImGui::PopItemWidth();
 					}
 				}
+
+				// A pointer always creates at least one extra node in the tree
+				// We want to auto open first element here to spare user one extra click
+				DrawIndexedMembers(pointer, 0, type.pointerTypePathName, name, pointerElementCount,
+				                   pointerElementAlignedLength, true);
 				ImGui::TreePop();
 			}
 			break;
 		}
 		case ARRAY: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Array", extraTreeNodeFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 			DrawArrayContent(types, type, address);
 
 			if (nodeOpen) {
-				for (int i = 0; i < type.arrayElementCount; i++) {
-					char nameBuffer[256];
-					FormatIndexedMember(nameBuffer, sizeof(nameBuffer), name, i);
-					DrawType(base, offset + i * type.arrayElementLength, type.arrayTypePathName,
-					         nullptr, nameBuffer, -1);
-				}
+				DrawIndexedMembers(base, offset, type.arrayTypePathName, name, type.arrayElementCount,
+				                   type.arrayElementLength, false);
 				ImGui::TreePop();
 			}
 			break;
@@ -679,7 +701,7 @@ void ImStructViewer::DrawType(
 		case STRUCTURE:
 		case UNION: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Composite", extraTreeNodeFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			if (nodeOpen) {
@@ -693,7 +715,7 @@ void ImStructViewer::DrawType(
 		}
 		case FUNCTION_DEFINITION:
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, nullptr);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
@@ -705,7 +727,7 @@ void ImStructViewer::DrawType(
 			if (knownBuiltIns.count(typePathName)) {
 				// This will copy float as int, but we can live with that for now
 				const u64 value = ReadMemoryInt(address, type.alignedLength);
-				DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, &value);
+				DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &value);
 				DrawTypeColumn("%s", typeDisplayName, base, offset);
 				ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 				DrawBuiltInContent(knownBuiltIns.at(typePathName), address);
@@ -721,7 +743,7 @@ void ImStructViewer::DrawType(
 			// At this point there is most likely some issue in the Ghidra extension and the type wasn't
 			// classified to any category
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
-			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchIndex, nullptr);
+			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, nullptr);
 			ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
 			DrawTypeColumn("<not implemented type: %s>", typeDisplayName, base, offset);
 			ImGui::PopStyleColor();
@@ -731,6 +753,50 @@ void ImStructViewer::DrawType(
 
 	ImGui::PopID();
 	ImGui::PopID();
+}
+
+void ImStructViewer::DrawIndexedMembers(
+	const u32 base,
+	const u32 offset,
+	const std::string& typePathName,
+	const char* name,
+	const u32 elementCount,
+	const int elementLength,
+	const bool openFirst
+) {
+	auto drawChunk = [&](const u32 chunkOffset) {
+		for (u32 i = chunkOffset; i < std::min(elementCount, chunkOffset + INDEXED_MEMBERS_CHUNK_SIZE); i++) {
+			char nameBuffer[256];
+			snprintf(nameBuffer, sizeof(nameBuffer), "%s[%x]", name, i);
+			// Element length might be non-positive here, e.g. for pointers which point to types that
+			// don't exist (e.g. undefined type) or when pointing to an unsized type (e.g. function, void types)
+			// However the first element is always at offset 0 so we can draw it even if we don't know type length
+			const u32 elementOffset = i == 0 ? 0 : i * elementLength;
+			const ImGuiTreeNodeFlags elementTreeFlags = i == 0 && openFirst ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+			DrawType(base, offset + elementOffset, typePathName, nullptr, nameBuffer, -1, elementTreeFlags);
+		}
+	};
+
+	if (elementCount <= INDEXED_MEMBERS_CHUNK_SIZE) {
+		drawChunk(0);
+		return;
+	}
+	const u32 chunks = 1 + (elementCount - 1) / INDEXED_MEMBERS_CHUNK_SIZE; // Round up div
+	for (u32 i = 0; i < chunks; i++) {
+		ImGui::PushID(static_cast<int>(i));
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(COLUMN_NAME);
+		const u32 chunkOffset = i * INDEXED_MEMBERS_CHUNK_SIZE;
+		const u32 chunkEnd = std::min(elementCount, chunkOffset + INDEXED_MEMBERS_CHUNK_SIZE) - 1;
+		const ImGuiTreeNodeFlags chunkTreeFlags = i == 0 && openFirst ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+		char nameBuffer[256];
+		snprintf(nameBuffer, sizeof(nameBuffer), "%s[%x..%x]", name, chunkOffset, chunkEnd);
+		if (ImGui::TreeNodeEx("Chunk", chunkTreeFlags, "%s", nameBuffer)) {
+			drawChunk(chunkOffset);
+			ImGui::TreePop();
+		}
+		ImGui::PopID();
+	}
 }
 
 static void CopyHexNumberToClipboard(const u64 value) {
@@ -746,7 +812,7 @@ void ImStructViewer::DrawContextMenu(
 	const int length,
 	const std::string& typePathName,
 	const char* name,
-	const int watchIndex,
+	const int watchId,
 	const u64* value
 ) {
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
@@ -761,15 +827,16 @@ void ImStructViewer::DrawContextMenu(
 		}
 
 		// This might be called when iterating over existing watches so can't modify the watch vector directly here
-		if (watchIndex < 0) {
+		if (watchId < 0) {
 			if (ImGui::MenuItem("Add watch")) {
+				addWatch_.id = nextWatchId_++;
 				addWatch_.address = address;
 				addWatch_.typePathName = typePathName;
 				addWatch_.name = name;
 			}
-		} else if (watchIndex < watches_.size()) {
+		} else {
 			if (ImGui::MenuItem("Remove watch")) {
-				removeWatchIndex_ = watchIndex;
+				removeWatchId_ = watchId;
 			}
 		}
 
