@@ -61,6 +61,7 @@ struct GhidraType {
 
 	std::vector<GhidraCompositeMember> compositeMembers;
 	std::vector<GhidraEnumMember> enumMembers;
+	bool enumBitfield = false; // Determined from a simple heuristic check
 	std::string pointerTypePathName;
 	std::string typedefTypePathName;
 	std::string typedefBaseTypePathName;

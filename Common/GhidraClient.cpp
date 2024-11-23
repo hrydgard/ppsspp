@@ -18,6 +18,17 @@ static GhidraTypeKind ResolveTypeKind(const std::string& kind) {
 	return UNKNOWN;
 }
 
+static bool IsBitfieldEnum(const std::vector<GhidraEnumMember>& enumMembers) {
+	u64 previousValues = 0;
+	for (const auto& member : enumMembers) {
+		if (previousValues & member.value) {
+			return false;
+		}
+		previousValues |= member.value;
+	}
+	return true;
+}
+
 GhidraClient::~GhidraClient() {
 	if (thread_.joinable()) {
 		thread_.join();
@@ -131,6 +142,7 @@ bool GhidraClient::FetchTypes() {
 					member.comment = enumEntry.getStringOr("comment", "");
 					type.enumMembers.push_back(member);
 				}
+				type.enumBitfield = IsBitfieldEnum(type.enumMembers);
 				break;
 			}
 			case TYPEDEF:

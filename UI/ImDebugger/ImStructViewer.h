@@ -17,6 +17,7 @@
 // without the need to set up Ghidra.
 class ImStructViewer {
 	struct Watch {
+		int id = 0;
 		std::string expression;
 		u32 address = 0;
 		std::string typePathName;
@@ -48,7 +49,8 @@ private:
 	bool fetchedAtLeastOnce_ = false; // True if fetched from Ghidra successfully at least once
 
 	std::vector<Watch> watches_;
-	int removeWatchIndex_ = -1; // Watch index entry to be removed on next draw
+	int nextWatchId_ = 0; // ID value to use when creating new watch entry
+	int removeWatchId_ = -1; // Watch entry id to be removed on next draw
 	Watch addWatch_; // Temporary variable to store watch entry added from the Globals tab
 	NewWatch newWatch_; // State for the new watch entry UI
 
@@ -68,8 +70,17 @@ private:
 		const std::string& typePathName,
 		const char* typeDisplayNameOverride,
 		const char* name,
-		int watchIndex,
+		int watchId,
 		ImGuiTreeNodeFlags extraTreeNodeFlags = 0);
+
+	void DrawIndexedMembers(
+		u32 base,
+		u32 offset,
+		const std::string& typePathName,
+		const char* name,
+		u32 elementCount,
+		int elementLength,
+		bool openFirst);
 
 	void DrawContextMenu(
 		u32 base,
@@ -77,6 +88,6 @@ private:
 		int length,
 		const std::string& typePathName,
 		const char* name,
-		int watchIndex,
+		int watchId,
 		const u64* value);
 };
