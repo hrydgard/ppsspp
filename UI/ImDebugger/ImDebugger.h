@@ -60,6 +60,7 @@ struct ImConfig {
 	bool regsOpen = true;
 	bool threadsOpen = true;
 	bool callstackOpen = true;
+	bool breakpointsOpen = false;
 	bool modulesOpen = true;
 	bool hleModulesOpen = false;
 	bool atracOpen = true;
@@ -74,6 +75,7 @@ struct ImConfig {
 	int selectedModule = 0;
 	int selectedThread = 0;
 	int selectedFramebuffer = -1;
+	int selectedBreakpoint = -1;
 };
 
 enum ImUiCmd {

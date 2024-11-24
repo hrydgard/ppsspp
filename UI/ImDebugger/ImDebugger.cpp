@@ -170,6 +170,40 @@ void DrawThreadView(ImConfig &cfg) {
 	ImGui::End();
 }
 
+static const char *MemCheckConditionToString(MemCheckCondition cond) {
+	switch (cond) {
+	case MEMCHECK_READ: return "Read";
+	case MEMCHECK_WRITE: return "Write";
+	case MEMCHECK_READWRITE: return "Read/Write";
+	case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE: return "Write Change";
+	case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE: return "Read/Write Change";
+	default:
+		return "(bad!)";
+	}
+}
+
+void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, bool *open) {
+	if (!ImGui::Begin("Breakpoints", open)) {
+		ImGui::End();
+		return;
+	}
+	if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < 32; i++) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("");
+			ImGui::TableNextColumn();
+		}
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 void DrawAtracView(ImConfig &cfg) {
 	if (!ImGui::Begin("sceAtrac contexts", &cfg.atracOpen)) {
 		ImGui::End();
@@ -374,6 +408,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
 			ImGui::MenuItem("Registers", nullptr, &cfg_.regsOpen);
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
+			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("OS HLE")) {
@@ -416,6 +451,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.regsOpen) {
 		DrawRegisterView(mipsDebug, &cfg_.regsOpen);
+	}
+
+	if (cfg_.breakpointsOpen) {
+		DrawBreakpointsView(mipsDebug, &cfg_.breakpointsOpen);
 	}
 
 	if (cfg_.threadsOpen) {
