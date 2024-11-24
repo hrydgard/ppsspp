@@ -228,20 +228,23 @@ bool MIPSDebugInterface::isBreakpoint(unsigned int address)
 	return g_breakpoints.IsAddressBreakPoint(address);
 }
 
-void MIPSDebugInterface::setBreakpoint(unsigned int address)
-{
+void MIPSDebugInterface::setBreakpoint(unsigned int address) {
 	g_breakpoints.AddBreakPoint(address);
 }
-void MIPSDebugInterface::clearBreakpoint(unsigned int address)
-{
+
+void MIPSDebugInterface::clearBreakpoint(unsigned int address) {
 	g_breakpoints.RemoveBreakPoint(address);
 }
-void MIPSDebugInterface::clearAllBreakpoints() {}
-void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
-{
-	g_breakpoints.IsAddressBreakPoint(address)?g_breakpoints.RemoveBreakPoint(address):g_breakpoints.AddBreakPoint(address);
-}
 
+void MIPSDebugInterface::clearAllBreakpoints() {}
+
+void MIPSDebugInterface::toggleBreakpoint(unsigned int address) {
+	if (g_breakpoints.IsAddressBreakPoint(address)) {
+		g_breakpoints.RemoveBreakPoint(address);
+	} else {
+		g_breakpoints.AddBreakPoint(address);
+	}
+}
 
 int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 	uint32_t colors[6] = { 0xFFe0FFFF, 0xFFFFe0e0, 0xFFe8e8FF, 0xFFFFe0FF, 0xFFe0FFe0, 0xFFFFFFe0 };
