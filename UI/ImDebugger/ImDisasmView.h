@@ -11,6 +11,8 @@
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
 
+struct ImConfig;
+
 // Corresponds to CtrlDisAsmView
 // TODO: Fold out common code.
 class ImDisasmView {
@@ -77,7 +79,7 @@ public:
 		showHex_ = s;
 	}
 	void toggleBreakpoint(bool toggleEnabled = false);
-	void editBreakpoint();
+	void editBreakpoint(ImConfig &cfg);
 
 	void setCurAddress(u32 newAddress, bool extend = false) {
 		newAddress = manager.getStartAddress(newAddress);

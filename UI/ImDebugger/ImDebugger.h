@@ -65,6 +65,7 @@ struct ImConfig {
 	bool atracOpen = true;
 	bool structViewerOpen = false;
 	bool framebuffersOpen = false;
+	bool styleEditorOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
