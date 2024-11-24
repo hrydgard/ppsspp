@@ -21,7 +21,7 @@
 
 #include "Core/Debugger/DebugInterface.h"
 
-enum BreakAction {
+enum BreakAction : u32 {
 	BREAK_ACTION_IGNORE = 0x00,
 	BREAK_ACTION_LOG = 0x01,
 	BREAK_ACTION_PAUSE = 0x02,
@@ -124,7 +124,7 @@ public:
 	bool IsAddressBreakPoint(u32 addr, bool* enabled);
 	bool IsTempBreakPoint(u32 addr);
 	bool RangeContainsBreakPoint(u32 addr, u32 size);
-	void AddBreakPoint(u32 addr, bool temp = false);
+	int AddBreakPoint(u32 addr, bool temp = false);  // Returns the breakpoint index.
 	void RemoveBreakPoint(u32 addr);
 	void ChangeBreakPoint(u32 addr, bool enable);
 	void ChangeBreakPoint(u32 addr, BreakAction result);
@@ -140,7 +140,7 @@ public:
 
 	BreakAction ExecBreakPoint(u32 addr);
 
-	void AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
+	int AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	void RemoveMemCheck(u32 start, u32 end);
 	void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	void ClearAllMemChecks();
@@ -164,6 +164,15 @@ public:
 
 	std::vector<MemCheck> GetMemChecks();
 	std::vector<BreakPoint> GetBreakpoints();
+
+	// For editing through the imdebugger.
+	// Since it's on the main thread, we don't need to fear threading clashes.
+	std::vector<BreakPoint> &GetBreakpointRefs() {
+		return breakPoints_;
+	}
+	std::vector<MemCheck> &GetMemCheckRefs() {
+		return memChecks_;
+	}
 
 	bool HasBreakPoints();
 	bool HasMemChecks();

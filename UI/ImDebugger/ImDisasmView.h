@@ -39,7 +39,7 @@ public:
 	void ScanVisibleFunctions();
 	void clearFunctions() { manager.clear(); };
 
-	void getOpcodeText(u32 address, char* dest, int bufsize);
+	void getOpcodeText(u32 address, char *dest, int bufsize);
 	u32 yToAddress(float y);
 
 	void setDebugger(DebugInterface *deb) {

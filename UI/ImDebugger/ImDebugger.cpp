@@ -182,25 +182,150 @@ static const char *MemCheckConditionToString(MemCheckCondition cond) {
 	}
 }
 
-void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, bool *open) {
-	if (!ImGui::Begin("Breakpoints", open)) {
+static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
+	if (!ImGui::Begin("Breakpoints", &cfg.breakpointsOpen)) {
 		ImGui::End();
 		return;
 	}
-	if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableHeadersRow();
+	if (ImGui::BeginTable("bp_window", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
+		ImGui::TableSetupColumn("left", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		auto &bps = g_breakpoints.GetBreakpointRefs();
+		auto &mcs = g_breakpoints.GetMemCheckRefs();
 
-		for (int i = 0; i < 32; i++) {
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::Text("");
-			ImGui::TableNextColumn();
+		if (cfg.selectedBreakpoint >= bps.size()) {
+			cfg.selectedBreakpoint = -1;
+		}
+		if (cfg.selectedMemCheck >= mcs.size()) {
+			cfg.selectedMemCheck = -1;
+		}
+
+		if (ImGui::Button("Add Breakpoint")) {
+			cfg.selectedBreakpoint = g_breakpoints.AddBreakPoint(0);
+			cfg.selectedMemCheck = -1;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Add MemCheck")) {
+			cfg.selectedMemCheck = g_breakpoints.AddMemCheck(0, 0, MemCheckCondition::MEMCHECK_WRITE, BreakAction::BREAK_ACTION_PAUSE);
+			cfg.selectedBreakpoint = -1;
+		}
+
+		if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Size/Label", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("OpCode", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Cond", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Hits", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableHeadersRow();
+
+			for (int i = 0; i < (int)bps.size(); i++) {
+				auto &bp = bps[i];
+				if (bp.temporary) {
+					// Probably won't happen a lot.. maybe a wrong Step Over
+					continue;
+				}
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(i);
+				// TODO: This clashes with the checkbox!
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedBreakpoint = i;
+					cfg.selectedMemCheck = -1;
+				}
+				ImGui::SameLine();
+				ImGui::CheckboxFlags("##enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Exec");
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", bp.addr);
+				ImGui::TableNextColumn();
+				const std::string sym = g_symbolMap->GetLabelString(bp.addr);
+				if (!sym.empty()) {
+					ImGui::TextUnformatted(sym.c_str());  // size/label
+				} else {
+					ImGui::TextUnformatted("-");  // size/label
+				}
+				ImGui::TableNextColumn();
+				// disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp, sizeof(temp));
+				ImGui::TextUnformatted("-");  // opcode
+				ImGui::TableNextColumn();
+				if (bp.hasCond) {
+					ImGui::Text("%s", bp.cond.expressionString.c_str());
+				} else {
+					ImGui::TextUnformatted("-");  // condition
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("-");  // hits not available on exec bps yet
+				ImGui::PopID();
+			}
+
+			// OK, now list the memchecks.
+			for (int i = 0; i < (int)mcs.size(); i++) {
+				auto &mc = mcs[i];
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(i + 10000);
+				if (ImGui::Selectable("", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedBreakpoint = -1;
+					cfg.selectedMemCheck = i;
+				}
+				ImGui::SameLine();
+				ImGui::CheckboxFlags("", (int *)&mc.result, BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::Text("%s", MemCheckConditionToString(mc.cond));
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", mc.start);
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", mc.end ? (mc.end - mc.start) : 1);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // opcode
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // cond
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", mc.numHits);
+				ImGui::PopID();
+			}
+
+			ImGui::EndTable();
+		}
+
+		ImGui::TableNextColumn();
+
+		if (cfg.selectedBreakpoint >= 0) {
+			// Add edit form for breakpoints
+			if (ImGui::BeginChild("bp_edit")) {
+				auto &bp = bps[cfg.selectedBreakpoint];
+				ImGui::TextUnformatted("Edit breakpoint");
+				ImGui::CheckboxFlags("Enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				if (ImGui::Button("Delete")) {
+					g_breakpoints.RemoveBreakPoint(bp.addr);
+				}
+				ImGui::EndChild();
+			}
+		}
+
+		if (cfg.selectedMemCheck >= 0) {
+			// Add edit form for memchecks
+			if (ImGui::BeginChild("mc_edit")) {
+				auto &mc = mcs[cfg.selectedMemCheck];
+				ImGui::TextUnformatted("Edit memcheck");
+				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start);
+				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end);
+				if (ImGui::Button("Delete")) {
+					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
+				}
+				ImGui::EndChild();
+			}
 		}
 		ImGui::EndTable();
 	}
+
 	ImGui::End();
 }
 
@@ -454,7 +579,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.breakpointsOpen) {
-		DrawBreakpointsView(mipsDebug, &cfg_.breakpointsOpen);
+		DrawBreakpointsView(mipsDebug, cfg_);
 	}
 
 	if (cfg_.threadsOpen) {

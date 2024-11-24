@@ -151,12 +151,10 @@ bool BreakpointManager::RangeContainsBreakPoint(u32 addr, u32 size)
 	return false;
 }
 
-void BreakpointManager::AddBreakPoint(u32 addr, bool temp)
-{
+int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr, true, temp);
-	if (bp == INVALID_BREAKPOINT)
-	{
+	if (bp == INVALID_BREAKPOINT) {
 		BreakPoint pt;
 		pt.result |= BREAK_ACTION_PAUSE;
 		pt.temporary = temp;
@@ -166,22 +164,24 @@ void BreakpointManager::AddBreakPoint(u32 addr, bool temp)
 		anyBreakPoints_ = true;
 		guard.unlock();
 		Update(addr);
-	}
-	else if (!breakPoints_[bp].IsEnabled())
-	{
+
+		return (int)breakPoints_.size() - 1;
+	} else if (!breakPoints_[bp].IsEnabled()) {
 		breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
 		guard.unlock();
 		Update(addr);
+		return (int)bp;
+	} else {
+		// nothing to do, just return the already-existing breakpoint index
+		return (int)bp;
 	}
 }
 
-void BreakpointManager::RemoveBreakPoint(u32 addr)
-{
+void BreakpointManager::RemoveBreakPoint(u32 addr) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
-	if (bp != INVALID_BREAKPOINT)
-	{
+	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_.erase(breakPoints_.begin() + bp);
 
 		// Check again, there might've been an overlapping temp breakpoint.
@@ -195,12 +195,10 @@ void BreakpointManager::RemoveBreakPoint(u32 addr)
 	}
 }
 
-void BreakpointManager::ChangeBreakPoint(u32 addr, bool status)
-{
+void BreakpointManager::ChangeBreakPoint(u32 addr, bool status) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
-	if (bp != INVALID_BREAKPOINT)
-	{
+	if (bp != INVALID_BREAKPOINT) {
 		if (status)
 			breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
 		else
@@ -211,12 +209,10 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, bool status)
 	}
 }
 
-void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction result)
-{
+void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction result) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
-	if (bp != INVALID_BREAKPOINT)
-	{
+	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].result = result;
 		guard.unlock();
 		Update(addr);
@@ -336,13 +332,11 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	return BREAK_ACTION_IGNORE;
 }
 
-void BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)
-{
+int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result) {
 	std::unique_lock<std::mutex> guard(memCheckMutex_);
 
 	size_t mc = FindMemCheck(start, end);
-	if (mc == INVALID_MEMCHECK)
-	{
+	if (mc == INVALID_MEMCHECK) {
 		MemCheck check;
 		check.start = start;
 		check.end = end;
@@ -355,9 +349,8 @@ void BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, 
 			MemBlockOverrideDetailed();
 		guard.unlock();
 		Update();
-	}
-	else
-	{
+		return (int)memChecks_.size() - 1;
+	} else {
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
 		memChecks_[mc].result = (BreakAction)(memChecks_[mc].result | result);
 		bool hadAny = anyMemChecks_.exchange(true);
@@ -365,6 +358,7 @@ void BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, 
 			MemBlockOverrideDetailed();
 		guard.unlock();
 		Update();
+		return (int)mc;
 	}
 }
 

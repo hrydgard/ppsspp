@@ -3,6 +3,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Math/expression_parser.h"
 
+#include "Core/Debugger/Breakpoints.h"
 #include "BreakpointWindow.h"
 #include "../resource.h"
 

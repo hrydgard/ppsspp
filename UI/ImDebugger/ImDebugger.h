@@ -76,6 +76,7 @@ struct ImConfig {
 	int selectedThread = 0;
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
+	int selectedMemCheck = -1;
 };
 
 enum ImUiCmd {

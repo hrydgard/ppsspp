@@ -489,7 +489,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 					break;
 				}
 			} else {
-				wcscpy(dest,L"Execute");
+				wcscpy(dest, L"Execute");
 			}
 		}
 		break;
