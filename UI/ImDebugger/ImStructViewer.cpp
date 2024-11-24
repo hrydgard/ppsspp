@@ -848,10 +848,10 @@ void ImStructViewer::DrawContextMenu(
 		if (length > 0) {
 			const u32 end = address + length;
 			MemCheck memCheck;
-			const bool hasMemCheck = CBreakPoints::GetMemCheck(address, end, &memCheck);
+			const bool hasMemCheck = g_breakpoints.GetMemCheck(address, end, &memCheck);
 			if (hasMemCheck) {
 				if (ImGui::MenuItem("Remove memory breakpoint")) {
-					CBreakPoints::RemoveMemCheck(address, end);
+					g_breakpoints.RemoveMemCheck(address, end);
 				}
 			}
 			const bool canAddRead = !hasMemCheck || !(memCheck.cond & MEMCHECK_READ);
@@ -860,17 +860,17 @@ void ImStructViewer::DrawContextMenu(
 			if ((canAddRead || canAddWrite || canAddWriteOnChange) && ImGui::BeginMenu("Add memory breakpoint")) {
 				if (canAddRead && canAddWrite && ImGui::MenuItem("Read/Write")) {
 					constexpr auto cond = static_cast<MemCheckCondition>(MEMCHECK_READ | MEMCHECK_WRITE);
-					CBreakPoints::AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
+					g_breakpoints.AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
 				}
 				if (canAddRead && ImGui::MenuItem("Read")) {
-					CBreakPoints::AddMemCheck(address, end, MEMCHECK_READ, BREAK_ACTION_PAUSE);
+					g_breakpoints.AddMemCheck(address, end, MEMCHECK_READ, BREAK_ACTION_PAUSE);
 				}
 				if (canAddWrite && ImGui::MenuItem("Write")) {
-					CBreakPoints::AddMemCheck(address, end, MEMCHECK_WRITE, BREAK_ACTION_PAUSE);
+					g_breakpoints.AddMemCheck(address, end, MEMCHECK_WRITE, BREAK_ACTION_PAUSE);
 				}
 				if (canAddWriteOnChange && ImGui::MenuItem("Write Change")) {
 					constexpr auto cond = static_cast<MemCheckCondition>(MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE);
-					CBreakPoints::AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
+					g_breakpoints.AddMemCheck(address, end, cond, BREAK_ACTION_PAUSE);
 				}
 				ImGui::EndMenu();
 			}

@@ -992,8 +992,8 @@ static inline void RunUntilFast() {
 static void RunUntilWithChecks(u64 globalTicks) {
 	MIPSState *curMips = currentMIPS;
 	// NEVER stop in a delay slot!
-	bool hasBPs = CBreakPoints::HasBreakPoints();
-	bool hasMCs = CBreakPoints::HasMemChecks();
+	bool hasBPs = g_breakpoints.HasBreakPoints();
+	bool hasMCs = g_breakpoints.HasMemChecks();
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
 		do {
 			// Replacements and similar are processed here, intentionally.
@@ -1001,25 +1001,25 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint
-			if (hasBPs && CBreakPoints::IsAddressBreakPoint(curMips->pc) && CBreakPoints::CheckSkipFirst() != curMips->pc) {
-				auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+			if (hasBPs && g_breakpoints.IsAddressBreakPoint(curMips->pc) && g_breakpoints.CheckSkipFirst() != curMips->pc) {
+				auto cond = g_breakpoints.GetBreakPointCondition(currentMIPS->pc);
 				if (!cond || cond->Evaluate()) {
 					Core_Break("cpu.breakpoint", curMips->pc);
-					if (CBreakPoints::IsTempBreakPoint(curMips->pc))
-						CBreakPoints::RemoveBreakPoint(curMips->pc);
+					if (g_breakpoints.IsTempBreakPoint(curMips->pc))
+						g_breakpoints.RemoveBreakPoint(curMips->pc);
 					break;
 				}
 			}
-			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && CBreakPoints::CheckSkipFirst() != curMips->pc && instr->interpret != &Int_Syscall) {
+			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != curMips->pc && instr->interpret != &Int_Syscall) {
 				// This is common for all IN_MEM/OUT_MEM funcs.
 				int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
 				u32 addr = (R(_RS) + offset) & 0xFFFFFFFC;
 				int sz = MIPSGetMemoryAccessSize(op);
 
 				if ((instr->flags & IN_MEM) != 0)
-					CBreakPoints::ExecMemCheck(addr, false, sz, curMips->pc, "interpret");
+					g_breakpoints.ExecMemCheck(addr, false, sz, curMips->pc, "interpret");
 				if ((instr->flags & OUT_MEM) != 0)
-					CBreakPoints::ExecMemCheck(addr, true, sz, curMips->pc, "interpret");
+					g_breakpoints.ExecMemCheck(addr, true, sz, curMips->pc, "interpret");
 
 				// If it tripped, bail without running.
 				if (coreState == CORE_STEPPING)
@@ -1048,7 +1048,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks) {
 		CoreTiming::Advance();
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();
-		if (CBreakPoints::HasBreakPoints() || CBreakPoints::HasMemChecks() || ticksLeft <= curMips->downcount)
+		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= curMips->downcount)
 			RunUntilWithChecks(globalTicks);
 		else
 			RunUntilFast();

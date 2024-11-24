@@ -40,7 +40,7 @@ IRFrontend::IRFrontend(bool startDefaultPrefix) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	CBreakPoints::SetSkipFirst(0);
+	g_breakpoints.SetSkipFirst(0);
 }
 
 void IRFrontend::DoState(PointerWrap &p) {
@@ -58,7 +58,7 @@ void IRFrontend::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	CBreakPoints::SetSkipFirst(0);
+	g_breakpoints.SetSkipFirst(0);
 }
 
 void IRFrontend::FlushAll() {
@@ -155,7 +155,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		if ((entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
 			// Any breakpoint at the func entry was already tripped, so we can still run the replacement.
 			// That's a common case - just to see how often the replacement hits.
-			disabled = CBreakPoints::RangeContainsBreakPoint(GetCompilerPC() + sizeof(u32), funcSize - sizeof(u32));
+			disabled = g_breakpoints.RangeContainsBreakPoint(GetCompilerPC() + sizeof(u32), funcSize - sizeof(u32));
 		}
 	}
 
@@ -356,7 +356,7 @@ void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 }
 
 void IRFrontend::CheckBreakpoint(u32 addr) {
-	if (CBreakPoints::IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.IsAddressBreakPoint(addr)) {
 		FlushAll();
 
 		// Can't skip this even at the start of a block, might impact block linking.
@@ -387,7 +387,7 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 }
 
 void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
-	if (CBreakPoints::HasMemChecks()) {
+	if (g_breakpoints.HasMemChecks()) {
 		FlushAll();
 
 		// Can't skip this even at the start of a block, might impact block linking.

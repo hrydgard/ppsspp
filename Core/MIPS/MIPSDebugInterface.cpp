@@ -225,21 +225,21 @@ bool MIPSDebugInterface::isAlive()
 
 bool MIPSDebugInterface::isBreakpoint(unsigned int address) 
 {
-	return CBreakPoints::IsAddressBreakPoint(address);
+	return g_breakpoints.IsAddressBreakPoint(address);
 }
 
 void MIPSDebugInterface::setBreakpoint(unsigned int address)
 {
-	CBreakPoints::AddBreakPoint(address);
+	g_breakpoints.AddBreakPoint(address);
 }
 void MIPSDebugInterface::clearBreakpoint(unsigned int address)
 {
-	CBreakPoints::RemoveBreakPoint(address);
+	g_breakpoints.RemoveBreakPoint(address);
 }
 void MIPSDebugInterface::clearAllBreakpoints() {}
 void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 {
-	CBreakPoints::IsAddressBreakPoint(address)?CBreakPoints::RemoveBreakPoint(address):CBreakPoints::AddBreakPoint(address);
+	g_breakpoints.IsAddressBreakPoint(address)?g_breakpoints.RemoveBreakPoint(address):g_breakpoints.AddBreakPoint(address);
 }
 
 
