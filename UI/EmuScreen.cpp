@@ -599,7 +599,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
 	} else if (message == UIMessage::SHOW_CHAT_SCREEN) {
-		if (g_Config.bEnableNetworkChat) {
+		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
 			if (!chatButton_)
 				RecreateViews();
 
@@ -748,7 +748,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_OPENCHAT:
-		if (down && g_Config.bEnableNetworkChat) {
+		if (down && g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
 			controlMapper_.ForceReleaseVKey(virtualKeyCode);
@@ -952,6 +952,20 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
+
+	// Update imgui modifier flags
+	if (key.flags & (KEY_DOWN | KEY_UP)) {
+		bool down = (key.flags & KEY_DOWN) != 0;
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: keyCtrlLeft_ = down; break;
+		case NKCODE_CTRL_RIGHT: keyCtrlRight_ = down; break;
+		case NKCODE_SHIFT_LEFT: keyShiftLeft_ = down; break;
+		case NKCODE_SHIFT_RIGHT: keyShiftRight_ = down; break;
+		case NKCODE_ALT_LEFT: keyAltLeft_ = down; break;
+		case NKCODE_ALT_RIGHT: keyAltRight_ = down; break;
+		}
+	}
+
 	if (UI::IsFocusMovementEnabled() || (g_Config.bShowImDebugger && imguiInited_)) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
@@ -1012,8 +1026,7 @@ void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 
 class GameInfoBGView : public UI::InertView {
 public:
-	GameInfoBGView(const Path &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
-	}
+	GameInfoBGView(const Path &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override {
 		// Should only be called when visible.
@@ -1662,6 +1675,14 @@ void EmuScreen::renderImDebugger() {
 			ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
 			ImGui::NewFrame();
+
+			// Update keyboard modifiers.
+			auto &io = ImGui::GetIO();
+			io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrlLeft_ || keyCtrlRight_);
+			io.AddKeyEvent(ImGuiMod_Shift, keyShiftLeft_ || keyShiftRight_);
+			io.AddKeyEvent(ImGuiMod_Alt, keyAltLeft_ || keyAltRight_);
+			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
+
 			imDebugger_->Frame(currentDebugMIPS, gpuDebug);
 
 			ImGui::Render();
