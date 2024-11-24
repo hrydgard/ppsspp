@@ -1524,6 +1524,8 @@ list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/ImDebugger/ImDebugger.cpp
 	UI/ImDebugger/ImDebugger.h
+	UI/ImDebugger/ImGe.cpp
+	UI/ImDebugger/ImGe.h
 	UI/ImDebugger/ImDisasmView.cpp
 	UI/ImDebugger/ImDisasmView.h
 	UI/ImDebugger/ImStructViewer.cpp

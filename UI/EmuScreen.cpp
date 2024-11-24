@@ -1656,7 +1656,7 @@ void EmuScreen::renderImDebugger() {
 			ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
 			ImGui::NewFrame();
-			imDebugger_->Frame(currentDebugMIPS);
+			imDebugger_->Frame(currentDebugMIPS, gpuDebug);
 
 			ImGui::Render();
 			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);

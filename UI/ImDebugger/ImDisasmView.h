@@ -7,7 +7,6 @@
 #include "ext/imgui/imgui.h"
 
 #include "Common/CommonTypes.h"
-#include "Common/Log.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -30,17 +29,16 @@ public:
 	void ScrollRelative(int amount);
 
 	void onChar(int c);
-	void onKeyDown(ImGuiKey key);
-	void onMouseDown(int x, int y, int button);
-	void onMouseUp(int x, int y, int button);
-	void onMouseMove(int x, int y, int button);
+	void onMouseDown(float x, float y, int button);
+	void onMouseUp(float x, float y, int button);
+	void onMouseMove(float x, float y, int button);
 	void scrollAddressIntoView();
 	bool curAddressIsVisible();
 	void ScanVisibleFunctions();
 	void clearFunctions() { manager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest, int bufsize);
-	u32 yToAddress(int y);
+	u32 yToAddress(float y);
 
 	void setDebugger(DebugInterface *deb) {
 		if (debugger != deb) {
@@ -97,6 +95,8 @@ public:
 		positionLocked_--;
 		_assert_(positionLocked_ >= 0);
 	}
+	void Search(std::string_view needle);
+	void SearchNext(bool forward);
 
 	// Check these every frame!
 	const std::string &StatusBarText() const {
@@ -122,10 +122,10 @@ private:
 		float bottom;
 	};
 
+	void ProcessKeyboardShortcuts();
 	void assembleOpcode(u32 address, const std::string &defaultText);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
-	void search(bool continueSearch);
 	void FollowBranch();
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
@@ -134,7 +134,7 @@ private:
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
 	void NopInstructions(u32 startAddr, u32 endAddr);
 	std::set<std::string> getSelectedLineArguments();
-	void drawArguments(ImDrawList *list, ImDisasmView::Rect rc, const DisassemblyLineInfo &line, int x, int y, ImColor textColor, const std::set<std::string> &currentArguments);
+	void drawArguments(ImDrawList *list, ImDisasmView::Rect rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments);
 
 	DisassemblyManager manager;
 	u32 curAddress_ = 0;

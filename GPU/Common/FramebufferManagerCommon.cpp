@@ -19,6 +19,8 @@
 #include <sstream>
 #include <cmath>
 
+#include "ext/imgui/imgui.h"
+
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Collections/TinySet.h"
@@ -3660,4 +3662,47 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 		gstate_c.SetCurRTOffset(0, 0);
 		*drawing_width = 480;
 	}
+}
+
+void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
+	ImGui::BeginTable("framebuffers", 4);
+	ImGui::TableSetupColumn("Tag");
+	ImGui::TableSetupColumn("Color Addr");
+	ImGui::TableSetupColumn("Depth Addr");
+	ImGui::TableSetupColumn("Size");
+
+	ImGui::TableHeadersRow();
+	ImGui::TableSetColumnIndex(0);
+
+	for (int i = 0; i < (int)vfbs_.size(); i++) {
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+
+		auto &vfb = vfbs_[i];
+
+		const char *tag = vfb->fbo ? vfb->fbo->Tag() : "(no tag)";
+
+		ImGui::PushID(i);
+		if (ImGui::Selectable(tag, selected == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+			selected = i;
+		}
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+			selected = i;
+			ImGui::OpenPopup("framebufferPopup");
+		}
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->fb_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%08x", vfb->z_address);
+		ImGui::TableNextColumn();
+		ImGui::Text("%dx%d", vfb->width, vfb->height);
+		if (ImGui::BeginPopup("framebufferPopup")) {
+			ImGui::Text("Framebuffer: %s", tag);
+			ImGui::EndPopup();
+		}
+		ImGui::PopID();
+	}
+	ImGui::EndTable();
+
+	// Now, draw the actual framebuffer image. This could be refined a lot.
 }

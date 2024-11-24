@@ -1723,6 +1723,9 @@ public:
 	void UpdateTag(const char *newTag) override {
 		buf_->UpdateTag(newTag);
 	}
+	const char *Tag() const override {
+		return buf_->Tag();
+	}
 private:
 	VKRFramebuffer *buf_;
 };

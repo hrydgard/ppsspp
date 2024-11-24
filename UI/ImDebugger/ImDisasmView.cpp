@@ -2,6 +2,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -266,7 +267,7 @@ std::set<std::string> ImDisasmView::getSelectedLineArguments() {
 	return args;
 }
 
-void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, int x, int y, ImColor textColor, const std::set<std::string> &currentArguments) {
+void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments) {
 	if (line.params.empty()) {
 		return;
 	}
@@ -417,11 +418,11 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2, textColor, currentArguments);
+		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2.f, textColor, currentArguments);
 
 		// The actual opcode.
 		// Should be bold!
-		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2), textColor, line.name.c_str());
+		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2.f), textColor, line.name.c_str());
 
 		address += line.totalSize;
 	}
@@ -457,12 +458,8 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			windowStart_ = manager.getNthNextAddress(windowStart_, 4);
 		}
 	}
-	if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-		windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
-	}
+
+	ProcessKeyboardShortcuts();
 
 	int coreStep = Core_GetSteppingCounter();
 	if (coreStep != lastSteppingCount_) {
@@ -559,65 +556,89 @@ void ImDisasmView::editBreakpoint() {
 	*/
 }
 
-void ImDisasmView::onKeyDown(ImGuiKey key) {
+void ImDisasmView::ProcessKeyboardShortcuts() {
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 	keyTaken = true;
 
-	/*
-	if (KeyDownAsync(VK_CONTROL)) {
-		switch (tolower(wParam & 0xFFFF)) {
-		case 'f':
-		case 's':
-			search(false);
-			break;
-		case 'c':
-		case VK_INSERT:
-			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
-			break;
-		case 'x':
-			disassembleToFile();
-			break;
-		case 'a':
-			assembleOpcode(curAddress, "");
-			break;
-		case 'g':
-		{
-			u32 addr;
-			if (executeExpressionWindow(wnd, debugger, addr) == false) return;
-			gotoAddr(addr);
+	ImGuiIO& io = ImGui::GetIO();
+
+	if (io.KeyMods & ImGuiMod_Ctrl) {
+		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+			// Toggle the find popup
+			// ImGui::OpenPopup("disSearch");
 		}
-		break;
-		case 'e':	// edit breakpoint
+		if (ImGui::IsKeyPressed(ImGuiKey_C) || ImGui::IsKeyPressed(ImGuiKey_Insert)) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+			// disassembleToFile();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
+			// assembleOpcode(curAddress, "");
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
+			// Goto. should just focus on the goto input?
+			// u32 addr;
+			// if (executeExpressionWindow(wnd, debugger, addr) == false) return;
+			// gotoAddr(addr);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_E)) {
 			editBreakpoint();
-			break;
-		case 'd':	// toogle breakpoint enabled
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_D)) {
 			toggleBreakpoint(true);
-			break;
-		case VK_UP:
-			scrollWindow(-1);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+			ScrollRelative(-1);
 			ScanVisibleFunctions();
-			break;
-		case VK_DOWN:
-			scrollWindow(1);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+			ScrollRelative(1);
 			ScanVisibleFunctions();
-			break;
-		case VK_NEXT:
-			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
-			break;
-		case VK_PRIOR:
-			setCurAddress(windowStart_, KeyDownAsync(VK_SHIFT));
-			break;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+			setCurAddress(windowStart_, ImGui::IsKeyDown(ImGuiKey_LeftShift));
 		}
 	} else {
+		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+			windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+			windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
+			SearchNext(!ImGui::IsKeyPressed(ImGuiKey_LeftShift));
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+			setCurAddress(manager.getNthNextAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			scrollAddressIntoView();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+			setCurAddress(manager.getNthPreviousAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			scrollAddressIntoView();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+			FollowBranch();
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+			if (jumpStack_.empty()) {
+				gotoPC();
+			} else {
+				u32 addr = jumpStack_[jumpStack_.size() - 1];
+				jumpStack_.pop_back();
+				gotoAddr(addr);
+			}
+			return;
+		}
+	}
+
+	/*
+	if (KeyDownAsync(VK_CONTROL)) {
+	} else {
 		switch (wParam & 0xFFFF) {
-		case VK_DOWN:
-			setCurAddress(manager.getNthNextAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
-			scrollAddressIntoView();
-			break;
-		case VK_UP:
-			setCurAddress(manager.getNthPreviousAddress(curAddress, 1), KeyDownAsync(VK_SHIFT));
-			scrollAddressIntoView();
-			break;
 		case VK_NEXT:
 			if (manager.getNthNextAddress(curAddress, 1) != windowEnd && curAddressIsVisible()) {
 				setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
@@ -636,27 +657,11 @@ void ImDisasmView::onKeyDown(ImGuiKey key) {
 				scrollAddressIntoView();
 			}
 			break;
-		case VK_LEFT:
-			if (jumpStack.empty())
-			{
-				gotoPC();
-			} else {
-				u32 addr = jumpStack[jumpStack.size() - 1];
-				jumpStack.pop_back();
-				gotoAddr(addr);
-			}
-			return;
-		case VK_RIGHT:
-			FollowBranch();
-			return;
 		case VK_TAB:
 			displaySymbols_ = !displaySymbols_;
 			break;
 		case VK_SPACE:
 			debugger->toggleBreakpoint(curAddress);
-			break;
-		case VK_F3:
-			search(true);
 			break;
 		default:
 			keyTaken = false;
@@ -707,7 +712,7 @@ void ImDisasmView::toggleBreakpoint(bool toggleEnabled) {
 	}
 }
 
-void ImDisasmView::onMouseDown(int x, int y, int button) {
+void ImDisasmView::onMouseDown(float x, float y, int button) {
 	u32 newAddress = yToAddress(y);
 	bool extend = ImGui::IsKeyDown(ImGuiKey_LeftShift);
 	if (button == 1) {
@@ -720,6 +725,20 @@ void ImDisasmView::onMouseDown(int x, int y, int button) {
 			extend = true;
 	}
 	setCurAddress(newAddress, extend);
+}
+
+void ImDisasmView::onMouseMove(float x, float y, int button) {
+	if ((button & 1) != 0) {
+		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
+	}
+}
+
+void ImDisasmView::onMouseUp(float x, float y, int button) {
+	if (button == 1) {
+		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+			setCurAddress(yToAddress(y), true);
+		}
+	}
 }
 
 void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
@@ -755,14 +774,6 @@ void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 
 	if (currentMIPS) {
 		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
-	}
-}
-
-void ImDisasmView::onMouseUp(int x, int y, int button) {
-	if (button == 1) {
-		if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-			setCurAddress(yToAddress(y), true);
-		}
 	}
 }
 
@@ -891,12 +902,6 @@ void ImDisasmView::PopupMenu() {
 	}
 }
 
-void ImDisasmView::onMouseMove(int x, int y, int button) {
-	if ((button & 1) != 0) {
-		setCurAddress(yToAddress(y), ImGui::IsKeyDown(ImGuiKey_LeftShift));
-	}
-}
-
 void ImDisasmView::updateStatusBarText() {
 	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
@@ -997,8 +1002,8 @@ void ImDisasmView::updateStatusBarText() {
 	}
 }
 
-u32 ImDisasmView::yToAddress(int y) {
-	int line = y / rowHeight_;
+u32 ImDisasmView::yToAddress(float y) {
+	int line = (int)(y / rowHeight_);
 	return manager.getNthNextAddress(windowStart_, line);
 }
 
@@ -1009,26 +1014,24 @@ void ImDisasmView::calculatePixelPositions() {
 	pixelPositions_.arrowsStart = pixelPositions_.argumentsStart + 30 * charWidth_;
 }
 
-void ImDisasmView::search(bool continueSearch) {
-	auto memLock = Memory::Lock();
-	u32 searchAddress;
-
-	if (continueSearch == false || searchQuery_[0] == 0) {
-		/*
-		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"Search for:", searchQuery, searchQuery) == false
-			|| searchQuery[0] == 0) {
-			SetFocus(wnd);
-			return;
-		}
-		*/
-
-		for (size_t i = 0; i < searchQuery_.size(); i++) {
-			searchQuery_[i] = tolower(searchQuery_[i]);
-		}
-		searchAddress = manager.getNthNextAddress(curAddress_, 1);
-	} else {
-		searchAddress = manager.getNthNextAddress(matchAddress_, 1);
+void ImDisasmView::Search(std::string_view needle) {
+	searchQuery_ = needle;
+	for (size_t i = 0; i < searchQuery_.size(); i++) {
+		searchQuery_[i] = tolower(searchQuery_[i]);
 	}
+	matchAddress_ = curAddress_;
+	SearchNext(true);
+}
+
+void ImDisasmView::SearchNext(bool forward) {
+	if (searchQuery_.empty()) {
+		return;
+	}
+
+	auto memLock = Memory::Lock();
+
+	// Note: Search will replace matchAddress_ with the current address.
+	u32 searchAddress = manager.getNthNextAddress(matchAddress_, 1);
 
 	// limit address to sensible ranges
 	if (searchAddress < 0x04000000)
@@ -1081,7 +1084,8 @@ void ImDisasmView::search(bool continueSearch) {
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 
-	// MessageBox(wnd, L"Not found", L"Search", MB_OK);
+	statusBarText_ = "Not found: ";
+	statusBarText_.append(searchQuery_);
 
 	searching_ = false;
 }

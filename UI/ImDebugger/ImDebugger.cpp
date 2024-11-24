@@ -26,7 +26,11 @@
 // Callstack window
 #include "Core/MIPS/MIPSStackWalk.h"
 
+// GPU things
+#include "GPU/Common/GPUDebugInterface.h"
+
 #include "UI/ImDebugger/ImDebugger.h"
+#include "UI/ImDebugger/ImGe.h"
 
 void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 	if (!ImGui::Begin("Registers", open)) {
@@ -332,7 +336,7 @@ void DrawHLEModules(ImConfig &config) {
 	ImGui::End();
 }
 
-void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
+void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
 
@@ -370,21 +374,32 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Window")) {
-			ImGui::Checkbox("Dear ImGUI Demo", &cfg_.demoOpen);
-			ImGui::Checkbox("CPU debugger", &cfg_.disasmOpen);
-			ImGui::Checkbox("Registers", &cfg_.regsOpen);
-			ImGui::Checkbox("Callstacks", &cfg_.callstackOpen);
-			ImGui::Checkbox("HLE Modules", &cfg_.modulesOpen);
-			ImGui::Checkbox("HLE Threads", &cfg_.threadsOpen);
-			ImGui::Checkbox("sceAtrac", &cfg_.atracOpen);
-			ImGui::Checkbox("Struct viewer", &cfg_.structViewerOpen);
+		if (ImGui::BeginMenu("CPU")) {
+			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
+			ImGui::MenuItem("Registers", nullptr, &cfg_.regsOpen);
+			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("OS HLE")) {
+			ImGui::MenuItem("HLE Threads", nullptr, &cfg_.threadsOpen);
+			ImGui::MenuItem("HLE Modules",nullptr,  &cfg_.modulesOpen);
+			ImGui::MenuItem("sceAtrac", nullptr, &cfg_.atracOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Ge (GPU)")) {
+			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
+			// More to come here...
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Tools")) {
+			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Misc")) {
 			if (ImGui::MenuItem("Close Debugger")) {
 				g_Config.bShowImDebugger = false;
 			}
+			ImGui::MenuItem("Dear ImGUI Demo", nullptr, &cfg_.demoOpen);
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
@@ -420,6 +435,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug) {
 
 	if (cfg_.hleModulesOpen) {
 		DrawHLEModules(cfg_);
+	}
+
+	if (cfg_.framebuffersOpen) {
+		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
 	}
 
 	if (cfg_.structViewerOpen) {
@@ -483,6 +502,26 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		disasmView_.gotoPC();
 	}
 
+	if (ImGui::BeginPopup("disSearch")) {
+		if (ImGui::InputText("Search", searchTerm_, sizeof(searchTerm_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+			disasmView_.Search(searchTerm_);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Search")) {
+		// Open a small popup
+		ImGui::OpenPopup("disSearch");
+		ImGui::Shortcut(ImGuiKey_F | ImGuiMod_Ctrl);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Next")) {
+		disasmView_.SearchNext(true);
+	}
+
 	ImGui::SameLine();
 	ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
 
@@ -497,18 +536,35 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableNextRow();
 		ImGui::TableSetColumnIndex(0);
+
+		if (symCache_.empty() || symsDirty_) {
+			symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
+			symsDirty_ = false;
+		}
+
+		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
+			auto &sym = symCache_[selectedSymbol_];
+			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
+				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
+					symsDirty_ = true;
+				}
+				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
+				ImGui::TreePop();
+			}
+		}
+
 		ImVec2 sz = ImGui::GetContentRegionAvail();
 		if (ImGui::BeginListBox("##symbols", ImVec2(150.0, sz.y - ImGui::GetTextLineHeightWithSpacing() * 2))) {
-			if (symCache_.empty()) {
-				symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
-			}
 			ImGuiListClipper clipper;
 			clipper.Begin((int)symCache_.size(), -1);
 			while (clipper.Step()) {
 				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-					if (ImGui::Selectable(symCache_[i].name.c_str(), false)) {
+					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
+						truncate_cpy(selectedSymbolName_, symCache_[i].name.c_str());
+						selectedSymbol_ = i;
 					}
 				}
 			}

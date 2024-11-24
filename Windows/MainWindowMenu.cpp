@@ -556,7 +556,8 @@ namespace MainWindow {
 		case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
 		{
 			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
-				if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
+				// We let F3 (search next) in the imdebugger take priority, if active.
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT) && !g_Config.bShowImDebugger) {
 					SaveState::NextSlot();
 					System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 				}
