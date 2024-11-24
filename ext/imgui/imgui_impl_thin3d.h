@@ -44,6 +44,9 @@ IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyDeviceObjects();
 IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTexture(Draw::Texture *texture);
 IMGUI_IMPL_API Draw::Texture *ImGui_ImplThin3d_RemoveTexture(ImTextureID texture);
 
+void ImGui_PushFixedFont();
+void ImGui_PopFont();
+
 // Helper structure to hold the data needed by one rendering context into one OS window
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT used by your own engine/app.)
 struct ImGui_ImplThin3dH_Window

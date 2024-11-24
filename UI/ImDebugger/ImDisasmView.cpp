@@ -1,5 +1,6 @@
 
 #include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
@@ -178,8 +179,7 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 		bottomY = (float)addressPositions[line.second] + rowHeight_ / 2;
 	}
 
-	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom))
-	{
+	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom)) {
 		return;
 	}
 
@@ -316,6 +316,8 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 
 void ImDisasmView::Draw(ImDrawList *drawList) {
 	// TODO: Don't need to do these every frame.
+	ImGui_PushFixedFont();
+
 	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
 	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
 
@@ -482,10 +484,13 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		}
 	}
 
+	ImGui_PopFont();
+
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
 	PopupMenu();
 
 	drawList->PopClipRect();
+
 }
 
 void ImDisasmView::ScrollRelative(int amount) {
@@ -528,7 +533,7 @@ void ImDisasmView::onChar(int c) {
 }
 
 
-void ImDisasmView::editBreakpoint() {
+void ImDisasmView::editBreakpoint(ImConfig &cfg) {
 	/*
 	BreakpointWindow win(wnd, debugger);
 
@@ -583,7 +588,7 @@ void ImDisasmView::ProcessKeyboardShortcuts() {
 			// gotoAddr(addr);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_E)) {
-			editBreakpoint();
+			// editBreakpoint();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_D)) {
 			toggleBreakpoint(true);

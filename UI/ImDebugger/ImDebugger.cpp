@@ -368,10 +368,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					Core_Break("Menu:Break");
 				}
 			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("Toggle Breakpoint")) {
-				// TODO
-			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("CPU")) {

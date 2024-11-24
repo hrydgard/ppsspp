@@ -7,7 +7,10 @@
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
 
-Lin::Matrix4x4 g_drawMatrix;
+static Lin::Matrix4x4 g_drawMatrix;
+
+static ImFont *g_proportionalFont = nullptr;
+static ImFont *g_fixedFont = nullptr;
 
 struct ImGui_ImplThin3d_Data {
 	Draw::SamplerState *fontSampler = nullptr;
@@ -220,12 +223,14 @@ void ImGui_ImplThin3d_DestroyDeviceObjects() {
 bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size) {
 	ImGuiIO& io = ImGui::GetIO();
 	if (ttf_font) {
-		io.Fonts->AddFontFromMemoryTTF((void *)ttf_font, (int)size, 21.0f / g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
+		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font, (int)size, 21.0f / g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
 	} else {
-		// necessary?
-		io.Fonts->AddFontDefault();
+		// fallback
+		g_proportionalFont = g_fixedFont;
 	}
+	g_fixedFont = io.Fonts->AddFontDefault();
 	ImGui::GetStyle().ScaleAllSizes(1.0f / g_display.dpi_scale_x);
+	ImGui::GetStyle().Colors[ImGuiCol_Border] = ImColor(IM_COL32(0x2A, 0x2F, 0x3B, 0xFF));
 
 	IMGUI_CHECKVERSION();
 	IM_ASSERT(io.BackendRendererUserData == nullptr && "Already initialized a renderer backend!");
@@ -237,6 +242,14 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, siz
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
 	ImGui_ImplThin3d_CreateDeviceObjects(draw);
 	return true;
+}
+
+void ImGui_PushFixedFont() {
+	ImGui::PushFont(g_fixedFont);
+}
+
+void ImGui_PopFont() {
+	ImGui::PopFont();
 }
 
 void ImGui_ImplThin3d_Shutdown() {
