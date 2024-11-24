@@ -94,6 +94,7 @@ static constexpr UINT UPDATE_DELAY = 1000 / 60;
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
 	lastTicks_ = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
+	breakpoints_ = &g_breakpoints;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 
@@ -222,22 +223,18 @@ void CDisasm::runToLine() {
 
 	lastTicks_ = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
-	CBreakPoints::AddBreakPoint(pos,true);
+	breakpoints_->AddBreakPoint(pos,true);
 	Core_Resume();
 }
 
-BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
-{
-	//if (!m_hDlg) return FALSE;
-	switch(message)
-	{
+BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	switch(message) {
 	case WM_INITDIALOG:
 		// DarkModeInitDialog(m_hDlg);
 		return TRUE;
 
 	case WM_NOTIFY:
-		switch (wParam)
-		{
+		switch (wParam) {
 		case IDC_LEFTTABS:
 			leftTabs->HandleNotify(lParam);
 			break;
@@ -409,7 +406,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						lastTicks_ = CoreTiming::GetTicks();
 
 						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-						CBreakPoints::SetSkipFirst(currentMIPS->pc);
+						breakpoints_->SetSkipFirst(currentMIPS->pc);
 
 						Core_Resume();
 					}
@@ -435,7 +432,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					lastTicks_ = CoreTiming::GetTicks();
 
 					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+					breakpoints_->SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
 					Core_Resume();

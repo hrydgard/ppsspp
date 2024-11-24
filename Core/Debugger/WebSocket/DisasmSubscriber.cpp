@@ -138,7 +138,7 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 	bool enabled = false;
 	int breakpointOffset = -1;
 	for (u32 i = 0; i < l.totalSize; i += 4) {
-		if (CBreakPoints::IsAddressBreakPoint(addr + i, &enabled))
+		if (g_breakpoints.IsAddressBreakPoint(addr + i, &enabled))
 			breakpointOffset = i;
 		if (breakpointOffset != -1 && enabled)
 			break;
@@ -148,7 +148,7 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.pushDict("breakpoint");
 		json.writeBool("enabled", enabled);
 		json.writeUint("address", addr + breakpointOffset);
-		auto cond = CBreakPoints::GetBreakPointCondition(addr + breakpointOffset);
+		auto cond = g_breakpoints.GetBreakPointCondition(addr + breakpointOffset);
 		if (cond)
 			json.writeString("condition", cond->expressionString);
 		else

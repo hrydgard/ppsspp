@@ -3,7 +3,9 @@
 #include "Common/CommonWindows.h"
 #include "Common/CommonTypes.h"
 #include "Core/Debugger/DebugInterface.h"
-#include "Core/Debugger/Breakpoints.h"
+
+struct BreakPoint;
+struct MemCheck;
 
 class BreakpointWindow
 {

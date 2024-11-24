@@ -561,7 +561,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 		// display address/symbol
 		bool enabled;
-		if (CBreakPoints::IsAddressBreakPoint(address,&enabled))
+		if (g_breakpoints.IsAddressBreakPoint(address,&enabled))
 		{
 			if (enabled) textColor = 0x0000FF;
 			int yOffset = std::max(-1, (rowHeight - 14 + 1) / 2);
@@ -690,9 +690,9 @@ void CtrlDisAsmView::editBreakpoint()
 	BreakpointWindow win(wnd,debugger);
 
 	bool exists = false;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress))
+	if (g_breakpoints.IsAddressBreakPoint(curAddress))
 	{
-		auto breakpoints = CBreakPoints::GetBreakpoints();
+		auto breakpoints = g_breakpoints.GetBreakpoints();
 		for (size_t i = 0; i < breakpoints.size(); i++)
 		{
 			if (breakpoints[i].addr == curAddress)
@@ -710,7 +710,7 @@ void CtrlDisAsmView::editBreakpoint()
 	if (win.exec())
 	{
 		if (exists)
-			CBreakPoints::RemoveBreakPoint(curAddress);
+			g_breakpoints.RemoveBreakPoint(curAddress);
 		win.addBreakpoint();
 	}
 }
@@ -868,24 +868,24 @@ void CtrlDisAsmView::redraw()
 void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 {
 	bool enabled;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress, &enabled)) {
+	if (g_breakpoints.IsAddressBreakPoint(curAddress, &enabled)) {
 		if (!enabled) {
 			// enable disabled breakpoints
-			CBreakPoints::ChangeBreakPoint(curAddress, true);
-		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != nullptr) {
+			g_breakpoints.ChangeBreakPoint(curAddress, true);
+		} else if (!toggleEnabled && g_breakpoints.GetBreakPointCondition(curAddress) != nullptr) {
 			// don't just delete a breakpoint with a custom condition
 			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
 			if (ret == IDYES)
-				CBreakPoints::RemoveBreakPoint(curAddress);
+				g_breakpoints.RemoveBreakPoint(curAddress);
 		} else if (toggleEnabled) {
 			// disable breakpoint
-			CBreakPoints::ChangeBreakPoint(curAddress, false);
+			g_breakpoints.ChangeBreakPoint(curAddress, false);
 		} else {
 			// otherwise just remove breakpoint
-			CBreakPoints::RemoveBreakPoint(curAddress);
+			g_breakpoints.RemoveBreakPoint(curAddress);
 		}
 	} else {
-		CBreakPoints::AddBreakPoint(curAddress);
+		g_breakpoints.AddBreakPoint(curAddress);
 	}
 }
 

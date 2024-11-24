@@ -135,4 +135,11 @@ private:
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
 
 	bool imguiInited_ = false;
+	// For ImGui modifier tracking
+	bool keyCtrlLeft_ = false;
+	bool keyCtrlRight_ = false;
+	bool keyShiftLeft_ = false;
+	bool keyShiftRight_ = false;
+	bool keyAltLeft_ = false;
+	bool keyAltRight_ = false;
 };

@@ -11,9 +11,9 @@
 #include "Common/CommonWindows.h"
 
 class CtrlDisAsmView;
+class BreakpointManager;
 
-class CDisasm : public Dialog
-{
+class CDisasm : public Dialog {
 private:
 	int minWidth;
 	int minHeight;
@@ -28,6 +28,7 @@ private:
 	CtrlWatchList *watchList_;
 	TabControl* leftTabs;
 	TabControl* bottomTabs;
+	BreakpointManager *breakpoints_;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 	bool keepStatusBarText = false;

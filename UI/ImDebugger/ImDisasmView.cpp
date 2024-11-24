@@ -394,7 +394,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 		// display breakpoint, if any
 		bool enabled;
-		if (CBreakPoints::IsAddressBreakPoint(address, &enabled)) {
+		if (g_breakpoints.IsAddressBreakPoint(address, &enabled)) {
 			ImColor breakColor = 0xFF0000FF;
 			if (!enabled)
 				breakColor = 0xFF909090;
@@ -538,8 +538,8 @@ void ImDisasmView::editBreakpoint(ImConfig &cfg) {
 	BreakpointWindow win(wnd, debugger);
 
 	bool exists = false;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress)) {
-		auto breakpoints = CBreakPoints::GetBreakpoints();
+	if (g_breakpoints.IsAddressBreakPoint(curAddress)) {
+		auto breakpoints = g_breakpoints.GetBreakpoints();
 		for (size_t i = 0; i < breakpoints.size(); i++) {
 			if (breakpoints[i].addr == curAddress) {
 				win.loadFromBreakpoint(breakpoints[i]);
@@ -555,7 +555,7 @@ void ImDisasmView::editBreakpoint(ImConfig &cfg) {
 
 	if (win.exec()) {
 		if (exists)
-			CBreakPoints::RemoveBreakPoint(curAddress);
+			g_breakpoints.RemoveBreakPoint(curAddress);
 		win.addBreakpoint();
 	}
 	*/
@@ -694,26 +694,26 @@ bool ImDisasmView::curAddressIsVisible() {
 
 void ImDisasmView::toggleBreakpoint(bool toggleEnabled) {
 	bool enabled;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress_, &enabled)) {
+	if (g_breakpoints.IsAddressBreakPoint(curAddress_, &enabled)) {
 		if (!enabled) {
 			// enable disabled breakpoints
-			CBreakPoints::ChangeBreakPoint(curAddress_, true);
-		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress_) != nullptr) {
+			g_breakpoints.ChangeBreakPoint(curAddress_, true);
+		} else if (!toggleEnabled && g_breakpoints.GetBreakPointCondition(curAddress_) != nullptr) {
 			// don't just delete a breakpoint with a custom condition
 			/*
 			int ret = MessageBox(wnd, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			if (ret == IDYES)
-				CBreakPoints::RemoveBreakPoint(curAddress);
+				g_breakpoints.RemoveBreakPoint(curAddress);
 			*/
 		} else if (toggleEnabled) {
 			// disable breakpoint
-			CBreakPoints::ChangeBreakPoint(curAddress_, false);
+			g_breakpoints.ChangeBreakPoint(curAddress_, false);
 		} else {
 			// otherwise just remove breakpoint
-			CBreakPoints::RemoveBreakPoint(curAddress_);
+			g_breakpoints.RemoveBreakPoint(curAddress_);
 		}
 	} else {
-		CBreakPoints::AddBreakPoint(curAddress_);
+		g_breakpoints.AddBreakPoint(curAddress_);
 	}
 }
 
@@ -819,7 +819,7 @@ void ImDisasmView::PopupMenu() {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			// CBreakPoints::AddBreakPoint(pos, true);
+			// g_breakpoints.AddBreakPoint(pos, true);
 			// Core_Resume();
 		}
 		ImGui::Separator();

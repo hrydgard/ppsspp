@@ -317,8 +317,8 @@ bool CtrlBreakpointList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 void CtrlBreakpointList::reloadBreakpoints()
 {
 	// Update the items we're displaying from the debugger.
-	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
-	displayedMemChecks_= CBreakPoints::GetMemChecks();
+	displayedBreakPoints_ = g_breakpoints.GetBreakpoints();
+	displayedMemChecks_= g_breakpoints.GetMemChecks();
 
 	for (int i = 0; i < GetRowCount(); i++)
 	{
@@ -349,7 +349,7 @@ void CtrlBreakpointList::editBreakpoint(int itemIndex)
 		win.loadFromMemcheck(mem);
 		if (win.exec())
 		{
-			CBreakPoints::RemoveMemCheck(mem.start,mem.end);
+			g_breakpoints.RemoveMemCheck(mem.start,mem.end);
 			win.addBreakpoint();
 		}
 	} else {
@@ -357,7 +357,7 @@ void CtrlBreakpointList::editBreakpoint(int itemIndex)
 		win.loadFromBreakpoint(bp);
 		if (win.exec())
 		{
-			CBreakPoints::RemoveBreakPoint(bp.addr);
+			g_breakpoints.RemoveBreakPoint(bp.addr);
 			win.addBreakpoint();
 		}
 	}
@@ -371,10 +371,10 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
+		g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
+		g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 	}
 }
 
@@ -406,10 +406,10 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 
 	if (isMemory) {
 		auto mc = displayedMemChecks_[index];
-		CBreakPoints::RemoveMemCheck(mc.start, mc.end);
+		g_breakpoints.RemoveMemCheck(mc.start, mc.end);
 	} else {
 		u32 address = displayedBreakPoints_[index].addr;
-		CBreakPoints::RemoveBreakPoint(address);
+		g_breakpoints.RemoveBreakPoint(address);
 	}
 }
 
@@ -489,7 +489,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 					break;
 				}
 			} else {
-				wcscpy(dest,L"Execute");
+				wcscpy(dest, L"Execute");
 			}
 		}
 		break;
@@ -611,9 +611,9 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
 			if (isMemory) {
-				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
+				g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 			} else {
-				CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
+				g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:

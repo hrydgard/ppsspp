@@ -64,7 +64,7 @@ void FakeJit::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they load a state, we can end up hitting it by mistake, since it's based on PC and ticks.
-	CBreakPoints::SetSkipFirst(0);
+	g_breakpoints.SetSkipFirst(0);
 }
 
 // This is here so the savestate matches between jit and non-jit.

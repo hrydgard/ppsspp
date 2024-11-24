@@ -260,7 +260,7 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 		u32 currentPc = cpu->GetPC();
 		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
-		CBreakPoints::SetSkipFirst(currentPc);
+		g_breakpoints.SetSkipFirst(currentPc);
 		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
 			currentMIPS->SingleStep();
 		}
@@ -271,7 +271,7 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 		u32 currentPc = cpu->GetPC();
 		u32 breakpointAddress = currentPc + stepSize;
 
-		CBreakPoints::SetSkipFirst(currentPc);
+		g_breakpoints.SetSkipFirst(currentPc);
 
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
 		if (info.isBranch) {
@@ -292,7 +292,7 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 			}
 		}
 
-		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		g_breakpoints.AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
 		break;
 	}
@@ -319,8 +319,8 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 		u32 breakpointAddress = frames[1].pc;
 
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		CBreakPoints::SetSkipFirst(currentMIPS->pc);
-		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		g_breakpoints.AddBreakPoint(breakpointAddress, true);
 		Core_Resume();
 		break;
 	}
@@ -345,7 +345,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
-		CBreakPoints::ClearTemporaryBreakPoints();
+		g_breakpoints.ClearTemporaryBreakPoints();
 		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;

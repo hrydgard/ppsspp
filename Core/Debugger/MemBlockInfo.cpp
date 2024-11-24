@@ -525,9 +525,9 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 
 	if (!(flags & MemBlockFlags::SKIP_MEMCHECK)) {
 		if (flags & MemBlockFlags::WRITE) {
-			CBreakPoints::ExecMemCheck(start, true, size, pc, tagStr);
+			g_breakpoints.ExecMemCheck(start, true, size, pc, tagStr);
 		} else if (flags & MemBlockFlags::READ) {
-			CBreakPoints::ExecMemCheck(start, false, size, pc, tagStr);
+			g_breakpoints.ExecMemCheck(start, false, size, pc, tagStr);
 		}
 	}
 }
@@ -541,7 +541,7 @@ void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const c
 		return;
 
 	bool needsFlush = false;
-	if (CBreakPoints::HasMemChecks()) {
+	if (g_breakpoints.HasMemChecks()) {
 		// This will cause a flush, but it's needed to trigger memchecks with proper data.
 		char tagData[128];
 		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, srcPtr, size);
