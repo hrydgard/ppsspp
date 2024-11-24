@@ -435,17 +435,17 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 mousePos = ImVec2(io.MousePos.x - canvas_p0.x, io.MousePos.y - canvas_p0.y);
 	if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		// INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		onMouseDown(mousePos.x, mousePos.y, 1);
 	}
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		// INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		if (is_hovered) {
 			onMouseUp(mousePos.x, mousePos.y, 1);
 		}
 	}
 	if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-		INFO_LOG(Log::CPU, "Mousedrag %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		// INFO_LOG(Log::CPU, "Mousedrag %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		if (is_hovered) {
 			onMouseMove(mousePos.x, mousePos.y, 1);
 		}
