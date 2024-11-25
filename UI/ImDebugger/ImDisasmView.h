@@ -124,7 +124,7 @@ private:
 		float bottom;
 	};
 
-	void ProcessKeyboardShortcuts();
+	void ProcessKeyboardShortcuts(bool focused);
 	void assembleOpcode(u32 address, const std::string &defaultText);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
@@ -174,4 +174,6 @@ private:
 	int lastSteppingCount_ = 0;
 
 	std::string statusBarText_;
+	u32 funcBegin_;
+	char funcNameTemp_[128];
 };

@@ -461,7 +461,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		}
 	}
 
-	ProcessKeyboardShortcuts();
+	ProcessKeyboardShortcuts(ImGui::IsItemFocused());
 
 	int coreStep = Core_GetSteppingCounter();
 	if (coreStep != lastSteppingCount_) {
@@ -561,7 +561,11 @@ void ImDisasmView::editBreakpoint(ImConfig &cfg) {
 	*/
 }
 
-void ImDisasmView::ProcessKeyboardShortcuts() {
+void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
+	if (!focused) {
+		return;
+	}
+
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 	keyTaken = true;
 
@@ -638,6 +642,9 @@ void ImDisasmView::ProcessKeyboardShortcuts() {
 			}
 			return;
 		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F9)) {
+			toggleBreakpoint();
+		}
 	}
 
 	/*
@@ -664,9 +671,6 @@ void ImDisasmView::ProcessKeyboardShortcuts() {
 			break;
 		case VK_TAB:
 			displaySymbols_ = !displaySymbols_;
-			break;
-		case VK_SPACE:
-			debugger->toggleBreakpoint(curAddress);
 			break;
 		default:
 			keyTaken = false;
@@ -783,6 +787,7 @@ void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 }
 
 void ImDisasmView::PopupMenu() {
+	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
 		ImGui::Text("Address: %08x", curAddress_);
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
@@ -831,24 +836,14 @@ void ImDisasmView::PopupMenu() {
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Rename function")) {
-			u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress_);
-			/*
-			if (funcBegin != -1) {
-				char name[256];
-				std::string newname;
-				truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
-				if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
-					g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
-					u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
-					MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
-					MIPSAnalyst::UpdateHashMap();
-					MIPSAnalyst::ApplyHashMap();
-					mapReloaded_ = true;
-				}
+			funcBegin_ = g_symbolMap->GetFunctionStart(curAddress_);
+			if (funcBegin_ != -1) {
+				truncate_cpy(funcNameTemp_, g_symbolMap->GetLabelString(funcBegin_).c_str());
+				renameFunctionPopup = true;
+				statusBarText_ = funcNameTemp_;
 			} else {
-				MessageBox(MainWindow::GetHWND(), L"No symbol selected", 0, 0);
+				statusBarText_ = "No function here";
 			}
-			*/
 		}
 		if (ImGui::MenuItem("Remove function")) {
 			u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress_);
@@ -902,6 +897,29 @@ void ImDisasmView::PopupMenu() {
 		}
 		if (ImGui::MenuItem("Disassemble to file")) {
 			disassembleToFile();
+		}
+		ImGui::EndPopup();
+	}
+
+	// Sub popups here
+	if (renameFunctionPopup) {
+		ImGui::OpenPopup("renameFunction");
+	}
+	// ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing())
+	if (ImGui::BeginPopup("renameFunction")) {
+		std::string symName = g_symbolMap->GetDescription(funcBegin_);
+		ImGui::Text("Rename function %s", symName.c_str());
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		if (ImGui::InputText("Name", funcNameTemp_, sizeof(funcNameTemp_), ImGuiInputTextFlags_EnterReturnsTrue) && strlen(funcNameTemp_)) {
+			g_symbolMap->SetLabelName(funcNameTemp_, funcBegin_);
+			u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin_);
+			MIPSAnalyst::RegisterFunction(funcBegin_, funcSize, funcNameTemp_);
+			MIPSAnalyst::UpdateHashMap();
+			MIPSAnalyst::ApplyHashMap();
+			mapReloaded_ = true;
+			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
 	}

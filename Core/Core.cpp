@@ -418,11 +418,18 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 	{
 		std::lock_guard<std::mutex> lock(g_stepMutex);
 		if (!g_stepCommand.empty()) {
-			// Already broke.
-			ERROR_LOG(Log::CPU, "Core_Break called with a break already in progress: %s", g_stepCommand.reason);
+			// If we're in a failed step that uses a temp breakpoint, we need to be able to override it here.
+			switch (g_stepCommand.type) {
+			case CPUStepType::Over:
+			case CPUStepType::Out:
+				// Allow overwriting the command.
+				break;
+			}
+			ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_stepCommand.reason);
 			return;
 		}
 		mipsTracer.stop_tracing();
+		g_stepCommand.type = CPUStepType::None;
 		g_stepCommand.reason = reason;
 		g_stepCommand.relatedAddr = relatedAddress;
 		steppingCounter++;
