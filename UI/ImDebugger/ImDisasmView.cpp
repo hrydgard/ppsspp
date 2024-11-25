@@ -477,7 +477,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	}
 
 	if (pressed) {
-		INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
+		// INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
 		if (mousePos.x < rowHeight_) {  // Left column
 			// Toggle breakpoint at dragAddr_.
 			debugger->toggleBreakpoint(curAddress_);

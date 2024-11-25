@@ -424,7 +424,7 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 	// Stop the tracer
 	{
 		std::lock_guard<std::mutex> lock(g_stepMutex);
-		if (!g_stepCommand.empty()) {
+		if (!g_stepCommand.empty() && Core_IsStepping()) {
 			// If we're in a failed step that uses a temp breakpoint, we need to be able to override it here.
 			switch (g_stepCommand.type) {
 			case CPUStepType::Over:

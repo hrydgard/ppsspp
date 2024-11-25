@@ -208,7 +208,11 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 
 	for (auto &fs : pspFileSystem.GetMounts()) {
 		std::string path;
-		if (ImGui::TreeNode(fs.prefix.c_str())) {
+		char desc[256];
+		fs.system->Describe(desc, sizeof(desc));
+		char fsTitle[256];
+		snprintf(fsTitle, sizeof(fsTitle), "%s - %s", fs.prefix.c_str(), desc);
+		if (ImGui::TreeNode(fsTitle)) {
 			auto system = fs.system;
 			RecurseFileSystem(system.get(), path);
 			ImGui::TreePop();
