@@ -65,6 +65,11 @@ public:
 	void UnmountAll();
 	void Unmount(const std::string &prefix);
 
+	// Would like to make this const, but...
+	std::vector<MountPoint> &GetMounts() {
+		return fileSystems;
+	}
+
 	// The pointer returned from these are for temporary usage only. Do not store.
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);

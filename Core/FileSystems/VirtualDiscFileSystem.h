@@ -60,8 +60,8 @@ private:
 	void LoadFileListIndex();
 	// Warning: modifies input string.
 	int getFileListIndex(std::string &fileName);
-	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
-	Path GetLocalPath(std::string localpath);
+	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false) const;
+	Path GetLocalPath(std::string localpath) const;
 
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;

@@ -514,6 +514,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::ZIP:
 			supportedExtensions = { ".zip" };
 			break;
+		case BrowseFileType::SYMBOL_MAP:
+			supportedExtensions = { ".map" };
+			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
