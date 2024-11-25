@@ -22,7 +22,6 @@
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Log.h"
 #include "Core/ConfigValues.h"
 
 class TextureReplacer;
@@ -121,9 +120,6 @@ public:
 
 	void SetState(ReplacementState state) {
 		_dbg_assert_(state != state_);
-#ifdef _DEBUG
-		// WARN_LOG(Log::G3D, "Texture %s changed state from %s to %s", logId_.c_str(), StateString(state_), StateString(state));
-#endif
 		state_ = state;
 	}
 

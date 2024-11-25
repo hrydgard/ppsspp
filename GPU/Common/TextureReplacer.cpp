@@ -88,7 +88,7 @@ void TextureReplacer::NotifyConfigChanged() {
 
 		// If we're saving, auto-create the directory.
 		if (saveEnabled_ && !File::Exists(newTextureDir_)) {
-			INFO_LOG(Log::G3D, "Creating new texture directory: '%s'", newTextureDir_.ToVisualString().c_str());
+			INFO_LOG(Log::TexReplacement, "Creating new texture directory: '%s'", newTextureDir_.ToVisualString().c_str());
 			File::CreateFullPath(newTextureDir_);
 			// We no longer create a nomedia file here, since we put one
 			// in the TEXTURES root.
@@ -140,7 +140,7 @@ bool TextureReplacer::LoadIni(std::string *error) {
 	// First, check for textures.zip, which is used to reduce IO.
 	VFSBackend *dir = ZipFileReader::Create(zipPath, "", false);
 	if (!dir) {
-		INFO_LOG(Log::G3D, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
+		INFO_LOG(Log::TexReplacement, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
 		dir = new DirectoryReader(basePath_);
 	} else {
@@ -164,14 +164,14 @@ bool TextureReplacer::LoadIni(std::string *error) {
 				iniLoaded = overrideIni.LoadFromVFS(*dir, overrideFilename);
 				if (!iniLoaded) {
 					*error = "Loading override ini failed: " + overrideFilename;
-					ERROR_LOG(Log::G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
+					ERROR_LOG(Log::TexReplacement, "Failed to load extra texture ini: %s", overrideFilename.c_str());
 					// Since this error is most likely to occure for texture pack creators, let's just bail here
 					// so that the creator is more likely to look in the logs for what happened.
 					delete dir;
 					return false;
 				}
 
-				INFO_LOG(Log::G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
+				INFO_LOG(Log::TexReplacement, "Loading extra texture ini: %s", overrideFilename.c_str());
 				if (!LoadIniValues(overrideIni, nullptr, true, error)) {
 					*error = "Override: " + *error;
 					delete dir;
@@ -182,18 +182,18 @@ bool TextureReplacer::LoadIni(std::string *error) {
 	} else {
 		if (vfsIsZip_) {
 			// We don't accept zip files without inis.
-			ERROR_LOG(Log::G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+			ERROR_LOG(Log::TexReplacement, "Texture pack lacking ini file: %s", basePath_.c_str());
 			*error = "Zip files without ini files will not load";
 			delete dir;
 			return false;
 		} else {
-			WARN_LOG(Log::G3D, "Texture pack lacking ini file: %s  Proceeding with only hash-named textures in the root.", basePath_.c_str());
+			WARN_LOG(Log::TexReplacement, "Texture pack lacking ini file: %s  Proceeding with only hash-named textures in the root.", basePath_.c_str());
 			// Do what we can do anyway: Scan for textures and build the map.
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 			ScanForHashNamedFiles(dir, filenameMap);
 
 			if (filenameMap.empty()) {
-				WARN_LOG(Log::G3D, "No replacement textures found.");
+				WARN_LOG(Log::TexReplacement, "No replacement textures found.");
 				return false;
 			}
 
@@ -213,9 +213,9 @@ bool TextureReplacer::LoadIni(std::string *error) {
 	}
 
 	if (vfsIsZip_) {
-		INFO_LOG(Log::G3D, "Texture pack activated from '%s'", (basePath_ / ZIP_FILENAME).c_str());
+		INFO_LOG(Log::TexReplacement, "Texture pack activated from '%s'", (basePath_ / ZIP_FILENAME).c_str());
 	} else {
-		INFO_LOG(Log::G3D, "Texture pack activated from '%s'", basePath_.c_str());
+		INFO_LOG(Log::TexReplacement, "Texture pack activated from '%s'", basePath_.c_str());
 	}
 
 	// The ini doesn't have to exist for the texture directory or zip to be valid.
@@ -243,7 +243,7 @@ void TextureReplacer::ScanForHashNamedFiles(VFSBackend *dir, std::map<Replacemen
 			ReplacementCacheKey key(0, 0);
 			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
 			if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
-				// INFO_LOG(Log::G3D, "hash-like file in root, adding: %s", file.name.c_str());
+				// INFO_LOG(Log::TexReplacement, "hash-like file in root, adding: %s", file.name.c_str());
 				filenameMap[key][level] = file.name;
 			}
 		}
@@ -259,7 +259,7 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 				alias += level.second + "|";
 				mipIndex++;
 			} else {
-				WARN_LOG(Log::G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
+				WARN_LOG(Log::TexReplacement, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
 				break;
 			}
 		}
@@ -303,17 +303,17 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	options->Get("ignoreMipmap", &ignoreMipmap_, ignoreMipmap_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
-		ERROR_LOG(Log::G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
+		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
 	}
 
 	if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
 		ignoreAddress_ = false;
-		ERROR_LOG(Log::G3D, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
+		ERROR_LOG(Log::TexReplacement, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
 	}
 
 	int version = 0;
 	if (options->Get("version", &version, 0) && version > VERSION) {
-		ERROR_LOG(Log::G3D, "Unsupported texture replacement version %d, trying anyway", version);
+		ERROR_LOG(Log::TexReplacement, "Unsupported texture replacement version %d, trying anyway", version);
 	}
 
 	int badFileNameCount = 0;
@@ -359,9 +359,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 					}
 				}
 			} else if (k.empty()) {
-				INFO_LOG(Log::G3D, "Ignoring [hashes] line with empty key: '= %s'", v.c_str());
+				INFO_LOG(Log::TexReplacement, "Ignoring [hashes] line with empty key: '= %s'", v.c_str());
 			} else {
-				ERROR_LOG(Log::G3D, "Unsupported syntax under [hashes], ignoring: %s = ", k.c_str());
+				ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [hashes], ignoring: %s = ", k.c_str());
 			}
 		}
 	}
@@ -372,7 +372,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("textures.ini filenames may not be cross - platform(banned characters)"), badFilenames, 6.0f);
-		WARN_LOG(Log::G3D, "Potentially bad filenames: %s", badFilenames.c_str());
+		WARN_LOG(Log::TexReplacement, "Potentially bad filenames: %s", badFilenames.c_str());
 	}
 
 	if (ini.HasSection("hashranges")) {
@@ -409,7 +409,7 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 	SplitString(value, ',', valueParts);
 
 	if (keyParts.size() != 3 || valueParts.size() != 2) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid hashrange %s = %s, expecting addr,w,h = w,h", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, expecting addr,w,h = w,h", key.c_str(), value.c_str());
 		return;
 	}
 
@@ -422,19 +422,19 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 	u32 fromW;
 	u32 fromH;
 	if (!TryParse(keyParts[0], &addr) || !TryParse(keyParts[1], &fromW) || !TryParse(keyParts[2], &fromH)) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid hashrange %s = %s, key format is 0x12345678,512,512", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, key format is 0x12345678,512,512", key.c_str(), value.c_str());
 		return;
 	}
 
 	u32 toW;
 	u32 toH;
 	if (!TryParse(valueParts[0], &toW) || !TryParse(valueParts[1], &toH)) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid hashrange %s = %s, value format is 512,512", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, value format is 512,512", key.c_str(), value.c_str());
 		return;
 	}
 
 	if (toW > fromW || toH > fromH) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid hashrange %s = %s, range bigger than source", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, range bigger than source", key.c_str(), value.c_str());
 		return;
 	}
 
@@ -452,10 +452,10 @@ void TextureReplacer::ParseFiltering(const std::string &key, const std::string &
 		} else if (!strcasecmp(value.c_str(), "auto")) {
 			filtering_[itemKey] = TEX_FILTER_AUTO;
 		} else {
-			ERROR_LOG(Log::G3D, "Unsupported syntax under [filtering]: %s", value.c_str());
+			ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [filtering]: %s", value.c_str());
 		}
 	} else {
-		ERROR_LOG(Log::G3D, "Unsupported syntax under [filtering]: %s", key.c_str());
+		ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [filtering]: %s", key.c_str());
 	}
 }
 
@@ -466,25 +466,25 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 	SplitString(value, ',', valueParts);
 
 	if (keyParts.size() != 2 || valueParts.size() != 1) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid reducehashrange %s = %s, expecting w,h = reducehashvalue", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid reducehashrange %s = %s, expecting w,h = reducehashvalue", key.c_str(), value.c_str());
 		return;
 	}
 
 	u32 forW;
 	u32 forH;
 	if (!TryParse(keyParts[0], &forW) || !TryParse(keyParts[1], &forH)) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid reducehashrange %s = %s, key format is 512,512", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid reducehashrange %s = %s, key format is 512,512", key.c_str(), value.c_str());
 		return;
 	}
 
 	float rhashvalue;
 	if (!TryParse(valueParts[0], &rhashvalue)) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid reducehashrange %s = %s, value format is 0.5", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid reducehashrange %s = %s, value format is 0.5", key.c_str(), value.c_str());
 		return;
 	}
 
 	if (rhashvalue == 0) {
-		ERROR_LOG(Log::G3D, "Ignoring invalid hashrange %s = %s, reducehashvalue can't be 0", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, reducehashvalue can't be 0", key.c_str(), value.c_str());
 		return;
 	}
 
@@ -601,7 +601,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 
 	// Early-out for ignored textures, let's not bother even starting a thread task.
 	if (ignored) {
-		// WARN_LOG(Log::G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
+		// WARN_LOG(Log::TexReplacement, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// Insert an entry into the cache for faster lookup next time.
 		ReplacedTextureRef ref{};
 		cache_.emplace(std::make_pair(replacementKey, ref));
@@ -664,7 +664,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 static bool WriteTextureToPNG(png_imagep image, const Path &filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(Log::IO, "Unable to open texture file '%s' for writing.", filename.c_str());
+		ERROR_LOG(Log::TexReplacement, "Save texture: Unable to open texture file '%s' for writing.", filename.c_str());
 		return false;
 	}
 
@@ -672,7 +672,8 @@ static bool WriteTextureToPNG(png_imagep image, const Path &filename, int conver
 		fclose(fp);
 		return true;
 	} else {
-		ERROR_LOG(Log::System, "Texture PNG encode failed.");
+		// This shouldn't really happen.
+		ERROR_LOG(Log::TexReplacement, "Texture PNG encode failed.");
 		fclose(fp);
 		remove(filename.c_str());
 		return false;
@@ -736,11 +737,11 @@ public:
 		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData, w * 4, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(Log::G3D, "Saving texture to PNG produced errors.");
+			ERROR_LOG(Log::TexReplacement, "Saving texture to PNG produced errors.");
 		} else if (success) {
-			NOTICE_LOG(Log::G3D, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
+			NOTICE_LOG(Log::TexReplacement, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
 		} else {
-			ERROR_LOG(Log::G3D, "Failed to write '%s'", saveFilename.c_str());
+			ERROR_LOG(Log::TexReplacement, "Failed to write '%s'", saveFilename.c_str());
 		}
 	}
 };
@@ -826,7 +827,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	size_t saveBufSize = w * h * 4;
 	u8 *saveBuf = (u8 *)malloc(saveBufSize);
 	if (!saveBuf) {
-		ERROR_LOG(Log::G3D, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
+		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
 		return;
 	}
 
@@ -883,7 +884,7 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 
 	double totalSizeGB = totalSize / (1024.0 * 1024.0 * 1024.0);
 	if (totalSizeGB >= 1.0) {
-		WARN_LOG(Log::G3D, "Decimated replacements older than %fs, currently using %f GB of RAM", age, totalSizeGB);
+		WARN_LOG(Log::TexReplacement, "Decimated replacements older than %fs, currently using %f GB of RAM", age, totalSizeGB);
 	}
 	lastTextureCacheSizeGB_ = totalSizeGB;
 }
