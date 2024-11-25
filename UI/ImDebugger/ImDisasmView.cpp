@@ -440,6 +440,10 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		// INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		onMouseDown(mousePos.x, mousePos.y, 1);
 	}
+	if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+		// INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		onMouseDown(mousePos.x, mousePos.y, 2);
+	}
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
 		// INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		if (is_hovered) {

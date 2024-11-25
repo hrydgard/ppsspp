@@ -158,6 +158,16 @@ void DrawThreadView(ImConfig &cfg) {
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
+				if (ImGui::MenuItem("Copy entry to clipboard")) {
+					char temp[64];
+					snprintf(temp, sizeof(temp), "%08x", thread.entrypoint);
+					System_CopyStringToClipboard(temp);
+				}
+				if (ImGui::MenuItem("Copy PC to clipboard")) {
+					char temp[64];
+					snprintf(temp, sizeof(temp), "%08x", thread.curPC);
+					System_CopyStringToClipboard(temp);
+				}
 				if (ImGui::MenuItem("Kill thread")) {
 					sceKernelTerminateThread(thread.id);
 				}
