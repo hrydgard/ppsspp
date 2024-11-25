@@ -75,6 +75,7 @@ struct ImConfig {
 	bool framebuffersOpen = false;
 	bool styleEditorOpen = false;
 	bool filesystemBrowserOpen = false;
+	bool kernelObjectsOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;

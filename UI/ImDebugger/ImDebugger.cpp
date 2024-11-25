@@ -52,7 +52,7 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 
 				auto gprLine = [&](const char *regname, int value) {
 					ImGui::TableSetColumnIndex(0);
-					ImGui::Text("%s", regname);
+					ImGui::TextUnformatted(regname);
 					ImGui::TableSetColumnIndex(1);
 					ImGui::Text("%08x", value);
 					if (value >= -1000000 && value <= 1000000) {
@@ -84,7 +84,7 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 					u32 fivalue;
 					memcpy(&fivalue, &fvalue, sizeof(fivalue));
 					ImGui::TableSetColumnIndex(0);
-					ImGui::Text("%s", mipsDebug->GetRegName(1, i).c_str());
+					ImGui::TextUnformatted(mipsDebug->GetRegName(1, i).c_str());
 					ImGui::TableSetColumnIndex(1);
 					ImGui::Text("%0.7f", fvalue);
 					ImGui::TableSetColumnIndex(2);
@@ -154,7 +154,7 @@ void DrawThreadView(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", thread.priority);
 			ImGui::TableNextColumn();
-			ImGui::Text("%s", ThreadStatusToString(thread.status));
+			ImGui::TextUnformatted(ThreadStatusToString(thread.status));
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
@@ -215,6 +215,55 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 		}
 	}
 
+	ImGui::End();
+}
+
+static void DrawKernelObjects(ImConfig &cfg) {
+	if (!ImGui::Begin("Kernel Objects", &cfg.filesystemBrowserOpen)) {
+		ImGui::End();
+		return;
+	}
+	if (ImGui::BeginTable("kos", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Summary", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < (int)KernelObjectPool::maxCount; i++) {
+			int id = i + KernelObjectPool::handleOffset;
+			if (!kernelObjects.IsValid(id)) {
+				continue;
+			}
+			KernelObject *obj = kernelObjects.GetFast<KernelObject>(id);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::PushID(i);
+			if (ImGui::Selectable("", cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedThread = i;
+			}
+			ImGui::SameLine();
+			/*
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+				cfg.selectedThread = i;
+				ImGui::OpenPopup("kernelObjectPopup");
+			}
+			*/
+			ImGui::Text("%04x", id);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(obj->GetTypeName());
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(obj->GetName());
+			ImGui::TableNextColumn();
+			char qi[128];
+			obj->GetQuickInfo(qi, sizeof(qi));
+			ImGui::TextUnformatted(qi);
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
 	ImGui::End();
 }
 
@@ -303,7 +352,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TextUnformatted("-");  // opcode
 				ImGui::TableNextColumn();
 				if (bp.hasCond) {
-					ImGui::Text("%s", bp.cond.expressionString.c_str());
+					ImGui::TextUnformatted(bp.cond.expressionString.c_str());
 				} else {
 					ImGui::TextUnformatted("-");  // condition
 				}
@@ -325,7 +374,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::SameLine();
 				ImGui::CheckboxFlags("", (int *)&mc.result, BREAK_ACTION_PAUSE);
 				ImGui::TableNextColumn();
-				ImGui::Text("%s", MemCheckConditionToString(mc.cond));
+				ImGui::TextUnformatted(MemCheckConditionToString(mc.cond));
 				ImGui::TableNextColumn();
 				ImGui::Text("%08x", mc.start);
 				ImGui::TableNextColumn();
@@ -453,13 +502,13 @@ void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
 			const std::string entrySym = g_symbolMap->GetLabelString(frame.entry);
 
 			ImGui::TableSetColumnIndex(0);
-			ImGui::Text("%s", entrySym.c_str());
+			ImGui::TextUnformatted(entrySym.c_str());
 			ImGui::TableSetColumnIndex(1);
 			ImGui::Text("%08x", frame.entry);
 			ImGui::TableSetColumnIndex(2);
 			ImGui::Text("%08x", frame.pc);
 			ImGui::TableSetColumnIndex(3);
-			ImGui::Text("%s", "N/A");  // opcode, see the old debugger
+			ImGui::TextUnformatted("N/A");  // opcode, see the old debugger
 			ImGui::TableSetColumnIndex(4);
 			ImGui::Text("%08x", frame.sp);
 			ImGui::TableSetColumnIndex(5);
@@ -501,7 +550,7 @@ void DrawModules(MIPSDebugInterface *debug, ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", module.size);
 			ImGui::TableNextColumn();
-			ImGui::Text("%s", module.active ? "yes" : "no");
+			ImGui::TextUnformatted(module.active ? "yes" : "no");
 		}
 
 		ImGui::EndTable();
@@ -624,8 +673,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		}
 		if (ImGui::BeginMenu("OS HLE")) {
 			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
-			ImGui::MenuItem("HLE Threads", nullptr, &cfg_.threadsOpen);
-			ImGui::MenuItem("HLE Modules",nullptr,  &cfg_.modulesOpen);
+			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
+			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
+			ImGui::MenuItem("Modules",nullptr,  &cfg_.modulesOpen);
 			ImGui::MenuItem("sceAtrac", nullptr, &cfg_.atracOpen);
 			ImGui::EndMenu();
 		}
@@ -671,6 +721,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.filesystemBrowserOpen) {
 		DrawFilesystemBrowser(cfg_);
+	}
+
+	if (cfg_.kernelObjectsOpen) {
+		DrawKernelObjects(cfg_);
 	}
 
 	if (cfg_.threadsOpen) {
@@ -845,7 +899,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		disasmView_.Draw(ImGui::GetWindowDrawList());
 		ImGui::EndTable();
 
-		ImGui::Text("%s", disasmView_.StatusBarText().c_str());
+		ImGui::TextUnformatted(disasmView_.StatusBarText().c_str());
 	}
 	ImGui::End();
 }

@@ -811,16 +811,6 @@ void ImDisasmView::PopupMenu() {
 		}
 		ImGui::Separator();
 
-		/*
-		if (ImGui::MenuItem("Edit symbol")) {
-			EditSymbolsWindow esw(wnd, debugger);
-			if (esw.exec()) {
-				esw.eval();
-				SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
-				redraw();
-			}
-		}
-		*/
 		if (ImGui::MenuItem("Set PC to here")) {
 			debugger->setPC(curAddress_);
 		}
@@ -828,8 +818,11 @@ void ImDisasmView::PopupMenu() {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			// g_breakpoints.AddBreakPoint(pos, true);
-			// Core_Resume();
+			g_breakpoints.AddBreakPoint(curAddress_, true);
+			g_breakpoints.SetSkipFirst(curAddress_);
+			if (Core_IsStepping()) {
+				Core_Resume();
+			}
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {

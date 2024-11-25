@@ -452,7 +452,13 @@ public:
 		return error;
 	};
 
-	bool IsValid(SceUID handle) const;
+	bool IsValid(SceUID handle) const {
+		int index = handle - handleOffset;
+		if (index < 0 || index >= maxCount)
+			return false;
+		else
+			return occupied[index];
+	}
 
 	template <class T>
 	T* Get(SceUID handle, u32 &outError) {
@@ -530,12 +536,12 @@ public:
 	void Clear();
 	int GetCount() const;
 
-private:
 	enum {
 		maxCount = 4096,
 		handleOffset = 0x100,
 		initialNextID = 0x10
 	};
+private:
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];
 	int nextID;
