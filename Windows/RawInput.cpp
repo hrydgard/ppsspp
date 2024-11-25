@@ -147,7 +147,6 @@ namespace WindowsRawInput {
 		{ VK_RIGHT, NKCODE_DPAD_RIGHT },
 		{ VK_CAPITAL, NKCODE_CAPS_LOCK },
 		{ VK_CLEAR, NKCODE_CLEAR },
-		{ VK_SNAPSHOT, NKCODE_SYSRQ },
 		{ VK_SCROLL, NKCODE_SCROLL_LOCK },
 		{ VK_OEM_1, NKCODE_SEMICOLON },
 		{ VK_OEM_2, NKCODE_SLASH },
@@ -160,7 +159,7 @@ namespace WindowsRawInput {
 		{ VK_RETURN, NKCODE_ENTER },
 		{ VK_APPS, NKCODE_MENU }, // Context menu key, let's call this "menu".
 		{ VK_PAUSE, NKCODE_BREAK },
-		{ VK_F1, NKCODE_F1 },
+		{ VK_F1, NKCODE_F1 },	
 		{ VK_F2, NKCODE_F2 },
 		{ VK_F3, NKCODE_F3 },
 		{ VK_F4, NKCODE_F4 },
@@ -178,11 +177,11 @@ namespace WindowsRawInput {
 		{ VK_MBUTTON, NKCODE_EXT_MOUSEBUTTON_3 },
 		{ VK_XBUTTON1, NKCODE_EXT_MOUSEBUTTON_4 },
 		{ VK_XBUTTON2, NKCODE_EXT_MOUSEBUTTON_5 },
+		{ VK_SNAPSHOT, NKCODE_EXT_PRINTSCREEN },
 	};
 
 	void Init() {
-		RAWINPUTDEVICE dev[3];
-		memset(dev, 0, sizeof(dev));
+		RAWINPUTDEVICE dev[3]{};
 
 		dev[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
 		dev[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
@@ -202,8 +201,7 @@ namespace WindowsRawInput {
 	}
 
 	bool UpdateMenuActive() {
-		MENUBARINFO info;
-		memset(&info, 0, sizeof(info));
+		MENUBARINFO info{};
 		info.cbSize = sizeof(info);
 		if (GetMenuBarInfo(MainWindow::GetHWND(), OBJID_MENU, 0, &info) != 0) {
 			menuActive = info.fBarFocused != FALSE;
