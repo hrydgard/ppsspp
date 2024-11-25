@@ -13,6 +13,7 @@ typedef std::function<void(const char *responseString, int responseValue)> Reque
 typedef std::function<void()> RequestFailedCallback;
 
 typedef int RequesterToken;
+
 #define NO_REQUESTER_TOKEN -1
 #define NON_EPHEMERAL_TOKEN -2
 
@@ -101,11 +102,16 @@ enum class BrowseFileType {
 	DB,
 	SOUND_EFFECT,
 	ZIP,
+	SYMBOL_MAP,
 	ANY,
 };
 
 inline void System_BrowseForFile(RequesterToken token, std::string_view title, BrowseFileType type, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FILE, token, callback, failedCallback, title, "", (int)type);
+}
+
+inline void System_BrowseForFileSave(RequesterToken token, std::string_view title, std::string_view defaultFilename, BrowseFileType type, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FILE_SAVE, token, callback, failedCallback, title, defaultFilename, (int)type);
 }
 
 void System_BrowseForFolder(RequesterToken token, std::string_view title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr);

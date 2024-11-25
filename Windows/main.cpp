@@ -489,12 +489,33 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-static std::wstring MakeFilter(std::wstring filter) {
+static std::wstring FinalizeFilter(std::wstring filter) {
 	for (size_t i = 0; i < filter.length(); i++) {
 		if (filter[i] == '|')
 			filter[i] = '\0';
 	}
 	return filter;
+}
+
+static std::wstring MakeWindowsFilter(BrowseFileType type) {
+	switch (type) {
+	case BrowseFileType::BOOTABLE:
+		return FinalizeFilter(L"All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
+	case BrowseFileType::INI:
+		return FinalizeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
+	case BrowseFileType::ZIP:
+		return FinalizeFilter(L"ZIP files (*.zip)|*.zip|All files (*.*)|*.*||");
+	case BrowseFileType::DB:
+		return FinalizeFilter(L"Cheat db files (*.db)|*.db|All files (*.*)|*.*||");
+	case BrowseFileType::SOUND_EFFECT:
+		return FinalizeFilter(L"Sound effect files (*.wav *.mp3)|*.wav;*.mp3|All files (*.*)|*.*||");
+	case BrowseFileType::SYMBOL_MAP:
+		return FinalizeFilter(L"Symbol map files (*.ppmap)|*.ppmap|All files (*.*)|*.*||");
+	case BrowseFileType::ANY:
+		return FinalizeFilter(L"All files (*.*)|*.*||");
+	default:
+		return std::wstring();
+	}
 }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
@@ -574,7 +595,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::thread([=] {
 			std::string out;
 			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
-				MakeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
+				FinalizeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
@@ -582,35 +603,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}).detach();
 		return true;
 	case SystemRequestType::BROWSE_FOR_FILE:
+	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
 	{
-		BrowseFileType type = (BrowseFileType)param3;
-		std::wstring filter;
-		switch (type) {
-		case BrowseFileType::BOOTABLE:
-			filter = MakeFilter(L"All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
-			break;
-		case BrowseFileType::INI:
-			filter = MakeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
-			break;
-		case BrowseFileType::ZIP:
-			filter = MakeFilter(L"ZIP files (*.zip)|*.zip|All files (*.*)|*.*||");
-			break;
-		case BrowseFileType::DB:
-			filter = MakeFilter(L"Cheat db files (*.db)|*.db|All files (*.*)|*.*||");
-			break;
-		case BrowseFileType::SOUND_EFFECT:
-			filter = MakeFilter(L"Sound effect files (*.wav *.mp3)|*.wav;*.mp3|All files (*.*)|*.*||");
-			break;
-		case BrowseFileType::ANY:
-			filter = MakeFilter(L"All files (*.*)|*.*||");
-			break;
-		default:
+		const BrowseFileType browseType = (BrowseFileType)param3;
+		std::wstring filter = MakeWindowsFilter(browseType);
+		std::wstring initialFilename = ConvertUTF8ToWString(param2);  // TODO: Plumb through
+		if (filter.empty()) {
+			// Unsupported.
 			return false;
 		}
-
+		bool load = type == SystemRequestType::BROWSE_FOR_FILE;
 		std::thread([=] {
 			std::string out;
-			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
+			if (W32Util::BrowseForFileName(load, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);

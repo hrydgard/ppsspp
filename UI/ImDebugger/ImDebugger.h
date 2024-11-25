@@ -8,6 +8,8 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/System/Request.h"
+
 #include "Core/Core.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
@@ -29,7 +31,12 @@ class GPUDebugInterface;
 class ImDisasmWindow {
 public:
 	void Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState);
-
+	ImDisasmView &View() {
+		return disasmView_;
+	}
+	void DirtySymbolMap() {
+		symsDirty_ = true;
+	}
 private:
 	// We just keep the state directly in the window. Can refactor later.
 
@@ -67,6 +74,7 @@ struct ImConfig {
 	bool structViewerOpen = false;
 	bool framebuffersOpen = false;
 	bool styleEditorOpen = false;
+	bool filesystemBrowserOpen = false;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -88,7 +96,10 @@ struct ImUiCommand {
 };
 
 struct ImDebugger {
+	ImDebugger();
 	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
+
+	RequesterToken reqToken_;
 
 	ImDisasmWindow disasm_;
 	ImLuaConsole luaConsole_;

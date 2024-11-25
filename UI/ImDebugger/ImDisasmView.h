@@ -23,7 +23,6 @@ public:
 	// Public variables bounds to imgui checkboxes
 	bool followPC_ = true;
 
-
 	void Draw(ImDrawList *drawList);
 
 	void PopupMenu();
@@ -54,7 +53,7 @@ public:
 	}
 
 	void scrollStepping(u32 newPc);
-	u32 getInstructionSizeAt(u32 address);
+	u32 getInstructionSizeAt(u32 address);  // not const because it might have to analyze.
 
 	void gotoAddr(unsigned int addr) {
 		if (positionLocked_ != 0)
@@ -124,7 +123,7 @@ private:
 		float bottom;
 	};
 
-	void ProcessKeyboardShortcuts();
+	void ProcessKeyboardShortcuts(bool focused);
 	void assembleOpcode(u32 address, const std::string &defaultText);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
@@ -174,4 +173,6 @@ private:
 	int lastSteppingCount_ = 0;
 
 	std::string statusBarText_;
+	u32 funcBegin_;
+	char funcNameTemp_[128];
 };

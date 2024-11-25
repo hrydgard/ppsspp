@@ -813,7 +813,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_MEMORYBASE:
 		{
-			W32Util::CopyTextToClipboard(hWnd, ConvertUTF8ToWString(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base)));
+			System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 			break;
 		}
 
@@ -823,7 +823,6 @@ namespace MainWindow {
 			if (!InputBox_GetString(hInst, hWnd, L"Disc filename", filename, filename)) {
 				break;
 			}
-
 			const char *lastSlash = strrchr(filename.c_str(), '/');
 			if (lastSlash) {
 				fn = lastSlash + 1;

@@ -18,6 +18,8 @@
 #pragma once
 
 #include <vector>
+#include <atomic>
+#include <mutex>
 
 #include "Core/Debugger/DebugInterface.h"
 
@@ -174,8 +176,12 @@ public:
 		return memChecks_;
 	}
 
-	bool HasBreakPoints();
-	bool HasMemChecks();
+	bool HasBreakPoints() const {
+		return anyBreakPoints_;
+	}
+	bool HasMemChecks() const {
+		return anyMemChecks_;
+	}
 
 	void Update(u32 addr = 0);
 
@@ -188,6 +194,12 @@ private:
 	size_t FindMemCheck(u32 start, u32 end);
 	MemCheck *GetMemCheckLocked(u32 address, int size);
 	void UpdateCachedMemCheckRanges();
+
+	std::atomic<bool> anyBreakPoints_;
+	std::atomic<bool> anyMemChecks_;
+
+	std::mutex breakPointsMutex_;
+	std::mutex memCheckMutex_;
 
 	std::vector<BreakPoint> breakPoints_;
 	u32 breakSkipFirstAt_ = 0;

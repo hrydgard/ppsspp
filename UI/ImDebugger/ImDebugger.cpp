@@ -5,6 +5,7 @@
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -12,6 +13,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
@@ -31,6 +33,8 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImGe.h"
+
+extern bool g_TakeScreenshot;
 
 void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 	if (!ImGui::Begin("Registers", open)) {
@@ -170,6 +174,40 @@ void DrawThreadView(ImConfig &cfg) {
 	ImGui::End();
 }
 
+// TODO: Add popup menu, export file, export dir, etc...
+static void RecurseFileSystem(IFileSystem *fs, std::string path) {
+	std::vector<PSPFileInfo> fileInfo = fs->GetDirListing(path);
+	for (auto &file : fileInfo) {
+		if (file.type == FileType::FILETYPE_DIRECTORY) {
+			if (file.name != "." && file.name != ".." && ImGui::TreeNode(file.name.c_str())) {
+				std::string fpath = path + "/" + file.name;
+				RecurseFileSystem(fs, fpath);
+				ImGui::TreePop();
+			}
+		} else {
+			ImGui::TextUnformatted(file.name.c_str());
+		}
+	}
+}
+
+static void DrawFilesystemBrowser(ImConfig &cfg) {
+	if (!ImGui::Begin("File System", &cfg.filesystemBrowserOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	for (auto &fs : pspFileSystem.GetMounts()) {
+		std::string path;
+		if (ImGui::TreeNode(fs.prefix.c_str())) {
+			auto system = fs.system;
+			RecurseFileSystem(system.get(), path);
+			ImGui::TreePop();
+		}
+	}
+
+	ImGui::End();
+}
+
 static const char *MemCheckConditionToString(MemCheckCondition cond) {
 	switch (cond) {
 	case MEMCHECK_READ: return "Read";
@@ -224,15 +262,16 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 
 			for (int i = 0; i < (int)bps.size(); i++) {
 				auto &bp = bps[i];
-				if (bp.temporary) {
-					// Probably won't happen a lot.. maybe a wrong Step Over
+				bool temp = bp.temporary;
+				if (temp) {
 					continue;
 				}
+
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				// TODO: This clashes with the checkbox!
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 				}
@@ -495,6 +534,10 @@ void DrawHLEModules(ImConfig &config) {
 	ImGui::End();
 }
 
+ImDebugger::ImDebugger() {
+	reqToken_ = g_requestManager.GenerateRequesterToken();
+}
+
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
@@ -513,18 +556,51 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				if (ImGui::MenuItem("Run")) {
 					Core_Resume();
 				}
-				if (ImGui::MenuItem("Step Into", "F11")) {
-					Core_RequestSingleStep(CPUStepType::Into, 1);
-				}
-				if (ImGui::MenuItem("Step Over", "F10")) {
-					Core_RequestSingleStep(CPUStepType::Over, 1);
-				}
-				if (ImGui::MenuItem("Step Out", "Shift+F11")) {
-					Core_RequestSingleStep(CPUStepType::Out, 1);
-				}
+				// used to have the step commands here, but they belong in the disassembly window.
 			} else {
 				if (ImGui::MenuItem("Break")) {
 					Core_Break("Menu:Break");
+				}
+			}
+			ImGui::Separator();
+			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
+			ImGui::Separator();
+			/*
+			// Symbol stuff. Move to separate menu?
+			// Doesn't quite seem to work yet.
+			if (ImGui::MenuItem("Load symbol map...")) {
+				System_BrowseForFile(reqToken_, "Load symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to load symbol map");
+					}
+					disasm_.DirtySymbolMap();
+				});
+			}
+			if (ImGui::MenuItem("Save symbol map...")) {
+				System_BrowseForFileSave(reqToken_, "Save symbol map", "symbols.map", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to save symbol map");
+					}
+				});
+			}
+			*/
+			if (ImGui::MenuItem("Reset symbol map")) {
+				g_symbolMap->Clear();
+				disasm_.DirtySymbolMap();
+				// NotifyDebuggerMapLoaded();
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Take screenshot")) {
+				g_TakeScreenshot = true;
+			}
+			if (ImGui::MenuItem("Restart graphics")) {
+				System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
+			}
+			if (System_GetPropertyBool(SYSPROP_HAS_TEXT_CLIPBOARD)) {
+				if (ImGui::MenuItem("Copy memory base to clipboard")) {
+					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
 			ImGui::EndMenu();
@@ -537,6 +613,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("OS HLE")) {
+			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
 			ImGui::MenuItem("HLE Threads", nullptr, &cfg_.threadsOpen);
 			ImGui::MenuItem("HLE Modules",nullptr,  &cfg_.modulesOpen);
 			ImGui::MenuItem("sceAtrac", nullptr, &cfg_.atracOpen);
@@ -580,6 +657,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.breakpointsOpen) {
 		DrawBreakpointsView(mipsDebug, cfg_);
+	}
+
+	if (cfg_.filesystemBrowserOpen) {
+		DrawFilesystemBrowser(cfg_);
 	}
 
 	if (cfg_.threadsOpen) {
@@ -626,10 +707,12 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			Core_RequestSingleStep(CPUStepType::Over, 0);
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestSingleStep(CPUStepType::Over, stepSize);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			Core_RequestSingleStep(CPUStepType::Into, 0);
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestSingleStep(CPUStepType::Into, stepSize);
 		}
 	}
 
@@ -654,7 +737,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Over")) {
-		Core_RequestSingleStep(CPUStepType::Over, 0);
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestSingleStep(CPUStepType::Over, stepSize);
 	}
 
 	ImGui::SameLine();
@@ -668,6 +752,9 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	}
 
 	if (ImGui::BeginPopup("disSearch")) {
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
 		if (ImGui::InputText("Search", searchTerm_, sizeof(searchTerm_), ImGuiInputTextFlags_EnterReturnsTrue)) {
 			disasmView_.Search(searchTerm_);
 			ImGui::CloseCurrentPopup();
@@ -688,7 +775,14 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	}
 
 	ImGui::SameLine();
-	ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
+	if (ImGui::SmallButton("Settings")) {
+		ImGui::OpenPopup("disSettings");
+	}
+
+	if (ImGui::BeginPopup("disSettings")) {
+		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
+		ImGui::EndPopup();
+	}
 
 	ImGui::SetNextItemWidth(100);
 	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {

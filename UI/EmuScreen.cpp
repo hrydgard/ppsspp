@@ -963,22 +963,34 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 		case NKCODE_SHIFT_RIGHT: keyShiftRight_ = down; break;
 		case NKCODE_ALT_LEFT: keyAltLeft_ = down; break;
 		case NKCODE_ALT_RIGHT: keyAltRight_ = down; break;
+		default: break;
 		}
 	}
 
 	if (UI::IsFocusMovementEnabled() || (g_Config.bShowImDebugger && imguiInited_)) {
 		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
 		// We need to manually implement it here :/
-		if (g_Config.bShowImDebugger && imguiInited_ && (key.flags & (KEY_UP | KEY_DOWN))) {
-			InputMapping mapping(key.deviceId, key.keyCode);
-			std::vector<int> pspButtons;
-			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
-			if (mappingFound) {
-				for (auto b : pspButtons) {
-					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-						return controlMapper_.Key(key, &pauseTrigger_);
+		if (g_Config.bShowImDebugger && imguiInited_) {
+			if (key.flags & (KEY_UP | KEY_DOWN)) {
+				InputMapping mapping(key.deviceId, key.keyCode);
+				std::vector<int> pspButtons;
+				bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+				if (mappingFound) {
+					for (auto b : pspButtons) {
+						if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+							return controlMapper_.Key(key, &pauseTrigger_);
+						}
 					}
 				}
+			}
+			UI::EnableFocusMovement(false);
+			// Enable gamepad controls while running imgui (but ignore mouse/keyboard).
+			switch (key.deviceId) {
+			case DEVICE_ID_KEYBOARD:
+			case DEVICE_ID_MOUSE:
+				break;
+			default:
+				controlMapper_.Key(key, &pauseTrigger_);
 			}
 		}
 
