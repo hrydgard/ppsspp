@@ -224,15 +224,16 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 
 			for (int i = 0; i < (int)bps.size(); i++) {
 				auto &bp = bps[i];
-				if (bp.temporary) {
-					// Probably won't happen a lot.. maybe a wrong Step Over
+				bool temp = bp.temporary;
+				if (temp) {
 					continue;
 				}
+
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				// TODO: This clashes with the checkbox!
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 				}
@@ -513,15 +514,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				if (ImGui::MenuItem("Run")) {
 					Core_Resume();
 				}
-				if (ImGui::MenuItem("Step Into", "F11")) {
-					Core_RequestSingleStep(CPUStepType::Into, 1);
-				}
-				if (ImGui::MenuItem("Step Over", "F10")) {
-					Core_RequestSingleStep(CPUStepType::Over, 1);
-				}
-				if (ImGui::MenuItem("Step Out", "Shift+F11")) {
-					Core_RequestSingleStep(CPUStepType::Out, 1);
-				}
+				// used to have the step commands here, but they belong in the disassembly window.
 			} else {
 				if (ImGui::MenuItem("Break")) {
 					Core_Break("Menu:Break");
@@ -626,10 +619,12 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			Core_RequestSingleStep(CPUStepType::Over, 0);
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestSingleStep(CPUStepType::Over, stepSize);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			Core_RequestSingleStep(CPUStepType::Into, 0);
+			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+			Core_RequestSingleStep(CPUStepType::Into, stepSize);
 		}
 	}
 
@@ -654,7 +649,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Over")) {
-		Core_RequestSingleStep(CPUStepType::Over, 0);
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestSingleStep(CPUStepType::Over, stepSize);
 	}
 
 	ImGui::SameLine();

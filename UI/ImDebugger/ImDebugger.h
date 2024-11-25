@@ -29,7 +29,9 @@ class GPUDebugInterface;
 class ImDisasmWindow {
 public:
 	void Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState);
-
+	ImDisasmView &View() {
+		return disasmView_;
+	}
 private:
 	// We just keep the state directly in the window. Can refactor later.
 

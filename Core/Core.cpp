@@ -56,7 +56,7 @@
 static std::mutex g_stepMutex;
 struct StepCommand {
 	CPUStepType type;
-	int param;
+	int stepSize;
 	const char *reason;
 	u32 relatedAddr;
 	bool empty() const {
@@ -64,7 +64,7 @@ struct StepCommand {
 	}
 	void clear() {
 		type = CPUStepType::None;
-		param = 0;
+		stepSize = 0;
 		reason = "";
 		relatedAddr = 0;
 	}
@@ -243,11 +243,12 @@ bool Core_RequestSingleStep(CPUStepType type, int stepSize) {
 		ERROR_LOG(Log::CPU, "Can't submit two steps in one frame");
 		return false;
 	}
+	// Out-steps don't need a size.
+	_dbg_assert_(stepSize != 0 || type == CPUStepType::Out);
 	g_stepCommand = { type, stepSize };
 	return true;
 }
 
-// See comment in header.
 // Handles more advanced step types (used by the debugger).
 // stepSize is to support stepping through compound instructions like fused lui+ladd (li).
 // Yes, our disassembler does support those.
@@ -264,7 +265,7 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
 			currentMIPS->SingleStep();
 		}
-		return;
+		break;
 	}
 	case CPUStepType::Over:
 	{
@@ -272,8 +273,10 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 		u32 breakpointAddress = currentPc + stepSize;
 
 		g_breakpoints.SetSkipFirst(currentPc);
-
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
+
+		// TODO: Doing a step over in a delay slot is a bit .. unclear. Maybe just do a single step.
+
 		if (info.isBranch) {
 			if (info.isConditional == false) {
 				if (info.isLinkedBranch) { // jal, jalr
@@ -290,10 +293,14 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
 				}
 			}
+			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			Core_Resume();
+		} else {
+			// If not a branch, just do a simple single-step, no point in involving the breakpoint machinery.
+			for (int i = 0; i < (int)(breakpointAddress - currentPc) / 4; i++) {
+				currentMIPS->SingleStep();
+			}
 		}
-
-		g_breakpoints.AddBreakPoint(breakpointAddress, true);
-		Core_Resume();
 		break;
 	}
 	case CPUStepType::Out:
@@ -361,7 +368,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_ResetException();
 
 	if (!g_stepCommand.empty()) {
-		Core_PerformStep(cpu, g_stepCommand.type, g_stepCommand.param);
+		Core_PerformStep(cpu, g_stepCommand.type, g_stepCommand.stepSize);
 		if (g_stepCommand.type == CPUStepType::Into) {
 			// We're already done. The other step types will resume the CPU.
 			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
@@ -424,9 +431,10 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 			case CPUStepType::Out:
 				// Allow overwriting the command.
 				break;
+			default:
+				ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_stepCommand.reason);
+				return;
 			}
-			ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_stepCommand.reason);
-			return;
 		}
 		mipsTracer.stop_tracing();
 		g_stepCommand.type = CPUStepType::None;

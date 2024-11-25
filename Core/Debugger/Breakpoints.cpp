@@ -33,12 +33,6 @@
 
 BreakpointManager g_breakpoints;
 
-std::atomic<bool> anyBreakPoints_(false);
-std::atomic<bool> anyMemChecks_(false);
-
-static std::mutex breakPointsMutex_;
-static std::mutex memCheckMutex_;
-
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	if (result & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
@@ -512,8 +506,7 @@ BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u
 	return BREAK_ACTION_IGNORE;
 }
 
-BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc)
-{
+BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 	// Note: currently, we don't check "on changed" for HLE (ExecMemCheck.)
 	// We'd need to more carefully specify memory changes in HLE for that.
 	int size = MIPSAnalyst::OpMemoryAccessSize(pc);
@@ -550,13 +543,12 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc)
 	return BREAK_ACTION_IGNORE;
 }
 
-void BreakpointManager::SetSkipFirst(u32 pc)
-{
+void BreakpointManager::SetSkipFirst(u32 pc) {
 	breakSkipFirstAt_ = pc;
 	breakSkipFirstTicks_ = CoreTiming::GetTicks();
 }
-u32 BreakpointManager::CheckSkipFirst()
-{
+
+u32 BreakpointManager::CheckSkipFirst() {
 	u32 pc = breakSkipFirstAt_;
 	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
 		return pc;
@@ -619,24 +611,14 @@ std::vector<MemCheck> BreakpointManager::GetMemCheckRanges(bool write) {
 	return memCheckRangesRead_;
 }
 
-std::vector<MemCheck> BreakpointManager::GetMemChecks()
-{
+std::vector<MemCheck> BreakpointManager::GetMemChecks() {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	return memChecks_;
 }
 
-std::vector<BreakPoint> BreakpointManager::GetBreakpoints()
-{
+std::vector<BreakPoint> BreakpointManager::GetBreakpoints() {
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	return breakPoints_;
-}
-
-bool BreakpointManager::HasBreakPoints() {
-	return anyBreakPoints_;
-}
-
-bool BreakpointManager::HasMemChecks() {
-	return anyMemChecks_;
 }
 
 void BreakpointManager::Update(u32 addr) {

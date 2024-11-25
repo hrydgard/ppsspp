@@ -963,6 +963,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 		case NKCODE_SHIFT_RIGHT: keyShiftRight_ = down; break;
 		case NKCODE_ALT_LEFT: keyAltLeft_ = down; break;
 		case NKCODE_ALT_RIGHT: keyAltRight_ = down; break;
+		default: break;
 		}
 	}
 

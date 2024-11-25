@@ -54,7 +54,7 @@ public:
 	}
 
 	void scrollStepping(u32 newPc);
-	u32 getInstructionSizeAt(u32 address);
+	u32 getInstructionSizeAt(u32 address);  // not const because it might have to analyze.
 
 	void gotoAddr(unsigned int addr) {
 		if (positionLocked_ != 0)
