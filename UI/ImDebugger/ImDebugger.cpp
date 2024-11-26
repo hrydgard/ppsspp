@@ -230,7 +230,7 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 }
 
 static void DrawKernelObjects(ImConfig &cfg) {
-	if (!ImGui::Begin("Kernel Objects", &cfg.filesystemBrowserOpen)) {
+	if (!ImGui::Begin("Kernel Objects", &cfg.kernelObjectsOpen)) {
 		ImGui::End();
 		return;
 	}
