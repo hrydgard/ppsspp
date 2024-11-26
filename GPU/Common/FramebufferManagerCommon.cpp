@@ -20,6 +20,7 @@
 #include <cmath>
 
 #include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -3704,5 +3705,10 @@ void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 	}
 	ImGui::EndTable();
 
-	// Now, draw the actual framebuffer image. This could be refined a lot.
+	if (selected != -1) {
+		// Now, draw the image of the selected framebuffer.
+		Draw::Framebuffer *fb = vfbs_[selected]->fbo;
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb);
+		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
+	}
 }

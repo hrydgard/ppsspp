@@ -36,20 +36,6 @@ static BackendData *ImGui_ImplThin3d_GetBackendData() {
 	return ImGui::GetCurrentContext() ? (BackendData *)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
 
-static void BindTexture(Draw::DrawContext *draw, BackendData *bd, ImTextureID textureId) {
-	if (!textureId) {
-		draw->BindTexture(0, bd->fontImage);
-	} else {
-		size_t index = (size_t)textureId - TEX_ID_OFFSET;
-		_dbg_assert_(index < bd->tempTextures.size());
-		if (bd->tempTextures[index].framebuffer) {
-			draw->BindFramebufferAsTexture(bd->tempTextures[index].framebuffer, 0, Draw::FBChannel::FB_COLOR_BIT, 0);
-		} else {
-			draw->BindTexture(0, bd->tempTextures[index].texture);
-		}
-	}
-}
-
 static void ImGui_ImplThin3d_SetupRenderState(Draw::DrawContext *draw, ImDrawData* drawData, Draw::Pipeline *pipeline, int fb_width, int fb_height) {
 	BackendData *bd = ImGui_ImplThin3d_GetBackendData();
 
@@ -103,19 +89,18 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 
 	_assert_(sizeof(ImDrawIdx) == 2);
 
-	ImTextureID prev = (ImTextureID)-1;
+	ImTextureID prevTexId = (ImTextureID)-1;
 
 	std::vector<Draw::ClippedDraw> draws;
+	Draw::Texture *boundTexture = nullptr;
+	Draw::Framebuffer *boundFBAsTexture = nullptr;
+
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList* cmd_list = draw_data->CmdLists[n];
 		draws.clear();
 		for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++) {
 			const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-			if (pcmd->TextureId != prev) {
-				BindTexture(draw, bd, pcmd->TextureId);
-				prev = pcmd->TextureId;
-			}
 			if (pcmd->UserCallback != nullptr) {
 				// User callback, registered via ImDrawList::AddCallback()
 				// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
@@ -125,6 +110,24 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 					pcmd->UserCallback(cmd_list, pcmd);
 				}
 			} else {
+				// Update the texture pointers.
+				if (pcmd->TextureId != prevTexId) {
+					if (!pcmd->TextureId) {
+						draw->BindTexture(0, bd->fontImage);
+					} else {
+						size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
+						_dbg_assert_(index < bd->tempTextures.size());
+						if (bd->tempTextures[index].framebuffer) {
+							boundFBAsTexture = bd->tempTextures[index].framebuffer;
+							boundTexture = nullptr;
+						} else {
+							boundTexture = bd->tempTextures[index].texture;
+							boundFBAsTexture = nullptr;
+						}
+					}
+					prevTexId = pcmd->TextureId;
+				}
+
 				// Project scissor/clipping rectangles into framebuffer space
 				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
 				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
@@ -137,14 +140,16 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 				if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
 					continue;
 
-				Draw::ClippedDraw draw;
-				draw.clipx = clip_min.x;
-				draw.clipy = clip_min.y;
-				draw.clipw = clip_max.x - clip_min.x;
-				draw.cliph = clip_max.y - clip_min.y;
-				draw.indexCount = pcmd->ElemCount;
-				draw.indexOffset = pcmd->IdxOffset;
-				draws.push_back(draw);
+				Draw::ClippedDraw clippedDraw;
+				clippedDraw.bindTexture = boundTexture;
+				clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
+				clippedDraw.clipx = clip_min.x;
+				clippedDraw.clipy = clip_min.y;
+				clippedDraw.clipw = clip_max.x - clip_min.x;
+				clippedDraw.cliph = clip_max.y - clip_min.y;
+				clippedDraw.indexCount = pcmd->ElemCount;
+				clippedDraw.indexOffset = pcmd->IdxOffset;
+				draws.push_back(clippedDraw);
 			}
 		}
 		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), draws);
@@ -231,7 +236,7 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		desc.tag = "imgui-font";
 		desc.initData.push_back((const uint8_t *)pixels);
 		bd->fontImage = draw->CreateTexture(desc);
-		io.Fonts->SetTexID((ImTextureID)bd->fontImage);
+		io.Fonts->SetTexID(0);
 	}
 
 	return true;
