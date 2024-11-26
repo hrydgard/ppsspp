@@ -705,6 +705,7 @@ struct ClippedDraw {
 	s16 cliph;
 	Draw::Texture *bindTexture;
 	Draw::Framebuffer *bindFramebufferAsTex;
+	Draw::Pipeline *pipeline;
 };
 
 class DrawContext {

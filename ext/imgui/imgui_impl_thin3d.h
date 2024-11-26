@@ -43,19 +43,18 @@ IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyDeviceObjects();
 
 // These register a texture for imgui drawing, but just for the current frame.
 // Textures are unregistered again in RenderDrawData. This is just simpler.
-IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture);
-IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, Draw::Pipeline *pipeline = nullptr);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect = Draw::FB_COLOR_BIT, Draw::Pipeline *pipeline = nullptr);
 
 void ImGui_PushFixedFont();
 void ImGui_PopFont();
 
 // Helper structure to hold the data needed by one rendering context into one OS window
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT used by your own engine/app.)
-struct ImGui_ImplThin3dH_Window
-{
-	int                 Width = 0;
-	int                 Height = 0;
-	bool                ClearEnable = true;
+struct ImGui_ImplThin3dH_Window {
+	int  Width = 0;
+	int  Height = 0;
+	bool ClearEnable = true;
 };
 
 #endif // #ifndef IMGUI_DISABLE

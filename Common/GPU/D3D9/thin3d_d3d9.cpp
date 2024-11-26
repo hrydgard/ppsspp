@@ -1208,11 +1208,18 @@ void D3D9Context::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, 
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
 
-	// Suboptimal!
+	// Suboptimal! Should dirty-track textures.
 	for (int i = 0; i < draws.size(); i++) {
+		if (draws[i].pipeline != curPipeline_) {
+			D3D9Pipeline *d3d9Pipeline = (D3D9Pipeline *)draws[i].pipeline;
+			d3d9Pipeline->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+			curPipeline_ = d3d9Pipeline;
+		}
+
 		if (draws[i].bindTexture) {
 			device_->SetTexture(0, ((D3D9Texture *)draws[i].bindTexture)->TexturePtr());
 		} else if (draws[i].bindFramebufferAsTex) {
+			// We ignore aspect in D3D9 :(
 			device_->SetTexture(0, ((D3D9Framebuffer *)draws[i].bindFramebufferAsTex)->tex.Get());
 		}
 

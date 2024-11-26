@@ -37,6 +37,7 @@ public:
 	void DirtySymbolMap() {
 		symsDirty_ = true;
 	}
+
 private:
 	// We just keep the state directly in the window. Can refactor later.
 
@@ -56,11 +57,6 @@ private:
 	char searchTerm_[64]{};
 };
 
-class ImLuaConsole {
-public:
-	// Stub
-};
-
 struct ImConfig {
 	bool disasmOpen = true;
 	bool demoOpen  = false;
@@ -73,6 +69,7 @@ struct ImConfig {
 	bool atracOpen = true;
 	bool structViewerOpen = false;
 	bool framebuffersOpen = false;
+	bool displayOpen = false;
 	bool styleEditorOpen = false;
 	bool filesystemBrowserOpen = false;
 	bool kernelObjectsOpen = false;
@@ -96,14 +93,20 @@ struct ImUiCommand {
 	ImUiCmd cmd;
 };
 
-struct ImDebugger {
+class ImDebugger {
+public:
 	ImDebugger();
+
 	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
+
+private:
+	// We use a separate ini file from the main PPSSPP config.
+	void LoadConfig();
+	void SaveConfig();
 
 	RequesterToken reqToken_;
 
 	ImDisasmWindow disasm_;
-	ImLuaConsole luaConsole_;
 	ImStructViewer structViewer_;
 
 	// Open variables.

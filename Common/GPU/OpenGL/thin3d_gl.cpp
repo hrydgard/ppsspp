@@ -1463,6 +1463,11 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 
 	ApplySamplers();
 	for (auto &draw : draws) {
+		if (draw.pipeline != curPipeline_) {
+			OpenGLPipeline *glPipeline = (OpenGLPipeline *)draw.pipeline;
+			_dbg_assert_(glPipeline->inputLayout->stride == stride);
+			BindPipeline(glPipeline);  // this updated curPipeline_.
+		}
 		if (draw.bindTexture) {
 			renderManager_.BindTexture(0, ((OpenGLTexture *)draw.bindTexture)->GetTex());
 		} else if (draw.bindFramebufferAsTex) {

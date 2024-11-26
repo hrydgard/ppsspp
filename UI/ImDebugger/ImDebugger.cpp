@@ -4,6 +4,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/RetroAchievements.h"
@@ -913,4 +914,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TextUnformatted(disasmView_.StatusBarText().c_str());
 	}
 	ImGui::End();
+}
+
+void ImDebugger::LoadConfig() {
+	IniFile ini;
 }

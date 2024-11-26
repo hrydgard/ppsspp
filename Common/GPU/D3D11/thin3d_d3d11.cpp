@@ -1420,6 +1420,11 @@ void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCo
 	ApplyCurrentState();
 
 	for (int i = 0; i < draws.size(); i++) {
+		if (draws[i].pipeline != curPipeline_) {
+			curPipeline_ = (D3D11Pipeline *)draws[i].pipeline;
+			ApplyCurrentState();
+		}
+
 		if (draws[i].bindTexture) {
 			ID3D11ShaderResourceView *view = ((D3D11Texture *)draws[i].bindTexture)->View();
 			context_->PSSetShaderResources(0, 1, &view);

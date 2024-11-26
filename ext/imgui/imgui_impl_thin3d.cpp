@@ -16,8 +16,17 @@ struct RegisteredTexture {
 	bool isFramebuffer;
 	union {
 		Draw::Texture *texture;
-		Draw::Framebuffer *framebuffer;
+		struct {
+			Draw::Framebuffer *framebuffer;
+			Draw::FBChannel aspect;
+		};
 	};
+	Draw::Pipeline *pipeline;
+};
+
+enum {
+	IMGUI_PIPELINE_TEXTURE_BLEND,
+	IMGUI_PIPELINE_TEXTURE,
 };
 
 struct BackendData {
@@ -94,6 +103,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	std::vector<Draw::ClippedDraw> draws;
 	Draw::Texture *boundTexture;
 	Draw::Framebuffer *boundFBAsTexture;
+	Draw::Pipeline *boundPipeline = bd->pipeline;
 
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
@@ -114,6 +124,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 				if (!pcmd->TextureId) {
 					boundTexture = bd->fontImage;
 					boundFBAsTexture = nullptr;
+					boundPipeline = bd->pipeline;
 				} else {
 					size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
 					_dbg_assert_(index < bd->tempTextures.size());
@@ -124,7 +135,9 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 						boundTexture = bd->tempTextures[index].texture;
 						boundFBAsTexture = nullptr;
 					}
+					boundPipeline = bd->tempTextures[index].pipeline ? bd->tempTextures[index].pipeline : bd->pipeline;
 				}
+
 				// Project scissor/clipping rectangles into framebuffer space
 				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
 				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
@@ -138,6 +151,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 					continue;
 
 				Draw::ClippedDraw clippedDraw;
+				clippedDraw.pipeline = boundPipeline;
 				clippedDraw.bindTexture = boundTexture;
 				clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
 				clippedDraw.clipx = clip_min.x;
@@ -310,21 +324,24 @@ void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatri
 	g_drawMatrix = drawMatrix;
 }
 
-ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture) {
+ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, Draw::Pipeline *pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 	RegisteredTexture tex{ false };
 	tex.texture = texture;
+	tex.pipeline = pipeline;
 
 	bd->tempTextures.push_back(tex);
 	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);
 }
 
-ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer) {
+ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect, Draw::Pipeline *pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 	RegisteredTexture tex{ true };
 	tex.framebuffer = framebuffer;
+	tex.aspect = aspect;
+	tex.pipeline = pipeline;
 
 	bd->tempTextures.push_back(tex);
 	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);

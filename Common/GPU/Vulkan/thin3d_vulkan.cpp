@@ -1585,6 +1585,11 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 	ApplyDynamicState();
 
 	for (auto &draw : draws) {
+		if (draw.pipeline != curPipeline_) {
+			VKPipeline *vkPipe = (VKPipeline *)draw.pipeline;
+			renderManager_.BindPipeline(vkPipe->pipeline, vkPipe->flags, pipelineLayout_);
+			curPipeline_ = (VKPipeline *)draw.pipeline;
+		}
 		// TODO: Dirty-check these.
 		if (draw.bindTexture) {
 			BindTexture(0, draw.bindTexture);
