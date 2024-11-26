@@ -1585,6 +1585,7 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 	ApplyDynamicState();
 
 	for (auto &draw : draws) {
+		// TODO: Dirty-check these.
 		if (draw.bindTexture) {
 			BindTexture(0, draw.bindTexture);
 		} else if (draw.bindFramebufferAsTex) {

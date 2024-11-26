@@ -878,7 +878,7 @@ public:
 	int NumMipmaps() const {
 		return mipLevels_;
 	}
-	const GLRTexture *GetTex() const {
+	GLRTexture *GetTex() const {
 		return tex_;
 	}
 
@@ -1463,6 +1463,11 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 
 	ApplySamplers();
 	for (auto &draw : draws) {
+		if (draw.bindTexture) {
+			renderManager_.BindTexture(0, ((OpenGLTexture *)draw.bindTexture)->GetTex());
+		} else if (draw.bindFramebufferAsTex) {
+			renderManager_.BindFramebufferAsTexture(((OpenGLFramebuffer*)draw.bindFramebufferAsTex)->framebuffer_, 0, GL_COLOR_BUFFER_BIT);
+		}
 		GLRect2D scissor;
 		scissor.x = draw.clipx;
 		scissor.y = draw.clipy;
