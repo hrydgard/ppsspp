@@ -47,7 +47,9 @@ android {
 	}
 
 	compileSdk 35
-	ndkVersion "21.4.7075529"
+
+	ndkVersion "27.2.12479018"
+
 	defaultConfig {
 		/*
 		configurations.all {
