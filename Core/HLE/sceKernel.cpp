@@ -481,8 +481,7 @@ u32 sceKernelIcacheClearAll()
 	return 0;
 }
 
-void KernelObject::GetQuickInfo(char *ptr, int size)
-{
+void KernelObject::GetQuickInfo(char *ptr, int size) {
 	strcpy(ptr, "-");
 }
 

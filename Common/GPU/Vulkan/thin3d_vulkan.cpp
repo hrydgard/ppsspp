@@ -1583,10 +1583,16 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	int descSetIndex;
-	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 
 	for (auto &draw : draws) {
+		// TODO: Dirty-check these.
+		if (draw.bindTexture) {
+			BindTexture(0, draw.bindTexture);
+		} else if (draw.bindFramebufferAsTex) {
+			BindFramebufferAsTexture(draw.bindFramebufferAsTex, 0, FBChannel::FB_COLOR_BIT, 0);
+		}
+		int descSetIndex;
+		PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 		BindDescriptors(vulkanUBObuf, descriptors);
 		renderManager_.SetScissor(draw.clipx, draw.clipy, draw.clipw, draw.cliph);
 		renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf,

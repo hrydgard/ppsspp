@@ -26,7 +26,7 @@ struct MemMap;
 
 class DebugInterface {
 public:
-	virtual int getInstructionSize(int instruction) {return 1;}
+	virtual int getInstructionSize(int instruction) = 0;
 
 	virtual bool isAlive() = 0;
 	virtual bool isBreakpoint(unsigned int address) = 0;
@@ -47,6 +47,7 @@ public:
 	virtual u32 GetHi() = 0;
 	virtual u32 GetLo() = 0;
 	virtual u32 GetLLBit() = 0;
+	virtual u32 GetFPCond() = 0;
 
 	virtual void SetHi(u32 val) { };
 	virtual void SetLo(u32 val) { };

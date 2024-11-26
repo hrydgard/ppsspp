@@ -41,8 +41,10 @@ IMGUI_IMPL_API void         ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_dat
 IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
 IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyDeviceObjects();
 
-IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTexture(Draw::Texture *texture);
-IMGUI_IMPL_API Draw::Texture *ImGui_ImplThin3d_RemoveTexture(ImTextureID texture);
+// These register a texture for imgui drawing, but just for the current frame.
+// Textures are unregistered again in RenderDrawData. This is just simpler.
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer);
 
 void ImGui_PushFixedFont();
 void ImGui_PopFont();

@@ -48,18 +48,17 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 				ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
-				ImGui::TableNextRow();
 
 				auto gprLine = [&](const char *regname, int value) {
-					ImGui::TableSetColumnIndex(0);
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
 					ImGui::TextUnformatted(regname);
-					ImGui::TableSetColumnIndex(1);
+					ImGui::TableNextColumn();
 					ImGui::Text("%08x", value);
 					if (value >= -1000000 && value <= 1000000) {
 						ImGui::TableSetColumnIndex(2);
 						ImGui::Text("%d", value);
 					}
-					ImGui::TableNextRow();
 				};
 				for (int i = 0; i < 32; i++) {
 					gprLine(mipsDebug->GetRegName(0, i).c_str(), mipsDebug->GetGPR32Value(i));
@@ -78,19 +77,27 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 				ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+
+				// fpcond
 				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("fpcond");
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", mipsDebug->GetFPCond());
+
 				for (int i = 0; i < 32; i++) {
 					float fvalue = mipsDebug->GetFPR32Value(i);
 					u32 fivalue;
 					memcpy(&fivalue, &fvalue, sizeof(fivalue));
-					ImGui::TableSetColumnIndex(0);
-					ImGui::TextUnformatted(mipsDebug->GetRegName(1, i).c_str());
-					ImGui::TableSetColumnIndex(1);
-					ImGui::Text("%0.7f", fvalue);
-					ImGui::TableSetColumnIndex(2);
-					ImGui::Text("%08x", fivalue);
 					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(mipsDebug->GetRegName(1, i).c_str());
+					ImGui::TableNextColumn();
+					ImGui::Text("%0.7f", fvalue);
+					ImGui::TableNextColumn();
+					ImGui::Text("%08x", fivalue);
 				}
+
 				ImGui::EndTable();
 			}
 			ImGui::EndTabItem();
@@ -227,7 +234,7 @@ static void DrawKernelObjects(ImConfig &cfg) {
 		ImGui::End();
 		return;
 	}
-	if (ImGui::BeginTable("kos", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("kos", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);

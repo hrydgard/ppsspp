@@ -1012,6 +1012,21 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 	}
 }
 
+class D3D9Framebuffer : public Framebuffer {
+public:
+	D3D9Framebuffer(int width, int height) {
+		width_ = width;
+		height_ = height;
+	}
+	~D3D9Framebuffer();
+
+	uint32_t id = 0;
+	ComPtr<IDirect3DSurface9> surf;
+	ComPtr<IDirect3DSurface9> depthstencil;
+	ComPtr<IDirect3DTexture9> tex;
+	ComPtr<IDirect3DTexture9> depthstenciltex;
+};
+
 D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc) : decl_(NULL) {
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
 	size_t i;
@@ -1195,6 +1210,12 @@ void D3D9Context::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, 
 
 	// Suboptimal!
 	for (int i = 0; i < draws.size(); i++) {
+		if (draws[i].bindTexture) {
+			device_->SetTexture(0, ((D3D9Texture *)draws[i].bindTexture)->TexturePtr());
+		} else if (draws[i].bindFramebufferAsTex) {
+			device_->SetTexture(0, ((D3D9Framebuffer *)draws[i].bindFramebufferAsTex)->tex.Get());
+		}
+
 		RECT rc;
 		rc.left = draws[i].clipx;
 		rc.top = draws[i].clipy;
@@ -1285,21 +1306,6 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 
 	return true;
 }
-
-class D3D9Framebuffer : public Framebuffer {
-public:
-	D3D9Framebuffer(int width, int height) {
-		width_ = width;
-		height_ = height;
-	}
-	~D3D9Framebuffer();
-
-	uint32_t id = 0;
-	ComPtr<IDirect3DSurface9> surf;
-	ComPtr<IDirect3DSurface9> depthstencil;
-	ComPtr<IDirect3DTexture9> tex;
-	ComPtr<IDirect3DTexture9> depthstenciltex;
-};
 
 Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	// Don't think D3D9 does array layers.
