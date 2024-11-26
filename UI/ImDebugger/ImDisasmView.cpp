@@ -440,6 +440,10 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		// INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		onMouseDown(mousePos.x, mousePos.y, 1);
 	}
+	if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+		// INFO_LOG(Log::CPU, "Mousedown %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
+		onMouseDown(mousePos.x, mousePos.y, 2);
+	}
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
 		// INFO_LOG(Log::CPU, "Mouseup %f,%f active:%d hover:%d", mousePos.x, mousePos.y, is_active, is_hovered);
 		if (is_hovered) {
@@ -473,7 +477,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	}
 
 	if (pressed) {
-		INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
+		// INFO_LOG(Log::CPU, "Clicked %f,%f", mousePos.x, mousePos.y);
 		if (mousePos.x < rowHeight_) {  // Left column
 			// Toggle breakpoint at dragAddr_.
 			debugger->toggleBreakpoint(curAddress_);
@@ -807,16 +811,6 @@ void ImDisasmView::PopupMenu() {
 		}
 		ImGui::Separator();
 
-		/*
-		if (ImGui::MenuItem("Edit symbol")) {
-			EditSymbolsWindow esw(wnd, debugger);
-			if (esw.exec()) {
-				esw.eval();
-				SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
-				redraw();
-			}
-		}
-		*/
 		if (ImGui::MenuItem("Set PC to here")) {
 			debugger->setPC(curAddress_);
 		}
@@ -824,8 +818,11 @@ void ImDisasmView::PopupMenu() {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			// g_breakpoints.AddBreakPoint(pos, true);
-			// Core_Resume();
+			g_breakpoints.AddBreakPoint(curAddress_, true);
+			g_breakpoints.SetSkipFirst(curAddress_);
+			if (Core_IsStepping()) {
+				Core_Resume();
+			}
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {

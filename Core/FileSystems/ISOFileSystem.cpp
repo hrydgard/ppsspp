@@ -461,7 +461,7 @@ PSPDevType ISOFileSystem::DevType(u32 handle) {
 	return type;
 }
 
-FileSystemFlags ISOFileSystem::Flags() {
+FileSystemFlags ISOFileSystem::Flags() const {
 	// TODO: Here may be a good place to force things, in case users recompress games
 	// as PBP or CSO when they were originally the other type.
 	return blockDevice->IsDisc() ? FileSystemFlags::UMD : FileSystemFlags::CARD;

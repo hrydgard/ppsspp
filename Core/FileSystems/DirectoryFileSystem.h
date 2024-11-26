@@ -82,10 +82,11 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	FileSystemFlags Flags() override { return flags; }
+	FileSystemFlags Flags() const override { return flags; }
 	u64 FreeDiskSpace(const std::string &path) override;
 
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
+	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "Dir: %s", basePath.c_str()); }
 
 private:
 	struct OpenFileEntry {
@@ -128,10 +129,11 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
-	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
+	FileSystemFlags Flags() const override { return FileSystemFlags::FLASH; }
 	u64 FreeDiskSpace(const std::string &path) override { return 0; }
 
 	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override { return false; }
+	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "VFS: %s", basePath.c_str()); }
 
 private:
 	struct OpenFileEntry {

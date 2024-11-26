@@ -510,14 +510,6 @@ SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop
 	return 0;
 }
 
-bool KernelObjectPool::IsValid(SceUID handle) const {
-	int index = handle - handleOffset;
-	if (index < 0 || index >= maxCount)
-		return false;
-	else
-		return occupied[index];
-}
-
 void KernelObjectPool::Clear() {
 	for (int i = 0; i < maxCount; i++) {
 		// brutally clear everything, no validation
