@@ -4,6 +4,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/RetroAchievements.h"
@@ -230,7 +231,7 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 }
 
 static void DrawKernelObjects(ImConfig &cfg) {
-	if (!ImGui::Begin("Kernel Objects", &cfg.filesystemBrowserOpen)) {
+	if (!ImGui::Begin("Kernel Objects", &cfg.kernelObjectsOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -691,6 +692,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Ge (GPU)")) {
+			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
 			// More to come here...
 			ImGui::EndMenu();
@@ -760,6 +762,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.framebuffersOpen) {
 		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+	}
+
+	if (cfg_.displayOpen) {
+		DrawDisplayWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
 	}
 
 	if (cfg_.structViewerOpen) {
@@ -913,4 +919,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		ImGui::TextUnformatted(disasmView_.StatusBarText().c_str());
 	}
 	ImGui::End();
+}
+
+void ImDebugger::LoadConfig() {
+	IniFile ini;
 }

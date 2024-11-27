@@ -3667,13 +3667,12 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 
 void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 	ImGui::BeginTable("framebuffers", 4);
-	ImGui::TableSetupColumn("Tag");
-	ImGui::TableSetupColumn("Color Addr");
-	ImGui::TableSetupColumn("Depth Addr");
-	ImGui::TableSetupColumn("Size");
+	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
 
 	ImGui::TableHeadersRow();
-	ImGui::TableSetColumnIndex(0);
 
 	for (int i = 0; i < (int)vfbs_.size(); i++) {
 		ImGui::TableNextRow();
@@ -3705,10 +3704,15 @@ void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 	}
 	ImGui::EndTable();
 
+	// Fix out-of-bounds issues when framebuffers are removed.
+	if (selected >= vfbs_.size()) {
+		selected = -1;
+	}
+
 	if (selected != -1) {
 		// Now, draw the image of the selected framebuffer.
 		Draw::Framebuffer *fb = vfbs_[selected]->fbo;
-		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb);
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
 	}
 }

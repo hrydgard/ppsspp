@@ -16,14 +16,18 @@ struct RegisteredTexture {
 	bool isFramebuffer;
 	union {
 		Draw::Texture *texture;
-		Draw::Framebuffer *framebuffer;
+		struct {
+			Draw::Framebuffer *framebuffer;
+			Draw::FBChannel aspect;
+		};
 	};
+	ImGuiPipeline pipeline;
 };
 
 struct BackendData {
 	Draw::SamplerState *fontSampler = nullptr;
 	Draw::Texture *fontImage = nullptr;
-	Draw::Pipeline *pipeline = nullptr;
+	Draw::Pipeline *pipelines[2]{};
 	std::vector<RegisteredTexture> tempTextures;
 };
 
@@ -36,39 +40,6 @@ static BackendData *ImGui_ImplThin3d_GetBackendData() {
 	return ImGui::GetCurrentContext() ? (BackendData *)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
 
-static void ImGui_ImplThin3d_SetupRenderState(Draw::DrawContext *draw, ImDrawData* drawData, Draw::Pipeline *pipeline, int fb_width, int fb_height) {
-	BackendData *bd = ImGui_ImplThin3d_GetBackendData();
-
-	// Bind pipeline and texture
-	draw->BindPipeline(pipeline);
-	draw->BindSamplerStates(0, 1, &bd->fontSampler);
-
-	// Setup viewport
-	{
-		Draw::Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = (float)fb_width;
-		viewport.Height = (float)fb_height;
-		viewport.MinDepth = 0.0f;
-		viewport.MaxDepth = 1.0f;
-		draw->SetViewport(viewport);
-	}
-
-	// Setup scale and translation:
-	// Our visible imgui space lies from drawData->DisplayPps (top left) to drawData->DisplayPos + drawData->DisplaySize (bottom right).
-	// DisplayPos is (0,0) for single viewport apps. We currently ignore DisplayPos.
-	// We probably only need to do this at the start of the frame.
-	{
-		Lin::Matrix4x4 mtx = ComputeOrthoMatrix(drawData->DisplaySize.x, drawData->DisplaySize.y, draw->GetDeviceCaps().coordConvention);
-
-		Draw::VsTexColUB ub{};
-		memcpy(ub.WorldViewProj, mtx.getReadPtr(), sizeof(Lin::Matrix4x4));
-		ub.saturation = 1.0f;
-		draw->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-	}
-}
-
 // Render function
 void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw) {
 	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
@@ -79,9 +50,23 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	}
 
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
+	draw->BindSamplerStates(0, 1, &bd->fontSampler);
 
-	// Setup desired Vulkan state
-	ImGui_ImplThin3d_SetupRenderState(draw, draw_data, bd->pipeline, fb_width, fb_height);
+	// Setup viewport
+	Draw::Viewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = (float)fb_width;
+	viewport.Height = (float)fb_height;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	draw->SetViewport(viewport);
+
+	Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention);
+
+	Draw::VsTexColUB ub{};
+	memcpy(ub.WorldViewProj, mtx.getReadPtr(), sizeof(Lin::Matrix4x4));
+	ub.saturation = 1.0f;
 
 	// Will project scissor/clipping rectangles into framebuffer space
 	ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
@@ -94,6 +79,8 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	std::vector<Draw::ClippedDraw> draws;
 	Draw::Texture *boundTexture;
 	Draw::Framebuffer *boundFBAsTexture;
+	Draw::Pipeline *boundPipeline = bd->pipelines[0];
+	Draw::SamplerState *boundSampler = bd->fontSampler;
 
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
@@ -101,55 +88,56 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 		draws.clear();
 		for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++) {
 			const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-			if (pcmd->UserCallback != nullptr) {
-				// User callback, registered via ImDrawList::AddCallback()
-				// (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-				if (pcmd->UserCallback == ImDrawCallback_ResetRenderState) {
-					ImGui_ImplThin3d_SetupRenderState(draw, draw_data, bd->pipeline, fb_width, fb_height);
-				} else {
-					pcmd->UserCallback(cmd_list, pcmd);
-				}
+			// We don't use the callback mechanism.
+			_dbg_assert_(pcmd->UserCallback == nullptr);
+
+			// Update the texture pointers.
+			if (!pcmd->TextureId) {
+				// Default
+				boundTexture = bd->fontImage;
+				boundFBAsTexture = nullptr;
+				boundPipeline = bd->pipelines[0];
+				boundSampler = bd->fontSampler;
 			} else {
-				// Update the texture pointers.
-				if (!pcmd->TextureId) {
-					boundTexture = bd->fontImage;
-					boundFBAsTexture = nullptr;
+				size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
+				_dbg_assert_(index < bd->tempTextures.size());
+				if (bd->tempTextures[index].framebuffer) {
+					boundFBAsTexture = bd->tempTextures[index].framebuffer;
+					boundTexture = nullptr;
 				} else {
-					size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
-					_dbg_assert_(index < bd->tempTextures.size());
-					if (bd->tempTextures[index].framebuffer) {
-						boundFBAsTexture = bd->tempTextures[index].framebuffer;
-						boundTexture = nullptr;
-					} else {
-						boundTexture = bd->tempTextures[index].texture;
-						boundFBAsTexture = nullptr;
-					}
+					boundTexture = bd->tempTextures[index].texture;
+					boundFBAsTexture = nullptr;
 				}
-				// Project scissor/clipping rectangles into framebuffer space
-				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
-				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
-
-				// Clamp to viewport as vkCmdSetScissor() won't accept values that are off bounds
-				if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
-				if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
-				if (clip_max.x > fb_width) { clip_max.x = (float)fb_width; }
-				if (clip_max.y > fb_height) { clip_max.y = (float)fb_height; }
-				if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-					continue;
-
-				Draw::ClippedDraw clippedDraw;
-				clippedDraw.bindTexture = boundTexture;
-				clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
-				clippedDraw.clipx = clip_min.x;
-				clippedDraw.clipy = clip_min.y;
-				clippedDraw.clipw = clip_max.x - clip_min.x;
-				clippedDraw.cliph = clip_max.y - clip_min.y;
-				clippedDraw.indexCount = pcmd->ElemCount;
-				clippedDraw.indexOffset = pcmd->IdxOffset;
-				draws.push_back(clippedDraw);
+				boundPipeline = bd->pipelines[(int)bd->tempTextures[index].pipeline];
+				boundSampler = bd->fontSampler;
 			}
+
+			// Project scissor/clipping rectangles into framebuffer space
+			ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
+			ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+
+			// Clamp to viewport as vkCmdSetScissor() won't accept values that are off bounds
+			if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
+			if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
+			if (clip_max.x > fb_width) { clip_max.x = (float)fb_width; }
+			if (clip_max.y > fb_height) { clip_max.y = (float)fb_height; }
+			if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+				continue;
+
+			Draw::ClippedDraw clippedDraw;
+			clippedDraw.pipeline = boundPipeline;
+			clippedDraw.bindTexture = boundTexture;
+			clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
+			clippedDraw.samplerState = boundSampler;
+			clippedDraw.clipx = clip_min.x;
+			clippedDraw.clipy = clip_min.y;
+			clippedDraw.clipw = clip_max.x - clip_min.x;
+			clippedDraw.cliph = clip_max.y - clip_min.y;
+			clippedDraw.indexCount = pcmd->ElemCount;
+			clippedDraw.indexOffset = pcmd->IdxOffset;
+			draws.push_back(clippedDraw);
 		}
-		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), draws);
+		draw->DrawIndexedClippedBatchUP(cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.size(), cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.size(), draws, &ub, sizeof(ub));
 	}
 
 	draw->SetScissorRect(0, 0, fb_width, fb_height);
@@ -174,7 +162,7 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		bd->fontSampler = draw->CreateSamplerState(desc);
 	}
 
-	if (!bd->pipeline) {
+	if (!bd->pipelines[0]) {
 		BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 		using namespace Draw;
@@ -193,6 +181,7 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 			BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
 			BlendFactor::ONE, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD,
 			});
+		BlendState *blendOpaque = draw->CreateBlendState({ false, 0xF });
 
 		DepthStencilStateDesc dsDesc{};
 		DepthStencilState *depthStencil = draw->CreateDepthStencilState(dsDesc);
@@ -211,7 +200,15 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 			&vsTexColBufDesc
 		};
 
-		bd->pipeline = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
+		bd->pipelines[0] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
+		pipelineDesc.blend = blendOpaque;
+		bd->pipelines[1] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline-opaque");
+
+		inputLayout->Release();
+		blend->Release();
+		blendOpaque->Release();
+		depthStencil->Release();
+		rasterNoCull->Release();
 	}
 
 	if (!bd->fontImage) {
@@ -247,9 +244,11 @@ void ImGui_ImplThin3d_DestroyDeviceObjects() {
 		bd->fontImage = nullptr;
 		io.Fonts->SetTexID(0);
 	}
-	if (bd->pipeline) {
-		bd->pipeline->Release();
-		bd->pipeline = nullptr;
+	for (int i = 0; i < ARRAY_SIZE(bd->pipelines); i++) {
+		if (bd->pipelines[i]) {
+			bd->pipelines[i]->Release();
+			bd->pipelines[i] = nullptr;
+		}
 	}
 	if (bd->fontSampler) {
 		bd->fontSampler->Release();
@@ -310,21 +309,24 @@ void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatri
 	g_drawMatrix = drawMatrix;
 }
 
-ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture) {
+ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipeline pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 	RegisteredTexture tex{ false };
 	tex.texture = texture;
+	tex.pipeline = pipeline;
 
 	bd->tempTextures.push_back(tex);
 	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);
 }
 
-ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer) {
+ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect, ImGuiPipeline pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 	RegisteredTexture tex{ true };
 	tex.framebuffer = framebuffer;
+	tex.aspect = aspect;
+	tex.pipeline = pipeline;
 
 	bd->tempTextures.push_back(tex);
 	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);

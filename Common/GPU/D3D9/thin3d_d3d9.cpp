@@ -574,7 +574,7 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
-	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -1203,16 +1203,29 @@ void D3D9Context::DrawIndexedUP(const void *vdata, int vertexCount, const void *
 		vdata, curPipeline_->inputLayout->GetStride());
 }
 
-void D3D9Context::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+void D3D9Context::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) {
+	if (draws.is_empty() || !vertexCount || !indexCount) {
+		return;
+	}
+
+	BindPipeline(draws[0].pipeline);
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
+	UpdateDynamicUniformBuffer(ub, ubSize);
 
-	// Suboptimal!
+	// Suboptimal! Should dirty-track textures.
 	for (int i = 0; i < draws.size(); i++) {
+		if (draws[i].pipeline != curPipeline_) {
+			D3D9Pipeline *d3d9Pipeline = (D3D9Pipeline *)draws[i].pipeline;
+			d3d9Pipeline->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
+			curPipeline_ = d3d9Pipeline;
+		}
+
 		if (draws[i].bindTexture) {
 			device_->SetTexture(0, ((D3D9Texture *)draws[i].bindTexture)->TexturePtr());
 		} else if (draws[i].bindFramebufferAsTex) {
+			// We ignore aspect in D3D9 :(
 			device_->SetTexture(0, ((D3D9Framebuffer *)draws[i].bindFramebufferAsTex)->tex.Get());
 		}
 

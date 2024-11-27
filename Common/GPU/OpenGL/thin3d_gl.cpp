@@ -444,7 +444,7 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
-	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -1442,7 +1442,14 @@ void OpenGLContext::DrawIndexedUP(const void *vdata, int vertexCount, const void
 	renderManager_.DrawIndexed(curPipeline_->inputLayout->inputLayout_, vbuf, voffset, ibuf, ioffset, curPipeline_->prim, indexCount, GL_UNSIGNED_SHORT, 1);
 }
 
-void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) {
+	if (draws.is_empty() || !vertexCount || !indexCount) {
+		return;
+	}
+
+	BindPipeline(draws[0].pipeline);
+	UpdateDynamicUniformBuffer(ub, ubSize);
+
 	_assert_(curPipeline_->inputLayout != nullptr);
 	int stride = curPipeline_->inputLayout->stride;
 	uint32_t vdataSize = stride * vertexCount;
@@ -1463,6 +1470,12 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 
 	ApplySamplers();
 	for (auto &draw : draws) {
+		if (draw.pipeline != curPipeline_) {
+			OpenGLPipeline *glPipeline = (OpenGLPipeline *)draw.pipeline;
+			_dbg_assert_(glPipeline->inputLayout->stride == stride);
+			BindPipeline(glPipeline);  // this updated curPipeline_.
+			UpdateDynamicUniformBuffer(ub, ubSize);
+		}
 		if (draw.bindTexture) {
 			renderManager_.BindTexture(0, ((OpenGLTexture *)draw.bindTexture)->GetTex());
 		} else if (draw.bindFramebufferAsTex) {
