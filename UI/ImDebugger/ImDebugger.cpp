@@ -692,6 +692,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Ge (GPU)")) {
+			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
 			// More to come here...
 			ImGui::EndMenu();
@@ -761,6 +762,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.framebuffersOpen) {
 		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+	}
+
+	if (cfg_.displayOpen) {
+		DrawDisplayWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
 	}
 
 	if (cfg_.structViewerOpen) {

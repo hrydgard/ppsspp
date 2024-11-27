@@ -3667,13 +3667,12 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 
 void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 	ImGui::BeginTable("framebuffers", 4);
-	ImGui::TableSetupColumn("Tag");
-	ImGui::TableSetupColumn("Color Addr");
-	ImGui::TableSetupColumn("Depth Addr");
-	ImGui::TableSetupColumn("Size");
+	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Color Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Depth Addr", ImGuiTableColumnFlags_WidthFixed);
+	ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
 
 	ImGui::TableHeadersRow();
-	ImGui::TableSetColumnIndex(0);
 
 	for (int i = 0; i < (int)vfbs_.size(); i++) {
 		ImGui::TableNextRow();

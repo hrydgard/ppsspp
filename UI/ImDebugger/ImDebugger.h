@@ -83,6 +83,8 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
+
+	bool displayLatched = false;
 };
 
 enum ImUiCmd {
