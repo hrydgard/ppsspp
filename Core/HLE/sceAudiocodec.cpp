@@ -36,15 +36,15 @@ struct AudioCodecContext {
 	u32_le inDataSizeAgain;  // 10  ??
 };
 
-// audioList is to store current playing audios.
-static std::map<u32, AudioDecoder *> audioList;
+// g_audioDecoderContexts is to store current playing audios.
+std::map<u32, AudioDecoder *> g_audioDecoderContexts;
 
 static bool oldStateLoaded = false;
 
 // find the audio decoder for corresponding ctxPtr in audioList
 static AudioDecoder *findDecoder(u32 ctxPtr) {
-	auto it = audioList.find(ctxPtr);
-	if (it != audioList.end()) {
+	auto it = g_audioDecoderContexts.find(ctxPtr);
+	if (it != g_audioDecoderContexts.end()) {
 		return it->second;
 	}
 	return NULL;
@@ -52,20 +52,20 @@ static AudioDecoder *findDecoder(u32 ctxPtr) {
 
 // remove decoder from audioList
 static bool removeDecoder(u32 ctxPtr) {
-	auto it = audioList.find(ctxPtr);
-	if (it != audioList.end()) {
+	auto it = g_audioDecoderContexts.find(ctxPtr);
+	if (it != g_audioDecoderContexts.end()) {
 		delete it->second;
-		audioList.erase(it);
+		g_audioDecoderContexts.erase(it);
 		return true;
 	}
 	return false;
 }
 
 static void clearDecoders() {
-	for (const auto &[_, decoder] : audioList) {
+	for (const auto &[_, decoder] : g_audioDecoderContexts) {
 		delete decoder;
 	}
-	audioList.clear();
+	g_audioDecoderContexts.clear();
 }
 
 void __AudioCodecInit() {
@@ -86,9 +86,9 @@ static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 		}
 		AudioDecoder *decoder = CreateAudioDecoder(audioType);
 		decoder->SetCtxPtr(ctxPtr);
-		audioList[ctxPtr] = decoder;
+		g_audioDecoderContexts[ctxPtr] = decoder;
 		INFO_LOG(Log::ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
-		DEBUG_LOG(Log::ME, "Number of playing sceAudioCodec audios : %d", (int)audioList.size());
+		DEBUG_LOG(Log::ME, "Number of playing sceAudioCodec audios : %d", (int)g_audioDecoderContexts.size());
 		return 0;
 	}
 	ERROR_LOG_REPORT(Log::ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
@@ -111,7 +111,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			// Fake it by creating the desired context.
 			decoder = CreateAudioDecoder(audioType);
 			decoder->SetCtxPtr(ctxPtr);
-			audioList[ctxPtr] = decoder;
+			g_audioDecoderContexts[ctxPtr] = decoder;
 		}
 
 		if (decoder != NULL) {
@@ -175,7 +175,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 		return;
 	}
 
-	int count = (int)audioList.size();
+	int count = (int)g_audioDecoderContexts.size();
 	Do(p, count);
 
 	if (count > 0) {
@@ -200,7 +200,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			for (int i = 0; i < count; i++) {
 				auto decoder = CreateAudioDecoder((PSPAudioType)codec_[i]);
 				decoder->SetCtxPtr(ctxPtr_[i]);
-				audioList[ctxPtr_[i]] = decoder;
+				g_audioDecoderContexts[ctxPtr_[i]] = decoder;
 			}
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -217,7 +217,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
 			int i = 0;
-			for (auto iter : audioList) {
+			for (auto iter : g_audioDecoderContexts) {
 				const AudioDecoder *decoder = iter.second;
 				codec_[i] = decoder->GetAudioType();
 				ctxPtr_[i] = decoder->GetCtxPtr();

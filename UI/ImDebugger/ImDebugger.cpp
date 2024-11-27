@@ -14,6 +14,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/HW/SimpleAudioDec.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
@@ -21,6 +22,9 @@
 #include "Common/System/Request.h"
 
 #include "Core/HLE/sceAtrac.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceAudiocodec.h"
+#include "Core/HLE/sceMp3.h"
 #include "Core/HLE/AtracCtx.h"
 
 // Threads window
@@ -439,38 +443,158 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawAtracView(ImConfig &cfg) {
-	if (!ImGui::Begin("sceAtrac contexts", &cfg.atracOpen)) {
+void DrawAudioDecodersView(ImConfig &cfg) {
+	if (!ImGui::Begin("Audio decoding contexts", &cfg.audioDecodersOpen)) {
 		ImGui::End();
 		return;
 	}
 
-	if (ImGui::BeginTable("atracs", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("OutChans", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
+	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("atracs", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("OutChans", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
+
+			ImGui::TableHeadersRow();
+
+			for (int i = 0; i < PSP_NUM_ATRAC_IDS; i++) {
+				u32 type = 0;
+				const AtracBase *atracBase = __AtracGetCtx(i, &type);
+				if (!atracBase) {
+					continue;
+				}
+
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", i);
+				ImGui::TableNextColumn();
+				switch (type) {
+				case PSP_MODE_AT_3_PLUS:
+					ImGui::TextUnformatted("Atrac3+");
+					break;
+				case PSP_MODE_AT_3:
+					ImGui::TextUnformatted("Atrac3");
+					break;
+				default:
+					ImGui::Text("%04x", type);
+					break;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", atracBase->GetOutputChannels());
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", atracBase->CurrentSample());
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", atracBase->RemainingFrames());
+				// TODO: Add more.
+			}
+
+			ImGui::EndTable();
+		}
+	}
+
+	if (ImGui::CollapsingHeader("sceAudiocodec", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("codecs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("CtxAddr", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+
+			for (auto &iter : g_audioDecoderContexts) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", iter.first);
+				ImGui::TableNextColumn();
+				switch (iter.second->GetAudioType()) {
+				case PSP_CODEC_AAC: ImGui::TextUnformatted("AAC"); break;
+				case PSP_CODEC_MP3: ImGui::TextUnformatted("MP3"); break;
+				case PSP_CODEC_AT3PLUS: ImGui::TextUnformatted("Atrac3+"); break;
+				case PSP_CODEC_AT3: ImGui::TextUnformatted("Atrac3"); break;
+				default: ImGui::Text("%08x", iter.second->GetAudioType()); break;
+				}
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	if (ImGui::CollapsingHeader("sceMp3", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("StartPos", ImGuiTableColumnFlags_WidthFixed);
+			// TODO: more..
+
+			for (auto &iter : mp3Map) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.first);
+				if (!iter.second) {
+					continue;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->Channels);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->startPos);
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	ImGui::End();
+}
+
+void DrawAudioChannels(ImConfig &cfg) {
+	if (!ImGui::Begin("Raw audio channels", &cfg.audioChannelsOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::BeginTable("audios", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("SampleAddr", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("SampleCount", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Volume", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Waiting Thread", ImGuiTableColumnFlags_WidthFixed);
 
 		ImGui::TableHeadersRow();
 
-		for (int i = 0; i < PSP_NUM_ATRAC_IDS; i++) {
-			u32 type = 0;
-			const AtracBase *atracBase = __AtracGetCtx(i, &type);
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-
-			if (!atracBase) {
-				ImGui::Text("-", type);
+		// vaudio / output2 uses channel 8.
+		for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
+			if (!chans[i].reserved) {
 				continue;
 			}
-
-			ImGui::Text("%d", type);
+			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text("%d", atracBase->GetOutputChannels());
+			if (i == 8) {
+				ImGui::TextUnformatted("audio2");
+			} else {
+				ImGui::Text("%d", i);
+			}
 			ImGui::TableNextColumn();
-			ImGui::Text("%d", atracBase->CurrentSample());
+			ImGui::Text("%08x", chans[i].sampleAddress);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d", atracBase->RemainingFrames());
+			ImGui::Text("%08x", chans[i].sampleCount);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d | %d", chans[i].leftVolume, chans[i].rightVolume);
+			ImGui::TableNextColumn();
+			switch (chans[i].format) {
+			case PSP_AUDIO_FORMAT_STEREO:
+				ImGui::TextUnformatted("Stereo");
+				break;
+			case PSP_AUDIO_FORMAT_MONO:
+				ImGui::TextUnformatted("Mono");
+				break;
+			default:
+				ImGui::TextUnformatted("UNK: %04x");
+				break;
+			}
+			ImGui::TableNextColumn();
+			for (auto t : chans[i].waitingThreads) {
+				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
+				if (thread) {
+					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
+				}
+			}
 		}
 
 		ImGui::EndTable();
@@ -607,7 +731,13 @@ void DrawHLEModules(ImConfig &config) {
 
 ImDebugger::ImDebugger() {
 	reqToken_ = g_requestManager.GenerateRequesterToken();
+	cfg_.LoadConfig(ConfigPath());
 }
+
+ImDebugger::~ImDebugger() {
+	cfg_.SaveConfig(ConfigPath());
+}
+
 
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
@@ -683,18 +813,22 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("OS HLE")) {
+		if (ImGui::BeginMenu("HLE")) {
 			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
 			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
 			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
 			ImGui::MenuItem("Modules",nullptr,  &cfg_.modulesOpen);
-			ImGui::MenuItem("sceAtrac", nullptr, &cfg_.atracOpen);
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Ge (GPU)")) {
+		if (ImGui::BeginMenu("Graphics")) {
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
 			// More to come here...
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Audio")) {
+			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
+			ImGui::MenuItem("Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Tools")) {
@@ -736,6 +870,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawFilesystemBrowser(cfg_);
 	}
 
+	if (cfg_.audioChannelsOpen) {
+		DrawAudioChannels(cfg_);
+	}
+
 	if (cfg_.kernelObjectsOpen) {
 		DrawKernelObjects(cfg_);
 	}
@@ -752,8 +890,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawModules(mipsDebug, cfg_);
 	}
 
-	if (cfg_.atracOpen) {
-		DrawAtracView(cfg_);
+	if (cfg_.audioDecodersOpen) {
+		DrawAudioDecodersView(cfg_);
 	}
 
 	if (cfg_.hleModulesOpen) {
@@ -921,6 +1059,63 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	ImGui::End();
 }
 
-void ImDebugger::LoadConfig() {
+Path ImDebugger::ConfigPath() {
+	return GetSysDirectory(DIRECTORY_SYSTEM) / "imdebugger.ini";
+}
+
+// TODO: Move this into the main config at some point.
+// But, I don't really want Core to know about the ImDebugger..
+
+void ImConfig::LoadConfig(const Path &iniFile) {
 	IniFile ini;
+	ini.Load(iniFile);  // Ignore return value, might not exist yet. In that case we'll end up loading defaults.
+	SyncConfig(&ini, false);
+}
+
+void ImConfig::SaveConfig(const Path &iniFile) {
+	IniFile ini;
+	ini.Load(iniFile);  // ignore return value, might not exist yet
+	SyncConfig(&ini, true);
+	ini.Save(iniFile);
+}
+
+class Syncer {
+public:
+	explicit Syncer(bool save) : save_(save) {}
+	void SetSection(Section *section) { section_ = section; }
+	template<class T>
+	void Sync(std::string_view key, T *value, T defaultValue) {
+		if (save_) {
+			section_->Set(key, *value);
+		} else {
+			section_->Get(key, value, defaultValue);
+		}
+	}
+private:
+	Section *section_ = nullptr;
+	bool save_;
+};
+
+void ImConfig::SyncConfig(IniFile *ini, bool save) {
+	Syncer sync(save);
+	sync.SetSection(ini->GetOrCreateSection("Windows"));
+	sync.Sync("disasmOpen", &disasmOpen, true);
+	sync.Sync("demoOpen ", &demoOpen, false);
+	sync.Sync("regsOpen", &regsOpen, true);
+	sync.Sync("threadsOpen", &threadsOpen, false);
+	sync.Sync("callstackOpen", &callstackOpen, false);
+	sync.Sync("breakpointsOpen", &breakpointsOpen, false);
+	sync.Sync("modulesOpen", &modulesOpen, false);
+	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
+	sync.Sync("audioDecodersOpen", &audioDecodersOpen, false);
+	sync.Sync("structViewerOpen", &structViewerOpen, false);
+	sync.Sync("framebuffersOpen", &framebuffersOpen, false);
+	sync.Sync("displayOpen", &displayOpen, true);
+	sync.Sync("styleEditorOpen", &styleEditorOpen, false);
+	sync.Sync("filesystemBrowserOpen", &filesystemBrowserOpen, false);
+	sync.Sync("kernelObjectsOpen", &kernelObjectsOpen, false);
+	sync.Sync("audioChannelsOpen", &audioChannelsOpen, false);
+
+	sync.SetSection(ini->GetOrCreateSection("Settings"));
+	sync.Sync("displayLatched", &displayLatched, false);
 }

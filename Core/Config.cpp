@@ -1677,11 +1677,10 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 	}
 
 	// Make sure at least the directory it's supposed to be in exists.
-	Path path = filename.NavigateUp();
-	// This check is just to avoid logging.
-	if (!File::Exists(path)) {
-		File::CreateFullPath(path);
-	}
+	Path parent = filename.NavigateUp();
+
+	// We try to create the path and ignore if it fails (already exists).
+	File::CreateFullPath(parent);
 	return filename;
 }
 
