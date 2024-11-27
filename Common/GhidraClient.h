@@ -104,6 +104,7 @@ public:
 	// Current result of the client. Your thread is safe to access this regardless of client status.
 	Result result;
 
+	GhidraClient() : status_(Status::Idle) {}
 	~GhidraClient();
 
 	//  If client is idle then asynchronously starts fetching data from Ghidra.
