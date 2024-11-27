@@ -36,6 +36,7 @@
 
 #include "Common/Log/StdioListener.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
@@ -254,11 +255,23 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 			file = fileshort + 1;
 	}
 
-	GetCurrentTimeFormatted(message.timestamp);
+	const char *threadName;
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)
+	const char *hostThreadName = GetCurrentThreadName();
+	if (strcmp(hostThreadName, "EmuThread") != 0 || !hleCurrentThreadName) {
+		// Use the host thread name.
+		threadName = hostThreadName;
+	} else {
+		// Use the PSP HLE thread name.
+		threadName = hleCurrentThreadName;
+	}
+#else
+	threadName = hleCurrentThreadName;
+#endif
 
-	if (hleCurrentThreadName) {
+	if (threadName) {
 		snprintf(message.header, sizeof(message.header), "%-12.12s %c[%s]: %s:%d",
-			hleCurrentThreadName, level_to_char[(int)level],
+			threadName, level_to_char[(int)level],
 			log.m_shortName,
 			file, line);
 	} else {
@@ -266,6 +279,8 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 			file, line, level_to_char[(int)level],
 			log.m_shortName);
 	}
+
+	GetCurrentTimeFormatted(message.timestamp);
 
 	char msgBuf[1024];
 	va_list args_copy;
