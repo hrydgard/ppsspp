@@ -705,6 +705,7 @@ struct ClippedDraw {
 	s16 cliph;
 	Draw::Texture *bindTexture;
 	Draw::Framebuffer *bindFramebufferAsTex;
+	Draw::SamplerState *samplerState;
 	Draw::Pipeline *pipeline;
 };
 
@@ -844,7 +845,7 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	virtual void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) = 0;
 	// Intended for ImGui display lists, easier to do optimally this way.
-	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) = 0;
+	virtual void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *dynUniforms, size_t size) = 0;
 
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;

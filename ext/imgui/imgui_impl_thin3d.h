@@ -34,17 +34,22 @@
 #include "Common/Math/lin/matrix4x4.h"
 
 // Called by user code. Takes ownership of the font buffer and later deletes it.
-IMGUI_IMPL_API bool         ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_Shutdown();
-IMGUI_IMPL_API void         ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw);
-IMGUI_IMPL_API bool         ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
-IMGUI_IMPL_API void         ImGui_ImplThin3d_DestroyDeviceObjects();
+IMGUI_IMPL_API bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size);
+IMGUI_IMPL_API void ImGui_ImplThin3d_Shutdown();
+IMGUI_IMPL_API void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatrix);
+IMGUI_IMPL_API void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw);
+IMGUI_IMPL_API bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw);
+IMGUI_IMPL_API void ImGui_ImplThin3d_DestroyDeviceObjects();
+
+enum class ImGuiPipeline {
+	TexturedAlphaBlend = 0,
+	TexturedOpaque = 1,
+};
 
 // These register a texture for imgui drawing, but just for the current frame.
 // Textures are unregistered again in RenderDrawData. This is just simpler.
-IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, Draw::Pipeline *pipeline = nullptr);
-IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect = Draw::FB_COLOR_BIT, Draw::Pipeline *pipeline = nullptr);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipeline pipeline = ImGuiPipeline::TexturedAlphaBlend);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect = Draw::FB_COLOR_BIT, ImGuiPipeline pipeline = ImGuiPipeline::TexturedAlphaBlend);
 
 void ImGui_PushFixedFont();
 void ImGui_PopFont();

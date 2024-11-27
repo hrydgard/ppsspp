@@ -3705,10 +3705,15 @@ void FramebufferManagerCommon::DrawImGuiDebug(int &selected) const {
 	}
 	ImGui::EndTable();
 
+	// Fix out-of-bounds issues when framebuffers are removed.
+	if (selected >= vfbs_.size()) {
+		selected = -1;
+	}
+
 	if (selected != -1) {
 		// Now, draw the image of the selected framebuffer.
 		Draw::Framebuffer *fb = vfbs_[selected]->fbo;
-		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::FB_COLOR_BIT);
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 		ImGui::Image(texId, ImVec2(fb->Width(), fb->Height()));
 	}
 }

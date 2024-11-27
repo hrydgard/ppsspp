@@ -493,7 +493,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
 	// Specialized for quick IMGUI drawing.
-	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw>) override;
+	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw>, const void *dynUniforms, size_t size) override;
 
 	void BindCurrentPipeline();
 	void ApplyDynamicState();
@@ -1557,12 +1557,14 @@ void VKContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *id
 	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, indexCount, 1);
 }
 
-void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws) {
+void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) {
 	_dbg_assert_(vertexCount >= 0);
 	_dbg_assert_(indexCount >= 0);
 	if (vertexCount <= 0 || indexCount <= 0 || draws.is_empty()) {
 		return;
 	}
+
+	curPipeline_ = (VKPipeline *)draws[0].pipeline;
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	size_t vdataSize = vertexCount * curPipeline_->stride;
@@ -1579,6 +1581,8 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 	_assert_(idataPtr != nullptr);
 	memcpy(idataPtr, idata, idataSize);
 
+	curPipeline_->SetDynamicUniformData(ub, ubSize);
+
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	BindCurrentPipeline();
@@ -1589,6 +1593,7 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 			VKPipeline *vkPipe = (VKPipeline *)draw.pipeline;
 			renderManager_.BindPipeline(vkPipe->pipeline, vkPipe->flags, pipelineLayout_);
 			curPipeline_ = (VKPipeline *)draw.pipeline;
+			curPipeline_->SetDynamicUniformData(ub, ubSize);
 		}
 		// TODO: Dirty-check these.
 		if (draw.bindTexture) {
@@ -1596,6 +1601,8 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 		} else if (draw.bindFramebufferAsTex) {
 			BindFramebufferAsTexture(draw.bindFramebufferAsTex, 0, FBChannel::FB_COLOR_BIT, 0);
 		}
+		Draw::SamplerState *sstate = draw.samplerState;
+		BindSamplerStates(0, 1, &sstate);
 		int descSetIndex;
 		PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 		BindDescriptors(vulkanUBObuf, descriptors);
