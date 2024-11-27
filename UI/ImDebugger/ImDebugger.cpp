@@ -14,6 +14,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/HW/SimpleAudioDec.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
@@ -22,6 +23,8 @@
 
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceAudiocodec.h"
+#include "Core/HLE/sceMp3.h"
 #include "Core/HLE/AtracCtx.h"
 
 // Threads window
@@ -490,6 +493,52 @@ void DrawAudioDecodersView(ImConfig &cfg) {
 			ImGui::EndTable();
 		}
 	}
+
+	if (ImGui::CollapsingHeader("sceAudiocodec", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("codecs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("CtxAddr", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+
+			for (auto &iter : g_audioDecoderContexts) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%08x", iter.first);
+				ImGui::TableNextColumn();
+				switch (iter.second->GetAudioType()) {
+				case PSP_CODEC_AAC: ImGui::TextUnformatted("AAC"); break;
+				case PSP_CODEC_MP3: ImGui::TextUnformatted("MP3"); break;
+				case PSP_CODEC_AT3PLUS: ImGui::TextUnformatted("Atrac3+"); break;
+				case PSP_CODEC_AT3: ImGui::TextUnformatted("Atrac3"); break;
+				default: ImGui::Text("%08x", iter.second->GetAudioType()); break;
+				}
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	if (ImGui::CollapsingHeader("sceMp3", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("mp3", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+			ImGui::TableSetupColumn("Handle", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("StartPos", ImGuiTableColumnFlags_WidthFixed);
+			// TODO: more..
+
+			for (auto &iter : mp3Map) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.first);
+				if (!iter.second) {
+					continue;
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->Channels);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", iter.second->startPos);
+			}
+			ImGui::EndTable();
+		}
+	}
+
 	ImGui::End();
 }
 

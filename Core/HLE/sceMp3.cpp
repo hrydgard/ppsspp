@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// Games known to support custom music and almost certainly use sceMp3:
+// Games known to support custom music and almost certainly use sceMp3, unless they use sceAudiocodec:
 //
 // * ATV Offroad Fury: Blazin' Trails
 // * Beats (/PSP/MUSIC)
@@ -147,7 +147,7 @@ public:
 	};
 };
 
-static std::map<u32, AuCtx *> mp3Map;
+std::map<u32, AuCtx *> mp3Map;
 static const int mp3DecodeDelay = 2400;
 static bool resourceInited = false;
 

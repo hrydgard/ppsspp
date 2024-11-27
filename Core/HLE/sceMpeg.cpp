@@ -1532,7 +1532,8 @@ void PostPutAction::run(MipsCall &call) {
 		}
 		if (invalid) {
 			// Bail out early - don't accept any of the packets, even the good ones.
-			ERROR_LOG_REPORT(Log::ME, "sceMpegRingbufferPut(): invalid mpeg data");
+			// This happens during legit playback at the Burnout Legends menu!
+			ERROR_LOG(Log::ME, "sceMpegRingbufferPut(): invalid mpeg data");
 			call.setReturnValue(ERROR_MPEG_INVALID_VALUE);
 
 			if (mpegLibVersion <= 0x0103) {
