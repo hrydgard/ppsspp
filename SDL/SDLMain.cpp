@@ -1,7 +1,3 @@
-// SDL/EGL implementation of the framework.
-// This is quite messy due to platform-specific implementations and #ifdef's.
-// If your platform is not supported, it is suggested to use Qt instead.
-
 #include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
@@ -1495,6 +1491,15 @@ int main(int argc, char *argv[]) {
 #endif
 
 	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+
+	// Check if the path to a directory containing an unpacked ISO is passed as a command line argument
+	for (int i = 1; i < argc; i++) {
+		if (File::IsDirectory(Path(argv[i]))) {
+			// Display the toast warning
+			System_Toast("Warning: Playing unpacked games may cause issues.");
+			break;
+		}
+	}
 
 	if (!mainThreadIsRender) {
 		// Vulkan mode uses this.
