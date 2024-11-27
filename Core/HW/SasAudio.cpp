@@ -28,8 +28,6 @@
 #include "Core/Core.h"
 #include "SasAudio.h"
 
-// #define AUDIO_TO_FILE
-
 static const u8 f[16][2] = {
 	{   0,   0 },
 	{  60,   0 },
@@ -369,9 +367,6 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 }
 
 SasInstance::SasInstance() {
-#ifdef AUDIO_TO_FILE
-	audioDump = fopen("D:\\audio.raw", "wb");
-#endif
 	memset(&waveformEffect, 0, sizeof(waveformEffect));
 	waveformEffect.type = PSP_SAS_EFFECT_TYPE_OFF;
 	waveformEffect.isDryOn = 1;
@@ -660,10 +655,6 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
-
-#ifdef AUDIO_TO_FILE
-	fwrite(Memory::GetPointer(outAddr, grainSize * 2 * 2), 1, grainSize * 2 * 2, audioDump);
-#endif
 }
 
 void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {

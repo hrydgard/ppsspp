@@ -39,12 +39,7 @@
 
 // Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME
-
-//#define DEBUG_SCALER_OUTPUT
-
-#ifdef SCALING_MEASURE_TIME
 #include "Common/TimeUtil.h"
-#endif
 
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
 
@@ -549,41 +544,6 @@ void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int
 #undef B
 #undef A
 
-#ifdef DEBUG_SCALER_OUTPUT
-
-// used for debugging texture scaling (writing textures to files)
-static int g_imgCount = 0;
-void dbgPPM(int w, int h, u8* pixels, const char* prefix = "dbg") { // 3 component RGB
-	char fn[32];
-	snprintf(fn, 32, "%s%04d.ppm", prefix, g_imgCount++);
-	FILE *fp = fopen(fn, "wb");
-	fprintf(fp, "P6\n%d %d\n255\n", w, h);
-	for (int j = 0; j < h; ++j) {
-		for (int i = 0; i < w; ++i) {
-			static unsigned char color[3];
-			color[0] = pixels[(j*w + i) * 4 + 0];  /* red */
-			color[1] = pixels[(j*w + i) * 4 + 1];  /* green */
-			color[2] = pixels[(j*w + i) * 4 + 2];  /* blue */
-			fwrite(color, 1, 3, fp);
-		}
-	}
-	fclose(fp);
-}
-void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 component
-	char fn[32];
-	snprintf(fn, 32, "%s%04d.pgm", prefix, g_imgCount++);
-	FILE *fp = fopen(fn, "wb");
-	fprintf(fp, "P5\n%d %d\n65536\n", w, h);
-	for (int j = 0; j < h; ++j) {
-		for (int i = 0; i < w; ++i) {
-			fwrite((pixels + (j*w + i)), 1, 2, fp);
-		}
-	}
-	fclose(fp);
-}
-
-#endif
-
 }
 
 /////////////////////////////////////// Texture Scaler
@@ -723,7 +683,7 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 	// 3) output = A*C + B*(1-C)
 
 	const static int KERNEL_SPLAT[3][3] = {
-			{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
+		{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
 	};
 
 	bufTmp1.resize(width*height);
