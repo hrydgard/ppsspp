@@ -47,6 +47,7 @@
 #include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Common/SysError.h"
 
 #ifdef _WIN32
@@ -89,6 +90,9 @@
 
 #include <sys/stat.h>
 
+// NOTE: There's another one in DirListing.cpp.
+constexpr bool SIMULATE_SLOW_IO = false;
+
 #ifndef S_ISDIR
 #define S_ISDIR(m)  (((m)&S_IFMT) == S_IFDIR)
 #endif
@@ -111,6 +115,10 @@
 namespace File {
 
 FILE *OpenCFile(const Path &path, const char *mode) {
+	if (SIMULATE_SLOW_IO) {
+		INFO_LOG(Log::System, "OpenCFile %s, %s", path.c_str(), mode);
+		sleep_ms(300, "slow-io-sim");
+	}
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;
@@ -209,6 +217,11 @@ static std::string OpenFlagToString(OpenFlag flags) {
 }
 
 int OpenFD(const Path &path, OpenFlag flags) {
+	if (SIMULATE_SLOW_IO) {
+		INFO_LOG(Log::System, "OpenFD %s, %d", path.c_str(), flags);
+		sleep_ms(300, "slow-io-sim");
+	}
+
 	switch (path.Type()) {
 	case PathType::CONTENT_URI:
 		break;
@@ -302,6 +315,11 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 #endif
 
 std::string ResolvePath(const std::string &path) {
+	if (SIMULATE_SLOW_IO) {
+		INFO_LOG(Log::System, "ResolvePath %s", path.c_str());
+		sleep_ms(100, "slow-io-sim");
+	}
+
 	if (startsWith(path, "http://") || startsWith(path, "https://")) {
 		return path;
 	}
@@ -390,6 +408,11 @@ bool ExistsInDir(const Path &path, const std::string &filename) {
 }
 
 bool Exists(const Path &path) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(200, "slow-io-sim");
+		INFO_LOG(Log::System, "Exists %s", path.c_str());
+	}
+
 	if (path.Type() == PathType::CONTENT_URI) {
 		return Android_FileExists(path.c_str());
 	}
@@ -421,14 +444,19 @@ bool Exists(const Path &path) {
 }
 
 // Returns true if filename exists and is a directory
-bool IsDirectory(const Path &filename) {
-	switch (filename.Type()) {
+bool IsDirectory(const Path &path) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "IsDirectory %s", path.c_str());
+	}
+
+	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
 		FileInfo info;
-		if (!Android_GetFileInfo(filename.ToString(), &info)) {
+		if (!Android_GetFileInfo(path.ToString(), &info)) {
 			return false;
 		}
 		return info.exists && info.isDirectory;
@@ -440,21 +468,21 @@ bool IsDirectory(const Path &filename) {
 #if defined(_WIN32)
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 #if PPSSPP_PLATFORM(UWP)
-	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 #else
-	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+	if (!GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 #endif
 		auto err = GetLastError();
 		if (err != ERROR_FILE_NOT_FOUND) {
-			WARN_LOG(Log::Common, "GetFileAttributes failed on %s: %08x %s", filename.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
+			WARN_LOG(Log::Common, "GetFileAttributes failed on %s: %08x %s", path.ToVisualString().c_str(), (uint32_t)err, GetStringErrorMsg(err).c_str());
 		}
 		return false;
 	}
 	DWORD result = data.dwFileAttributes;
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
-	std::string copy = filename.ToString();
-	struct stat file_info;
+	std::string copy = path.ToString();
+	struct stat file_info{};
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
 		WARN_LOG(Log::Common, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
@@ -467,6 +495,10 @@ bool IsDirectory(const Path &filename) {
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
 bool Delete(const Path &filename) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(200, "slow-io-sim");
+		INFO_LOG(Log::System, "Delete %s", filename.c_str());
+	}
 	switch (filename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
@@ -516,6 +548,10 @@ bool Delete(const Path &filename) {
 
 // Returns true if successful, or path already exists.
 bool CreateDir(const Path &path) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "CreateDir %s", path.c_str());
+	}
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
@@ -557,7 +593,7 @@ bool CreateDir(const Path &path) {
 
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
-		WARN_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		DEBUG_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		return true;
 	}
 	ERROR_LOG(Log::Common, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
@@ -569,7 +605,7 @@ bool CreateDir(const Path &path) {
 
 	int err = errno;
 	if (err == EEXIST) {
-		WARN_LOG(Log::Common, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		DEBUG_LOG(Log::Common, "CreateDir: mkdir failed on %s: already exists", path.c_str());
 		return true;
 	}
 
@@ -625,6 +661,11 @@ bool CreateFullPath(const Path &path) {
 
 // renames file srcFilename to destFilename, returns true on success
 bool Rename(const Path &srcFilename, const Path &destFilename) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "Rename %s -> %s", srcFilename.c_str(), destFilename.c_str());
+	}
+
 	if (srcFilename.Type() != destFilename.Type()) {
 		// Impossible. You're gonna need to make a copy, and delete the original. Not the responsibility
 		// of Rename.
@@ -673,6 +714,10 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 
 // copies file srcFilename to destFilename, returns true on success
 bool Copy(const Path &srcFilename, const Path &destFilename) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "Copy %s -> %s", srcFilename.c_str(), destFilename.c_str());
+	}
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
@@ -771,6 +816,10 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 
 // Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "Move %s -> %s", srcFilename.c_str(), destFilename.c_str());
+	}
 	bool fast = MoveIfFast(srcFilename, destFilename);
 	if (fast) {
 		return true;
@@ -809,6 +858,10 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const Path &filename) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "GetFileSize %s", filename.c_str());
+	}
 	switch (filename.Type()) {
 	case PathType::NATIVE:
 		break; // OK
@@ -915,6 +968,10 @@ bool CreateEmptyFile(const Path &filename) {
 // Deletes an empty directory, returns true on success
 // WARNING: On Android with content URIs, it will delete recursively!
 bool DeleteDir(const Path &path) {
+	if (SIMULATE_SLOW_IO) {
+		sleep_ms(100, "slow-io-sim");
+		INFO_LOG(Log::System, "DeleteDir %s", path.c_str());
+	}
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break; // OK
@@ -1259,7 +1316,7 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 
 void ChangeMTime(const Path &path, time_t mtime) {
 	if (path.Type() == PathType::CONTENT_URI) {
-		// No clue what to do here.
+		// No clue what to do here. There doesn't seem to be a way.
 		return;
 	}
 
