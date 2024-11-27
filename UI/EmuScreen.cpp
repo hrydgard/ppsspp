@@ -1670,6 +1670,7 @@ void EmuScreen::renderImDebugger() {
 		Draw::DrawContext *draw = screenManager()->getDrawContext();
 		if (!imguiInited_) {
 			imguiInited_ = true;
+			ImGui_ImplPlatform_Init(GetSysDirectory(DIRECTORY_SYSTEM) / "imgui.ini");
 			imDebugger_ = std::make_unique<ImDebugger>();
 
 			// Read the TTF font

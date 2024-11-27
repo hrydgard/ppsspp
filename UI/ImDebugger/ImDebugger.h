@@ -58,21 +58,23 @@ private:
 };
 
 struct ImConfig {
-	bool disasmOpen = true;
-	bool demoOpen  = false;
-	bool regsOpen = true;
-	bool threadsOpen = true;
-	bool callstackOpen = true;
-	bool breakpointsOpen = false;
-	bool modulesOpen = true;
-	bool hleModulesOpen = false;
-	bool atracOpen = true;
-	bool structViewerOpen = false;
-	bool framebuffersOpen = false;
-	bool displayOpen = false;
-	bool styleEditorOpen = false;
-	bool filesystemBrowserOpen = false;
-	bool kernelObjectsOpen = false;
+	// Defaults for saved settings are set in SyncConfig.
+
+	bool disasmOpen;
+	bool demoOpen;
+	bool regsOpen;
+	bool threadsOpen;
+	bool callstackOpen;
+	bool breakpointsOpen;
+	bool modulesOpen;
+	bool hleModulesOpen;
+	bool atracOpen;
+	bool structViewerOpen;
+	bool framebuffersOpen;
+	bool displayOpen;
+	bool styleEditorOpen;
+	bool filesystemBrowserOpen;
+	bool kernelObjectsOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -85,6 +87,12 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 
 	bool displayLatched = false;
+
+	// We use a separate ini file from the main PPSSPP config.
+	void LoadConfig(const Path &iniFile);
+	void SaveConfig(const Path &iniFile);
+
+	void SyncConfig(IniFile *ini, bool save);
 };
 
 enum ImUiCmd {
@@ -98,13 +106,12 @@ struct ImUiCommand {
 class ImDebugger {
 public:
 	ImDebugger();
+	~ImDebugger();
 
 	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
 
 private:
-	// We use a separate ini file from the main PPSSPP config.
-	void LoadConfig();
-	void SaveConfig();
+	Path ConfigPath();
 
 	RequesterToken reqToken_;
 
@@ -112,5 +119,5 @@ private:
 	ImStructViewer structViewer_;
 
 	// Open variables.
-	ImConfig cfg_;
+	ImConfig cfg_{};
 };

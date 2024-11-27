@@ -607,7 +607,13 @@ void DrawHLEModules(ImConfig &config) {
 
 ImDebugger::ImDebugger() {
 	reqToken_ = g_requestManager.GenerateRequesterToken();
+	cfg_.LoadConfig(ConfigPath());
 }
+
+ImDebugger::~ImDebugger() {
+	cfg_.SaveConfig(ConfigPath());
+}
+
 
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
@@ -921,6 +927,62 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	ImGui::End();
 }
 
-void ImDebugger::LoadConfig() {
+Path ImDebugger::ConfigPath() {
+	return GetSysDirectory(DIRECTORY_SYSTEM) / "imdebugger.ini";
+}
+
+// TODO: Move this into the main config at some point.
+// But, I don't really want Core to know about the ImDebugger..
+
+void ImConfig::LoadConfig(const Path &iniFile) {
 	IniFile ini;
+	ini.Load(iniFile);  // Ignore return value, might not exist yet. In that case we'll end up loading defaults.
+	SyncConfig(&ini, false);
+}
+
+void ImConfig::SaveConfig(const Path &iniFile) {
+	IniFile ini;
+	ini.Load(iniFile);  // ignore return value, might not exist yet
+	SyncConfig(&ini, true);
+	ini.Save(iniFile);
+}
+
+class Syncer {
+public:
+	explicit Syncer(bool save) : save_(save) {}
+	void SetSection(Section *section) { section_ = section; }
+	template<class T>
+	void Sync(std::string_view key, T *value, T defaultValue) {
+		if (save_) {
+			section_->Set(key, *value);
+		} else {
+			section_->Get(key, value, defaultValue);
+		}
+	}
+private:
+	Section *section_ = nullptr;
+	bool save_;
+};
+
+void ImConfig::SyncConfig(IniFile *ini, bool save) {
+	Syncer sync(save);
+	sync.SetSection(ini->GetOrCreateSection("Windows"));
+	sync.Sync("disasmOpen", &disasmOpen, true);
+	sync.Sync("demoOpen ", &demoOpen, false);
+	sync.Sync("regsOpen", &regsOpen, true);
+	sync.Sync("threadsOpen", &threadsOpen, false);
+	sync.Sync("callstackOpen", &callstackOpen, false);
+	sync.Sync("breakpointsOpen", &breakpointsOpen, false);
+	sync.Sync("modulesOpen", &modulesOpen, false);
+	sync.Sync("hleModulesOpen", &hleModulesOpen, false);
+	sync.Sync("atracOpen", &atracOpen, false);
+	sync.Sync("structViewerOpen", &structViewerOpen, false);
+	sync.Sync("framebuffersOpen", &framebuffersOpen, false);
+	sync.Sync("displayOpen", &displayOpen, true);
+	sync.Sync("styleEditorOpen", &styleEditorOpen, false);
+	sync.Sync("filesystemBrowserOpen", &filesystemBrowserOpen, false);
+	sync.Sync("kernelObjectsOpen", &kernelObjectsOpen, false);
+
+	sync.SetSection(ini->GetOrCreateSection("Settings"));
+	sync.Sync("displayLatched", &displayLatched, false);
 }

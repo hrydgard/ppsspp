@@ -1,8 +1,10 @@
 #include "ext/imgui/imgui.h"
+#include "Common/File/Path.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Log.h"
 
 #include "imgui_impl_platform.h"
@@ -71,6 +73,12 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 		if (touch.buttons & 2)
 			io.AddMouseButtonEvent(1, false);
 	}
+}
+
+void ImGui_ImplPlatform_Init(const Path &configPath) {
+	static char path[1024];
+	truncate_cpy(path, configPath.ToString());
+	ImGui::GetIO().IniFilename = path;
 }
 
 void ImGui_ImplPlatform_AxisEvent(const AxisInput &axis) {
