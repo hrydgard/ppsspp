@@ -954,6 +954,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
+	// This will be overridden by the actual config. But we do want to log during startup.
+	g_Config.bEnableLogging = true;
 	LogManager::Init(&g_Config.bEnableLogging);
 
 	// On Win32 it makes more sense to initialize the system directories here
@@ -961,7 +963,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
 	InitMemstickDirectory();
 	CreateSysDirectories();
-
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
