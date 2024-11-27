@@ -1492,10 +1492,9 @@ int main(int argc, char *argv[]) {
 
 	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
-	// P2cd0
 	// Check if the path to a directory containing an unpacked ISO is passed as a command line argument
 	for (int i = 1; i < argc; i++) {
-		if (File::IsDirectory(argv[i])) {
+		if (File::IsDirectory(Path(argv[i]))) {
 			// Display the toast warning
 			System_Toast("Warning: Playing unpacked games may cause issues.");
 			break;
