@@ -68,13 +68,14 @@ struct ImConfig {
 	bool breakpointsOpen;
 	bool modulesOpen;
 	bool hleModulesOpen;
-	bool atracOpen;
+	bool audioDecodersOpen;
 	bool structViewerOpen;
 	bool framebuffersOpen;
 	bool displayOpen;
 	bool styleEditorOpen;
 	bool filesystemBrowserOpen;
 	bool kernelObjectsOpen;
+	bool audioChannelsOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
