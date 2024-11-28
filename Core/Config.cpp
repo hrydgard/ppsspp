@@ -53,6 +53,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/KeyMap.h"
+#include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -1679,7 +1680,9 @@ const Path Config::FindConfigFile(const std::string &baseFilename) {
 	Path parent = filename.NavigateUp();
 
 	// We try to create the path and ignore if it fails (already exists).
-	File::CreateFullPath(parent);
+	if (parent != GetSysDirectory(DIRECTORY_SYSTEM)) {
+		File::CreateFullPath(parent);
+	}
 	return filename;
 }
 

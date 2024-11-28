@@ -838,10 +838,8 @@ static void InitMemstickDirectory() {
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
 	if (!File::CreateEmptyFile(testFile))
 		g_Config.memStickDirectory = myDocsPath;
-
 	// Clean up our mess.
-	if (File::Exists(testFile))
-		File::Delete(testFile);
+	File::Delete(testFile);
 }
 
 static void WinMainInit() {
