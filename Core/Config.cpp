@@ -603,7 +603,6 @@ static const ConfigSetting graphicsSettings[] = {
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	ConfigSetting("CustomDriver", &g_Config.sCustomDriver, "", CfgFlag::DEFAULT),
 #endif
-	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", CfgFlag::DEFAULT),
 #ifdef _WIN32
