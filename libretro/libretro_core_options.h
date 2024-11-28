@@ -735,7 +735,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address01",
-      "MAC Address Pt  1: X-:--:--:--:--:--",
+      "MAC Address Pt  1: x-:--:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -745,7 +745,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address02",
-      "MAC Address Pt  2: -X:--:--:--:--:--",
+      "MAC Address Pt  2: -x:--:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -755,7 +755,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address03",
-      "MAC Address Pt  3: --:X-:--:--:--:--",
+      "MAC Address Pt  3: --:x-:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -765,7 +765,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address04",
-      "MAC Address Pt  4: --:-X:--:--:--:--",
+      "MAC Address Pt  4: --:-x:--:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -775,7 +775,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address05",
-      "MAC Address Pt  5: --:--:X-:--:--:--",
+      "MAC Address Pt  5: --:--:x-:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -785,7 +785,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address06",
-      "MAC Address Pt  6: --:--:-X:--:--:--",
+      "MAC Address Pt  6: --:--:-x:--:--:--",
       NULL,
       NULL,
       NULL,
@@ -795,7 +795,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address07",
-      "MAC Address Pt  7: --:--:--:X-:--:--",
+      "MAC Address Pt  7: --:--:--:x-:--:--",
       NULL,
       NULL,
       NULL,
@@ -805,7 +805,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address08",
-      "MAC Address Pt  8: --:--:--:-X:--:--",
+      "MAC Address Pt  8: --:--:--:-x:--:--",
       NULL,
       NULL,
       NULL,
@@ -815,7 +815,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address09",
-      "MAC Address Pt  9: --:--:--:--:X-:--",
+      "MAC Address Pt  9: --:--:--:--:x-:--",
       NULL,
       NULL,
       NULL,
@@ -825,7 +825,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address10",
-      "MAC Address Pt 10: --:--:--:--:-X:--",
+      "MAC Address Pt 10: --:--:--:--:-x:--",
       NULL,
       NULL,
       NULL,
@@ -835,7 +835,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address11",
-      "MAC Address Pt 11: --:--:--:--:--:X-",
+      "MAC Address Pt 11: --:--:--:--:--:x-",
       NULL,
       NULL,
       NULL,
@@ -845,7 +845,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_change_mac_address12",
-      "MAC Address Pt 12: --:--:--:--:--:-X",
+      "MAC Address Pt 12: --:--:--:--:--:-x",
       NULL,
       NULL,
       NULL,
