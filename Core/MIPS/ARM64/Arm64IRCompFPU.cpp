@@ -412,6 +412,7 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 			case IRRoundMode::FLOOR_3: rm = RoundingMode::ROUND_M; break;
 			default:
 				_assert_msg_(false, "Invalid rounding mode for FCvtScaledWS");
+				return;
 			}
 
 			// Unfortunately, only Z has a direct scaled instruction.

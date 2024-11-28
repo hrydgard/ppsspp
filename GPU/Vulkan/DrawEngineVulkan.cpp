@@ -246,16 +246,14 @@ void DrawEngineVulkan::DoFlush() {
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
 
-	uint32_t ibOffset;
-	uint32_t vbOffset;
-
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
 	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
 
 	if (useHWTransform) {
+		uint32_t vbOffset;
+
 		VkBuffer vbuf = VK_NULL_HANDLE;
-		VkBuffer ibuf = VK_NULL_HANDLE;
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
@@ -371,9 +369,8 @@ void DrawEngineVulkan::DoFlush() {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
 		if (useElements) {
-			if (!ibuf) {
-				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
-			}
+			VkBuffer ibuf;
+			u32 ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
 			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
 			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
@@ -537,8 +534,8 @@ void DrawEngineVulkan::DoFlush() {
 			PROFILE_THIS_SCOPE("renderman_q");
 
 			VkBuffer vbuf, ibuf;
-			vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
-			ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
+			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
+			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.

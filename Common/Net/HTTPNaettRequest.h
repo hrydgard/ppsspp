@@ -52,7 +52,6 @@ private:
 	bool completed_ = false;
 	bool failed_ = false;
 	bool cancelled_ = false;
-	bool joined_ = false;
 
 	// Naett state
 	naettReq *req_ = nullptr;

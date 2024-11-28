@@ -533,7 +533,7 @@ void DrawAudioDecodersView(ImConfig &cfg) {
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", iter.second->Channels);
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", iter.second->startPos);
+				ImGui::Text("%d", (int)iter.second->startPos);
 			}
 			ImGui::EndTable();
 		}
