@@ -315,6 +315,11 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 }
 
 void ImDisasmView::Draw(ImDrawList *drawList) {
+	auto memLock = Memory::Lock();
+	if (!debugger->isAlive()) {
+		return;
+	}
+
 	// TODO: Don't need to do these every frame.
 	ImGui_PushFixedFont();
 
@@ -354,11 +359,6 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	calculatePixelPositions();
 
 	visibleRows_ = (int)((rect.bottom - rect.top + rowHeight_ - 1.f) / rowHeight_);
-
-	auto memLock = Memory::Lock();
-	if (!debugger->isAlive()) {
-		return;
-	}
 
 	unsigned int address = windowStart_;
 	std::map<u32, float> addressPositions;
@@ -494,7 +494,6 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	PopupMenu();
 
 	drawList->PopClipRect();
-
 }
 
 void ImDisasmView::ScrollRelative(int amount) {
