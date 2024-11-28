@@ -140,14 +140,20 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				std::string tmpPath;
 				section.Get("UIAtlas", &tmpPath, "");
 				if (!tmpPath.empty()) {
-					tmpPath = (path / tmpPath).ToString();
-
-					File::FileInfo tmpInfo;
-					if (g_VFS.GetFileInfo((tmpPath + ".meta").c_str(), &tmpInfo) && g_VFS.GetFileInfo((tmpPath + ".zim").c_str(), &tmpInfo)) {
-						info.sUIAtlas = tmpPath;
+					if (tmpPath == "../ui_atlas") {
+						// Do nothing.
+					} else {
+						// WARNING: Note that the below appears to be entirely broken. ..-navigation doesn't work on zip VFS.
+						INFO_LOG(Log::System, "Checking %s", tmpPath.c_str());
+						tmpPath = (path / tmpPath).ToString();
+						if (g_VFS.Exists((tmpPath + ".meta").c_str()) && g_VFS.Exists((tmpPath + ".zim").c_str())) {
+							// INFO_LOG(Log::System, "%s exists", tmpPath.c_str());
+							info.sUIAtlas = tmpPath;
+						} else {
+							INFO_LOG(Log::System, "%s.meta/zim doesn't exist, not overriding atlas", tmpPath.c_str());
+						}
 					}
 				}
-
 				appendTheme(info);
 			}
 		}

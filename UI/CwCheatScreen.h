@@ -65,5 +65,4 @@ private:
 	std::string gameID_;
 	int fileCheckCounter_ = 0;
 	uint64_t fileCheckHash_ = 0;
-	bool enableAllFlag_ = false;
 };

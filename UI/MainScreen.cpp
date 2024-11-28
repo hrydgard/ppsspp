@@ -1509,7 +1509,6 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	g_Config.Save("MainScreen::OnGameSelected");
 	Path path(e.s);
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
 	if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
@@ -1555,8 +1554,6 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	// TODO: This is really not necessary here in all cases.
-	g_Config.Save("MainScreen::OnGameSelectedInstant");
 	ScreenManager *screen = screenManager();
 	LaunchFile(screen, Path(e.s));
 	return UI::EVENT_DONE;

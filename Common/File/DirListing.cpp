@@ -28,6 +28,8 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidStorage.h"
+#include "Common/TimeUtil.h"
+#include "Common/Log.h"
 
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
@@ -39,6 +41,9 @@
 #define ftello ftell
 #define fileno
 #endif // HAVE_LIBNX
+
+// NOTE: There's another one in FileUtil.cpp.
+constexpr bool SIMULATE_SLOW_IO = false;
 
 namespace File {
 
@@ -52,6 +57,11 @@ static uint64_t FiletimeToStatTime(FILETIME ft) {
 #endif
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
+	if (SIMULATE_SLOW_IO) {
+		INFO_LOG(Log::System, "GetFileInfo %s", path.c_str());
+		sleep_ms(300, "slow-io-sim");
+	}
+
 	switch (path.Type()) {
 	case PathType::NATIVE:
 		break;  // OK
@@ -171,6 +181,11 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 }
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags) {
+	if (SIMULATE_SLOW_IO) {
+		INFO_LOG(Log::System, "GetFilesInDir %s", directory.c_str());
+		sleep_ms(300, "slow-io-sim");
+	}
+
 	if (directory.Type() == PathType::CONTENT_URI) {
 		bool exists = false;
 		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), &exists);
@@ -233,6 +248,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		return false;
 	}
 	do {
+		if (SIMULATE_SLOW_IO) {
+			sleep_ms(100, "slow-io-sim");
+		}
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 		// check for "." and ".."
 		if (!(flags & GETFILES_GET_NAVIGATION_ENTRIES) && (virtualName == "." || virtualName == ".."))
@@ -317,8 +335,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 
 #if PPSSPP_PLATFORM(WINDOWS)
 // Returns a vector with the device names
-std::vector<std::string> GetWindowsDrives()
-{
+std::vector<std::string> GetWindowsDrives() {
 	std::vector<std::string> drives;
 
 #if PPSSPP_PLATFORM(UWP)
@@ -336,16 +353,13 @@ std::vector<std::string> GetWindowsDrives()
 #else
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
 	std::vector<wchar_t> buff(buffsize);
-	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
-	{
+	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1) {
 		auto drive = buff.data();
-		while (*drive)
-		{
+		while (*drive) {
 			std::string str(ConvertWStringToUTF8(drive));
 			str.pop_back();	// we don't want the final backslash
 			str += "/";
 			drives.push_back(str);
-
 			// advance to next drive
 			while (*drive++) {}
 		}
