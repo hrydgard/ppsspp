@@ -978,6 +978,10 @@ std::vector<Path> GameBrowser::GetPinnedPaths() const {
 #else
 	static const std::string sepChars = "/\\";
 #endif
+	if (g_Config.vPinnedPaths.empty()) {
+		// Early-out.
+		return std::vector<Path>();
+	}
 
 	const std::string currentPath = File::ResolvePath(path_.GetPath().ToString());
 	const std::vector<std::string> paths = g_Config.vPinnedPaths;
