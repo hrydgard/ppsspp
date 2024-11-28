@@ -56,6 +56,7 @@ public:
 
 	// Filter support is optional but nice to have
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
+
 	virtual std::string toString() const = 0;
 };
 
@@ -71,6 +72,12 @@ public:
 	uint8_t *ReadFile(const char *filename, size_t *size) override;
 	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
+
+	// Shortcut for cleaner code
+	bool Exists(const char *path) {
+		File::FileInfo info{};
+		return GetFileInfo(path, &info);
+	}
 
 private:
 	struct VFSEntry {
