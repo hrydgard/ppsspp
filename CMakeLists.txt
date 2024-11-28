@@ -1528,6 +1528,8 @@ list(APPEND NativeAppSource
 	UI/ImDebugger/ImGe.h
 	UI/ImDebugger/ImDisasmView.cpp
 	UI/ImDebugger/ImDisasmView.h
+	UI/ImDebugger/ImMemView.cpp
+	UI/ImDebugger/ImMemView.h
 	UI/ImDebugger/ImStructViewer.cpp
 	UI/ImDebugger/ImStructViewer.h
 	UI/DiscordIntegration.cpp

@@ -110,6 +110,9 @@
     <ClCompile Include="ImDebugger\ImGe.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
+    <ClCompile Include="ImDebugger\ImMemView.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -218,6 +221,9 @@
       <Filter>ImDebugger</Filter>
     </ClInclude>
     <ClInclude Include="ImDebugger\ImGe.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImMemView.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
   </ItemGroup>

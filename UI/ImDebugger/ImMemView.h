@@ -1,22 +1,16 @@
 #pragma once
 
-//////////////////////////////////////////////////////////////////////////
-// CtrlMemView
-//////////////////////////////////////////////////////////////////////////
-//To add to a dialog box, just draw a User Control in the dialog editor,
-//and set classname to "CtrlMemView". you also need to call CtrlMemView::init()
-//before opening this dialog, to register the window class.
-//
-//To get a class instance to be able to access it, just use getFrom(HWND wnd).
 
 #include <cstdint>
 #include <vector>
+#include "ext/imgui/imgui.h"
+
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/MemBlockInfo.h"
 
 enum OffsetSpacing {
 	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
-	offsetLine  = 1, // the line on which the offsets should be written
+	offsetLine = 1, // the line on which the offsets should be written
 };
 
 enum CommonToggles {
@@ -24,15 +18,10 @@ enum CommonToggles {
 	Off,
 };
 
-class CtrlMemView
-{
+class ImMemView {
 public:
-	CtrlMemView(HWND _wnd);
-	~CtrlMemView();
-	static void init();
-	static void deinit();
-	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	static CtrlMemView *getFrom(HWND wnd);
+	ImMemView();
+	~ImMemView();
 
 	void setDebugger(DebugInterface *deb) {
 		debugger_ = deb;
@@ -41,21 +30,23 @@ public:
 		return debugger_;
 	}
 	std::vector<u32> searchString(const std::string &searchQuery);
-	void onPaint(WPARAM wParam, LPARAM lParam);
-	void onVScroll(WPARAM wParam, LPARAM lParam);
-	void onKeyDown(WPARAM wParam, LPARAM lParam);
-	void onChar(WPARAM wParam, LPARAM lParam);
-	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);
-	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
-	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
+	void Draw(ImDrawList *drawList);
+	// void onVScroll(WPARAM wParam, LPARAM lParam);
+	// void onKeyDown(WPARAM wParam, LPARAM lParam);
+	void onChar(int c);
+	void onMouseDown(float x, float y, int button);
+	void onMouseUp(float x, float y, int button);
+	void onMouseMove(float x, float y, int button);
 	void redraw();
 	void gotoAddr(unsigned int addr);
 
-	void drawOffsetScale(HDC hdc);
+	void drawOffsetScale(ImDrawList *drawList);
 	void toggleOffsetScale(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
 private:
+	void ProcessKeyboardShortcuts(bool focused);
+
 	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
 	void updateStatusBarText();
 	void search(bool continueSearch);
@@ -76,11 +67,6 @@ private:
 	static wchar_t szClassName[];
 	DebugInterface *debugger_ = nullptr;
 
-	HWND wnd;
-	HFONT font;
-	HFONT underlineFont;
-
-	bool redrawScheduled_ = false;
 	// Whether to draw things using focused styles.
 	bool hasFocus_ = false;
 	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
@@ -118,8 +104,6 @@ private:
 
 	// Number of rows visible as of last redraw.
 	int visibleRows_ = 0;
-	// Position and size as of last redraw.
-	RECT rect_;
 
 	// Last used search query, used when continuing a search.
 	std::string searchQuery_;
@@ -127,4 +111,6 @@ private:
 	uint32_t matchAddress_ = 0xFFFFFFFF;
 	// Whether a search is in progress.
 	bool searching_ = false;
+
+	std::string statusMessage_;
 };
