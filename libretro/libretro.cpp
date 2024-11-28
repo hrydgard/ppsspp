@@ -90,7 +90,6 @@ static struct {
 #define VSYNC_SWAP_INTERVAL_RUN_SPEED_THRESHOLD 5.0f
 
 static bool libretro_supports_bitmasks = false;
-static bool libretro_supports_option_categories = false;
 static bool show_ip_address_options = true;
 static bool show_upnp_port_option = true;
 static bool show_detect_frame_rate_option = true;
@@ -405,7 +404,8 @@ void retro_set_environment(retro_environment_t cb)
 {
    environ_cb = cb;
 
-   libretro_set_core_options(environ_cb, &libretro_supports_option_categories);
+   bool option_categories = false;
+   libretro_set_core_options(environ_cb, &option_categories);
    struct retro_core_options_update_display_callback update_display_cb;
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
@@ -1204,6 +1204,7 @@ static const struct retro_controller_info ports[] =
 void retro_init(void)
 {
    TimeInit();
+   SetCurrentThreadName("Main");
 
    struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
@@ -1291,7 +1292,6 @@ void retro_deinit(void)
    printfLogger = nullptr;
 
    libretro_supports_bitmasks = false;
-   libretro_supports_option_categories = false;
 
    VsyncSwapIntervalReset();
 
@@ -1509,7 +1509,7 @@ bool retro_load_game(const struct retro_game_info *game)
    struct retro_core_option_display option_display;
 
    // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
-   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) ? true : false;
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN);
 #if 0 // see issue #16786
    option_display.key = "ppsspp_mulitsample_level";
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
@@ -1519,7 +1519,7 @@ bool retro_load_game(const struct retro_game_info *game)
 
    // Show/hide 'Buffered Frames' option, Vulkan/GL only
    option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
-         g_Config.iGPUBackend == (int)GPUBackend::OPENGL) ? true : false;
+         g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
    option_display.key = "ppsspp_inflight_frames";
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
