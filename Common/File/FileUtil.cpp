@@ -497,7 +497,6 @@ bool IsDirectory(const Path &path) {
 bool Delete(const Path &filename) {
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(200, "slow-io-sim");
-		INFO_LOG(Log::System, "Delete %s", filename.c_str());
 	}
 	switch (filename.Type()) {
 	case PathType::NATIVE:
