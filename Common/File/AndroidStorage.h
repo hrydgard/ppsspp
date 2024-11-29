@@ -35,6 +35,8 @@ extern std::string g_extFilesDir;
 extern std::string g_externalDir;
 extern std::string g_nativeLibDir;
 
+// Note that we don't use string_view much here because NewStringUTF doesn't have a size parameter.
+
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
 #include <jni.h>
@@ -60,7 +62,7 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath);
 bool Android_IsExternalStoragePreservedLegacy();
 const char *Android_ErrorToString(StorageError error);
 
-std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, bool *exists);
+std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const std::string &prefix, bool *exists);
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
 
@@ -85,7 +87,7 @@ inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return
 inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline bool Android_IsExternalStoragePreservedLegacy() { return false; }
 inline const char *Android_ErrorToString(StorageError error) { return ""; }
-inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, bool *exists) {
+inline std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const std::string &prefix, bool *exists) {
 	*exists = false;
 	return std::vector<File::FileInfo>();
 }

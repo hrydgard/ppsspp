@@ -153,34 +153,37 @@ bool FileInfo::operator <(const FileInfo & other) const {
 		return false;
 }
 
-std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *filter) {
+std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *extensionFilter, std::string_view prefix) {
 	std::set<std::string> filters;
-	if (filter) {
+	if (extensionFilter) {
 		std::string tmp;
-		while (*filter) {
-			if (*filter == ':') {
+		while (*extensionFilter) {
+			if (*extensionFilter == ':') {
 				filters.emplace("." + tmp);
 				tmp.clear();
 			} else {
-				tmp.push_back(*filter);
+				tmp.push_back(*extensionFilter);
 			}
-			filter++;
+			extensionFilter++;
 		}
 		if (!tmp.empty())
 			filters.emplace("." + tmp);
 	}
 
 	auto pred = [&](const File::FileInfo &info) {
-		if (info.isDirectory || !filter)
+		if (info.isDirectory || !extensionFilter)
 			return false;
 		std::string ext = info.fullName.GetFileExtension();
+		if (!startsWith(info.name, prefix)) {
+			return false;
+		}
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
 	return files;
 }
 
-bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags) {
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
 	if (SIMULATE_SLOW_IO) {
 		INFO_LOG(Log::System, "GetFilesInDir %s", directory.c_str());
 		sleep_ms(300, "slow-io-sim");
@@ -188,8 +191,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 
 	if (directory.Type() == PathType::CONTENT_URI) {
 		bool exists = false;
-		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), &exists);
-		*files = ApplyFilter(fileList, filter);
+		// TODO: Move prefix filtering over to the Java side for more speed.
+		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), std::string(prefix), &exists);
+		*files = ApplyFilter(fileList, filter, "");
 		std::sort(files->begin(), files->end());
 		return exists;
 	}
@@ -213,6 +217,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 #if PPSSPP_PLATFORM(WINDOWS)
 	if (directory.IsRoot()) {
 		// Special path that means root of file system.
+		// This does not respect prefix filtering.
 		std::vector<std::string> drives = File::GetWindowsDrives();
 		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
 			if (*drive == "A:/" || *drive == "B:/")
@@ -261,6 +266,10 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 				continue;
 		}
 
+		if (!startsWith(virtualName, prefix)) {
+			continue;
+		}
+
 		FileInfo info;
 		info.name = virtualName;
 		info.fullName = directory / virtualName;
@@ -306,6 +315,10 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		if (!(flags & GETFILES_GETHIDDEN)) {
 			if (virtualName[0] == '.')
 				continue;
+		}
+
+		if (!startsWith(virtualName, prefix)) {
+			continue;
 		}
 
 		// Let's just reuse GetFileInfo. We're calling stat anyway to get isDirectory information.

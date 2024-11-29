@@ -34,7 +34,7 @@ void Android_StorageSetNativeActivity(jobject nativeActivity) {
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
+	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
 	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
@@ -222,18 +222,19 @@ bool Android_FileExists(const std::string &fileUri) {
 	return exists;
 }
 
-std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool *exists) {
+std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const std::string &prefix, bool *exists) {
 	if (!g_nativeActivity) {
 		*exists = false;
-		return std::vector<File::FileInfo>();
+		return {};
 	}
 	auto env = getEnv();
 	*exists = true;
 
 	double start = time_now_d();
 
-	jstring param = env->NewStringUTF(path.c_str());
-	jobject retval = env->CallObjectMethod(g_nativeActivity, listContentUriDir, param);
+	jstring param = env->NewStringUTF(uri.c_str());
+	jstring filter = prefix.empty() ? nullptr : env->NewStringUTF(prefix.c_str());
+	jobject retval = env->CallObjectMethod(g_nativeActivity, listContentUriDir, param, filter);
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;
@@ -245,11 +246,11 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool
 			std::string line = charArray;
 			File::FileInfo info{};
 			if (line == "X") {
-				// Indicates an exception thrown, path doesn't exist.
+				// Indicates an exception thrown, uri doesn't exist.
 				*exists = false;
 			} else if (ParseFileInfo(line, &info)) {
 				// We can just reconstruct the URI.
-				info.fullName = Path(path) / info.name;
+				info.fullName = Path(uri) / info.name;
 				items.push_back(info);
 			}
 		}
@@ -261,7 +262,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool
 	double elapsed = time_now_d() - start;
 	double threshold = 0.1;
 	if (elapsed >= threshold) {
-		INFO_LOG(Log::FileSystem, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", path.c_str(), elapsed, (int)items.size(), threshold);
+		INFO_LOG(Log::FileSystem, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", uri.c_str(), elapsed, (int)items.size(), threshold);
 	}
 	return items;
 }
