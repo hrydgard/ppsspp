@@ -144,6 +144,14 @@ bool Core_IsInactive() {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
 
+static inline void Core_StateProcessed() {
+	if (coreStatePending) {
+		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
+		coreStatePending = false;
+		m_InactiveCond.notify_all();
+	}
+}
+
 void Core_WaitInactive() {
 	while (Core_IsActive() && !GPUStepping::IsStepping()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
@@ -219,21 +227,11 @@ bool UpdateScreenScale(int width, int height) {
 }
 
 // Used by Windows, SDL, Qt.
-void UpdateRunLoop(GraphicsContext *ctx) {
-	NativeFrame(ctx);
-	if (windowHidden && g_Config.bPauseWhenMinimized) {
-		sleep_ms(16, "window-hidden");
-		return;
-	}
-}
-
-// Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16, "window-hidden");
 		return;
 	}
-
 	NativeFrame(ctx);
 }
 
@@ -338,7 +336,7 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 }
 
 void Core_ProcessStepping(MIPSDebugInterface *cpu) {
-	coreStatePending = false;
+	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
@@ -387,6 +385,7 @@ bool Core_Run(GraphicsContext *ctx) {
 	System_Notify(SystemNotification::DISASSEMBLY);
 	while (true) {
 		if (GetUIState() != UISTATE_INGAME) {
+			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
 				// Not sure why we do a final frame here?
 				NativeFrame(ctx);
@@ -405,9 +404,12 @@ bool Core_Run(GraphicsContext *ctx) {
 				return true;
 			}
 			break;
+		case CORE_POWERDOWN:
+			// Need to step the loop.
+			Core_RunLoop(ctx);
+			return true;
 
 		case CORE_POWERUP:
-		case CORE_POWERDOWN:
 		case CORE_BOOT_ERROR:
 		case CORE_RUNTIME_ERROR:
 			// Exit loop!!

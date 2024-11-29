@@ -25,8 +25,7 @@
 
 class GraphicsContext;
 
-// called from emu thread
-void UpdateRunLoop(GraphicsContext *ctx);
+void Core_RunLoop(GraphicsContext *ctx);
 
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);

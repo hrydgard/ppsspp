@@ -695,7 +695,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		UpdateRunLoop(graphicsContext);
+		Core_RunLoop(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -1535,7 +1535,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested || g_RestartRequested)
 			break;
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
-			UpdateRunLoop(graphicsContext);
+			Core_RunLoop(graphicsContext);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
