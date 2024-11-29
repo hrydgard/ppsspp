@@ -682,3 +682,9 @@ int64_t MetaFileSystem::ComputeRecursiveDirectorySize(const std::string &filenam
 		return false;
 	}
 }
+
+bool MetaFileSystem::ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) {
+	// Shouldn't be called. Can't recurse MetaFileSystem.
+	_dbg_assert_(false);
+	return false;
+}

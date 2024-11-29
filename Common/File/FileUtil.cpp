@@ -91,7 +91,12 @@
 #include <sys/stat.h>
 
 // NOTE: There's another one in DirListing.cpp.
+#ifdef _WIN32
 constexpr bool SIMULATE_SLOW_IO = false;
+#else
+constexpr bool SIMULATE_SLOW_IO = false;
+#endif
+constexpr bool LOG_IO = false;
 
 #ifndef S_ISDIR
 #define S_ISDIR(m)  (((m)&S_IFMT) == S_IFDIR)
@@ -115,8 +120,10 @@ constexpr bool SIMULATE_SLOW_IO = false;
 namespace File {
 
 FILE *OpenCFile(const Path &path, const char *mode) {
-	if (SIMULATE_SLOW_IO) {
+	if (LOG_IO) {
 		INFO_LOG(Log::System, "OpenCFile %s, %s", path.c_str(), mode);
+	}
+	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
 	}
 	switch (path.Type()) {
@@ -217,8 +224,10 @@ static std::string OpenFlagToString(OpenFlag flags) {
 }
 
 int OpenFD(const Path &path, OpenFlag flags) {
-	if (SIMULATE_SLOW_IO) {
+	if (LOG_IO) {
 		INFO_LOG(Log::System, "OpenFD %s, %d", path.c_str(), flags);
+	}
+	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
 	}
 
@@ -315,8 +324,10 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 #endif
 
 std::string ResolvePath(const std::string &path) {
-	if (SIMULATE_SLOW_IO) {
+	if (LOG_IO) {
 		INFO_LOG(Log::System, "ResolvePath %s", path.c_str());
+	}
+	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
 	}
 
@@ -408,9 +419,11 @@ bool ExistsInDir(const Path &path, const std::string &filename) {
 }
 
 bool Exists(const Path &path) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "Exists %s", path.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(200, "slow-io-sim");
-		INFO_LOG(Log::System, "Exists %s", path.c_str());
 	}
 
 	if (path.Type() == PathType::CONTENT_URI) {
@@ -445,9 +458,11 @@ bool Exists(const Path &path) {
 
 // Returns true if filename exists and is a directory
 bool IsDirectory(const Path &path) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "IsDirectory %s", path.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
-		INFO_LOG(Log::System, "IsDirectory %s", path.c_str());
 	}
 
 	switch (path.Type()) {
@@ -660,9 +675,11 @@ bool CreateFullPath(const Path &path) {
 
 // renames file srcFilename to destFilename, returns true on success
 bool Rename(const Path &srcFilename, const Path &destFilename) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "Rename %s -> %s", srcFilename.c_str(), destFilename.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
-		INFO_LOG(Log::System, "Rename %s -> %s", srcFilename.c_str(), destFilename.c_str());
 	}
 
 	if (srcFilename.Type() != destFilename.Type()) {
@@ -713,9 +730,11 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 
 // copies file srcFilename to destFilename, returns true on success
 bool Copy(const Path &srcFilename, const Path &destFilename) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "Copy %s -> %s", srcFilename.c_str(), destFilename.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
-		INFO_LOG(Log::System, "Copy %s -> %s", srcFilename.c_str(), destFilename.c_str());
 	}
 	switch (srcFilename.Type()) {
 	case PathType::NATIVE:
@@ -857,9 +876,11 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
 // Returns the size of file (64bit)
 // TODO: Add a way to return an error.
 uint64_t GetFileSize(const Path &filename) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "GetFileSize %s", filename.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
-		INFO_LOG(Log::System, "GetFileSize %s", filename.c_str());
 	}
 	switch (filename.Type()) {
 	case PathType::NATIVE:
@@ -967,9 +988,11 @@ bool CreateEmptyFile(const Path &filename) {
 // Deletes an empty directory, returns true on success
 // WARNING: On Android with content URIs, it will delete recursively!
 bool DeleteDir(const Path &path) {
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "DeleteDir %s", path.c_str());
+	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
-		INFO_LOG(Log::System, "DeleteDir %s", path.c_str());
 	}
 	switch (path.Type()) {
 	case PathType::NATIVE:

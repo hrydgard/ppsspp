@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "Common/CommonTypes.h"
 
 class PointerWrap;
@@ -42,6 +44,9 @@ enum MemStickDriverState {
 
 void MemoryStick_Init();
 void MemoryStick_Shutdown();
+
+void MemoryStick_NotifyGameName(std::string gameName);
+
 void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();
@@ -50,5 +55,5 @@ void MemoryStick_SetState(MemStickState state);
 void MemoryStick_SetFatState(MemStickFatState state);
 
 u64 MemoryStick_SectorSize();
-u64 MemoryStick_FreeSpace();
+u64 MemoryStick_FreeSpace(std::string gameID);
 void MemoryStick_NotifyWrite();
