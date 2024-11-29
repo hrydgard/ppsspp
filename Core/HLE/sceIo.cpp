@@ -675,8 +675,8 @@ void __IoInit() {
 
 	pspFileSystem.Mount("flash0:", flash0System);
 
+	const std::string gameId = g_paramSFO.GetDiscID();
 	if (g_RemasterMode) {
-		const std::string gameId = g_paramSFO.GetDiscID();
 		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
 		if (File::Exists(exdataPath)) {
 			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
@@ -698,7 +698,7 @@ void __IoInit() {
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
-	MemoryStick_Init();
+	MemoryStick_Init(gameId);
 	lastMemStickState = MemoryStick_State();
 	lastMemStickFatState = MemoryStick_FatState();
 	__DisplayListenVblank(__IoVblank);

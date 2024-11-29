@@ -130,10 +130,10 @@ bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
 
 static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thread) {
 	if (thread->type == TaskType::CPU_COMPUTE) {
-		snprintf(thread->name, sizeof(thread->name), "PoolWorker %d", thread->index);
+		snprintf(thread->name, sizeof(thread->name), "PoolW %d", thread->index);
 	} else {
 		_assert_(thread->type == TaskType::IO_BLOCKING);
-		snprintf(thread->name, sizeof(thread->name), "PoolWorkerIO %d", thread->index);
+		snprintf(thread->name, sizeof(thread->name), "PoolW IO %d", thread->index);
 	}
 	SetCurrentThreadName(thread->name);
 

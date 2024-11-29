@@ -23,6 +23,8 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/File/DiskFree.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Compatibility.h"
@@ -158,7 +160,7 @@ void MemoryStick_SetState(MemStickState state) {
 	}
 }
 
-void MemoryStick_Init() {
+void MemoryStick_Init(std::string gameID) {
 	if (g_Config.bMemStickInserted) {
 		memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
 		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
@@ -170,10 +172,19 @@ void MemoryStick_Init() {
 	memStickNeedsAssign = false;
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
+	//if (flags.MemstickFixedFree) {
+
 	// See issue #12761
-	g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, []() -> uint64_t {
-		INFO_LOG(Log::System, "Calculating initial savedata size...");
-		return pspFileSystem.FreeDiskSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
+	g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, [gameID]() -> uint64_t {
+		INFO_LOG(Log::System, "Calculating initial savedata size for %s...", gameID.c_str());
+		// NOTE: We only really need to sum up the diskspace for subfolders related to this game, and add it to the actual free space,
+		// to obtain the free space with the save data removed.
+		// We previously went through the meta file system here, but the memstick is always a directory so no need.
+		Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
+		int64_t freeSpace = 0;
+		free_disk_space(saveFolder, freeSpace);
+		freeSpace += File::ComputeRecursiveDirectorySize(saveFolder);
+		return freeSpace;
 	}, TaskType::IO_BLOCKING);
 }
 

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "Common/CommonTypes.h"
 
 class PointerWrap;
@@ -40,7 +42,7 @@ enum MemStickDriverState {
 	PSP_MEMORYSTICK_STATE_DEVICE_REMOVED  = 8,
 };
 
-void MemoryStick_Init();
+void MemoryStick_Init(std::string gameID);
 void MemoryStick_Shutdown();
 void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
