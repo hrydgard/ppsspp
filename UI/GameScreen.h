@@ -87,7 +87,6 @@ private:
 	UI::Choice *btnCalcCRC_ = nullptr;
 
 	std::vector<UI::Choice *> otherChoices_;
-	std::vector<Path> saveDirs;
 	std::string CRC32string;
 
 	bool isHomebrew_ = false;
