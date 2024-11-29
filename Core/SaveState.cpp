@@ -801,26 +801,24 @@ namespace SaveState
 
 	std::string GetSlotDateAsString(const Path &gameFilename, int slot) {
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		if (File::Exists(fn)) {
-			tm time;
-			if (File::GetModifTime(fn, time)) {
-				char buf[256];
-				// TODO: Use local time format? Americans and some others might not like ISO standard :)
-				switch (g_Config.iDateFormat) {
-				case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
-					break;
-				case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
-					strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
-					break;
-				case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-					strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
-					break;
-				default: // Should never happen
-					return "";
-				}
-				return std::string(buf);
+		tm time;
+		if (File::GetModifTime(fn, time)) {
+			char buf[256];
+			// TODO: Use local time format? Americans and some others might not like ISO standard :)
+			switch (g_Config.iDateFormat) {
+			case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
+				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				break;
+			case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+				strftime(buf, sizeof(buf), "%m-%d-%Y %H:%M:%S", &time);
+				break;
+			case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
+				strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &time);
+				break;
+			default: // Should never happen
+				return "";
 			}
+			return std::string(buf);
 		}
 		return "";
 	}
