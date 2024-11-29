@@ -201,17 +201,18 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() {
 	_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);  // so we know we have the ID.
 	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
-	std::vector<File::FileInfo> dirs;
-	File::GetFilesInDir(memc, &dirs);
-
 	std::vector<Path> directories;
 	if (id.size() < 5) {
+		// Invalid game ID.
 		return directories;
 	}
+
+	std::vector<File::FileInfo> dirs;
+	const std::string &prefix = id;
+	File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
+
 	for (size_t i = 0; i < dirs.size(); i++) {
-		if (startsWith(dirs[i].name, id)) {
-			directories.push_back(dirs[i].fullName);
-		}
+		directories.push_back(dirs[i].fullName);
 	}
 
 	return directories;
@@ -498,10 +499,6 @@ public:
 
 		if (flags_ & GameInfoFlags::FILE_TYPE) {
 			info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
-		}
-
-		if (!info_->Ready(GameInfoFlags::FILE_TYPE) && !(flags_ & GameInfoFlags::FILE_TYPE)) {
-			_dbg_assert_(false);
 		}
 
 		switch (info_->fileType) {
