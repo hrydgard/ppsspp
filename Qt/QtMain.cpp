@@ -482,7 +482,7 @@ void MainUI::EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		updateAccelerometer();
-		UpdateRunLoop(graphicsContext);
+		Core_RunLoop(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
@@ -726,7 +726,7 @@ void MainUI::paintGL() {
 #endif
 	updateAccelerometer();
 	if (emuThreadState == (int)EmuThreadState::DISABLED) {
-		UpdateRunLoop(graphicsContext);
+		Core_RunLoop(graphicsContext);
 	} else {
 		graphicsContext->ThreadFrame();
 		// Do the rest in EmuThreadFunc
