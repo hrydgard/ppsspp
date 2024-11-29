@@ -29,12 +29,14 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/System.h"
+#include "Common/CommonTypes.h"
+#include "Common/Thread/Promise.h"
 
 // MS and FatMS states.
 static MemStickState memStickState;
 static MemStickFatState memStickFatState;
 static bool memStickNeedsAssign = false;
-static u64 memStickInsertedAt = 0;
+static uint64_t memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
 static uint64_t memstickCurrentUse = 0;
 static bool memstickCurrentUseValid = false;
@@ -46,13 +48,10 @@ enum FreeCalcStatus {
 	CLEANED_UP,
 };
 
-static std::thread freeCalcThread;
-static std::condition_variable freeCalcCond;
-static std::mutex freeCalcMutex;
-static FreeCalcStatus freeCalcStatus = FreeCalcStatus::NONE;
+static const uint64_t normalMemstickSize = 9ULL * 1024 * 1024 * 1024;
+static const uint64_t smallMemstickSize = 1ULL * 1024 * 1024 * 1024;
 
-static const u64 normalMemstickSize = 9ULL * 1024 * 1024 * 1024;
-static const u64 smallMemstickSize = 1ULL * 1024 * 1024 * 1024;
+static Promise<uint64_t> *g_initialMemstickSizePromise = nullptr;
 
 void MemoryStick_DoState(PointerWrap &p) {
 	auto s = p.Section("MemoryStick", 1, 5);
@@ -95,36 +94,9 @@ u64 MemoryStick_SectorSize() {
 	return 32 * 1024; // 32KB
 }
 
-static void MemoryStick_CalcInitialFree() {
-	std::unique_lock<std::mutex> guard(freeCalcMutex);
-	freeCalcStatus = FreeCalcStatus::RUNNING;
-	freeCalcThread = std::thread([] {
-		SetCurrentThreadName("CalcInitialFree");
-
-		AndroidJNIThreadContext jniContext;
-
-		memstickInitialFree = pspFileSystem.FreeDiskSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
-
-		std::unique_lock<std::mutex> guard(freeCalcMutex);
-		freeCalcStatus = FreeCalcStatus::DONE;
-		freeCalcCond.notify_all();
-	});
-}
-
-static void MemoryStick_WaitInitialFree() {
-	std::unique_lock<std::mutex> guard(freeCalcMutex);
-	while (freeCalcStatus == FreeCalcStatus::RUNNING) {
-		freeCalcCond.wait(guard);
-	}
-	if (freeCalcStatus == FreeCalcStatus::DONE)
-		freeCalcThread.join();
-	freeCalcStatus = FreeCalcStatus::CLEANED_UP;
-}
-
 u64 MemoryStick_FreeSpace() {
-	NOTICE_LOG(Log::IO, "Calculated free disk space");
-
-	MemoryStick_WaitInitialFree();
+	INFO_LOG(Log::IO, "Calculating free disk space");
+	const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
 	u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
@@ -149,7 +121,9 @@ u64 MemoryStick_FreeSpace() {
 		simulatedFreeSpace = smallMemstickSize / 2;  // just pick a value.
 	}
 	if (flags.MemstickFixedFree) {
+		_dbg_assert_(g_initialMemstickSizePromise);
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
+		// See issue #12761
 		realFreeSpace = 0;
 		if (memstickCurrentUse <= memstickInitialFree) {
 			realFreeSpace = memstickInitialFree - memstickCurrentUse;
@@ -194,9 +168,19 @@ void MemoryStick_Init() {
 	}
 
 	memStickNeedsAssign = false;
-	MemoryStick_CalcInitialFree();
+
+	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
+	// See issue #12761
+	g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, []() -> uint64_t {
+		INFO_LOG(Log::System, "Calculating initial savedata size...");
+		return pspFileSystem.FreeDiskSpace("ms0:/") + pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
+	}, TaskType::IO_BLOCKING);
 }
 
 void MemoryStick_Shutdown() {
-	MemoryStick_WaitInitialFree();
+	if (g_initialMemstickSizePromise) {
+		g_initialMemstickSizePromise->BlockUntilReady();
+	}
+	delete g_initialMemstickSizePromise;
+	g_initialMemstickSizePromise = nullptr;
 }
