@@ -185,7 +185,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
 	if (SIMULATE_SLOW_IO) {
-		INFO_LOG(Log::System, "GetFilesInDir %s", directory.c_str());
+		INFO_LOG(Log::System, "GetFilesInDir %s (ext %s, prefix %.*s)", directory.c_str(), filter, (int)prefix.size(), prefix.data());
 		sleep_ms(300, "slow-io-sim");
 	}
 
@@ -253,9 +253,6 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		return false;
 	}
 	do {
-		if (SIMULATE_SLOW_IO) {
-			sleep_ms(100, "slow-io-sim");
-		}
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 		// check for "." and ".."
 		if (!(flags & GETFILES_GET_NAVIGATION_ENTRIES) && (virtualName == "." || virtualName == ".."))
@@ -268,6 +265,11 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 
 		if (!startsWith(virtualName, prefix)) {
 			continue;
+		}
+
+		if (SIMULATE_SLOW_IO) {
+			INFO_LOG(Log::System, "GetFilesInDir item %s", virtualName.c_str());
+			sleep_ms(50, "slow-io-sim");
 		}
 
 		FileInfo info;
