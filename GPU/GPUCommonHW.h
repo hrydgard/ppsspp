@@ -31,6 +31,9 @@ public:
 	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
 		return framebufferManager_;
 	}
+	TextureCacheCommon *GetTextureCacheCommon() override {
+		return textureCache_;
+	}
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;

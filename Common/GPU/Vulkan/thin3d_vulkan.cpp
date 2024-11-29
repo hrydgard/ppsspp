@@ -1600,6 +1600,8 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 			BindTexture(0, draw.bindTexture);
 		} else if (draw.bindFramebufferAsTex) {
 			BindFramebufferAsTexture(draw.bindFramebufferAsTex, 0, FBChannel::FB_COLOR_BIT, 0);
+		} else if (draw.bindNativeTexture) {
+			BindNativeTexture(0, draw.bindNativeTexture);
 		}
 		Draw::SamplerState *sstate = draw.samplerState;
 		BindSamplerStates(0, 1, &sstate);

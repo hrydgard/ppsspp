@@ -12,9 +12,16 @@ static Lin::Matrix4x4 g_drawMatrix;
 static ImFont *g_proportionalFont = nullptr;
 static ImFont *g_fixedFont = nullptr;
 
+enum class RegisteredTextureType {
+	Framebuffer,
+	Texture,
+	NativeTexture,
+};
+
 struct RegisteredTexture {
-	bool isFramebuffer;
+	RegisteredTextureType type;
 	union {
+		void *nativeTexture;
 		Draw::Texture *texture;
 		struct {
 			Draw::Framebuffer *framebuffer;
@@ -79,6 +86,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	std::vector<Draw::ClippedDraw> draws;
 	Draw::Texture *boundTexture;
 	Draw::Framebuffer *boundFBAsTexture;
+	void *boundNativeTexture;
 	Draw::Pipeline *boundPipeline = bd->pipelines[0];
 	Draw::SamplerState *boundSampler = bd->fontSampler;
 
@@ -95,18 +103,29 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 			if (!pcmd->TextureId) {
 				// Default
 				boundTexture = bd->fontImage;
+				boundNativeTexture = nullptr;
 				boundFBAsTexture = nullptr;
 				boundPipeline = bd->pipelines[0];
 				boundSampler = bd->fontSampler;
 			} else {
 				size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
 				_dbg_assert_(index < bd->tempTextures.size());
-				if (bd->tempTextures[index].framebuffer) {
+				switch (bd->tempTextures[index].type) {
+				case RegisteredTextureType::Framebuffer:
 					boundFBAsTexture = bd->tempTextures[index].framebuffer;
 					boundTexture = nullptr;
-				} else {
+					boundNativeTexture = nullptr;
+					break;
+				case RegisteredTextureType::Texture:
 					boundTexture = bd->tempTextures[index].texture;
 					boundFBAsTexture = nullptr;
+					boundNativeTexture = nullptr;
+					break;
+				case RegisteredTextureType::NativeTexture:
+					boundTexture = nullptr;
+					boundFBAsTexture = nullptr;
+					boundNativeTexture = bd->tempTextures[index].nativeTexture;;
+					break;
 				}
 				boundPipeline = bd->pipelines[(int)bd->tempTextures[index].pipeline];
 				boundSampler = bd->fontSampler;
@@ -128,6 +147,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 			clippedDraw.pipeline = boundPipeline;
 			clippedDraw.bindTexture = boundTexture;
 			clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
+			clippedDraw.bindNativeTexture = boundNativeTexture;
 			clippedDraw.samplerState = boundSampler;
 			clippedDraw.clipx = clip_min.x;
 			clippedDraw.clipy = clip_min.y;
@@ -309,10 +329,21 @@ void ImGui_ImplThin3d_NewFrame(Draw::DrawContext *draw, Lin::Matrix4x4 drawMatri
 	g_drawMatrix = drawMatrix;
 }
 
+ImTextureID ImGui_ImplThin3d_AddNativeTextureTemp(void *texture, ImGuiPipeline pipeline) {
+	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
+
+	RegisteredTexture tex{ RegisteredTextureType::NativeTexture};
+	tex.nativeTexture = texture;
+	tex.pipeline = pipeline;
+
+	bd->tempTextures.push_back(tex);
+	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);
+}
+
 ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipeline pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
-	RegisteredTexture tex{ false };
+	RegisteredTexture tex{ RegisteredTextureType::Texture };
 	tex.texture = texture;
 	tex.pipeline = pipeline;
 
@@ -323,7 +354,7 @@ ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipelin
 ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect, ImGuiPipeline pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
-	RegisteredTexture tex{ true };
+	RegisteredTexture tex{ RegisteredTextureType::Framebuffer };
 	tex.framebuffer = framebuffer;
 	tex.aspect = aspect;
 	tex.pipeline = pipeline;

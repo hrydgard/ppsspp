@@ -38,12 +38,17 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/ge_constants.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "Core/Util/PPGeDraw.h"
+
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
+
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -2473,7 +2478,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	Draw::Viewport viewport{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
 	draw_->SetViewport(viewport);
 
-	draw_->BindNativeTexture(0, GetNativeTextureView(entry));
+	draw_->BindNativeTexture(0, GetNativeTextureView(entry, false));
 	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
 	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
@@ -3055,4 +3060,63 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
+}
+
+void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	auto &style = ImGui::GetStyle();
+	ImGui::BeginChild("left", ImVec2(140.0f, 0.0f), ImGuiChildFlags_ResizeX);
+	float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+
+	for (auto &iter : cache_) {
+		u64 id = iter.first;
+		void *nativeView = GetNativeTextureView(iter.second.get(), true);
+		int w = 128;
+		int h = 128;
+
+		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+		float last_button_x2 = ImGui::GetItemRectMax().x;
+		float next_button_x2 = last_button_x2 + style.ItemSpacing.x + w; // Expected position if next button was on same line
+		if (next_button_x2 < window_visible_x2)
+			ImGui::SameLine();
+
+		float x = ImGui::GetCursorPosX();
+		if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), selectedTextureId == id, 0, ImVec2(w, h))) {
+			selectedTextureId = id; // Update the selected index if clicked
+		}
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(x + 2.0f);
+		ImGui::Image(texId, ImVec2(128, 128));
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	ImGui::BeginChild("right", ImVec2(0.f, 0.0f));
+	if (selectedTextureId) {
+		auto iter = cache_.find(selectedTextureId);
+		if (iter != cache_.end()) {
+			void *nativeView = GetNativeTextureView(iter->second.get(), true);
+			ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+			const TexCacheEntry *entry = iter->second.get();
+			int dim = entry->dim;
+			int w = dimWidth(dim);
+			int h = dimHeight(dim);
+			ImGui::Image(texId, ImVec2(w, h));
+			ImGui::Text("%08x: %dx%d, %d mips, %s", selectedTextureId & 0xFFFFFFFF, w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+			ImGui::Text("Stride: %d", entry->bufw);
+			ImGui::Text("Status: %08x", entry->status);  // TODO: Show the flags
+			ImGui::Text("Hash: %08x", entry->fullhash);
+			ImGui::Text("CLUT Hash: %08x", entry->cluthash);
+			ImGui::Text("Minihash: %08x", entry->minihash);
+			ImGui::Text("MaxSeenV: %08x", entry->maxSeenV);
+			ImGui::Text("Replaced: %s", entry->replacedTexture ? "true" : "false");
+			ImGui::Text("Frames until next full hash: %08x", entry->framesUntilNextFullHash);  // TODO: Show the flags
+		} else {
+			selectedTextureId = 0;
+		}
+	} else {
+		ImGui::Text("(no texture selected)");
+	}
+	ImGui::EndChild();
 }

@@ -433,7 +433,7 @@ void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	textureShaderCache_->DeviceRestore(draw);
 }
 
-void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry) {
+void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry, bool flat) const {
 	GLRTexture *tex = entry->textureName;
 	return (void *)tex;
 }

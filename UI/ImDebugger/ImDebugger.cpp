@@ -822,6 +822,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		}
 		if (ImGui::BeginMenu("Graphics")) {
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
+			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
 			// More to come here...
 			ImGui::EndMenu();
@@ -900,6 +901,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.framebuffersOpen) {
 		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+	}
+
+	if (cfg_.texturesOpen) {
+		DrawTexturesWindow(cfg_, gpuDebug->GetTextureCacheCommon());
 	}
 
 	if (cfg_.displayOpen) {
@@ -1115,6 +1120,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("filesystemBrowserOpen", &filesystemBrowserOpen, false);
 	sync.Sync("kernelObjectsOpen", &kernelObjectsOpen, false);
 	sync.Sync("audioChannelsOpen", &audioChannelsOpen, false);
+	sync.Sync("texturesOpen", &texturesOpen, false);
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);

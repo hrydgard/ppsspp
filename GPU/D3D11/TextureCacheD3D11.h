@@ -61,7 +61,7 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
 	void ApplySamplingParams(const SamplerCacheKey &key) override;
-	void *GetNativeTextureView(const TexCacheEntry *entry) override;
+	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 private:
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
@@ -72,10 +72,10 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 
-	ID3D11Resource *&DxTex(const TexCacheEntry *entry) {
+	ID3D11Resource *&DxTex(const TexCacheEntry *entry) const {
 		return (ID3D11Resource *&)entry->texturePtr;
 	}
-	ID3D11ShaderResourceView *DxView(const TexCacheEntry *entry) {
+	ID3D11ShaderResourceView *DxView(const TexCacheEntry *entry) const {
 		return (ID3D11ShaderResourceView *)entry->textureView;
 	}
 
