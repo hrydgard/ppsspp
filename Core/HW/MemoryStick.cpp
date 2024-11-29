@@ -25,6 +25,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/DiskFree.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Compatibility.h"
@@ -96,8 +97,20 @@ u64 MemoryStick_SectorSize() {
 	return 32 * 1024; // 32KB
 }
 
-u64 MemoryStick_FreeSpace() {
-	INFO_LOG(Log::IO, "Calculating free disk space");
+static uint64_t ComputeSizeOfSavedataForGame(const Path &saveFolder, const std::string_view gameID) {
+	uint64_t space = 0;
+	std::vector<File::FileInfo> subDirs;
+	File::GetFilesInDir(saveFolder, &subDirs, nullptr, 0, gameID);  // gameID as directory prefix.
+	for (auto &dir : subDirs) {
+		if (!dir.isDirectory)
+			continue;
+		space += File::ComputeRecursiveDirectorySize(saveFolder / dir.name);
+	}
+	return space;
+}
+
+u64 MemoryStick_FreeSpace(std::string gameID) {
+	INFO_LOG(Log::IO, "Calculating free disk space (%s)", gameID.c_str());
 	const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
@@ -108,9 +121,10 @@ u64 MemoryStick_FreeSpace() {
 	// We have a compat setting to make it even smaller for Harry Potter : Goblet of Fire, see #13266.
 	const u64 memStickSize = flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
 
-	// Assume the memory stick is only used to store savedata.
+	// Assume the memory stick is only used to store savedata, for the current game only.
 	if (!memstickCurrentUseValid) {
-		memstickCurrentUse = pspFileSystem.ComputeRecursiveDirectorySize("ms0:/PSP/SAVEDATA/");
+		Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
+		memstickCurrentUse = ComputeSizeOfSavedataForGame(saveFolder, gameID);
 		memstickCurrentUseValid = true;
 	}
 
@@ -160,7 +174,29 @@ void MemoryStick_SetState(MemStickState state) {
 	}
 }
 
-void MemoryStick_Init(std::string gameID) {
+void MemoryStick_NotifyGameName(std::string gameID) {
+	// const CompatFlags &flags = PSP_CoreParameter().compat.flags();
+	//if (flags.MemstickFixedFree) {
+	// See issue #12761
+
+	if (!g_initialMemstickSizePromise) {
+		g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, [gameID]() -> uint64_t {
+			INFO_LOG(Log::System, "Calculating initial savedata size for %s...", gameID.c_str());
+			// NOTE: We only really need to sum up the diskspace for subfolders related to this game, and add it to the actual free space,
+			// to obtain the free space with the save data removed.
+			// We previously went through the meta file system here, but the memstick is always a directory so no need.
+			Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
+			int64_t freeSpace = 0;
+			free_disk_space(saveFolder, freeSpace);
+
+			// Only add the space of the folders that the game itself touches.
+			freeSpace += ComputeSizeOfSavedataForGame(saveFolder, gameID);
+			return freeSpace;
+		}, TaskType::IO_BLOCKING);
+	}
+}
+
+void MemoryStick_Init() {
 	if (g_Config.bMemStickInserted) {
 		memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
 		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
@@ -170,22 +206,6 @@ void MemoryStick_Init(std::string gameID) {
 	}
 
 	memStickNeedsAssign = false;
-
-	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
-	//if (flags.MemstickFixedFree) {
-
-	// See issue #12761
-	g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, [gameID]() -> uint64_t {
-		INFO_LOG(Log::System, "Calculating initial savedata size for %s...", gameID.c_str());
-		// NOTE: We only really need to sum up the diskspace for subfolders related to this game, and add it to the actual free space,
-		// to obtain the free space with the save data removed.
-		// We previously went through the meta file system here, but the memstick is always a directory so no need.
-		Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
-		int64_t freeSpace = 0;
-		free_disk_space(saveFolder, freeSpace);
-		freeSpace += File::ComputeRecursiveDirectorySize(saveFolder);
-		return freeSpace;
-	}, TaskType::IO_BLOCKING);
 }
 
 void MemoryStick_Shutdown() {

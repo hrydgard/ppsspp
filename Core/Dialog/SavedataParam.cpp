@@ -327,7 +327,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 	}
 
 	// Sanity check, preventing full delete of savedata/ in MGS PW demo (!)
-	if (!strlen(param->gameName) && param->mode != SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
+	if (!strnlen(param->gameName, sizeof(param->gameName)) && param->mode != SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {
 		ERROR_LOG(Log::sceUtility, "Bad param with gameName empty - cannot delete save directory");
 		return false;
 	}
@@ -1119,17 +1119,15 @@ inline std::string FmtPspTime(const ScePspDateTime &dt) {
 	return StringFromFormat("%04d-%02d-%02d %02d:%02d:%02d.%06d", dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond);
 }
 
-int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
-{
+int SavedataParam::GetSizes(SceUtilitySavedataParam *param) {
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 	}
 
 	int ret = 0;
-
 	if (param->msFree.IsValid())
 	{
-		const u64 freeBytes = MemoryStick_FreeSpace();
+		const u64 freeBytes = MemoryStick_FreeSpace(GetGameName(param));
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
 		param->msFree->freeClusters = (u32)(freeBytes / MemoryStick_SectorSize());
 		param->msFree->freeSpaceKB = (u32)(freeBytes / 0x400);
@@ -1419,7 +1417,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 
 	if (param->sizeInfo.IsValid()) {
 		auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
-		const u64 freeBytes = MemoryStick_FreeSpace();
+		const u64 freeBytes = MemoryStick_FreeSpace(GetGameName(param));
 
 		s64 overwriteBytes = 0;
 		s64 writeBytes = 0;
@@ -1509,6 +1507,11 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	if (!pspParam) {
 		Clear();
 		return 0;
+	}
+
+	std::string gameName = GetGameName(param);
+	if (!gameName.empty()) {
+		MemoryStick_NotifyGameName(gameName);
 	}
 
 	if (param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTALLDELETE) {

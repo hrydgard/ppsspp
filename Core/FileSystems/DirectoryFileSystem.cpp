@@ -366,12 +366,15 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Disk full while writing data"), 0.0f, "diskfull");
 		// We only return an error when the disk is actually full.
 		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
-		if (MemoryStick_FreeSpace() == 0) {
-			// Sign extend on 64-bit.
-			return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+		Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
+		int64_t space;
+		if (free_disk_space(saveFolder, space)) {
+			if (space < size) {
+				// Sign extend to a 64-bit value.
+				return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+			}
 		}
 	}
-
 	return bytesWritten;
 }
 
