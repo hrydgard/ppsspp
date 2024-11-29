@@ -441,13 +441,11 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
 	std::size_t lslash = homebrewName.find_last_of('/');
-#if PPSSPP_PLATFORM(UWP)
-	if (lslash == homebrewName.npos) {
-		lslash = homebrewName.find_last_of("\\");
-	}
-#endif
+	std::size_t rslash = homebrewName.find_last_of('\\');
 	if (lslash != homebrewName.npos)
 		homebrewName = homebrewName.substr(lslash + 1);
+	if (rslash != homebrewName.npos)
+		homebrewName = homebrewName.substr(rslash + 1);
 	std::string homebrewTitle = g_paramSFO.GetValueString("TITLE");
 	if (homebrewTitle.empty())
 		homebrewTitle = homebrewName;
