@@ -585,11 +585,11 @@ public:
 	bool loadGameConfig(const std::string &game_id, const std::string &title);
 	bool saveGameConfig(const std::string &pGameId, const std::string &title);
 	void unloadGameConfig();
-	Path getGameConfigFile(const std::string &gameId);
+	Path getGameConfigFile(const std::string &gameId, bool *exists);
 	bool hasGameConfig(const std::string &game_id);
 
 	void SetSearchPath(const Path &path);
-	const Path FindConfigFile(const std::string &baseFilename);
+	const Path FindConfigFile(const std::string &baseFilename, bool *exists);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
