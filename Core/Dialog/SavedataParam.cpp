@@ -1228,6 +1228,8 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 		std::vector<PSPFileInfo> validDir;
 		std::vector<PSPFileInfo> sfoFiles;
+
+		// TODO: Here we can filter by prefix - only the savename in param is likely to be a regex.
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
 		std::string searchString = GetGameName(param) + GetSaveName(param);

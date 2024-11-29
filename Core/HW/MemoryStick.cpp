@@ -111,7 +111,6 @@ static uint64_t ComputeSizeOfSavedataForGame(const Path &saveFolder, const std::
 
 u64 MemoryStick_FreeSpace(std::string gameID) {
 	INFO_LOG(Log::IO, "Calculating free disk space (%s)", gameID.c_str());
-	const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
 	u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
@@ -137,6 +136,7 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 		simulatedFreeSpace = smallMemstickSize / 2;  // just pick a value.
 	}
 	if (flags.MemstickFixedFree) {
+		const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 		_dbg_assert_(g_initialMemstickSizePromise);
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
 		// See issue #12761
@@ -175,10 +175,12 @@ void MemoryStick_SetState(MemStickState state) {
 }
 
 void MemoryStick_NotifyGameName(std::string gameID) {
-	// const CompatFlags &flags = PSP_CoreParameter().compat.flags();
-	//if (flags.MemstickFixedFree) {
-	// See issue #12761
+	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
+	if (!flags.MemstickFixedFree) {
+		return;
+	}
 
+	// See issue #12761
 	if (!g_initialMemstickSizePromise) {
 		g_initialMemstickSizePromise = Promise<uint64_t>::Spawn(&g_threadManager, [gameID]() -> uint64_t {
 			INFO_LOG(Log::System, "Calculating initial savedata size for %s...", gameID.c_str());
