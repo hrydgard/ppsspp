@@ -665,9 +665,7 @@ bool CreateFullPath(const Path &path) {
 	Path curPath = root;
 	for (auto part : parts) {
 		curPath /= part;
-		if (!File::Exists(curPath)) {
-			File::CreateDir(curPath);
-		}
+		File::CreateDir(curPath);
 	}
 
 	return true;
