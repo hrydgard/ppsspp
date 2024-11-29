@@ -144,16 +144,7 @@ public:
 
 	int64_t ComputeRecursiveDirectorySize(const std::string &dirPath);
 
-	// Shouldn't ever be called, but meh.
-	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override {
-		int64_t sizeTemp = ComputeRecursiveDirectorySize(path);
-		if (sizeTemp >= 0) {
-			*size = sizeTemp;
-			return true;
-		} else {
-			return false;
-		}
-	}
+	bool ComputeRecursiveDirSizeIfFast(const std::string &path, int64_t *size) override;
 
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "Meta"); }
 
