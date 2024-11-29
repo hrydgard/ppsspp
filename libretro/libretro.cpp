@@ -1610,19 +1610,22 @@ static void retro_input(void)
    float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
 
-   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
-   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
-
-   // Analog circle vs square gate compensation
-   // copied from ControlMapper.cpp's ConvertAnalogStick function
+   // Analog circle vs square gate compensation,
+   // deadzone and sensitivity copied from ControlMapper.cpp's
+   // ConvertAnalogStick and MapAxisValue functions
    const bool isCircular = g_Config.bAnalogIsCircular;
 
    float norm = std::max(fabsf(x_left), fabsf(y_left));
 
    if (norm == 0.0f)
+   {
+      __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+      __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
       return;
+   }
 
-   if (isCircular) {
+   if (isCircular)
+   {
       float newNorm = sqrtf(x_left * x_left + y_left * y_left);
       float factor = newNorm / norm;
       x_left *= factor;
@@ -1630,7 +1633,18 @@ static void retro_input(void)
       norm = newNorm;
    }
 
+   const float deadzone = g_Config.fAnalogDeadzone;
+   const float sensitivity = g_Config.fAnalogSensitivity;
+   const float sign = norm >= 0.0f ? 1.0f : -1.0f;
    float mappedNorm = norm;
+
+   // Apply deadzone
+   mappedNorm = Libretro::clamp((fabsf(mappedNorm) - deadzone) / (1.0f - deadzone), 0.0f, 1.0f);
+
+   // Apply sensitivity
+   if (mappedNorm != 0.0f)
+      mappedNorm = Libretro::clamp(mappedNorm * sensitivity * sign, -1.0f, 1.0f);
+
    x_left = Libretro::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
    y_left = Libretro::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
 
