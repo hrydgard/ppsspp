@@ -43,7 +43,12 @@
 #endif // HAVE_LIBNX
 
 // NOTE: There's another one in FileUtil.cpp.
+#ifdef _WIN32
 constexpr bool SIMULATE_SLOW_IO = false;
+#else
+constexpr bool SIMULATE_SLOW_IO = false;
+#endif
+constexpr bool LOG_IO = false;
 
 namespace File {
 
@@ -57,8 +62,10 @@ static uint64_t FiletimeToStatTime(FILETIME ft) {
 #endif
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
-	if (SIMULATE_SLOW_IO) {
+	if (LOG_IO) {
 		INFO_LOG(Log::System, "GetFileInfo %s", path.c_str());
+	}
+	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
 	}
 
@@ -184,8 +191,10 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 }
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
-	if (SIMULATE_SLOW_IO) {
+	if (LOG_IO) {
 		INFO_LOG(Log::System, "GetFilesInDir %s (ext %s, prefix %.*s)", directory.c_str(), filter, (int)prefix.size(), prefix.data());
+	}
+	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
 	}
 
@@ -267,10 +276,12 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 			continue;
 		}
 
+		/*
 		if (SIMULATE_SLOW_IO) {
 			INFO_LOG(Log::System, "GetFilesInDir item %s", virtualName.c_str());
 			sleep_ms(50, "slow-io-sim");
 		}
+		*/
 
 		FileInfo info;
 		info.name = virtualName;
@@ -345,6 +356,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	closedir(dirp);
 #endif
 	std::sort(files->begin(), files->end());
+	if (LOG_IO) {
+		INFO_LOG(Log::System, "GetFilesInDir: Found %d files", (int)files->size());
+	}
 	return true;
 }
 
