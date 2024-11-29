@@ -3,6 +3,7 @@
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
 
@@ -13,6 +14,17 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 	}
 
 	framebufferManager->DrawImGuiDebug(cfg.selectedFramebuffer);
+
+	ImGui::End();
+}
+
+void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
+	if (!ImGui::Begin("Textures", &cfg.texturesOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	textureCache->DrawImGuiDebug(cfg.selectedTexAddr);
 
 	ImGui::End();
 }

@@ -379,8 +379,10 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
+	virtual void DrawImGuiDebug(uint64_t &selectedTextureId) const;
+
 protected:
-	virtual void *GetNativeTextureView(const TexCacheEntry *entry) = 0;
+	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;

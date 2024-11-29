@@ -71,6 +71,7 @@ struct ImConfig {
 	bool audioDecodersOpen;
 	bool structViewerOpen;
 	bool framebuffersOpen;
+	bool texturesOpen;
 	bool displayOpen;
 	bool styleEditorOpen;
 	bool filesystemBrowserOpen;
@@ -86,6 +87,7 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
+	uint64_t selectedTexAddr = 0;
 
 	bool displayLatched = false;
 

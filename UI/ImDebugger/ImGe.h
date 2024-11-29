@@ -5,8 +5,10 @@
 struct ImConfig;
 
 class FramebufferManagerCommon;
+class TextureCacheCommon;
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
+void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 
 class ImGeDebugger {

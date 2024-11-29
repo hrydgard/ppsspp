@@ -705,6 +705,7 @@ struct ClippedDraw {
 	s16 cliph;
 	Draw::Texture *bindTexture;
 	Draw::Framebuffer *bindFramebufferAsTex;
+	void *bindNativeTexture;
 	Draw::SamplerState *samplerState;
 	Draw::Pipeline *pipeline;
 };
@@ -822,6 +823,8 @@ public:
 	// Data types:
 	// * Vulkan: VkImageView
 	// * D3D11: ID3D11ShaderResourceView*
+	// * OpenGL: GLRTexture
+	// * D3D9: LPDIRECT3DTEXTURE9
 	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.

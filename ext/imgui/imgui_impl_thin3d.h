@@ -49,6 +49,7 @@ enum class ImGuiPipeline {
 // These register a texture for imgui drawing, but just for the current frame.
 // Textures are unregistered again in RenderDrawData. This is just simpler.
 IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipeline pipeline = ImGuiPipeline::TexturedAlphaBlend);
+IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddNativeTextureTemp(void *texture, ImGuiPipeline pipeline = ImGuiPipeline::TexturedAlphaBlend);
 IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect = Draw::FB_COLOR_BIT, ImGuiPipeline pipeline = ImGuiPipeline::TexturedAlphaBlend);
 
 void ImGui_PushFixedFont();
