@@ -56,6 +56,10 @@ public:
 
 	// Filter support is optional but nice to have
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
+	virtual bool Exists(const char *path) {
+		File::FileInfo info{};
+		return GetFileInfo(path, &info) && info.exists;
+	}
 
 	virtual std::string toString() const = 0;
 };
@@ -70,14 +74,10 @@ public:
 	// Always allocates an extra zero byte at the end, so that it
 	// can be used for text like shader sources.
 	uint8_t *ReadFile(const char *filename, size_t *size) override;
-	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) override;
 
-	// Shortcut for cleaner code
-	bool Exists(const char *path) {
-		File::FileInfo info{};
-		return GetFileInfo(path, &info);
-	}
+	bool GetFileInfo(const char *filename, File::FileInfo *fileInfo);
+	bool Exists(const char *path);
 
 private:
 	struct VFSEntry {

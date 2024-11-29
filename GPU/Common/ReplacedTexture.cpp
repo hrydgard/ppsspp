@@ -225,7 +225,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		VFSFileReference *fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
 		if (!fileRef) {
 			if (i == 0) {
-				INFO_LOG(Log::G3D, "Texture replacement file '%s' not found", desc_.filenames[i].c_str());
+				INFO_LOG(Log::G3D, "Texture replacement file '%s' not found in %s", desc_.filenames[i].c_str(), vfs_->toString().c_str());
 				// No file at all. Mark as NOT_FOUND.
 				SetState(ReplacementState::NOT_FOUND);
 				return;

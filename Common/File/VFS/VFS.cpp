@@ -118,3 +118,29 @@ bool VFS::GetFileInfo(const char *path, File::FileInfo *info) {
 	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
+
+bool VFS::Exists(const char *path) {
+	if (IsLocalAbsolutePath(path)) {
+		// Local path, not VFS.
+		// INFO_LOG(Log::IO, "Not a VFS path: %s . Getting local file info.", path);
+		return File::Exists(Path(std::string(path)));
+	}
+
+	bool fileSystemFound = false;
+	int fn_len = (int)strlen(path);
+	for (const auto &entry : entries_) {
+		int prefix_len = (int)strlen(entry.prefix);
+		if (prefix_len >= fn_len) continue;
+		if (0 == memcmp(path, entry.prefix, prefix_len)) {
+			fileSystemFound = true;
+			if (entry.reader->Exists(path + prefix_len))
+				return true;
+			else
+				continue;
+		}
+	}
+	if (!fileSystemFound) {
+		ERROR_LOG(Log::IO, "Missing filesystem for '%s'", path);
+	}  // Otherwise, the file was just missing. No need to log.
+	return false;
+}
