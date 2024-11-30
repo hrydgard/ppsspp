@@ -269,6 +269,8 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 }
 
 bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride) {
+	INFO_LOG(Log::G3D, "Loading ini file...");
+
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
 	options->Get("hash", &hash, "");
