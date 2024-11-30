@@ -32,6 +32,11 @@ bool DirectoryReader::GetFileInfo(const char *path, File::FileInfo *info) {
 	return File::GetFileInfo(new_path, info);
 }
 
+bool DirectoryReader::Exists(const char *path) {
+	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
+	return File::Exists(new_path);
+}
+
 class DirectoryReaderFileReference : public VFSFileReference {
 public:
 	Path path;

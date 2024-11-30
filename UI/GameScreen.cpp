@@ -97,10 +97,6 @@ void GameScreen::update() {
 void GameScreen::CreateViews() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::BG);
 
-	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
-		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
-	}
-
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
@@ -478,7 +474,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		btnDeleteGameConfig_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
 		btnCreateGameConfig_->SetVisibility(info->hasConfig ? UI::V_GONE : UI::V_VISIBLE);
 
-		if (saveDirs.size()) {
+		if (info->saveDataSize) {
 			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
 		}
 		if (info->pic0.texture || info->pic1.texture) {
@@ -537,10 +533,10 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
 	if (info) {
 		// Check that there's any savedata to delete
-		if (saveDirs.size()) {
+		if (info->saveDataSize) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto ga = GetI18NCategory(I18NCat::GAME);
 			screenManager()->push(

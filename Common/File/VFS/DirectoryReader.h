@@ -21,6 +21,7 @@ public:
 
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
 	bool GetFileInfo(const char *path, File::FileInfo *info) override;
+	bool Exists(const char *path) override;
 	std::string toString() const override {
 		return path_.ToString();
 	}

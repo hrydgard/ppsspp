@@ -1558,12 +1558,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			
 			// get and stock file info for each file
 			int realCount = 0;
+
+			// TODO: Filter away non-directories directly?
+			std::vector<PSPFileInfo> allSaves = pspFileSystem.GetDirListing(savePath);
+
+			bool fetchedAllSaves = false;
+			std::string gameName = GetGameName(param);
+
 			for (int i = 0; i < saveDataListCount; i++) {
 				// "<>" means saveName can be anything...
 				if (strncmp(saveNameListData[i], "<>", ARRAY_SIZE(saveNameListData[i])) == 0) {
 					// TODO:Maybe we need a way to reorder the files?
-					auto allSaves = pspFileSystem.GetDirListing(savePath);
-					std::string gameName = GetGameName(param);
+					if (!fetchedAllSaves) {
+						fetchedAllSaves = true;
+					}
 					for (auto it = allSaves.begin(); it != allSaves.end(); ++it) {
 						if (it->name.compare(0, gameName.length(), gameName) == 0) {
 							std::string saveName = it->name.substr(gameName.length());
@@ -1590,13 +1598,30 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 				const std::string thisSaveName = FixedToString(saveNameListData[i], ARRAY_SIZE(saveNameListData[i]));
 
-				std::string fileDataDir = savePath + GetGameName(param) + thisSaveName;
-				PSPFileInfo info = GetSaveInfo(fileDataDir);
-				if (info.exists) {
-					SetFileInfo(realCount, info, thisSaveName);
-					INFO_LOG(Log::sceUtility, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
-					realCount++;
-				} else {
+				const std::string folderName = gameName + thisSaveName;
+
+				// Check if thisSaveName is in the list before processing.
+				// This is hopefully faster than doing file I/O.
+				bool found = false;
+				for (int i = 0; i < allSaves.size(); i++) {
+					if (allSaves[i].name == folderName) {
+						found = true;
+					}
+				}
+
+				const std::string fileDataDir = savePath + gameName + thisSaveName;
+				if (found) {
+					PSPFileInfo info = GetSaveInfo(fileDataDir);
+					if (info.exists) {
+						SetFileInfo(realCount, info, thisSaveName);
+						INFO_LOG(Log::sceUtility, "Save data exists: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
+						realCount++;
+					} else {
+						found = false;
+					}
+				}
+
+				if (!found) {  // NOTE: May be changed above, can't merge with the expression
 					if (listEmptyFile) {
 						ClearFileInfo(saveDataList[realCount], thisSaveName);
 						INFO_LOG(Log::sceUtility, "Listing missing save data: %s = %s", thisSaveName.c_str(), fileDataDir.c_str());
@@ -2002,7 +2027,7 @@ int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const 
 
 bool SavedataParam::IsInSaveDataList(const std::string &saveName, int count) {
 	for(int i = 0; i < count; ++i) {
-		if(strcmp(saveDataList[i].saveName.c_str(),saveName.c_str()) == 0)
+		if (saveDataList[i].saveName == saveName)
 			return true;
 	}
 	return false;

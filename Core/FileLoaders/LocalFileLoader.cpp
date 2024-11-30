@@ -155,12 +155,7 @@ bool LocalFileLoader::Exists() {
 		return true;
 #endif
 
-	File::FileInfo info;
-	if (File::GetFileInfo(filename_, &info)) {
-		return info.exists;
-	} else {
-		return false;
-	}
+	return File::Exists(filename_);
 }
 
 bool LocalFileLoader::IsDirectory() {

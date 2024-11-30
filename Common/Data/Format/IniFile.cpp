@@ -162,7 +162,7 @@ static std::string EscapeHash(std::string_view value) {
 	return result;
 }
 
-void ParsedIniLine::ParseFrom(std::string_view line) {
+ParsedIniLine::ParsedIniLine(std::string_view line) {
 	line = StripSpaces(line);
 	if (line.empty()) {
 		key.clear();
@@ -534,7 +534,7 @@ bool IniFile::Load(std::istream &in) {
 	while (!(in.eof() || in.fail()))
 	{
 		in.getline(templine, MAX_BYTES);
-		std::string line = templine;
+		std::string_view line = templine;
 
 		// Remove UTF-8 byte order marks.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
@@ -543,8 +543,8 @@ bool IniFile::Load(std::istream &in) {
 		 
 #ifndef _WIN32
 		// Check for CRLF eol and convert it to LF
-		if (!line.empty() && line.at(line.size()-1) == '\r') {
-			line.erase(line.size()-1);
+		if (!line.empty() && line.at(line.size() - 1) == '\r') {
+			line = line.substr(line.size() - 1);
 		}
 #endif
 
@@ -556,7 +556,7 @@ bool IniFile::Load(std::istream &in) {
 
 			if (sectionNameEnd != std::string::npos) {
 				// New section!
-				std::string sub = line.substr(1, sectionNameEnd - 1);
+				std::string_view sub = line.substr(1, sectionNameEnd - 1);
 				sections.push_back(std::make_unique<Section>(sub));
 
 				if (sectionNameEnd + 1 < line.size()) {
@@ -566,9 +566,7 @@ bool IniFile::Load(std::istream &in) {
 				if (sections.empty()) {
 					sections.push_back(std::make_unique<Section>(""));
 				}
-				ParsedIniLine parsedLine;
-				parsedLine.ParseFrom(line);
-				sections.back()->lines_.push_back(parsedLine);
+				sections.back()->lines_.emplace_back(line);
 			}
 		}
 	}

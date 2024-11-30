@@ -303,14 +303,8 @@ void GameInfo::DisposeFileLoader() {
 bool GameInfo::DeleteAllSaveData() {
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-
-		for (size_t i = 0; i < fileInfo.size(); i++) {
-			File::Delete(fileInfo[i].fullName);
-		}
-
-		File::DeleteDir(saveDataDir[j]);
+		INFO_LOG(Log::System, "Deleting savedata from %s", saveDataDir[j].c_str());
+		File::DeleteDirRecursively(saveDataDir[j]);
 	}
 	return true;
 }

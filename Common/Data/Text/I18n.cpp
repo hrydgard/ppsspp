@@ -131,9 +131,7 @@ Path I18NRepo::GetIniPath(const std::string &languageID) const {
 
 bool I18NRepo::IniExists(const std::string &languageID) const {
 	File::FileInfo info;
-	if (!g_VFS.GetFileInfo(GetIniPath(languageID).ToString().c_str(), &info))
-		return false;
-	if (!info.exists)
+	if (!g_VFS.Exists(GetIniPath(languageID).ToString().c_str()))
 		return false;
 	return true;
 }

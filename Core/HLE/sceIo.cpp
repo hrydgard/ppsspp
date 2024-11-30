@@ -2466,6 +2466,7 @@ static u32 sceIoDopen(const char *path) {
 			"TEXTURES",
 			"DUMP",
 			"SHADERS",
+			"DRIVERS",
 		};
 		std::vector<PSPFileInfo> filtered;
 		for (const auto &entry : dir->listing) {
