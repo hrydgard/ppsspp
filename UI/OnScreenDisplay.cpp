@@ -300,6 +300,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_ERROR] = ScreenEdgePosition::CENTER;
 
+	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	// First pass: Measure all the sides.
