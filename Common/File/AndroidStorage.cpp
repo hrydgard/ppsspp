@@ -34,7 +34,7 @@ void Android_StorageSetNativeActivity(jobject nativeActivity) {
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	openContentUri = env->GetMethodID(env->GetObjectClass(obj), "openContentUri", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(openContentUri);
-	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;");
+	listContentUriDir = env->GetMethodID(env->GetObjectClass(obj), "listContentUriDir", "(Ljava/lang/String;)[Ljava/lang/String;");
 	_dbg_assert_(listContentUriDir);
 	contentUriCreateDirectory = env->GetMethodID(env->GetObjectClass(obj), "contentUriCreateDirectory", "(Ljava/lang/String;Ljava/lang/String;)I");
 	_dbg_assert_(contentUriCreateDirectory);
@@ -233,8 +233,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	double start = time_now_d();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	jstring filter = prefix.empty() ? nullptr : env->NewStringUTF(prefix.c_str());
-	jobject retval = env->CallObjectMethod(g_nativeActivity, listContentUriDir, param, filter);
+	jobject retval = env->CallObjectMethod(g_nativeActivity, listContentUriDir, param);
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;
@@ -251,6 +250,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 			} else if (ParseFileInfo(line, &info)) {
 				// We can just reconstruct the URI.
 				info.fullName = Path(uri) / info.name;
+				INFO_LOG(Log::FileSystem, "%s", info.name.c_str());
 				items.push_back(info);
 			}
 		}

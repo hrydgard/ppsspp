@@ -3103,7 +3103,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 			int w = dimWidth(dim);
 			int h = dimHeight(dim);
 			ImGui::Image(texId, ImVec2(w, h));
-			ImGui::Text("%08x: %dx%d, %d mips, %s", selectedTextureId & 0xFFFFFFFF, w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+			ImGui::Text("%08x: %dx%d, %d mips, %s", (uint32_t)(selectedTextureId & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
 			ImGui::Text("Stride: %d", entry->bufw);
 			ImGui::Text("Status: %08x", entry->status);  // TODO: Show the flags
 			ImGui::Text("Hash: %08x", entry->fullhash);

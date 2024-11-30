@@ -420,7 +420,7 @@ bool ExistsInDir(const Path &path, const std::string &filename) {
 
 bool Exists(const Path &path) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "Exists %s", path.c_str());
+		INFO_LOG(Log::System, "Exists %s", path.ToVisualString().c_str());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(200, "slow-io-sim");
@@ -631,7 +631,7 @@ bool CreateDir(const Path &path) {
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
 	if (File::Exists(path)) {
-		DEBUG_LOG(Log::Common, "CreateFullPath: path exists %s", path.c_str());
+		DEBUG_LOG(Log::Common, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
 		return true;
 	}
 
@@ -640,7 +640,7 @@ bool CreateFullPath(const Path &path) {
 	case PathType::CONTENT_URI:
 		break; // OK
 	default:
-		ERROR_LOG(Log::Common, "CreateFullPath(%s): Not yet supported", path.c_str());
+		ERROR_LOG(Log::Common, "CreateFullPath(%s): Not yet supported", path.ToVisualString().c_str());
 		return false;
 	}
 

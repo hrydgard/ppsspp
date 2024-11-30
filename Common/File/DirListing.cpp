@@ -63,7 +63,7 @@ static uint64_t FiletimeToStatTime(FILETIME ft) {
 
 bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "GetFileInfo %s", path.c_str());
+		INFO_LOG(Log::System, "GetFileInfo %s", path.ToVisualString().c_str());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
@@ -178,12 +178,14 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	}
 
 	auto pred = [&](const File::FileInfo &info) {
+		// WARNING: Keep in mind that if we return true here, the files is REMOVED from the list.
+		// It's not retain_if.
+		if (!startsWith(info.name, prefix)) {
+			return true;
+		}
 		if (info.isDirectory || !extensionFilter)
 			return false;
 		std::string ext = info.fullName.GetFileExtension();
-		if (!startsWith(info.name, prefix)) {
-			return false;
-		}
 		return filters.find(ext) == filters.end();
 	};
 	files.erase(std::remove_if(files.begin(), files.end(), pred), files.end());
@@ -192,7 +194,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "GetFilesInDir %s (ext %s, prefix %.*s)", directory.c_str(), filter, (int)prefix.size(), prefix.data());
+		INFO_LOG(Log::System, "GetFilesInDir '%s' (ext %s, prefix %.*s)", directory.ToVisualString().c_str(), filter, (int)prefix.size(), prefix.data());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(300, "slow-io-sim");
@@ -202,8 +204,10 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		bool exists = false;
 		// TODO: Move prefix filtering over to the Java side for more speed.
 		std::vector<File::FileInfo> fileList = Android_ListContentUri(directory.ToString(), std::string(prefix), &exists);
-		*files = ApplyFilter(fileList, filter, "");
+		int beforeFilter = (int)fileList.size();
+		*files = ApplyFilter(fileList, filter, prefix);
 		std::sort(files->begin(), files->end());
+		DEBUG_LOG(Log::System, "GetFilesInDir: Found %d entries (%d before filter)", (int)files->size(), beforeFilter);
 		return exists;
 	}
 
@@ -276,12 +280,9 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 			continue;
 		}
 
-		/*
-		if (SIMULATE_SLOW_IO) {
-			INFO_LOG(Log::System, "GetFilesInDir item %s", virtualName.c_str());
-			sleep_ms(50, "slow-io-sim");
+		if (LOG_IO) {
+			// INFO_LOG(Log::System, "GetFilesInDir item %s", virtualName.c_str());
 		}
-		*/
 
 		FileInfo info;
 		info.name = virtualName;

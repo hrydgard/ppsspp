@@ -251,7 +251,7 @@ public class PpssppActivity extends NativeActivity {
 	// * https://stackoverflow.com/q
 	// uestions/42186820/documentfile-is-very-slow
 	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
-	public String[] listContentUriDir(String uriString, String prefix) {
+	public String[] listContentUriDir(String uriString) {
 		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(uriString);
@@ -262,13 +262,7 @@ public class PpssppActivity extends NativeActivity {
 
 			String selection = null;
 			String[] selectionArgs = null;
-			if (prefix != null) {
-				selection = MediaStore.Files.FileColumns.DISPLAY_NAME + " LIKE ?";
-				// Prefix followed by wildcard
-				selectionArgs = new String[]{ prefix + "%" };
-			}
-
-			c = resolver.query(childrenUri, columns, selection, selectionArgs, null);
+			c = resolver.query(childrenUri, columns, null, null, null);
 			if (c == null) {
 				return new String[]{ "X" };
 			}
