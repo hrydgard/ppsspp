@@ -1562,16 +1562,12 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			// TODO: Filter away non-directories directly?
 			std::vector<PSPFileInfo> allSaves = pspFileSystem.GetDirListing(savePath);
 
-			bool fetchedAllSaves = false;
 			std::string gameName = GetGameName(param);
 
 			for (int i = 0; i < saveDataListCount; i++) {
 				// "<>" means saveName can be anything...
 				if (strncmp(saveNameListData[i], "<>", ARRAY_SIZE(saveNameListData[i])) == 0) {
-					// TODO:Maybe we need a way to reorder the files?
-					if (!fetchedAllSaves) {
-						fetchedAllSaves = true;
-					}
+					// TODO: Maybe we need a way to reorder the files?
 					for (auto it = allSaves.begin(); it != allSaves.end(); ++it) {
 						if (it->name.compare(0, gameName.length(), gameName) == 0) {
 							std::string saveName = it->name.substr(gameName.length());
@@ -1582,7 +1578,6 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 							std::string fileDataPath = savePath + it->name;
 							if (it->exists) {
 								SetFileInfo(realCount, *it, saveName);
-								DEBUG_LOG(Log::sceUtility, "%s Exist", fileDataPath.c_str());
 								++realCount;
 							} else {
 								if (listEmptyFile) {
