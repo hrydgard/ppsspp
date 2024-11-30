@@ -194,7 +194,7 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 2.0f);
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 3.0f);
 
 	vfs_ = dir;
 
