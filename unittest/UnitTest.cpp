@@ -989,14 +989,13 @@ bool TestIniFile() {
 	const std::string testLine2 = "# Just a comment";
 
 	std::string temp;
-	ParsedIniLine line;
-	line.ParseFrom(testLine);
+	ParsedIniLine line(testLine);
 	line.Reconstruct(&temp);
 	EXPECT_EQ_STR(testLine, temp);
 
 	temp.clear();
-	line.ParseFrom(testLine2);
-	line.Reconstruct(&temp);
+	ParsedIniLine line2(testLine2);
+	line2.Reconstruct(&temp);
 
 	EXPECT_EQ_STR(testLine2, temp);
 	return true;
