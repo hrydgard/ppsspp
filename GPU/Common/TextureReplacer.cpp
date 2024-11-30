@@ -109,11 +109,16 @@ void TextureReplacer::NotifyConfigChanged() {
 	}
 
 	if (replaceEnabled_) {
-		replaceEnabled_ = LoadIni();
+		std::string error;
+		replaceEnabled_ = LoadIni(&error);
+		if (!error.empty() && !replaceEnabled_) {
+			ERROR_LOG(Log::G3D, "ERROR: %s", error.c_str());
+			g_OSD.Show(OSDType::MESSAGE_ERROR, error, 5.0f);
+		}
 	}
 }
 
-bool TextureReplacer::LoadIni() {
+bool TextureReplacer::LoadIni(std::string *error) {
 	hash_ = ReplacedTextureHash::QUICK;
 	aliases_.clear();
 	hashranges_.clear();
@@ -146,7 +151,7 @@ bool TextureReplacer::LoadIni() {
 	bool iniLoaded = ini.LoadFromVFS(*dir, INI_FILENAME);
 
 	if (iniLoaded) {
-		if (!LoadIniValues(ini, dir)) {
+		if (!LoadIniValues(ini, dir, false, error)) {
 			delete dir;
 			return false;
 		}
@@ -158,6 +163,7 @@ bool TextureReplacer::LoadIni() {
 				IniFile overrideIni;
 				iniLoaded = overrideIni.LoadFromVFS(*dir, overrideFilename);
 				if (!iniLoaded) {
+					*error = "Loading override ini failed: " + overrideFilename;
 					ERROR_LOG(Log::G3D, "Failed to load extra texture ini: %s", overrideFilename.c_str());
 					// Since this error is most likely to occure for texture pack creators, let's just bail here
 					// so that the creator is more likely to look in the logs for what happened.
@@ -166,7 +172,8 @@ bool TextureReplacer::LoadIni() {
 				}
 
 				INFO_LOG(Log::G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
-				if (!LoadIniValues(overrideIni, nullptr, true)) {
+				if (!LoadIniValues(overrideIni, nullptr, true, error)) {
+					*error = "Override: " + *error;
 					delete dir;
 					return false;
 				}
@@ -176,10 +183,11 @@ bool TextureReplacer::LoadIni() {
 		if (vfsIsZip_) {
 			// We don't accept zip files without inis.
 			ERROR_LOG(Log::G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+			*error = "Zip files without ini files will not load";
 			delete dir;
 			return false;
 		} else {
-			WARN_LOG(Log::G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+			WARN_LOG(Log::G3D, "Texture pack lacking ini file: %s  Proceeding with only hash-named textures in the root.", basePath_.c_str());
 			// Do what we can do anyway: Scan for textures and build the map.
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 			ScanForHashNamedFiles(dir, filenameMap);
@@ -194,7 +202,7 @@ bool TextureReplacer::LoadIni() {
 	}
 
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 2.0f);
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 3.0f);
 
 	vfs_ = dir;
 
@@ -268,12 +276,15 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 	}
 }
 
-bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride) {
-	INFO_LOG(Log::G3D, "Loading ini file...");
+bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride, std::string *error) {
+	INFO_LOG(Log::G3D, "Loading ini values...");
 
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
-	options->Get("hash", &hash, "");
+	if (!options->Get("hash", &hash, "")) {
+		*error = "textures.ini: Hash type not specified";
+		return false;
+	}
 	if (strcasecmp(hash.c_str(), "quick") == 0) {
 		hash_ = ReplacedTextureHash::QUICK;
 	} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
@@ -281,7 +292,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	} else if (strcasecmp(hash.c_str(), "xxh64") == 0) {
 		hash_ = ReplacedTextureHash::XXH64;
 	} else if (!isOverride || !hash.empty()) {
-		ERROR_LOG(Log::G3D, "Unsupported hash type: %s", hash.c_str());
+		*error = "textures.ini: Unsupported hash type: " + hash;
 		return false;
 	}
 

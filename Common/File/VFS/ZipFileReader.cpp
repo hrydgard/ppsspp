@@ -229,8 +229,7 @@ public:
 };
 
 VFSFileReference *ZipFileReader::GetFile(const char *path) {
-	std::lock_guard<std::mutex> guard(lock_);
-	int zi = zip_name_locate(zip_file_, path, ZIP_FL_NOCASE);
+	int zi = zip_name_locate(zip_file_, path, ZIP_FL_NOCASE);  // this is EXPENSIVE
 	if (zi < 0) {
 		// Not found.
 		return nullptr;
@@ -244,7 +243,6 @@ bool ZipFileReader::GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *
 	ZipFileReaderFileReference *reference = (ZipFileReaderFileReference *)vfsReference;
 	// If you crash here, you called this while having the lock held by having the file open.
 	// Don't do that, check the info before you open the file.
-	std::lock_guard<std::mutex> guard(lock_);
 	zip_stat_t zstat;
 	if (zip_stat_index(zip_file_, reference->zi, 0, &zstat) != 0)
 		return false;

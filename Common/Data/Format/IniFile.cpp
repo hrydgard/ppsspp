@@ -544,7 +544,7 @@ bool IniFile::Load(std::istream &in) {
 #ifndef _WIN32
 		// Check for CRLF eol and convert it to LF
 		if (!line.empty() && line.at(line.size() - 1) == '\r') {
-			line = line.substr(line.size() - 1);
+			line = line.substr(0, line.size() - 1);
 		}
 #endif
 

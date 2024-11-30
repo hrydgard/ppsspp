@@ -30,7 +30,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 }
 
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
-	if (!ImGui::Begin("Display", &cfg.framebuffersOpen)) {
+	if (!ImGui::Begin("Display", &cfg.displayOpen)) {
 		ImGui::End();
 		return;
 	}
