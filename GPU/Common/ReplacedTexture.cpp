@@ -101,7 +101,6 @@ ReplacedTexture::~ReplacedTexture() {
 	if (threadWaitable_) {
 		SetState(ReplacementState::CANCEL_INIT);
 
-		std::unique_lock<std::mutex> lock(lock_);
 		threadWaitable_->WaitAndRelease();
 		threadWaitable_ = nullptr;
 	}
