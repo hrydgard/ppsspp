@@ -36,15 +36,21 @@ public:
 	bool GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) override;
 	bool GetFileInfo(const char *path, File::FileInfo *info) override;
 	std::string toString() const override {
-		return inZipPath_;
+		std::string retval = zipPath_.ToVisualString();
+		if (!inZipPath_.empty()) {
+			retval += ": ";
+			retval += inZipPath_;
+		}
+		return retval;
 	}
 
 private:
-	ZipFileReader(zip *zip_file, const std::string &inZipPath) : zip_file_(zip_file), inZipPath_(inZipPath) {}
+	ZipFileReader(zip *zip_file, const Path &zipPath, const std::string &inZipPath) : zip_file_(zip_file), zipPath_(zipPath), inZipPath_(inZipPath) {}
 	// Path has to be either an empty string, or a string ending with a /.
 	bool GetZipListings(const std::string &path, std::set<std::string> &files, std::set<std::string> &directories);
 
 	zip *zip_file_ = nullptr;
 	std::mutex lock_;
 	std::string inZipPath_;
+	Path zipPath_;
 };

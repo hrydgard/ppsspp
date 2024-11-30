@@ -44,7 +44,7 @@ ZipFileReader *ZipFileReader::Create(const Path &zipFile, const char *inZipPath,
 	if (!path.empty() && path.back() != '/') {
 		path.push_back('/');
 	}
-	return new ZipFileReader(zip_file, path);
+	return new ZipFileReader(zip_file, zipFile, path);
 }
 
 ZipFileReader::~ZipFileReader() {
