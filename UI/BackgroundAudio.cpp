@@ -558,7 +558,7 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	}
 	Sample *sample = Sample::Load(filename);
 	if (!sample) {
-		ERROR_LOG(Log::System, "Failed to load the default sample for UI sound %d", (int)sound);
+		ERROR_LOG(Log::Audio, "Failed to load the default sample for UI sound %d", (int)sound);
 	}
 	std::lock_guard<std::mutex> guard(mutex_);
 	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);

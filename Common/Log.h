@@ -34,7 +34,7 @@ enum class Log {
 	CPU,
 	FileSystem,
 	G3D,
-	HLE,  // dumping ground that we should get rid of
+	HLE,
 	JIT,
 	Loader,
 	ME,
@@ -47,6 +47,7 @@ enum class Log {
 	Achievements,
 	HTTP,
 	Printf,
+	TexReplacement,
 
 	sceAudio,
 	sceCtrl,
