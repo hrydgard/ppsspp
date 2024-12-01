@@ -58,6 +58,7 @@ enum class ReplacementState : uint32_t {
 	NOT_FOUND,  // Also used on error loading the images.
 	ACTIVE,
 	CANCEL_INIT,
+	COUNT,  // Not a valid state
 };
 
 const char *StateString(ReplacementState state);
@@ -166,6 +167,10 @@ public:
 	Draw::DataFormat Format() const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
 		return fmt;
+	}
+
+	const ReplacementDesc &Desc() const {
+		return desc_;
 	}
 
 	u8 AlphaStatus() const {

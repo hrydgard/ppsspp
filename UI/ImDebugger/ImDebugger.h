@@ -77,6 +77,7 @@ struct ImConfig {
 	bool filesystemBrowserOpen;
 	bool kernelObjectsOpen;
 	bool audioChannelsOpen;
+	bool debugStatsOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;

@@ -515,6 +515,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		const u32 totalPixels = bufw * h + (w - bufw);
 		const u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8 * reduceHashSize;
 
+		// Sanity check: Ignore textures that are at the end of RAM.
+		if (Memory::MaxSizeAtAddress(addr) < sizeInRAM) {
+			ERROR_LOG(Log::G3D, "Can't hash a %d bytes textures at %08x - end point is outside memory", sizeInRAM, addr);
+			return 0;
+		}
+
 		switch (hash_) {
 		case ReplacedTextureHash::QUICK:
 			return StableQuickTexHash(checkp, sizeInRAM);

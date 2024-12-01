@@ -10,6 +10,7 @@ class TextureCacheCommon;
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
+void DrawDebugStatsWindow(ImConfig &cfg);
 
 class ImGeDebugger {
 public:
