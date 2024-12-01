@@ -195,7 +195,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Make sure we don't leave it at powerdown after the last game.
 	// TODO: This really should be handled elsewhere if it isn't.
 	if (coreState == CORE_POWERDOWN)
-		coreState = CORE_STEPPING;
+		coreState = CORE_STEPPING_CPU;
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 	OnChatMenu.Handle(this, &EmuScreen::OnChat);
@@ -678,7 +678,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down) {
-			if (coreState == CORE_STEPPING) {
+			if (coreState == CORE_STEPPING_CPU) {
 				Core_Resume();
 			}
 			PSP_CoreParameter().fastForward = true;
@@ -1261,7 +1261,7 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
 		// Force it!
 		Memory::MemFault_IgnoreLastCrash();
-		coreState = CoreState::CORE_RUNNING;
+		coreState = CoreState::CORE_RUNNING_CPU;
 	}
 	return UI::EVENT_DONE;
 }
@@ -1566,10 +1566,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		switch (coreState) {
 		case CORE_NEXTFRAME:
 			// Reached the end of the frame, all good. Set back to running for the next frame
-			coreState = CORE_RUNNING;
+			coreState = CORE_RUNNING_CPU;
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
 			break;
-		case CORE_STEPPING:
+		case CORE_STEPPING_CPU:
 		case CORE_RUNTIME_ERROR:
 		{
 			// If there's an exception, display information.
@@ -1719,7 +1719,7 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 
 	// Exception information.
-	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING_CPU) {
 		return true;
 	}
 
@@ -1784,7 +1784,7 @@ void EmuScreen::renderUI() {
 		ctx->Flush();
 	}
 
-	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING_CPU) {
 		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != MIPSExceptionType::NONE) {
 			DrawCrashDump(ctx, gamePath_);

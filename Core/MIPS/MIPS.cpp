@@ -378,7 +378,7 @@ void MIPSState::InvalidateICache(u32 address, int length) {
 void MIPSState::ClearJitCache() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
-		if (coreState == CORE_RUNNING || insideJit) {
+		if (coreState == CORE_RUNNING_CPU || insideJit) {
 			pendingClears.emplace_back(0, 0);
 			hasPendingClears = true;
 			CoreTiming::ForceCheck();

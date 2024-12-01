@@ -88,7 +88,7 @@ static u32 JitMemCheck(u32 pc) {
 	u32 addr = currentMIPS->r[MIPS_GET_RS(op)] + offset;
 
 	g_breakpoints.ExecOpMemCheck(addr, pc);
-	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME ? 0 : 1;
+	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME ? 0 : 1;
 }
 
 namespace MIPSComp

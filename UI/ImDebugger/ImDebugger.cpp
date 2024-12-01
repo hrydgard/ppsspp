@@ -753,7 +753,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
-			if (coreState == CoreState::CORE_STEPPING) {
+			if (coreState == CoreState::CORE_STEPPING_CPU) {
 				if (ImGui::MenuItem("Run")) {
 					Core_Resume();
 				}
@@ -945,14 +945,14 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		}
 	}
 
-	ImGui::BeginDisabled(coreState != CORE_STEPPING);
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 	if (ImGui::SmallButton("Run")) {
 		Core_Resume();
 	}
 	ImGui::EndDisabled();
 
 	ImGui::SameLine();
-	ImGui::BeginDisabled(coreState != CORE_RUNNING);
+	ImGui::BeginDisabled(coreState != CORE_RUNNING_CPU);
 	if (ImGui::SmallButton("Pause")) {
 		Core_Break("Pause");
 	}

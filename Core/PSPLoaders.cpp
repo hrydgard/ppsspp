@@ -328,7 +328,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 			if (PSP_CoreParameter().startBreak) {
 				Core_Break("start-break");
 			} else {
-				coreState = CORE_RUNNING;
+				coreState = CORE_RUNNING_CPU;
 			}
 		} else {
 			coreState = CORE_BOOT_ERROR;
@@ -489,7 +489,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 			if (PSP_CoreParameter().startBreak) {
 				Core_Break("start-break");
 			} else {
-				coreState = CORE_RUNNING;
+				coreState = CORE_RUNNING_CPU;
 			}
 		} else {
 			coreState = CORE_BOOT_ERROR;
@@ -519,7 +519,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 			if (PSP_CoreParameter().startBreak) {
 				Core_Break("start-break");
 			} else {
-				coreState = CORE_RUNNING;
+				coreState = CORE_RUNNING_CPU;
 			}
 		} else {
 			coreState = CORE_BOOT_ERROR;

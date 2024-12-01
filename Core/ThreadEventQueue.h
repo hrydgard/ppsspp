@@ -136,7 +136,7 @@ struct ThreadEventQueue : public B {
 	inline bool ShouldSyncThread(bool force) {
 		if (!HasEvents())
 			return false;
-		if (coreState != CORE_RUNNING && !force)
+		if (coreState != CORE_RUNNING_CPU && !force)
 			return false;
 
 		// Don't run if it's not running, but wait for startup.

@@ -105,7 +105,7 @@ bool coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
 
 // This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING;
+volatile CoreState coreState = CORE_STEPPING_CPU;
 // If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
 
@@ -388,7 +388,7 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 }
 
 void Core_UpdateState(CoreState newState) {
-	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
+	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
 		coreStatePending = true;
 	coreState = newState;
 }
@@ -569,7 +569,7 @@ void PSP_Shutdown() {
 
 	// Make sure things know right away that PSP memory, etc. is going away.
 	pspIsQuitting = !pspIsRebooting;
-	if (coreState == CORE_RUNNING)
+	if (coreState == CORE_RUNNING_CPU)
 		Core_Stop();
 
 	if (g_Config.bFuncHashMap) {
@@ -622,9 +622,9 @@ void PSP_RunLoopWhileState() {
 	int blockTicks = usToCycles(1000000 / 10);
 
 	// Run until CORE_NEXTFRAME
-	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING) {
+	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		PSP_RunLoopFor(blockTicks);
-		if (coreState == CORE_STEPPING) {
+		if (coreState == CORE_STEPPING_CPU) {
 			// Keep the UI responsive.
 			break;
 		}
@@ -634,7 +634,7 @@ void PSP_RunLoopWhileState() {
 void PSP_RunLoopUntil(u64 globalticks) {
 	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
 		return;
-	} else if (coreState == CORE_STEPPING) {
+	} else if (coreState == CORE_STEPPING_CPU) {
 		Core_ProcessStepping(currentDebugMIPS);
 		return;
 	}

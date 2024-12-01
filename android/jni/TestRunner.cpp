@@ -133,13 +133,13 @@ bool RunTests() {
 		INFO_LOG(Log::System, "Test: Entering runloop.");
 		while (true) {
 			int blockTicks = (int)usToCycles(1000000 / 10);
-			while (coreState == CORE_RUNNING) {
+			while (coreState == CORE_RUNNING_CPU) {
 				PSP_RunLoopFor(blockTicks);
 			}
 			// Hopefully coreState is now CORE_NEXTFRAME
 			if (coreState == CORE_NEXTFRAME) {
 				// set back to running for the next frame
-				coreState = CORE_RUNNING;
+				coreState = CORE_RUNNING_CPU;
 			} else if (coreState == CORE_POWERDOWN)	{
 				INFO_LOG(Log::System, "Finished running test %s", testName.c_str());
 				break;

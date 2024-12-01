@@ -1354,7 +1354,7 @@ namespace Libretro
 
       gpu->BeginHostFrame();
 
-      coreState = CORE_RUNNING;
+      coreState = CORE_RUNNING_CPU;
       PSP_RunLoopUntil(UINT64_MAX);
 
       gpu->EndHostFrame();

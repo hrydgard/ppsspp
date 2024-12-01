@@ -133,15 +133,15 @@ bool Core_MustRunBehind() {
 }
 
 bool Core_IsStepping() {
-	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
+	return coreState == CORE_STEPPING_CPU || coreState == CORE_POWERDOWN;
 }
 
 bool Core_IsActive() {
-	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME || coreStatePending;
+	return coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME || coreStatePending;
 }
 
 bool Core_IsInactive() {
-	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
+	return coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
 
 static inline void Core_StateProcessed() {
@@ -226,7 +226,7 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
-// Used by Windows, SDL, Qt.
+// Used by Windows, SDL, Qt. Doesn't belong in this file.
 void Core_RunLoop(GraphicsContext *ctx) {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16, "window-hidden");
@@ -340,7 +340,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
-	if (coreState != CORE_STEPPING) {
+	if (coreState != CORE_STEPPING_CPU) {
 		return;
 	}
 
@@ -359,7 +359,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// Need to check inside the lock to avoid races.
 	std::lock_guard<std::mutex> guard(g_stepMutex);
 
-	if (coreState != CORE_STEPPING || g_stepCommand.empty()) {
+	if (coreState != CORE_STEPPING_CPU || g_stepCommand.empty()) {
 		return;
 	}
 
@@ -396,8 +396,8 @@ bool Core_Run(GraphicsContext *ctx) {
 		}
 
 		switch (coreState) {
-		case CORE_RUNNING:
-		case CORE_STEPPING:
+		case CORE_RUNNING_CPU:
+		case CORE_STEPPING_CPU:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
@@ -444,7 +444,7 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 		g_stepCommand.relatedAddr = relatedAddress;
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");
-		Core_UpdateState(CORE_STEPPING);
+		Core_UpdateState(CORE_STEPPING_CPU);
 	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
@@ -453,13 +453,13 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 void Core_Resume() {
 	// Clear the exception if we resume.
 	Core_ResetException();
-	coreState = CORE_RUNNING;
+	coreState = CORE_RUNNING_CPU;
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
 // Should be called from the EmuThread.
 bool Core_NextFrame() {
-	if (coreState == CORE_RUNNING) {
+	if (coreState == CORE_RUNNING_CPU) {
 		coreState = CORE_NEXTFRAME;
 		return true;
 	} else {
