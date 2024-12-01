@@ -565,6 +565,71 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	return true;
 }
 
+// 2D bounding box test against scissor. No indexing yet.
+// Only supports non-indexed draws with float positions.
+bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType) {
+	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
+	if (vertexCount > 16) {
+		return true;
+	}
+
+	float *verts = (float *)(decoded_ + 65536 * 18);
+
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
+		return true;
+
+	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
+	// and a large vertex format.
+	u8 *temp_buffer = decoded_ + 65536 * 24;
+	// Simple, most common case.
+	VertexDecoder *dec = GetVertexDecoder(vertType);
+	int stride = dec->VertexSize();
+	int offset = dec->posoff;
+	switch (vertType & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_FLOAT:
+	{
+		for (int i = 0; i < vertexCount; i++) {
+			memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
+		}
+		break;
+	}
+	default:
+		_dbg_assert_(false);
+	}
+
+	bool allOutsideLeft = true;
+	bool allOutsideTop = true;
+	bool allOutsideRight = true;
+	bool allOutsideBottom = true;
+	const float left = gstate.getScissorX1();
+	const float top = gstate.getScissorY1();
+	const float right = gstate.getScissorX2();
+	const float bottom = gstate.getScissorY2();
+	for (int i = 0; i < vertexCount; i++) {
+		const float *pos = verts + i * 3;
+		float x = pos[0];
+		float y = pos[1];
+		if (x >= left) {
+			allOutsideLeft = false;
+		}
+		if (x <= right) {
+			allOutsideRight = false;
+		}
+		if (y >= top) {
+			allOutsideTop = false;
+		}
+		if (y <= bottom) {
+			allOutsideBottom = false;
+		}
+	}
+	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+		return false;
+	}
+	return true;
+}
+
 // TODO: This probably is not the best interface.
 bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	// This is always for the current vertices.
