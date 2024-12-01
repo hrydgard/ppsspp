@@ -107,6 +107,7 @@ public:
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
 	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
+	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType);
 
 	void FlushSkin() {
 		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;

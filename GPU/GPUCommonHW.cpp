@@ -997,6 +997,17 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 
+	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
+	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, vertexType)) {
+			gpuStats.numCulledDraws++;
+			int cycles = vertexCost_ * count;
+			gpuStats.vertexGPUCycles += cycles;
+			cyclesExecuted += cycles;
+			return;
+		}
+	}
+
 #define MAX_CULL_CHECK_COUNT 6
 
 // For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
@@ -1039,6 +1050,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	AdvanceVerts(vertexType, count, bytesRead);
+
 	int totalVertCount = count;
 
 	// PRIMs are often followed by more PRIMs. Save some work and submit them immediately.

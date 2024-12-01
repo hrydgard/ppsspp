@@ -3159,12 +3159,14 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 
 	if (ImGui::CollapsingHeader("Texture Cache State"), ImGuiTreeNodeFlags_DefaultOpen) {
 		ImGui::Text("Cache: %d textures, size est %d", (int)cache_.size(), cacheSizeEstimate_);
-		ImGui::Text("Second: %d textures, size est %d", (int)secondCache_.size(), secondCacheSizeEstimate_);
-		ImGui::Text("Low memory mode: %d", (int)lowMemoryMode_);
+		if (!secondCache_.empty()) {
+			ImGui::Text("Second: %d textures, size est %d", (int)secondCache_.size(), secondCacheSizeEstimate_);
+		}
 		ImGui::Text("Standard/shader scale factor: %d/%d", standardScaleFactor_, shaderScaleFactor_);
 		ImGui::Text("Texels scaled this frame: %d", texelsScaledThisFrame_);
+		ImGui::Text("Low memory mode: %d", (int)lowMemoryMode_);
 		if (ImGui::CollapsingHeader("Texture Replacement", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame time/budget: %0.3f/%0.3f ms", replacementTimeThisFrame_, replacementFrameBudget_);
+			ImGui::Text("Frame time/budget: %0.3f/%0.3f ms", replacementTimeThisFrame_ * 1000.0f, replacementFrameBudget_ * 1000.0f);
 			ImGui::Text("UNLOADED: %d PENDING: %d NOT_FOUND: %d ACTIVE: %d CANCEL_INIT: %d",
 				replacementStateCounts[(int)ReplacementState::UNLOADED],
 				replacementStateCounts[(int)ReplacementState::PENDING],
