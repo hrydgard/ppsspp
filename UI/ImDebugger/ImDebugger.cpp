@@ -833,6 +833,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Tools")) {
+			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::EndMenu();
 		}
@@ -909,6 +910,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.displayOpen) {
 		DrawDisplayWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+	}
+
+	if (cfg_.debugStatsOpen) {
+		DrawDebugStatsWindow(cfg_);
 	}
 
 	if (cfg_.structViewerOpen) {
@@ -1121,6 +1126,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("kernelObjectsOpen", &kernelObjectsOpen, false);
 	sync.Sync("audioChannelsOpen", &audioChannelsOpen, false);
 	sync.Sync("texturesOpen", &texturesOpen, false);
+	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);

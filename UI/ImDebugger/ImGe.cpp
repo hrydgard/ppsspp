@@ -6,6 +6,7 @@
 #include "GPU/Common/TextureCacheCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
 	if (!ImGui::Begin("Framebuffers", &cfg.framebuffersOpen)) {
@@ -53,5 +54,17 @@ void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManag
 		ImGui::Text("Framebuffer not available to display");
 	}
 
+	ImGui::End();
+}
+
+// Note: This is not exclusively graphics.
+void DrawDebugStatsWindow(ImConfig &cfg) {
+	if (!ImGui::Begin("Debug Stats", &cfg.debugStatsOpen)) {
+		ImGui::End();
+		return;
+	}
+	char statbuf[4096];
+	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
+	ImGui::TextUnformatted(statbuf);
 	ImGui::End();
 }
