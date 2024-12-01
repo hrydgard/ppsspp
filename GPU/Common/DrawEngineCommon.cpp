@@ -587,17 +587,6 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	VertexDecoder *dec = GetVertexDecoder(vertType);
 	int stride = dec->VertexSize();
 	int offset = dec->posoff;
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_FLOAT:
-	{
-		for (int i = 0; i < vertexCount; i++) {
-			memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
-		}
-		break;
-	}
-	default:
-		_dbg_assert_(false);
-	}
 
 	bool allOutsideLeft = true;
 	bool allOutsideTop = true;
@@ -607,27 +596,36 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	const float top = gstate.getScissorY1();
 	const float right = gstate.getScissorX2();
 	const float bottom = gstate.getScissorY2();
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * 3;
-		float x = pos[0];
-		float y = pos[1];
-		if (x >= left) {
-			allOutsideLeft = false;
+
+	switch (vertType & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_FLOAT:
+	{
+		for (int i = 0; i < vertexCount; i++) {
+			float *pos = (float*)((const u8 *)vdata + stride * i + offset);
+			float x = pos[0];
+			float y = pos[1];
+			if (x >= left) {
+				allOutsideLeft = false;
+			}
+			if (x <= right + 1) {
+				allOutsideRight = false;
+			}
+			if (y >= top) {
+				allOutsideTop = false;
+			}
+			if (y <= bottom + 1) {
+				allOutsideBottom = false;
+			}
 		}
-		if (x <= right) {
-			allOutsideRight = false;
+		if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+			return false;
 		}
-		if (y >= top) {
-			allOutsideTop = false;
-		}
-		if (y <= bottom) {
-			allOutsideBottom = false;
-		}
+		return true;
 	}
-	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+	default:
+		_dbg_assert_(false);
 		return false;
 	}
-	return true;
 }
 
 // TODO: This probably is not the best interface.
