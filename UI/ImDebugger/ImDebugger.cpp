@@ -951,6 +951,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::Separator();
+			for (int i = 0; i < 4; i++) {
+				char title[64];
+				snprintf(title, sizeof(title), "Memory %d", i + 1);
+				ImGui::MenuItem("Memory", nullptr, &cfg_.memViewOpen[i]);
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("HLE")) {
@@ -1074,6 +1080,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawSchedulerView(cfg_);
 	}
 
+	for (int i = 0; i < 4; i++) {
+		mem_[i].Draw(mipsDebug, &cfg_.memViewOpen[i], i);
+	}
+
 	// Process UI commands
 	switch (control.command.cmd) {
 	case ImCmd::SHOW_IN_CPU_DISASM:
@@ -1086,13 +1096,27 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 }
 
 void ImDebugger::Snapshot() {
+}
 
+void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, int index) {
+	char title[256];
+	snprintf(title, sizeof(title), "Memory %d", index);
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(title, open, ImGuiWindowFlags_NoNavInputs)) {
+		ImGui::End();
+		return;
+	}
+
+	memView_.setDebugger(mipsDebug);
+	memView_.Draw(ImGui::GetWindowDrawList());
+
+	ImGui::End();
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState) {
 	char title[256];
 	snprintf(title, sizeof(title), "%s - Disassembly", "Allegrex MIPS");
-
+	
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
@@ -1347,6 +1371,11 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
+	for (int i = 0; i < 4; i++) {
+		char name[64];
+		snprintf(name, sizeof(name), "memory%dOpen", i + 1);
+		sync.Sync(name, &memViewOpen[i], false);
+	}
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);

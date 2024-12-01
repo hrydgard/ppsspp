@@ -16,6 +16,7 @@
 #include "Core/Debugger/DebugInterface.h"
 
 #include "UI/ImDebugger/ImDisasmView.h"
+#include "UI/ImDebugger/ImMemView.h"
 #include "UI/ImDebugger/ImStructViewer.h"
 #include "UI/ImDebugger/ImGe.h"
 
@@ -58,6 +59,33 @@ private:
 	char searchTerm_[64]{};
 };
 
+// Corresponds to the CMemView dialog
+class ImMemWindow {
+public:
+	void Draw(MIPSDebugInterface *mipsDebug, bool *open, int index);
+	ImMemView &View() {
+		return memView_;
+	}
+	void DirtySymbolMap() {
+		symsDirty_ = true;
+	}
+
+private:
+	// We just keep the state directly in the window. Can refactor later.
+	enum {
+		INVALID_ADDR = 0xFFFFFFFF,
+	};
+
+	// Symbol cache
+	std::vector<SymbolEntry> symCache_;
+	bool symsDirty_ = true;
+	int selectedSymbol_ = -1;
+	char selectedSymbolName_[128];
+
+	ImMemView memView_;
+	char searchTerm_[64]{};
+};
+
 struct ImConfig {
 	// Defaults for saved settings are set in SyncConfig.
 
@@ -82,6 +110,7 @@ struct ImConfig {
 	bool geDebuggerOpen;
 	bool geStateOpen;
 	bool schedulerOpen;
+	bool memViewOpen[4];
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -139,6 +168,7 @@ private:
 	ImDisasmWindow disasm_;
 	ImGeDebuggerWindow geDebugger_;
 	ImGeStateWindow geStateWindow_;
+	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
 
 	// Open variables.

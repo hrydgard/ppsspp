@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "ext/xxhash.h"
@@ -38,103 +39,58 @@ ImMemView::~ImMemView() {}
 
 /*
 LRESULT CALLBACK ImMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	ImMemView *ccp = ImMemView::getFrom(hwnd);
-	static bool lmbDown = false, rmbDown = false;
-
-	switch (msg) {
-	case WM_NCCREATE:
-		// Allocate a new CustCtrl structure for this window.
-		ccp = new ImMemView(hwnd);
-
-		// Continue with window creation.
-		return ccp != NULL;
-
-		// Clean up when the window is destroyed.
-	case WM_NCDESTROY:
-		delete ccp;
-		break;
-	case WM_SETFONT:
-		break;
-	case WM_SIZE:
-		ccp->redraw();
-		break;
-	case WM_PAINT:
-		ccp->onPaint(wParam, lParam);
-		break;
-	case WM_VSCROLL:
-		ccp->onVScroll(wParam, lParam);
-		break;
-	case WM_MOUSEWHEEL:
 		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
 			ccp->ScrollWindow(-3, GotoModeFromModifiers(false));
 		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
 			ccp->ScrollWindow(3, GotoModeFromModifiers(false));
 		}
-		break;
-	case WM_ERASEBKGND:
-		return FALSE;
-	case WM_KEYDOWN:
-		ccp->onKeyDown(wParam, lParam);
-		return 0;
-	case WM_CHAR:
-		ccp->onChar(wParam, lParam);
-		return 0;
-	case WM_KEYUP:
-		return 0;
-	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown = true; ccp->onMouseDown(wParam, lParam, 1); break;
-	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown = true; ccp->onMouseDown(wParam, lParam, 2); break;
-	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam, lParam, (lmbDown ? 1 : 0) | (rmbDown ? 2 : 0)); break;
-	case WM_LBUTTONUP:   lmbDown = false; ccp->onMouseUp(wParam, lParam, 1); break;
-	case WM_RBUTTONUP:   rmbDown = false; ccp->onMouseUp(wParam, lParam, 2); break;
-	case WM_SETFOCUS:
-		SetFocus(hwnd);
-		ccp->hasFocus_ = true;
-		ccp->redraw();
-		break;
-	case WM_KILLFOCUS:
-		ccp->hasFocus_ = false;
-		ccp->redraw();
-		break;
-	case WM_GETDLGCODE:	// we want to process the arrow keys and all characters ourselves
-		return DLGC_WANTARROWS | DLGC_WANTCHARS | DLGC_WANTTAB;
-		break;
-	case WM_TIMER:
-		// This is actually delayed too, using another timer.  That way we won't update twice.
-		if (wParam == IDT_REDRAW_AUTO && IsWindowVisible(ccp->wnd))
-			ccp->redraw();
-
-		if (wParam == IDT_REDRAW_DELAYED) {
-			InvalidateRect(hwnd, nullptr, FALSE);
-			UpdateWindow(hwnd);
-			ccp->redrawScheduled_ = false;
-			KillTimer(hwnd, wParam);
-		}
-		break;
-	default:
-		break;
-	}
-
 	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 */
 
 void ImMemView::Draw(ImDrawList *drawList) {
 	auto memLock = Memory::Lock();
+	if (!debugger_->isAlive()) {
+		return;
+	}
 
-	visibleRows_ = rect_.bottom / rowHeight_;
+	ImGui_PushFixedFont();
+
+	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
+	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
+
+	const ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
+	const ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
+	const ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+
+	// This will catch our interactions
+	bool pressed = ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
+	const bool is_active = ImGui::IsItemActive();   // Held
+
+	if (pressed) {
+		// INFO_LOG(Log::System, "Pressed");
+	}
+	ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+
+	visibleRows_ = canvas_sz.y / rowHeight_;
 
 	if (displayOffsetScale_) {
 		// visibleRows_ is calculated based on the size of the control, but X rows have already been used for the offsets and are no longer usable
 		visibleRows_ -= offsetSpace;
 	}
 
-	ImGui_PushFixedFont();
+	Bounds bounds;
+	bounds.x = canvas_p0.x;
+	bounds.y = canvas_p0.y;
+	bounds.w = canvas_p1.x - canvas_p0.x;
+	bounds.h = canvas_p1.y - canvas_p0.y;
 
-	// Background fill
-	Rectangle(hdc, 0, 0, rect_.right, rect_.bottom);
+	drawList->PushClipRect(canvas_p0, canvas_p1, true);
+	drawList->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
 
 	if (displayOffsetScale_)
-		drawOffsetScale();
+		drawOffsetScale(drawList);
 
 	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, windowStart_, (visibleRows_ + 1) * rowSize_);
 
@@ -151,8 +107,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 		uint32_t address = windowStart_ + i * rowSize_;
 		snprintf(temp, sizeof(temp), "%08X", address);
 
-		setTextColors(0x600000, standardBG);
-		TextOutA(hdc, addressStartX_, rowY, temp, (int)strlen(temp));
+		drawList->AddText(ImVec2(canvas_p0.x + addressStartX_, canvas_p0.y + rowY), IM_COL32(0, 0, 0x60, 0xFF), temp);
 
 		union {
 			uint32_t words[4];
@@ -189,16 +144,17 @@ void ImMemView::Draw(ImDrawList *drawList) {
 				c = '.';
 			}
 
-			COLORREF hexBGCol = standardBG;
-			COLORREF hexTextCol = 0x000000;
-			COLORREF continueBGCol = standardBG;
-			COLORREF asciiBGCol = standardBG;
-			COLORREF asciiTextCol = 0x000000;
+			ImColor standardBG = 0xFF000000;
+			ImColor continueBGCol = 0xFF000000;
+			ImColor hexBGCol = 0xFF000000;
+			ImColor hexTextCol = 0xFFFFFFFF;
+			ImColor asciiBGCol = 0xFF000000;
+			ImColor asciiTextCol = 0xFFFFFFFF;
 			int underline = -1;
 
 			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_ && !searching_) {
 				if (asciiSelected_) {
-					hexBGCol = 0xC0C0C0;
+					hexBGCol = ImColor(0xFFC0C0C0);
 					hexTextCol = 0x000000;
 					asciiBGCol = hasFocus_ ? 0xFF9933 : 0xC0C0C0;
 					asciiTextCol = hasFocus_ ? 0xFFFFFF : 0x000000;
@@ -220,35 +176,35 @@ void ImMemView::Draw(ImDrawList *drawList) {
 				hexLen = tagContinues ? 3 : 2;
 			}
 
-			setTextColors(hexTextCol, hexBGCol);
+			ImColor fg = hexTextCol;
+			ImColor bg = hexBGCol;
 			if (underline >= 0) {
-				SelectObject(hdc, underline == 0 ? (HGDIOBJ)underlineFont : (HGDIOBJ)font);
-				TextOutA(hdc, hexX, rowY, &temp[0], 1);
-				SelectObject(hdc, underline == 0 ? (HGDIOBJ)font : (HGDIOBJ)underlineFont);
-				TextOutA(hdc, hexX + charWidth_, rowY, &temp[1], 1);
-				SelectObject(hdc, (HGDIOBJ)font);
+				// SelectObject(hdc, underline == 0 ? (HGDIOBJ)underlineFont : (HGDIOBJ)font);
+				drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[1]);
+				// SelectObject(hdc, underline == 0 ? (HGDIOBJ)font : (HGDIOBJ)underlineFont);
+				drawList->AddText(ImVec2(canvas_p0.x + hexX + charWidth_, canvas_p0.y + rowY), fg, &temp[1]);
 
 				// If the tag keeps going, draw the BG too.
 				if (continueBGCol != standardBG) {
-					setTextColors(0x000000, continueBGCol);
-					TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
+					// setTextColors(0x000000, continueBGCol);
+					// TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
 				}
 			} else {
 				if (continueBGCol != hexBGCol) {
-					TextOutA(hdc, hexX, rowY, temp, 2);
-					setTextColors(0x000000, continueBGCol);
-					TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
+					drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
 				} else {
-					TextOutA(hdc, hexX, rowY, temp, hexLen);
+					drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
 				}
 			}
 
-			setTextColors(asciiTextCol, asciiBGCol);
-			TextOutA(hdc, asciiX, rowY, &c, 1);
+			// setTextColors(asciiTextCol, asciiBGCol);
+			// TextOutA(hdc, asciiX, rowY, &c, 1);
+			drawList->AddText(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), fg, &c, &c + 1);
 		}
 	}
 
 	ImGui_PopFont();
+	drawList->PopClipRect();
 }
 
 // We don't have a scroll bar - though maybe we should build one.
@@ -282,11 +238,13 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 
 	if (io.KeyMods & ImGuiMod_Ctrl) {
 		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
+			/*
 			u32 addr;
 			if (executeExpressionWindow(wnd, debugger_, addr) == false)
 				return;
 			gotoAddr(addr);
 			return;
+			*/
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F)) {
 			search(false);
@@ -325,6 +283,7 @@ void ImMemView::onChar(int c) {
 
 	if (io.KeyMods & ImGuiMod_Ctrl) {
 		return;
+	}
 
 	if (!Memory::IsValidAddress(curAddress_)) {
 		ScrollCursor(1, GotoMode::RESET);
@@ -385,9 +344,6 @@ void ImMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button) {
 }
 
 void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
-	if (Achievements::HardcoreModeActive())
-		return;
-
 	if (button == 2) {
 		int32_t selectedSize = selectRangeEnd_ - selectRangeStart_;
 		bool enable16 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 1) == 0);
@@ -398,16 +354,13 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_32, enable32 ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu, ID_MEMVIEW_COPYFLOAT_32, enable32 ? MF_ENABLED : MF_GRAYED);
 
-		switch (TriggerContextMenu(ContextMenuID::MEMVIEW, wnd, ContextPoint::FromEvent(lParam))) {
-		case ID_MEMVIEW_DUMP:
-		{
+		if (ImGui::MenuItem("Dump memory")) {
 			DumpMemoryWindow dump(wnd, debugger_);
 			dump.exec();
 			break;
 		}
 
-		case ID_MEMVIEW_COPYVALUE_8:
-		{
+		if (ImGui::MenuItem("Copy value (8-bit)")) {
 			auto memLock = Memory::Lock();
 			size_t tempSize = 3 * selectedSize + 1;
 			char *temp = new char[tempSize];
@@ -431,13 +384,11 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 				if (pos > temp)
 					*(pos - 1) = '\0';
 			}
-			W32Util::CopyTextToClipboard(wnd, temp);
+			// W32Util::CopyTextToClipboard(wnd, temp);
 			delete[] temp;
 		}
-		break;
 
-		case ID_MEMVIEW_COPYVALUE_16:
-		{
+		if (ImGui::MenuItem("Copy value (16-bit)")) {
 			auto memLock = Memory::Lock();
 			size_t tempSize = 5 * ((selectedSize + 1) / 2) + 1;
 			char *temp = new char[tempSize];
@@ -455,10 +406,8 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			W32Util::CopyTextToClipboard(wnd, temp);
 			delete[] temp;
 		}
-		break;
 
-		case ID_MEMVIEW_COPYVALUE_32:
-		{
+		if (ImGui::MenuItem("Copy value (32-bit)")) {
 			auto memLock = Memory::Lock();
 			size_t tempSize = 9 * ((selectedSize + 3) / 4) + 1;
 			char *temp = new char[tempSize];
@@ -476,18 +425,15 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			W32Util::CopyTextToClipboard(wnd, temp);
 			delete[] temp;
 		}
-		break;
 
-		case ID_MEMVIEW_COPYFLOAT_32:
-		{
+		if (ImGui::MenuItem("Copy value (float32)") {
 			auto memLock = Memory::Lock();
 			std::ostringstream stream;
 			stream << (Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
 			auto temp_string = stream.str();
 			W32Util::CopyTextToClipboard(wnd, temp_string.c_str());
 		}
-		break;
-
+		/*
 		case ID_MEMVIEW_EXTENTBEGIN:
 		{
 			std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress_, 1);
@@ -509,28 +455,26 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			gotoAddr(addr);
 			break;
 		}
-
-		case ID_MEMVIEW_COPYADDRESS:
-		{
+		*/
+		if (ImGui::MenuItem("Copy address")) {
 			char temp[24];
 			snprintf(temp, sizeof(temp), "0x%08X", curAddress_);
 			W32Util::CopyTextToClipboard(wnd, temp);
 		}
-		break;
 
-		case ID_MEMVIEW_GOTOINDISASM:
+		if (ImGui::MenuItem("Goto in disasm")) {
 			if (disasmWindow) {
 				disasmWindow->Goto(curAddress_);
 				disasmWindow->Show(true);
 			}
-			break;
 		}
-		return;
 	}
 
+	/*
 	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
 	ReleaseCapture();
+	*/
 	GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 }
 
