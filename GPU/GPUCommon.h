@@ -131,6 +131,8 @@ public:
 
 	void SwitchToGe();
 
+	void DrawImGuiDebugger() override;
+
 	uint32_t SetAddrTranslation(uint32_t value) override;
 	uint32_t GetAddrTranslation() override;
 

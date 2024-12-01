@@ -221,6 +221,7 @@ public:
 
 	// Tells the GPU to update the gpuStats structure.
 	virtual void GetStats(char *buffer, size_t bufsize) = 0;
+	virtual void DrawImGuiDebugger() = 0;
 
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.

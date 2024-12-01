@@ -68,3 +68,15 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	ImGui::TextUnformatted(statbuf);
 	ImGui::End();
 }
+
+// Stub
+void DrawGeDebuggerWindow(ImConfig &cfg) {
+	if (!ImGui::Begin("Debug Stats", &cfg.geDebuggerOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	gpu->DrawImGuiDebugger();
+
+	ImGui::End();
+}

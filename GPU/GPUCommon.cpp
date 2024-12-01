@@ -13,6 +13,7 @@
 
 #include <algorithm>
 
+#include "ext/imgui/imgui.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
@@ -1974,4 +1975,15 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	// The only part of GPU emulation (other than software) that jits is the vertex decoder, currently,
 	// which is owned by the drawengine.
 	return drawEngineCommon_->DescribeCodePtr(ptr, name);
+}
+
+void GPUCommon::DrawImGuiDebugger() {
+	// First, let's list any active display lists.
+	ImGui::Text("Next list ID: %d", nextListID);
+	for (auto index : dlQueue) {
+		const auto &list = dls[index];
+		ImGui::Text("List %d", list.id);
+		ImGui::Text("pc: %08x (start: %08x)", list.pc, list.startpc);
+		ImGui::Text("bbox: %d", (int)list.bboxResult);
+	}
 }

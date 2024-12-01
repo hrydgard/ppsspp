@@ -78,6 +78,7 @@ struct ImConfig {
 	bool kernelObjectsOpen;
 	bool audioChannelsOpen;
 	bool debugStatsOpen;
+	bool geDebuggerOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;

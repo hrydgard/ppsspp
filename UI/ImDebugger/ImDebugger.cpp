@@ -821,6 +821,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Graphics")) {
+			ImGui::MenuItem("Ge Debugger", nullptr, &cfg_.geDebuggerOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -918,6 +919,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);
+	}
+
+	if (cfg_.geDebuggerOpen) {
+		DrawGeDebuggerWindow(cfg_);
 	}
 }
 
