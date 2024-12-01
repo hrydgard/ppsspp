@@ -335,12 +335,22 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 	}
 }
 
+void Core_SwitchToGe() {
+	coreState = CORE_RUNNING_GE;
+}
+
 void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
-	if (coreState != CORE_STEPPING_CPU) {
+
+	switch (coreState) {
+	case CORE_STEPPING_CPU:
+		// All good
+		break;
+	default:
+		// Nothing to do.
 		return;
 	}
 

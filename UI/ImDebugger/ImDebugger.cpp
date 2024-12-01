@@ -945,6 +945,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		}
 	}
 
+	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+		ImGui::Text("!!! Currently stepping the Ge. See that window (when implemented)");
+	}
+
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 	if (ImGui::SmallButton("Run")) {
 		Core_Resume();
@@ -957,6 +961,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		Core_Break("Pause");
 	}
 	ImGui::EndDisabled();
+
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Into")) {
@@ -974,6 +980,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	if (ImGui::SmallButton("Step Out")) {
 		Core_RequestSingleStep(CPUStepType::Out, 0);
 	}
+
+	ImGui::EndDisabled();
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Goto PC")) {

@@ -197,6 +197,8 @@ public:
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) = 0;
 	virtual u32  DequeueList(int listid) = 0;
 	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
+	virtual void ProcessDLQueue() = 0;
+
 	virtual u32  DrawSync(int mode) = 0;
 	virtual int  ListSync(int listid, int mode) = 0;
 	virtual u32  Continue() = 0;
