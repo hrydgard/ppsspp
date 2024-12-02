@@ -164,7 +164,7 @@ void InstallZipScreen::CreateViews() {
 			leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		}
 	} else {
-		leftColumn->Add(new TextView(er->T("Error reading file"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		leftColumn->Add(new TextView(er->T("The file is not a valid zip file"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 	}
 
 	if (destFolders_.size() > 1) {

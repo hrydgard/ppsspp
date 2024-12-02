@@ -42,6 +42,11 @@ enum Command {
         new: String,
         key: String,
     },
+    DupeKey {
+        section: String,
+        old: String,
+        new: String,
+    },
     RenameKey {
         section: String,
         old: String,
@@ -161,6 +166,15 @@ fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> 
     Ok(())
 }
 
+fn dupe_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
+    if let Some(section) = target_ini.get_section_mut(section) {
+        section.dupe_key(old, new);
+    } else {
+        println!("No section {}", section);
+    }
+    Ok(())
+}
+
 fn sort_section(target_ini: &mut IniFile, section: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.sort();
@@ -247,11 +261,19 @@ fn main() {
                 move_key(&mut target_ini, old, new, key).unwrap();
             }
             Command::CopyKey {
+                // Copies between sections
                 ref old,
                 ref new,
                 ref key,
             } => {
                 copy_key(&mut target_ini, old, new, key).unwrap();
+            }
+            Command::DupeKey {
+                ref section,
+                ref old,
+                ref new,
+            } => {
+                dupe_key(&mut target_ini, section, old, new).unwrap();
             }
             Command::RemoveKey {
                 ref section,
@@ -302,11 +324,20 @@ fn main() {
             move_key(&mut reference_ini, old, new, key).unwrap();
         }
         Command::CopyKey {
+            // between sections
             ref old,
             ref new,
             ref key,
         } => {
             copy_key(&mut reference_ini, old, new, key).unwrap();
+        }
+        Command::DupeKey {
+            // Inside a section, preserving a value
+            ref section,
+            ref old,
+            ref new,
+        } => {
+            dupe_key(&mut reference_ini, section, old, new).unwrap();
         }
         Command::RemoveKey {
             ref section,
