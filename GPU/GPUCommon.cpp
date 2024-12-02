@@ -551,9 +551,10 @@ u32 GPUCommon::Continue() {
 void GPUCommon::SwitchToGe() {
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
-	ProcessDLQueue();
+	// Call ProcessDLQueue directly.
+	ProcessDLQueue(DLRunType::Run, DLStepType::None);
 #else
-	// New method, will allow ImDebugger to step the GPU
+	// New method, will allow ImDebugger to step the GPU.
 	Core_SwitchToGe();
 #endif
 }
@@ -841,7 +842,10 @@ int GPUCommon::GetNextListIndex() {
 
 // This is now called when coreState == CORE_RUNNING_GE.
 // TODO: It should return the next action.. (break into debugger or continue running)
-void GPUCommon::ProcessDLQueue() {
+DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
+	_dbg_assert_(run == DLRunType::Run);
+	_dbg_assert_(step == DLStepType::None);
+
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
@@ -855,13 +859,14 @@ void GPUCommon::ProcessDLQueue() {
 		DisplayList &l = dls[listIndex];
 		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x", l.pc, l.stall);
 		if (!InterpretList(l)) {
-			return;
-		} else {
-			// Some other list could've taken the spot while we dilly-dallied around.
-			if (l.state != PSP_GE_DL_STATE_QUEUED) {
-				// At the end, we can remove it from the queue and continue.
-				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
-			}
+			return DLResult::Error;
+		}
+
+		// Some other list could've taken the spot while we dilly-dallied around.
+		// LATER: Hm, really? Not unless we start time-slicing...
+		if (l.state != PSP_GE_DL_STATE_QUEUED) {
+			// At the end, we can remove it from the queue and continue.
+			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
 	}
 
@@ -876,6 +881,7 @@ void GPUCommon::ProcessDLQueue() {
 
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
+	return DLResult::Done;
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {

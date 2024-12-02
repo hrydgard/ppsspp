@@ -78,7 +78,6 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 	return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 }
 
-
 class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -114,7 +113,7 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
-	void ProcessDLQueue() override;
+	DLResult ProcessDLQueue(DLRunType run, DLStepType step) override;
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
 	u32  DequeueList(int listid) override;
