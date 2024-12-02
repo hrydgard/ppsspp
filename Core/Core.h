@@ -22,6 +22,7 @@
 
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
+#include "GPU/GPUDefinitions.h"
 
 class GraphicsContext;
 
@@ -50,7 +51,8 @@ void Core_Resume();
 
 // This should be called externally.
 // Can fail if another step type was requested this frame.
-bool Core_RequestSingleStep(CPUStepType stepType, int stepSize);
+bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
+bool Core_RequestGeStep(CPUStepType stepType);
 
 bool Core_ShouldRunBehind();
 bool Core_MustRunBehind();

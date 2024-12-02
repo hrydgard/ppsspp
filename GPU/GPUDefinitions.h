@@ -53,3 +53,24 @@ enum GPUInvalidationType {
 	// Forced invalidation for when the texture hash may not catch changes.
 	GPU_INVALIDATE_FORCE,
 };
+
+enum class DLRunType {
+	Run,
+	RunDebug,
+	Step,
+};
+
+enum class DLStepType {
+	None,
+	Single,
+	Prim,
+	Draw,
+	Texture,
+	Rendertarget,
+};
+
+enum class DLResult {
+	Done,
+	Error,
+	Pause,  // used for stepping, breakpoints
+};

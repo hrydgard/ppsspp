@@ -210,7 +210,7 @@ void CDisasm::step(CPUStepType stepType) {
 	lastTicks_ = CoreTiming::GetTicks();
 
 	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
-	Core_RequestSingleStep(stepType, stepSize);
+	Core_RequestCPUStep(stepType, stepSize);
 }
 
 void CDisasm::runToLine() {

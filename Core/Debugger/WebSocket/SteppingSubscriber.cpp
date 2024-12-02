@@ -107,7 +107,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
 		int c = GetNextInstructionCount(cpuDebug);
-		Core_RequestSingleStep(CPUStepType::Into, c);
+		Core_RequestCPUStep(CPUStepType::Into, c);
 	} else {
 		uint32_t breakpointAddress = cpuDebug->GetPC();
 		PrepareResume();
@@ -277,7 +277,7 @@ int WebSocketSteppingState::GetNextInstructionCount(DebugInterface *cpuDebug) {
 void WebSocketSteppingState::PrepareResume() {
 	if (currentMIPS->inDelaySlot) {
 		// Delay slot instructions are never joined, so we pass 1.
-		Core_RequestSingleStep(CPUStepType::Into, 1);
+		Core_RequestCPUStep(CPUStepType::Into, 1);
 	} else {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);

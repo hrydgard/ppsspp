@@ -942,11 +942,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
 			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestSingleStep(CPUStepType::Over, stepSize);
+			Core_RequestCPUStep(CPUStepType::Over, stepSize);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
 			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestSingleStep(CPUStepType::Into, stepSize);
+			Core_RequestCPUStep(CPUStepType::Into, stepSize);
 		}
 	}
 
@@ -972,18 +972,18 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Into")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestSingleStep(CPUStepType::Into, stepSize);
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Over")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestSingleStep(CPUStepType::Over, stepSize);
+		Core_RequestCPUStep(CPUStepType::Over, stepSize);
 	}
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Out")) {
-		Core_RequestSingleStep(CPUStepType::Out, 0);
+		Core_RequestCPUStep(CPUStepType::Out, 0);
 	}
 
 	ImGui::EndDisabled();
