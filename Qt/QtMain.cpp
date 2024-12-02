@@ -482,7 +482,7 @@ void MainUI::EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		updateAccelerometer();
-		Core_RunLoop(graphicsContext);
+		NativeFrame(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
@@ -548,7 +548,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue) {
 }
 
 void MainUI::resizeGL(int w, int h) {
-	if (UpdateScreenScale(w, h)) {
+	if (Native_UpdateScreenScale(w, h)) {
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 	xscale = w / this->width();
@@ -566,7 +566,7 @@ void MainUI::timerEvent(QTimerEvent *) {
 void MainUI::changeEvent(QEvent *e) {
 	QGLWidget::changeEvent(e);
 	if (e->type() == QEvent::WindowStateChange)
-		Core_NotifyWindowHidden(isMinimized());
+		Native_NotifyWindowHidden(isMinimized());
 }
 
 bool MainUI::event(QEvent *e) {
@@ -726,7 +726,7 @@ void MainUI::paintGL() {
 #endif
 	updateAccelerometer();
 	if (emuThreadState == (int)EmuThreadState::DISABLED) {
-		Core_RunLoop(graphicsContext);
+		NativeFrame(graphicsContext);
 	} else {
 		graphicsContext->ThreadFrame();
 		// Do the rest in EmuThreadFunc

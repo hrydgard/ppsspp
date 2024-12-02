@@ -79,22 +79,12 @@ static int steppingCounter = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 
-static bool windowHidden = false;
 static bool powerSaving = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
 	PSP_CoreParameter().graphicsContext = ctx;
-}
-
-void Core_NotifyWindowHidden(bool hidden) {
-	windowHidden = hidden;
-	// TODO: Wait until we can react?
-}
-
-bool Core_IsWindowHidden() {
-	return windowHidden;
 }
 
 void Core_ListenLifecycle(CoreLifecycleFunc func) {
@@ -144,7 +134,7 @@ bool Core_IsInactive() {
 	return coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
 
-static inline void Core_StateProcessed() {
+void Core_StateProcessed() {
 	if (coreStatePending) {
 		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
 		coreStatePending = false;
@@ -172,67 +162,6 @@ void Core_SetPowerSaving(bool mode) {
 
 bool Core_GetPowerSaving() {
 	return powerSaving;
-}
-
-static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
-	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_display.dpi_scale_x);
-	int h = (int)(pixelHeight * g_display.dpi_scale_y);
-	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
-}
-
-// TODO: Feels like this belongs elsewhere.
-bool UpdateScreenScale(int width, int height) {
-	bool smallWindow;
-
-	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
-	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
-
-	if (g_display.dpi < 0.0f) {
-		g_display.dpi = 96.0f;
-	}
-	if (g_logical_dpi < 0.0f) {
-		g_logical_dpi = 96.0f;
-	}
-
-	g_display.dpi_scale_x = g_logical_dpi / g_display.dpi;
-	g_display.dpi_scale_y = g_logical_dpi / g_display.dpi;
-	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
-	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
-
-	smallWindow = IsWindowSmall(width, height);
-	if (smallWindow) {
-		g_display.dpi /= 2.0f;
-		g_display.dpi_scale_x *= 2.0f;
-		g_display.dpi_scale_y *= 2.0f;
-	}
-	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
-	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
-
-	int new_dp_xres = (int)(width * g_display.dpi_scale_x);
-	int new_dp_yres = (int)(height * g_display.dpi_scale_y);
-
-	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
-	bool px_changed = g_display.pixel_xres != width || g_display.pixel_yres != height;
-
-	if (dp_changed || px_changed) {
-		g_display.dp_xres = new_dp_xres;
-		g_display.dp_yres = new_dp_yres;
-		g_display.pixel_xres = width;
-		g_display.pixel_yres = height;
-		NativeResized();
-		return true;
-	}
-	return false;
-}
-
-// Used by Windows, SDL, Qt. Doesn't belong in this file.
-void Core_RunLoop(GraphicsContext *ctx) {
-	if (windowHidden && g_Config.bPauseWhenMinimized) {
-		sleep_ms(16, "window-hidden");
-		return;
-	}
-	NativeFrame(ctx);
 }
 
 bool Core_RequestSingleStep(CPUStepType type, int stepSize) {
@@ -387,50 +316,6 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	// Update disasm dialog.
 	System_Notify(SystemNotification::MEM_VIEW);
-}
-
-// Many platforms, like Android, do not call this function but handle things on their own.
-// Instead they simply call NativeFrame directly.
-bool Core_Run(GraphicsContext *ctx) {
-	System_Notify(SystemNotification::DISASSEMBLY);
-	while (true) {
-		if (GetUIState() != UISTATE_INGAME) {
-			Core_StateProcessed();
-			if (GetUIState() == UISTATE_EXIT) {
-				// Not sure why we do a final frame here?
-				NativeFrame(ctx);
-				return false;
-			}
-			Core_RunLoop(ctx);
-			continue;
-		}
-
-		switch (coreState) {
-		case CORE_RUNNING_CPU:
-		case CORE_STEPPING_CPU:
-		case CORE_RUNNING_GE:
-		case CORE_STEPPING_GE:
-			// enter a fast runloop
-			Core_RunLoop(ctx);
-			if (coreState == CORE_POWERDOWN) {
-				return true;
-			}
-			break;
-		case CORE_POWERDOWN:
-			// Need to step the loop.
-			Core_RunLoop(ctx);
-			return true;
-
-		case CORE_POWERUP:
-		case CORE_BOOT_ERROR:
-		case CORE_RUNTIME_ERROR:
-			// Exit loop!!
-			return true;
-
-		case CORE_NEXTFRAME:
-			return true;
-		}
-	}
 }
 
 // Free-threaded (hm, possibly except tracing).

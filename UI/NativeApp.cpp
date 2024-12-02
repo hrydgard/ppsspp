@@ -185,6 +185,7 @@ static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static int g_restartGraphics;
+static bool g_windowHidden = false;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -1022,6 +1023,13 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
+			sleep_ms(16, "window-hidden");
+			return;
+		}
+	}
+
 	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
 	if (g_restartGraphics == 1) {
 		// Used for debugging only.
@@ -1527,4 +1535,64 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 		data.clear();  // just to be sure.
 	}
 	return data;
+}
+
+void Native_NotifyWindowHidden(bool hidden) {
+	g_windowHidden = hidden;
+	// TODO: Wait until we can react?
+}
+
+bool Native_IsWindowHidden() {
+	return g_windowHidden;
+}
+
+static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
+	// Can't take this from config as it will not be set if windows is maximized.
+	int w = (int)(pixelWidth * g_display.dpi_scale_x);
+	int h = (int)(pixelHeight * g_display.dpi_scale_y);
+	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+}
+
+bool Native_UpdateScreenScale(int width, int height) {
+	bool smallWindow;
+
+	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
+	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+
+	if (g_display.dpi < 0.0f) {
+		g_display.dpi = 96.0f;
+	}
+	if (g_logical_dpi < 0.0f) {
+		g_logical_dpi = 96.0f;
+	}
+
+	g_display.dpi_scale_x = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale_y = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
+
+	smallWindow = IsWindowSmall(width, height);
+	if (smallWindow) {
+		g_display.dpi /= 2.0f;
+		g_display.dpi_scale_x *= 2.0f;
+		g_display.dpi_scale_y *= 2.0f;
+	}
+	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
+	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
+
+	int new_dp_xres = (int)(width * g_display.dpi_scale_x);
+	int new_dp_yres = (int)(height * g_display.dpi_scale_y);
+
+	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
+	bool px_changed = g_display.pixel_xres != width || g_display.pixel_yres != height;
+
+	if (dp_changed || px_changed) {
+		g_display.dp_xres = new_dp_xres;
+		g_display.dp_yres = new_dp_yres;
+		g_display.pixel_xres = width;
+		g_display.pixel_yres = height;
+		NativeResized();
+		return true;
+	}
+	return false;
 }

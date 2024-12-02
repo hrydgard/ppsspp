@@ -25,13 +25,10 @@
 
 class GraphicsContext;
 
-void Core_RunLoop(GraphicsContext *ctx);
-
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
 // Returns false when an UI exit state is detected.
-bool Core_Run(GraphicsContext *ctx);
 void Core_Stop();
 
 // X11, sigh.
@@ -95,15 +92,11 @@ bool Core_IsStepping();
 
 bool Core_IsActive();
 bool Core_IsInactive();
-// Warning: these currently work only on Windows.
+
+// Warning: these three are only used on Windows - debugger integration.
+void Core_StateProcessed();
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
-
-bool UpdateScreenScale(int width, int height);
-
-// Don't run the core when minimized etc.
-void Core_NotifyWindowHidden(bool hidden);
-bool Core_IsWindowHidden();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();

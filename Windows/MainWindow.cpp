@@ -273,7 +273,7 @@ namespace MainWindow
 
 	static void HandleSizeChange(int newSizingType) {
 		SavePosition();
-		Core_NotifyWindowHidden(false);
+		Native_NotifyWindowHidden(false);
 		if (!g_Config.bPauseWhenMinimized) {
 			System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "false");
 		}
@@ -294,7 +294,7 @@ namespace MainWindow
 
 		DEBUG_LOG(Log::System, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
-		if (UpdateScreenScale(width, height)) {
+		if (Native_UpdateScreenScale(width, height)) {
 			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
 			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		}
@@ -936,7 +936,7 @@ namespace MainWindow
 				break;
 
 			case SIZE_MINIMIZED:
-				Core_NotifyWindowHidden(true);
+				Native_NotifyWindowHidden(true);
 				if (!g_Config.bPauseWhenMinimized) {
 					System_PostUIMessage(UIMessage::WINDOW_MINIMIZED, "true");
 				}
