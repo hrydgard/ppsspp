@@ -1710,7 +1710,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
 	char tag[128];
-	size_t tagSize;
+	size_t tagSize = 0;
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
 	if (!framebufferManager_ || !framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {

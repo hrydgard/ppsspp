@@ -117,7 +117,7 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	if (nextState == CORE_RUNNING)
+	if (nextState == CORE_RUNNING_CPU)
 		runAct();
 	updateMenus();
 }
