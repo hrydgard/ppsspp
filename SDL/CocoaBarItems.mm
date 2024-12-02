@@ -15,7 +15,7 @@
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Core.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Common/File/Path.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"

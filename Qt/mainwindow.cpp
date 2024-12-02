@@ -18,7 +18,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "UI/GamepadEmu.h"
 
 MainWindow::MainWindow(QWidget *parent, bool fullscreen) :

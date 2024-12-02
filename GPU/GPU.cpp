@@ -22,7 +22,7 @@
 #include "Core/Core.h"
 
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/GPU_GLES.h"
@@ -39,7 +39,7 @@
 #endif
 
 GPUStatistics gpuStats;
-GPUInterface *gpu;
+GPUCommon *gpu;
 GPUDebugInterface *gpuDebug;
 
 template <typename T>

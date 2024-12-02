@@ -70,7 +70,7 @@
 
 #include "GPU/Debugger/Playback.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 enum {

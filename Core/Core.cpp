@@ -408,6 +408,8 @@ bool Core_Run(GraphicsContext *ctx) {
 		switch (coreState) {
 		case CORE_RUNNING_CPU:
 		case CORE_STEPPING_CPU:
+		case CORE_RUNNING_GE:
+		case CORE_STEPPING_GE:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {

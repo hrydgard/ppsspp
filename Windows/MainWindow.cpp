@@ -81,7 +81,7 @@
 #include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameSettingsScreen.h"
 

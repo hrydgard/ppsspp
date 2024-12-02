@@ -31,7 +31,7 @@
 #include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 // This is used to make non-ASCII paths work for filename.

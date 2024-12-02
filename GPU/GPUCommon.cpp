@@ -1523,6 +1523,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 void GPUCommon::InterruptStart(int listid) {
 	interruptRunning = true;
 }
+
 void GPUCommon::InterruptEnd(int listid) {
 	interruptRunning = false;
 	isbreak = false;

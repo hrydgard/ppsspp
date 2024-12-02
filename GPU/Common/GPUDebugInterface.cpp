@@ -20,6 +20,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/GPUState.h"

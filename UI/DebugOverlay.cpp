@@ -20,7 +20,7 @@
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
 #include "GPU/Vulkan/DebugVisVulkan.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -190,7 +190,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void DrawFramebufferList(UIContext *ctx, GPUInterface *gpu, const Bounds &bounds) {
+void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &bounds) {
 	if (!gpu) {
 		return;
 	}

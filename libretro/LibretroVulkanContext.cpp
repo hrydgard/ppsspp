@@ -6,7 +6,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"

@@ -46,7 +46,7 @@
 #include "Windows/MainWindow.h"
 #include "Windows/main.h"
 
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"

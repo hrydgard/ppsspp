@@ -4,7 +4,7 @@
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/Misc.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class CtrlDisplayListView;
 

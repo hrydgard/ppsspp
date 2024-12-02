@@ -72,7 +72,7 @@
 #include "Common/ExceptionHandlerSetup.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 

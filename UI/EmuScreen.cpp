@@ -62,7 +62,7 @@ using namespace std::placeholders;
 #include "Core/System.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #if !PPSSPP_PLATFORM(UWP)
 #include "GPU/Vulkan/DebugVisVulkan.h"

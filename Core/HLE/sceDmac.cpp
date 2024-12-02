@@ -25,7 +25,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 u64 dmacMemcpyDeadline;

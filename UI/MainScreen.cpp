@@ -62,7 +62,7 @@
 #include "UI/InstallZipScreen.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Common/Data/Text/I18n.h"
 
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)

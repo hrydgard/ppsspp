@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/Common.h"
 #include "Common/CommonWindows.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Debugger.h"

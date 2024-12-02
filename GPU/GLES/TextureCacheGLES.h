@@ -21,7 +21,7 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureCacheCommon.h"
 

@@ -10,7 +10,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 
 retro_video_refresh_t LibretroGraphicsContext::video_cb;
 
