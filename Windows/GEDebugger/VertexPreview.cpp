@@ -22,7 +22,7 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GPUState.h"

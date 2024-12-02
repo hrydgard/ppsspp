@@ -39,7 +39,7 @@
 
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

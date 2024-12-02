@@ -24,7 +24,7 @@
 #include "Core/System.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 #ifdef _M_SSE

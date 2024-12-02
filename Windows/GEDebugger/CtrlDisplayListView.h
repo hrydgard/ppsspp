@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include "Common/CommonWindows.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class CtrlDisplayListView
 {

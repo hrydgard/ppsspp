@@ -72,7 +72,7 @@
 #include "Common/ExceptionHandlerSetup.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 
@@ -642,7 +642,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			_dbg_assert_(false);
 			break;
 		case CORE_RUNNING_GE:
-			gpu->ProcessDLQueue();
+			gpu->ProcessDLQueue(DLRunType::Run, DLStepType::None);
 			coreState = CORE_RUNNING_CPU;
 			break;
 		}

@@ -1974,7 +1974,7 @@ set(GPU_SOURCES
 	GPU/Debugger/Stepping.h
 	GPU/ge_constants.h
 	GPU/GeConstants.cpp
-	GPU/GPUInterface.h
+	GPU/GPUDefinitions.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h
 	GPU/GPU.cpp

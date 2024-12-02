@@ -21,7 +21,7 @@
 #include <cstring>
 #include <cstdint>
 
-class GPUInterface;
+class GPUCommon;
 class GPUDebugInterface;
 class GraphicsContext;
 
@@ -153,7 +153,7 @@ struct GPUStatistics {
 };
 
 extern GPUStatistics gpuStats;
-extern GPUInterface *gpu;
+extern GPUCommon *gpu;
 extern GPUDebugInterface *gpuDebug;
 
 namespace Draw {

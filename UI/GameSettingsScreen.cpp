@@ -78,7 +78,7 @@
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 #include "Core/Core.h" // for Core_IsStepping

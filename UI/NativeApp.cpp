@@ -110,7 +110,7 @@
 #include "Core/TiltEventProcessor.h"
 #include "Core/ThreadPools.h"
 
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"

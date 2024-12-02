@@ -30,6 +30,7 @@
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/TextureReplacer.h"
+#include "GPU/GPUDefinitions.h"
 
 class Draw2D;
 

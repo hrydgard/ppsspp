@@ -3,7 +3,7 @@
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/MainWindow.h"
 #include "Windows/main.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"

@@ -50,7 +50,7 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 static size_t FormatFramebufferName(const VirtualFramebuffer *vfb, char *tag, size_t len) {

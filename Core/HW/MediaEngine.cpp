@@ -26,7 +26,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"  // Used by TextureDecoder.h when templates get instanced
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Core/HW/SimpleAudioDec.h"
 
 #include <algorithm>

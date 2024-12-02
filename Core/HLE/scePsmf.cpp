@@ -30,7 +30,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/CoreTiming.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 #include <map>

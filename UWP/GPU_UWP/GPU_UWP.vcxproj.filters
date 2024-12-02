@@ -106,7 +106,7 @@
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
     <ClInclude Include="..\..\GPU\GPUCommon.h" />
-    <ClInclude Include="..\..\GPU\GPUInterface.h" />
+    <ClInclude Include="..\..\GPU\GPUDefinitions.h" />
     <ClInclude Include="..\..\GPU\GPUState.h" />
     <ClInclude Include="..\..\GPU\Math3D.h" />
     <ClInclude Include="..\..\GPU\Software\BinManager.h" />

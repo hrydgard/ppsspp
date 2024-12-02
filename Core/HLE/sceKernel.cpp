@@ -37,7 +37,7 @@
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 #include "__sceAudio.h"

@@ -57,7 +57,7 @@ extern "C" {
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 namespace Reporting

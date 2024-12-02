@@ -33,7 +33,7 @@
     <ClInclude Include="GPUState.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GPUInterface.h">
+    <ClInclude Include="GPUDefinitions.h">
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="GPUCommon.h">

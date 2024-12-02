@@ -38,7 +38,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "GPU/GPUState.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 
 static const int LIST_ID_MAGIC = 0x35000000;
 

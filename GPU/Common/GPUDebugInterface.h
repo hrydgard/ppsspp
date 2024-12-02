@@ -23,10 +23,15 @@
 #include "Common/Math/expression_parser.h"
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUDefinitions.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
+
+struct VirtualFramebuffer;
+struct DisplayList;
 
 struct GPUDebugOp {
 	u32 pc;
@@ -219,12 +224,20 @@ public:
 	virtual void SetCmdValue(u32 op) = 0;
 	virtual void DispatchFlush() = 0;
 
+	virtual void GetStats(char *buffer, size_t bufsize) = 0;
+
 	virtual uint32_t SetAddrTranslation(uint32_t value) = 0;
 	virtual uint32_t GetAddrTranslation() = 0;
 	
 	// TODO: Make a proper debug interface instead of accessing directly?
 	virtual FramebufferManagerCommon *GetFramebufferManagerCommon() = 0;
 	virtual TextureCacheCommon *GetTextureCacheCommon() = 0;
+
+	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
+
+	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) = 0;
+	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) = 0;
+	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;

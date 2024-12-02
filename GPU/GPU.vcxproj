@@ -439,7 +439,7 @@
     <ClInclude Include="GPU.h" />
     <ClInclude Include="GPUCommon.h" />
     <ClInclude Include="GPUCommonHW.h" />
-    <ClInclude Include="GPUInterface.h" />
+    <ClInclude Include="GPUDefinitions.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Software\BinManager.h" />

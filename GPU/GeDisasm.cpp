@@ -19,7 +19,7 @@
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 

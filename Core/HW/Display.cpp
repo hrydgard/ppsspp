@@ -29,7 +29,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/Display.h"
 #include "GPU/GPU.h"
-#include "GPU/GPUInterface.h"
+#include "GPU/GPUCommon.h"
 
 // Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
 static std::mutex listenersLock;
