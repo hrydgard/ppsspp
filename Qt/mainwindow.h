@@ -67,7 +67,7 @@ protected:
 		QMainWindow::changeEvent(e);
 		// Does not work on Linux for Qt5.2 or Qt5.3 (Qt bug)
 		if(e->type() == QEvent::WindowStateChange)
-			Core_NotifyWindowHidden(isMinimized());
+			Native_NotifyWindowHidden(isMinimized());
 	}
 
 	void closeEvent(QCloseEvent *) { exitAct(); }

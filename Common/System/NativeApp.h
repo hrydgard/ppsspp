@@ -84,3 +84,10 @@ inline bool NativeClearSecret(std::string_view nameOfSecret) {
 }
 // On failure, returns an empty string. Good enough since any real secret is non-empty.
 std::string NativeLoadSecret(std::string_view nameOfSecret);
+
+// Don't run the core when minimized etc.
+void Native_NotifyWindowHidden(bool hidden);
+bool Native_IsWindowHidden();
+
+// TODO: Feels like this belongs elsewhere.
+bool Native_UpdateScreenScale(int width, int height);

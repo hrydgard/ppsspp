@@ -695,7 +695,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		Core_RunLoop(graphicsContext);
+		NativeFrame(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -737,7 +737,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
 	// provided (through --dpi, it is equal to system DPI if unspecified):
 	// - SDL gives us motion events in "system DPI" points
-	// - UpdateScreenScale expects pixels, so in a way "96 DPI" points
+	// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 	// - The UI code expects motion events in "logical DPI" points
 	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
 	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
@@ -756,17 +756,17 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			int new_height = event.window.data2;
 
 			// The size given by SDL is in point-units, convert these to
-			// pixels before passing to UpdateScreenScale()
+			// pixels before passing to Native_UpdateScreenScale()
 			int new_width_px = new_width * g_DesktopDPI;
 			int new_height_px = new_height * g_DesktopDPI;
 
-			Core_NotifyWindowHidden(false);
+			Native_NotifyWindowHidden(false);
 
 			Uint32 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 			// This one calls NativeResized if the size changed.
-			UpdateScreenScale(new_width_px, new_height_px);
+			Native_UpdateScreenScale(new_width_px, new_height_px);
 
 			// Set variable here in case fullscreen was toggled by hotkey
 			if (g_Config.UseFullScreen() != fullscreen) {
@@ -804,11 +804,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 		case SDL_WINDOWEVENT_MINIMIZED:
 		case SDL_WINDOWEVENT_HIDDEN:
-			Core_NotifyWindowHidden(true);
+			Native_NotifyWindowHidden(true);
 			break;
 		case SDL_WINDOWEVENT_EXPOSED:
 		case SDL_WINDOWEVENT_SHOWN:
-			Core_NotifyWindowHidden(false);
+			Native_NotifyWindowHidden(false);
 			break;
 		default:
 			break;
@@ -1426,7 +1426,7 @@ int main(int argc, char *argv[]) {
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
 
-	UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
+	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
 
 	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
@@ -1535,7 +1535,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested || g_RestartRequested)
 			break;
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
-			Core_RunLoop(graphicsContext);
+			NativeFrame(graphicsContext);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
@@ -1545,7 +1545,7 @@ int main(int argc, char *argv[]) {
 
 		inputTracker.MouseCaptureControl();
 
-		bool renderThreadPaused = Core_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
+		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
 		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame())
 				break;
