@@ -69,11 +69,11 @@ u32 IRRunBreakpoint(u32 pc) {
 		return 0;
 
 	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
+	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
 		return 1;
 
 	g_breakpoints.ExecBreakPoint(pc);
-	return coreState != CORE_RUNNING ? 1 : 0;
+	return coreState != CORE_RUNNING_CPU ? 1 : 0;
 }
 
 u32 IRRunMemCheck(u32 pc, u32 addr) {
@@ -83,11 +83,11 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 		return 0;
 
 	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
+	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
 		return 1;
 
 	g_breakpoints.ExecOpMemCheck(addr, pc);
-	return coreState != CORE_RUNNING ? 1 : 0;
+	return coreState != CORE_RUNNING_CPU ? 1 : 0;
 }
 
 void IRApplyRounding(MIPSState *mips) {
@@ -1148,7 +1148,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			MIPSOpcode op(inst->constant);
 			CallSyscall(op);
-			if (coreState != CORE_RUNNING)
+			if (coreState != CORE_RUNNING_CPU)
 				CoreTiming::ForceCheck();
 			break;
 		}

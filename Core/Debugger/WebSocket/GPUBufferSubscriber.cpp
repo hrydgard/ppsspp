@@ -227,7 +227,7 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
 	}
-	if (coreState != CORE_STEPPING && !GPUStepping::IsStepping()) {
+	if (coreState != CORE_STEPPING_CPU && !GPUStepping::IsStepping()) {
 		return req.Fail("Neither CPU or GPU is stepping");
 	}
 

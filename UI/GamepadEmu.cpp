@@ -47,7 +47,7 @@ void GamepadUpdateOpacity(float force) {
 		g_gamepadOpacity = force;
 		return;
 	}
-	if (coreState != CORE_RUNNING) {
+	if (coreState != CORE_RUNNING_CPU) {
 		g_gamepadOpacity = 0.0f;
 		return;
 	}
@@ -921,7 +921,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	if (fastForward) {
 		fastForward->SetAngle(180.0f);
 		fastForward->OnChange.Add([](UI::EventParams &e) {
-			if (e.a && coreState == CORE_STEPPING) {
+			if (e.a && coreState == CORE_STEPPING_CPU) {
 				Core_Resume();
 			}
 			return UI::EVENT_DONE;

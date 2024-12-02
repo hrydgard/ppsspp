@@ -241,18 +241,18 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
-	coreState = coreParameter.startBreak ? CORE_STEPPING : CORE_RUNNING;
-	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING)
+	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
+	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU)
 	{
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
 		if (coreState == CORE_NEXTFRAME) {
-			coreState = CORE_RUNNING;
+			coreState = CORE_RUNNING_CPU;
 			headlessHost->SwapBuffers();
 		}
-		if (coreState == CORE_STEPPING && !coreParameter.startBreak) {
+		if (coreState == CORE_STEPPING_CPU && !coreParameter.startBreak) {
 			break;
 		}
 		if (time_now_d() > deadline) {

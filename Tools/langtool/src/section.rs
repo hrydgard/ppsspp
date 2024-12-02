@@ -116,7 +116,30 @@ impl Section {
             self.insert_line_if_missing(&line);
         } else {
             let name = &self.name;
-            println!("didn't find a line starting with {prefix} in section {name}");
+            println!("rename_key: didn't find a line starting with {prefix} in section {name}");
+        }
+    }
+
+    pub fn dupe_key(&mut self, old: &str, new: &str) {
+        let prefix = old.to_owned() + " =";
+        let mut found_index = None;
+        for (index, line) in self.lines.iter().enumerate() {
+            if line.starts_with(&prefix) {
+                found_index = Some(index);
+            }
+        }
+        if let Some(index) = found_index {
+            let line = self.lines.get(index).unwrap();
+            let mut right_part = line.strip_prefix(&prefix).unwrap().to_string();
+            if right_part.trim() == old.trim() {
+                // Was still untranslated - replace the translation too.
+                right_part = format!(" {}", new);
+            }
+            let line = new.to_owned() + " =" + &right_part;
+            self.insert_line_if_missing(&line);
+        } else {
+            let name = &self.name;
+            println!("dupe_key: didn't find a line starting with {prefix} in section {name}");
         }
     }
 

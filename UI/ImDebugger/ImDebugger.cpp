@@ -753,7 +753,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
-			if (coreState == CoreState::CORE_STEPPING) {
+			if (coreState == CoreState::CORE_STEPPING_CPU) {
 				if (ImGui::MenuItem("Run")) {
 					Core_Resume();
 				}
@@ -821,6 +821,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Graphics")) {
+			ImGui::MenuItem("Ge Debugger", nullptr, &cfg_.geDebuggerOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -919,6 +920,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);
 	}
+
+	if (cfg_.geDebuggerOpen) {
+		DrawGeDebuggerWindow(cfg_);
+	}
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {
@@ -945,18 +950,24 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		}
 	}
 
-	ImGui::BeginDisabled(coreState != CORE_STEPPING);
+	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+		ImGui::Text("!!! Currently stepping the Ge. See that window (when implemented)");
+	}
+
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 	if (ImGui::SmallButton("Run")) {
 		Core_Resume();
 	}
 	ImGui::EndDisabled();
 
 	ImGui::SameLine();
-	ImGui::BeginDisabled(coreState != CORE_RUNNING);
+	ImGui::BeginDisabled(coreState != CORE_RUNNING_CPU);
 	if (ImGui::SmallButton("Pause")) {
 		Core_Break("Pause");
 	}
 	ImGui::EndDisabled();
+
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Into")) {
@@ -974,6 +985,8 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	if (ImGui::SmallButton("Step Out")) {
 		Core_RequestSingleStep(CPUStepType::Out, 0);
 	}
+
+	ImGui::EndDisabled();
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Goto PC")) {

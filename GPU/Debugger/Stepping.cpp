@@ -154,7 +154,7 @@ static void StopStepping() {
 
 bool SingleStep() {
 	std::unique_lock<std::mutex> guard(pauseLock);
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING) {
+	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING_CPU) {
 		// Shutting down, don't try to step.
 		actionComplete = true;
 		actionWait.notify_all();
@@ -174,7 +174,7 @@ bool SingleStep() {
 
 bool EnterStepping() {
 	std::unique_lock<std::mutex> guard(pauseLock);
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING) {
+	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING_CPU) {
 		// Shutting down, don't try to step.
 		actionComplete = true;
 		actionWait.notify_all();
@@ -212,7 +212,7 @@ int GetSteppingCounter() {
 }
 
 static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPUDebugBuffer &resultBuffer) {
-	if (!isStepping && coreState != CORE_STEPPING) {
+	if (!isStepping && coreState != CORE_STEPPING_CPU) {
 		return false;
 	}
 
@@ -250,7 +250,7 @@ bool GPU_GetCurrentClut(const GPUDebugBuffer *&buffer) {
 }
 
 bool GPU_SetCmdValue(u32 op) {
-	if (!isStepping && coreState != CORE_STEPPING) {
+	if (!isStepping && coreState != CORE_STEPPING_CPU) {
 		return false;
 	}
 
@@ -260,7 +260,7 @@ bool GPU_SetCmdValue(u32 op) {
 }
 
 bool GPU_FlushDrawing() {
-	if (!isStepping && coreState != CORE_STEPPING) {
+	if (!isStepping && coreState != CORE_STEPPING_CPU) {
 		return false;
 	}
 

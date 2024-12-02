@@ -1875,7 +1875,7 @@ void VulkanRenderManager::SanityCheckPassesOnAdd() {
 	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
 	for (int i = 0; i < steps_.size(); i++) {
 		if (steps_[i]->stepType == VKRStepType::RENDER) {
-			_dbg_assert_(steps_[i]->render.framebuffer != nullptr);
+			_dbg_assert_msg_(steps_[i]->render.framebuffer != nullptr, "Adding second backbuffer pass? Not good!");
 		}
 	}
 #endif

@@ -275,7 +275,7 @@ namespace SaveState
 			if (g_Config.iRewindSnapshotInterval <= 0) {
 				return;
 			}
-			if (coreState != CORE_RUNNING) {
+			if (coreState != CORE_RUNNING_CPU) {
 				return;
 			}
 

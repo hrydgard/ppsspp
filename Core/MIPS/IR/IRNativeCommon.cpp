@@ -167,7 +167,7 @@ uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
 int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
 	const auto toss = [&](MemoryExceptionType t) {
 		Core_MemoryException(addr, alignment, currentMIPS->pc, t);
-		return coreState != CORE_RUNNING ? 1 : 0;
+		return coreState != CORE_RUNNING_CPU ? 1 : 0;
 	};
 
 	if (!Memory::IsValidRange(addr, alignment)) {

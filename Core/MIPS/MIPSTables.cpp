@@ -970,7 +970,7 @@ void MIPSInterpret(MIPSOpcode op) {
 static inline void RunUntilFast() {
 	MIPSState *curMips = currentMIPS;
 	// NEVER stop in a delay slot!
-	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
+	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
 			// Replacements and similar are processed here, intentionally.
 			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
@@ -994,7 +994,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 	// NEVER stop in a delay slot!
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
-	while (curMips->downcount >= 0 && coreState == CORE_RUNNING) {
+	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
 			// Replacements and similar are processed here, intentionally.
 			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
@@ -1022,7 +1022,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 					g_breakpoints.ExecMemCheck(addr, true, sz, curMips->pc, "interpret");
 
 				// If it tripped, bail without running.
-				if (coreState == CORE_STEPPING)
+				if (coreState == CORE_STEPPING_CPU)
 					break;
 			}
 
@@ -1044,7 +1044,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 
 int MIPSInterpret_RunUntil(u64 globalTicks) {
 	MIPSState *curMips = currentMIPS;
-	while (coreState == CORE_RUNNING) {
+	while (coreState == CORE_RUNNING_CPU) {
 		CoreTiming::Advance();
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();

@@ -993,7 +993,7 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 
 	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString(), 0.0f, "screenshot_link");
+		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
 				Path *path = reinterpret_cast<Path *>(data);

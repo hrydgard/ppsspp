@@ -114,7 +114,7 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
-	void ProcessDLQueue();
+	void ProcessDLQueue() override;
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
 	u32  DequeueList(int listid) override;
@@ -128,6 +128,11 @@ public:
 	u32  Continue() override;
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
+
+	void SwitchToGe();
+
+	void DrawImGuiDebugger() override;
+
 	uint32_t SetAddrTranslation(uint32_t value) override;
 	uint32_t GetAddrTranslation() override;
 

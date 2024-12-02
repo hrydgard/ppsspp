@@ -59,6 +59,7 @@ bool Core_ShouldRunBehind();
 bool Core_MustRunBehind();
 
 bool Core_NextFrame();
+void Core_SwitchToGe();  // Switches from CPU emulation to GE display list execution.
 
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();

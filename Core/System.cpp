@@ -105,7 +105,7 @@ bool coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
 
 // This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING;
+volatile CoreState coreState = CORE_STEPPING_CPU;
 // If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
 
@@ -388,7 +388,7 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 }
 
 void Core_UpdateState(CoreState newState) {
-	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
+	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
 		coreStatePending = true;
 	coreState = newState;
 }
@@ -569,7 +569,7 @@ void PSP_Shutdown() {
 
 	// Make sure things know right away that PSP memory, etc. is going away.
 	pspIsQuitting = !pspIsRebooting;
-	if (coreState == CORE_RUNNING)
+	if (coreState == CORE_RUNNING_CPU)
 		Core_Stop();
 
 	if (g_Config.bFuncHashMap) {
@@ -620,27 +620,32 @@ void PSP_RunLoopWhileState() {
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
 	int blockTicks = usToCycles(1000000 / 10);
-
 	// Run until CORE_NEXTFRAME
-	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING) {
-		PSP_RunLoopFor(blockTicks);
-		if (coreState == CORE_STEPPING) {
-			// Keep the UI responsive.
-			break;
-		}
-	}
+	PSP_RunLoopFor(blockTicks);
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
-	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
-		return;
-	} else if (coreState == CORE_STEPPING) {
-		Core_ProcessStepping(currentDebugMIPS);
-		return;
-	}
-
-	if (coreState != CORE_NEXTFRAME) {  // Can be set by SaveState as well as by sceDisplay
-		mipsr4k.RunLoopUntil(globalticks);
+	while (true) {
+		switch (coreState) {
+		case CORE_POWERDOWN:
+		case CORE_BOOT_ERROR:
+		case CORE_RUNTIME_ERROR:
+		case CORE_NEXTFRAME:
+			return;
+		case CORE_STEPPING_CPU:
+			Core_ProcessStepping(currentDebugMIPS);
+			return;
+		case CORE_RUNNING_CPU:
+			mipsr4k.RunLoopUntil(globalticks);
+			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
+		case CORE_STEPPING_GE:
+			_dbg_assert_(false);
+			break;
+		case CORE_RUNNING_GE:
+			gpu->ProcessDLQueue();
+			coreState = CORE_RUNNING_CPU;
+			break;
+		}
 	}
 }
 

@@ -69,9 +69,9 @@ double ExecCPUTest(bool clearCache = true) {
 	do {
 		for (int j = 0; j < 1000; ++j) {
 			currentMIPS->pc = PSP_GetUserMemoryBase();
-			coreState = CORE_RUNNING;
+			coreState = CORE_RUNNING_CPU;
 
-			while (coreState == CORE_RUNNING) {
+			while (coreState == CORE_RUNNING_CPU) {
 				mipsr4k.RunLoopUntil(blockTicks);
 			}
 			++total;

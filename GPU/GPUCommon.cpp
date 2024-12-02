@@ -13,6 +13,7 @@
 
 #include <algorithm>
 
+#include "ext/imgui/imgui.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
@@ -26,6 +27,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
@@ -465,7 +467,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
-		ProcessDLQueue();
+		SwitchToGe();
 	}
 
 	return id;
@@ -490,7 +492,6 @@ u32 GPUCommon::DequeueList(int listid) {
 	__GeTriggerWait(GPU_SYNC_LIST, listid);
 
 	CheckDrawSync();
-
 	return 0;
 }
 
@@ -503,8 +504,7 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 
 	dl.stall = newstall & 0x0FFFFFFF;
 	
-	ProcessDLQueue();
-
+	SwitchToGe();
 	return 0;
 }
 
@@ -544,8 +544,18 @@ u32 GPUCommon::Continue() {
 		return -1;
 	}
 
-	ProcessDLQueue();
+	SwitchToGe();
 	return 0;
+}
+
+void GPUCommon::SwitchToGe() {
+	// Old method, although may make sense for performance if the ImDebugger isn't active.
+#if 1
+	ProcessDLQueue();
+#else
+	// New method, will allow ImDebugger to step the GPU
+	Core_SwitchToGe();
+#endif
 }
 
 u32 GPUCommon::Break(int mode) {
@@ -829,6 +839,8 @@ int GPUCommon::GetNextListIndex() {
 	}
 }
 
+// This is now called when coreState == CORE_RUNNING_GE.
+// TODO: It should return the next action.. (break into debugger or continue running)
 void GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
@@ -861,6 +873,7 @@ void GPUCommon::ProcessDLQueue() {
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
+
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 }
@@ -1528,7 +1541,7 @@ void GPUCommon::InterruptEnd(int listid) {
 		}
 	}
 
-	ProcessDLQueue();
+	SwitchToGe();
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
@@ -1697,7 +1710,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	bool dstWraps = Memory::IsVRAMAddress(dstBasePtr) && !dstValid;
 
 	char tag[128];
-	size_t tagSize;
+	size_t tagSize = 0;
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
 	if (!framebufferManager_ || !framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
@@ -1962,4 +1975,15 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	// The only part of GPU emulation (other than software) that jits is the vertex decoder, currently,
 	// which is owned by the drawengine.
 	return drawEngineCommon_->DescribeCodePtr(ptr, name);
+}
+
+void GPUCommon::DrawImGuiDebugger() {
+	// First, let's list any active display lists.
+	ImGui::Text("Next list ID: %d", nextListID);
+	for (auto index : dlQueue) {
+		const auto &list = dls[index];
+		ImGui::Text("List %d", list.id);
+		ImGui::Text("pc: %08x (start: %08x)", list.pc, list.startpc);
+		ImGui::Text("bbox: %d", (int)list.bboxResult);
+	}
 }
