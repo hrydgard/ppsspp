@@ -697,7 +697,8 @@ void *GetQuickSyscallFunc(MIPSOpcode op) {
 	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
 		return nullptr;
-	DEBUG_LOG(Log::HLE, "Compiling syscall to %s", info->name);
+
+	VERBOSE_LOG(Log::HLE, "Compiling syscall to '%s'", info->name);
 
 	// TODO: Do this with a flag?
 	if (op == idleOp)

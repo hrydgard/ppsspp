@@ -114,8 +114,6 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 	}
 	initialized_ = true;
 
-	g_bLogEnabledSetting = enabledSetting;
-
 	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == (size_t)Log::NUMBER_OF_LOGS);
 
 	for (size_t i = 0; i < ARRAY_SIZE(g_logTypeNames); i++) {
@@ -370,7 +368,8 @@ void FileLogListener::Log(const LogMessage &message) {
 
 void OutputDebugStringLogListener::Log(const LogMessage &message) {
 	char buffer[4096];
-	snprintf(buffer, sizeof(buffer), "%s %s %s", message.timestamp, message.header, message.msg.c_str());
+	// We omit the timestamp for easy copy-paste-diffing.
+	snprintf(buffer, sizeof(buffer), "%s %s", message.header, message.msg.c_str());
 #if _MSC_VER
 	OutputDebugStringUTF8(buffer);
 #endif

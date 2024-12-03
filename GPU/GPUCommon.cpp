@@ -857,13 +857,13 @@ DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc, l.stall, startingTicks);
 		if (!InterpretList(l)) {
 			return DLResult::Error;
 		}
 
-		// Some other list could've taken the spot while we dilly-dallied around.
-		// LATER: Hm, really? Not unless we start time-slicing...
+		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
+		// Yes, this does happen.
 		if (l.state != PSP_GE_DL_STATE_QUEUED) {
 			// At the end, we can remove it from the queue and continue.
 			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
