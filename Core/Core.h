@@ -96,7 +96,6 @@ bool Core_IsInactive();
 // Warning: these three are only used on Windows - debugger integration.
 void Core_StateProcessed();
 void Core_WaitInactive();
-void Core_WaitInactive(int milliseconds);
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();

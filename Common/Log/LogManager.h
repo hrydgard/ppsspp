@@ -93,10 +93,6 @@ private:
 	bool enabled_ = false;
 };
 
-// TODO: A simple buffered log that can be used to display the log in-window
-// on Android etc.
-// class BufferedLogListener { ... }
-
 struct LogChannel {
 	char m_shortName[32]{};
 	LogLevel level;
