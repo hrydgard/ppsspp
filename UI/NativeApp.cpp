@@ -518,9 +518,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
 	}
 
-	if (!LogManager::GetInstance()) {
-		LogManager::Init(&g_Config.bEnableLogging);
-	}
+	g_logManager.Init(&g_Config.bEnableLogging);
 
 #if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
@@ -529,8 +527,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// fail and it will be set to the default. Later, we load again when we get permission.
 	g_Config.Load();
 #endif
-
-	LogManager *logman = LogManager::GetInstance();
 
 	const char *fileToLog = nullptr;
 	Path stateToLoad;
@@ -674,21 +670,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (fileToLog)
-		LogManager::GetInstance()->ChangeFileLog(fileToLog);
+		g_logManager.ChangeFileLog(fileToLog);
 
 	if (forceLogLevel)
-		LogManager::GetInstance()->SetAllLogLevels(logLevel);
+		g_logManager.SetAllLogLevels(logLevel);
 
 	PostLoadConfig();
 
 #if PPSSPP_PLATFORM(ANDROID)
 	logger = new AndroidLogger();
-	logman->AddListener(logger);
+	g_logManager.AddListener(logger);
 #elif (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
 	logger = new PrintfLogger();
-	logman->AddListener(logger);
+	g_logManager.AddListener(logger);
 #endif
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
@@ -1491,7 +1487,7 @@ void NativeShutdown() {
 
 	// Avoid shutting this down when restarting core.
 	if (!restarting)
-		LogManager::Shutdown();
+		g_logManager.Shutdown();
 
 	if (logger) {
 		delete logger;

@@ -75,13 +75,11 @@ private:
 
 LogBroadcaster::LogBroadcaster() {
 	listener_ = new DebuggerLogListener();
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->AddListener(listener_);
+	g_logManager.AddListener(listener_);
 }
 
 LogBroadcaster::~LogBroadcaster() {
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->RemoveListener(listener_);
+	g_logManager.RemoveListener(listener_);
 	delete listener_;
 }
 

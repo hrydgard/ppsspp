@@ -340,6 +340,7 @@ int main(int argc, const char* argv[])
 	CPUCore cpuCore = CPUCore::JIT;
 	int debuggerPort = -1;
 	bool newAtrac = false;
+	bool outputDebugStringLog = false;
 
 	std::vector<std::string> testFilenames;
 	const char *mountIso = nullptr;
@@ -362,6 +363,8 @@ int main(int argc, const char* argv[])
 		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
+		else if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "--odslog"))
+			outputDebugStringLog = true;
 		else if (!strcmp(argv[i], "-i"))
 			cpuCore = CPUCore::INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
@@ -426,17 +429,19 @@ int main(int argc, const char* argv[])
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
-	LogManager::Init(&g_Config.bEnableLogging);
-	LogManager *logman = LogManager::GetInstance();
-
+	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
+	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
 	PrintfLogger *printfLogger = new PrintfLogger();
 
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		Log type = (Log)i;
-		logman->SetEnabled(type, fullLog);
-		logman->SetLogLevel(type, LogLevel::LDEBUG);
+		g_logManager.SetEnabled(type, (fullLog || outputDebugStringLog));
+		g_logManager.SetLogLevel(type, LogLevel::LDEBUG);
 	}
-	logman->AddListener(printfLogger);
+	if (fullLog) {
+		// Only with --log, add the printfLogger.
+		g_logManager.AddListener(printfLogger);
+	}
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -485,7 +490,7 @@ int main(int argc, const char* argv[])
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
 	g_Config.iFastForwardMode = (int)FastForwardMode::CONTINUOUS;
-	g_Config.bEnableLogging = fullLog;
+	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
@@ -618,7 +623,7 @@ int main(int argc, const char* argv[])
 	g_headlessHost = nullptr;
 
 	g_VFS.Clear();
-	LogManager::Shutdown();
+	g_logManager.Shutdown();
 	delete printfLogger;
 
 #if PPSSPP_PLATFORM(WINDOWS)

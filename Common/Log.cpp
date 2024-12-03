@@ -81,7 +81,8 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	if (!getenv("CI")) {
 		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
 		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + GetCurrentThreadName());
+		const char *threadName = GetCurrentThreadName();
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
 		OutputDebugString(wtext.c_str());
 		printf("%s\n", formatted);
 		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {

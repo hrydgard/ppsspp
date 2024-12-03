@@ -1170,7 +1170,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef _DEBUG
 	debugDefaults = true;
 #endif
-	LogManager::GetInstance()->LoadConfig(log, debugDefaults);
+	g_logManager.LoadConfig(log, debugDefaults);
 
 	Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 60);
@@ -1371,8 +1371,7 @@ bool Config::Save(const char *saveReason) {
 		control->Delete("DPadRadius");
 
 		Section *log = iniFile.GetOrCreateSection(logSectionName);
-		if (LogManager::GetInstance())
-			LogManager::GetInstance()->SaveConfig(log);
+		g_logManager.SaveConfig(log);
 
 		// Time tracking
 		Section *playTime = iniFile.GetOrCreateSection("PlayTime");
