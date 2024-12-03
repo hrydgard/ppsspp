@@ -80,6 +80,7 @@ enum GPURunState {
 	GPUSTATE_STALL = 2,
 	GPUSTATE_INTERRUPT = 3,
 	GPUSTATE_ERROR = 4,
+	GPUSTATE_BREAK = 5,
 };
 
 enum GPUSyncType {
@@ -353,7 +354,7 @@ public:
 	void ResetListStall(int listID, u32 stall) override;
 	void ResetListState(int listID, DisplayListState state) override;
 
-	GPUDebugOp DissassembleOp(u32 pc, u32 op) override;
+	GPUDebugOp DisassembleOp(u32 pc, u32 op) override;
 	std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) override;
 
 	void NotifySteppingEnter() override;
@@ -410,7 +411,7 @@ protected:
 	virtual void CheckDepthUsage(VirtualFramebuffer *vfb) {}
 	virtual void FastRunLoop(DisplayList &list) = 0;
 
-	void SlowRunLoop(DisplayList &list);
+	bool SlowRunLoop(DisplayList &list);  // Returns false on breakpoint.
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
 	void FastLoadBoneMatrix(u32 target);

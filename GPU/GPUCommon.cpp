@@ -678,7 +678,14 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		if (useFastRunLoop) {
 			FastRunLoop(list);
 		} else {
-			SlowRunLoop(list);
+			if (!SlowRunLoop(list)) {
+				// Hit a breakpoint - I guess we bail?
+				// This will be intricate.
+				FinishDeferred();
+				_dbg_assert_(!GPURecord::IsActive());
+				gpuState = GPUSTATE_BREAK;
+				return false;
+			}
 		}
 
 		{
@@ -726,11 +733,13 @@ void GPUCommon::PSPFrame() {
 	GPURecord::NotifyBeginFrame();
 }
 
-void GPUCommon::SlowRunLoop(DisplayList &list) {
+// Returns false on breakpoint.
+bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
-		bool process = GPUDebug::NotifyCommand(list.pc);
-		if (process) {
+		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc);
+
+		if (result == GPUDebug::NotifyResult::Execute) {
 			GPURecord::NotifyCommand(list.pc);
 			u32 op = Memory::ReadUnchecked_U32(list.pc);
 			u32 cmd = op >> 24;
@@ -751,11 +760,14 @@ void GPUCommon::SlowRunLoop(DisplayList &list) {
 			gstate.cmdmem[cmd] = op;
 
 			ExecuteOp(op, diff);
+		} else if (result == GPUDebug::NotifyResult::Break) {
+			return false;
 		}
 
 		list.pc += 4;
 		--downcount;
 	}
+	return true;
 }
 
 // The newPC parameter is used for jumps, we don't count cycles between.
@@ -849,7 +861,14 @@ DLResult GPUCommon::ProcessDLQueue() {
 		DisplayList &l = dls[listIndex];
 		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc, l.stall, startingTicks);
 		if (!InterpretList(l)) {
-			return DLResult::Error;
+			switch (gpuState) {
+			case GPURunState::GPUSTATE_STALL:
+				return DLResult::Stall;
+			case GPURunState::GPUSTATE_BREAK:
+				return DLResult::Break;
+			default:
+				return DLResult::Error;
+			}
 		}
 
 		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
@@ -1608,7 +1627,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	downcount = 0;
 }
 
-GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
+GPUDebugOp GPUCommon::DisassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
 	u32 prev = Memory::IsValidAddress(pc - 4) ? Memory::ReadUnchecked_U32(pc - 4) : 0;
 	GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));

@@ -46,7 +46,6 @@ static void Init() {
 		GPUBreakpoints::Init([](bool flag) {
 			hasBreakpoints = flag;
 		});
-		Core_ListenStopRequest(&GPUStepping::ForceUnpause);
 		inited = true;
 	}
 }
@@ -105,9 +104,12 @@ static bool IsBreakpoint(u32 pc, u32 op) {
 	return false;
 }
 
-bool NotifyCommand(u32 pc) {
-	if (!active)
-		return true;
+NotifyResult NotifyCommand(u32 pc) {
+	if (!active) {
+		_dbg_assert_(false);
+		return NotifyResult::Skip;  // return false
+	}
+
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
 	if (thisFlipNum != gpuStats.numFlips) {
@@ -136,22 +138,23 @@ bool NotifyCommand(u32 pc) {
 
 		if (coreState == CORE_POWERDOWN || !gpuDebug) {
 			breakNext = BreakNext::NONE;
-			return process;
+			return process ? NotifyResult::Execute : NotifyResult::Skip;
 		}
 
-		auto info = gpuDebug->DissassembleOp(pc);
+		auto info = gpuDebug->DisassembleOp(pc);
 		if (lastStepTime >= 0.0) {
 			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
 			lastStepTime = -1.0;
 		} else {
 			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 		}
-		GPUStepping::EnterStepping();
+		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
 	}
 
-	return process;
+	return process ? NotifyResult::Execute : NotifyResult::Skip;
 }
 
+// TODO: This mechanism isn't great.
 void NotifyDraw() {
 	if (!active)
 		return;

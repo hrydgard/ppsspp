@@ -341,7 +341,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *p = temp, *end = temp + space;
 				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 				{
-					GPUDebugOp op = gpuDebug->DissassembleOp(pos);
+					GPUDebugOp op = gpuDebug->DisassembleOp(pos);
 					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
 				}
 

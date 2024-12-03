@@ -73,18 +73,6 @@ struct CPUStepCommand {
 
 static CPUStepCommand g_cpuStepCommand;
 
-struct GeStepCommand {
-	CPUStepType type;
-	bool empty() const {
-		return type == CPUStepType::None;
-	}
-	void clear() {
-		type = CPUStepType::None;
-	}
-};
-
-static GeStepCommand g_geStepCommand;
-
 // This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
@@ -180,16 +168,6 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 	// Out-steps don't need a size.
 	_dbg_assert_(stepSize != 0 || type == CPUStepType::Out);
 	g_cpuStepCommand = { type, stepSize };
-	return true;
-}
-
-bool Core_RequestGeStep(CPUStepType type) {
-	std::lock_guard<std::mutex> guard(g_stepMutex);
-	if (g_geStepCommand.type != CPUStepType::None) {
-		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
-		return false;
-	}
-	g_geStepCommand = { type };
 	return true;
 }
 
@@ -308,7 +286,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	// Or any GPU actions.
 	// Legacy stepping code.
-	GPUStepping::SingleStep();
+	GPUStepping::ProcessStepping();
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
@@ -321,16 +299,6 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	// Need to check inside the lock to avoid races.
 	std::lock_guard<std::mutex> guard(g_stepMutex);
-
-	if (coreState == CORE_STEPPING_GE) {
-		if (!g_geStepCommand.empty()) {
-			Core_PerformGeStep(g_geStepCommand.type);
-			// System_Notify(SystemNotification::)
-			g_geStepCommand.clear();
-			steppingCounter++;
-		}
-		return;
-	}
 
 	if (coreState != CORE_STEPPING_CPU || g_cpuStepCommand.empty()) {
 		return;

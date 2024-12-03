@@ -205,10 +205,10 @@ public:
 	virtual void ResetListStall(int listID, u32 stall) = 0;
 	virtual void ResetListState(int listID, DisplayListState state) = 0;
 
-	GPUDebugOp DissassembleOp(u32 pc) {
-		return DissassembleOp(pc, Memory::Read_U32(pc));
+	GPUDebugOp DisassembleOp(u32 pc) {
+		return DisassembleOp(pc, Memory::Read_U32(pc));
 	}
-	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op) = 0;
+	virtual GPUDebugOp DisassembleOp(u32 pc, u32 op) = 0;
 	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) = 0;
 
 	// Enter/exit stepping mode.  Mainly for better debug stats on time taken.

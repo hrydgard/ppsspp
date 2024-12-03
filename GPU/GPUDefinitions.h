@@ -72,5 +72,6 @@ enum class DLStepType {
 enum class DLResult {
 	Done,
 	Error,
-	Pause,  // used for stepping, breakpoints
+	Stall,
+	Break,  // used for stepping, breakpoints
 };

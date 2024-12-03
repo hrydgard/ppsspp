@@ -44,7 +44,6 @@ static bool isStepping;
 static int stepCounter = 0;
 
 static std::mutex pauseLock;
-static std::condition_variable pauseWait;
 static PauseAction pauseAction = PAUSE_CONTINUE;
 static std::mutex actionLock;
 static std::condition_variable actionWait;
@@ -76,12 +75,7 @@ static void SetPauseAction(PauseAction act, bool waitComplete = true) {
 
 	// if (coreState == CORE_STEPPING && act != PAUSE_CONTINUE)
 	// 	Core_UpdateSingleStep();
-
 	actionComplete = false;
-	pauseWait.notify_all();
-	while (waitComplete && !actionComplete) {
-		actionWait.wait(guard);
-	}
 }
 
 static void RunPauseAction() {
@@ -152,17 +146,23 @@ static void StopStepping() {
 	isStepping = false;
 }
 
-bool SingleStep() {
+bool ProcessStepping() {
+	_dbg_assert_(gpuDebug);
+
 	std::unique_lock<std::mutex> guard(pauseLock);
-	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING_CPU) {
-		// Shutting down, don't try to step.
+	if (coreState != CORE_STEPPING_GE) {
+		// Not stepping any more, don't try.
 		actionComplete = true;
 		actionWait.notify_all();
 		return false;
 	}
-	if (!gpuDebug || pauseAction == PAUSE_CONTINUE) {
+
+	if (pauseAction == PAUSE_CONTINUE) {
+		// This is fine, can just mean to run to the next breakpoint/event.
+		INFO_LOG(Log::G3D, "Continuing...");
 		actionComplete = true;
 		actionWait.notify_all();
+		coreState = CORE_RUNNING_GE;
 		return false;
 	}
 
@@ -173,34 +173,31 @@ bool SingleStep() {
 }
 
 bool EnterStepping() {
-	std::unique_lock<std::mutex> guard(pauseLock);
-	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME && coreState != CORE_STEPPING_CPU) {
-		// Shutting down, don't try to step.
-		actionComplete = true;
-		actionWait.notify_all();
-		return false;
-	}
-	if (!gpuDebug) {
-		actionComplete = true;
-		actionWait.notify_all();
-		return false;
-	}
+	_dbg_assert_(gpuDebug);
 
-	StartStepping();
+	std::unique_lock<std::mutex> guard(pauseLock);
+	if (coreState == CORE_STEPPING_GE) {
+		// Already there. Should avoid this happening, I think.
+		return true;
+	}
+	if (coreState != CORE_RUNNING_CPU && coreState != CORE_RUNNING_GE) {
+		// ?? Shutting down, don't try to step.
+		actionComplete = true;
+		actionWait.notify_all();
+		return false;
+	}
 
 	// Just to be sure.
 	if (pauseAction == PAUSE_CONTINUE) {
 		pauseAction = PAUSE_BREAK;
 	}
-	stepCounter++;
 
-	do {
-		RunPauseAction();
-		pauseWait.wait(guard);
-	} while (pauseAction != PAUSE_CONTINUE);
-
-	StopStepping();
+	coreState = CORE_STEPPING_GE;
 	return true;
+}
+
+void ResumeFromStepping() {
+	SetPauseAction(PAUSE_CONTINUE, false);
 }
 
 bool IsStepping() {
@@ -266,16 +263,6 @@ bool GPU_FlushDrawing() {
 
 	SetPauseAction(PAUSE_FLUSHDRAW);
 	return true;
-}
-
-void ResumeFromStepping() {
-	SetPauseAction(PAUSE_CONTINUE, false);
-}
-
-void ForceUnpause() {
-	SetPauseAction(PAUSE_CONTINUE, false);
-	actionComplete = true;
-	actionWait.notify_all();
 }
 
 GPUgstate LastState() {

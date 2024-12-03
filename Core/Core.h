@@ -52,7 +52,6 @@ void Core_Resume();
 // This should be called externally.
 // Can fail if another step type was requested this frame.
 bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
-bool Core_RequestGeStep(CPUStepType stepType);
 
 bool Core_ShouldRunBehind();
 bool Core_MustRunBehind();
