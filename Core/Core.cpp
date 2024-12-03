@@ -322,6 +322,11 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 // Free-threaded (hm, possibly except tracing).
 void Core_Break(const char *reason, u32 relatedAddress) {
+	if (coreState != CORE_RUNNING_CPU) {
+		ERROR_LOG(Log::CPU, "Core_Break ony works in the CORE_RUNNING_CPU state");
+		return;
+	}
+
 	// Stop the tracer
 	{
 		std::lock_guard<std::mutex> lock(g_stepMutex);

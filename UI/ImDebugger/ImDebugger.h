@@ -26,11 +26,12 @@
 
 class MIPSDebugInterface;
 class GPUDebugInterface;
+struct ImConfig;
 
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState);
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState);
 	ImDisasmView &View() {
 		return disasmView_;
 	}

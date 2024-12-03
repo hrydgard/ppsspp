@@ -1637,7 +1637,7 @@ GPUDebugOp GPUCommon::DisassembleOp(u32 pc, u32 op) {
 	return info;
 }
 
-std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
+std::vector<GPUDebugOp> GPUCommon::DisassembleOpRange(u32 startpc, u32 endpc) {
 	char buffer[1024];
 	std::vector<GPUDebugOp> result;
 	GPUDebugOp info;
@@ -1995,12 +1995,32 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 void GPUCommon::DrawImGuiDebugger() {
+	// Proof of concept
+	if (ImGui::Button("Run")) {
+		Core_Resume();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Next Tex")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Next Prim")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Single step")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+	}
+
 	// First, let's list any active display lists.
 	ImGui::Text("Next list ID: %d", nextListID);
 	for (auto index : dlQueue) {
 		const auto &list = dls[index];
-		ImGui::Text("List %d", list.id);
-		ImGui::Text("pc: %08x (start: %08x)", list.pc, list.startpc);
-		ImGui::Text("bbox: %d", (int)list.bboxResult);
+		char title[64];
+		snprintf(title, sizeof(title), "List %d", list.id);
+		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
+			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
+		}
 	}
 }

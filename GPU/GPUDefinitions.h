@@ -17,6 +17,11 @@
 
 #pragma once
 
+// X11, sigh.
+#ifdef None
+#undef None
+#endif
+
 enum DisplayListStatus {
 	// The list has been completed
 	PSP_GE_LIST_COMPLETED = 0,

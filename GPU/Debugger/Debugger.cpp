@@ -39,6 +39,7 @@ static int thisFlipNum = 0;
 bool g_drawNotified = false;
 
 static double lastStepTime = -1.0;
+static uint32_t g_skipPcOnce = 0;
 
 static std::vector<std::pair<int, int>> restrictPrimRanges;
 static std::string restrictPrimRule;
@@ -97,17 +98,6 @@ void SetBreakCount(int c, bool relative) {
 	}
 }
 
-static bool IsBreakpoint(u32 pc, u32 op) {
-	if (breakNext == BreakNext::OP) {
-		return true;
-	} else if (breakNext == BreakNext::COUNT) {
-		return primsThisFrame == breakAtCount;
-	} else if (hasBreakpoints) {
-		return GPUBreakpoints::IsBreakpoint(pc, op);
-	}
-	return false;
-}
-
 NotifyResult NotifyCommand(u32 pc) {
 	if (!active) {
 		_dbg_assert_(false);
@@ -143,7 +133,23 @@ NotifyResult NotifyCommand(u32 pc) {
 		}
 	}
 
-	if (IsBreakpoint(pc, op)) {
+	bool isBreakpoint = false;
+	if (breakNext == BreakNext::OP) {
+		isBreakpoint = true;
+	} else if (breakNext == BreakNext::COUNT) {
+		isBreakpoint = primsThisFrame == breakAtCount;
+	} else if (hasBreakpoints) {
+		isBreakpoint = GPUBreakpoints::IsBreakpoint(pc, op);
+	}
+
+	if (isBreakpoint && pc == g_skipPcOnce) {
+		INFO_LOG(Log::G3D, "Skipping break at %08x (last break was here)", g_skipPcOnce);
+		g_skipPcOnce = 0;
+		return process ? NotifyResult::Execute : NotifyResult::Skip;
+	}
+	g_skipPcOnce = 0;
+
+	if (isBreakpoint) {
 		GPUBreakpoints::ClearTempBreakpoints();
 
 		if (coreState == CORE_POWERDOWN || !gpuDebug) {
@@ -158,6 +164,8 @@ NotifyResult NotifyCommand(u32 pc) {
 		} else {
 			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 		}
+
+		g_skipPcOnce = pc;
 		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
 	}
 

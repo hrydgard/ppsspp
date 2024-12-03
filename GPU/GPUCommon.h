@@ -141,12 +141,6 @@ namespace Draw {
 class DrawContext;
 }
 
-enum class DLResult {
-	Done,
-	Error,
-	Pause,  // used for stepping, breakpoints
-};
-
 enum DrawType {
 	DRAW_UNKNOWN,
 	DRAW_PRIM,
@@ -355,7 +349,7 @@ public:
 	void ResetListState(int listID, DisplayListState state) override;
 
 	GPUDebugOp DisassembleOp(u32 pc, u32 op) override;
-	std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) override;
+	std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) override;
 
 	void NotifySteppingEnter() override;
 	void NotifySteppingExit() override;

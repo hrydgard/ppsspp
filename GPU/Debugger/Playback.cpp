@@ -338,7 +338,7 @@ void DumpExecute::SyncStall() {
 	gpu->UpdateStall(execListID, execListPos, &runList);
 	if (runList) {
 		DLResult result = gpu->ProcessDLQueue();
-		_dbg_assert_(result == DLResult::Done || result == DLResult::Pause);
+		_dbg_assert_(result == DLResult::Done || result == DLResult::Stall);
 	}
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
