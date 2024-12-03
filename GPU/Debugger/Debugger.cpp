@@ -83,7 +83,9 @@ void SetBreakNext(BreakNext next) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
 	}
-	GPUStepping::ResumeFromStepping();
+	if (GPUStepping::IsStepping()) {
+		GPUStepping::ResumeFromStepping();
+	}
 	lastStepTime = next == BreakNext::NONE ? -1.0 : time_now_d();
 }
 

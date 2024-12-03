@@ -30,12 +30,14 @@ namespace GPUStepping {
 	bool EnterStepping();
 	bool IsStepping();
 	void ResumeFromStepping();
+	void WaitForAction();
 
 	int GetSteppingCounter();
 
 	// Called from the emu thread.
 	bool ProcessStepping();
 
+	// NOTE: These are only usable from non-EmuThread threads.
 	bool GPU_GetOutputFramebuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer, GPUDebugFramebufferType type);
 	bool GPU_GetCurrentDepthbuffer(const GPUDebugBuffer *&buffer);
