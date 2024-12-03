@@ -552,7 +552,7 @@ void GPUCommon::SwitchToGe() {
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
 	// Call ProcessDLQueue directly.
-	ProcessDLQueue(DLRunType::Run, DLStepType::None);
+	ProcessDLQueue(false);
 #else
 	// New method, will allow ImDebugger to step the GPU.
 	// ARGH, what makes this different appears to be what happens AFTER the call to
@@ -844,10 +844,7 @@ int GPUCommon::GetNextListIndex() {
 
 // This is now called when coreState == CORE_RUNNING_GE.
 // TODO: It should return the next action.. (break into debugger or continue running)
-DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
-	_dbg_assert_(run == DLRunType::Run);
-	_dbg_assert_(step == DLStepType::None);
-
+DLResult GPUCommon::ProcessDLQueue(bool fromCore) {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
@@ -883,6 +880,12 @@ DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
 
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
+
+	if (fromCore) {
+		// Now update the core timing like we would have previously...
+		// TODO
+	}
+
 	return DLResult::Done;
 }
 

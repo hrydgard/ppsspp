@@ -340,11 +340,11 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
-	if ((int)listID >= 0)
-		listID = LIST_ID_MAGIC ^ listID;
-
 	hleEatCycles(490);
 	CoreTiming::ForceCheck();
+
+	if ((int)listID >= 0)
+		listID = LIST_ID_MAGIC ^ listID;
 	return hleLogSuccessX(Log::sceGe, listID);
 }
 
@@ -355,11 +355,11 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
-	if ((int)listID >= 0)
-		listID = LIST_ID_MAGIC ^ listID;
-
 	hleEatCycles(480);
 	CoreTiming::ForceCheck();
+
+	if ((int)listID >= 0)
+		listID = LIST_ID_MAGIC ^ listID;
 	return hleLogSuccessX(Log::sceGe, listID);
 }
 

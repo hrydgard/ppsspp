@@ -642,7 +642,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			_dbg_assert_(false);
 			break;
 		case CORE_RUNNING_GE:
-			gpu->ProcessDLQueue(DLRunType::Run, DLStepType::None);
+			gpu->ProcessDLQueue(true);
 			coreState = CORE_RUNNING_CPU;
 			break;
 		}

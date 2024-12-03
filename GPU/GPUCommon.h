@@ -140,21 +140,6 @@ namespace Draw {
 class DrawContext;
 }
 
-enum class DLRunType {
-	Run,
-	RunDebug,
-	Step,
-};
-
-enum class DLStepType {
-	None,
-	Single,
-	Prim,
-	Draw,
-	Texture,
-	Rendertarget,
-};
-
 enum class DLResult {
 	Done,
 	Error,
@@ -257,7 +242,9 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
-	DLResult ProcessDLQueue(DLRunType run, DLStepType step);
+
+	DLResult ProcessDLQueue(bool fromCore);
+
 	u32 UpdateStall(int listid, u32 newstall);
 	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
 	u32 DequeueList(int listid);
