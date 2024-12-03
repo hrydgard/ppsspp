@@ -36,6 +36,8 @@ static int primsLastFrame = 0;
 static int primsThisFrame = 0;
 static int thisFlipNum = 0;
 
+bool g_drawNotified = false;
+
 static double lastStepTime = -1.0;
 
 static std::vector<std::pair<int, int>> restrictPrimRanges;
@@ -110,6 +112,12 @@ NotifyResult NotifyCommand(u32 pc) {
 		return NotifyResult::Skip;  // return false
 	}
 
+	// Hack to handle draw notifications, that don't come in via NotifyCommand.
+	if (g_drawNotified) {
+		g_drawNotified = false;
+		return NotifyResult::Break;
+	}
+
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
 	if (thisFlipNum != gpuStats.numFlips) {
@@ -154,7 +162,7 @@ NotifyResult NotifyCommand(u32 pc) {
 	return process ? NotifyResult::Execute : NotifyResult::Skip;
 }
 
-// TODO: This mechanism isn't great.
+// TODO: This mechanism is a bit hacky.
 void NotifyDraw() {
 	if (!active)
 		return;
@@ -165,7 +173,7 @@ void NotifyDraw() {
 		} else {
 			NOTICE_LOG(Log::G3D, "Waiting at a draw");
 		}
-		GPUStepping::EnterStepping();
+		g_drawNotified = true;
 	}
 }
 

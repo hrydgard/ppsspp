@@ -668,19 +668,19 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
 	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
 	while (gpuState == GPUSTATE_RUNNING) {
-		{
-			if (list.pc == list.stall) {
-				gpuState = GPUSTATE_STALL;
-				downcount = 0;
-			}
+		if (list.pc == list.stall) {
+			gpuState = GPUSTATE_STALL;
+			downcount = 0;
 		}
 
 		if (useFastRunLoop) {
+			// When no Ge debugger is active, we go full speed.
 			FastRunLoop(list);
 		} else {
+			// When a Ge debugger is active (or similar), we do more checking.
 			if (!SlowRunLoop(list)) {
-				// Hit a breakpoint - I guess we bail?
-				// This will be intricate.
+				// Hit a breakpoint, so we set the state and bail. We can resume later.
+				// TODO: Cycle counting might need some more care?
 				FinishDeferred();
 				_dbg_assert_(!GPURecord::IsActive());
 				gpuState = GPUSTATE_BREAK;
@@ -688,13 +688,10 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 			}
 		}
 
-		{
-			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
-
-			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
-				// Unstalled.
-				gpuState = GPUSTATE_RUNNING;
-			}
+		downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+		if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
+			// Unstalled (Can this happen?)
+			gpuState = GPUSTATE_RUNNING;
 		}
 	}
 
