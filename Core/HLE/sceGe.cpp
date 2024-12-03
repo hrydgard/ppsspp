@@ -335,8 +335,8 @@ static int __GeSubIntrBase(int callbackId) {
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
-			"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
-			listAddress, stallAddress, callbackId, optParamAddr);
+		"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
+		listAddress, stallAddress, callbackId, optParamAddr, CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, false);
@@ -350,8 +350,8 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
-			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
-			listAddress, stallAddress, callbackId, optParamAddr);
+		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
+		listAddress, stallAddress, callbackId, optParamAddr, CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);

@@ -467,9 +467,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
+		// LATER: Wait, what? Please explain.
 		SwitchToGe();
 	}
-
 	return id;
 }
 
@@ -555,6 +555,8 @@ void GPUCommon::SwitchToGe() {
 	ProcessDLQueue(DLRunType::Run, DLStepType::None);
 #else
 	// New method, will allow ImDebugger to step the GPU.
+	// ARGH, what makes this different appears to be what happens AFTER the call to
+	// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
 	Core_SwitchToGe();
 #endif
 }
