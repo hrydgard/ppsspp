@@ -266,7 +266,7 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	void RunGe();
+	void RunGe(bool forceRunDirect = false);
 
 	void DrawImGuiDebugger();
 

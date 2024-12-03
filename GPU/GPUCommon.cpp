@@ -552,16 +552,21 @@ u32 GPUCommon::Continue(bool *runList) {
 	return 0;
 }
 
-void GPUCommon::RunGe() {
+void GPUCommon::RunGe(bool forceRunDirect) {
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
 	// Call ProcessDLQueue directly.
 	ProcessDLQueue(false);
 #else
-	// New method, will allow ImDebugger to step the GPU.
-	// ARGH, what makes this different appears to be what happens AFTER the call to
-	// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
-	Core_SwitchToGe();
+	// No sense in switching core mode if there's nothing to do, just maybe some bookkeeping.
+	if (dlQueue.empty() || forceRunDirect) {
+		ProcessDLQueue(false);
+	} else {
+		// New method, will allow ImDebugger to step the GPU.
+		// ARGH, what makes this different appears to be what happens AFTER the call to
+		// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
+		Core_SwitchToGe();
+	}
 #endif
 }
 
