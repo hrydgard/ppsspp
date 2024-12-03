@@ -245,8 +245,8 @@ public:
 
 	DLResult ProcessDLQueue(bool fromCore);
 
-	u32 UpdateStall(int listid, u32 newstall);
-	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
+	u32 UpdateStall(int listid, u32 newstall, bool *runList);
+	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList);
 	u32 DequeueList(int listid);
 	virtual int ListSync(int listid, int mode);
 	virtual u32 DrawSync(int mode);
@@ -255,7 +255,7 @@ public:
 	virtual void ResetMatrices();
 	virtual void DoState(PointerWrap &p);
 	bool BusyDrawing();
-	u32 Continue();
+	u32 Continue(bool *runList);
 	u32 Break(int mode);
 
 	virtual bool FramebufferDirty() = 0;
@@ -266,7 +266,7 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	void SwitchToGe();
+	void RunGe();
 
 	void DrawImGuiDebugger();
 

@@ -359,7 +359,9 @@ void GPUCommon::ResetMatrices() {
 	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList) {
+	*runList = false;
+
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
 	// Check alignment
@@ -468,7 +470,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 		// TODO save context when starting the list if param is set
 		// LATER: Wait, what? Please explain.
-		SwitchToGe();
+		*runList = true;
 	}
 	return id;
 }
@@ -495,7 +497,8 @@ u32 GPUCommon::DequeueList(int listid) {
 	return 0;
 }
 
-u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
+u32 GPUCommon::UpdateStall(int listid, u32 newstall, bool *runList) {
+	*runList = false;
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	auto &dl = dls[listid];
@@ -503,12 +506,13 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 		return SCE_KERNEL_ERROR_ALREADY;
 
 	dl.stall = newstall & 0x0FFFFFFF;
-	
-	SwitchToGe();
+
+	*runList = true;
 	return 0;
 }
 
-u32 GPUCommon::Continue() {
+u32 GPUCommon::Continue(bool *runList) {
+	*runList = false;
 	if (!currentList)
 		return 0;
 
@@ -544,11 +548,11 @@ u32 GPUCommon::Continue() {
 		return -1;
 	}
 
-	SwitchToGe();
+	*runList = true;
 	return 0;
 }
 
-void GPUCommon::SwitchToGe() {
+void GPUCommon::RunGe() {
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
 	// Call ProcessDLQueue directly.
@@ -1552,8 +1556,6 @@ void GPUCommon::InterruptEnd(int listid) {
 				dlQueue.remove(listid);
 		}
 	}
-
-	SwitchToGe();
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
