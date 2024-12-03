@@ -59,21 +59,6 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_FORCE,
 };
 
-enum class DLRunType {
-	Run,
-	RunDebug,
-	Step,
-};
-
-enum class DLStepType {
-	None,
-	Single,
-	Prim,
-	Draw,
-	Texture,
-	Rendertarget,
-};
-
 enum class DLResult {
 	Done,
 	Error,

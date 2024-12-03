@@ -891,9 +891,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {
-	// TODO: Should check for debugger active, etc.
-	// We only need to do this if we want to step through Ge display lists using the Ge debuggers.
-	return false;
+	// Check for debugger active, etc.
+	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
+	return GPUDebug::IsActive() || g_Config.bShowImDebugger;
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
