@@ -40,7 +40,8 @@
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 
-// Don't need to savestate this.
+LogManager g_logManager;
+
 const char *hleCurrentThreadName = nullptr;
 
 bool *g_bLogEnabledSetting = nullptr;
@@ -58,30 +59,13 @@ void GenericLog(LogLevel level, Log type, const char *file, int line, const char
 		return;
 	va_list args;
 	va_start(args, fmt);
-	LogManager *instance = LogManager::GetInstance();
-	if (instance) {
-		instance->LogLine(level, type, file, line, fmt, args);
-	} else {
-		// Fall back to printf or direct android logger with a small buffer if the log manager hasn't been initialized yet.
-#if PPSSPP_PLATFORM(ANDROID)
-		char temp[512];
-		vsnprintf(temp, sizeof(temp), fmt, args);
-		__android_log_print(ANDROID_LOG_INFO, "PPSSPP", "EARLY: %s", temp);
-#else
-		vprintf(fmt, args);
-		printf("\n");
-#endif
-	}
+	g_logManager.LogLine(level, type, file, line, fmt, args);
 	va_end(args);
 }
 
 bool GenericLogEnabled(LogLevel level, Log type) {
-	if (LogManager::GetInstance())
-		return (*g_bLogEnabledSetting) && LogManager::GetInstance()->IsEnabled(level, type);
-	return false;
+	return (*g_bLogEnabledSetting) && g_logManager.IsEnabled(level, type);
 }
-
-LogManager *LogManager::logManager_ = nullptr;
 
 // NOTE: Needs to be kept in sync with the Log enum.
 static const char * const g_logTypeNames[] = {
@@ -106,24 +90,29 @@ static const char * const g_logTypeNames[] = {
 	"PRINTF",
 	"TEXREPLACE",
 
-	"SCEAUDIO",
-	"SCECTRL",
-	"SCEDISP",
-	"SCEFONT",
-	"SCEGE",
-	"SCEINTC",
-	"SCEIO",
-	"SCEKERNEL",
-	"SCEMODULE",
-	"SCENET",
-	"SCERTC",
-	"SCESAS",
-	"SCEUTIL",
-	"SCEMISC",
+		"SCEAUDIO",
+		"SCECTRL",
+		"SCEDISP",
+		"SCEFONT",
+		"SCEGE",
+		"SCEINTC",
+		"SCEIO",
+		"SCEKERNEL",
+		"SCEMODULE",
+		"SCENET",
+		"SCERTC",
+		"SCESAS",
+		"SCEUTIL",
+		"SCEMISC",
 };
 
-LogManager::LogManager(bool *enabledSetting) {
+void LogManager::Init(bool *enabledSetting, bool headless) {
 	g_bLogEnabledSetting = enabledSetting;
+	if (initialized_) {
+		// Just update the pointer, already done above.
+		return;
+	}
+	initialized_ = true;
 
 	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == (size_t)Log::NUMBER_OF_LOGS);
 
@@ -167,14 +156,18 @@ LogManager::LogManager(bool *enabledSetting) {
 	AddListener(stdioLog_);
 #endif
 #if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
-	if (IsDebuggerPresent() && debuggerLog_ && LOG_MSC_OUTPUTDEBUG)
+	if (IsDebuggerPresent() && debuggerLog_ && (LOG_MSC_OUTPUTDEBUG || headless))
 		AddListener(debuggerLog_);
 #endif
 	AddListener(ringLog_);
 #endif
 }
+void LogManager::Shutdown() {
+	if (!initialized_) {
+		// already done
+		return;
+	}
 
-LogManager::~LogManager() {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		RemoveListener(fileLog_);
@@ -200,6 +193,14 @@ LogManager::~LogManager() {
 	delete debuggerLog_;
 #endif
 	delete ringLog_;
+
+	initialized_ = false;
+}
+
+LogManager::LogManager() {}
+
+LogManager::~LogManager() {
+	Shutdown();
 }
 
 void LogManager::ChangeFileLog(const char *filename) {
@@ -234,6 +235,22 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 }
 
 void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, const char *format, va_list args) {
+	char msgBuf[1024];
+	if (!initialized_) {
+		// Fall back to printf or direct android logger with a small buffer if the log manager hasn't been initialized yet.
+#if PPSSPP_PLATFORM(ANDROID)
+		vsnprintf(msgBuf, sizeof(msgBuf), format, args);
+		__android_log_print(ANDROID_LOG_INFO, "PPSSPP", "EARLY: %s", msgBuf);
+#elif _MSC_VER
+		vsnprintf(msgBuf, sizeof(msgBuf), format, args);
+		OutputDebugStringUTF8(msgBuf);
+#else
+		vprintf(format, args);
+		printf("\n");
+#endif
+		return;
+	}
+
 	const LogChannel &log = log_[(size_t)type];
 	if (level > log.level || !log.enabled)
 		return;
@@ -283,7 +300,6 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 
 	GetCurrentTimeFormatted(message.timestamp);
 
-	char msgBuf[1024];
 	va_list args_copy;
 
 	va_copy(args_copy, args);
@@ -311,17 +327,8 @@ bool LogManager::IsEnabled(LogLevel level, Log type) {
 	return true;
 }
 
-void LogManager::Init(bool *enabledSetting) {
-	_assert_(logManager_ == nullptr);
-	logManager_ = new LogManager(enabledSetting);
-}
-
-void LogManager::Shutdown() {
-	delete logManager_;
-	logManager_ = nullptr;
-}
-
 void LogManager::AddListener(LogListener *listener) {
+	_dbg_assert_(initialized_);
 	if (!listener)
 		return;
 	std::lock_guard<std::mutex> lk(listeners_lock_);
@@ -329,6 +336,7 @@ void LogManager::AddListener(LogListener *listener) {
 }
 
 void LogManager::RemoveListener(LogListener *listener) {
+	_dbg_assert_(initialized_);
 	if (!listener)
 		return;
 	std::lock_guard<std::mutex> lk(listeners_lock_);
@@ -360,7 +368,8 @@ void FileLogListener::Log(const LogMessage &message) {
 
 void OutputDebugStringLogListener::Log(const LogMessage &message) {
 	char buffer[4096];
-	snprintf(buffer, sizeof(buffer), "%s %s %s", message.timestamp, message.header, message.msg.c_str());
+	// We omit the timestamp for easy copy-paste-diffing.
+	snprintf(buffer, sizeof(buffer), "%s %s", message.header, message.msg.c_str());
 #if _MSC_VER
 	OutputDebugStringUTF8(buffer);
 #endif

@@ -302,7 +302,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					if (isRunning)
 					{
 						Core_Break("cpu.breakpoint.add", 0);
-						Core_WaitInactive(200);
+						Core_WaitInactive();
 					}
 
 					BreakpointWindow bpw(m_hDlg,cpu);

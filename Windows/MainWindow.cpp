@@ -1180,11 +1180,11 @@ namespace MainWindow
 
 	void ToggleDebugConsoleVisibility() {
 		if (!g_Config.bEnableLogging) {
-			LogManager::GetInstance()->GetConsoleListener()->Show(false);
+			g_logManager.GetConsoleListener()->Show(false);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
 		}
 		else {
-			LogManager::GetInstance()->GetConsoleListener()->Show(true);
+			g_logManager.GetConsoleListener()->Show(true);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
 		}
 	}

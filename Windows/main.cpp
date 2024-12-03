@@ -132,7 +132,7 @@ void System_Vibrate(int length_ms) {
 }
 
 static void AddDebugRestartArgs() {
-	if (LogManager::GetInstance()->GetConsoleListener()->IsOpen())
+	if (g_logManager.GetConsoleListener()->IsOpen())
 		restartArgs += " -l";
 }
 
@@ -897,7 +897,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				// (this is an external process.)
 				bool result = VulkanMayBeAvailable();
 
-				LogManager::Shutdown();
+				g_logManager.Shutdown();
 				WinMainCleanup();
 				return result ? EXIT_CODE_VULKAN_WORKS : EXIT_FAILURE;
 			}
@@ -954,7 +954,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// This will be overridden by the actual config. But we do want to log during startup.
 	g_Config.bEnableLogging = true;
-	LogManager::Init(&g_Config.bEnableLogging);
+	g_logManager.Init(&g_Config.bEnableLogging);
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -1038,10 +1038,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - By default in Debug, the console should be shown by default.
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
-	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120);
+	g_logManager.GetConsoleListener()->Init(showLog, 150, 120);
 
 	if (debugLogLevel) {
-		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
+		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
 	ContextMenuInit(_hInstance);
@@ -1127,7 +1127,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
 
-	LogManager::Shutdown();
+	g_logManager.Shutdown();
 	WinMainCleanup();
 
 	return 0;

@@ -1210,13 +1210,12 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
    {
       log_cb = log.log;
-      LogManager::Init(&g_Config.bEnableLogging);
+      g_logManager.Init(&g_Config.bEnableLogging);
       printfLogger = new PrintfLogger(log);
-      LogManager* logman = LogManager::GetInstance();
-      logman->RemoveListener(logman->GetStdioListener());
-      logman->RemoveListener(logman->GetDebuggerListener());
-      logman->ChangeFileLog(nullptr);
-      logman->AddListener(printfLogger);
+      g_logManager.RemoveListener(g_logManager.GetStdioListener());
+      g_logManager.RemoveListener(g_logManager.GetDebuggerListener());
+      g_logManager.ChangeFileLog(nullptr);
+      g_logManager.AddListener(printfLogger);
    }
 
    VsyncSwapIntervalReset();
@@ -1250,7 +1249,7 @@ void retro_init(void)
    g_Config.iInternalResolution = 0;
 
    // Log levels must be set after g_Config.Load
-   LogManager::GetInstance()->SetAllLogLevels(LogLevel::LINFO);
+   g_logManager.SetAllLogLevels(LogLevel::LINFO);
 
    const char* nickname = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
@@ -1285,7 +1284,7 @@ void retro_init(void)
 void retro_deinit(void)
 {
    g_threadManager.Teardown();
-   LogManager::Shutdown();
+   g_logManager.Shutdown();
    log_cb = NULL;
 
    delete printfLogger;

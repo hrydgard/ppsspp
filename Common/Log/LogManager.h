@@ -93,10 +93,6 @@ private:
 	bool enabled_ = false;
 };
 
-// TODO: A simple buffered log that can be used to display the log in-window
-// on Android etc.
-// class BufferedLogListener { ... }
-
 struct LogChannel {
 	char m_shortName[32]{};
 	LogLevel level;
@@ -108,12 +104,11 @@ class StdioListener;
 
 class LogManager {
 private:
-	LogManager(bool *enabledSetting);
-	~LogManager();
-
 	// Prevent copies.
 	LogManager(const LogManager &) = delete;
 	void operator=(const LogManager &) = delete;
+
+	bool initialized_ = false;
 
 	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_ = nullptr;
@@ -123,12 +118,14 @@ private:
 	StdioListener *stdioLog_ = nullptr;
 	OutputDebugStringLogListener *debuggerLog_ = nullptr;
 	RingbufferLogListener *ringLog_ = nullptr;
-	static LogManager *logManager_;  // Singleton. Ugh.
 
 	std::mutex listeners_lock_;
 	std::vector<LogListener*> listeners_;
 
 public:
+	LogManager();
+	~LogManager();
+
 	void AddListener(LogListener *listener);
 	void RemoveListener(LogListener *listener);
 
@@ -179,19 +176,13 @@ public:
 		return ringLog_;
 	}
 
-	static inline LogManager* GetInstance() {
-		return logManager_;
-	}
-
-	static void SetInstance(LogManager *logManager) {
-		logManager_ = logManager;
-	}
-
-	static void Init(bool *enabledSetting);
-	static void Shutdown();
+	void Init(bool *enabledSetting, bool headless = false);
+	void Shutdown();
 
 	void ChangeFileLog(const char *filename);
 
 	void SaveConfig(Section *section);
 	void LoadConfig(const Section *section, bool debugDefaults);
 };
+
+extern LogManager g_logManager;

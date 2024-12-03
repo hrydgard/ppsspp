@@ -862,7 +862,7 @@ namespace MainWindow {
 		break;
 
 		case ID_DEBUG_LOG:
-			LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+			g_logManager.GetConsoleListener()->Show(g_logManager.GetConsoleListener()->Hidden());
 			break;
 
 		case ID_DEBUG_IGNOREILLEGALREADS:

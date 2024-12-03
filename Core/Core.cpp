@@ -149,13 +149,6 @@ void Core_WaitInactive() {
 	}
 }
 
-void Core_WaitInactive(int milliseconds) {
-	if (Core_IsActive() && !GPUStepping::IsStepping()) {
-		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
-		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
-	}
-}
-
 void Core_SetPowerSaving(bool mode) {
 	powerSaving = mode;
 }

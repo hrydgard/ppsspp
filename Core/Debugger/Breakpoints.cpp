@@ -626,7 +626,7 @@ void BreakpointManager::Update(u32 addr) {
 		bool resume = false;
 		if (Core_IsStepping() == false) {
 			Core_Break("cpu.breakpoint.update", addr);
-			Core_WaitInactive(200);
+			Core_WaitInactive();
 			resume = true;
 		}
 

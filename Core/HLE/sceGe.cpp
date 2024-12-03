@@ -398,7 +398,7 @@ static u32 sceGeDrawSync(u32 mode) {
 }
 
 static int sceGeContinue() {
-	DEBUG_LOG(Log::sceGe, "sceGeContinue");
+	DEBUG_LOG(Log::sceGe, "sceGeContinue()");
 	int ret = gpu->Continue();
 	hleEatCycles(220);
 	hleReSchedule("ge continue");

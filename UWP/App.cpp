@@ -74,7 +74,7 @@ void App::InitialPPSSPP() {
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	CreateSysDirectories();
 
-	LogManager::Init(&g_Config.bEnableLogging);
+	g_logManager.Init(&g_Config.bEnableLogging);
 
 	// Set the config path to local state by default
 	// it will be overrided by `NativeInit` if there is custom memStick
