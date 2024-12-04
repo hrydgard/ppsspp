@@ -552,22 +552,36 @@ u32 GPUCommon::Continue(bool *runList) {
 	return 0;
 }
 
-void GPUCommon::RunGe(bool forceRunDirect) {
+void GPUCommon::RunGe(DeferredAction action, bool forceRunDirect) {
+	deferredAction_ = action;
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
 	// Call ProcessDLQueue directly.
 	ProcessDLQueue(false);
+	RunDeferredAction();
 #else
 	// No sense in switching core mode if there's nothing to do, just maybe some bookkeeping.
 	if (dlQueue.empty() || forceRunDirect) {
 		ProcessDLQueue(false);
+		RunDeferredAction();
 	} else {
 		// New method, will allow ImDebugger to step the GPU.
-		// ARGH, what makes this different appears to be what happens AFTER the call to
-		// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
+		// Once done, Core will call RunDeferredAction.
 		Core_SwitchToGe();
 	}
 #endif
+}
+
+void GPUCommon::RunDeferredAction() {
+	if (deferredAction_.eatCycles) {
+		hleEatCycles(deferredAction_.eatCycles);
+	}
+	if (deferredAction_.forceCheck) {
+		CoreTiming::ForceCheck();
+	}
+	if (deferredAction_.reschedule) {
+		hleReSchedule("ge deferred action");
+	}
 }
 
 u32 GPUCommon::Break(int mode) {

@@ -337,7 +337,8 @@ void DumpExecute::SyncStall() {
 	bool runList;
 	gpu->UpdateStall(execListID, execListPos, &runList);
 	if (runList) {
-		gpu->RunGe();
+		DeferredAction action{};
+		gpu->RunGe(action, true);  // force to run directly
 	}
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
@@ -372,7 +373,8 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		bool runList;
 		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false, &runList);
 		if (runList) {
-			gpu->RunGe();
+			DeferredAction action{};
+			gpu->RunGe(action, true);  // force to run directly
 		}
 		gpu->EnableInterrupts(true);
 	}

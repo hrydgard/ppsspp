@@ -203,6 +203,12 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 	return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 }
 
+struct DeferredAction {
+	int eatCycles;
+	bool forceCheck;
+	bool reschedule;
+};
+
 class GPUCommon : public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -266,7 +272,8 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	void RunGe(bool forceRunDirect = false);
+	void RunGe(DeferredAction action, bool forceRunDirect = false);
+	void RunDeferredAction();
 
 	void DrawImGuiDebugger();
 
@@ -506,6 +513,8 @@ protected:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	DeferredAction deferredAction_;
 
 private:
 	void DoExecuteCall(u32 target);

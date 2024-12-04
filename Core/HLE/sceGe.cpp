@@ -145,7 +145,12 @@ public:
 
 		// Hm. This might be really tricky to get to behave the same in both modes. Here we are in __KernelReschedule, CoreTiming::Advance, ProcessEvents, GeExecuteInterrupt, ... .... __RunOnePendingInterrupt
 		// But not sure how much it will matter. The test pause2 hits here.
-		gpu->RunGe();
+		// Although, not sure we ever really execute commands here?
+		if (!gpu->GetDisplayLists().empty()) {
+			DEBUG_LOG(Log::sceGe, "Display lists queued after interrupt handler");
+		}
+		DeferredAction action{};
+		gpu->RunGe(action, true);  // force to run directly
 		return false;
 	}
 
@@ -182,7 +187,8 @@ public:
 
 		gpu->InterruptEnd(intrdata.listid);
 		// This is the last thing done here in the syscall (__KernelReturnFromInterrupt) so switching coreState should just work.
-		gpu->RunGe();
+		DeferredAction action{};
+		gpu->RunGe(action);
 	}
 };
 
@@ -349,11 +355,13 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
 	if (runList) {
-		gpu->RunGe();
+		DeferredAction action{ 490 };
+		action.forceCheck = true;
+		gpu->RunGe(action);
+	} else {
+		hleEatCycles(490);
+		CoreTiming::ForceCheck();
 	}
-	// The stuff here below must be deferred...
-	hleEatCycles(490);
-	CoreTiming::ForceCheck();
 	return hleLogSuccessX(Log::sceGe, listID);
 }
 
@@ -368,17 +376,20 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
 	if (runList) {
-		gpu->RunGe();
+		DeferredAction action{ 480 };
+		action.forceCheck = true;
+		gpu->RunGe(action);
+	} else {
+		hleEatCycles(480);
+		CoreTiming::ForceCheck();
 	}
-	hleEatCycles(480);
-	CoreTiming::ForceCheck();
 	return hleLogSuccessX(Log::sceGe, listID);
 }
 
 static int sceGeListDeQueue(u32 listID) {
 	WARN_LOG(Log::sceGe, "sceGeListDeQueue(%08x)", listID);
 	int result = gpu->DequeueList(LIST_ID_MAGIC ^ listID);
-	hleReSchedule("dlist dequeued");
+	hleReSchedule("ListDeQueue");
 	return result;
 }
 
@@ -392,7 +403,8 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 	bool runList;
 	int retval = gpu->UpdateStall(LIST_ID_MAGIC ^ displayListID, stallAddress, &runList);
 	if (runList) {
-		gpu->RunGe();
+		DeferredAction action{};
+		gpu->RunGe(action);
 	}
 	return retval;
 }
@@ -419,10 +431,13 @@ static int sceGeContinue() {
 	bool runList;
 	int ret = gpu->Continue(&runList);
 	if (runList) {
-		gpu->RunGe();
+		DeferredAction action{ 220 };
+		action.reschedule = true;
+		gpu->RunGe(action);
+	} else {
+		hleEatCycles(220);
+		hleReSchedule("GeContinue");
 	}
-	hleEatCycles(220);
-	hleReSchedule("ge continue");
 	return ret;
 }
 

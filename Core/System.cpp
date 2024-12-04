@@ -643,6 +643,7 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			break;
 		case CORE_RUNNING_GE:
 			gpu->ProcessDLQueue(true);
+			gpu->RunDeferredAction();
 			coreState = CORE_RUNNING_CPU;
 			break;
 		}
