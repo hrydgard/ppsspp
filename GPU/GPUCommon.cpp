@@ -555,7 +555,7 @@ u32 GPUCommon::Continue(bool *runList) {
 void GPUCommon::RunGe(DeferredAction action, bool forceRunDirect) {
 	deferredAction_ = action;
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
-#if 1
+#if 0
 	// Call ProcessDLQueue directly.
 	ProcessDLQueue(false);
 	RunDeferredAction();
