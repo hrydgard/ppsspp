@@ -642,8 +642,14 @@ void PSP_RunLoopUntil(u64 globalticks) {
 			_dbg_assert_(false);
 			break;
 		case CORE_RUNNING_GE:
-			gpu->ProcessDLQueue(true);
-			coreState = CORE_RUNNING_CPU;
+			switch (gpu->ProcessDLQueue()) {
+			case DLResult::Error:  // TODO: shouldn't return this normally
+			case DLResult::Pause:  // like updatestall.
+			case DLResult::Done:
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			}
 			break;
 		}
 	}

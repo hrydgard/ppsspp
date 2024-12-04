@@ -552,19 +552,6 @@ u32 GPUCommon::Continue(bool *runList) {
 	return 0;
 }
 
-void GPUCommon::RunGe() {
-	// Old method, although may make sense for performance if the ImDebugger isn't active.
-#if 1
-	// Call ProcessDLQueue directly.
-	ProcessDLQueue(false);
-#else
-	// New method, will allow ImDebugger to step the GPU.
-	// ARGH, what makes this different appears to be what happens AFTER the call to
-	// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
-	Core_SwitchToGe();
-#endif
-}
-
 u32 GPUCommon::Break(int mode) {
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -848,7 +835,7 @@ int GPUCommon::GetNextListIndex() {
 
 // This is now called when coreState == CORE_RUNNING_GE.
 // TODO: It should return the next action.. (break into debugger or continue running)
-DLResult GPUCommon::ProcessDLQueue(bool fromCore) {
+DLResult GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
@@ -884,13 +871,13 @@ DLResult GPUCommon::ProcessDLQueue(bool fromCore) {
 
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
-
-	if (fromCore) {
-		// Now update the core timing like we would have previously...
-		// TODO
-	}
-
 	return DLResult::Done;
+}
+
+bool GPUCommon::ShouldSplitOverGe() const {
+	// TODO: Should check for debugger active, etc.
+	// We only need to do this if we want to step through Ge display lists using the Ge debuggers.
+	return false;
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {

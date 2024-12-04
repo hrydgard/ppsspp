@@ -255,7 +255,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		if (coreState == CORE_STEPPING_CPU && !coreParameter.startBreak) {
 			break;
 		}
-		if (time_now_d() > deadline) {
+		bool debugger = false;
+#ifdef _WIN32
+		if (IsDebuggerPresent())
+			debugger = true;
+#endif
+		if (time_now_d() > deadline && !debugger) {
 			// Don't compare, print the output at least up to this point, and bail.
 			if (!opt.bench) {
 				printf("%s", output.c_str());

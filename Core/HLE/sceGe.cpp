@@ -145,7 +145,7 @@ public:
 
 		// Hm. This might be really tricky to get to behave the same in both modes. Here we are in __KernelReschedule, CoreTiming::Advance, ProcessEvents, GeExecuteInterrupt, ... .... __RunOnePendingInterrupt
 		// But not sure how much it will matter. The test pause2 hits here.
-		gpu->RunGe();
+		gpu->ProcessDLQueue();
 		return false;
 	}
 
@@ -181,8 +181,11 @@ public:
 		}
 
 		gpu->InterruptEnd(intrdata.listid);
-		// This is the last thing done here in the syscall (__KernelReturnFromInterrupt) so switching coreState should just work.
-		gpu->RunGe();
+
+		// TODO: This is called from __KernelReturnFromInterrupt which does a bunch of stuff afterwards.
+		// Using hleSplitSyscallOverGe here breaks the gpu/signals/suspend.prx test, for that reason.
+		// So we just process inline and sacrifice debuggability a little.
+		gpu->ProcessDLQueue();
 	}
 };
 
@@ -349,12 +352,15 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
 	if (runList) {
-		gpu->RunGe();
+		if (gpu->ShouldSplitOverGe()) {
+			hleSplitSyscallOverGe();
+		} else {
+			gpu->ProcessDLQueue();
+		}
 	}
-	// The stuff here below must be deferred...
 	hleEatCycles(490);
-	CoreTiming::ForceCheck();
-	return hleLogSuccessX(Log::sceGe, listID);
+	hleCoreTimingForceCheck();
+	return listID; // We already logged above, logs get confusing if we use hleLogSuccess.
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
@@ -368,11 +374,15 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
 	if (runList) {
-		gpu->RunGe();
+		if (gpu->ShouldSplitOverGe()) {
+			hleSplitSyscallOverGe();
+		} else {
+			gpu->ProcessDLQueue();
+		}
 	}
 	hleEatCycles(480);
-	CoreTiming::ForceCheck();
-	return hleLogSuccessX(Log::sceGe, listID);
+	hleCoreTimingForceCheck();
+	return listID; // We already logged above, logs get confusing if we use hleLogSuccess.
 }
 
 static int sceGeListDeQueue(u32 listID) {
@@ -386,13 +396,17 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 	// Advance() might cause an interrupt, so defer the Advance but do it ASAP.
 	// Final Fantasy Type-0 has a graphical artifact without this (timing issue.)
 	hleEatCycles(190);
-	CoreTiming::ForceCheck();
+	hleCoreTimingForceCheck();
 
 	DEBUG_LOG(Log::sceGe, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	bool runList;
 	int retval = gpu->UpdateStall(LIST_ID_MAGIC ^ displayListID, stallAddress, &runList);
 	if (runList) {
-		gpu->RunGe();
+		if (gpu->ShouldSplitOverGe()) {
+			hleSplitSyscallOverGe();
+		} else {
+			gpu->ProcessDLQueue();
+		}
 	}
 	return retval;
 }
@@ -419,7 +433,11 @@ static int sceGeContinue() {
 	bool runList;
 	int ret = gpu->Continue(&runList);
 	if (runList) {
-		gpu->RunGe();
+		if (gpu->ShouldSplitOverGe()) {
+			hleSplitSyscallOverGe();
+		} else {
+			gpu->ProcessDLQueue();
+		}
 	}
 	hleEatCycles(220);
 	hleReSchedule("ge continue");

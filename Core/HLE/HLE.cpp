@@ -59,6 +59,11 @@ enum
 	HLE_AFTER_SKIP_DEADBEEF     = 0x40,
 	// Execute pending mips calls.
 	HLE_AFTER_QUEUED_CALLS      = 0x80,
+	// Call CoreTiming::ForceCheck
+	HLE_AFTER_CORETIMING_FORCE_CHECK = 0x100,
+	// Split syscall over GE execution
+	HLE_SPLIT_SYSCALL_OVER_GE = 0x200,
+	HLE_SPLIT_SYSCALL_PART2 = 0x400,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -68,6 +73,10 @@ static const char *hleAfterSyscallReschedReason;
 static const HLEFunction *latestSyscall = nullptr;
 static uint32_t latestSyscallPC = 0;
 static int idleOp;
+
+// Split syscall support. NOTE: This needs to be saved in DoState somehow!
+static int splitSyscallEatCycles = 0;
+
 
 struct HLEMipsCallInfo {
 	u32 func;
@@ -354,6 +363,10 @@ void hleSkipDeadbeef()
 	hleAfterSyscall |= HLE_AFTER_SKIP_DEADBEEF;
 }
 
+void hleCoreTimingForceCheck() {
+	hleAfterSyscall |= HLE_AFTER_CORETIMING_FORCE_CHECK;
+}
+
 // Pauses execution after an HLE call.
 bool hleExecuteDebugBreak(const HLEFunction &func)
 {
@@ -399,8 +412,16 @@ u64 hleDelayResult(u64 result, const char *reason, int usec) {
 }
 
 void hleEatCycles(int cycles) {
-	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
-	currentMIPS->downcount -= cycles;
+	if (hleAfterSyscall & HLE_SPLIT_SYSCALL_OVER_GE) {
+		splitSyscallEatCycles = cycles;
+	} else {
+		// Maybe this should Idle, at least for larger delays?  Could that cause issues?
+		currentMIPS->downcount -= cycles;
+	}
+}
+
+void hleSplitSyscallOverGe() {
+	hleAfterSyscall |= HLE_SPLIT_SYSCALL_OVER_GE;
 }
 
 void hleEatMicro(int usec) {
@@ -562,8 +583,27 @@ inline static void SetDeadbeefRegs()
 	currentMIPS->hi = 0xDEADBEEF;
 }
 
-inline void hleFinishSyscall(const HLEFunction &info)
-{
+static void hleFinishSyscall(const HLEFunction *info) {
+	if (hleAfterSyscall & HLE_SPLIT_SYSCALL_OVER_GE) {
+		hleAfterSyscall &= ~HLE_SPLIT_SYSCALL_OVER_GE;
+		hleAfterSyscall |= HLE_SPLIT_SYSCALL_PART2;
+		// Switch to GE execution immediately.
+		// coreState is checked after the syscall, always.
+		Core_SwitchToGe();
+		return;
+	}
+
+	if (hleAfterSyscall & HLE_SPLIT_SYSCALL_PART2) {
+		// Eat the extra cycle we added above.
+		hleEatCycles(splitSyscallEatCycles + 1);
+		// Make sure to zero it so it's not accidentally re-used.
+		splitSyscallEatCycles = 0;
+	}
+
+	if (hleAfterSyscall & HLE_AFTER_CORETIMING_FORCE_CHECK) {
+		CoreTiming::ForceCheck();
+	}
+
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
 		SetDeadbeefRegs();
 
@@ -580,9 +620,9 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
 		__KernelReSchedule(hleAfterSyscallReschedReason);
 
-	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
-	{
-		if (!hleExecuteDebugBreak(info))
+	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0) {
+		_dbg_assert_(info);
+		if (!hleExecuteDebugBreak(*info))
 		{
 			// We'll do it next syscall.
 			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
@@ -593,6 +633,10 @@ inline void hleFinishSyscall(const HLEFunction &info)
 
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	hleAfterSyscallReschedReason = 0;
+}
+
+void hleFinishSyscallAfterGe() {
+	hleFinishSyscall(nullptr);
 }
 
 static void updateSyscallStats(int modulenum, int funcnum, double total)
@@ -653,7 +697,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 	}
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
-		hleFinishSyscall(*info);
+		hleFinishSyscall(info);
 	else
 		SetDeadbeefRegs();
 }
@@ -665,7 +709,7 @@ inline void CallSyscallWithoutFlags(const HLEFunction *info)
 	info->func();
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
-		hleFinishSyscall(*info);
+		hleFinishSyscall(info);
 	else
 		SetDeadbeefRegs();
 }
