@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 
@@ -31,6 +32,7 @@ public:
 	virtual void SendDebugOutput(const std::string &output) {
 		if (!writeDebugOutput_)
 			return;
+		OutputDebugStringUTF8(output.c_str());
 		if (output.find('\n') != output.npos) {
 			FlushDebugOutput();
 			fwrite(output.data(), sizeof(char), output.length(), stdout);

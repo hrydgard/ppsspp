@@ -561,6 +561,8 @@ void GPUCommon::RunGe(DeferredAction action, bool forceRunDirect) {
 	RunDeferredAction();
 #else
 	// No sense in switching core mode if there's nothing to do, just maybe some bookkeeping.
+	// Also, in some situations like dump playback, we run DLs directly too (yes, this means that
+	// we can't step through display lists in a dump, which should be fixed later).
 	if (dlQueue.empty() || forceRunDirect) {
 		ProcessDLQueue(false);
 		RunDeferredAction();
@@ -580,7 +582,9 @@ void GPUCommon::RunDeferredAction() {
 		CoreTiming::ForceCheck();
 	}
 	if (deferredAction_.reschedule) {
-		hleReSchedule("ge deferred action");
+		// NOTE: hleReSchedule doesn't work if we're not in a syscall. We just reschedule, implementing the parts of hleFinishSyscall that are relevant.
+		__KernelForceCallbacks();
+		__KernelReSchedule(true, "ge deferred action");
 	}
 }
 
@@ -879,7 +883,7 @@ DLResult GPUCommon::ProcessDLQueue(bool fromCore) {
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc, l.stall, startingTicks);
+		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%lld)", l.pc, l.stall, startingTicks);
 		if (!InterpretList(l)) {
 			return DLResult::Error;
 		}

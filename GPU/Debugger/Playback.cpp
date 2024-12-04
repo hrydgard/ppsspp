@@ -432,7 +432,6 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	}
 
 	execListQueue.clear();
-
 	return true;
 }
 

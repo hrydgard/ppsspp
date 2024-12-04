@@ -1168,8 +1168,9 @@ void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
 	}
 
 	// Doesn't wrap to any other matrix.
-	if ((num & 0xF) < 12) {
-		matrixVisible.tgen[num & 0xF] = op & 0x00FFFFFF;
+	int wrappedNum = num & 0xF;
+	if (wrappedNum < 12) {
+		matrixVisible.tgen[wrappedNum] = op & 0x00FFFFFF;
 	}
 
 	num++;
