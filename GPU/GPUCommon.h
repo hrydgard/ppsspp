@@ -243,7 +243,7 @@ public:
 
 	bool InterpretList(DisplayList &list);
 
-	DLResult ProcessDLQueue(bool fromCore);
+	DLResult ProcessDLQueue();
 
 	u32 UpdateStall(int listid, u32 newstall, bool *runList);
 	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList);
@@ -266,7 +266,9 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	void RunGe();
+	// Returns true if we should split the call across GE execution.
+	// For example, a debugger is active.
+	bool ShouldSplitOverGe() const;
 
 	void DrawImGuiDebugger();
 

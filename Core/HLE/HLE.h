@@ -129,6 +129,15 @@ u64 hleDelayResult(u64 result, const char *reason, int usec);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
+void hleCoreTimingForceCheck();
+
+// Causes the syscall to not fully execute immediately, instead give the Ge a chance to
+// execute display lists.
+void hleSplitSyscallOverGe();
+
+// Called after a split syscall from System.cpp
+void hleFinishSyscallAfterGe();
+
 inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }

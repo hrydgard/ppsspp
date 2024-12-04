@@ -336,6 +336,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	case CPUCore::IR_INTERPRETER:
 		while (inDelaySlot) {
 			// We must get out of the delay slot before going into jit.
+			// This normally should never take more than one step...
 			SingleStep();
 		}
 		insideJit = true;
