@@ -334,7 +334,11 @@ void DumpExecute::SyncStall() {
 		return;
 	}
 
-	gpu->UpdateStall(execListID, execListPos);
+	bool runList;
+	gpu->UpdateStall(execListID, execListPos, &runList);
+	if (runList) {
+		gpu->RunGe();
+	}
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
 		s64 nowTicks = CoreTiming::GetTicks();
@@ -365,7 +369,11 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 
 		gpu->EnableInterrupts(false);
 		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
-		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false);
+		bool runList;
+		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false, &runList);
+		if (runList) {
+			gpu->RunGe();
+		}
 		gpu->EnableInterrupts(true);
 	}
 

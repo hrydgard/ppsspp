@@ -359,7 +359,9 @@ void GPUCommon::ResetMatrices() {
 	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList) {
+	*runList = false;
+
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
 	// Check alignment
@@ -467,9 +469,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
-		SwitchToGe();
+		// LATER: Wait, what? Please explain.
+		*runList = true;
 	}
-
 	return id;
 }
 
@@ -495,7 +497,8 @@ u32 GPUCommon::DequeueList(int listid) {
 	return 0;
 }
 
-u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
+u32 GPUCommon::UpdateStall(int listid, u32 newstall, bool *runList) {
+	*runList = false;
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	auto &dl = dls[listid];
@@ -503,12 +506,13 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 		return SCE_KERNEL_ERROR_ALREADY;
 
 	dl.stall = newstall & 0x0FFFFFFF;
-	
-	SwitchToGe();
+
+	*runList = true;
 	return 0;
 }
 
-u32 GPUCommon::Continue() {
+u32 GPUCommon::Continue(bool *runList) {
+	*runList = false;
 	if (!currentList)
 		return 0;
 
@@ -544,17 +548,19 @@ u32 GPUCommon::Continue() {
 		return -1;
 	}
 
-	SwitchToGe();
+	*runList = true;
 	return 0;
 }
 
-void GPUCommon::SwitchToGe() {
+void GPUCommon::RunGe() {
 	// Old method, although may make sense for performance if the ImDebugger isn't active.
 #if 1
 	// Call ProcessDLQueue directly.
-	ProcessDLQueue(DLRunType::Run, DLStepType::None);
+	ProcessDLQueue(false);
 #else
 	// New method, will allow ImDebugger to step the GPU.
+	// ARGH, what makes this different appears to be what happens AFTER the call to
+	// EnqueueList inside sceGeListEnqueue. Like the cycle eating and CoreTiming forcecheck.
 	Core_SwitchToGe();
 #endif
 }
@@ -842,10 +848,7 @@ int GPUCommon::GetNextListIndex() {
 
 // This is now called when coreState == CORE_RUNNING_GE.
 // TODO: It should return the next action.. (break into debugger or continue running)
-DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
-	_dbg_assert_(run == DLRunType::Run);
-	_dbg_assert_(step == DLStepType::None);
-
+DLResult GPUCommon::ProcessDLQueue(bool fromCore) {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
@@ -881,6 +884,12 @@ DLResult GPUCommon::ProcessDLQueue(DLRunType run, DLStepType step) {
 
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
+
+	if (fromCore) {
+		// Now update the core timing like we would have previously...
+		// TODO
+	}
+
 	return DLResult::Done;
 }
 
@@ -1547,8 +1556,6 @@ void GPUCommon::InterruptEnd(int listid) {
 				dlQueue.remove(listid);
 		}
 	}
-
-	SwitchToGe();
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?

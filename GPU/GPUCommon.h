@@ -140,21 +140,6 @@ namespace Draw {
 class DrawContext;
 }
 
-enum class DLRunType {
-	Run,
-	RunDebug,
-	Step,
-};
-
-enum class DLStepType {
-	None,
-	Single,
-	Prim,
-	Draw,
-	Texture,
-	Rendertarget,
-};
-
 enum class DLResult {
 	Done,
 	Error,
@@ -257,9 +242,11 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	bool InterpretList(DisplayList &list);
-	DLResult ProcessDLQueue(DLRunType run, DLStepType step);
-	u32 UpdateStall(int listid, u32 newstall);
-	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
+
+	DLResult ProcessDLQueue(bool fromCore);
+
+	u32 UpdateStall(int listid, u32 newstall, bool *runList);
+	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList);
 	u32 DequeueList(int listid);
 	virtual int ListSync(int listid, int mode);
 	virtual u32 DrawSync(int mode);
@@ -268,7 +255,7 @@ public:
 	virtual void ResetMatrices();
 	virtual void DoState(PointerWrap &p);
 	bool BusyDrawing();
-	u32 Continue();
+	u32 Continue(bool *runList);
 	u32 Break(int mode);
 
 	virtual bool FramebufferDirty() = 0;
@@ -279,7 +266,7 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	void SwitchToGe();
+	void RunGe();
 
 	void DrawImGuiDebugger();
 
