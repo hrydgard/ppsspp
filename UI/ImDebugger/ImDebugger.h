@@ -80,7 +80,7 @@ struct ImConfig {
 	bool audioChannelsOpen;
 	bool debugStatsOpen;
 	bool geDebuggerOpen;
-	bool geRegistersOpen;
+	bool geStateOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
