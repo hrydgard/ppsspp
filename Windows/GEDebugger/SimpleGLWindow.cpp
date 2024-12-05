@@ -253,7 +253,7 @@ void SimpleGLWindow::DrawChecker() {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 }
 
-void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt) {
+void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, const Format fmt) {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	GLint components = GL_RGBA;

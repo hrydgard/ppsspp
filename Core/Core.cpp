@@ -54,7 +54,8 @@
 
 // Step command to execute next
 static std::mutex g_stepMutex;
-struct StepCommand {
+
+struct CPUStepCommand {
 	CPUStepType type;
 	int stepSize;
 	const char *reason;
@@ -69,7 +70,8 @@ struct StepCommand {
 		relatedAddr = 0;
 	}
 };
-static StepCommand g_stepCommand;
+
+static CPUStepCommand g_cpuStepCommand;
 
 // This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
@@ -157,15 +159,15 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
-bool Core_RequestSingleStep(CPUStepType type, int stepSize) {
+bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 	std::lock_guard<std::mutex> guard(g_stepMutex);
-	if (g_stepCommand.type != CPUStepType::None) {
-		ERROR_LOG(Log::CPU, "Can't submit two steps in one frame");
+	if (g_cpuStepCommand.type != CPUStepType::None) {
+		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
 		return false;
 	}
 	// Out-steps don't need a size.
 	_dbg_assert_(stepSize != 0 || type == CPUStepType::Out);
-	g_stepCommand = { type, stepSize };
+	g_cpuStepCommand = { type, stepSize };
 	return true;
 }
 
@@ -174,7 +176,7 @@ bool Core_RequestSingleStep(CPUStepType type, int stepSize) {
 // Yes, our disassembler does support those.
 // Doesn't return the new address, as that's just mips->getPC().
 // Internal use.
-static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
+static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
 	switch (stepType) {
 	case CPUStepType::Into:
 	{
@@ -257,6 +259,11 @@ static void Core_PerformStep(MIPSDebugInterface *cpu, CPUStepType stepType, int 
 	}
 }
 
+static void Core_PerformGeStep(CPUStepType stepType) {
+	// TODO
+}
+
+// Should only be called from GPUCommon functions (called from sceGe functions).
 void Core_SwitchToGe() {
 	coreState = CORE_RUNNING_GE;
 }
@@ -269,6 +276,7 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	switch (coreState) {
 	case CORE_STEPPING_CPU:
+	case CORE_STEPPING_GE:
 		// All good
 		break;
 	default:
@@ -277,7 +285,8 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	}
 
 	// Or any GPU actions.
-	GPUStepping::SingleStep();
+	// Legacy stepping code.
+	GPUStepping::ProcessStepping();
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
@@ -291,19 +300,19 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// Need to check inside the lock to avoid races.
 	std::lock_guard<std::mutex> guard(g_stepMutex);
 
-	if (coreState != CORE_STEPPING_CPU || g_stepCommand.empty()) {
+	if (coreState != CORE_STEPPING_CPU || g_cpuStepCommand.empty()) {
 		return;
 	}
 
 	Core_ResetException();
 
-	if (!g_stepCommand.empty()) {
-		Core_PerformStep(cpu, g_stepCommand.type, g_stepCommand.stepSize);
-		if (g_stepCommand.type == CPUStepType::Into) {
+	if (!g_cpuStepCommand.empty()) {
+		Core_PerformCPUStep(cpu, g_cpuStepCommand.type, g_cpuStepCommand.stepSize);
+		if (g_cpuStepCommand.type == CPUStepType::Into) {
 			// We're already done. The other step types will resume the CPU.
 			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		}
-		g_stepCommand.clear();
+		g_cpuStepCommand.clear();
 		steppingCounter++;
 	}
 
@@ -313,25 +322,30 @@ void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 // Free-threaded (hm, possibly except tracing).
 void Core_Break(const char *reason, u32 relatedAddress) {
+	if (coreState != CORE_RUNNING_CPU) {
+		ERROR_LOG(Log::CPU, "Core_Break ony works in the CORE_RUNNING_CPU state");
+		return;
+	}
+
 	// Stop the tracer
 	{
 		std::lock_guard<std::mutex> lock(g_stepMutex);
-		if (!g_stepCommand.empty() && Core_IsStepping()) {
+		if (!g_cpuStepCommand.empty() && Core_IsStepping()) {
 			// If we're in a failed step that uses a temp breakpoint, we need to be able to override it here.
-			switch (g_stepCommand.type) {
+			switch (g_cpuStepCommand.type) {
 			case CPUStepType::Over:
 			case CPUStepType::Out:
 				// Allow overwriting the command.
 				break;
 			default:
-				ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_stepCommand.reason);
+				ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_cpuStepCommand.reason);
 				return;
 			}
 		}
 		mipsTracer.stop_tracing();
-		g_stepCommand.type = CPUStepType::None;
-		g_stepCommand.reason = reason;
-		g_stepCommand.relatedAddr = relatedAddress;
+		g_cpuStepCommand.type = CPUStepType::None;
+		g_cpuStepCommand.reason = reason;
+		g_cpuStepCommand.relatedAddr = relatedAddress;
 		steppingCounter++;
 		_assert_msg_(reason != nullptr, "No reason specified for break");
 		Core_UpdateState(CORE_STEPPING_CPU);
@@ -341,6 +355,12 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 
 // Free-threaded (or at least should be)
 void Core_Resume() {
+	// Handle resuming from GE.
+	if (coreState == CORE_STEPPING_GE) {
+		coreState = CORE_RUNNING_GE;
+		return;
+	}
+
 	// Clear the exception if we resume.
 	Core_ResetException();
 	coreState = CORE_RUNNING_CPU;
@@ -349,6 +369,8 @@ void Core_Resume() {
 
 // Should be called from the EmuThread.
 bool Core_NextFrame() {
+	_dbg_assert_(coreState != CORE_STEPPING_GE && coreState != CORE_RUNNING_GE);
+
 	if (coreState == CORE_RUNNING_CPU) {
 		coreState = CORE_NEXTFRAME;
 		return true;
@@ -364,9 +386,9 @@ int Core_GetSteppingCounter() {
 SteppingReason Core_GetSteppingReason() {
 	SteppingReason r;
 	std::lock_guard<std::mutex> lock(g_stepMutex);
-	if (!g_stepCommand.empty()) {
-		r.reason = g_stepCommand.reason;
-		r.relatedAddress = g_stepCommand.relatedAddr;
+	if (!g_cpuStepCommand.empty()) {
+		r.reason = g_cpuStepCommand.reason;
+		r.relatedAddress = g_cpuStepCommand.relatedAddr;
 	}
 	return r;
 }

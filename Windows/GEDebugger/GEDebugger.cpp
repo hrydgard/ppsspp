@@ -56,7 +56,6 @@
 #include "GPU/Debugger/Stepping.h"
 
 using namespace GPUBreakpoints;
-using namespace GPUDebug;
 using namespace GPUStepping;
 
 enum PrimaryDisplayType {
@@ -136,8 +135,8 @@ StepCountDlg::~StepCountDlg() {
 void StepCountDlg::Jump(int count, bool relative) {
 	if (relative && count == 0)
 		return;
-	SetBreakNext(BreakNext::COUNT);
-	SetBreakCount(count, relative);
+	GPUDebug::SetBreakNext(GPUDebug::BreakNext::COUNT);
+	GPUDebug::SetBreakCount(count, relative);
 };
 
 BOOL StepCountDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -575,7 +574,7 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	wchar_t primCounter[1024]{};
-	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", PrimsThisFrame(), PrimsLastFrame());
+	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", GPUDebug::PrimsThisFrame(), GPUDebug::PrimsLastFrame());
 	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 
 	for (GEDebuggerTab &tabState : tabStates_) {
@@ -698,7 +697,9 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 	}
 
 	if (bufferResult && primaryBuffer_ != nullptr) {
-		auto fmt = SimpleGLWindow::Format(primaryBuffer_->GetFormat());
+		const GPUDebugBufferFormat bufFmt = primaryBuffer_->GetFormat();
+		_dbg_assert_(bufFmt != GPUDebugBufferFormat::GPU_DBG_FORMAT_INVALID);
+		const SimpleGLWindow::Format fmt = (SimpleGLWindow::Format)bufFmt;
 		primaryWindow->SetFlags(flags);
 		primaryWindow->Draw(primaryBuffer_->GetData(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), primaryBuffer_->GetFlipped(), fmt);
 
@@ -735,7 +736,9 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 	}
 
 	if (bufferResult) {
-		auto fmt = SimpleGLWindow::Format(secondBuffer_->GetFormat());
+		const GPUDebugBufferFormat bufFmt = secondBuffer_->GetFormat();
+		_dbg_assert_(bufFmt != GPUDebugBufferFormat::GPU_DBG_FORMAT_INVALID);
+		const SimpleGLWindow::Format fmt = (SimpleGLWindow::Format)bufFmt;
 		secondWindow->SetFlags(TexturePreviewFlags(state));
 		if (showClut_) {
 			// Reduce the stride so it's easier to see.
@@ -1127,31 +1130,31 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
-			SetBreakNext(BreakNext::DRAW);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
 			break;
 
 		case IDC_GEDBG_STEP:
-			SetBreakNext(BreakNext::OP);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
 			break;
 
 		case IDC_GEDBG_STEPTEX:
-			SetBreakNext(BreakNext::TEX);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
 			break;
 
 		case IDC_GEDBG_STEPFRAME:
-			SetBreakNext(BreakNext::FRAME);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
 			break;
 
 		case IDC_GEDBG_STEPVSYNC:
-			SetBreakNext(BreakNext::VSYNC);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::VSYNC);
 			break;
 
 		case IDC_GEDBG_STEPPRIM:
-			SetBreakNext(BreakNext::PRIM);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
 			break;
 
 		case IDC_GEDBG_STEPCURVE:
-			SetBreakNext(BreakNext::CURVE);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
@@ -1218,7 +1221,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
-			SetBreakNext(BreakNext::NONE);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
 			break;
 
 		case IDC_GEDBG_RECORD:
@@ -1266,7 +1269,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
-		SetBreakNext(BreakNext::OP);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:

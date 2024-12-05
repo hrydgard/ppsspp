@@ -22,6 +22,7 @@
 
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
+#include "GPU/GPUDefinitions.h"
 
 class GraphicsContext;
 
@@ -45,12 +46,13 @@ enum class CPUStepType {
 
 // Async, called from gui
 void Core_Break(const char *reason, u32 relatedAddress = 0);
-// void Core_Step(CPUStepType type);  // CPUStepType::None not allowed
+
+// Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();
 
 // This should be called externally.
 // Can fail if another step type was requested this frame.
-bool Core_RequestSingleStep(CPUStepType stepType, int stepSize);
+bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
 
 bool Core_ShouldRunBehind();
 bool Core_MustRunBehind();

@@ -102,7 +102,6 @@ static std::string trimString(std::string input) {
 
 void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 	/*
-	auto memLock = Memory::Lock();
 	if (!Core_IsStepping()) {
 		MessageBox(wnd, L"Cannot change code while the core is running!", L"Error", MB_OK);
 		return;
@@ -315,7 +314,6 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 }
 
 void ImDisasmView::Draw(ImDrawList *drawList) {
-	auto memLock = Memory::Lock();
 	if (!debugger->isAlive()) {
 		return;
 	}
@@ -922,7 +920,6 @@ void ImDisasmView::PopupMenu() {
 }
 
 void ImDisasmView::updateStatusBarText() {
-	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
@@ -1047,8 +1044,6 @@ void ImDisasmView::SearchNext(bool forward) {
 		return;
 	}
 
-	auto memLock = Memory::Lock();
-
 	// Note: Search will replace matchAddress_ with the current address.
 	u32 searchAddress = manager.getNthNextAddress(matchAddress_, 1);
 
@@ -1110,7 +1105,6 @@ void ImDisasmView::SearchNext(bool forward) {
 }
 
 std::string ImDisasmView::disassembleRange(u32 start, u32 size) {
-	auto memLock = Memory::Lock();
 	std::string result;
 
 	// gather all branch targets without labels

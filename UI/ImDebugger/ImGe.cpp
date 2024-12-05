@@ -9,6 +9,7 @@
 #include "Core/HW/Display.h"
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Framebuffers", &cfg.framebuffersOpen)) {
 		ImGui::End();
 		return;
@@ -20,6 +21,7 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 }
 
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Textures", &cfg.texturesOpen)) {
 		ImGui::End();
 		return;
@@ -31,6 +33,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 }
 
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Display", &cfg.displayOpen)) {
 		ImGui::End();
 		return;
@@ -59,6 +62,7 @@ void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManag
 
 // Note: This is not exclusively graphics.
 void DrawDebugStatsWindow(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Debug Stats", &cfg.debugStatsOpen)) {
 		ImGui::End();
 		return;
@@ -71,7 +75,8 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 
 // Stub
 void DrawGeDebuggerWindow(ImConfig &cfg) {
-	if (!ImGui::Begin("Debug Stats", &cfg.geDebuggerOpen)) {
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
 		ImGui::End();
 		return;
 	}

@@ -180,7 +180,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 
-	auto disasm = gpuDebug->DissassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
+	auto disasm = gpuDebug->DisassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
 
 	for (int i = 0; i < visibleRows+2; i++)
 	{
@@ -341,7 +341,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *p = temp, *end = temp + space;
 				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 				{
-					GPUDebugOp op = gpuDebug->DissassembleOp(pos);
+					GPUDebugOp op = gpuDebug->DisassembleOp(pos);
 					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
 				}
 

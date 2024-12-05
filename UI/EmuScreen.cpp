@@ -1570,6 +1570,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			flags |= ScreenRenderFlags::HANDLED_THROTTLING;
 			break;
 		case CORE_STEPPING_CPU:
+		case CORE_STEPPING_GE:
 		case CORE_RUNTIME_ERROR:
 		{
 			// If there's an exception, display information.

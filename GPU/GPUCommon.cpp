@@ -668,26 +668,30 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
 	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
 	while (gpuState == GPUSTATE_RUNNING) {
-		{
-			if (list.pc == list.stall) {
-				gpuState = GPUSTATE_STALL;
-				downcount = 0;
-			}
+		if (list.pc == list.stall) {
+			gpuState = GPUSTATE_STALL;
+			downcount = 0;
 		}
 
 		if (useFastRunLoop) {
+			// When no Ge debugger is active, we go full speed.
 			FastRunLoop(list);
 		} else {
-			SlowRunLoop(list);
+			// When a Ge debugger is active (or similar), we do more checking.
+			if (!SlowRunLoop(list)) {
+				// Hit a breakpoint, so we set the state and bail. We can resume later.
+				// TODO: Cycle counting might need some more care?
+				FinishDeferred();
+				_dbg_assert_(!GPURecord::IsActive());
+				gpuState = GPUSTATE_BREAK;
+				return false;
+			}
 		}
 
-		{
-			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
-
-			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
-				// Unstalled.
-				gpuState = GPUSTATE_RUNNING;
-			}
+		downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+		if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
+			// Unstalled (Can this happen?)
+			gpuState = GPUSTATE_RUNNING;
 		}
 	}
 
@@ -726,11 +730,13 @@ void GPUCommon::PSPFrame() {
 	GPURecord::NotifyBeginFrame();
 }
 
-void GPUCommon::SlowRunLoop(DisplayList &list) {
+// Returns false on breakpoint.
+bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
-		bool process = GPUDebug::NotifyCommand(list.pc);
-		if (process) {
+		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc);
+
+		if (result == GPUDebug::NotifyResult::Execute) {
 			GPURecord::NotifyCommand(list.pc);
 			u32 op = Memory::ReadUnchecked_U32(list.pc);
 			u32 cmd = op >> 24;
@@ -751,11 +757,14 @@ void GPUCommon::SlowRunLoop(DisplayList &list) {
 			gstate.cmdmem[cmd] = op;
 
 			ExecuteOp(op, diff);
+		} else if (result == GPUDebug::NotifyResult::Break) {
+			return false;
 		}
 
 		list.pc += 4;
 		--downcount;
 	}
+	return true;
 }
 
 // The newPC parameter is used for jumps, we don't count cycles between.
@@ -849,7 +858,14 @@ DLResult GPUCommon::ProcessDLQueue() {
 		DisplayList &l = dls[listIndex];
 		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc, l.stall, startingTicks);
 		if (!InterpretList(l)) {
-			return DLResult::Error;
+			switch (gpuState) {
+			case GPURunState::GPUSTATE_STALL:
+				return DLResult::Stall;
+			case GPURunState::GPUSTATE_BREAK:
+				return DLResult::Break;
+			default:
+				return DLResult::Error;
+			}
 		}
 
 		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
@@ -875,9 +891,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {
-	// TODO: Should check for debugger active, etc.
-	// We only need to do this if we want to step through Ge display lists using the Ge debuggers.
-	return false;
+	// Check for debugger active, etc.
+	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
+	return GPUDebug::IsActive() || g_Config.bShowImDebugger;
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
@@ -1608,7 +1624,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 	downcount = 0;
 }
 
-GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
+GPUDebugOp GPUCommon::DisassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
 	u32 prev = Memory::IsValidAddress(pc - 4) ? Memory::ReadUnchecked_U32(pc - 4) : 0;
 	GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
@@ -1621,7 +1637,7 @@ GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
 	return info;
 }
 
-std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
+std::vector<GPUDebugOp> GPUCommon::DisassembleOpRange(u32 startpc, u32 endpc) {
 	char buffer[1024];
 	std::vector<GPUDebugOp> result;
 	GPUDebugOp info;
@@ -1979,12 +1995,32 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 void GPUCommon::DrawImGuiDebugger() {
+	// Proof of concept
+	if (ImGui::Button("Run")) {
+		Core_Resume();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Next Tex")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Next Prim")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Single step")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+	}
+
 	// First, let's list any active display lists.
 	ImGui::Text("Next list ID: %d", nextListID);
 	for (auto index : dlQueue) {
 		const auto &list = dls[index];
-		ImGui::Text("List %d", list.id);
-		ImGui::Text("pc: %08x (start: %08x)", list.pc, list.startpc);
-		ImGui::Text("bbox: %d", (int)list.bboxResult);
+		char title[64];
+		snprintf(title, sizeof(title), "List %d", list.id);
+		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
+			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
+		}
 	}
 }

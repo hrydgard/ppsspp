@@ -3101,7 +3101,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 		ImGui::Image(texId, ImVec2(128, 128));
 	}
 
-	if (!secondCache_.size()) {
+	if (!secondCache_.empty()) {
 		ImGui::Text("Secondary Cache (%d): TODO", (int)secondCache_.size());
 		// TODO
 	}

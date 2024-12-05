@@ -73,6 +73,7 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 
@@ -633,19 +634,30 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		case CORE_NEXTFRAME:
 			return;
 		case CORE_STEPPING_CPU:
+		case CORE_STEPPING_GE:
 			Core_ProcessStepping(currentDebugMIPS);
 			return;
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
 			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
-		case CORE_STEPPING_GE:
-			_dbg_assert_(false);
-			break;
 		case CORE_RUNNING_GE:
 			switch (gpu->ProcessDLQueue()) {
-			case DLResult::Error:  // TODO: shouldn't return this normally
-			case DLResult::Pause:  // like updatestall.
+			case DLResult::Break:
+				GPUStepping::EnterStepping();
+				break;
+			case DLResult::Error:
+				// We should elegantly report the error, or I guess ignore it.
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			case DLResult::Stall:
 			case DLResult::Done:
+				// Done executing for now
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			default:
+				_dbg_assert_(false);
 				hleFinishSyscallAfterGe();
 				coreState = CORE_RUNNING_CPU;
 				break;

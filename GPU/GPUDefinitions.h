@@ -17,6 +17,11 @@
 
 #pragma once
 
+// X11, sigh.
+#ifdef None
+#undef None
+#endif
+
 enum DisplayListStatus {
 	// The list has been completed
 	PSP_GE_LIST_COMPLETED = 0,
@@ -52,4 +57,11 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_SAFE,
 	// Forced invalidation for when the texture hash may not catch changes.
 	GPU_INVALIDATE_FORCE,
+};
+
+enum class DLResult {
+	Done,
+	Error,
+	Stall,
+	Break,  // used for stepping, breakpoints
 };

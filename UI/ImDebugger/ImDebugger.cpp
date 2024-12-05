@@ -132,6 +132,7 @@ static const char *ThreadStatusToString(u32 status) {
 }
 
 void DrawThreadView(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Threads", &cfg.threadsOpen)) {
 		ImGui::End();
 		return;
@@ -213,6 +214,7 @@ static void RecurseFileSystem(IFileSystem *fs, std::string path) {
 }
 
 static void DrawFilesystemBrowser(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(420, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("File System", &cfg.filesystemBrowserOpen)) {
 		ImGui::End();
 		return;
@@ -738,7 +740,6 @@ ImDebugger::~ImDebugger() {
 	cfg_.SaveConfig(ConfigPath());
 }
 
-
 void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
@@ -753,15 +754,17 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
-			if (coreState == CoreState::CORE_STEPPING_CPU) {
+			switch (coreState) {
+			case CoreState::CORE_STEPPING_CPU:
 				if (ImGui::MenuItem("Run")) {
 					Core_Resume();
 				}
-				// used to have the step commands here, but they belong in the disassembly window.
-			} else {
+				break;
+			case CoreState::CORE_RUNNING_CPU:
 				if (ImGui::MenuItem("Break")) {
 					Core_Break("Menu:Break");
 				}
+				break;
 			}
 			ImGui::Separator();
 			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
@@ -821,7 +824,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Graphics")) {
-			ImGui::MenuItem("Ge Debugger", nullptr, &cfg_.geDebuggerOpen);
+			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -858,7 +861,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.disasmOpen) {
-		disasm_.Draw(mipsDebug, &cfg_.disasmOpen, coreState);
+		disasm_.Draw(mipsDebug, cfg_, coreState);
 	}
 
 	if (cfg_.regsOpen) {
@@ -926,14 +929,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 }
 
-void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState coreState) {
+void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState) {
 	char title[256];
 	snprintf(title, sizeof(title), "%s - Disassembly", "Allegrex MIPS");
 
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(title, open, ImGuiWindowFlags_NoNavInputs)) {
+	if (!ImGui::Begin(title, &cfg.disasmOpen, ImGuiWindowFlags_NoNavInputs)) {
 		ImGui::End();
 		return;
 	}
@@ -942,16 +945,21 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
 			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestSingleStep(CPUStepType::Over, stepSize);
+			Core_RequestCPUStep(CPUStepType::Over, stepSize);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
 			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestSingleStep(CPUStepType::Into, stepSize);
+			Core_RequestCPUStep(CPUStepType::Into, stepSize);
 		}
 	}
 
 	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
-		ImGui::Text("!!! Currently stepping the Ge. See that window (when implemented)");
+		ImGui::Text("!!! Currently stepping the GE");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Open Ge debugger")) {
+			cfg.geDebuggerOpen = true;
+			ImGui::SetWindowFocus("GE Debugger");
+		}
 	}
 
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
@@ -972,18 +980,18 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, CoreState c
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Into")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestSingleStep(CPUStepType::Into, stepSize);
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Over")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestSingleStep(CPUStepType::Over, stepSize);
+		Core_RequestCPUStep(CPUStepType::Over, stepSize);
 	}
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Step Out")) {
-		Core_RequestSingleStep(CPUStepType::Out, 0);
+		Core_RequestCPUStep(CPUStepType::Out, 0);
 	}
 
 	ImGui::EndDisabled();
