@@ -51,4 +51,23 @@ enum CmdFormatType {
 
 class GPUDebugInterface;
 
+
+struct TabStateRow {
+	std::string_view title;
+	uint8_t cmd;
+	CmdFormatType fmt;
+	uint8_t enableCmd;
+	uint8_t otherCmd;
+	uint8_t otherCmd2;
+};
+
+extern const TabStateRow g_stateFlagsRows[];
+extern const TabStateRow g_stateLightingRows[];
+extern const TabStateRow g_stateTextureRows[];
+extern const TabStateRow g_stateSettingsRows[];
+extern const size_t g_stateFlagsRowsSize;
+extern const size_t g_stateLightingRowsSize;
+extern const size_t g_stateTextureRowsSize;
+extern const size_t g_stateSettingsRowsSize;
+
 void FormatStateRow(GPUDebugInterface *debug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2);

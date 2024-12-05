@@ -7,6 +7,8 @@
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
+#include "GPU/Debugger/State.h"
+
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);

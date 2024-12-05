@@ -55,7 +55,7 @@ private:
 
 class TabStateValues : public Dialog {
 public:
-	TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
+	TabStateValues(const TabStateRow *rows, size_t rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
 	~TabStateValues();
 
 	void Update() override {
