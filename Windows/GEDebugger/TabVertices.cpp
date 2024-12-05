@@ -171,9 +171,8 @@ int CtrlVertexList::GetRowCount() {
 	rowCount_ = state.prim & 0xFFFF;
 
 	// Override if we're on a prim command.
-	DisplayList list;
-	if (gpuDebug->GetCurrentDisplayList(list)) {
-		u32 cmd = Memory::Read_U32(list.pc);
+	u32 cmd;
+	if (gpuDebug->GetCurrentCommand(&cmd)) {
 		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
 			rowCount_ = cmd & 0xFFFF;
 		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
@@ -182,7 +181,6 @@ int CtrlVertexList::GetRowCount() {
 			rowCount_ = u * v;
 		}
 	}
-
 	if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}

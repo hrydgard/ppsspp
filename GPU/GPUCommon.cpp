@@ -1581,6 +1581,16 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 	return true;
 }
 
+bool GPUCommon::GetCurrentCommand(u32 *cmd) {
+	DisplayList list;
+	if (GetCurrentDisplayList(list)) {
+		*cmd = Memory::Read_U32(list.pc);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 	std::vector<DisplayList> result;
 
