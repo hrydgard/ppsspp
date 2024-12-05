@@ -326,7 +326,8 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		bool success = __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			if (PSP_CoreParameter().startBreak) {
-				Core_Break("start-break");
+				coreState = CORE_STEPPING_CPU;
+				System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 			} else {
 				coreState = CORE_RUNNING_CPU;
 			}
@@ -487,7 +488,8 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		bool success = __KernelLoadExec(finalName.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			if (PSP_CoreParameter().startBreak) {
-				Core_Break("start-break");
+				coreState = CORE_STEPPING_CPU;
+				System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 			} else {
 				coreState = CORE_RUNNING_CPU;
 			}
@@ -517,7 +519,8 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		bool success = __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			if (PSP_CoreParameter().startBreak) {
-				Core_Break("start-break");
+				coreState = CORE_STEPPING_CPU;
+				System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 			} else {
 				coreState = CORE_RUNNING_CPU;
 			}
