@@ -1,10 +1,12 @@
 #include <cstdio>
 #include "Common/Common.h"
-
+#include "Common/StringUtils.h"
 #include "GPU/Debugger/State.h"
 #include "GPU/GPU.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "Core/System.h"
 
 const TabStateRow g_stateFlagsRows[] = {
 	{ "Lighting enable",      GE_CMD_LIGHTINGENABLE,          CMD_FMT_FLAG },
@@ -714,5 +716,119 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 	// TODO: Turn row grey or some such?
 	if (!enabled) {
 		strcat(dest, " (disabled)");
+	}
+}
+
+void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int col) {
+	switch (col) {
+	case VERTEXLIST_COL_X: snprintf(dest, destSize, "%f", vert.x); break;
+	case VERTEXLIST_COL_Y: snprintf(dest, destSize, "%f", vert.y); break;
+	case VERTEXLIST_COL_Z: snprintf(dest, destSize, "%f", vert.z); break;
+	case VERTEXLIST_COL_U: snprintf(dest, destSize, "%f", vert.u); break;
+	case VERTEXLIST_COL_V: snprintf(dest, destSize, "%f", vert.v); break;
+	case VERTEXLIST_COL_COLOR:
+		snprintf(dest, destSize, "%02x%02x%02x%02x", vert.c[0], vert.c[1], vert.c[2], vert.c[3]);
+		break;
+	case VERTEXLIST_COL_NX: snprintf(dest, destSize, "%f", vert.nx); break;
+	case VERTEXLIST_COL_NY: snprintf(dest, destSize, "%f", vert.ny); break;
+	case VERTEXLIST_COL_NZ: snprintf(dest, destSize, "%f", vert.nz); break;
+
+	default:
+		truncate_cpy(dest, destSize, "Invalid");
+		break;
+	}
+}
+
+static void FormatVertColRawType(char *dest, size_t destSize, const void *data, int type, int offset);
+static void FormatVertColRawColor(char *dest, size_t destSize, const void *data, int type);
+
+void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col) {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		truncate_cpy(dest, destSize, "Invalid");
+		return;
+	}
+
+	// We could use the vertex decoder and reader, but those already do some minor adjustments.
+	// There's only a few values - let's just go after them directly.
+	const u8 *vert = Memory::GetPointer(gpuDebug->GetVertexAddress()) + row * decoder->size;
+	const u8 *pos = vert + decoder->posoff;
+	const u8 *tc = vert + decoder->tcoff;
+	const u8 *color = vert + decoder->coloff;
+	const u8 *norm = vert + decoder->nrmoff;
+
+	switch (col) {
+	case VERTEXLIST_COL_X:
+		FormatVertColRawType(dest, destSize, pos, decoder->pos, 0);
+		break;
+	case VERTEXLIST_COL_Y:
+		FormatVertColRawType(dest, destSize, pos, decoder->pos, 1);
+		break;
+	case VERTEXLIST_COL_Z:
+		FormatVertColRawType(dest, destSize, pos, decoder->pos, 2);
+		break;
+	case VERTEXLIST_COL_U:
+		FormatVertColRawType(dest, destSize, tc, decoder->tc, 0);
+		break;
+	case VERTEXLIST_COL_V:
+		FormatVertColRawType(dest, destSize, tc, decoder->tc, 1);
+		break;
+	case VERTEXLIST_COL_COLOR:
+		FormatVertColRawColor(dest, destSize, color, decoder->col);
+		break;
+
+	case VERTEXLIST_COL_NX: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 0); break;
+	case VERTEXLIST_COL_NY: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 1); break;
+	case VERTEXLIST_COL_NZ: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 2); break;
+
+	default:
+		truncate_cpy(dest, destSize, "Invalid");
+		break;
+	}
+}
+
+static void FormatVertColRawType(char *dest, size_t destSize, const void *data, int type, int offset) {
+	switch (type) {
+	case 0:
+		truncate_cpy(dest, destSize, "-");
+		break;
+
+	case 1: // 8-bit
+		snprintf(dest, destSize, "%02x", ((const u8 *)data)[offset]);
+		break;
+
+	case 2: // 16-bit
+		snprintf(dest, destSize, "%04x", ((const u16_le *)data)[offset]);
+		break;
+
+	case 3: // float
+		snprintf(dest, destSize, "%f", ((const float *)data)[offset]);
+		break;
+
+	default:
+		truncate_cpy(dest, destSize, "Invalid");
+		break;
+	}
+}
+
+static void FormatVertColRawColor(char *dest, size_t destSize, const void *data, int type) {
+	switch (type) {
+	case GE_VTYPE_COL_NONE >> GE_VTYPE_COL_SHIFT:
+		truncate_cpy(dest, destSize, "-");
+		break;
+
+	case GE_VTYPE_COL_565 >> GE_VTYPE_COL_SHIFT:
+	case GE_VTYPE_COL_5551 >> GE_VTYPE_COL_SHIFT:
+	case GE_VTYPE_COL_4444 >> GE_VTYPE_COL_SHIFT:
+		snprintf(dest, destSize, "%04x", *(const u16_le *)data);
+		break;
+
+	case GE_VTYPE_COL_8888 >> GE_VTYPE_COL_SHIFT:
+		snprintf(dest, destSize, "%08x", *(const u32_le *)data);
+		break;
+
+	default:
+		truncate_cpy(dest, destSize, "Invalid");
+		break;
 	}
 }

@@ -40,11 +40,6 @@ protected:
 	int GetRowCount() override;
 
 private:
-	void FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, int col);
-	void FormatVertColRaw(wchar_t *dest, int row, int col);
-	void FormatVertColRawType(wchar_t *dest, const void *data, int type, int offset);
-	void FormatVertColRawColor(wchar_t *dest, const void *data, int type);
-
 	std::vector<GPUDebugVertex> vertices;
 	std::vector<u16> indices;
 	int rowCount_;
