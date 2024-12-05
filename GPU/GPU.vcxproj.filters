@@ -276,6 +276,9 @@
     <ClInclude Include="Common\VertexDecoderHandwritten.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\State.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -547,6 +550,9 @@
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderHandwritten.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\State.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -138,7 +138,7 @@ CtrlVertexList::~CtrlVertexList() {
 	delete decoder;
 }
 
-void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
+void CtrlVertexList::GetColumnText(wchar_t *dest, size_t destSize, int row, int col) {
 	if (row < 0 || row >= rowCount_ ) {
 		wcscpy(dest, L"Invalid");
 		return;
@@ -146,7 +146,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
 
 	if (!indices.empty()) {
 		if (row >= (int)indices.size()) {
-			swprintf(dest, 255, L"Invalid indice %d", row);
+			swprintf(dest, destSize, L"Invalid indice %d", row);
 			return;
 		}
 		row = indices[row];
@@ -156,7 +156,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
 		FormatVertColRaw(dest, row, col);
 	} else {
 		if (row >= (int)vertices.size()) {
-			swprintf(dest, 255, L"Invalid vertex %d", row);
+			swprintf(dest, destSize, L"Invalid vertex %d", row);
 			return;
 		}
 
@@ -461,7 +461,7 @@ bool CtrlMatrixList::GetValue(const GPUgstate &state, int row, int col, float &v
 	return true;
 }
 
-void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
+void CtrlMatrixList::GetColumnText(wchar_t *dest, size_t destSize, int row, int col) {
 	if (col == MATRIXLIST_COL_BREAKPOINT) {
 		wcscpy(dest, L" ");
 		return;

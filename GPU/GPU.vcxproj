@@ -386,6 +386,7 @@
     <ClInclude Include="Debugger\Playback.h" />
     <ClInclude Include="Debugger\Record.h" />
     <ClInclude Include="Debugger\RecordFormat.h" />
+    <ClInclude Include="Debugger\State.h" />
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\FramebufferManagerDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
@@ -533,6 +534,7 @@
     <ClCompile Include="Debugger\GECommandTable.cpp" />
     <ClCompile Include="Debugger\Playback.cpp" />
     <ClCompile Include="Debugger\Record.cpp" />
+    <ClCompile Include="Debugger\State.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\FramebufferManagerDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />

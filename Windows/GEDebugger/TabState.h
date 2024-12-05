@@ -36,7 +36,7 @@ protected:
 	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) override {
 		return false;
 	}
-	void GetColumnText(wchar_t* dest, int row, int col) override;
+	void GetColumnText(wchar_t *dest, size_t destSize, int row, int col) override;
 	int GetRowCount() override { return rowCount_; }
 	void OnDoubleClick(int row, int column) override;
 	void OnRightClick(int row, int column, const POINT& point) override;

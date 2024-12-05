@@ -31,12 +31,6 @@
     <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\StateMappingD3D11.cpp" />
     <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\GECommandTable.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
-    <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
     <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
     <ClCompile Include="..\..\GPU\GPU.cpp" />
@@ -65,6 +59,27 @@
     <ClCompile Include="..\..\GPU\GPUCommonHW.cpp" />
     <ClCompile Include="..\..\GPU\Common\ReplacedTexture.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureReplacer.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\State.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Record.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Playback.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\GECommandTable.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -95,13 +110,6 @@
     <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h" />
     <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
-    <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
-    <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
-    <ClInclude Include="..\..\GPU\Debugger\GECommandTable.h" />
-    <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
-    <ClInclude Include="..\..\GPU\Debugger\Record.h" />
-    <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
-    <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
     <ClInclude Include="..\..\GPU\GeDisasm.h" />
     <ClInclude Include="..\..\GPU\ge_constants.h" />
     <ClInclude Include="..\..\GPU\GPU.h" />
@@ -131,5 +139,34 @@
     <ClInclude Include="..\..\GPU\GPUCommonHW.h" />
     <ClInclude Include="..\..\GPU\Common\ReplacedTexture.h" />
     <ClInclude Include="..\..\GPU\Common\TextureReplacer.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Debugger.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Registers.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Record.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Playback.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Stepping.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\GECommandTable.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Debugger">
+      <UniqueIdentifier>{49bcf7f6-518a-4ecd-af55-bda3a344efe7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

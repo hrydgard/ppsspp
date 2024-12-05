@@ -77,7 +77,7 @@ protected:
 	void SetItemState(int item, uint8_t state);
 
 	virtual bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) = 0;
-	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
+	virtual void GetColumnText(wchar_t* dest, size_t destSize, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
 	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
@@ -102,8 +102,8 @@ private:
 	WNDPROC oldProc;
 	void *images_ = nullptr;
 	const GenericListViewColumn* columns;
+	wchar_t stringBuffer[256];  // needs to survive slightly longer than the GetColumnText scope, so needs to be here.
 	int columnCount;
-	wchar_t stringBuffer[256];
 	bool valid;
 	bool sendInvalidRows;
 	// Used for hacky workaround to fix a rare hang (see issue #5184)

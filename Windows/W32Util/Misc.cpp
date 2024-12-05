@@ -352,7 +352,7 @@ int GenericListControl::HandleNotify(LPARAM lParam) {
 		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
 
 		stringBuffer[0] = 0;
-		GetColumnText(stringBuffer,dispInfo->item.iItem,dispInfo->item.iSubItem);
+		GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), dispInfo->item.iItem,dispInfo->item.iSubItem);
 		
 		if (stringBuffer[0] == 0)
 			wcscat(stringBuffer,L"Invalid");
@@ -411,7 +411,7 @@ int GenericListControl::OnIncrementalSearch(int startRow, const wchar_t *str, bo
 		for (int i = 0; i < size; ++i) {
 			int r = (startRow + i) % size;
 			stringBuffer[0] = 0;
-			GetColumnText(stringBuffer, r, c);
+			GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), r, c);
 			int difference = partial ? _wcsnicmp(str, stringBuffer, searchlen) : _wcsicmp(str, stringBuffer);
 			if (difference == 0)
 				return r;
@@ -591,7 +591,7 @@ void GenericListControl::CopyRows(int start, int size)
 		for (int c = 0; c < columnCount; ++c)
 		{
 			stringBuffer[0] = 0;
-			GetColumnText(stringBuffer, r, c);
+			GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), r, c);
 			data.append(stringBuffer);
 			if (c < columnCount - 1)
 				data.append(L"\t");

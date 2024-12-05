@@ -551,6 +551,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
   $(SRC)/GPU/Debugger/Playback.cpp \
   $(SRC)/GPU/Debugger/Record.cpp \
+  $(SRC)/GPU/Debugger/State.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/StencilBufferGLES.cpp \

@@ -12,6 +12,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawDebugStatsWindow(ImConfig &cfg);
 void DrawGeDebuggerWindow(ImConfig &cfg);
+void DrawGeRegistersWindow(ImConfig &cfg);
 
 class ImGeDebugger {
 public:

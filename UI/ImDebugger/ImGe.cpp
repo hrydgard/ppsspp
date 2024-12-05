@@ -85,3 +85,27 @@ void DrawGeDebuggerWindow(ImConfig &cfg) {
 
 	ImGui::End();
 }
+
+// TODO: Separate window or merge into Ge debugger?
+void DrawGeRegistersWindow(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Debug Stats", &cfg.geRegistersOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::BeginTabBar("GeRegs", ImGuiTabBarFlags_None)) {
+		if (ImGui::BeginTabItem("Control")) {
+			if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+				ImGui::TableSetupColumn("bkpt", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+
+				ImGui::EndTable();
+			}
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+	ImGui::End();
+}
