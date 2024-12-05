@@ -1581,6 +1581,16 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 	return true;
 }
 
+bool GPUCommon::GetCurrentCommand(u32 *cmd) {
+	DisplayList list;
+	if (GetCurrentDisplayList(list)) {
+		*cmd = Memory::Read_U32(list.pc);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 	std::vector<DisplayList> result;
 
@@ -1995,22 +2005,41 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 void GPUCommon::DrawImGuiDebugger() {
-	// Proof of concept
-	if (ImGui::Button("Run")) {
+	if (ImGui::Button("Run/Resume")) {
 		Core_Resume();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Next Tex")) {
+	ImGui::TextUnformatted("Break:");
+	ImGui::SameLine();
+	if (ImGui::Button("Frame")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Tex")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Next Prim")) {
+	if (ImGui::Button("NonTex")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Prim")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Draw")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Curve")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Single step")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
 	}
+
+	// Let's display the current CLUT.
 
 	// First, let's list any active display lists.
 	ImGui::Text("Next list ID: %d", nextListID);

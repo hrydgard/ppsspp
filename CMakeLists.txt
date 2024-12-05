@@ -1970,6 +1970,8 @@ set(GPU_SOURCES
 	GPU/Debugger/Record.cpp
 	GPU/Debugger/Record.h
 	GPU/Debugger/RecordFormat.h
+	GPU/Debugger/State.cpp
+	GPU/Debugger/State.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
 	GPU/ge_constants.h

@@ -825,6 +825,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		}
 		if (ImGui::BeginMenu("Graphics")) {
 			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
+			ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
@@ -926,6 +927,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.geDebuggerOpen) {
 		DrawGeDebuggerWindow(cfg_);
+	}
+
+	if (cfg_.geStateOpen) {
+		DrawGeStateWindow(cfg_, gpuDebug);
 	}
 }
 
@@ -1148,6 +1153,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("audioChannelsOpen", &audioChannelsOpen, false);
 	sync.Sync("texturesOpen", &texturesOpen, false);
 	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
+	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
+	sync.Sync("geStateOpen", &geStateOpen, false);
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);

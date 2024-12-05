@@ -158,7 +158,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 	}
 }
 
-void CtrlThreadList::GetColumnText(wchar_t* dest, int row, int col)
+void CtrlThreadList::GetColumnText(wchar_t* dest, size_t destSize, int row, int col)
 {
 	if (row < 0 || row >= (int)threads.size()) {
 		return;
@@ -457,7 +457,7 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 	return -1;
 }
 
-void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
+void CtrlBreakpointList::GetColumnText(wchar_t* dest, size_t destSize, int row, int col)
 {
 	if (!PSP_IsInited()) {
 		return;
@@ -512,10 +512,8 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 					wsprintf(dest,L"0x%08X",mc.end-mc.start);
 			} else {
 				const std::string sym = g_symbolMap->GetLabelString(displayedBreakPoints_[index].addr);
-				if (!sym.empty())
-				{
-					std::wstring s = ConvertUTF8ToWString(sym);
-					wcscpy(dest,s.c_str());
+				if (!sym.empty()) {
+					ConvertUTF8ToWString(dest, destSize, sym);
 				} else {
 					wcscpy(dest,L"-");
 				}
@@ -529,8 +527,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 			} else {
 				char temp[256];
 				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp, sizeof(temp));
-				std::wstring s = ConvertUTF8ToWString(temp);
-				wcscpy(dest,s.c_str());
+				ConvertUTF8ToWString(dest, destSize, temp);
 			}
 		}
 		break;
@@ -669,7 +666,7 @@ bool CtrlStackTraceView::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 	return false;
 }
 
-void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
+void CtrlStackTraceView::GetColumnText(wchar_t* dest, size_t destSize, int row, int col)
 {
 	// We should have emptied the list if g_symbolMap is nullptr, but apparently we don't,
 	// so let's have a sanity check here.
@@ -779,16 +776,15 @@ bool CtrlModuleList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESU
 	return false;
 }
 
-void CtrlModuleList::GetColumnText(wchar_t* dest, int row, int col)
+void CtrlModuleList::GetColumnText(wchar_t* dest, size_t destSize, int row, int col)
 {
 	if (row < 0 || row >= (int)modules.size()) {
 		return;
 	}
 
-	switch (col)
-	{
+	switch (col) {
 	case ML_NAME:
-		wcscpy(dest,ConvertUTF8ToWString(modules[row].name).c_str());
+		ConvertUTF8ToWString(dest, destSize, modules[row].name);
 		break;
 	case ML_ADDRESS:
 		wsprintf(dest,L"%08X",modules[row].address);
@@ -887,7 +883,7 @@ bool CtrlWatchList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESUL
 	return false;
 }
 
-void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
+void CtrlWatchList::GetColumnText(wchar_t *dest, size_t destSize, int row, int col) {
 	const auto &watch = watches_[row];
 	switch (col) {
 	case WL_NAME:
@@ -913,12 +909,12 @@ void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
 				break;
 			case WatchFormat::FLOAT:
 				memcpy(&valuef, &value, sizeof(valuef));
-				swprintf_s(dest, 255, L"%f", valuef);
+				swprintf_s(dest, destSize, L"%f", valuef);
 				break;
 			case WatchFormat::STR:
 				if (Memory::IsValidAddress(value)) {
 					uint32_t len = Memory::ValidSize(value, 255);
-					swprintf_s(dest, 255, L"%.*S", len, Memory::GetCharPointer(value));
+					swprintf_s(dest, destSize, L"%.*S", len, Memory::GetCharPointer(value));
 				} else {
 					wsprintf(dest, L"(0x%08X)", value);
 				}

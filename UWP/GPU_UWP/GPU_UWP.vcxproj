@@ -151,6 +151,7 @@
     <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
     <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Registers.h" />
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
     <ClInclude Include="..\..\GPU\GeDisasm.h" />
     <ClInclude Include="..\..\GPU\ge_constants.h" />
@@ -219,6 +220,7 @@
     <ClCompile Include="..\..\GPU\Debugger\GECommandTable.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\State.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
     <ClCompile Include="..\..\GPU\GeConstants.cpp" />
     <ClCompile Include="..\..\GPU\GeDisasm.cpp" />

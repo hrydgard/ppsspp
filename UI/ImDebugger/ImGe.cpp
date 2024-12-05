@@ -2,11 +2,14 @@
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
+#include "GPU/Debugger/State.h"
+#include "GPU/GPUState.h"
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
@@ -83,5 +86,56 @@ void DrawGeDebuggerWindow(ImConfig &cfg) {
 
 	gpu->DrawImGuiDebugger();
 
+	ImGui::End();
+}
+
+// TODO: Separate window or merge into Ge debugger?
+void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("GE State", &cfg.geStateOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::BeginTabBar("GeRegs", ImGuiTabBarFlags_None)) {
+		auto buildStateTab = [&](const char *tabName, const TabStateRow *rows, size_t numRows) {
+			if (ImGui::BeginTabItem(tabName)) {
+				if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+					ImGui::TableSetupColumn("bkpt", ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+					for (size_t i = 0; i < numRows; i++) {
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::Text("-");  // breakpoint
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(rows[i].title.data(), rows[i].title.data() + rows[i].title.size());
+						ImGui::TableNextColumn();
+						char temp[256];
+						auto &info = rows[i];
+
+						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
+						const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
+						const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
+						const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
+
+						FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
+						ImGui::TextUnformatted(temp);
+					}
+
+					ImGui::EndTable();
+				}
+				ImGui::EndTabItem();
+			}
+		};
+
+		buildStateTab("Flags", g_stateFlagsRows, g_stateFlagsRowsSize);
+		buildStateTab("Lighting", g_stateLightingRows, g_stateLightingRowsSize);
+		buildStateTab("Texture", g_stateTextureRows, g_stateTextureRowsSize);
+		buildStateTab("Settings", g_stateSettingsRows, g_stateSettingsRowsSize);
+
+		ImGui::EndTabBar();
+	}
 	ImGui::End();
 }
