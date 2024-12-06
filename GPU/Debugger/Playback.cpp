@@ -21,18 +21,21 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <thread>
 #include <snappy-c.h>
 #include <zstd.h>
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
@@ -47,13 +50,20 @@
 
 namespace GPURecord {
 
-enum class OpType{
+// Provide the illusion of synchronous execution, although the playback is actually running on a different thread.
+enum class OpType {
+	None,
 	UpdateStallAddr,
+	EnqueueList,
+	ListSync,
+	ReapplyGfxState,
+	Done,
 };
 
 struct Operation {
 	OpType type;
-	u32 addr;
+	u32 listID;
+	u32 param;  // stallAddr generally
 };
 
 static std::string lastExecFilename;
@@ -61,10 +71,28 @@ static uint32_t lastExecVersion;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
 
-static std::thread playbackThread;
-static std::mutex executeLock;
-static std::condition_variable opFinishWait;
+static std::thread replayThread;
 
+static std::mutex opStartLock;
+static std::condition_variable opStartWait;
+
+static std::mutex opFinishLock;
+static std::condition_variable opFinishWait;
+static Operation g_opToExec;
+static u32 g_retVal;
+
+// Runs on operation thread
+u32 ExecuteOnMain(Operation opToExec) {
+	g_opToExec = opToExec;
+	g_retVal = 0;
+	opStartWait.notify_one();
+
+	// now wait for completion. At that point, noone cares about g_opToExec anymore, and we can safely
+	// overwrite it next time.
+	std::unique_lock<std::mutex> lock(opFinishLock);
+	opFinishWait.wait(lock);
+	return g_retVal;
+}
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -342,7 +370,6 @@ private:
 	BufMapping mapping_;
 	uint32_t version_ = 0;
 
-	bool hitBreakPoint_ = false;
 	int resumeIndex_ = -1;
 };
 
@@ -352,22 +379,8 @@ void DumpExecute::SyncStall() {
 		return;
 	}
 
-	bool runList;
-	gpu->UpdateStall(execListID, execListPos, &runList);
-	if (runList) {
-		DLResult result = gpu->ProcessDLQueue();
-		switch (result) {
-		case DLResult::Done:
-		case DLResult::Stall:
-			break;
-		case DLResult::Break:
-			// Hit breakpoint while interpreting!
-			hitBreakPoint_ = true;
-			break;
-		default:
-			_dbg_assert_(false);
-		}
-	}
+	ExecuteOnMain(Operation{ OpType::UpdateStallAddr, execListID, execListPos });
+
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
 		s64 nowTicks = CoreTiming::GetTicks();
@@ -376,7 +389,7 @@ void DumpExecute::SyncStall() {
 		}
 	}
 	// Make sure downcount doesn't overflow.
-	CoreTiming::ForceCheck();
+	// CoreTiming::ForceCheck();
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
@@ -396,12 +409,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 		execListPos += 4;
 
 		gpu->EnableInterrupts(false);
-		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
-		bool runList;
-		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false, &runList);
-		if (runList) {
-			gpu->ProcessDLQueue();
-		}
+		ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
 		gpu->EnableInterrupts(true);
 	}
 
@@ -477,12 +485,12 @@ void DumpExecute::SubmitListEnd() {
 	lastBase_ = 0xFFFFFFFF;
 
 	SyncStall();
-	gpu->ListSync(execListID, 0);
+	ExecuteOnMain(Operation{ OpType::ListSync, execListID });
 }
 
 void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
-	gpu->ReapplyGfxState();
+	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
 
 	for (int i = 0; i < 8; ++i) {
 		lastBufw_[i] = 0;
@@ -580,6 +588,7 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 
 	if (Memory::IsVRAMAddress(data->dest)) {
 		SyncStall();
+		// TODO: should probably do this as an operation.
 		gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz);
 	}
 }
@@ -693,12 +702,6 @@ ReplayResult DumpExecute::Run() {
 
 	if (resumeIndex_ >= 0) {
 		SyncStall();
-		if (hitBreakPoint_) {
-			hitBreakPoint_ = false;
-			INFO_LOG(Log::System, "Hit breakpoint while running GE dump (resumeIndex_ = %d)", resumeIndex_);
-			// Done until next time
-			return ReplayResult::Break;
-		}
 	}
 
 	int start = resumeIndex_ >= 0 ? resumeIndex_ : 0;
@@ -779,15 +782,6 @@ ReplayResult DumpExecute::Run() {
 			ERROR_LOG(Log::System, "Unsupported GE dump command: %d", (int)cmd.type);
 			return ReplayResult::Error;
 		}
-
-		if (hitBreakPoint_) {
-			hitBreakPoint_ = false;
-			resumeIndex_ = (int)i;
-			_dbg_assert_(resumeIndex_ >= 0);
-			INFO_LOG(Log::System, "Hit breakpoint while running GE dump (at index %d)", i);
-			// Done until next time
-			return ReplayResult::Break;
-		}
 	}
 
 	SubmitListEnd();
@@ -817,6 +811,8 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 }
 
 static void ReplayStop() {
+	_dbg_assert_(!replayThread.joinable());
+
 	// This can happen from a separate thread.
 	lastExecFilename.clear();
 	lastExecCommands.clear();
@@ -879,8 +875,8 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {
 		// Does this ever happen? Can the filename change, without going through core shutdown/startup?
-		if (playbackThread.joinable()) {
-			playbackThread.join();
+		if (replayThread.joinable()) {
+			replayThread.join();
 		}
 		version = LoadReplay(filename);
 		if (!version) {
@@ -888,8 +884,81 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		}
 	}
 
-	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
-	return executor.Run();
+	if (!replayThread.joinable()) {
+		_dbg_assert_(g_opToExec.type == OpType::None);
+		g_opToExec = Operation{ OpType::None };
+		INFO_LOG(Log::System, "Starting replay thread");
+		replayThread = std::thread([version]() {
+			SetCurrentThreadName("Replay");
+			INFO_LOG(Log::System, "In replay thread");
+			DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
+			GPURecord::ReplayResult retval = executor.Run();
+			// Finish up
+			ExecuteOnMain(Operation{ OpType::Done });
+			INFO_LOG(Log::System, "Leaving replay thread. retval was %d", (int)retval);
+		});
+	}
+
+	if (g_opToExec.type != OpType::None) {
+		opFinishWait.notify_one();
+	}
+
+	// OK, now wait for and perform the desired action.
+	std::unique_lock<std::mutex> lock(opStartLock);
+	opStartWait.wait(lock);
+
+	switch (g_opToExec.type) {
+	case OpType::UpdateStallAddr:
+	{
+		bool runList;
+		gpu->UpdateStall(g_opToExec.listID, g_opToExec.param, &runList);
+		if (runList) {
+			hleSplitSyscallOverGe();
+		}
+		// We're not done yet, request another go.
+		return ReplayResult::Break;
+	}
+	case OpType::EnqueueList:
+	{
+		bool runList;
+		u32 execListID = g_opToExec.listID;
+		u32 execListPos = g_opToExec.param;
+		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
+		g_retVal = gpu->EnqueueList(execListID, execListPos, -1, optParam, false, &runList);
+		if (runList) {
+			hleSplitSyscallOverGe();
+		}
+		// We're not done yet, request another go.
+		return ReplayResult::Break;
+	}
+	case OpType::ReapplyGfxState:
+	{
+		// try again but no need to split the sys call
+		gpu->ReapplyGfxState();
+		return ReplayResult::Break;
+	}
+	case OpType::ListSync:
+	{
+		u32 execListID = g_opToExec.listID;
+		u32 mode = g_opToExec.param;
+		// try again but no need to split the sys call
+		gpu->ListSync(execListID, mode);
+		return ReplayResult::Break;
+	}
+	case OpType::Done:
+	{
+		_dbg_assert_(replayThread.joinable());
+		INFO_LOG(Log::System, "Joining replay thread");
+		opFinishWait.notify_one();
+		replayThread.join();
+		INFO_LOG(Log::System, "Joined replay thread.");
+		g_opToExec = { OpType::None };
+		break;
+	}
+	case OpType::None:
+		break;
+	}
+	return ReplayResult::Done;
 }
 
 }  // namespace GPURecord
