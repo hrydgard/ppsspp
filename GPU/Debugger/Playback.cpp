@@ -47,11 +47,24 @@
 
 namespace GPURecord {
 
+enum class OpType{
+	UpdateStallAddr,
+};
+
+struct Operation {
+	OpType type;
+	u32 addr;
+};
+
 static std::string lastExecFilename;
 static uint32_t lastExecVersion;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
+
+static std::thread playbackThread;
 static std::mutex executeLock;
+static std::condition_variable opFinishWait;
+
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -805,67 +818,78 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 
 static void ReplayStop() {
 	// This can happen from a separate thread.
-	std::lock_guard<std::mutex> guard(executeLock);
 	lastExecFilename.clear();
 	lastExecCommands.clear();
 	lastExecPushbuf.clear();
 	lastExecVersion = 0;
 }
 
+static u32 LoadReplay(const std::string &filename) {
+	PROFILE_THIS_SCOPE("ReplayLoad");
+	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+	Header header;
+	pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
+	u32 version = header.version;
+
+	if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
+		ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
+		pspFileSystem.CloseFile(fp);
+		return 0;
+	}
+	if (header.version <= 3) {
+		pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
+		memset(header.gameID, 0, sizeof(header.gameID));
+	}
+
+	size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
+	if (gameIDLength != 0) {
+		g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
+	}
+
+	u32 sz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
+	u32 bufsz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
+
+	lastExecCommands.resize(sz);
+	lastExecPushbuf.resize(bufsz);
+
+	bool truncated = false;
+	truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz, header.version);
+	truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz, header.version);
+
+	pspFileSystem.CloseFile(fp);
+
+	if (truncated) {
+		ERROR_LOG(Log::System, "Truncated GE dump detected - can't replay");
+		return 0;
+	}
+
+	lastExecFilename = filename;
+	lastExecVersion = version;
+	return version;
+}
+
+// This is called by the syscall.
 ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
-	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
 
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {
-		PROFILE_THIS_SCOPE("ReplayLoad");
-		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-		Header header;
-		pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
-		version = header.version;
-
-		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
-			ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
-			pspFileSystem.CloseFile(fp);
+		// Does this ever happen? Can the filename change, without going through core shutdown/startup?
+		if (playbackThread.joinable()) {
+			playbackThread.join();
+		}
+		version = LoadReplay(filename);
+		if (!version) {
 			return ReplayResult::Error;
 		}
-		if (header.version <= 3) {
-			pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
-			memset(header.gameID, 0, sizeof(header.gameID));
-		}
-
-		size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
-		if (gameIDLength != 0) {
-			g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
-		}
-
-		u32 sz = 0;
-		pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
-		u32 bufsz = 0;
-		pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
-
-		lastExecCommands.resize(sz);
-		lastExecPushbuf.resize(bufsz);
-
-		bool truncated = false;
-		truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz, header.version);
-		truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz, header.version);
-
-		pspFileSystem.CloseFile(fp);
-
-		if (truncated) {
-			ERROR_LOG(Log::System, "Truncated GE dump detected - can't replay");
-			return ReplayResult::Error;
-		}
-
-		lastExecFilename = filename;
-		lastExecVersion = version;
 	}
 
 	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
 	return executor.Run();
 }
 
-};
+}  // namespace GPURecord
