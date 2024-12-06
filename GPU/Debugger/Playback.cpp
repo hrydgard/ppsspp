@@ -20,6 +20,7 @@
 #include <functional>
 #include <mutex>
 #include <vector>
+#include <thread>
 #include <snappy-c.h>
 #include <zstd.h>
 #include "Common/Profiler/Profiler.h"
@@ -45,13 +46,16 @@
 
 namespace GPURecord {
 
-enum class OpType{
+// Provide the illusion of synchronous execution, although the playback is actually running on a different thread.
+enum class OpType {
+	None,
 	UpdateStallAddr,
 };
 
 struct Operation {
 	OpType type;
-	u32 addr;
+	int list;
+	u32 addr;  // stallAddr generally
 };
 
 static std::string lastExecFilename;
@@ -60,9 +64,24 @@ static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
 
 static std::thread playbackThread;
-static std::mutex executeLock;
-static std::condition_variable opFinishWait;
 
+static std::mutex opStartLock;
+static std::condition_variable opStartWait;
+
+static std::mutex opFinishLock;
+static std::condition_variable opFinishWait;
+static Operation g_opToExec;
+
+// Runs on operation thread
+void ExecuteOnMain(Operation opToExec) {
+	g_opToExec = opToExec;
+	opStartWait.notify_one();
+
+	// now wait for completion. At that point, noone cares about g_opToExec anymore, and we can safely
+	// overwrite it next time.
+	std::unique_lock<std::mutex> lock(opFinishLock);
+	opFinishWait.wait(lock);
+}
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -366,6 +385,7 @@ void DumpExecute::SyncStall() {
 			_dbg_assert_(false);
 		}
 	}
+
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
 		s64 nowTicks = CoreTiming::GetTicks();
@@ -872,6 +892,11 @@ static u32 LoadReplay(const std::string &filename) {
 ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
+	// Second part of the operation (we requested to be called again).
+	switch (g_opToExec.type) {
+	}
+
+
 	Core_ListenStopRequest(&ReplayStop);
 
 	uint32_t version = lastExecVersion;
@@ -886,8 +911,21 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		}
 	}
 
-	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
-	return executor.Run();
+	if (!playbackThread.joinable()) {
+		playbackThread = std::thread([version]() {
+			DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
+			return executor.Run();
+		});
+	}
+
+	// OK, now wait for and perform the desired action.
+	std::unique_lock<std::mutex> lock(opStartLock);
+	opStartWait.wait(lock);
+
+	switch (g_opToExec.type) {
+
+	}
+	return ReplayResult::Done;
 }
 
 }  // namespace GPURecord
