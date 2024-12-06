@@ -293,7 +293,6 @@ public:
 
 private:
 	void SyncStall();
-	bool SubmitCmds(const void *p, u32 sz);
 	void SubmitListEnd();
 
 	void Init(u32 ptr, u32 sz);
@@ -331,6 +330,7 @@ private:
 
 void DumpExecute::SyncStall() {
 	if (execListBuf == 0) {
+		VERBOSE_LOG(Log::G3D, "SyncStall: No active display list");
 		return;
 	}
 
@@ -347,12 +347,11 @@ void DumpExecute::SyncStall() {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}
 	}
-
 	// Make sure downcount doesn't overflow.
 	CoreTiming::ForceCheck();
 }
 
-bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
+void DumpExecute::Registers(u32 ptr, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
 		execListBuf = userMemory.Alloc(allocSize, true, "List buf");
@@ -361,7 +360,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		}
 		if (execListBuf == 0) {
 			ERROR_LOG(Log::System, "Unable to allocate for display list");
-			return false;
+			return;
 		}
 
 		execListPos = execListBuf;
@@ -389,13 +388,15 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		lastBase_ = execListBuf & 0xFF000000;
 
 		// Don't continue until we've stalled.
+		// TODO: Is this really needed? It seems fine without it.
 		SyncStall();
 	}
 
 	Memory::MemcpyUnchecked(execListPos, execListQueue.data(), pendingSize);
 	execListPos += pendingSize;
 	u32 writePos = execListPos;
-	Memory::MemcpyUnchecked(execListPos, p, sz);
+	void *srcData = (void *)(pushbuf_.data() + ptr);
+	Memory::MemcpyUnchecked(execListPos, srcData, sz);
 	execListPos += sz;
 
 	// TODO: Unfortunate.  Maybe Texture commands should contain the bufw instead.
@@ -431,8 +432,6 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	}
 
 	execListQueue.clear();
-
-	return true;
 }
 
 void DumpExecute::SubmitListEnd() {
@@ -462,10 +461,6 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 		lastTex_[i] = 0;
 	}
 	lastBase_ = 0xFFFFFFFF;
-}
-
-void DumpExecute::Registers(u32 ptr, u32 sz) {
-	SubmitCmds(pushbuf_.data() + ptr, sz);
 }
 
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
