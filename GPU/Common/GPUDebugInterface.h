@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+#include <list>
 #include <string>
 
 #include "Common/Math/expression_parser.h"
@@ -239,6 +240,8 @@ public:
 	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) = 0;
 	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) = 0;
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
+	virtual const std::list<int> &GetDisplayListQueue() = 0;
+	virtual const DisplayList &GetDisplayList(int index) = 0;
 
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;

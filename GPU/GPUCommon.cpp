@@ -13,7 +13,6 @@
 
 #include <algorithm>
 
-#include "ext/imgui/imgui.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
@@ -2012,52 +2011,3 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return drawEngineCommon_->DescribeCodePtr(ptr, name);
 }
 
-void GPUCommon::DrawImGuiDebugger() {
-	if (ImGui::Button("Run/Resume")) {
-		Core_Resume();
-	}
-	ImGui::SameLine();
-	ImGui::TextUnformatted("Break:");
-	ImGui::SameLine();
-	if (ImGui::Button("Frame")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Tex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("NonTex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Prim")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Draw")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Curve")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Single step")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
-	}
-
-	// Let's display the current CLUT.
-
-	// First, let's list any active display lists.
-	ImGui::Text("Next list ID: %d", nextListID);
-	for (auto index : dlQueue) {
-		const auto &list = dls[index];
-		char title[64];
-		snprintf(title, sizeof(title), "List %d", list.id);
-		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
-			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
-		}
-	}
-}

@@ -12,7 +12,7 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawDebugStatsWindow(ImConfig &cfg);
-void DrawGeDebuggerWindow(ImConfig &cfg);
+void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug);
 void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug);
 
 class ImGeDebugger {

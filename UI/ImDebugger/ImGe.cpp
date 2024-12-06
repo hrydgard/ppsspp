@@ -10,6 +10,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
 #include "GPU/Debugger/State.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/GPUState.h"
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager) {
@@ -78,15 +79,61 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 }
 
 // Stub
-void DrawGeDebuggerWindow(ImConfig &cfg) {
+void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
 		ImGui::End();
 		return;
 	}
 
-	gpu->DrawImGuiDebugger();
+	if (ImGui::Button("Run/Resume")) {
+		Core_Resume();
+	}
+	ImGui::SameLine();
+	ImGui::TextUnformatted("Break:");
+	ImGui::SameLine();
+	if (ImGui::Button("Frame")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Tex")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("NonTex")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Prim")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Draw")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Curve")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Single step")) {
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+	}
 
+	// Let's display the current CLUT.
+
+	// First, let's list any active display lists.
+	// ImGui::Text("Next list ID: %d", nextListID);
+
+	for (auto index : gpuDebug->GetDisplayListQueue()) {
+		const auto &list = gpuDebug->GetDisplayList(index);
+		char title[64];
+		snprintf(title, sizeof(title), "List %d", list.id);
+		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
+			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
+		}
+	}
 	ImGui::End();
 }
 
