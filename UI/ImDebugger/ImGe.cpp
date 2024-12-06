@@ -1,4 +1,5 @@
 #include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
@@ -9,7 +10,9 @@
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
+#include "Common/StringUtils.h"
 #include "GPU/Debugger/State.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/GPUState.h"
 
@@ -78,8 +81,161 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	ImGui::End();
 }
 
-// Stub
-void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
+	const u32 branchColor = 0xFFA0FFFF;
+	const u32 gteColor = 0xFFFFEFA0;
+
+	static ImVec2 scrolling(0.0f, 0.0f);
+
+	ImGui_PushFixedFont();
+
+	ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
+	ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
+	int lineHeight = (int)ImGui::GetTextLineHeightWithSpacing();
+	if (canvas_sz.x < 50.0f) canvas_sz.x = 50.0f;
+	if (canvas_sz.y < 50.0f) canvas_sz.y = 50.0f;
+	canvas_sz.y -= lineHeight * 2;
+
+	// This will catch our interactions
+	bool pressed = ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+	ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+
+	ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+
+	// Draw border and background color
+	ImGuiIO& io = ImGui::GetIO();
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
+	draw_list->PushClipRect(canvas_p0, canvas_p1, true);
+
+	draw_list->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
+
+	int numLines = (int)(canvas_sz.y / lineHeight + 1.0f);
+	u32 instrWidth = 4;
+	u32 windowStartAddr = selectedAddr_ - (numLines / 2) * instrWidth;
+
+	DisplayList displayList;
+	u32 pc = 0xFFFFFFFF;
+	u32 stallAddr = 0xFFFFFFFF;
+	if (gpuDebug->GetCurrentDisplayList(displayList)) {
+		pc = displayList.pc;
+		stallAddr = displayList.stall;
+	}
+
+	if (pc != 0xFFFFFFFF) {
+		if (gotoPC_ || followPC_) {
+			selectedAddr_ = pc;
+			gotoPC_ = false;
+		}
+	}
+
+	float pcY = canvas_p0.y + ((pc - windowStartAddr) / instrWidth) * lineHeight;
+	draw_list->AddRectFilled(ImVec2(canvas_p0.x, pcY), ImVec2(canvas_p1.x, pcY + lineHeight), IM_COL32(0x10, 0x70, 0x10, 255));
+
+	u32 addr = windowStartAddr;
+	for (int line = 0; line < numLines; line++) {
+		char addrBuffer[128];
+		snprintf(addrBuffer, sizeof(addrBuffer), "%08x", addr);
+
+		ImVec2 lineStart = ImVec2(canvas_p0.x + lineHeight + 8, canvas_p0.y + line * lineHeight);
+		ImVec2 opcodeStart = ImVec2(canvas_p0.x + 120, canvas_p0.y + line * lineHeight);
+		ImVec2 descStart = ImVec2(canvas_p0.x + 220, canvas_p0.y + line * lineHeight);
+		ImVec2 liveStart = ImVec2(canvas_p0.x + 250, canvas_p0.y + line * lineHeight);
+		if (Memory::IsValid4AlignedAddress(addr)) {
+			draw_list->AddText(lineStart, 0xFFC0C0C0, addrBuffer);
+
+			GPUDebugOp op = gpuDebug->DisassembleOp(addr);
+			u32 color = 0xFFFFFFFF;
+			char temp[16];
+			snprintf(temp, sizeof(temp), "%08x", op.op);
+			draw_list->AddText(opcodeStart, color, temp);
+			draw_list->AddText(descStart, color, op.desc.data(), op.desc.data() + op.desc.size());
+			// if (selectedAddr_ == addr && strlen(disMeta.liveInfo)) {
+			// 	draw_list->AddText(liveStart, 0xFFFFFFFF, disMeta.liveInfo);
+			// }
+
+			bool bp = GPUBreakpoints::IsAddressBreakpoint(addr);
+			if (bp) {
+				draw_list->AddCircleFilled(ImVec2(canvas_p0.x + lineHeight * 0.5f, lineStart.y + lineHeight * 0.5f), lineHeight * 0.45f, 0xFF0000FF, 12);
+			}
+		} else {
+			draw_list->AddText(lineStart, 0xFF808080, addrBuffer);
+		}
+		addr += instrWidth;
+	}
+
+	// Draw a rectangle around the selected line.
+	int selectedY = canvas_p0.y + ((selectedAddr_ - windowStartAddr) / instrWidth) * lineHeight;
+	draw_list->AddRect(ImVec2(canvas_p0.x, selectedY), ImVec2(canvas_p1.x, selectedY + lineHeight), IM_COL32(255, 255, 255, 255));
+	if (dragAddr_ != selectedAddr_ && dragAddr_ != INVALID_ADDR) {
+		int dragY = canvas_p0.y + ((dragAddr_ - windowStartAddr) / instrWidth) * lineHeight;
+		draw_list->AddRect(ImVec2(canvas_p0.x, dragY), ImVec2(canvas_p1.x, dragY + lineHeight), IM_COL32(128, 128, 128, 255));
+	}
+
+	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
+	const bool is_active = ImGui::IsItemActive();   // Held
+	const ImVec2 mouse_pos_in_canvas(io.MousePos.x - canvas_p0.x, io.MousePos.y - canvas_p0.y);
+
+	if (is_active) {
+		dragAddr_ = windowStartAddr + ((int)mouse_pos_in_canvas.y / lineHeight) * instrWidth;
+	}
+
+	if (pressed) {
+		if (io.MousePos.x < canvas_p0.x + lineHeight) {
+			// Toggle breakpoint
+			if (!GPUBreakpoints::IsAddressBreakpoint(dragAddr_)) {
+				GPUBreakpoints::AddAddressBreakpoint(dragAddr_);
+			} else {
+				GPUBreakpoints::RemoveAddressBreakpoint(dragAddr_);
+			}
+			bpPopup_ = true;
+		} else {
+			selectedAddr_ = dragAddr_;
+			bpPopup_ = false;
+		}
+	}
+	ImGui_PopFont();
+	draw_list->PopClipRect();
+
+	// Context menu (under default mouse threshold)
+	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
+	if (ImGui::BeginPopup("context")) {
+		if (bpPopup_) {
+			if (ImGui::MenuItem("Remove breakpoint", NULL, false)) {
+				GPUBreakpoints::RemoveAddressBreakpoint(dragAddr_);
+			}
+		} else if (Memory::IsValid4AlignedAddress(dragAddr_)) {
+			char buffer[64];
+			GPUDebugOp op = gpuDebug->DisassembleOp(pc);
+			// affect dragAddr_?
+			if (ImGui::MenuItem("Copy Address", NULL, false)) {
+				snprintf(buffer, sizeof(buffer), "%08x", dragAddr_);
+				ImGui::SetClipboardText(buffer);
+				INFO_LOG(Log::G3D, "Copied '%s'", buffer);
+			}
+			if (ImGui::MenuItem("Copy Instruction Hex", NULL, false)) {
+				snprintf(buffer, sizeof(buffer), "%08x", (u32)op.op);
+				ImGui::SetClipboardText(buffer);
+				INFO_LOG(Log::G3D, "Copied '%s'", buffer);
+			}
+			/*
+			if (meta.instructionFlags & IF_BRANCHFIXED) {
+				if (ImGui::MenuItem("Follow Branch")) {
+					u32 target = GetBranchTarget(meta.opcode, dragAddr_, meta.instructionFlags);
+					if (target != 0xFFFFFFFF) {
+						selectedAddr_ = target;
+					}
+				}
+			}*/
+		}
+		ImGui::EndPopup();
+	}
+
+	if (pressed) {
+		// INFO_LOG(Log::UI, "Pressed");
+	}
+}
+
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -92,9 +248,10 @@ void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	ImGui::SameLine();
 	ImGui::TextUnformatted("Break:");
 	ImGui::SameLine();
-	if (ImGui::Button("Frame")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
-	}
+	//if (ImGui::Button("Frame")) {
+		// TODO: This doesn't work correctly.
+	//	GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
+	//}
 	ImGui::SameLine();
 	if (ImGui::Button("Tex")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
@@ -120,11 +277,22 @@ void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
 	}
 
+	// Line break
+	if (ImGui::Button("Goto PC")) {
+		disasmView_.GotoPC();
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Settings")) {
+		ImGui::OpenPopup("disSettings");
+	}
+	if (ImGui::BeginPopup("disSettings")) {
+		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
+		ImGui::EndPopup();
+	}
+
 	// Let's display the current CLUT.
 
-	// First, let's list any active display lists.
-	// ImGui::Text("Next list ID: %d", nextListID);
-
+	// First, let's list any active display lists in the left column.
 	for (auto index : gpuDebug->GetDisplayListQueue()) {
 		const auto &list = gpuDebug->GetDisplayList(index);
 		char title[64];
@@ -134,6 +302,10 @@ void DrawGeDebuggerWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 		}
 	}
+
+	// Display the disassembly view.
+	disasmView_.Draw(gpuDebug);
+
 	ImGui::End();
 }
 

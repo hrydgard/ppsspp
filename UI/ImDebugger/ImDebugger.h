@@ -123,6 +123,7 @@ private:
 	RequesterToken reqToken_;
 
 	ImDisasmWindow disasm_;
+	ImGeDebuggerWindow geDebugger_;
 	ImStructViewer structViewer_;
 
 	// Open variables.
