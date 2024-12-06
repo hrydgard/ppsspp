@@ -200,7 +200,7 @@ class GPUDebugInterface {
 public:
 	virtual ~GPUDebugInterface() {}
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
-	virtual bool GetCurrentCommand(u32 *cmd) = 0;
+	virtual int GetCurrentPrimCount() = 0;
 	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
 	virtual void ResetListPC(int listID, u32 pc) = 0;
 	virtual void ResetListStall(int listID, u32 stall) = 0;

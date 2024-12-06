@@ -691,6 +691,9 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
+	// This transforms the vertices.
+	// NOTE: We really should just run the full software transform?
+
 	vertices.resize(indexUpperBound + 1);
 	uint32_t vertType = gstate.vertType;
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {

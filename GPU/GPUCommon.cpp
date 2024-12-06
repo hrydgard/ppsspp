@@ -1581,13 +1581,21 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 	return true;
 }
 
-bool GPUCommon::GetCurrentCommand(u32 *cmd) {
+int GPUCommon::GetCurrentPrimCount() {
 	DisplayList list;
 	if (GetCurrentDisplayList(list)) {
-		*cmd = Memory::Read_U32(list.pc);
+		u32 cmd = Memory::Read_U32(list.pc);
+		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
+			return cmd & 0xFFFF;
+		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
+			u32 u = (cmd & 0x00FF) >> 0;
+			u32 v = (cmd & 0xFF00) >> 8;
+			return u * v;
+		}
 		return true;
 	} else {
-		return false;
+		// Current prim value.
+		return gstate.cmdmem[GE_CMD_PRIM] & 0xFFFF;
 	}
 }
 

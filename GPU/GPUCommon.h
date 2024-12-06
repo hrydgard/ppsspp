@@ -328,7 +328,7 @@ public:
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-	bool GetCurrentCommand(u32 *cmd) override;
+	int GetCurrentPrimCount() override;
 	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
 		return nullptr;
 	}

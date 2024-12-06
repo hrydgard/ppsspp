@@ -5,6 +5,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
@@ -96,7 +97,6 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		ImGui::End();
 		return;
 	}
-
 	if (ImGui::BeginTabBar("GeRegs", ImGuiTabBarFlags_None)) {
 		auto buildStateTab = [&](const char *tabName, const TabStateRow *rows, size_t numRows) {
 			if (ImGui::BeginTabItem(tabName)) {
@@ -134,6 +134,94 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		buildStateTab("Lighting", g_stateLightingRows, g_stateLightingRowsSize);
 		buildStateTab("Texture", g_stateTextureRows, g_stateTextureRowsSize);
 		buildStateTab("Settings", g_stateSettingsRows, g_stateSettingsRowsSize);
+
+		// Do a vertex tab (maybe later a separate window)
+		if (ImGui::BeginTabItem("Vertices")) {
+			const ImGuiTableFlags tableFlags =
+				ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+			if (ImGui::BeginTabBar("vertexmode", ImGuiTabBarFlags_None)) {
+				auto state = gpuDebug->GetGState();
+				char fmtTemp[256];
+				FormatStateRow(gpuDebug, fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
+				ImGui::TextUnformatted(fmtTemp);
+				// Let's see if it's fast enough to just do all this each frame.
+				int rowCount_ = gpuDebug->GetCurrentPrimCount();
+				std::vector<GPUDebugVertex> vertices;
+				std::vector<u16> indices;
+				if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
+					rowCount_ = 0;
+				}
+				VertexDecoderOptions options{};
+				// TODO: Maybe an option?
+				options.applySkinInDecode = true;
+
+				auto buildVertexTable = [&](bool raw) {
+					// Ignore indices for now.
+					if (ImGui::BeginTable("rawverts", VERTEXLIST_COL_COUNT + 1, tableFlags)) {
+						static VertexDecoder decoder;
+						decoder.SetVertexType(state.vertType, options);
+
+						static const char *colNames[] = {
+							"Index",
+							"X",
+							"Y",
+							"Z",
+							"U",
+							"V",
+							"Color",
+							"NX",
+							"NY",
+							"NZ",
+						};
+						for (int i = 0; i < ARRAY_SIZE(colNames); i++) {
+							ImGui::TableSetupColumn(colNames[i], ImGuiTableColumnFlags_WidthFixed, 0.0f, i);
+						}
+						ImGui::TableSetupScrollFreeze(0, 1); // Make header row always visible
+						ImGui::TableHeadersRow();
+
+						ImGuiListClipper clipper;
+						_dbg_assert_(rowCount_ >= 0);
+						clipper.Begin(rowCount_);
+						while (clipper.Step()) {
+							for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+								int index = indices.empty() ? i : indices[i];
+								ImGui::PushID(i);
+
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%d", index);
+								for (int column = 0; column < VERTEXLIST_COL_COUNT; column++) {
+									ImGui::TableNextColumn();
+									char temp[36];
+									if (raw) {
+										FormatVertColRaw(&decoder, temp, sizeof(temp), index, column);
+									} else {
+										FormatVertCol(temp, sizeof(temp), vertices[index], column);
+									}
+									ImGui::TextUnformatted(temp);
+								}
+								ImGui::PopID();
+							}
+						}
+						clipper.End();
+
+						ImGui::EndTable();
+					}
+				};
+
+				if (ImGui::BeginTabItem("Raw")) {
+					buildVertexTable(true);
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Transformed")) {
+					buildVertexTable(false);
+					ImGui::EndTabItem();
+				}
+				// TODO: Let's not include columns for which we have no data.
+				ImGui::EndTabBar();
+			}
+			ImGui::EndTabItem();
+		}
 
 		ImGui::EndTabBar();
 	}
