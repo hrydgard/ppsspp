@@ -291,7 +291,7 @@ public:
 	}
 	~DumpExecute();
 
-	bool Run();
+	ReplayResult Run();
 
 private:
 	void SyncStall();
@@ -328,6 +328,9 @@ private:
 	const std::vector<Command> &commands_;
 	BufMapping mapping_;
 	uint32_t version_ = 0;
+
+	bool hitBreakPoint_ = false;
+	int resumeIndex_ = -1;
 };
 
 void DumpExecute::SyncStall() {
@@ -340,7 +343,17 @@ void DumpExecute::SyncStall() {
 	gpu->UpdateStall(execListID, execListPos, &runList);
 	if (runList) {
 		DLResult result = gpu->ProcessDLQueue();
-		_dbg_assert_(result == DLResult::Done || result == DLResult::Stall);
+		switch (result) {
+		case DLResult::Done:
+		case DLResult::Stall:
+			break;
+		case DLResult::Break:
+			// Hit breakpoint while interpreting!
+			hitBreakPoint_ = true;
+			break;
+		default:
+			_dbg_assert_(false);
+		}
 	}
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
@@ -660,12 +673,23 @@ DumpExecute::~DumpExecute() {
 	mapping_.Reset();
 }
 
-bool DumpExecute::Run() {
+ReplayResult DumpExecute::Run() {
 	// Start with the default value.
 	if (gpu)
 		gpu->SetAddrTranslation(0x400);
 
-	for (size_t i = 0; i < commands_.size(); i++) {
+	if (resumeIndex_ >= 0) {
+		SyncStall();
+		if (hitBreakPoint_) {
+			hitBreakPoint_ = false;
+			INFO_LOG(Log::System, "Hit breakpoint while running GE dump (resumeIndex_ = %d)", resumeIndex_);
+			// Done until next time
+			return ReplayResult::Break;
+		}
+	}
+
+	int start = resumeIndex_ >= 0 ? resumeIndex_ : 0;
+	for (size_t i = start; i < commands_.size(); i++) {
 		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
@@ -740,12 +764,21 @@ bool DumpExecute::Run() {
 
 		default:
 			ERROR_LOG(Log::System, "Unsupported GE dump command: %d", (int)cmd.type);
-			return false;
+			return ReplayResult::Error;
+		}
+
+		if (hitBreakPoint_) {
+			hitBreakPoint_ = false;
+			resumeIndex_ = (int)i;
+			_dbg_assert_(resumeIndex_ >= 0);
+			INFO_LOG(Log::System, "Hit breakpoint while running GE dump (at index %d)", i);
+			// Done until next time
+			return ReplayResult::Break;
 		}
 	}
 
 	SubmitListEnd();
-	return true;
+	return ReplayResult::Done;
 }
 
 static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
@@ -779,7 +812,7 @@ static void ReplayStop() {
 	lastExecVersion = 0;
 }
 
-bool RunMountedReplay(const std::string &filename) {
+ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
 	std::lock_guard<std::mutex> guard(executeLock);
@@ -796,7 +829,7 @@ bool RunMountedReplay(const std::string &filename) {
 		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
 			ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
 			pspFileSystem.CloseFile(fp);
-			return false;
+			return ReplayResult::Error;
 		}
 		if (header.version <= 3) {
 			pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
@@ -823,8 +856,8 @@ bool RunMountedReplay(const std::string &filename) {
 		pspFileSystem.CloseFile(fp);
 
 		if (truncated) {
-			ERROR_LOG(Log::System, "Truncated GE dump");
-			return false;
+			ERROR_LOG(Log::System, "Truncated GE dump detected - can't replay");
+			return ReplayResult::Error;
 		}
 
 		lastExecFilename = filename;

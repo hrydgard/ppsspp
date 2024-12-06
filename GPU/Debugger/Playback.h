@@ -21,6 +21,12 @@
 
 namespace GPURecord {
 
-bool RunMountedReplay(const std::string &filename);
+enum class ReplayResult {
+	Done = 0,
+	Error = 1,
+	Break = 2,
+};
+
+ReplayResult RunMountedReplay(const std::string &filename);
 
 };
