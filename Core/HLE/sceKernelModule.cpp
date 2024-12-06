@@ -1995,11 +1995,8 @@ bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_str
 		// Make sure we don't get out of sync.
 		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
 		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
-		// Set the return address after the entry which saved the filename.
-		MIPS_MAKE_LUI(MIPS_REG_RA, mipsr4k.pc >> 16),
-		MIPS_MAKE_ADDIU(MIPS_REG_RA, MIPS_REG_RA, 8),
 		// Wait for the next vblank to render again.
-		MIPS_MAKE_JR_RA(),
+		MIPS_MAKE_J(mipsr4k.pc + 8),
 		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
 		// This never gets reached, just here to be safe.
 		MIPS_MAKE_BREAK(0),
