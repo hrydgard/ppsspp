@@ -242,9 +242,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		return;
 	}
 
+	ImGui::BeginDisabled(coreState != CORE_STEPPING_GE);
 	if (ImGui::Button("Run/Resume")) {
 		Core_Resume();
 	}
+	ImGui::EndDisabled();
 	ImGui::SameLine();
 	ImGui::TextUnformatted("Break:");
 	ImGui::SameLine();

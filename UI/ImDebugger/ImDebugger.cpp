@@ -1160,6 +1160,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 		disasmView_.setCurAddress(gotoAddr_);
 		disasmView_.scrollAddressIntoView();
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("Go")) {
+		disasmView_.setCurAddress(gotoAddr_);
+		disasmView_.scrollAddressIntoView();
+	}
 
 	if (ImGui::BeginTable("main", 2)) {
 		ImGui::TableSetupColumn("left", ImGuiTableColumnFlags_WidthFixed);
