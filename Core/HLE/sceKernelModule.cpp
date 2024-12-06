@@ -1984,6 +1984,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
+	// Start at the very base of user memory.
 	constexpr u32 codeStart = PSP_GetUserMemoryBase();
 	mipsr4k.pc = codeStart;
 
@@ -2000,7 +2001,7 @@ bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_str
 		// Make sure we don't get out of sync.
 		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
 		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
-		// Wait for the next vblank to render again.
+		// Wait for the next vblank to render again, then (through the delay slot) jump right back up to __KernelGPUReplay.
 		MIPS_MAKE_J(codeStart + 8),
 		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
 		// This never gets reached, just here to be "safe".
@@ -2030,13 +2031,16 @@ int __KernelGPUReplay() {
 	// Special ABI: s0 and s1 are the "args".  Not null terminated.
 	const char *filenamep = Memory::GetCharPointer(currentMIPS->r[MIPS_REG_S1]);
 	if (!filenamep) {
-		ERROR_LOG(Log::G3D, "Failed to load dump filename");
+		ERROR_LOG(Log::G3D, "__KernelGPUReplay: Failed to load dump filename");
 		Core_Stop();
 		return 0;
 	}
 
 	std::string filename(filenamep, currentMIPS->r[MIPS_REG_S0]);
-	if (!GPURecord::RunMountedReplay(filename)) {
+	GPURecord::ReplayResult result = GPURecord::RunMountedReplay(filename);
+
+	if (result == GPURecord::ReplayResult::Error) {
+		ERROR_LOG(Log::G3D, "__KernelGPUReplay: Failed running replay.");
 		Core_Stop();
 	}
 
@@ -2047,7 +2051,9 @@ int __KernelGPUReplay() {
 		System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
 		Core_Stop();
 	}
-	return 0;
+
+	// Return 0 for normal looping, 1 for break.
+	return result == GPURecord::ReplayResult::Break ? 1 : 0;
 }
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr)
