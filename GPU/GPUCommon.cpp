@@ -13,7 +13,6 @@
 
 #include <algorithm>
 
-#include "ext/imgui/imgui.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"
@@ -1581,13 +1580,21 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 	return true;
 }
 
-bool GPUCommon::GetCurrentCommand(u32 *cmd) {
+int GPUCommon::GetCurrentPrimCount() {
 	DisplayList list;
 	if (GetCurrentDisplayList(list)) {
-		*cmd = Memory::Read_U32(list.pc);
+		u32 cmd = Memory::Read_U32(list.pc);
+		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
+			return cmd & 0xFFFF;
+		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
+			u32 u = (cmd & 0x00FF) >> 0;
+			u32 v = (cmd & 0xFF00) >> 8;
+			return u * v;
+		}
 		return true;
 	} else {
-		return false;
+		// Current prim value.
+		return gstate.cmdmem[GE_CMD_PRIM] & 0xFFFF;
 	}
 }
 
@@ -2004,52 +2011,3 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return drawEngineCommon_->DescribeCodePtr(ptr, name);
 }
 
-void GPUCommon::DrawImGuiDebugger() {
-	if (ImGui::Button("Run/Resume")) {
-		Core_Resume();
-	}
-	ImGui::SameLine();
-	ImGui::TextUnformatted("Break:");
-	ImGui::SameLine();
-	if (ImGui::Button("Frame")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Tex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("NonTex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Prim")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Draw")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Curve")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Single step")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
-	}
-
-	// Let's display the current CLUT.
-
-	// First, let's list any active display lists.
-	ImGui::Text("Next list ID: %d", nextListID);
-	for (auto index : dlQueue) {
-		const auto &list = dls[index];
-		char title[64];
-		snprintf(title, sizeof(title), "List %d", list.id);
-		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
-			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
-		}
-	}
-}

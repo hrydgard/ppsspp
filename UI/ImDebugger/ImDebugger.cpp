@@ -926,7 +926,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.geDebuggerOpen) {
-		DrawGeDebuggerWindow(cfg_);
+		DrawGeDebuggerWindow(cfg_, gpuDebug);
 	}
 
 	if (cfg_.geStateOpen) {

@@ -245,7 +245,7 @@ public:
 	u32 DequeueList(int listid);
 	virtual int ListSync(int listid, int mode);
 	virtual u32 DrawSync(int mode);
-	int  GetStack(int index, u32 stackPtr);
+	int GetStack(int index, u32 stackPtr);
 	virtual bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits);
 	virtual void ResetMatrices();
 	virtual void DoState(PointerWrap &p);
@@ -264,8 +264,6 @@ public:
 	// Returns true if we should split the call across GE execution.
 	// For example, a debugger is active.
 	bool ShouldSplitOverGe() const;
-
-	void DrawImGuiDebugger();
 
 	uint32_t SetAddrTranslation(uint32_t value) override;
 	uint32_t GetAddrTranslation() override;
@@ -328,7 +326,7 @@ public:
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-	bool GetCurrentCommand(u32 *cmd) override;
+	int GetCurrentPrimCount() override;
 	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
 		return nullptr;
 	}
@@ -364,8 +362,11 @@ public:
 		return &dls[listid];
 	}
 
-	const std::list<int>& GetDisplayLists() {
+	const std::list<int> &GetDisplayListQueue() override {
 		return dlQueue;
+	}
+	const DisplayList &GetDisplayList(int index) override {
+		return dls[index];
 	}
 
 	s64 GetListTicks(int listid) const {

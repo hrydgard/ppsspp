@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+#include <list>
 #include <string>
 
 #include "Common/Math/expression_parser.h"
@@ -200,7 +201,7 @@ class GPUDebugInterface {
 public:
 	virtual ~GPUDebugInterface() {}
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
-	virtual bool GetCurrentCommand(u32 *cmd) = 0;
+	virtual int GetCurrentPrimCount() = 0;
 	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
 	virtual void ResetListPC(int listID, u32 pc) = 0;
 	virtual void ResetListStall(int listID, u32 stall) = 0;
@@ -239,6 +240,8 @@ public:
 	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) = 0;
 	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) = 0;
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
+	virtual const std::list<int> &GetDisplayListQueue() = 0;
+	virtual const DisplayList &GetDisplayList(int index) = 0;
 
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;

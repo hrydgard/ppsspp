@@ -168,19 +168,8 @@ int CtrlVertexList::GetRowCount() {
 
 	// TODO: Maybe there are smarter ways?  Also, is this the best place to recalc?
 	auto state = gpuDebug->GetGState();
-	rowCount_ = state.prim & 0xFFFF;
 
-	// Override if we're on a prim command.
-	u32 cmd;
-	if (gpuDebug->GetCurrentCommand(&cmd)) {
-		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
-			rowCount_ = cmd & 0xFFFF;
-		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
-			u32 u = (cmd & 0x00FF) >> 0;
-			u32 v = (cmd & 0xFF00) >> 8;
-			rowCount_ = u * v;
-		}
-	}
+	int rowCount_ = gpuDebug->GetCurrentPrimCount();
 	if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}

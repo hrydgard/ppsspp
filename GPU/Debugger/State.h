@@ -59,10 +59,10 @@ enum VertexListCols {
 	VERTEXLIST_COL_NX,
 	VERTEXLIST_COL_NY,
 	VERTEXLIST_COL_NZ,
+	VERTEXLIST_COL_COUNT,
 };
 
 class GPUDebugInterface;
-
 
 struct TabStateRow {
 	std::string_view title;
