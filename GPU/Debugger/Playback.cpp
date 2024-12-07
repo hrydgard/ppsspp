@@ -387,7 +387,7 @@ void DumpExecute::SyncStall() {
 		}
 	}
 	// Make sure downcount doesn't overflow.
-	CoreTiming::ForceCheck();
+	// CoreTiming::ForceCheck();
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
@@ -908,16 +908,19 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	switch (g_opToExec.type) {
 	case OpType::UpdateStallAddr:
 	{
+		INFO_LOG(Log::System, "UpdateStallAddr");
 		bool runList;
 		gpu->UpdateStall(g_opToExec.listID, g_opToExec.param, &runList);
 		if (runList) {
 			hleSplitSyscallOverGe();
 		}
+		hleCoreTimingForceCheck();
 		// We're not done yet, request another go.
 		return ReplayResult::Break;
 	}
 	case OpType::EnqueueList:
 	{
+		INFO_LOG(Log::System, "EnqueueList");
 		bool runList;
 		u32 execListID = g_opToExec.listID;
 		u32 execListPos = g_opToExec.param;
@@ -931,12 +934,14 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	}
 	case OpType::ReapplyGfxState:
 	{
+		INFO_LOG(Log::System, "ReapplyGfxState");
 		// try again but no need to split the sys call
 		gpu->ReapplyGfxState();
 		return ReplayResult::Break;
 	}
 	case OpType::ListSync:
 	{
+		INFO_LOG(Log::System, "ListSync");
 		u32 execListID = g_opToExec.listID;
 		u32 mode = g_opToExec.param;
 		// try again but no need to split the sys call
@@ -945,6 +950,7 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	}
 	case OpType::Done:
 	{
+		INFO_LOG(Log::System, "Done");
 		_dbg_assert_(replayThread.joinable());
 		INFO_LOG(Log::System, "Joining replay thread");
 		opFinishWait.notify_one();
@@ -954,6 +960,7 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		break;
 	}
 	case OpType::None:
+		INFO_LOG(Log::System, "None");
 		break;
 	}
 	return ReplayResult::Done;
