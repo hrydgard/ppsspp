@@ -3566,6 +3566,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo() {
 		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
 		info.waitType = (WaitType)(u32)t->nt.waitType;
+		info.waitID = t->nt.waitID;
 		info.isCurrent = uid == currentThread;
 		if (info.isCurrent)
 			info.curPC = currentMIPS->pc;

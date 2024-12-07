@@ -168,17 +168,18 @@ void DrawThreadView(ImConfig &cfg) {
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	if (ImGui::BeginTable("threads", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("threads", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("PC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Priority", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch);
-
+		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Wait Type", ImGuiTableColumnFlags_WidthStretch);
+		// .initialStack, .stackSize, etc
 		ImGui::TableHeadersRow();
 
 		for (int i = 0; i < (int)info.size(); i++) {
-			const auto &thread = info[i];
+			const DebugThreadInfo &thread = info[i];
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(i);
@@ -197,6 +198,11 @@ void DrawThreadView(ImConfig &cfg) {
 			ImGui::Text("%d", thread.priority);
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(ThreadStatusToString(thread.status));
+			ImGui::TableNextColumn();
+			if (thread.waitType != WAITTYPE_NONE) {
+				ImGui::TextUnformatted(getWaitTypeName(thread.waitType));
+			}
+
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
