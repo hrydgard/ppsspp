@@ -809,7 +809,7 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 }
 
 static void ReplayStop() {
-	replayThread.join();
+	_dbg_assert_(!replayThread.joinable());
 
 	// This can happen from a separate thread.
 	lastExecFilename.clear();
@@ -883,21 +883,18 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	}
 
 	if (!replayThread.joinable()) {
+		_dbg_assert_(g_opToExec.type == OpType::None);
+		g_opToExec = Operation{ OpType::None };
 		INFO_LOG(Log::System, "Starting replay thread");
 		replayThread = std::thread([version]() {
 			SetCurrentThreadName("Replay");
+			INFO_LOG(Log::System, "In replay thread");
 			DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
 			GPURecord::ReplayResult retval = executor.Run();
-
+			// Finish up
 			ExecuteOnMain(Operation{ OpType::Done });
+			INFO_LOG(Log::System, "Leaving replay thread. retval was %d", (int)retval);
 		});
-	}
-
-	// Second part of the operation (we requested to be called again).
-	switch (g_opToExec.type) {
-	case OpType::UpdateStallAddr:
-		// Finish up if there's anything to do here.
-		break;
 	}
 
 	if (g_opToExec.type != OpType::None) {
@@ -915,9 +912,9 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		gpu->UpdateStall(g_opToExec.listID, g_opToExec.param, &runList);
 		if (runList) {
 			hleSplitSyscallOverGe();
-			return ReplayResult::Break; // rather, redo.
 		}
-		break;
+		// We're not done yet, request another go.
+		return ReplayResult::Break;
 	}
 	case OpType::EnqueueList:
 	{
@@ -928,9 +925,9 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		g_retVal = gpu->EnqueueList(execListID, execListPos, -1, optParam, false, &runList);
 		if (runList) {
 			hleSplitSyscallOverGe();
-			return ReplayResult::Break;
 		}
-		break;
+		// We're not done yet, request another go.
+		return ReplayResult::Break;
 	}
 	case OpType::ReapplyGfxState:
 	{
@@ -952,6 +949,7 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		INFO_LOG(Log::System, "Joining replay thread");
 		opFinishWait.notify_one();
 		replayThread.join();
+		INFO_LOG(Log::System, "Joined replay thread.");
 		g_opToExec = { OpType::None };
 		break;
 	}
