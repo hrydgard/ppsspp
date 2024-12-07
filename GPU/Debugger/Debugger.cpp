@@ -44,6 +44,22 @@ static uint32_t g_skipPcOnce = 0;
 static std::vector<std::pair<int, int>> restrictPrimRanges;
 static std::string restrictPrimRule;
 
+const char *BreakNextToString(BreakNext next) {
+	switch (next) {
+	case BreakNext::NONE: return "NONE,";
+	case BreakNext::OP: return "OP";
+	case BreakNext::DRAW: return "DRAW";
+	case BreakNext::TEX: return "TEX";
+	case BreakNext::NONTEX: return "NONTEX";
+	case BreakNext::FRAME: return "FRAME";
+	case BreakNext::VSYNC: return "VSYNC";
+	case BreakNext::PRIM: return "PRIM";
+	case BreakNext::CURVE: return "CURVE";
+	case BreakNext::COUNT: return "COUNT";
+	default: return "N/A";
+	}
+}
+
 static void Init() {
 	if (!inited) {
 		GPUBreakpoints::Init([](bool flag) {
@@ -67,6 +83,10 @@ void SetActive(bool flag) {
 
 bool IsActive() {
 	return active;
+}
+
+BreakNext GetBreakNext() {
+	return breakNext;
 }
 
 void SetBreakNext(BreakNext next) {
@@ -166,6 +186,7 @@ NotifyResult NotifyCommand(u32 pc) {
 		}
 
 		g_skipPcOnce = pc;
+		breakNext = BreakNext::NONE;
 		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
 	}
 

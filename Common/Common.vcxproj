@@ -459,6 +459,7 @@
     <ClInclude Include="Data\Collections\CharQueue.h" />
     <ClInclude Include="Data\Collections\FixedSizeQueue.h" />
     <ClInclude Include="Data\Collections\Hashmaps.h" />
+    <ClInclude Include="Data\Collections\LinkedList.h" />
     <ClInclude Include="Data\Collections\Slice.h" />
     <ClInclude Include="Data\Collections\ThreadSafeList.h" />
     <ClInclude Include="Data\Collections\TinySet.h" />

@@ -252,6 +252,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		// TODO: This doesn't work correctly.
 	//	GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
 	//}
+
+	bool disableStepButtons = GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE;
+
+	if (disableStepButtons) {
+		ImGui::BeginDisabled();
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Tex")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
@@ -276,6 +282,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	if (ImGui::Button("Single step")) {
 		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
 	}
+	if (disableStepButtons) {
+		ImGui::EndDisabled();
+	}
 
 	// Line break
 	if (ImGui::Button("Goto PC")) {
@@ -288,6 +297,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	if (ImGui::BeginPopup("disSettings")) {
 		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
 		ImGui::EndPopup();
+	}
+
+	// Display any pending step event.
+	if (GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE) {
+		ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
 	}
 
 	// Let's display the current CLUT.

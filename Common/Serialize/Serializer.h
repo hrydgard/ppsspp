@@ -37,15 +37,10 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/Data/Collections/LinkedList.h"
 
 namespace File {
 class IOFile;
-};
-
-template <class T>
-struct LinkedListItem : public T
-{
-	LinkedListItem<T> *next;
 };
 
 class PointerWrap;
