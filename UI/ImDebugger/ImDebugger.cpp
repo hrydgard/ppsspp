@@ -26,7 +26,7 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HLE/AtracCtx.h"
-
+#include "Core/CoreTiming.h"
 // Threads window
 #include "Core/HLE/sceKernelThread.h"
 
@@ -41,7 +41,36 @@
 
 extern bool g_TakeScreenshot;
 
+void DrawSchedulerView(ImConfig &cfg) {
+	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Event Scheduler", &cfg.schedulerOpen)) {
+		ImGui::End();
+		return;
+	}
+	s64 ticks = CoreTiming::GetTicks();
+	if (ImGui::BeginChild("event_list", ImVec2(300.0f, 0.0))) {
+		const CoreTiming::Event *event = CoreTiming::GetFirstEvent();
+		while (event) {
+			ImGui::Text("%s (%lld)", CoreTiming::GetEventTypes()[event->type].name, event->time - ticks);
+			event = event->next;
+		}
+		ImGui::EndChild();
+	}
+	ImGui::SameLine();
+	if (ImGui::BeginChild("general")) {
+		ImGui::Text("CoreState: %s", CoreStateToString(coreState));
+		ImGui::Text("downcount: %d", currentMIPS->downcount);
+		ImGui::Text("slicelength: %d", CoreTiming::slicelength);
+		ImGui::Text("Ticks: %lld", ticks);
+		ImGui::Text("Clock (MHz): %0.1f", (float)CoreTiming::GetClockFrequencyHz() / 1000000.0f);
+		ImGui::Text("Global time (us): %lld", CoreTiming::GetGlobalTimeUs());
+		ImGui::EndChild();
+	}
+	ImGui::End();
+}
+
 void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
+	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Registers", open)) {
 		ImGui::End();
 		return;
@@ -814,6 +843,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Registers", nullptr, &cfg_.regsOpen);
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("HLE")) {
@@ -931,6 +961,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.geStateOpen) {
 		DrawGeStateWindow(cfg_, gpuDebug);
+	}
+
+	if (cfg_.schedulerOpen) {
+		DrawSchedulerView(cfg_);
 	}
 }
 
@@ -1155,6 +1189,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("debugStatsOpen", &debugStatsOpen, false);
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
+	sync.Sync("schedulerOpen", &schedulerOpen, false);
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);

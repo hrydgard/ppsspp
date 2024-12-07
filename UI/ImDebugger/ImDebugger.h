@@ -81,6 +81,7 @@ struct ImConfig {
 	bool debugStatsOpen;
 	bool geDebuggerOpen;
 	bool geStateOpen;
+	bool schedulerOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;

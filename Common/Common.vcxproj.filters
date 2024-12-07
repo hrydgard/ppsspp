@@ -674,6 +674,9 @@
     <ClInclude Include="Data\Collections\CharQueue.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Collections\LinkedList.h">
+      <Filter>Data\Collections</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

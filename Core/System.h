@@ -130,6 +130,8 @@ enum CoreState {
 	CORE_RUNNING_GE,
 };
 
+const char *CoreStateToString(CoreState state);
+
 extern bool coreCollectDebugStats;
 
 extern volatile CoreState coreState;

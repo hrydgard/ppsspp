@@ -779,3 +779,18 @@ bool CreateSysDirectories() {
 	}
 	return true;
 }
+
+const char *CoreStateToString(CoreState state) {
+	switch (state) {
+	case CORE_RUNNING_CPU: return "RUNNING_CPU";
+	case CORE_NEXTFRAME: return "NEXTFRAME";
+	case CORE_STEPPING_CPU: return "STEPPING_CPU";
+	case CORE_POWERUP: return "POWERUP";
+	case CORE_POWERDOWN: return "POWERDOWN";
+	case CORE_BOOT_ERROR: return "BOOT_ERROR";
+	case CORE_RUNTIME_ERROR: return "RUNTIME_ERROR";
+	case CORE_STEPPING_GE: return "STEPPING_GE";
+	case CORE_RUNNING_GE: return "RUNNING_GE";
+	default: return "N/A";
+	}
+}

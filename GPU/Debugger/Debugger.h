@@ -39,6 +39,8 @@ bool IsActive();
 
 void SetBreakNext(BreakNext next);
 void SetBreakCount(int c, bool relative = false);
+BreakNext GetBreakNext();
+const char *BreakNextToString(BreakNext next);
 
 enum class NotifyResult {
 	Execute,
