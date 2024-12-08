@@ -21,6 +21,7 @@
 #include <set>
 #include <mutex>
 
+#include "Core/Core.h"
 #include "Core/ThreadEventQueue.h"
 
 class NoBase {

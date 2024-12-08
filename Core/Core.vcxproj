@@ -594,7 +594,6 @@
     <ClCompile Include="MIPS\ARM64\Arm64IRRegCache.cpp" />
     <ClCompile Include="MIPS\fake\FakeJit.cpp" />
     <ClCompile Include="MIPS\IR\IRAnalysis.cpp" />
-    <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
     <ClCompile Include="MIPS\IR\IRCompFPU.cpp" />

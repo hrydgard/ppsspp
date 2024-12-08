@@ -2,7 +2,7 @@
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "Common/CommonWindows.h"
 #include <direct.h>
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>

@@ -25,7 +25,7 @@
 #include "Common/Arm64Emitter.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"

@@ -2,7 +2,7 @@
 
 #if PPSSPP_PLATFORM(WINDOWS)
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 #ifdef __MINGW32__
 #include <excpt.h>

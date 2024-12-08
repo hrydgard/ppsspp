@@ -26,7 +26,7 @@
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 
 namespace MIPSComp {
 

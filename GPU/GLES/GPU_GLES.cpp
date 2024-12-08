@@ -28,9 +28,8 @@
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"

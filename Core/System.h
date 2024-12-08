@@ -83,11 +83,7 @@ bool PSP_Reboot(std::string *error_string);
 void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
 void PSP_RunLoopWhileState();
-void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
-
-void PSP_SetLoading(const std::string &reason);
-std::string PSP_GetLoading();
 
 // Used to wait for background loading thread.
 struct PSP_LoadingLock {
@@ -96,9 +92,9 @@ struct PSP_LoadingLock {
 };
 
 // Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
-void Core_UpdateDebugStats(bool collectStats);
+void PSP_UpdateDebugStats(bool collectStats);
 // Increments or decrements an internal counter.  Intended to be used by debuggers.
-void Core_ForceDebugStats(bool enable);
+void PSP_ForceDebugStats(bool enable);
 
 void UpdateLoadedFile(FileLoader *fileLoader);
 
@@ -108,35 +104,7 @@ Path GetSysDirectory(PSPDirectories directoryType);
 
 bool CreateSysDirectories();
 
-// RUNNING must be at 0, NEXTFRAME must be at 1.
-enum CoreState {
-	// Emulation is running normally.
-	CORE_RUNNING_CPU = 0,
-	// Emulation was running normally, just reached the end of a frame.
-	CORE_NEXTFRAME = 1,
-	// Emulation is paused, CPU thread is sleeping.
-	CORE_STEPPING_CPU,  // Can be used for recoverable runtime errors (ignored memory exceptions)
-	// Core is being powered up.
-	CORE_POWERUP,
-	// Core is being powered down.
-	CORE_POWERDOWN,
-	// An error happened at boot.
-	CORE_BOOT_ERROR,
-	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
-	CORE_RUNTIME_ERROR,
-	// Stepping the GPU. When done, will switch over to STEPPING_CPU.
-	CORE_STEPPING_GE,
-	// Running the GPU. When done, will switch over to RUNNING_CPU.
-	CORE_RUNNING_GE,
-};
-
-const char *CoreStateToString(CoreState state);
-
 extern bool coreCollectDebugStats;
-
-extern volatile CoreState coreState;
-extern volatile bool coreStatePending;
-void Core_UpdateState(CoreState newState);
 
 inline CoreParameter &PSP_CoreParameter() {
 	extern CoreParameter g_CoreParameter;

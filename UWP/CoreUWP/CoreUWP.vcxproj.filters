@@ -645,9 +645,6 @@
     <ClCompile Include="..\..\ext\xxhash.c">
       <Filter>Ext</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\MIPS\IR\IRAsm.cpp">
-      <Filter>MIPS\IR</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompALU.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>

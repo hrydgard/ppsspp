@@ -33,7 +33,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 
 enum ReferenceIndexType {
 	REF_INDEX_PC       = 32,

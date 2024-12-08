@@ -658,9 +658,6 @@
     <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\IR\IRAsm.cpp">
-      <Filter>MIPS\IR</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\IR\IRCompALU.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>

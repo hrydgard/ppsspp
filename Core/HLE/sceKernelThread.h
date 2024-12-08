@@ -326,6 +326,7 @@ struct DebugThreadInfo
 	int stackSize;
 	int priority;
 	WaitType waitType;
+	SceUID waitID;
 	bool isCurrent;
 };
 

@@ -91,3 +91,4 @@ bool Native_IsWindowHidden();
 
 // TODO: Feels like this belongs elsewhere.
 bool Native_UpdateScreenScale(int width, int height);
+

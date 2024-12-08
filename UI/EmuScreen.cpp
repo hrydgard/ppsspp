@@ -70,6 +70,7 @@ using namespace std::placeholders;
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
@@ -1159,8 +1160,6 @@ void EmuScreen::CreateViews() {
 	root_->Add(saveStatePreview_);
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
-	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
-	loadingTextView_ = loadingTextView;
 
 	static const ImageID symbols[4] = {
 		ImageID("I_CROSS"),
@@ -1173,17 +1172,11 @@ void EmuScreen::CreateViews() {
 	loadingSpinner_ = loadingSpinner;
 
 	loadingBG->SetTag("LoadingBG");
-	loadingTextView->SetTag("LoadingText");
 	loadingSpinner->SetTag("LoadingSpinner");
 
-	// Don't really need this, and it creates a lot of strings to translate...
-	loadingTextView->SetVisibility(V_GONE);
-	loadingTextView->SetShadow(true);
-
 	loadingViewColor_ = loadingSpinner->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
+	loadingViewColor_->SetCallback([loadingBG, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
-		loadingTextView->SetTextColor(c);
 		loadingSpinner->SetColor(alphaMul(c, 0.7f));
 	});
 	loadingViewColor_->Persist();
@@ -1388,11 +1381,11 @@ bool EmuScreen::checkPowerDown() {
 ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 	auto CanBeBackground = [&]() -> bool {
 		if (g_Config.bSkipBufferEffects) {
-			return isTop || (g_Config.bTransparentBackground && Core_ShouldRunBehind());
+			return isTop || (g_Config.bTransparentBackground && ShouldRunBehind());
 		}
 
 		if (!g_Config.bTransparentBackground && !isTop) {
-			if (Core_ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
+			if (ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
 				return true;
 			return false;
 		}
@@ -1470,7 +1463,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+	} else if (!ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// NOTE: The strcmp is != 0 - so all popped-over screens EXCEPT DevMenu
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
@@ -1504,10 +1497,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (invalid_) {
-		// Loading, or after shutdown?
-		if (loadingTextView_ && loadingTextView_->GetVisibility() == UI::V_VISIBLE)
-			loadingTextView_->SetText(PSP_GetLoading());
-
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		if (mode & ScreenRenderMode::TOP) {
@@ -1535,7 +1524,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 	}
 
-	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
+	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	if (doFrameAdvance_.exchange(false)) {
 		if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
@@ -1825,4 +1814,13 @@ void EmuScreen::autoLoad() {
 
 void EmuScreen::resized() {
 	RecreateViews();
+}
+
+bool MustRunBehind() {
+	return __NetAdhocConnected();
+}
+
+bool ShouldRunBehind() {
+	// Enforce run-behind if ad-hoc connected
+	return g_Config.bRunBehindPauseMenu || MustRunBehind();
 }

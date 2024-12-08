@@ -31,7 +31,7 @@
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 

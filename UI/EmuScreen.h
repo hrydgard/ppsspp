@@ -117,7 +117,6 @@ private:
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
-	UI::TextView *loadingTextView_ = nullptr;
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
@@ -143,3 +142,6 @@ private:
 	bool keyAltLeft_ = false;
 	bool keyAltRight_ = false;
 };
+
+bool MustRunBehind();
+bool ShouldRunBehind();

@@ -3,7 +3,7 @@
 #include "ppsspp_config.h"
 
 // Standard Windows includes
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <initguid.h>
 #include <dxgi.h>
 #include <d3d11.h>

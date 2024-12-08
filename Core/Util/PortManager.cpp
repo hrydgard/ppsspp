@@ -38,7 +38,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PortManager.h"
 
