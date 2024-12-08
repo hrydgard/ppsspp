@@ -81,6 +81,28 @@ enum class CoreLifecycle {
 	MEMORY_REINITED,
 };
 
+// RUNNING must be at 0, NEXTFRAME must be at 1.
+enum CoreState {
+	// Emulation is running normally.
+	CORE_RUNNING_CPU = 0,
+	// Emulation was running normally, just reached the end of a frame.
+	CORE_NEXTFRAME = 1,
+	// Emulation is paused, CPU thread is sleeping.
+	CORE_STEPPING_CPU,  // Can be used for recoverable runtime errors (ignored memory exceptions)
+	// Core is being powered up.
+	CORE_POWERUP,
+	// Core is being powered down.
+	CORE_POWERDOWN,
+	// An error happened at boot.
+	CORE_BOOT_ERROR,
+	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
+	CORE_RUNTIME_ERROR,
+	// Stepping the GPU. When done, will switch over to STEPPING_CPU.
+	CORE_STEPPING_GE,
+	// Running the GPU. When done, will switch over to RUNNING_CPU.
+	CORE_RUNNING_GE,
+};
+
 // Callback is called on the Emu thread.
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
 void Core_ListenLifecycle(CoreLifecycleFunc func);
@@ -103,6 +125,13 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
+
+const char *CoreStateToString(CoreState state);
+
+extern volatile CoreState coreState;
+extern volatile bool coreStatePending;
+
+void Core_UpdateState(CoreState newState);
 
 enum class MemoryExceptionType {
 	NONE,

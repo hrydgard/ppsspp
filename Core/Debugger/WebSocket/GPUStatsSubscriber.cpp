@@ -101,7 +101,7 @@ WebSocketGPUStatsState::WebSocketGPUStatsState() {
 
 WebSocketGPUStatsState::~WebSocketGPUStatsState() {
 	if (forced_)
-		Core_ForceDebugStats(false);
+		PSP_ForceDebugStats(false);
 	__DisplayForgetFlip(&WebSocketGPUStatsState::FlipForwarder, this);
 }
 
@@ -178,7 +178,7 @@ void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 	std::lock_guard<std::mutex> guard(pendingLock_);
 	sendFeed_ = enable;
 	if (forced_ != enable) {
-		Core_ForceDebugStats(enable);
+		PSP_ForceDebugStats(enable);
 		forced_ = enable;
 	}
 }

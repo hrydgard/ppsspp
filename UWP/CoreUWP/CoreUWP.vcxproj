@@ -554,7 +554,6 @@
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmJit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompBranch.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompFPU.cpp" />

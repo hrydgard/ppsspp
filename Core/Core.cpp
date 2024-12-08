@@ -78,6 +78,11 @@ static int steppingCounter = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 
+// This can be read and written from ANYWHERE.
+volatile CoreState coreState = CORE_STEPPING_CPU;
+// If true, core state has been changed, but JIT has probably not noticed yet.
+volatile bool coreStatePending = false;
+
 static bool powerSaving = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
@@ -122,6 +127,12 @@ bool Core_ShouldRunBehind() {
 
 bool Core_MustRunBehind() {
 	return __NetAdhocConnected();
+}
+
+void Core_UpdateState(CoreState newState) {
+	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
+		coreStatePending = true;
+	coreState = newState;
 }
 
 bool Core_IsStepping() {

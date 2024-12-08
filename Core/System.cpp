@@ -93,11 +93,6 @@ static std::mutex loadingLock;
 bool coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
 
-// This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING_CPU;
-// If true, core state has been changed, but JIT has probably not noticed yet.
-volatile bool coreStatePending = false;
-
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
@@ -373,13 +368,7 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 	g_loadedFile = fileLoader;
 }
 
-void Core_UpdateState(CoreState newState) {
-	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
-		coreStatePending = true;
-	coreState = newState;
-}
-
-void Core_UpdateDebugStats(bool collectStats) {
+void PSP_UpdateDebugStats(bool collectStats) {
 	bool newState = collectStats || coreCollectDebugStatsCounter > 0;
 	if (coreCollectDebugStats != newState) {
 		coreCollectDebugStats = newState;
@@ -392,7 +381,7 @@ void Core_UpdateDebugStats(bool collectStats) {
 	}
 }
 
-void Core_ForceDebugStats(bool enable) {
+void PSP_ForceDebugStats(bool enable) {
 	if (enable) {
 		coreCollectDebugStatsCounter++;
 	} else {

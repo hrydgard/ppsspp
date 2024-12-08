@@ -20,7 +20,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/Font/PGF.h"
 
 enum {
