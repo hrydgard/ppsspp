@@ -911,6 +911,8 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	case OpType::UpdateStallAddr:
 	{
 		bool runList;
+		hleEatCycles(190);
+		hleCoreTimingForceCheck();
 		gpu->UpdateStall(g_opToExec.listID, g_opToExec.param, &runList);
 		if (runList) {
 			hleSplitSyscallOverGe();
@@ -929,6 +931,8 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 			hleSplitSyscallOverGe();
 		}
 		// We're not done yet, request another go.
+		hleEatCycles(490);
+		hleCoreTimingForceCheck();
 		return ReplayResult::Break;
 	}
 	case OpType::ReapplyGfxState:
@@ -942,6 +946,7 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		u32 execListID = g_opToExec.listID;
 		u32 mode = g_opToExec.param;
 		// try again but no need to split the sys call
+		hleEatCycles(220);
 		gpu->ListSync(execListID, mode);
 		return ReplayResult::Break;
 	}
