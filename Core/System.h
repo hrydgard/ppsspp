@@ -86,9 +86,6 @@ void PSP_RunLoopWhileState();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 
-void PSP_SetLoading(const std::string &reason);
-std::string PSP_GetLoading();
-
 // Used to wait for background loading thread.
 struct PSP_LoadingLock {
 	PSP_LoadingLock();

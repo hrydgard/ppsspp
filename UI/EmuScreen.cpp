@@ -1159,8 +1159,6 @@ void EmuScreen::CreateViews() {
 	root_->Add(saveStatePreview_);
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
-	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
-	loadingTextView_ = loadingTextView;
 
 	static const ImageID symbols[4] = {
 		ImageID("I_CROSS"),
@@ -1173,17 +1171,11 @@ void EmuScreen::CreateViews() {
 	loadingSpinner_ = loadingSpinner;
 
 	loadingBG->SetTag("LoadingBG");
-	loadingTextView->SetTag("LoadingText");
 	loadingSpinner->SetTag("LoadingSpinner");
 
-	// Don't really need this, and it creates a lot of strings to translate...
-	loadingTextView->SetVisibility(V_GONE);
-	loadingTextView->SetShadow(true);
-
 	loadingViewColor_ = loadingSpinner->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
+	loadingViewColor_->SetCallback([loadingBG, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
-		loadingTextView->SetTextColor(c);
 		loadingSpinner->SetColor(alphaMul(c, 0.7f));
 	});
 	loadingViewColor_->Persist();
@@ -1504,10 +1496,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (invalid_) {
-		// Loading, or after shutdown?
-		if (loadingTextView_ && loadingTextView_->GetVisibility() == UI::V_VISIBLE)
-			loadingTextView_->SetText(PSP_GetLoading());
-
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		if (mode & ScreenRenderMode::TOP) {

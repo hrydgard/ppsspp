@@ -79,14 +79,7 @@
 
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
-	CPU_THREAD_PENDING,
-	CPU_THREAD_STARTING,
 	CPU_THREAD_RUNNING,
-	CPU_THREAD_SHUTDOWN,
-	CPU_THREAD_QUIT,
-
-	CPU_THREAD_EXECUTE,
-	CPU_THREAD_RESUME,
 };
 
 MetaFileSystem pspFileSystem;
@@ -96,11 +89,6 @@ CoreParameter g_CoreParameter;
 static FileLoader *g_loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
-// For loadingReason updates.
-static std::mutex loadingReasonLock;
-static std::string loadingReason;
-
-bool audioInitialized;
 
 bool coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
@@ -441,7 +429,6 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 	g_CoreParameter.errorString.clear();
 	pspIsIniting = true;
-	PSP_SetLoading("Loading game...");
 
 	Path filename = g_CoreParameter.fileToStart;
 	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
@@ -500,7 +487,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 	}
 
 	if (success && gpu == nullptr) {
-		PSP_SetLoading("Starting graphics...");
+		INFO_LOG(Log::System, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
 		success = GPU_Init(g_CoreParameter.graphicsContext, draw);
 		if (!success) {
@@ -669,16 +656,6 @@ void PSP_RunLoopUntil(u64 globalticks) {
 
 void PSP_RunLoopFor(int cycles) {
 	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
-}
-
-void PSP_SetLoading(const std::string &reason) {
-	std::lock_guard<std::mutex> guard(loadingReasonLock);
-	loadingReason = reason;
-}
-
-std::string PSP_GetLoading() {
-	std::lock_guard<std::mutex> guard(loadingReasonLock);
-	return loadingReason;
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {

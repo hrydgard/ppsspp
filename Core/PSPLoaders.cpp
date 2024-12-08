@@ -321,7 +321,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 
 		AndroidJNIThreadContext jniContext;
 
-		PSP_SetLoading("Loading executable...");
+		INFO_LOG(Log::System, "Loading executable...");
 		// TODO: We can't use the initial error_string pointer.
 		bool success = __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {

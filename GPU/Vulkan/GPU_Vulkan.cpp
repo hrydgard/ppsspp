@@ -103,7 +103,6 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 		return;
 	}
 
-	PSP_SetLoading("Loading shader cache...");
 	// Actually precompiled by IsReady() since we're single-threaded.
 	FILE *f = File::OpenCFile(filename, "rb");
 	if (!f)

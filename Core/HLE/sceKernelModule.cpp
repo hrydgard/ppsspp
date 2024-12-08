@@ -1895,8 +1895,6 @@ void __KernelLoadReset() {
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param{};
 
-	PSP_SetLoading("Loading exec...");
-
 	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
 	if (paramData.IsValid()) {
 		param = *paramData;
@@ -1929,7 +1927,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		return false;
 	}
 
-	PSP_SetLoading("Loading modules...");
 	size_t size = fileData.size();
 	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, error_string);
 
@@ -1969,7 +1966,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
-	PSP_SetLoading("Starting modules...");
+	INFO_LOG(Log::System, "Starting modules...");
 	if (paramPtr)
 		__KernelStartModule(module, param.args, (const char*)param_argp, &option);
 	else
@@ -1986,7 +1983,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
 	__KernelLoadReset();
-	PSP_SetLoading("Generating code...");
 
 	mipsr4k.pc = PSP_GetUserMemoryBase();
 

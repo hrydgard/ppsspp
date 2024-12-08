@@ -1088,8 +1088,6 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		return true;
 	}
 
-	PSP_SetLoading("Compiling shaders...");
-
 	double start = time_now_d();
 
 	for (size_t &i = pending.vertPos; i < pending.vert.size(); i++) {
