@@ -19,9 +19,11 @@
 #include <cstring>
 #include <functional>
 #include <mutex>
+#include <condition_variable>
 #include <vector>
 #include <snappy-c.h>
 #include <zstd.h>
+
 #include "Common/Profiler/Profiler.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
