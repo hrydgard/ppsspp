@@ -343,10 +343,6 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 	return nullptr;
 #elif PPSSPP_PLATFORM(UWP)
 	return nullptr;
-#elif PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
-	// Disable Vulkan on Mac/x86. Too many configurations that don't work with MoltenVK
-	// for whatever reason.
-	return nullptr;
 #elif PPSSPP_PLATFORM(WINDOWS)
 	return LoadLibrary(L"vulkan-1.dll");
 #else

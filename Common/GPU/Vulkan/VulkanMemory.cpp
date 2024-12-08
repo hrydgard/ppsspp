@@ -38,6 +38,16 @@ static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
 	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
 	RegisterGPUMemoryManager(this);
+
+	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
+	if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_AMD) {
+		INFO_LOG(Log::G3D, "MoltenVK with AMD, allocating buffers with VMA_MEMORY_USAGE_GPU_TO_CPU");
+		allocation_usage_ = VMA_MEMORY_USAGE_GPU_TO_CPU;
+	} else {
+		allocation_usage_ = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	}
+	#endif
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		blocks_.push_back(CreateBlock(originalBlockSize));
 		blocks_.back().original = true;
@@ -67,7 +77,12 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	b.usage = usage_;
 	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	VmaAllocationCreateInfo allocCreateInfo{};
+
+	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
+	allocCreateInfo.usage = allocation_usage_;
+	#else
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	#endif
 	VmaAllocationInfo allocInfo{};
 	
 	VkResult result = vmaCreateBuffer(vulkan_->Allocator(), &b, &allocCreateInfo, &block.buffer, &block.allocation, &allocInfo);
