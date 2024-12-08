@@ -51,7 +51,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 	if (ImGui::BeginChild("event_list", ImVec2(300.0f, 0.0))) {
 		const CoreTiming::Event *event = CoreTiming::GetFirstEvent();
 		while (event) {
-			ImGui::Text("%s (%lld)", CoreTiming::GetEventTypes()[event->type].name, event->time - ticks);
+			ImGui::Text("%s (%lld): %d", CoreTiming::GetEventTypes()[event->type].name, event->time - ticks, (int)event->userdata);
 			event = event->next;
 		}
 		ImGui::EndChild();
@@ -195,6 +195,9 @@ void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSi
 	case WAITTYPE_SLEEP:
 	case WAITTYPE_HLEDELAY:
 	case WAITTYPE_UMD:
+	case WAITTYPE_NONE:
+	case WAITTYPE_VBLANK:
+	case WAITTYPE_MICINPUT:
 		truncate_cpy(buffer, bufSize, "-");
 		return;
 	default:
