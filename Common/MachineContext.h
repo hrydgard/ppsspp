@@ -11,7 +11,8 @@
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
+
 typedef CONTEXT SContext;
 
 #if defined(__LIBRETRO__)

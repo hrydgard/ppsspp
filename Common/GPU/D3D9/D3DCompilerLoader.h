@@ -1,7 +1,7 @@
 #pragma once
 #include "ppsspp_config.h"
 
-#include <Windows.h>
+#include "Common/CommonWindows.h"
 #include <D3Dcompiler.h>
 
 bool LoadD3DCompilerDynamic();

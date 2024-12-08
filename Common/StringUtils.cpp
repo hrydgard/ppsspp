@@ -20,9 +20,7 @@
 #include "ppsspp_config.h"
 
 #ifdef _WIN32
-#include <windows.h>
-#undef min
-#undef max
+#include "Common/CommonWindows.h"
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)

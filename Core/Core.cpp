@@ -120,15 +120,6 @@ void Core_Stop() {
 	}
 }
 
-bool Core_ShouldRunBehind() {
-	// Enforce run-behind if ad-hoc connected
-	return g_Config.bRunBehindPauseMenu || Core_MustRunBehind();
-}
-
-bool Core_MustRunBehind() {
-	return __NetAdhocConnected();
-}
-
 void Core_UpdateState(CoreState newState) {
 	if ((coreState == CORE_RUNNING_CPU || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
 		coreStatePending = true;

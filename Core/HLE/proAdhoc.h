@@ -19,6 +19,8 @@
 
 // Net stuff
 #if defined(_WIN32)
+#include "Common/CommonWindows.h"
+
 #include <WS2tcpip.h>
 #else
 #include <unistd.h>

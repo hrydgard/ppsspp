@@ -53,7 +53,6 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include <sys/utime.h>
-#include <Windows.h>
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName

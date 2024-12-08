@@ -70,6 +70,7 @@ using namespace std::placeholders;
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
@@ -1380,11 +1381,11 @@ bool EmuScreen::checkPowerDown() {
 ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 	auto CanBeBackground = [&]() -> bool {
 		if (g_Config.bSkipBufferEffects) {
-			return isTop || (g_Config.bTransparentBackground && Core_ShouldRunBehind());
+			return isTop || (g_Config.bTransparentBackground && ShouldRunBehind());
 		}
 
 		if (!g_Config.bTransparentBackground && !isTop) {
-			if (Core_ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
+			if (ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
 				return true;
 			return false;
 		}
@@ -1462,7 +1463,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+	} else if (!ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// NOTE: The strcmp is != 0 - so all popped-over screens EXCEPT DevMenu
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
@@ -1813,4 +1814,13 @@ void EmuScreen::autoLoad() {
 
 void EmuScreen::resized() {
 	RecreateViews();
+}
+
+bool MustRunBehind() {
+	return __NetAdhocConnected();
+}
+
+bool ShouldRunBehind() {
+	// Enforce run-behind if ad-hoc connected
+	return g_Config.bRunBehindPauseMenu || MustRunBehind();
 }

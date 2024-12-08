@@ -142,3 +142,6 @@ private:
 	bool keyAltLeft_ = false;
 	bool keyAltRight_ = false;
 };
+
+bool MustRunBehind();
+bool ShouldRunBehind();

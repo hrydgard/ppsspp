@@ -54,9 +54,6 @@ void Core_Resume();
 // Can fail if another step type was requested this frame.
 bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
 
-bool Core_ShouldRunBehind();
-bool Core_MustRunBehind();
-
 bool Core_NextFrame();
 void Core_SwitchToGe();  // Switches from CPU emulation to GE display list execution.
 

@@ -46,6 +46,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
+#include "UI/EmuScreen.h"
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
@@ -446,7 +447,7 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
 
-	if (!Core_MustRunBehind()) {
+	if (!MustRunBehind()) {
 		playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
 		playButton_->OnClick.Add([=](UI::EventParams &e) {
 			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;

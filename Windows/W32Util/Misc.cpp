@@ -1,5 +1,5 @@
 #include "ppsspp_config.h"
-#include "CommonWindows.h"
+#include "Common/CommonWindows.h"
 
 #include <WinUser.h>
 #include <shellapi.h>
