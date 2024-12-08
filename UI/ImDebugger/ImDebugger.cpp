@@ -314,7 +314,7 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 		std::string path;
 		char desc[256];
 		fs.system->Describe(desc, sizeof(desc));
-		char fsTitle[256];
+		char fsTitle[512];
 		snprintf(fsTitle, sizeof(fsTitle), "%s - %s", fs.prefix.c_str(), desc);
 		if (ImGui::TreeNode(fsTitle)) {
 			auto system = fs.system;
@@ -854,6 +854,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				if (ImGui::MenuItem("Break")) {
 					Core_Break("Menu:Break");
 				}
+				break;
+			default:
 				break;
 			}
 			ImGui::Separator();
