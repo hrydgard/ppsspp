@@ -80,10 +80,12 @@ static std::set<CoreStopRequestFunc> stopFuncs;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING_CPU;
+CoreState preGeCoreState = CORE_BOOT_ERROR;
 // If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
 
 static bool powerSaving = false;
+static bool g_breakAfterFrame = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
@@ -175,6 +177,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 			return;
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
+			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
+				g_breakAfterFrame = false;
+				coreState = CORE_STEPPING_CPU;
+			}
 			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
 		case CORE_RUNNING_GE:
 			switch (gpu->ProcessDLQueue()) {
@@ -184,23 +190,30 @@ void Core_RunLoopUntil(u64 globalticks) {
 			case DLResult::Error:
 				// We should elegantly report the error, or I guess ignore it.
 				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
+				coreState = preGeCoreState;
 				break;
 			case DLResult::Stall:
 			case DLResult::Done:
 				// Done executing for now
 				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
+				coreState = preGeCoreState;
 				break;
 			default:
 				_dbg_assert_(false);
 				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
+				coreState = preGeCoreState;
 				break;
 			}
 			break;
 		}
 	}
+}
+
+// Should only be called from GPUCommon functions (called from sceGe functions).
+void Core_SwitchToGe() {
+	// TODO: This should be an atomic exchange. Or we add bitflags into coreState.
+	preGeCoreState = coreState;
+	coreState = CORE_RUNNING_GE;
 }
 
 bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
@@ -209,8 +222,15 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
 		return false;
 	}
-	// Out-steps don't need a size.
-	_dbg_assert_(stepSize != 0 || type == CPUStepType::Out);
+	// Some step types don't need a size.
+	switch (type) {
+	case CPUStepType::Out:
+	case CPUStepType::Frame:
+		break;
+	default:
+		_dbg_assert_(stepSize != 0);
+		break;
+	}
 	g_cpuStepCommand = { type, stepSize };
 	return true;
 }
@@ -291,9 +311,13 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 
 		u32 breakpointAddress = frames[1].pc;
 
-		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 		g_breakpoints.AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		break;
+	}
+	case CPUStepType::Frame:
+	{
+		g_breakAfterFrame = true;
 		Core_Resume();
 		break;
 	}
@@ -301,15 +325,6 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		// Not yet implemented
 		break;
 	}
-}
-
-static void Core_PerformGeStep(CPUStepType stepType) {
-	// TODO
-}
-
-// Should only be called from GPUCommon functions (called from sceGe functions).
-void Core_SwitchToGe() {
-	coreState = CORE_RUNNING_GE;
 }
 
 static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
@@ -399,6 +414,8 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 
 // Free-threaded (or at least should be)
 void Core_Resume() {
+	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+	g_breakpoints.SetSkipFirst(currentMIPS->pc);
 	// Handle resuming from GE.
 	if (coreState == CORE_STEPPING_GE) {
 		coreState = CORE_RUNNING_GE;

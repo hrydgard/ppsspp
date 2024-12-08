@@ -160,6 +160,50 @@ static const char *ThreadStatusToString(u32 status) {
 	return "(unk)";
 }
 
+void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSize) {
+	switch (waitType) {
+	case WAITTYPE_AUDIOCHANNEL:
+		snprintf(buffer, bufSize, "chan %d", (int)waitID);
+		return;
+	case WAITTYPE_IO:
+		// TODO: More detail
+		snprintf(buffer, bufSize, "fd: %d", (int)waitID);
+		return;
+	case WAITTYPE_ASYNCIO:
+		snprintf(buffer, bufSize, "id: %d", (int)waitID);
+		return;
+	case WAITTYPE_THREADEND:
+	case WAITTYPE_MUTEX:
+	case WAITTYPE_LWMUTEX:
+	case WAITTYPE_MODULE:
+	case WAITTYPE_MSGPIPE:
+	case WAITTYPE_FPL:
+	case WAITTYPE_VPL:
+	case WAITTYPE_MBX:
+	case WAITTYPE_EVENTFLAG:
+	case WAITTYPE_SEMA:
+		// Get the name of the thread
+		if (kernelObjects.IsValid(waitID)) {
+			auto obj = kernelObjects.GetFast<KernelObject>(waitID);
+			if (obj && obj->GetName()) {
+				truncate_cpy(buffer, bufSize, obj->GetName());
+				return;
+			}
+		}
+		break;
+	case WAITTYPE_DELAY:
+	case WAITTYPE_SLEEP:
+	case WAITTYPE_HLEDELAY:
+	case WAITTYPE_UMD:
+		truncate_cpy(buffer, bufSize, "-");
+		return;
+	default:
+		truncate_cpy(buffer, bufSize, "(unimpl)");
+		return;
+	}
+
+}
+
 void DrawThreadView(ImConfig &cfg) {
 	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Threads", &cfg.threadsOpen)) {
@@ -168,7 +212,8 @@ void DrawThreadView(ImConfig &cfg) {
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	if (ImGui::BeginTable("threads", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("threads", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Id", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("PC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
@@ -182,6 +227,8 @@ void DrawThreadView(ImConfig &cfg) {
 		for (int i = 0; i < (int)info.size(); i++) {
 			const DebugThreadInfo &thread = info[i];
 			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", thread.id);
 			ImGui::TableNextColumn();
 			ImGui::PushID(i);
 			if (ImGui::Selectable(thread.name, cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
@@ -200,16 +247,11 @@ void DrawThreadView(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(ThreadStatusToString(thread.status));
 			ImGui::TableNextColumn();
-			if (thread.waitType != WAITTYPE_NONE) {
-				ImGui::TextUnformatted(getWaitTypeName(thread.waitType));
-			} else {
-				ImGui::TextUnformatted("N/A");
-			}
+			ImGui::TextUnformatted(getWaitTypeName(thread.waitType));
 			ImGui::TableNextColumn();
-			switch (thread.waitType) {
-			default:
-				ImGui::TextUnformatted("N/A");
-			}
+			char temp[64];
+			WaitIDToString(thread.waitType, thread.waitID, temp, sizeof(temp));
+			ImGui::TextUnformatted(temp);
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
@@ -218,16 +260,19 @@ void DrawThreadView(ImConfig &cfg) {
 					snprintf(temp, sizeof(temp), "%08x", thread.entrypoint);
 					System_CopyStringToClipboard(temp);
 				}
-				if (ImGui::MenuItem("Copy PC to clipboard")) {
+				if (ImGui::MenuItem("Copy thread PC to clipboard")) {
 					char temp[64];
 					snprintf(temp, sizeof(temp), "%08x", thread.curPC);
 					System_CopyStringToClipboard(temp);
 				}
 				if (ImGui::MenuItem("Kill thread")) {
+					// Dangerous!
 					sceKernelTerminateThread(thread.id);
 				}
-				if (ImGui::MenuItem("Force run")) {
-					__KernelResumeThreadFromWait(thread.id, 0);
+				if (thread.status == THREADSTATUS_WAIT) {
+					if (ImGui::MenuItem("Force run now")) {
+						__KernelResumeThreadFromWait(thread.id, 0);
+					}
 				}
 				ImGui::EndPopup();
 			}
@@ -1030,20 +1075,41 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Into")) {
+	ImGui::Text("Step: ");
+	ImGui::SameLine();
+
+	if (ImGui::SmallButton("Into")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
 		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Over")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F11");
 	}
 
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Out")) {
+	if (ImGui::SmallButton("Over")) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F10");
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Out")) {
 		Core_RequestCPUStep(CPUStepType::Out, 0);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Frame")) {
+		Core_RequestCPUStep(CPUStepType::Frame, 0);
+	}
+
+	ImGui::SameLine();
+	ImGui::SmallButton("Skim");
+	if (ImGui::IsItemActive()) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
 
 	ImGui::EndDisabled();

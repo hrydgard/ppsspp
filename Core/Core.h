@@ -42,6 +42,7 @@ enum class CPUStepType {
 	Into,
 	Over,
 	Out,
+	Frame,
 };
 
 // Async, called from gui
