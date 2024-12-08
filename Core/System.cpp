@@ -109,9 +109,6 @@ static volatile bool pspIsIniting = false;
 static volatile bool pspIsQuitting = false;
 static volatile bool pspIsRebooting = false;
 
-// This is called on EmuThread before RunLoop.
-void Core_ProcessStepping(MIPSDebugInterface *cpu);
-
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
 }
@@ -612,50 +609,8 @@ void PSP_RunLoopWhileState() {
 	PSP_RunLoopFor(blockTicks);
 }
 
-void PSP_RunLoopUntil(u64 globalticks) {
-	while (true) {
-		switch (coreState) {
-		case CORE_POWERDOWN:
-		case CORE_BOOT_ERROR:
-		case CORE_RUNTIME_ERROR:
-		case CORE_NEXTFRAME:
-			return;
-		case CORE_STEPPING_CPU:
-		case CORE_STEPPING_GE:
-			Core_ProcessStepping(currentDebugMIPS);
-			return;
-		case CORE_RUNNING_CPU:
-			mipsr4k.RunLoopUntil(globalticks);
-			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
-		case CORE_RUNNING_GE:
-			switch (gpu->ProcessDLQueue()) {
-			case DLResult::Break:
-				GPUStepping::EnterStepping();
-				break;
-			case DLResult::Error:
-				// We should elegantly report the error, or I guess ignore it.
-				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
-				break;
-			case DLResult::Stall:
-			case DLResult::Done:
-				// Done executing for now
-				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
-				break;
-			default:
-				_dbg_assert_(false);
-				hleFinishSyscallAfterGe();
-				coreState = CORE_RUNNING_CPU;
-				break;
-			}
-			break;
-		}
-	}
-}
-
 void PSP_RunLoopFor(int cycles) {
-	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
+	Core_RunLoopUntil(CoreTiming::GetTicks() + cycles);
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {

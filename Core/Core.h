@@ -102,6 +102,8 @@ void Core_WaitInactive();
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
+void Core_RunLoopUntil(u64 globalticks);
+
 enum class MemoryExceptionType {
 	NONE,
 	UNKNOWN,

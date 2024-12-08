@@ -34,23 +34,20 @@
 #include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MemFault.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/sceNetAdhoc.h"
-#include "GPU/Debugger/Stepping.h"
 #include "Core/MIPS/MIPSTracer.h"
 
-#ifdef _WIN32
-#include "Common/CommonWindows.h"
-#include "Windows/InputDevice.h"
-#endif
+#include "GPU/Debugger/Stepping.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUCommon.h"
 
 // Step command to execute next
 static std::mutex g_stepMutex;
@@ -84,6 +81,9 @@ static std::set<CoreStopRequestFunc> stopFuncs;
 static bool powerSaving = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
+
+// This is called on EmuThread before RunLoop.
+static void Core_ProcessStepping(MIPSDebugInterface *cpu);
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
 	PSP_CoreParameter().graphicsContext = ctx;
@@ -157,6 +157,48 @@ void Core_SetPowerSaving(bool mode) {
 
 bool Core_GetPowerSaving() {
 	return powerSaving;
+}
+
+void Core_RunLoopUntil(u64 globalticks) {
+	while (true) {
+		switch (coreState) {
+		case CORE_POWERDOWN:
+		case CORE_BOOT_ERROR:
+		case CORE_RUNTIME_ERROR:
+		case CORE_NEXTFRAME:
+			return;
+		case CORE_STEPPING_CPU:
+		case CORE_STEPPING_GE:
+			Core_ProcessStepping(currentDebugMIPS);
+			return;
+		case CORE_RUNNING_CPU:
+			mipsr4k.RunLoopUntil(globalticks);
+			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
+		case CORE_RUNNING_GE:
+			switch (gpu->ProcessDLQueue()) {
+			case DLResult::Break:
+				GPUStepping::EnterStepping();
+				break;
+			case DLResult::Error:
+				// We should elegantly report the error, or I guess ignore it.
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			case DLResult::Stall:
+			case DLResult::Done:
+				// Done executing for now
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			default:
+				_dbg_assert_(false);
+				hleFinishSyscallAfterGe();
+				coreState = CORE_RUNNING_CPU;
+				break;
+			}
+			break;
+		}
+	}
 }
 
 bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
@@ -268,7 +310,7 @@ void Core_SwitchToGe() {
 	coreState = CORE_RUNNING_GE;
 }
 
-void Core_ProcessStepping(MIPSDebugInterface *cpu) {
+static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
