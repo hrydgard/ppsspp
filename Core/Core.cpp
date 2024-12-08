@@ -85,6 +85,7 @@ CoreState preGeCoreState = CORE_BOOT_ERROR;
 volatile bool coreStatePending = false;
 
 static bool powerSaving = false;
+static bool g_breakAfterFrame = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
@@ -176,6 +177,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 			return;
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
+			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
+				g_breakAfterFrame = false;
+				coreState = CORE_STEPPING_CPU;
+			}
 			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
 		case CORE_RUNNING_GE:
 			switch (gpu->ProcessDLQueue()) {
@@ -217,8 +222,15 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
 		return false;
 	}
-	// Out-steps don't need a size.
-	_dbg_assert_(stepSize != 0 || type == CPUStepType::Out);
+	// Some step types don't need a size.
+	switch (type) {
+	case CPUStepType::Out:
+	case CPUStepType::Frame:
+		break;
+	default:
+		_dbg_assert_(stepSize != 0);
+		break;
+	}
 	g_cpuStepCommand = { type, stepSize };
 	return true;
 }
@@ -300,6 +312,12 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		u32 breakpointAddress = frames[1].pc;
 
 		g_breakpoints.AddBreakPoint(breakpointAddress, true);
+		Core_Resume();
+		break;
+	}
+	case CPUStepType::Frame:
+	{
+		g_breakAfterFrame = true;
 		Core_Resume();
 		break;
 	}

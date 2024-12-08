@@ -77,6 +77,9 @@ static int idleOp;
 // Split syscall support. NOTE: This needs to be saved in DoState somehow!
 static int splitSyscallEatCycles = 0;
 
+// Stats
+static double hleSteppingTime = 0.0;
+static double hleFlipTime = 0.0;
 
 struct HLEMipsCallInfo {
 	u32 func;
@@ -752,12 +755,10 @@ void *GetQuickSyscallFunc(MIPSOpcode op) {
 	return (void *)&CallSyscallWithoutFlags;
 }
 
-static double hleSteppingTime = 0.0;
 void hleSetSteppingTime(double t) {
 	hleSteppingTime += t;
 }
 
-static double hleFlipTime = 0.0;
 void hleSetFlipTime(double t) {
 	hleFlipTime = t;
 }

@@ -1030,20 +1030,41 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_CPU);
 
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Into")) {
+	ImGui::Text("Step: ");
+	ImGui::SameLine();
+
+	if (ImGui::SmallButton("Into")) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
 		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
-
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Over")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F11");
 	}
 
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Step Out")) {
+	if (ImGui::SmallButton("Over")) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("F10");
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Out")) {
 		Core_RequestCPUStep(CPUStepType::Out, 0);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Frame")) {
+		Core_RequestCPUStep(CPUStepType::Frame, 0);
+	}
+
+	ImGui::SameLine();
+	ImGui::SmallButton("Skim");
+	if (ImGui::IsItemActive()) {
+		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
+		Core_RequestCPUStep(CPUStepType::Into, stepSize);
 	}
 
 	ImGui::EndDisabled();
