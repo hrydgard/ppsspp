@@ -168,13 +168,14 @@ void DrawThreadView(ImConfig &cfg) {
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	if (ImGui::BeginTable("threads", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("threads", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("PC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Priority", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Wait Type", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Wait ID", ImGuiTableColumnFlags_WidthStretch);
 		// .initialStack, .stackSize, etc
 		ImGui::TableHeadersRow();
 
@@ -201,8 +202,14 @@ void DrawThreadView(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			if (thread.waitType != WAITTYPE_NONE) {
 				ImGui::TextUnformatted(getWaitTypeName(thread.waitType));
+			} else {
+				ImGui::TextUnformatted("N/A");
 			}
-
+			ImGui::TableNextColumn();
+			switch (thread.waitType) {
+			default:
+				ImGui::TextUnformatted("N/A");
+			}
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
