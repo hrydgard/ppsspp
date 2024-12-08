@@ -26,7 +26,7 @@
 
 class GraphicsContext;
 
-// For platforms that don't call Core_Run
+// For platforms that don't call Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
 // Returns false when an UI exit state is detected.

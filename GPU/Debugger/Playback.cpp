@@ -141,7 +141,7 @@ protected:
 		u32 buf_pointer_ = 0;
 		int last_used_ = 0;
 
-		bool Matches(u32 bufpos) {
+		bool Matches(u32 bufpos) const {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0;
 		}
@@ -171,12 +171,12 @@ protected:
 		u32 buf_pointer_ = 0;
 		u32 size_ = 0;
 
-		bool Matches(u32 bufpos, u32 sz) {
+		bool Matches(u32 bufpos, u32 sz) const {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0 && size_ >= sz;
 		}
 
-		u32 Ptr() {
+		u32 Ptr() const {
 			return psp_pointer_;
 		}
 
