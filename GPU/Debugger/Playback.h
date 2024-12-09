@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdlib>
 #include <string>
 
 namespace GPURecord {
@@ -27,6 +28,7 @@ enum class ReplayResult {
 	Break = 2,
 };
 
+void WriteRunDumpCode(u32 addr);
 ReplayResult RunMountedReplay(const std::string &filename);
 
-};
+}  // namespace GPURecord

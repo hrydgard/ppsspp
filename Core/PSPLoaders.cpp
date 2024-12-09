@@ -45,12 +45,12 @@
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/MIPSCodeUtils.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/PSPLoaders.h"
+#include "GPU/Debugger/Playback.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"

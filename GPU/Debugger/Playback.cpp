@@ -40,6 +40,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/System.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -388,7 +389,10 @@ void DumpExecute::SyncStall() {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}
 	}
-	// Make sure downcount doesn't overflow.
+
+	// Make sure downcount doesn't overflow. (can this even happen?)
+	// Also this doesn't do anything in this context, we don't reschedule... or at least
+	// aren't supposed to.
 	// CoreTiming::ForceCheck();
 }
 
@@ -408,6 +412,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 		Memory::Write_U32(GE_CMD_NOP << 24, execListPos);
 		execListPos += 4;
 
+		// TODO: Why do we disable interrupts here?
 		gpu->EnableInterrupts(false);
 		ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
 		gpu->EnableInterrupts(true);
@@ -864,6 +869,35 @@ static u32 LoadReplay(const std::string &filename) {
 	lastExecFilename = filename;
 	lastExecVersion = version;
 	return version;
+}
+
+void WriteRunDumpCode(u32 codeStart) {
+	// NOTE: Not static, since parts are run-time computed (MIPS_MAKE_SYSCALL etc)
+	const u32 runDumpCode[] = {
+		// Save the filename.
+		MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+		MIPS_MAKE_ORI(MIPS_REG_S1, MIPS_REG_A1, 0),
+		// Call the actual render. Jump here to start over.
+		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
+		MIPS_MAKE_NOP(),
+		// Re-run immediately if requested by the return value from __KernelGPUReplay
+		MIPS_MAKE_BNEZ(codeStart + 4 * 4, codeStart + 8, MIPS_REG_V0),
+		MIPS_MAKE_NOP(),
+		// When done (__KernelGPUReplay returned 0), make sure we don't get out of sync (is this needed?)
+		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
+		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
+		MIPS_MAKE_NOP(),
+		// Wait for the next vblank to render again, then (through the delay slot) jump right back up to __KernelGPUReplay.
+		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
+		MIPS_MAKE_NOP(),
+		MIPS_MAKE_J(codeStart + 8),
+		MIPS_MAKE_NOP(),
+		// This never gets reached, just here to be "safe".
+		MIPS_MAKE_BREAK(0),
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(runDumpCode); ++i) {
+		Memory::WriteUnchecked_U32(runDumpCode[i], codeStart + (u32)i * sizeof(u32_le));
+	}
 }
 
 // This is called by the syscall.

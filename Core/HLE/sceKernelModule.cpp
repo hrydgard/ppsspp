@@ -1984,40 +1984,17 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
-	// Start at the very base of user memory.
-	constexpr u32 codeStart = PSP_GetUserMemoryBase();
-	mipsr4k.pc = codeStart;
+	const u32 codeStartAddr = PSP_GetUserMemoryBase();
+	mipsr4k.pc = codeStartAddr;
 
-	const static u32_le runDumpCode[] = {
-		// Save the filename.
-		MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
-		MIPS_MAKE_ORI(MIPS_REG_S1, MIPS_REG_A1, 0),
-		// Call the actual render. Jump here to start over.
-		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
-		MIPS_MAKE_NOP(),
-		// Re-run immediately if requested by the return value from __KernelGPUReplay
-		MIPS_MAKE_BNEZ(codeStart + 4 * 4, codeStart + 8, MIPS_REG_V0),
-		MIPS_MAKE_NOP(),
-		// Make sure we don't get out of sync.
-		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
-		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
-		// Wait for the next vblank to render again, then (through the delay slot) jump right back up to __KernelGPUReplay.
-		MIPS_MAKE_J(codeStart + 8),
-		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
-		// This never gets reached, just here to be "safe".
-		MIPS_MAKE_BREAK(0),
-	};
-
-	for (size_t i = 0; i < ARRAY_SIZE(runDumpCode); ++i) {
-		Memory::WriteUnchecked_U32(runDumpCode[i], mipsr4k.pc + (u32)i * sizeof(u32_le));
-	}
+	GPURecord::WriteRunDumpCode(codeStartAddr);
 
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 	module->isFake = true;
-	module->nm.entry_addr = mipsr4k.pc;
+	module->nm.entry_addr = codeStartAddr;
 	module->nm.gp_value = -1;
 
 	SceUID threadID = __KernelSetupRootThread(module->GetUID(), (int)base_filename.size(), base_filename.data(), 0x20, 0x1000, 0);
