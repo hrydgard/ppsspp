@@ -304,6 +304,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	// Display any pending step event.
 	if (GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE) {
 		ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel step")) {
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+		}
 	}
 
 	// Let's display the current CLUT.
