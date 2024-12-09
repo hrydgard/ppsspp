@@ -41,8 +41,8 @@ VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t o
 
 	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
 	if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_AMD) {
-		INFO_LOG(Log::G3D, "MoltenVK with AMD, allocating buffers with VMA_MEMORY_USAGE_GPU_TO_CPU");
-		allocation_usage_ = VMA_MEMORY_USAGE_GPU_TO_CPU;
+		INFO_LOG(Log::G3D, "MoltenVK with AMD, allocating buffers with VMA_MEMORY_USAGE_CPU_ONLY");
+		allocation_usage_ = VMA_MEMORY_USAGE_CPU_ONLY; // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT + VK_MEMORY_PROPERTY_HOST_COHERENT_BIT in vma type index
 	} else {
 		allocation_usage_ = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	}
