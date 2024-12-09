@@ -855,7 +855,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(Log::G3D, "Starting DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc, l.stall, startingTicks);
+		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc == l.startpc ? "Starting" : "Resuming", l.pc, l.stall, startingTicks);
 		if (!InterpretList(l)) {
 			switch (gpuState) {
 			case GPURunState::GPUSTATE_STALL:
