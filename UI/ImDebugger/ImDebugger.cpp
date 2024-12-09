@@ -860,7 +860,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			}
 			ImGui::Separator();
 			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
+			ImGui::MenuItem("Break on frame timeout", nullptr, &g_Config.bBreakOnFrameTimeout);
+			ImGui::MenuItem("Don't break on start", nullptr, &g_Config.bAutoRun);  // should really invert this bool!
+			ImGui::MenuItem("Fast memory", nullptr, &g_Config.bFastMemory);
 			ImGui::Separator();
+
 			/*
 			// Symbol stuff. Move to separate menu?
 			// Doesn't quite seem to work yet.
@@ -891,6 +895,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			if (ImGui::MenuItem("Take screenshot")) {
 				g_TakeScreenshot = true;
 			}
+			ImGui::MenuItem("Save screenshot as .png", nullptr, &g_Config.bScreenshotsAsPNG);
 			if (ImGui::MenuItem("Restart graphics")) {
 				System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 			}

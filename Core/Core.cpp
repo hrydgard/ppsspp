@@ -430,12 +430,15 @@ void Core_Resume() {
 
 // Should be called from the EmuThread.
 bool Core_NextFrame() {
+	CoreState coreState = ::coreState;
+
 	_dbg_assert_(coreState != CORE_STEPPING_GE && coreState != CORE_RUNNING_GE);
 
-	if (coreState == CORE_RUNNING_CPU) {
-		coreState = CORE_NEXTFRAME;
+	if (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
+		::coreState = CORE_NEXTFRAME;
 		return true;
 	} else {
+		ERROR_LOG(Log::System, "Core_NextFrame called with core state %s", CoreStateToString(coreState));
 		return false;
 	}
 }

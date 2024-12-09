@@ -70,11 +70,13 @@ public:
 	bool bFirstRun;
 	bool bGameSpecific = false;
 	bool bUpdatedInstanceCounter = false;
+	bool bBrowse;  // show a file browser on startup. TODO: Does anyone use this?
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
+	// Debugger
 	bool bAutoRun;  // start immediately
-	bool bBrowse; // when opening the emulator, immediately show a file browser
+	bool bBreakOnFrameTimeout;  // not saved
 
 	// General
 	bool bScreenshotsAsPNG;
