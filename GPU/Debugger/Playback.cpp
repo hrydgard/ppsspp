@@ -63,7 +63,7 @@ enum class OpType {
 
 struct Operation {
 	OpType type;
-	u32 listID;
+	u32 listID;  // also listPC in EnqueueList
 	u32 param;  // stallAddr generally
 };
 
@@ -81,17 +81,24 @@ static std::mutex opFinishLock;
 static std::condition_variable opFinishWait;
 static Operation g_opToExec;
 static u32 g_retVal;
+static bool g_opDone = true;
 
 // Runs on operation thread
 u32 ExecuteOnMain(Operation opToExec) {
-	g_opToExec = opToExec;
-	g_retVal = 0;
-	opStartWait.notify_one();
+	{
+		std::unique_lock<std::mutex> startLock(opStartLock);
+		g_opToExec = opToExec;
+		g_retVal = 0;
+		g_opDone = false;
+		opStartWait.notify_one();
+	}
 
 	// now wait for completion. At that point, noone cares about g_opToExec anymore, and we can safely
 	// overwrite it next time.
-	std::unique_lock<std::mutex> lock(opFinishLock);
-	opFinishWait.wait(lock);
+	{
+		std::unique_lock<std::mutex> lock(opFinishLock);
+		opFinishWait.wait(lock, []() { return g_opDone; });
+	}
 	return g_retVal;
 }
 
@@ -414,7 +421,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 
 		// TODO: Why do we disable interrupts here?
 		gpu->EnableInterrupts(false);
-		ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
+		execListID = ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
 		gpu->EnableInterrupts(true);
 	}
 
@@ -914,32 +921,35 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 		}
 		version = LoadReplay(filename);
 		if (!version) {
+			ERROR_LOG(Log::G3D, "bad version %08x", version);
 			return ReplayResult::Error;
 		}
+	}
+
+	if (g_opToExec.type != OpType::None) {
+		std::unique_lock<std::mutex> waitLock(opFinishLock);
+		g_opDone = true;
+		g_opToExec = Operation{ OpType::None };
+		opFinishWait.notify_one();
 	}
 
 	if (!replayThread.joinable()) {
 		_dbg_assert_(g_opToExec.type == OpType::None);
 		g_opToExec = Operation{ OpType::None };
-		INFO_LOG(Log::System, "Starting replay thread");
 		replayThread = std::thread([version]() {
 			SetCurrentThreadName("Replay");
-			INFO_LOG(Log::System, "In replay thread");
 			DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
 			GPURecord::ReplayResult retval = executor.Run();
 			// Finish up
 			ExecuteOnMain(Operation{ OpType::Done });
-			INFO_LOG(Log::System, "Leaving replay thread. retval was %d", (int)retval);
 		});
 	}
 
-	if (g_opToExec.type != OpType::None) {
-		opFinishWait.notify_one();
-	}
-
 	// OK, now wait for and perform the desired action.
-	std::unique_lock<std::mutex> lock(opStartLock);
-	opStartWait.wait(lock);
+	{
+		std::unique_lock<std::mutex> lock(opStartLock);
+		opStartWait.wait(lock, []() { return g_opToExec.type != OpType::None; });
+	}
 
 	switch (g_opToExec.type) {
 	case OpType::UpdateStallAddr:
@@ -957,10 +967,11 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	case OpType::EnqueueList:
 	{
 		bool runList;
-		u32 execListID = g_opToExec.listID;
+		u32 listPC = g_opToExec.listID;
 		u32 execListPos = g_opToExec.param;
 		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
-		g_retVal = gpu->EnqueueList(execListID, execListPos, -1, optParam, false, &runList);
+		g_retVal = gpu->EnqueueList(listPC, execListPos, -1, optParam, false, &runList);
+		INFO_LOG(Log::G3D, "Enqueued: dl=%d", g_retVal);
 		if (runList) {
 			hleSplitSyscallOverGe();
 		}
@@ -987,10 +998,12 @@ ReplayResult RunMountedReplay(const std::string &filename) {
 	case OpType::Done:
 	{
 		_dbg_assert_(replayThread.joinable());
-		INFO_LOG(Log::System, "Joining replay thread");
-		opFinishWait.notify_one();
+		{
+			std::unique_lock<std::mutex> lock(opFinishLock);
+			g_opDone = true;
+			opFinishWait.notify_one();
+		}
 		replayThread.join();
-		INFO_LOG(Log::System, "Joined replay thread.");
 		g_opToExec = { OpType::None };
 		break;
 	}

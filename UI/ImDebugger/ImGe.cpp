@@ -400,7 +400,7 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 						static VertexDecoder decoder;
 						decoder.SetVertexType(state.vertType, options);
 
-						static const char *colNames[] = {
+						static const char * const colNames[] = {
 							"Index",
 							"X",
 							"Y",
