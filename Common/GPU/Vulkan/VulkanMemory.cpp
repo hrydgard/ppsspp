@@ -40,11 +40,11 @@ VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t o
 	RegisterGPUMemoryManager(this);
 
 	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
-	if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_AMD) {
-		INFO_LOG(Log::G3D, "MoltenVK with AMD, allocating buffers with VMA_MEMORY_USAGE_CPU_ONLY");
-		allocation_usage_ = VMA_MEMORY_USAGE_CPU_ONLY; // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT + VK_MEMORY_PROPERTY_HOST_COHERENT_BIT in vma type index
-	} else {
-		allocation_usage_ = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	allocation_extra_flags_ = 0;
+	if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID != VULKAN_VENDOR_INTEL) {
+		// ref https://github.com/KhronosGroup/MoltenVK/issues/960
+		INFO_LOG(Log::G3D, "MoltenVK with dedicated gpu, adding VK_MEMORY_PROPERTY_HOST_COHERENT_BIT");
+		allocation_extra_flags_ = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	}
 	#endif
 
@@ -78,10 +78,9 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	VmaAllocationCreateInfo allocCreateInfo{};
 
-	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
-	allocCreateInfo.usage = allocation_usage_;
-	#else
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(AMD64)
+	allocCreateInfo.requiredFlags = allocation_extra_flags_;
 	#endif
 	VmaAllocationInfo allocInfo{};
 	
