@@ -616,14 +616,16 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 							ImGui::TextUnformatted(info.uiName);
 							ImGui::TableNextColumn();
 						}
-						char temp[256];
+						if (rows[i].cmd != GE_CMD_NOP) {
+							char temp[256];
 
-						const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
-						const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
-						const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
+							const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
+							const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
+							const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
-						FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
-						ImGui::TextUnformatted(temp);
+							FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
+							ImGui::TextUnformatted(temp);
+						}
 						if (!enabled)
 							ImGui::PopStyleColor();
 					}
