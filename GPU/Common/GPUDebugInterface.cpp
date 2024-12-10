@@ -533,7 +533,7 @@ bool GEExpressionFunctions::parseReference(char *str, uint32_t &referenceIndex) 
 	// For now, let's just support the register bits directly.
 	GECmdInfo info;
 	if (GECmdInfoByName(str, info)) {
-		referenceIndex = info.reg;
+		referenceIndex = info.cmd;
 		return true;
 	}
 
@@ -599,8 +599,8 @@ bool GEExpressionFunctions::parseFieldReference(const char *ref, const char *fie
 	}
 
 	for (const auto &entry : fieldNames) {
-		if (entry.fmt == info.fmt && strcasecmp(field, entry.name) == 0) {
-			referenceIndex = (info.reg << 12) | (uint32_t)entry.field;
+		if (entry.fmt == info.cmdFmt && strcasecmp(field, entry.name) == 0) {
+			referenceIndex = (info.cmd << 12) | (uint32_t)entry.field;
 			return true;
 		}
 	}
@@ -624,7 +624,7 @@ bool GEExpressionFunctions::parseSymbol(char *str, uint32_t &symbolValue) {
 uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 	GPUgstate state = gpu_->GetGState();
 	if (referenceIndex < 0x100) {
-		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex)).fmt;
+		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex)).cmdFmt;
 		uint32_t value = state.cmdmem[referenceIndex];
 		if (fmt == GECmdFormat::FLOAT)
 			return value << 8;
@@ -633,7 +633,7 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 
 	if (referenceIndex >= (uint32_t)GEReferenceIndex::FIELD_START && referenceIndex <= (uint32_t)GEReferenceIndex::FIELD_END) {
 		uint32_t value = state.cmdmem[referenceIndex >> 12] & 0x00FFFFFF;
-		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex >> 12)).fmt;
+		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex >> 12)).cmdFmt;
 		return getFieldValue(fmt, GECmdField(referenceIndex & 0xFF), value);
 	}
 
@@ -898,14 +898,14 @@ uint32_t GEExpressionFunctions::getFieldValue(GECmdFormat fmt, GECmdField field,
 
 ExpressionType GEExpressionFunctions::getReferenceType(uint32_t referenceIndex) {
 	if (referenceIndex < 0x100) {
-		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex)).fmt;
+		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex)).cmdFmt;
 		if (fmt == GECmdFormat::FLOAT)
 			return EXPR_TYPE_FLOAT;
 		return EXPR_TYPE_UINT;
 	}
 
 	if (referenceIndex >= (uint32_t)GEReferenceIndex::FIELD_START && referenceIndex <= (uint32_t)GEReferenceIndex::FIELD_END) {
-		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex >> 12)).fmt;
+		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex >> 12)).cmdFmt;
 		return getFieldType(fmt, GECmdField(referenceIndex & 0xFF));
 	}
 

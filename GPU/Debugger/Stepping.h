@@ -30,7 +30,6 @@ namespace GPUStepping {
 	bool EnterStepping();
 	bool IsStepping();
 	void ResumeFromStepping();
-	void WaitForAction();
 
 	int GetSteppingCounter();
 

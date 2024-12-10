@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-enum GECommand {
+enum GECommand : uint8_t {
 	GE_CMD_NOP = 0,
 	GE_CMD_VADDR = 0x1,
 	GE_CMD_IADDR = 0x2,

@@ -102,7 +102,7 @@ static void RunPauseAction() {
 		return;
 	}
 
-	INFO_LOG(Log::G3D, "RunPauseAction: %s", PauseActionToString(pauseAction));
+	DEBUG_LOG(Log::GeDebugger, "RunPauseAction: %s", PauseActionToString(pauseAction));
 
 	switch (pauseAction) {
 	case PAUSE_BREAK:
@@ -141,7 +141,8 @@ static void RunPauseAction() {
 		break;
 
 	default:
-		ERROR_LOG(Log::G3D, "Unsupported pause action, forgot to add it to the switch.");
+		ERROR_LOG(Log::GeDebugger, "Unsupported pause action, forgot to add it to the switch.");
+		break;
 	}
 
 	actionComplete = true;
@@ -185,7 +186,7 @@ bool ProcessStepping() {
 
 	if (pauseAction == PAUSE_CONTINUE) {
 		// This is fine, can just mean to run to the next breakpoint/event.
-		INFO_LOG(Log::G3D, "Continuing...");
+		DEBUG_LOG(Log::GeDebugger, "Continuing...");
 		actionComplete = true;
 		actionWait.notify_all();
 		coreState = CORE_RUNNING_GE;

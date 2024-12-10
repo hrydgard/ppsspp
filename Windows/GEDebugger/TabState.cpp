@@ -59,38 +59,19 @@ enum StateValuesCols {
 	STATEVALUES_COL_VALUE,
 };
 
-static std::vector<TabStateRow> watchList;
+static std::vector<GECommand> watchList;
 
-static void ToggleWatchList(const TabStateRow &info) {
+static void ToggleWatchList(const GECommand cmd) {
 	for (size_t i = 0; i < watchList.size(); ++i) {
-		if (watchList[i].cmd == info.cmd) {
+		if (watchList[i] == cmd) {
 			watchList.erase(watchList.begin() + i);
 			return;
 		}
 	}
-
-	watchList.push_back(info);
+	watchList.push_back(cmd);
 }
 
-static bool ToggleBreakpoint(const TabStateRow &info) {
-	if (IsCmdBreakpoint(info.cmd)) {
-		RemoveCmdBreakpoint(info.cmd);
-		if (info.otherCmd)
-			RemoveCmdBreakpoint(info.otherCmd);
-		if (info.otherCmd2)
-			RemoveCmdBreakpoint(info.otherCmd2);
-		return false;
-	}
-
-	AddCmdBreakpoint(info.cmd);
-	if (info.otherCmd)
-		AddCmdBreakpoint(info.otherCmd);
-	if (info.otherCmd2)
-		AddCmdBreakpoint(info.otherCmd2);
-	return true;
-}
-
-bool PromptStateValue(const TabStateRow &info, HWND hparent, const char *title, u32 &value) {
+bool PromptStateValue(const GECmdInfo &info, HWND hparent, const char *title, u32 &value) {
 	wchar_t wtitle[1024];
 	ConvertUTF8ToWString(wtitle, ARRAY_SIZE(wtitle), title);
 
@@ -117,7 +98,7 @@ bool PromptStateValue(const TabStateRow &info, HWND hparent, const char *title, 
 	return InputBox_GetHex(GetModuleHandle(NULL), hparent, wtitle, value, value);
 }
 
-CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
+CtrlStateValues::CtrlStateValues(const GECommand *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
 	SetIconList(12, 12, { (HICON)LoadIcon(GetModuleHandle(nullptr), (LPCWSTR)IDI_BREAKPOINT_SMALL) });
@@ -135,9 +116,11 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, size_t destSize, int row, int
 		break;
 
 	case STATEVALUES_COL_NAME:
-		ConvertUTF8ToWString(dest, destSize, rows_[row].title);
+	{
+		ConvertUTF8ToWString(dest, destSize, GECmdInfoByCmd(rows_[row]).uiName);
 		break;
-
+	}
+		
 	case STATEVALUES_COL_VALUE:
 		{
 			if (!gpuDebug) {
@@ -145,7 +128,7 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, size_t destSize, int row, int
 				break;
 			}
 
-			const auto info = rows_[row];
+			const auto info = GECmdInfoByCmd(rows_[row]);
 			const auto state = gpuDebug->GetGState();
 			const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
 			const u32 value = state.cmdmem[info.cmd] & 0xFFFFFF;
@@ -164,7 +147,7 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 		return;
 	}
 
-	const auto info = rows_[row];
+	const GECmdInfo &info = GECmdInfoByCmd(rows_[row]);
 
 	if (column == STATEVALUES_COL_BREAKPOINT) {
 		bool proceed = true;
@@ -192,21 +175,21 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 			const auto state = gpuDebug->GetGState();
 
 			u32 newValue = state.cmdmem[info.cmd] & 0x00FFFFFF;
-			snprintf(title, sizeof(title), "New value for %.*s", (int)info.title.size(), info.title.data());
+			snprintf(title, sizeof(title), "New value for %.*s", (int)info.uiName.size(), info.uiName.data());
 			if (PromptStateValue(info, GetHandle(), title, newValue)) {
 				newValue |= state.cmdmem[info.cmd] & 0xFF000000;
 				SetCmdValue(newValue);
 
 				if (info.otherCmd) {
 					newValue = state.cmdmem[info.otherCmd] & 0x00FFFFFF;
-					snprintf(title, sizeof(title), "New value for %.*s (secondary)", (int)info.title.size(), info.title.data());
+					snprintf(title, sizeof(title), "New value for %.*s (secondary)", (int)info.uiName.size(), info.uiName.data());
 					if (PromptStateValue(info, GetHandle(), title, newValue)) {
 						newValue |= state.cmdmem[info.otherCmd] & 0xFF000000;
 						SetCmdValue(newValue);
 
 						if (info.otherCmd2) {
 							newValue = state.cmdmem[info.otherCmd2] & 0x00FFFFFF;
-							snprintf(title, sizeof(title), "New value for %.*s (tertiary)", (int)info.title.size(), info.title.data());
+							snprintf(title, sizeof(title), "New value for %.*s (tertiary)", (int)info.uiName.size(), info.uiName.data());
 							if (PromptStateValue(info, GetHandle(), title, newValue)) {
 								newValue |= state.cmdmem[info.otherCmd2] & 0xFF000000;
 								SetCmdValue(newValue);
@@ -225,7 +208,9 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		return;
 	}
 
-	const auto info = rows_[row];
+	const GECommand cmd = rows_[row];
+	const GECmdInfo &info = GECmdInfoByCmd(cmd);
+
 	const auto state = gpuDebug->GetGState();
 
 	POINT screenPt(point);
@@ -292,7 +277,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		break;
 
 	case ID_GEDBG_WATCH:
-		ToggleWatchList(info);
+		ToggleWatchList(cmd);
 		SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_UPDATE_WATCH, 0, 0);
 		break;
 	}
@@ -314,7 +299,7 @@ void CtrlStateValues::SetCmdValue(u32 op) {
 bool CtrlStateValues::RowValuesChanged(int row) {
 	_assert_(gpuDebug != nullptr && row >= 0 && row < rowCount_);
 
-	const auto info = rows_[row];
+	const auto &info = GECmdInfoByCmd(rows_[row]);
 	const auto state = gpuDebug->GetGState();
 	const auto lastState = GPUStepping::LastState();
 
@@ -328,7 +313,7 @@ bool CtrlStateValues::RowValuesChanged(int row) {
 	return false;
 }
 
-void CtrlStateValues::PromptBreakpointCond(const TabStateRow &info) {
+void CtrlStateValues::PromptBreakpointCond(const GECmdInfo &info) {
 	std::string expression;
 	GPUBreakpoints::GetCmdBreakpointCond(info.cmd, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
@@ -346,7 +331,7 @@ void CtrlStateValues::PromptBreakpointCond(const TabStateRow &info) {
 
 }
 
-TabStateValues::TabStateValues(const TabStateRow *rows, size_t rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)
+TabStateValues::TabStateValues(const GECommand *rows, size_t rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)
 	: Dialog(dialogID, _hInstance, _hParent) {
 	values = new CtrlStateValues(rows, (int)rowCount, GetDlgItem(m_hDlg, IDC_GEDBG_VALUES));
 }

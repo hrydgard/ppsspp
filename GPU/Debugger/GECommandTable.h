@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string_view>
+
 #include "GPU/ge_constants.h"
 
 enum class GECmdFormat {
@@ -71,11 +74,62 @@ enum class GECmdFormat {
 	ALPHA_PRIM, // 8 bits alpha, 3 bits primitive type, 1 bit antialias, 6 bit clip?, 1 bit shading, 1 bit cullenable, 1 bit cullface, 1 bit tex enable, 1 bit fog, 1 bit dither.
 };
 
+// TODO: Merge with the above.
+enum CmdFormatType {
+	CMD_FMT_HEX = 0,
+	CMD_FMT_NUM,
+	CMD_FMT_FLOAT24,
+	CMD_FMT_PTRWIDTH,
+	CMD_FMT_XY,
+	CMD_FMT_XYXY,
+	CMD_FMT_XYZ,
+	CMD_FMT_XYPLUS1,
+	CMD_FMT_TEXSIZE,
+	CMD_FMT_F16_XY,
+	CMD_FMT_VERTEXTYPE,
+	CMD_FMT_TEXFMT,
+	CMD_FMT_CLUTFMT,
+	CMD_FMT_COLORTEST,
+	CMD_FMT_ALPHATEST,
+	CMD_FMT_STENCILTEST,
+	CMD_FMT_ZTEST,
+	CMD_FMT_OFFSETADDR,
+	CMD_FMT_VADDR,
+	CMD_FMT_IADDR,
+	CMD_FMT_MATERIALUPDATE,
+	CMD_FMT_STENCILOP,
+	CMD_FMT_BLENDMODE,
+	CMD_FMT_FLAG,
+	CMD_FMT_CLEARMODE,
+	CMD_FMT_TEXFUNC,
+	CMD_FMT_TEXMODE,
+	CMD_FMT_LOGICOP,
+	CMD_FMT_TEXWRAP,
+	CMD_FMT_TEXLEVEL,
+	CMD_FMT_TEXFILTER,
+	CMD_FMT_TEXMAPMODE,
+	CMD_FMT_TEXSHADELS,
+	CMD_FMT_SHADEMODEL,
+	CMD_FMT_LIGHTMODE,
+	CMD_FMT_LIGHTTYPE,
+	CMD_FMT_CULL,
+	CMD_FMT_PATCHPRIMITIVE,
+	CMD_FMT_HEX8 = CMD_FMT_HEX,  // TODO
+	CMD_FMT_INTEGER = CMD_FMT_HEX,
+};
+
 struct GECmdInfo {
-	GECommand reg;
-	const char *name;
-	GECmdFormat fmt;
+	GECommand cmd;
+	std::string_view name;  // scripting / expression name
+	GECmdFormat cmdFmt;
+	std::string_view uiName;  // friendly name
+	CmdFormatType fmt;
+	uint8_t enableCmd;
+	uint8_t otherCmd;
+	uint8_t otherCmd2;
 };
 
 bool GECmdInfoByName(const char *name, GECmdInfo &info);
-GECmdInfo GECmdInfoByCmd(GECommand reg);
+const GECmdInfo &GECmdInfoByCmd(GECommand reg);
+
+bool ToggleBreakpoint(const GECmdInfo &info);
