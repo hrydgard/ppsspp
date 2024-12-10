@@ -355,7 +355,7 @@ public:
 	u32 GetRelativeAddress(u32 data) override;
 	u32 GetVertexAddress() override;
 	u32 GetIndexAddress() override;
-	GPUgstate GetGState() override;
+	const GPUgstate &GetGState() override;
 	void SetCmdValue(u32 op) override;
 
 	DisplayList* getList(int listid) {

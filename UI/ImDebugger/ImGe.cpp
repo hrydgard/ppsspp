@@ -348,6 +348,10 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 					for (size_t i = 0; i < numRows; i++) {
 						const GECmdInfo &info = GECmdInfoByCmd(rows[i]);
 
+						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
+
+						if (!enabled)
+							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
 						ImGui::TableNextRow();
 						ImGui::TableNextColumn();
 						ImGui::Text("-");  // breakpoint
@@ -356,13 +360,14 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 						ImGui::TableNextColumn();
 						char temp[256];
 
-						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
 						const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
 						const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
 						const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
-						FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
+						FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
 						ImGui::TextUnformatted(temp);
+						if (!enabled)
+							ImGui::PopStyleColor();
 					}
 
 					ImGui::EndTable();
