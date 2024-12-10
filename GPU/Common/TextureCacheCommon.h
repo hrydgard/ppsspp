@@ -382,8 +382,8 @@ public:
 
 	virtual void DrawImGuiDebug(uint64_t &selectedTextureId) const;
 
-protected:
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
+protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;

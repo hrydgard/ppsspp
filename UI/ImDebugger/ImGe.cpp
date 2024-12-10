@@ -358,12 +358,14 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 				}
 				if (ImGui::BeginTabItem("Depth")) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_DEPTH_BIT, ImGuiPipeline::TexturedOpaque);
-					ImGui::Image(texId, ImVec2(128, 128));
+					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 					ImGui::EndTabItem();
 				}
 				if (ImGui::BeginTabItem("Stencil")) {
-					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
-					ImGui::Image(texId, ImVec2(128, 128));
+					// Nah, this isn't gonna work. We better just do a readback to texture, but then we need a message and some storage..
+					//
+					//ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
+					//ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 					ImGui::EndTabItem();
 				}
 				ImGui::EndTabBar();
@@ -374,7 +376,14 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 
 		ImGui::Text("Texture: ");
 
-		// TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+		TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+		TexCacheEntry *tex = texcache->SetTexture();
+		texcache->ApplyTexture();
+
+		void *nativeView = texcache->GetNativeTextureView(tex, true);
+		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+
+		ImGui::Image(texId, ImVec2(128, 128));
 
 		// Let's display the current CLUT.
 
