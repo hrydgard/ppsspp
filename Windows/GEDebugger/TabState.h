@@ -20,14 +20,16 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/Misc.h"
 
+#include "GPU/Debugger/GECommandTable.h"
+
 struct TabStateRow;
 
 class CtrlStateValues: public GenericListControl {
 public:
-	CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd);
+	CtrlStateValues(const GECommand *rows, int rowCount, HWND hwnd);
 
 	// Used by watch.
-	void UpdateRows(const TabStateRow *rows, int rowCount) {
+	void UpdateRows(const GECommand *rows, int rowCount) {
 		rows_ = rows;
 		rowCount_ = rowCount;
 	}
@@ -47,15 +49,15 @@ protected:
 private:
 	bool RowValuesChanged(int row);
 	void SetCmdValue(u32 op);
-	void PromptBreakpointCond(const TabStateRow &info);
+	void PromptBreakpointCond(const GECmdInfo &info);
 
-	const TabStateRow *rows_;
+	const GECommand *rows_;
 	int rowCount_;
 };
 
 class TabStateValues : public Dialog {
 public:
-	TabStateValues(const TabStateRow *rows, size_t rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
+	TabStateValues(const GECommand *rows, size_t rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent);
 	~TabStateValues();
 
 	void Update() override {

@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
+
 #include "GPU/ge_constants.h"
 
 enum class GECmdFormat {
@@ -116,17 +118,18 @@ enum CmdFormatType {
 	CMD_FMT_INTEGER = CMD_FMT_HEX,
 };
 
-
 struct GECmdInfo {
-	GECommand reg;
-	const char *name;  // scripting / expression name
-	GECmdFormat fmt;
-	const char *uiName;  // friendly name
-	CmdFormatType fmtType;
+	GECommand cmd;
+	std::string_view name;  // scripting / expression name
+	GECmdFormat cmdFmt;
+	std::string_view uiName;  // friendly name
+	CmdFormatType fmt;
 	uint8_t enableCmd;
 	uint8_t otherCmd;
 	uint8_t otherCmd2;
 };
 
 bool GECmdInfoByName(const char *name, GECmdInfo &info);
-GECmdInfo GECmdInfoByCmd(GECommand reg);
+const GECmdInfo &GECmdInfoByCmd(GECommand reg);
+
+bool ToggleBreakpoint(const GECmdInfo &info);

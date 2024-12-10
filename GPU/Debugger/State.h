@@ -24,19 +24,10 @@ enum VertexListCols {
 
 class GPUDebugInterface;
 
-struct TabStateRow {
-	std::string_view title;
-	uint8_t cmd;
-	CmdFormatType fmt;
-	uint8_t enableCmd;
-	uint8_t otherCmd;
-	uint8_t otherCmd2;
-};
-
-extern const TabStateRow g_stateFlagsRows[];
-extern const TabStateRow g_stateLightingRows[];
-extern const TabStateRow g_stateTextureRows[];
-extern const TabStateRow g_stateSettingsRows[];
+extern const GECommand g_stateFlagsRows[];
+extern const GECommand g_stateLightingRows[];
+extern const GECommand g_stateTextureRows[];
+extern const GECommand g_stateSettingsRows[];
 extern const size_t g_stateFlagsRowsSize;
 extern const size_t g_stateLightingRowsSize;
 extern const size_t g_stateTextureRowsSize;

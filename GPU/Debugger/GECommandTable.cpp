@@ -19,7 +19,9 @@
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "GPU/Debugger/GECommandTable.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "GPU/ge_constants.h"
+#include "StringUtils.h"
 
 struct GECmdAlias {
 	GECommand reg;
@@ -393,7 +395,7 @@ static constexpr GECmdAlias geCmdAliases[] = {
 
 bool GECmdInfoByName(const char *name, GECmdInfo &result) {
 	for (const GECmdInfo &info : geCmdInfo) {
-		if (strcasecmp(info.name, name) == 0) {
+		if (equalsNoCase(info.name, name)) {
 			result = info;
 			return true;
 		}
@@ -401,7 +403,7 @@ bool GECmdInfoByName(const char *name, GECmdInfo &result) {
 
 	for (const GECmdAlias &entry : geCmdAliases) {
 		for (const char *alias : entry.aliases) {
-			if (alias && strcasecmp(alias, name) == 0) {
+			if (alias && equalsNoCase(alias, name)) {
 				result = GECmdInfoByCmd(entry.reg);
 				return true;
 			}
@@ -411,7 +413,27 @@ bool GECmdInfoByName(const char *name, GECmdInfo &result) {
 	return false;
 }
 
-GECmdInfo GECmdInfoByCmd(GECommand reg) {
+const GECmdInfo &GECmdInfoByCmd(GECommand reg) {
 	_assert_msg_((reg & 0xFF) == reg, "Invalid reg");
 	return geCmdInfo[reg & 0xFF];
 }
+
+bool ToggleBreakpoint(const GECmdInfo &info) {
+	using namespace GPUBreakpoints;
+	if (IsCmdBreakpoint(info.cmd)) {
+		RemoveCmdBreakpoint(info.cmd);
+		if (info.otherCmd)
+			RemoveCmdBreakpoint(info.otherCmd);
+		if (info.otherCmd2)
+			RemoveCmdBreakpoint(info.otherCmd2);
+		return false;
+	}
+
+	AddCmdBreakpoint(info.cmd);
+	if (info.otherCmd)
+		AddCmdBreakpoint(info.otherCmd);
+	if (info.otherCmd2)
+		AddCmdBreakpoint(info.otherCmd2);
+	return true;
+}
+
