@@ -371,18 +371,23 @@ void hleCoreTimingForceCheck() {
 }
 
 // Pauses execution after an HLE call.
-bool hleExecuteDebugBreak(const HLEFunction &func)
-{
+static bool hleExecuteDebugBreak(const HLEFunction *func) {
+	if (!func || coreState == CORE_RUNNING_GE) {
+		// Let's break on the next one.
+		return false;
+	}
+
 	const u32 NID_SUSPEND_INTR = 0x092968F4, NID_RESUME_INTR = 0x5F10D406;
 
 	// Never break on these, they're noise.
 	u32 blacklistedNIDs[] = {NID_SUSPEND_INTR, NID_RESUME_INTR, NID_IDLE};
 	for (size_t i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
 	{
-		if (func.ID == blacklistedNIDs[i])
+		if (func->ID == blacklistedNIDs[i])
 			return false;
 	}
 
+	INFO_LOG(Log::CPU, "Broke after syscall: %s", func->name);
 	Core_Break("hle.step", latestSyscallPC);
 	return true;
 }
@@ -624,9 +629,7 @@ static void hleFinishSyscall(const HLEFunction *info) {
 		__KernelReSchedule(hleAfterSyscallReschedReason);
 
 	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0) {
-		_dbg_assert_(info);
-		if (!hleExecuteDebugBreak(*info))
-		{
+		if (!hleExecuteDebugBreak(info)) {
 			// We'll do it next syscall.
 			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
 			hleAfterSyscallReschedReason = 0;

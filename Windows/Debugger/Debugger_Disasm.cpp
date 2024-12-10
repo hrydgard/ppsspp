@@ -405,8 +405,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					} else {					// go
 						lastTicks_ = CoreTiming::GetTicks();
 
-						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-						breakpoints_->SetSkipFirst(currentMIPS->pc);
 						Core_Resume();
 					}
 				}
@@ -429,9 +427,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					if (Core_IsActive())
 						break;
 					lastTicks_ = CoreTiming::GetTicks();
-
-					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-					breakpoints_->SetSkipFirst(currentMIPS->pc);
 
 					hleDebugBreak();
 					Core_Resume();

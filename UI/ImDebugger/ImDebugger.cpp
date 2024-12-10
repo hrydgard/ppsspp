@@ -1116,6 +1116,12 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	}
 
 	ImGui::SameLine();
+	if (ImGui::SmallButton("Syscall")) {
+		hleDebugBreak();
+		Core_Resume();
+	}
+
+	ImGui::SameLine();
 	ImGui::SmallButton("Skim");
 	if (ImGui::IsItemActive()) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
