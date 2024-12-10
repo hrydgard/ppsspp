@@ -150,7 +150,6 @@ protected:
 	bool reduceHash_ = false;
 	bool ignoreMipmap_ = false;
 
-	float reduceHashSize = 1.0f; // default value with reduceHash to false
 	float reduceHashGlobalValue = 0.5f; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
 
 	double lastTextureCacheSizeGB_ = 0.0;

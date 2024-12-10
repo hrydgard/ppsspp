@@ -506,10 +506,13 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 	}
 
 	const u8 *checkp = Memory::GetPointerUnchecked(addr);
+
+	float reduceHashSize = 1.0f;
 	if (reduceHash_) {
 		reduceHashSize = LookupReduceHashRange(w, h);
 		// default to reduceHashGlobalValue which default is 0.5
 	}
+
 	if (bufw <= w) {
 		// We can assume the data is contiguous.  These are the total used pixels.
 		const u32 totalPixels = bufw * h + (w - bufw);
