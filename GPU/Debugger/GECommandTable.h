@@ -119,8 +119,9 @@ enum CmdFormatType {
 
 struct GECmdInfo {
 	GECommand reg;
-	const char *name;
+	const char *name;  // scripting / expression name
 	GECmdFormat fmt;
+	const char *uiName;  // friendly name
 	CmdFormatType fmtType;
 	uint8_t enableCmd;
 	uint8_t otherCmd;
