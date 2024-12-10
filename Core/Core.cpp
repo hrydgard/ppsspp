@@ -424,7 +424,10 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 // Free-threaded (or at least should be)
 void Core_Resume() {
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	g_breakpoints.SetSkipFirst(currentMIPS->pc);
+	if (currentMIPS) {
+		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+	}
+
 	// Handle resuming from GE.
 	if (coreState == CORE_STEPPING_GE) {
 		coreState = CORE_RUNNING_GE;
