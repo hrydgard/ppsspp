@@ -21,22 +21,26 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <thread>
 #include <snappy-c.h>
 #include <zstd.h>
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/System.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -47,11 +51,56 @@
 
 namespace GPURecord {
 
+// Provide the illusion of synchronous execution, although the playback is actually running on a different thread.
+enum class OpType {
+	None,
+	UpdateStallAddr,
+	EnqueueList,
+	ListSync,
+	ReapplyGfxState,
+	Done,
+};
+
+struct Operation {
+	OpType type;
+	u32 listID;  // also listPC in EnqueueList
+	u32 param;  // stallAddr generally
+};
+
 static std::string lastExecFilename;
 static uint32_t lastExecVersion;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
-static std::mutex executeLock;
+
+static std::thread replayThread;
+
+static std::mutex opStartLock;
+static std::condition_variable opStartWait;
+
+static std::mutex opFinishLock;
+static std::condition_variable opFinishWait;
+static Operation g_opToExec;
+static u32 g_retVal;
+static bool g_opDone = true;
+
+// Runs on operation thread
+u32 ExecuteOnMain(Operation opToExec) {
+	{
+		std::unique_lock<std::mutex> startLock(opStartLock);
+		g_opToExec = opToExec;
+		g_retVal = 0;
+		g_opDone = false;
+		opStartWait.notify_one();
+	}
+
+	// now wait for completion. At that point, noone cares about g_opToExec anymore, and we can safely
+	// overwrite it next time.
+	{
+		std::unique_lock<std::mutex> lock(opFinishLock);
+		opFinishWait.wait(lock, []() { return g_opDone; });
+	}
+	return g_retVal;
+}
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -291,7 +340,7 @@ public:
 	}
 	~DumpExecute();
 
-	bool Run();
+	ReplayResult Run();
 
 private:
 	void SyncStall();
@@ -328,6 +377,8 @@ private:
 	const std::vector<Command> &commands_;
 	BufMapping mapping_;
 	uint32_t version_ = 0;
+
+	int resumeIndex_ = -1;
 };
 
 void DumpExecute::SyncStall() {
@@ -336,12 +387,8 @@ void DumpExecute::SyncStall() {
 		return;
 	}
 
-	bool runList;
-	gpu->UpdateStall(execListID, execListPos, &runList);
-	if (runList) {
-		DLResult result = gpu->ProcessDLQueue();
-		_dbg_assert_(result == DLResult::Done || result == DLResult::Stall);
-	}
+	ExecuteOnMain(Operation{ OpType::UpdateStallAddr, execListID, execListPos });
+
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
 		s64 nowTicks = CoreTiming::GetTicks();
@@ -349,8 +396,11 @@ void DumpExecute::SyncStall() {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}
 	}
-	// Make sure downcount doesn't overflow.
-	CoreTiming::ForceCheck();
+
+	// Make sure downcount doesn't overflow. (can this even happen?)
+	// Also this doesn't do anything in this context, we don't reschedule... or at least
+	// aren't supposed to.
+	// CoreTiming::ForceCheck();
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
@@ -369,13 +419,9 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 		Memory::Write_U32(GE_CMD_NOP << 24, execListPos);
 		execListPos += 4;
 
+		// TODO: Why do we disable interrupts here?
 		gpu->EnableInterrupts(false);
-		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
-		bool runList;
-		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false, &runList);
-		if (runList) {
-			gpu->ProcessDLQueue();
-		}
+		execListID = ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
 		gpu->EnableInterrupts(true);
 	}
 
@@ -451,12 +497,12 @@ void DumpExecute::SubmitListEnd() {
 	lastBase_ = 0xFFFFFFFF;
 
 	SyncStall();
-	gpu->ListSync(execListID, 0);
+	ExecuteOnMain(Operation{ OpType::ListSync, execListID });
 }
 
 void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
-	gpu->ReapplyGfxState();
+	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
 
 	for (int i = 0; i < 8; ++i) {
 		lastBufw_[i] = 0;
@@ -554,6 +600,7 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 
 	if (Memory::IsVRAMAddress(data->dest)) {
 		SyncStall();
+		// TODO: should probably do this as an operation.
 		gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz);
 	}
 }
@@ -660,12 +707,17 @@ DumpExecute::~DumpExecute() {
 	mapping_.Reset();
 }
 
-bool DumpExecute::Run() {
+ReplayResult DumpExecute::Run() {
 	// Start with the default value.
 	if (gpu)
 		gpu->SetAddrTranslation(0x400);
 
-	for (size_t i = 0; i < commands_.size(); i++) {
+	if (resumeIndex_ >= 0) {
+		SyncStall();
+	}
+
+	int start = resumeIndex_ >= 0 ? resumeIndex_ : 0;
+	for (size_t i = start; i < commands_.size(); i++) {
 		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
@@ -740,12 +792,12 @@ bool DumpExecute::Run() {
 
 		default:
 			ERROR_LOG(Log::System, "Unsupported GE dump command: %d", (int)cmd.type);
-			return false;
+			return ReplayResult::Error;
 		}
 	}
 
 	SubmitListEnd();
-	return true;
+	return ReplayResult::Done;
 }
 
 static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
@@ -771,68 +823,194 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 }
 
 static void ReplayStop() {
+	_dbg_assert_(!replayThread.joinable());
+
 	// This can happen from a separate thread.
-	std::lock_guard<std::mutex> guard(executeLock);
 	lastExecFilename.clear();
 	lastExecCommands.clear();
 	lastExecPushbuf.clear();
 	lastExecVersion = 0;
 }
 
-bool RunMountedReplay(const std::string &filename) {
+static u32 LoadReplay(const std::string &filename) {
+	PROFILE_THIS_SCOPE("ReplayLoad");
+	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+	Header header;
+	pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
+	u32 version = header.version;
+
+	if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
+		ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
+		pspFileSystem.CloseFile(fp);
+		return 0;
+	}
+	if (header.version <= 3) {
+		pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
+		memset(header.gameID, 0, sizeof(header.gameID));
+	}
+
+	size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
+	if (gameIDLength != 0) {
+		g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
+	}
+
+	u32 sz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
+	u32 bufsz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
+
+	lastExecCommands.resize(sz);
+	lastExecPushbuf.resize(bufsz);
+
+	bool truncated = false;
+	truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz, header.version);
+	truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz, header.version);
+
+	pspFileSystem.CloseFile(fp);
+
+	if (truncated) {
+		ERROR_LOG(Log::System, "Truncated GE dump detected - can't replay");
+		return 0;
+	}
+
+	lastExecFilename = filename;
+	lastExecVersion = version;
+	return version;
+}
+
+void WriteRunDumpCode(u32 codeStart) {
+	// NOTE: Not static, since parts are run-time computed (MIPS_MAKE_SYSCALL etc)
+	const u32 runDumpCode[] = {
+		// Save the filename.
+		MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+		MIPS_MAKE_ORI(MIPS_REG_S1, MIPS_REG_A1, 0),
+		// Call the actual render. Jump here to start over.
+		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
+		MIPS_MAKE_NOP(),
+		// Re-run immediately if requested by the return value from __KernelGPUReplay
+		MIPS_MAKE_BNEZ(codeStart + 4 * 4, codeStart + 8, MIPS_REG_V0),
+		MIPS_MAKE_NOP(),
+		// When done (__KernelGPUReplay returned 0), make sure we don't get out of sync (is this needed?)
+		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
+		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
+		MIPS_MAKE_NOP(),
+		// Wait for the next vblank to render again, then (through the delay slot) jump right back up to __KernelGPUReplay.
+		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
+		MIPS_MAKE_NOP(),
+		MIPS_MAKE_J(codeStart + 8),
+		MIPS_MAKE_NOP(),
+		// This never gets reached, just here to be "safe".
+		MIPS_MAKE_BREAK(0),
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(runDumpCode); ++i) {
+		Memory::WriteUnchecked_U32(runDumpCode[i], codeStart + (u32)i * sizeof(u32_le));
+	}
+}
+
+// This is called by the syscall.
+ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
-	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
 
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {
-		PROFILE_THIS_SCOPE("ReplayLoad");
-		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-		Header header;
-		pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
-		version = header.version;
-
-		if (memcmp(header.magic, HEADER_MAGIC, sizeof(header.magic)) != 0 || header.version > VERSION || header.version < MIN_VERSION) {
-			ERROR_LOG(Log::System, "Invalid GE dump or unsupported version");
-			pspFileSystem.CloseFile(fp);
-			return false;
+		// Does this ever happen? Can the filename change, without going through core shutdown/startup?
+		if (replayThread.joinable()) {
+			replayThread.join();
 		}
-		if (header.version <= 3) {
-			pspFileSystem.SeekFile(fp, 12, FILEMOVE_BEGIN);
-			memset(header.gameID, 0, sizeof(header.gameID));
+		version = LoadReplay(filename);
+		if (!version) {
+			ERROR_LOG(Log::G3D, "bad version %08x", version);
+			return ReplayResult::Error;
 		}
-
-		size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
-		if (gameIDLength != 0) {
-			g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
-		}
-
-		u32 sz = 0;
-		pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
-		u32 bufsz = 0;
-		pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
-
-		lastExecCommands.resize(sz);
-		lastExecPushbuf.resize(bufsz);
-
-		bool truncated = false;
-		truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz, header.version);
-		truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz, header.version);
-
-		pspFileSystem.CloseFile(fp);
-
-		if (truncated) {
-			ERROR_LOG(Log::System, "Truncated GE dump");
-			return false;
-		}
-
-		lastExecFilename = filename;
-		lastExecVersion = version;
 	}
 
-	DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
-	return executor.Run();
+	if (g_opToExec.type != OpType::None) {
+		std::unique_lock<std::mutex> waitLock(opFinishLock);
+		g_opDone = true;
+		g_opToExec = Operation{ OpType::None };
+		opFinishWait.notify_one();
+	}
+
+	if (!replayThread.joinable()) {
+		_dbg_assert_(g_opToExec.type == OpType::None);
+		g_opToExec = Operation{ OpType::None };
+		replayThread = std::thread([version]() {
+			SetCurrentThreadName("Replay");
+			DumpExecute executor(lastExecPushbuf, lastExecCommands, version);
+			GPURecord::ReplayResult retval = executor.Run();
+			// Finish up
+			ExecuteOnMain(Operation{ OpType::Done });
+		});
+	}
+
+	// OK, now wait for and perform the desired action.
+	{
+		std::unique_lock<std::mutex> lock(opStartLock);
+		opStartWait.wait(lock, []() { return g_opToExec.type != OpType::None; });
+	}
+
+	switch (g_opToExec.type) {
+	case OpType::UpdateStallAddr:
+	{
+		bool runList;
+		hleEatCycles(190);
+		hleCoreTimingForceCheck();
+		gpu->UpdateStall(g_opToExec.listID, g_opToExec.param, &runList);
+		if (runList) {
+			hleSplitSyscallOverGe();
+		}
+		// We're not done yet, request another go.
+		return ReplayResult::Break;
+	}
+	case OpType::EnqueueList:
+	{
+		bool runList;
+		u32 listPC = g_opToExec.listID;
+		u32 execListPos = g_opToExec.param;
+		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
+		g_retVal = gpu->EnqueueList(listPC, execListPos, -1, optParam, false, &runList);
+		INFO_LOG(Log::G3D, "Enqueued: dl=%d", g_retVal);
+		if (runList) {
+			hleSplitSyscallOverGe();
+		}
+		// We're not done yet, request another go.
+		hleEatCycles(490);
+		hleCoreTimingForceCheck();
+		return ReplayResult::Break;
+	}
+	case OpType::ReapplyGfxState:
+	{
+		// try again but no need to split the sys call
+		gpu->ReapplyGfxState();
+		return ReplayResult::Break;
+	}
+	case OpType::ListSync:
+	{
+		u32 execListID = g_opToExec.listID;
+		u32 mode = g_opToExec.param;
+		// try again but no need to split the sys call
+		hleEatCycles(220);
+		gpu->ListSync(execListID, mode);
+		return ReplayResult::Break;
+	}
+	case OpType::Done:
+	{
+		_dbg_assert_(replayThread.joinable());
+		{
+			std::unique_lock<std::mutex> lock(opFinishLock);
+			g_opDone = true;
+			opFinishWait.notify_one();
+		}
+		replayThread.join();
+		g_opToExec = { OpType::None };
+		break;
+	}
+	case OpType::None:
+		break;
+	}
+	return ReplayResult::Done;
 }
 
-};
+}  // namespace GPURecord

@@ -170,6 +170,8 @@ bool ReplacedTexture::Poll(double budget) {
 	case ReplacementState::UNLOADED:
 		// We're gonna need to spawn a task.
 		break;
+	default:
+		break;
 	}
 
 	lastUsed_ = now;
