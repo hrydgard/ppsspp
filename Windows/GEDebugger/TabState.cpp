@@ -32,6 +32,7 @@
 #include "Windows/W32Util/ContextMenu.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Debugger/GECommandTable.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Stepping.h"
@@ -60,6 +61,188 @@ enum StateValuesCols {
 };
 
 static std::vector<GECommand> watchList;
+
+const GECommand g_stateFlagsRows[] = {
+	GE_CMD_LIGHTINGENABLE,
+	GE_CMD_LIGHTENABLE0,
+	GE_CMD_LIGHTENABLE1,
+	GE_CMD_LIGHTENABLE2,
+	GE_CMD_LIGHTENABLE3,
+	GE_CMD_DEPTHCLAMPENABLE,
+	GE_CMD_CULLFACEENABLE,
+	GE_CMD_TEXTUREMAPENABLE,
+	GE_CMD_FOGENABLE,
+	GE_CMD_DITHERENABLE,
+	GE_CMD_ALPHABLENDENABLE,
+	GE_CMD_ALPHATESTENABLE,
+	GE_CMD_ZTESTENABLE,
+	GE_CMD_STENCILTESTENABLE,
+	GE_CMD_ANTIALIASENABLE,
+	GE_CMD_PATCHCULLENABLE,
+	GE_CMD_COLORTESTENABLE,
+	GE_CMD_LOGICOPENABLE,
+	GE_CMD_ZWRITEDISABLE,
+};
+const size_t g_stateFlagsRowsSize = ARRAY_SIZE(g_stateFlagsRows);
+
+const GECommand g_stateLightingRows[] = {
+	GE_CMD_AMBIENTCOLOR,
+	GE_CMD_AMBIENTALPHA,
+	GE_CMD_MATERIALUPDATE,
+	GE_CMD_MATERIALEMISSIVE,
+	GE_CMD_MATERIALAMBIENT,
+	GE_CMD_MATERIALDIFFUSE,
+	GE_CMD_MATERIALALPHA,
+	GE_CMD_MATERIALSPECULAR,
+	GE_CMD_MATERIALSPECULARCOEF,
+	GE_CMD_REVERSENORMAL,
+	GE_CMD_SHADEMODE,
+	GE_CMD_LIGHTMODE,
+	GE_CMD_LIGHTTYPE0,
+	GE_CMD_LIGHTTYPE1,
+	GE_CMD_LIGHTTYPE2,
+	GE_CMD_LIGHTTYPE3,
+	GE_CMD_LX0,
+	GE_CMD_LX1,
+	GE_CMD_LX2,
+	GE_CMD_LX3,
+	GE_CMD_LDX0,
+	GE_CMD_LDX1,
+	GE_CMD_LDX2,
+	GE_CMD_LDX3,
+	GE_CMD_LKA0,
+	GE_CMD_LKA1,
+	GE_CMD_LKA2,
+	GE_CMD_LKA3,
+	GE_CMD_LKS0,
+	GE_CMD_LKS1,
+	GE_CMD_LKS2,
+	GE_CMD_LKS3,
+	GE_CMD_LKO0,
+	GE_CMD_LKO1,
+	GE_CMD_LKO2,
+	GE_CMD_LKO3,
+	GE_CMD_LAC0,
+	GE_CMD_LDC0,
+	GE_CMD_LSC0,
+	GE_CMD_LAC1,
+	GE_CMD_LDC1,
+	GE_CMD_LSC1,
+	GE_CMD_LAC2,
+	GE_CMD_LDC2,
+	GE_CMD_LSC2,
+	GE_CMD_LAC3,
+	GE_CMD_LDC3,
+	GE_CMD_LSC3,
+};
+const size_t g_stateLightingRowsSize = ARRAY_SIZE(g_stateLightingRows);
+
+const GECommand g_stateTextureRows[] = {
+	GE_CMD_TEXADDR0,
+	GE_CMD_TEXSIZE0,
+	GE_CMD_TEXFORMAT,
+	GE_CMD_CLUTADDR,
+	GE_CMD_CLUTFORMAT,
+	GE_CMD_TEXSCALEU,
+	GE_CMD_TEXSCALEV,
+	GE_CMD_TEXOFFSETU,
+	GE_CMD_TEXOFFSETV,
+	GE_CMD_TEXMAPMODE,
+	GE_CMD_TEXSHADELS,
+	GE_CMD_TEXFUNC,
+	GE_CMD_TEXENVCOLOR,
+	GE_CMD_TEXMODE,
+	GE_CMD_TEXFILTER,
+	GE_CMD_TEXWRAP,
+	GE_CMD_TEXLEVEL,
+	GE_CMD_TEXLODSLOPE,
+	GE_CMD_TEXADDR1,
+	GE_CMD_TEXADDR2,
+	GE_CMD_TEXADDR3,
+	GE_CMD_TEXADDR4,
+	GE_CMD_TEXADDR5,
+	GE_CMD_TEXADDR6,
+	GE_CMD_TEXADDR7,
+	GE_CMD_TEXSIZE1,
+	GE_CMD_TEXSIZE2,
+	GE_CMD_TEXSIZE3,
+	GE_CMD_TEXSIZE4,
+	GE_CMD_TEXSIZE5,
+	GE_CMD_TEXSIZE6,
+	GE_CMD_TEXSIZE7,
+};
+const size_t g_stateTextureRowsSize = ARRAY_SIZE(g_stateTextureRows);
+
+const GECommand g_stateSettingsRows[] = {
+	GE_CMD_FRAMEBUFPTR,
+	GE_CMD_FRAMEBUFPIXFORMAT,
+	GE_CMD_ZBUFPTR,
+	GE_CMD_VIEWPORTXSCALE,
+	GE_CMD_VIEWPORTXCENTER,
+	GE_CMD_SCISSOR1,
+	GE_CMD_REGION1,
+	GE_CMD_COLORTEST,
+	GE_CMD_ALPHATEST,
+	GE_CMD_CLEARMODE,
+	GE_CMD_STENCILTEST,
+	GE_CMD_STENCILOP,
+	GE_CMD_ZTEST,
+	GE_CMD_MASKRGB,
+	GE_CMD_MASKALPHA,
+	GE_CMD_TRANSFERSRC,
+	GE_CMD_TRANSFERSRCPOS,
+	GE_CMD_TRANSFERDST,
+	GE_CMD_TRANSFERDSTPOS,
+	GE_CMD_TRANSFERSIZE,
+	GE_CMD_VERTEXTYPE,
+	GE_CMD_OFFSETADDR,
+	GE_CMD_VADDR,
+	GE_CMD_IADDR,
+	GE_CMD_MINZ,
+	GE_CMD_MAXZ,
+	GE_CMD_OFFSETX,
+	GE_CMD_CULL,
+	GE_CMD_BLENDMODE,
+	GE_CMD_BLENDFIXEDA,
+	GE_CMD_BLENDFIXEDB,
+	GE_CMD_LOGICOP,
+	GE_CMD_FOG1,
+	GE_CMD_FOG2,
+	GE_CMD_FOGCOLOR,
+	GE_CMD_MORPHWEIGHT0,
+	GE_CMD_MORPHWEIGHT1,
+	GE_CMD_MORPHWEIGHT2,
+	GE_CMD_MORPHWEIGHT3,
+	GE_CMD_MORPHWEIGHT4,
+	GE_CMD_MORPHWEIGHT5,
+	GE_CMD_MORPHWEIGHT6,
+	GE_CMD_MORPHWEIGHT7,
+	GE_CMD_PATCHDIVISION,
+	GE_CMD_PATCHPRIMITIVE,
+	GE_CMD_PATCHFACING,
+	GE_CMD_DITH0,
+	GE_CMD_DITH1,
+	GE_CMD_DITH2,
+	GE_CMD_DITH3,
+	GE_CMD_VSCX,
+	GE_CMD_VSCZ,
+	GE_CMD_VTCS,
+	GE_CMD_VCV,
+	GE_CMD_VSCV,
+	GE_CMD_VFC,
+	GE_CMD_VAP,
+};
+const size_t g_stateSettingsRowsSize = ARRAY_SIZE(g_stateSettingsRows);
+
+// TODO: Commands not present in the above lists (some because they don't have meaningful values...):
+//   GE_CMD_PRIM, GE_CMD_BEZIER, GE_CMD_SPLINE, GE_CMD_BOUNDINGBOX,
+//   GE_CMD_JUMP, GE_CMD_BJUMP, GE_CMD_CALL, GE_CMD_RET, GE_CMD_END, GE_CMD_SIGNAL, GE_CMD_FINISH,
+//   GE_CMD_BONEMATRIXNUMBER, GE_CMD_BONEMATRIXDATA, GE_CMD_WORLDMATRIXNUMBER, GE_CMD_WORLDMATRIXDATA,
+//   GE_CMD_VIEWMATRIXNUMBER, GE_CMD_VIEWMATRIXDATA, GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA,
+//   GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA,
+//   GE_CMD_LOADCLUT, GE_CMD_TEXFLUSH, GE_CMD_TEXSYNC,
+//   GE_CMD_TRANSFERSTART,
+//   GE_CMD_UNKNOWN_*
 
 static void ToggleWatchList(const GECommand cmd) {
 	for (size_t i = 0; i < watchList.size(); ++i) {
@@ -175,21 +358,21 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 			const auto state = gpuDebug->GetGState();
 
 			u32 newValue = state.cmdmem[info.cmd] & 0x00FFFFFF;
-			snprintf(title, sizeof(title), "New value for %.*s", (int)info.uiName.size(), info.uiName.data());
+			snprintf(title, sizeof(title), "New value for %s", info.uiName);
 			if (PromptStateValue(info, GetHandle(), title, newValue)) {
 				newValue |= state.cmdmem[info.cmd] & 0xFF000000;
 				SetCmdValue(newValue);
 
 				if (info.otherCmd) {
 					newValue = state.cmdmem[info.otherCmd] & 0x00FFFFFF;
-					snprintf(title, sizeof(title), "New value for %.*s (secondary)", (int)info.uiName.size(), info.uiName.data());
+					snprintf(title, sizeof(title), "New value for %s (secondary)", info.uiName);
 					if (PromptStateValue(info, GetHandle(), title, newValue)) {
 						newValue |= state.cmdmem[info.otherCmd] & 0xFF000000;
 						SetCmdValue(newValue);
 
 						if (info.otherCmd2) {
 							newValue = state.cmdmem[info.otherCmd2] & 0x00FFFFFF;
-							snprintf(title, sizeof(title), "New value for %.*s (tertiary)", (int)info.uiName.size(), info.uiName.data());
+							snprintf(title, sizeof(title), "New value for %s (tertiary)", info.uiName);
 							if (PromptStateValue(info, GetHandle(), title, newValue)) {
 								newValue |= state.cmdmem[info.otherCmd2] & 0xFF000000;
 								SetCmdValue(newValue);

@@ -220,7 +220,7 @@ public:
 	virtual u32 GetRelativeAddress(u32 data) = 0;
 	virtual u32 GetVertexAddress() = 0;
 	virtual u32 GetIndexAddress() = 0;
-	virtual GPUgstate GetGState() = 0;
+	virtual const GPUgstate &GetGState() = 0;
 	// Needs to be called from the GPU thread.
 	// Calling from a separate thread (e.g. UI) may fail.
 	virtual void SetCmdValue(u32 op) = 0;
