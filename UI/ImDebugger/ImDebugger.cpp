@@ -1134,6 +1134,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	if (ImGui::SmallButton("Goto PC")) {
 		disasmView_.gotoPC();
 	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Goto LR")) {
+		disasmView_.gotoLR();
+	}
 
 	if (ImGui::BeginPopup("disSearch")) {
 		if (ImGui::IsWindowAppearing()) {

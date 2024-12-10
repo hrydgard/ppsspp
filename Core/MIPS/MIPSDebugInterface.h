@@ -36,8 +36,6 @@ public:
 	void clearAllBreakpoints() override;
 	void toggleBreakpoint(unsigned int address) override;
 	unsigned int readMemory(unsigned int address) override;
-	unsigned int getPC() override { return cpu->pc; }
-	void setPC(unsigned int address) override { cpu->pc = address; }
 	void step() override {}
 	void runToBreakpoint() override;
 	int getColor(unsigned int address, bool darkMode) const override;

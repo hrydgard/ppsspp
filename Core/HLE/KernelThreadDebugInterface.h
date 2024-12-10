@@ -26,9 +26,6 @@ public:
 	KernelThreadDebugInterface(MIPSState *c, PSPThreadContext &t) : MIPSDebugInterface(c), ctx(t) {
 	}
 
-	unsigned int getPC() override { return ctx.pc; }
-	void setPC(unsigned int address) override { ctx.pc = address; }
-
 	u32 GetGPR32Value(int reg) override { return ctx.r[reg]; }
 	u32 GetPC() override { return ctx.pc; }
 	u32 GetLR() override { return ctx.r[MIPS_REG_RA]; }

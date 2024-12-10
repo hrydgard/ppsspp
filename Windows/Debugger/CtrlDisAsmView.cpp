@@ -531,7 +531,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : (debugger->getColor(address, false) & 0xFFFFFF);
 		COLORREF textColor = 0x000000;
 
-		if (isInInterval(address, line.totalSize, debugger->getPC()))
+		if (isInInterval(address, line.totalSize, debugger->GetPC()))
 		{
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
@@ -574,13 +574,13 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		getDisasmAddressText(address,addressText,true,line.type == DISTYPE_OPCODE);
 		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 		
-		if (isInInterval(address,line.totalSize,debugger->getPC()))
+		if (isInInterval(address,line.totalSize,debugger->GetPC()))
 		{
 			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"\x25A0",1);
 		}
 
 		// display whether the condition of a branch is met
-		if (line.info.isConditional && address == debugger->getPC())
+		if (line.info.isConditional && address == debugger->GetPC())
 		{
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
@@ -1009,7 +1009,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			}
 			break;
 		case ID_DISASM_SETPCTOHERE:
-			debugger->setPC(curAddress);
+			debugger->SetPC(curAddress);
 			redraw();
 			break;
 		case ID_DISASM_FOLLOWBRANCH:
