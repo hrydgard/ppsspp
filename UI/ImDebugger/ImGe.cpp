@@ -311,21 +311,78 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		}
 	}
 
-	// Let's display the current CLUT.
+	// First, let's list any active display lists in the left column, on top of the disassembly.
 
-	// First, let's list any active display lists in the left column.
+	ImGui::BeginChild("left pane", ImVec2(400, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
 	for (auto index : gpuDebug->GetDisplayListQueue()) {
 		const auto &list = gpuDebug->GetDisplayList(index);
 		char title[64];
 		snprintf(title, sizeof(title), "List %d", list.id);
 		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
+			ImGui::Text("PC: %08x", list.pc);
+			ImGui::Text("StartPC: %08x", list.startpc);
+			ImGui::Text("Pending interrupt: %d", (int)list.pendingInterrupt);
+			ImGui::Text("Stack depth: %d", (int)list.stackptr);
 			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 		}
 	}
 
 	// Display the disassembly view.
 	disasmView_.Draw(gpuDebug);
+
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
+
+	if (coreState == CORE_STEPPING_GE) {
+		FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
+		u32 fbptr = gstate.getFrameBufAddress();
+		VirtualFramebuffer *vfb = fbman->GetVFBAt(fbptr);
+
+		if (vfb) {
+			if (vfb->fbo) {
+				ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
+			} else {
+				ImGui::Text("Framebuffer");
+			}
+
+			if (ImGui::BeginTabBar("aspects")) {
+				if (ImGui::BeginTabItem("Color")) {
+					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+					// TODO: Draw vertex preview on top!
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Depth")) {
+					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_DEPTH_BIT, ImGuiPipeline::TexturedOpaque);
+					ImGui::Image(texId, ImVec2(128, 128));
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Stencil")) {
+					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
+					ImGui::Image(texId, ImVec2(128, 128));
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
+			}
+
+			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
+		}
+
+		ImGui::Text("Texture: ");
+
+		// TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+
+		// Let's display the current CLUT.
+
+	} else {
+		ImGui::Text("Click the buttons above (Tex, etc) to stop");
+	}
+
+	ImGui::EndChild();
 
 	ImGui::End();
 }
