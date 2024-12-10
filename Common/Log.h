@@ -48,6 +48,7 @@ enum class Log {
 	HTTP,
 	Printf,
 	TexReplacement,
+	Debugger,
 
 	sceAudio,
 	sceCtrl,
