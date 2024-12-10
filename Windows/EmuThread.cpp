@@ -105,9 +105,13 @@ static bool Run(GraphicsContext *ctx) {
 			NativeFrame(ctx);
 			return true;
 
+		case CORE_RUNTIME_ERROR:
+			// Need to step the loop.
+			NativeFrame(ctx);
+			break;
+
 		case CORE_POWERUP:
 		case CORE_BOOT_ERROR:
-		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
 			return true;
 
