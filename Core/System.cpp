@@ -596,6 +596,7 @@ void PSP_RunLoopWhileState() {
 	int blockTicks = usToCycles(1000000 / 10);
 	// Run until CORE_NEXTFRAME
 	PSP_RunLoopFor(blockTicks);
+	// TODO: Check for frame timeout?
 }
 
 void PSP_RunLoopFor(int cycles) {

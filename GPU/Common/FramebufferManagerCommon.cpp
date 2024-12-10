@@ -1851,9 +1851,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	bool creating = old.bufferWidth == 0;
 	if (creating) {
-		WARN_LOG(Log::FrameBuf, "Creating %s FBO at %08x/%08x stride=%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
+		INFO_LOG(Log::FrameBuf, "Creating %s FBO at %08x/%08x stride=%d %dx%d (force=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, vfb->bufferWidth, vfb->bufferHeight, (int)force);
 	} else {
-		WARN_LOG(Log::FrameBuf, "Resizing %s FBO at %08x/%08x stride=%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
+		INFO_LOG(Log::FrameBuf, "Resizing %s FBO at %08x/%08x stride=%d from %dx%d to %dx%d (force=%d, skipCopy=%d)", GeBufferFormatToString(vfb->fb_format), vfb->fb_address, vfb->z_address, vfb->fb_stride, old.bufferWidth, old.bufferHeight, vfb->bufferWidth, vfb->bufferHeight, (int)force, (int)skipCopy);
 	}
 
 	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.

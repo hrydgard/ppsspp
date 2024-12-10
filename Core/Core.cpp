@@ -90,7 +90,7 @@ static bool g_breakAfterFrame = false;
 static MIPSExceptionInfo g_exceptionInfo;
 
 // This is called on EmuThread before RunLoop.
-static void Core_ProcessStepping(MIPSDebugInterface *cpu);
+static bool Core_ProcessStepping(MIPSDebugInterface *cpu);
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
 	PSP_CoreParameter().graphicsContext = ctx;
@@ -173,8 +173,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 			return;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
-			Core_ProcessStepping(currentDebugMIPS);
-			return;
+			if (Core_ProcessStepping(currentDebugMIPS)) {
+				return;
+			}
+			break;
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
 			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
@@ -327,7 +329,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 	}
 }
 
-static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
+static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
@@ -336,16 +338,22 @@ static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	switch (coreState) {
 	case CORE_STEPPING_CPU:
 	case CORE_STEPPING_GE:
+	case CORE_RUNNING_GE:
 		// All good
 		break;
 	default:
 		// Nothing to do.
-		return;
+		return true;
 	}
 
 	// Or any GPU actions.
 	// Legacy stepping code.
 	GPUStepping::ProcessStepping();
+
+	if (coreState == CORE_RUNNING_GE) {
+		// Retry, to get it done this frame.
+		return false;
+	}
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
@@ -360,7 +368,7 @@ static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	std::lock_guard<std::mutex> guard(g_stepMutex);
 
 	if (coreState != CORE_STEPPING_CPU || g_cpuStepCommand.empty()) {
-		return;
+		return true;
 	}
 
 	Core_ResetException();
@@ -377,6 +385,7 @@ static void Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	// Update disasm dialog.
 	System_Notify(SystemNotification::MEM_VIEW);
+	return true;
 }
 
 // Free-threaded (hm, possibly except tracing).
@@ -430,12 +439,20 @@ void Core_Resume() {
 
 // Should be called from the EmuThread.
 bool Core_NextFrame() {
+	CoreState coreState = ::coreState;
+
 	_dbg_assert_(coreState != CORE_STEPPING_GE && coreState != CORE_RUNNING_GE);
 
 	if (coreState == CORE_RUNNING_CPU) {
-		coreState = CORE_NEXTFRAME;
+		::coreState = CORE_NEXTFRAME;
+		return true;
+	} else if (coreState == CORE_STEPPING_CPU) {
+		// All good, just stepping through so no need to switch to the NextFrame coreState though, that'd
+		// just lose our stepping state.
+		INFO_LOG(Log::System, "Reached end-of-frame while stepping the CPU (this is ok)");
 		return true;
 	} else {
+		ERROR_LOG(Log::System, "Core_NextFrame called with wrong core state %s", CoreStateToString(coreState));
 		return false;
 	}
 }

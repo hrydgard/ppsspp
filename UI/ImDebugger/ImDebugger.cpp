@@ -51,7 +51,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 	if (ImGui::BeginChild("event_list", ImVec2(300.0f, 0.0))) {
 		const CoreTiming::Event *event = CoreTiming::GetFirstEvent();
 		while (event) {
-			ImGui::Text("%s (%lld)", CoreTiming::GetEventTypes()[event->type].name, event->time - ticks);
+			ImGui::Text("%s (%lld): %d", CoreTiming::GetEventTypes()[event->type].name, event->time - ticks, (int)event->userdata);
 			event = event->next;
 		}
 		ImGui::EndChild();
@@ -195,6 +195,9 @@ void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSi
 	case WAITTYPE_SLEEP:
 	case WAITTYPE_HLEDELAY:
 	case WAITTYPE_UMD:
+	case WAITTYPE_NONE:
+	case WAITTYPE_VBLANK:
+	case WAITTYPE_MICINPUT:
 		truncate_cpy(buffer, bufSize, "-");
 		return;
 	default:
@@ -311,7 +314,7 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 		std::string path;
 		char desc[256];
 		fs.system->Describe(desc, sizeof(desc));
-		char fsTitle[256];
+		char fsTitle[512];
 		snprintf(fsTitle, sizeof(fsTitle), "%s - %s", fs.prefix.c_str(), desc);
 		if (ImGui::TreeNode(fsTitle)) {
 			auto system = fs.system;
@@ -852,10 +855,16 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 					Core_Break("Menu:Break");
 				}
 				break;
+			default:
+				break;
 			}
 			ImGui::Separator();
 			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
+			ImGui::MenuItem("Break on frame timeout", nullptr, &g_Config.bBreakOnFrameTimeout);
+			ImGui::MenuItem("Don't break on start", nullptr, &g_Config.bAutoRun);  // should really invert this bool!
+			ImGui::MenuItem("Fast memory", nullptr, &g_Config.bFastMemory);
 			ImGui::Separator();
+
 			/*
 			// Symbol stuff. Move to separate menu?
 			// Doesn't quite seem to work yet.
@@ -886,6 +895,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			if (ImGui::MenuItem("Take screenshot")) {
 				g_TakeScreenshot = true;
 			}
+			ImGui::MenuItem("Save screenshot as .png", nullptr, &g_Config.bScreenshotsAsPNG);
 			if (ImGui::MenuItem("Restart graphics")) {
 				System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 			}
@@ -1154,6 +1164,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 
 	ImGui::SetNextItemWidth(100);
 	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {
+		disasmView_.setCurAddress(gotoAddr_);
+		disasmView_.scrollAddressIntoView();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Go")) {
 		disasmView_.setCurAddress(gotoAddr_);
 		disasmView_.scrollAddressIntoView();
 	}

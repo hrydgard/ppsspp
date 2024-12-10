@@ -125,7 +125,7 @@ struct DisplayList {
 	DisplayListStackEntry stack[32];
 	int stackptr;
 	bool interrupted;
-	u64 waitTicks;
+	u64 waitUntilTicks;
 	bool interruptsEnabled;
 	bool pendingInterrupt;
 	bool started;
@@ -371,7 +371,7 @@ public:
 
 	s64 GetListTicks(int listid) const {
 		if (listid >= 0 && listid < DisplayListMaxCount) {
-			return dls[listid].waitTicks;
+			return dls[listid].waitUntilTicks;
 		}
 		return -1;
 	}

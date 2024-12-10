@@ -19,9 +19,11 @@
 #include <cstring>
 #include <functional>
 #include <mutex>
+#include <condition_variable>
 #include <vector>
 #include <snappy-c.h>
 #include <zstd.h>
+
 #include "Common/Profiler/Profiler.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -100,7 +102,7 @@ protected:
 		u32 buf_pointer_ = 0;
 		int last_used_ = 0;
 
-		bool Matches(u32 bufpos) {
+		bool Matches(u32 bufpos) const {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0;
 		}
@@ -130,12 +132,12 @@ protected:
 		u32 buf_pointer_ = 0;
 		u32 size_ = 0;
 
-		bool Matches(u32 bufpos, u32 sz) {
+		bool Matches(u32 bufpos, u32 sz) const {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0 && size_ >= sz;
 		}
 
-		u32 Ptr() {
+		u32 Ptr() const {
 			return psp_pointer_;
 		}
 
@@ -293,7 +295,6 @@ public:
 
 private:
 	void SyncStall();
-	bool SubmitCmds(const void *p, u32 sz);
 	void SubmitListEnd();
 
 	void Init(u32 ptr, u32 sz);
@@ -331,6 +332,7 @@ private:
 
 void DumpExecute::SyncStall() {
 	if (execListBuf == 0) {
+		VERBOSE_LOG(Log::G3D, "SyncStall: No active display list");
 		return;
 	}
 
@@ -347,12 +349,11 @@ void DumpExecute::SyncStall() {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}
 	}
-
 	// Make sure downcount doesn't overflow.
 	CoreTiming::ForceCheck();
 }
 
-bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
+void DumpExecute::Registers(u32 ptr, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
 		execListBuf = userMemory.Alloc(allocSize, true, "List buf");
@@ -361,7 +362,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		}
 		if (execListBuf == 0) {
 			ERROR_LOG(Log::System, "Unable to allocate for display list");
-			return false;
+			return;
 		}
 
 		execListPos = execListBuf;
@@ -389,13 +390,15 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		lastBase_ = execListBuf & 0xFF000000;
 
 		// Don't continue until we've stalled.
+		// TODO: Is this really needed? It seems fine without it.
 		SyncStall();
 	}
 
 	Memory::MemcpyUnchecked(execListPos, execListQueue.data(), pendingSize);
 	execListPos += pendingSize;
 	u32 writePos = execListPos;
-	Memory::MemcpyUnchecked(execListPos, p, sz);
+	void *srcData = (void *)(pushbuf_.data() + ptr);
+	Memory::MemcpyUnchecked(execListPos, srcData, sz);
 	execListPos += sz;
 
 	// TODO: Unfortunate.  Maybe Texture commands should contain the bufw instead.
@@ -431,8 +434,6 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	}
 
 	execListQueue.clear();
-
-	return true;
 }
 
 void DumpExecute::SubmitListEnd() {
@@ -462,10 +463,6 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 		lastTex_[i] = 0;
 	}
 	lastBase_ = 0xFFFFFFFF;
-}
-
-void DumpExecute::Registers(u32 ptr, u32 sz) {
-	SubmitCmds(pushbuf_.data() + ptr, sz);
 }
 
 void DumpExecute::Vertices(u32 ptr, u32 sz) {

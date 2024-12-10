@@ -1055,7 +1055,6 @@ namespace MainWindow
 					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
 						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
-						Core_Resume();
 					}
 				}
 				DragFinish(hdrop);

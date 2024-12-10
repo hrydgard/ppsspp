@@ -129,6 +129,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	double taken_ms_since_scheduling = (now - scheduleTime) * 1000.0;
 	double taken_ms = (now - start) * 1000.0;
 
+#ifndef _DEBUG
 	if (taken_ms < 0.1) {
 		DEBUG_LOG(Log::G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling (fast) rpType: %04x sampleBits: %d (%s)",
 			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
@@ -136,6 +137,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		INFO_LOG(Log::G3D, "Pipeline (x/%d) time on %s: %0.2f ms, %0.2f ms since scheduling  rpType: %04x sampleBits: %d (%s)",
 			countToCompile, GetCurrentThreadName(), taken_ms, taken_ms_since_scheduling, (u32)rpType, (u32)sampleCount, tag_.c_str());
 	}
+#endif
 
 	bool success = true;
 	if (result == VK_INCOMPLETE) {
