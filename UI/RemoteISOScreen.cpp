@@ -16,13 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
 #include <thread>
 #include <mutex>
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#include <initguid.h>
 #include "Common/CommonWindows.h"
 #include <netfw.h>
+#include <wrl/client.h>
 #endif
 
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
@@ -62,8 +63,8 @@ enum class ServerAllowStatus {
 
 static ServerAllowStatus IsServerAllowed(int port) {
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	INetFwMgr *fwMgr = nullptr;
-	HRESULT hr = CoCreateInstance(__uuidof(NetFwMgr), nullptr, CLSCTX_INPROC_SERVER, __uuidof(INetFwMgr), (void **)&fwMgr);
+	Microsoft::WRL::ComPtr<INetFwMgr> fwMgr;
+	HRESULT hr = CoCreateInstance(__uuidof(NetFwMgr), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&fwMgr));
 	if (FAILED(hr)) {
 		return ServerAllowStatus::UNKNOWN;
 	}
@@ -80,7 +81,6 @@ static ServerAllowStatus IsServerAllowed(int port) {
 	VariantInit(&allowedV);
 	VariantInit(&restrictedV);
 	hr = fwMgr->IsPortAllowed(&app[0], NET_FW_IP_VERSION_ANY, port, nullptr, NET_FW_IP_PROTOCOL_TCP, &allowedV, &restrictedV);
-	fwMgr->Release();
 
 	if (FAILED(hr)) {
 		return ServerAllowStatus::UNKNOWN;

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <shlwapi.h>
+#include <wrl/client.h>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
@@ -24,6 +25,8 @@
 #include "CommonTypes.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/Config.h"
+
+using Microsoft::WRL::ComPtr;
 
 namespace MFAPI {
 	HINSTANCE Mflib;
@@ -142,7 +145,7 @@ HRESULT ReaderCallback::OnReadSample(
 		LONGLONG llTimestamp,
 		IMFSample *pSample) {
 	HRESULT hr = S_OK;
-	IMFMediaBuffer *pBuffer = nullptr;
+	ComPtr<IMFMediaBuffer> pBuffer;
 	std::lock_guard<std::mutex> lock(device->sdMutex);
 	if (device->isShutDown())
 		return hr;
@@ -173,7 +176,7 @@ HRESULT ReaderCallback::OnReadSample(
 
 			// pSample can be null, in this case ReadSample still should be called to request next frame.
 			if (pSample) {
-				videoBuffer = new VideoBufferLock(pBuffer);
+				videoBuffer = new VideoBufferLock(pBuffer.Get());
 				hr = videoBuffer->LockBuffer(device->deviceParam.default_stride, device->deviceParam.height, &pbScanline0, &lStride);
 
 				if (lStride > 0)
@@ -278,7 +281,6 @@ HRESULT ReaderCallback::OnReadSample(
 		}
 	}
 
-	SafeRelease(&pBuffer);
 	return hr;
 }
 
@@ -522,18 +524,15 @@ bool WindowsCaptureDevice::init() {
 
 bool WindowsCaptureDevice::start(void *startParam) {
 	HRESULT hr = S_OK;
-	IMFAttributes *pAttributes = nullptr;
-	IMFMediaType *pType = nullptr;
+	ComPtr<IMFAttributes> pAttributes;
+	ComPtr<IMFMediaType> pType;
 	UINT32 selection = 0;
 	UINT32 count = 0;
 
 	// Release old sources first(if any).
-	SafeRelease(&m_pSource);
-	SafeRelease(&m_pReader);
-	if (m_pCallback) {
-		delete m_pCallback;
-		m_pCallback = nullptr;
-	}
+	m_pSource = nullptr;
+	m_pReader = nullptr;
+	m_pCallback = nullptr;
 	// Need to re-enumerate the list,because old sources were released.
 	std::vector<std::string> deviceList = getDeviceList(true);
 
@@ -555,25 +554,24 @@ bool WindowsCaptureDevice::start(void *startParam) {
 			}
 			++count;
 		}
-		setSelction(selection);
+		setSelection(selection);
 		hr = param.ppDevices[param.selection]->ActivateObject(
-			__uuidof(IMFMediaSource),
-			(void**)&m_pSource);
+			IID_PPV_ARGS(&m_pSource));
 
 		if (SUCCEEDED(hr))
 			hr = MFCreateAttributes(&pAttributes, 2);
 
 		// Use async mode
 		if (SUCCEEDED(hr))
-			hr = pAttributes->SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pCallback);
+			hr = pAttributes->SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pCallback.Get());
 
 		if (SUCCEEDED(hr))
 			hr = pAttributes->SetUINT32(MF_READWRITE_DISABLE_CONVERTERS, TRUE);
 
 		if (SUCCEEDED(hr)) {
 			hr = CreateSourceReaderFromMediaSource(
-					m_pSource,
-					pAttributes,
+					m_pSource.Get(),
+					pAttributes.Get(),
 					&m_pReader
 				);
 		}
@@ -609,7 +607,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 					if (FAILED(hr)) { break; }
 
-					hr = setDeviceParam(pType);
+					hr = setDeviceParam(pType.Get());
 
 					if (SUCCEEDED(hr))
 						break;
@@ -654,7 +652,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 					if (FAILED(hr)) { break; }
 
-					hr = setDeviceParam(pType);
+					hr = setDeviceParam(pType.Get());
 
 					if (SUCCEEDED(hr))
 						break;
@@ -679,15 +677,11 @@ bool WindowsCaptureDevice::start(void *startParam) {
 			setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Cannot start");
 			if(m_pSource)
 				m_pSource->Shutdown();
-			SafeRelease(&m_pSource);
-			SafeRelease(&pAttributes);
-			SafeRelease(&pType);
-			SafeRelease(&m_pReader);
+			m_pSource = nullptr;
+			m_pReader = nullptr;
 			return false;
 		}
 
-		SafeRelease(&pAttributes);
-		SafeRelease(&pType);
 		updateState(CAPTUREDEVIDE_STATE::STARTED);
 		break;
 	case CAPTUREDEVIDE_STATE::LOST:
@@ -751,13 +745,13 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(bool forceEnum, int
 
 		if (SUCCEEDED(hr)) {
 			// Get the size needed first
-			dwMinSize = WideCharToMultiByte(CP_UTF8, NULL, pwstrName, -1, nullptr, 0, nullptr, FALSE);
+			dwMinSize = WideCharToMultiByte(CP_UTF8, 0, pwstrName, -1, nullptr, 0, nullptr, FALSE);
 			if (dwMinSize == 0)
 				hr = E_FAIL;
 		}
 		if (SUCCEEDED(hr)) {
 			cstrName = new char[dwMinSize];
-			WideCharToMultiByte(CP_UTF8, NULL, pwstrName, -1, cstrName, dwMinSize, NULL, FALSE);
+			WideCharToMultiByte(CP_UTF8, 0, pwstrName, -1, cstrName, dwMinSize, NULL, FALSE);
 			strName = cstrName;
 			delete[] cstrName;
 
@@ -937,9 +931,9 @@ void WindowsCaptureDevice::messageHandler() {
 		stop();
 
 	std::lock_guard<std::mutex> lock(sdMutex);
-	SafeRelease(&m_pSource);
-	SafeRelease(&m_pReader);
-	delete m_pCallback;
+	m_pSource = nullptr;
+	m_pReader = nullptr;
+	m_pCallback = nullptr;
 	unRegisterCMPTMFApis();
 
 	std::unique_lock<std::mutex> lock2(paramMutex);
@@ -957,7 +951,7 @@ void WindowsCaptureDevice::messageHandler() {
 
 HRESULT WindowsCaptureDevice::enumDevices() {
 	HRESULT hr = S_OK;
-	IMFAttributes *pAttributes = nullptr;
+	ComPtr<IMFAttributes> pAttributes;
 
 	hr = MFCreateAttributes(&pAttributes, 1);
 	if (SUCCEEDED(hr)) {
@@ -982,10 +976,9 @@ HRESULT WindowsCaptureDevice::enumDevices() {
 		}
 	}
 	if (SUCCEEDED(hr)) {
-		hr = EnumDeviceSources(pAttributes, &param.ppDevices, &param.count);
+		hr = EnumDeviceSources(pAttributes.Get(), &param.ppDevices, &param.count);
 	}
 
-	SafeRelease(&pAttributes);
 	return hr;
 }
 
