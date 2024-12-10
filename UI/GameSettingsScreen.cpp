@@ -2089,6 +2089,7 @@ UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
+	// TODO: If game is loaded, don't do anything.
 #if !PPSSPP_PLATFORM(UWP)
 	RunTests();
 #endif

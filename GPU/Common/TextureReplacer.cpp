@@ -301,6 +301,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
 	options->Get("reduceHash", &reduceHash_, reduceHash_);
 	options->Get("ignoreMipmap", &ignoreMipmap_, ignoreMipmap_);
+	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_, skipLastDXT1Blocks128x64_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -506,19 +507,28 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 	}
 
 	const u8 *checkp = Memory::GetPointerUnchecked(addr);
+
+	float reduceHashSize = 1.0f;
 	if (reduceHash_) {
 		reduceHashSize = LookupReduceHashRange(w, h);
 		// default to reduceHashGlobalValue which default is 0.5
 	}
+
 	if (bufw <= w) {
 		// We can assume the data is contiguous.  These are the total used pixels.
 		const u32 totalPixels = bufw * h + (w - bufw);
-		const u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8 * reduceHashSize;
+		u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8 * reduceHashSize;
 
 		// Sanity check: Ignore textures that are at the end of RAM.
 		if (Memory::MaxSizeAtAddress(addr) < sizeInRAM) {
 			ERROR_LOG(Log::G3D, "Can't hash a %d bytes textures at %08x - end point is outside memory", sizeInRAM, addr);
 			return 0;
+		}
+
+		// Hack for Yu Gi Oh texture hashing problem. See issue #19714
+		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64) {
+			// Skip the last few blocks as specified.
+			sizeInRAM -= 8 * skipLastDXT1Blocks128x64_;
 		}
 
 		switch (hash_) {
