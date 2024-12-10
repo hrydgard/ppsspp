@@ -330,6 +330,181 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	ImGui::End();
 }
 
+struct StateItem {
+	bool header; GECommand cmd; const char *title; bool closedByDefault;
+};
+
+static const StateItem g_rasterState[] = {
+	{true, GE_CMD_NOP, "Framebuffer"},
+	{false, GE_CMD_FRAMEBUFPTR},
+	{false, GE_CMD_FRAMEBUFPIXFORMAT},
+	{false, GE_CMD_CLEARMODE},
+
+	{true, GE_CMD_ZTESTENABLE},
+	{false, GE_CMD_ZBUFPTR},
+	{false, GE_CMD_ZTEST},
+	{false, GE_CMD_ZWRITEDISABLE},
+
+	{true, GE_CMD_STENCILTESTENABLE},
+	{false, GE_CMD_STENCILTEST},
+	{false, GE_CMD_STENCILOP},
+
+	{true, GE_CMD_ALPHABLENDENABLE},
+	{false, GE_CMD_BLENDMODE},
+	{false, GE_CMD_BLENDFIXEDA},
+	{false, GE_CMD_BLENDFIXEDB},
+
+	{true, GE_CMD_ALPHATESTENABLE},
+	{false, GE_CMD_ALPHATEST},
+
+	{true, GE_CMD_COLORTESTENABLE},
+	{false, GE_CMD_COLORTEST},
+	{false, GE_CMD_COLORTESTMASK},
+
+	{true, GE_CMD_FOGENABLE},
+	{false, GE_CMD_FOGCOLOR},
+	{false, GE_CMD_FOG1},
+	{false, GE_CMD_FOG2},
+
+	{true, GE_CMD_CULLFACEENABLE},
+	{false, GE_CMD_CULL},
+
+	{true, GE_CMD_LOGICOPENABLE},
+	{false, GE_CMD_LOGICOP},
+
+	{true, GE_CMD_NOP, "Clipping/Clamping"},
+	{false, GE_CMD_MINZ},
+	{false, GE_CMD_MAXZ},
+	{false, GE_CMD_DEPTHCLAMPENABLE},
+
+	{true, GE_CMD_NOP, "Other raster state"},
+	{false, GE_CMD_MASKRGB},
+	{false, GE_CMD_MASKALPHA},
+	{false, GE_CMD_SCISSOR1},
+	{false, GE_CMD_REGION1},
+	{false, GE_CMD_OFFSETX},
+	{false, GE_CMD_DITH0},
+	{false, GE_CMD_DITH1},
+	{false, GE_CMD_DITH2},
+	{false, GE_CMD_DITH3},
+};
+
+static const StateItem g_textureState[] = {
+	{true, GE_CMD_TEXTUREMAPENABLE},
+	{false, GE_CMD_TEXADDR0},
+	{false, GE_CMD_TEXSIZE0},
+	{false, GE_CMD_TEXENVCOLOR},
+	{false, GE_CMD_TEXMAPMODE},
+	{false, GE_CMD_TEXSHADELS},
+	{false, GE_CMD_TEXFORMAT},
+	{false, GE_CMD_CLUTFORMAT},
+	{false, GE_CMD_TEXFILTER},
+	{false, GE_CMD_TEXWRAP},
+	{false, GE_CMD_TEXLEVEL},
+	{false, GE_CMD_TEXFUNC},
+	{false, GE_CMD_TEXLODSLOPE},
+
+	{false, GE_CMD_TEXSCALEU},
+	{false, GE_CMD_TEXSCALEV},
+	{false, GE_CMD_TEXOFFSETU},
+	{false, GE_CMD_TEXOFFSETV},
+
+	{true, GE_CMD_NOP, "Additional mips", true},
+	{false, GE_CMD_TEXADDR1},
+	{false, GE_CMD_TEXADDR2},
+	{false, GE_CMD_TEXADDR3},
+	{false, GE_CMD_TEXADDR4},
+	{false, GE_CMD_TEXADDR5},
+	{false, GE_CMD_TEXADDR6},
+	{false, GE_CMD_TEXADDR7},
+	{false, GE_CMD_TEXSIZE1},
+	{false, GE_CMD_TEXSIZE2},
+	{false, GE_CMD_TEXSIZE3},
+	{false, GE_CMD_TEXSIZE4},
+	{false, GE_CMD_TEXSIZE5},
+	{false, GE_CMD_TEXSIZE6},
+	{false, GE_CMD_TEXSIZE7},
+};
+
+static const StateItem g_lightingState[] = {
+	{false, GE_CMD_AMBIENTCOLOR},
+	{false, GE_CMD_AMBIENTALPHA},
+	{false, GE_CMD_MATERIALUPDATE},
+	{false, GE_CMD_MATERIALEMISSIVE},
+	{false, GE_CMD_MATERIALAMBIENT},
+	{false, GE_CMD_MATERIALDIFFUSE},
+	{false, GE_CMD_MATERIALALPHA},
+	{false, GE_CMD_MATERIALSPECULAR},
+	{false, GE_CMD_MATERIALSPECULARCOEF},
+	{false, GE_CMD_REVERSENORMAL},
+	{false, GE_CMD_SHADEMODE},
+	{false, GE_CMD_LIGHTMODE},
+	{false, GE_CMD_LIGHTTYPE0},
+	{false, GE_CMD_LIGHTTYPE1},
+	{false, GE_CMD_LIGHTTYPE2},
+	{false, GE_CMD_LIGHTTYPE3},
+	{false, GE_CMD_LX0},
+	{false, GE_CMD_LX1},
+	{false, GE_CMD_LX2},
+	{false, GE_CMD_LX3},
+	{false, GE_CMD_LDX0},
+	{false, GE_CMD_LDX1},
+	{false, GE_CMD_LDX2},
+	{false, GE_CMD_LDX3},
+	{false, GE_CMD_LKA0},
+	{false, GE_CMD_LKA1},
+	{false, GE_CMD_LKA2},
+	{false, GE_CMD_LKA3},
+	{false, GE_CMD_LKS0},
+	{false, GE_CMD_LKS1},
+	{false, GE_CMD_LKS2},
+	{false, GE_CMD_LKS3},
+	{false, GE_CMD_LKO0},
+	{false, GE_CMD_LKO1},
+	{false, GE_CMD_LKO2},
+	{false, GE_CMD_LKO3},
+	{false, GE_CMD_LAC0},
+	{false, GE_CMD_LDC0},
+	{false, GE_CMD_LSC0},
+	{false, GE_CMD_LAC1},
+	{false, GE_CMD_LDC1},
+	{false, GE_CMD_LSC1},
+	{false, GE_CMD_LAC2},
+	{false, GE_CMD_LDC2},
+	{false, GE_CMD_LSC2},
+	{false, GE_CMD_LAC3},
+	{false, GE_CMD_LDC3},
+	{false, GE_CMD_LSC3},
+};
+
+static const StateItem g_vertexState[] = {
+	{true, GE_CMD_NOP, "Vertex type and transform"},
+	{false, GE_CMD_VERTEXTYPE},
+	{false, GE_CMD_VADDR},
+	{false, GE_CMD_IADDR},
+	{false, GE_CMD_OFFSETADDR},
+	{false, GE_CMD_VIEWPORTXSCALE},
+	{false, GE_CMD_VIEWPORTXCENTER},
+	{false, GE_CMD_MORPHWEIGHT0},
+	{false, GE_CMD_MORPHWEIGHT1},
+	{false, GE_CMD_MORPHWEIGHT2},
+	{false, GE_CMD_MORPHWEIGHT3},
+	{false, GE_CMD_MORPHWEIGHT4},
+	{false, GE_CMD_MORPHWEIGHT5},
+	{false, GE_CMD_MORPHWEIGHT6},
+	{false, GE_CMD_MORPHWEIGHT7},
+	{false, GE_CMD_TEXSCALEU},
+	{false, GE_CMD_TEXSCALEV},
+	{false, GE_CMD_TEXOFFSETU},
+	{false, GE_CMD_TEXOFFSETV},
+
+	{true, GE_CMD_NOP, "Tessellation"},
+	{false, GE_CMD_PATCHPRIMITIVE},
+	{false, GE_CMD_PATCHDIVISION},
+	{false, GE_CMD_PATCHCULLENABLE},
+	{false, GE_CMD_PATCHFACING},
+};
+
 // TODO: Separate window or merge into Ge debugger?
 void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
@@ -338,26 +513,43 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		return;
 	}
 	if (ImGui::BeginTabBar("GeRegs", ImGuiTabBarFlags_None)) {
-		auto buildStateTab = [&](const char *tabName, const GECommand *rows, size_t numRows) {
+		auto buildStateTab = [&](const char *tabName, const StateItem *rows, size_t numRows) {
 			if (ImGui::BeginTabItem(tabName)) {
 				if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-					ImGui::TableSetupColumn("bkpt", ImGuiTableColumnFlags_WidthFixed);
 					ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
 					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+					ImGui::TableSetupColumn("bkpt", ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableHeadersRow();
 
+					bool anySection = false;
+					bool sectionOpen = false;
 					for (size_t i = 0; i < numRows; i++) {
-						const GECmdInfo &info = GECmdInfoByCmd(rows[i]);
+						const GECmdInfo &info = GECmdInfoByCmd(rows[i].cmd);
+
+						if (rows[i].header) {
+							anySection = true;
+							if (sectionOpen) {
+								ImGui::TreePop();
+							}
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+							sectionOpen = ImGui::TreeNodeEx(rows[i].cmd ? info.uiName : rows[i].title, rows[i].closedByDefault ? 0 : ImGuiTreeNodeFlags_DefaultOpen);
+							ImGui::TableNextColumn();
+						} else {
+							if (!sectionOpen && anySection) {
+								continue;
+							}
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+						}
 
 						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
-
 						if (!enabled)
 							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
-						ImGui::TableNextRow();
-						ImGui::TableNextColumn();
-						ImGui::Text("-");  // breakpoint
-						ImGui::TableNextColumn();
-						ImGui::TextUnformatted(info.uiName.data(), info.uiName.data() + info.uiName.size());
-						ImGui::TableNextColumn();
+						if (!rows[i].header) {
+							ImGui::TextUnformatted(info.uiName);
+							ImGui::TableNextColumn();
+						}
 						char temp[256];
 
 						const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
@@ -369,6 +561,9 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 						if (!enabled)
 							ImGui::PopStyleColor();
 					}
+					if (sectionOpen) {
+						ImGui::TreePop();
+					}
 
 					ImGui::EndTable();
 				}
@@ -376,10 +571,10 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 			}
 		};
 
-		buildStateTab("Flags", g_stateFlagsRows, g_stateFlagsRowsSize);
-		buildStateTab("Lighting", g_stateLightingRows, g_stateLightingRowsSize);
-		buildStateTab("Texture", g_stateTextureRows, g_stateTextureRowsSize);
-		buildStateTab("Settings", g_stateSettingsRows, g_stateSettingsRowsSize);
+		buildStateTab("Raster", g_rasterState, ARRAY_SIZE(g_rasterState));
+		buildStateTab("Texture", g_textureState, ARRAY_SIZE(g_textureState));
+		buildStateTab("Lighting", g_lightingState, ARRAY_SIZE(g_lightingState));
+		buildStateTab("Transform/Tess", g_vertexState, ARRAY_SIZE(g_vertexState));
 
 		// Do a vertex tab (maybe later a separate window)
 		if (ImGui::BeginTabItem("Vertices")) {
