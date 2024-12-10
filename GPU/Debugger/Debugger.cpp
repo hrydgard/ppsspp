@@ -163,7 +163,7 @@ NotifyResult NotifyCommand(u32 pc) {
 	}
 
 	if (isBreakpoint && pc == g_skipPcOnce) {
-		INFO_LOG(Log::G3D, "Skipping break at %08x (last break was here)", g_skipPcOnce);
+		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", g_skipPcOnce);
 		g_skipPcOnce = 0;
 		return process ? NotifyResult::Execute : NotifyResult::Skip;
 	}
@@ -179,10 +179,10 @@ NotifyResult NotifyCommand(u32 pc) {
 
 		auto info = gpuDebug->DisassembleOp(pc);
 		if (lastStepTime >= 0.0) {
-			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
+			NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s (%fms)", pc, info.desc.c_str(), (time_now_d() - lastStepTime) * 1000.0);
 			lastStepTime = -1.0;
 		} else {
-			NOTICE_LOG(Log::G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
+			NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 		}
 
 		g_skipPcOnce = pc;
@@ -199,10 +199,10 @@ void NotifyDraw() {
 		return;
 	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
 		if (lastStepTime >= 0.0) {
-			NOTICE_LOG(Log::G3D, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
+			NOTICE_LOG(Log::GeDebugger, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
 			lastStepTime = -1.0;
 		} else {
-			NOTICE_LOG(Log::G3D, "Waiting at a draw");
+			NOTICE_LOG(Log::GeDebugger, "Waiting at a draw");
 		}
 		g_drawNotified = true;
 	}
