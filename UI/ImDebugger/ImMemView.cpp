@@ -17,7 +17,6 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImMemView.h"
-// #include "DumpMemoryWindow.h"
 
 ImMemView::ImMemView() {
 	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
@@ -49,7 +48,6 @@ LRESULT CALLBACK ImMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 */
 
 void ImMemView::Draw(ImDrawList *drawList) {
-	auto memLock = Memory::Lock();
 	if (!debugger_->isAlive()) {
 		return;
 	}
@@ -275,7 +273,6 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 }
 
 void ImMemView::onChar(int c) {
-	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
@@ -322,10 +319,11 @@ void ImMemView::onChar(int c) {
 
 ImMemView::GotoMode ImMemView::GotoModeFromModifiers(bool isRightClick) {
 	GotoMode mode = GotoMode::RESET;
+	auto &io = ImGui::GetIO();
 	if (isRightClick) {
 		mode = GotoMode::RESET_IF_OUTSIDE;
-	} else if (KeyDownAsync(VK_SHIFT)) {
-		if (KeyDownAsync(VK_CONTROL))
+	} else if (io.KeyMods & ImGuiMod_Shift) {
+		if (io.KeyMods & ImGuiMod_Ctrl)
 			mode = GotoMode::EXTEND;
 		else
 			mode = GotoMode::FROM_CUR;
@@ -333,35 +331,29 @@ ImMemView::GotoMode ImMemView::GotoModeFromModifiers(bool isRightClick) {
 	return mode;
 }
 
-void ImMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button) {
+void ImMemView::onMouseDown(float x, float y, int button) {
 	if (Achievements::HardcoreModeActive())
 		return;
-
-	int x = LOWORD(lParam);
-	int y = HIWORD(lParam);
 
 	GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 }
 
-void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
-	if (button == 2) {
+void ImMemView::PopupMenu() {
+	if (ImGui::BeginPopup("context")) {
+
 		int32_t selectedSize = selectRangeEnd_ - selectRangeStart_;
 		bool enable16 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 1) == 0);
 		bool enable32 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 3) == 0);
 
-		HMENU menu = GetContextMenu(ContextMenuID::MEMVIEW);
-		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_16, enable16 ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_32, enable32 ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu, ID_MEMVIEW_COPYFLOAT_32, enable32 ? MF_ENABLED : MF_GRAYED);
-
 		if (ImGui::MenuItem("Dump memory")) {
+			/*
 			DumpMemoryWindow dump(wnd, debugger_);
 			dump.exec();
 			break;
+			*/
 		}
 
 		if (ImGui::MenuItem("Copy value (8-bit)")) {
-			auto memLock = Memory::Lock();
 			size_t tempSize = 3 * selectedSize + 1;
 			char *temp = new char[tempSize];
 			memset(temp, 0, tempSize);
@@ -384,12 +376,12 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 				if (pos > temp)
 					*(pos - 1) = '\0';
 			}
-			// W32Util::CopyTextToClipboard(wnd, temp);
+
+			System_CopyStringToClipboard(temp);
 			delete[] temp;
 		}
 
 		if (ImGui::MenuItem("Copy value (16-bit)")) {
-			auto memLock = Memory::Lock();
 			size_t tempSize = 5 * ((selectedSize + 1) / 2) + 1;
 			char *temp = new char[tempSize];
 			memset(temp, 0, tempSize);
@@ -403,12 +395,11 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			if (pos > temp)
 				*(pos - 1) = '\0';
 
-			W32Util::CopyTextToClipboard(wnd, temp);
+			System_CopyStringToClipboard(temp);
 			delete[] temp;
 		}
 
 		if (ImGui::MenuItem("Copy value (32-bit)")) {
-			auto memLock = Memory::Lock();
 			size_t tempSize = 9 * ((selectedSize + 3) / 4) + 1;
 			char *temp = new char[tempSize];
 			memset(temp, 0, tempSize);
@@ -422,16 +413,14 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			if (pos > temp)
 				*(pos - 1) = '\0';
 
-			W32Util::CopyTextToClipboard(wnd, temp);
+			System_CopyStringToClipboard(temp);
 			delete[] temp;
 		}
 
-		if (ImGui::MenuItem("Copy value (float32)") {
-			auto memLock = Memory::Lock();
-			std::ostringstream stream;
-			stream << (Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
-			auto temp_string = stream.str();
-			W32Util::CopyTextToClipboard(wnd, temp_string.c_str());
+		if (ImGui::MenuItem("Copy value (float32)")) {
+			char temp[64];
+			snprintf(temp, sizeof(temp), "%f", Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
+			System_CopyStringToClipboard(temp);
 		}
 		/*
 		case ID_MEMVIEW_EXTENTBEGIN:
@@ -459,15 +448,29 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 		if (ImGui::MenuItem("Copy address")) {
 			char temp[24];
 			snprintf(temp, sizeof(temp), "0x%08X", curAddress_);
-			W32Util::CopyTextToClipboard(wnd, temp);
+			System_CopyStringToClipboard(temp);
 		}
 
 		if (ImGui::MenuItem("Goto in disasm")) {
+			/*
 			if (disasmWindow) {
 				disasmWindow->Goto(curAddress_);
 				disasmWindow->Show(true);
 			}
+			*/
 		}
+		ImGui::EndPopup();
+	}
+}
+
+void ImMemView::onMouseUp(float x, float y, int button) {
+	if (button == 2) {
+
+		// HMENU menu = GetContextMenu(ContextMenuID::MEMVIEW);
+		// EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_16, enable16 ? MF_ENABLED : MF_GRAYED);
+		// EnableMenuItem(menu, ID_MEMVIEW_COPYVALUE_32, enable32 ? MF_ENABLED : MF_GRAYED);
+		// EnableMenuItem(menu, ID_MEMVIEW_COPYFLOAT_32, enable32 ? MF_ENABLED : MF_GRAYED);
+
 	}
 
 	/*
@@ -478,12 +481,9 @@ void ImMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 	GotoPoint(x, y, GotoModeFromModifiers(button == 2));
 }
 
-void ImMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button) {
+void ImMemView::onMouseMove(float x, float y, int button) {
 	if (Achievements::HardcoreModeActive())
 		return;
-
-	int x = LOWORD(lParam);
-	int y = HIWORD(lParam);
 
 	if (button & 1) {
 		GotoPoint(x, y, GotoModeFromModifiers(button == 2));
@@ -499,8 +499,7 @@ void ImMemView::updateStatusBarText() {
 	for (MemBlockInfo info : memRangeInfo) {
 		snprintf(text, sizeof(text), "%08X - %s %08X-%08X (at PC %08X / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
 	}
-
-	SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM)text);
+	statusMessage_ = text;
 }
 
 void ImMemView::UpdateSelectRange(uint32_t target, GotoMode mode) {
@@ -546,7 +545,6 @@ void ImMemView::GotoPoint(int x, int y, GotoMode mode) {
 		// ignore clicks on the offset space
 		if (line < offsetSpace) {
 			updateStatusBarText();
-			redraw();
 			return;
 		}
 		// since each row has been written X rows down from where the window expected it to be written the target of the clicks must be adjusted
@@ -583,14 +581,12 @@ void ImMemView::GotoPoint(int x, int y, GotoMode mode) {
 		selectedNibble_ = targetNibble;
 		asciiSelected_ = targetAscii;
 		UpdateSelectRange(target, mode);
-
 		updateStatusBarText();
-		redraw();
 	}
 }
 
 void ImMemView::gotoAddr(unsigned int addr) {
-	int lines = rect_.bottom / rowHeight_;
+	int lines = visibleRows_;
 	u32 windowEnd = windowStart_ + lines * rowSize_;
 
 	curAddress_ = addr;
@@ -604,7 +600,6 @@ void ImMemView::gotoAddr(unsigned int addr) {
 	}
 
 	updateStatusBarText();
-	redraw();
 }
 
 void ImMemView::ScrollWindow(int lines, GotoMode mode) {
@@ -613,7 +608,6 @@ void ImMemView::ScrollWindow(int lines, GotoMode mode) {
 	UpdateSelectRange(curAddress_ + lines * rowSize_, mode);
 
 	updateStatusBarText();
-	redraw();
 }
 
 void ImMemView::ScrollCursor(int bytes, GotoMode mode) {
@@ -643,7 +637,6 @@ void ImMemView::ScrollCursor(int bytes, GotoMode mode) {
 	}
 
 	updateStatusBarText();
-	redraw();
 }
 
 bool ImMemView::ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data) {
@@ -682,7 +675,6 @@ bool ImMemView::ParseSearchString(const std::string &query, bool asHex, std::vec
 std::vector<u32> ImMemView::searchString(const std::string &searchQuery) {
 	std::vector<u32> searchResAddrs;
 
-	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return searchResAddrs;
 
@@ -719,7 +711,7 @@ std::vector<u32> ImMemView::searchString(const std::string &searchQuery) {
 };
 
 void ImMemView::search(bool continueSearch) {
-	auto memLock = Memory::Lock();
+	/*
 	if (!PSP_IsInited())
 		return;
 
@@ -788,6 +780,7 @@ void ImMemView::search(bool continueSearch) {
 	statusMessage_ = "Not found";
 	searching_ = false;
 	redraw();
+	*/
 }
 
 void ImMemView::drawOffsetScale(ImDrawList *drawList) {
@@ -815,14 +808,12 @@ void ImMemView::toggleOffsetScale(CommonToggles toggle) {
 		displayOffsetScale_ = false;
 
 	updateStatusBarText();
-	redraw();
 }
 
 void ImMemView::setHighlightType(MemBlockFlags flags) {
 	if (highlightFlags_ != flags) {
 		highlightFlags_ = flags;
 		updateStatusBarText();
-		redraw();
 	}
 }
 

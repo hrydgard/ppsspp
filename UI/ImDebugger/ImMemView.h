@@ -37,7 +37,6 @@ public:
 	void onMouseDown(float x, float y, int button);
 	void onMouseUp(float x, float y, int button);
 	void onMouseMove(float x, float y, int button);
-	void redraw();
 	void gotoAddr(unsigned int addr);
 
 	void drawOffsetScale(ImDrawList *drawList);
@@ -63,6 +62,7 @@ private:
 	void GotoPoint(int x, int y, GotoMode mode);
 	void ScrollWindow(int lines, GotoMode mdoe);
 	void ScrollCursor(int bytes, GotoMode mdoe);
+	void PopupMenu();
 
 	static wchar_t szClassName[];
 	DebugInterface *debugger_ = nullptr;
