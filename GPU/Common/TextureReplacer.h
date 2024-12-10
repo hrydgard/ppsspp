@@ -149,6 +149,7 @@ protected:
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
 	bool ignoreMipmap_ = false;
+	int skipLastDXT1Blocks128x64_ = 0;
 
 	float reduceHashGlobalValue = 0.5f; // Global value for textures dump pngs of all sizes, 0.5 by default but can be set in textures.ini
 
