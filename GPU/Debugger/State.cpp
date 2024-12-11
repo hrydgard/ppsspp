@@ -668,7 +668,7 @@ static void RotateUVThrough(GPUDebugVertex v[4]) {
 		SwapUVs(v[1], v[3]);
 }
 
-void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count, bool throughMode) {
+static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count, bool throughMode) {
 	static std::vector<GPUDebugVertex> newVerts;
 	static std::vector<u16> newInds;
 
@@ -728,7 +728,7 @@ void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<u16> &i
 	count *= 3;
 }
 
-void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
 	using namespace Spline;
 
 	int count_u = (op >> 0) & 0xFF;
@@ -777,7 +777,7 @@ void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVer
 	delete[] cpoints.col;
 }
 
-void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
 	using namespace Spline;
 
 	int count_u = (op >> 0) & 0xFF;
@@ -827,4 +827,117 @@ void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVer
 	FreeAlignedMemory(cpoints.pos);
 	FreeAlignedMemory(cpoints.tex);
 	FreeAlignedMemory(cpoints.col);
+}
+
+bool GetPrimPreview(u32 op, int which, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count) {
+	u32 prim_type = GE_PRIM_INVALID;
+	int count_u = 0;
+	int count_v = 0;
+
+	const u32 cmd = op >> 24;
+	if (cmd == GE_CMD_PRIM) {
+		prim_type = (op >> 16) & 0x7;
+		count = op & 0xFFFF;
+	} else {
+		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
+		if (gstate.getPatchPrimitiveType() < ARRAY_SIZE(primLookup))
+			prim_type = primLookup[gstate.getPatchPrimitiveType()];
+		count_u = (op & 0x00FF) >> 0;
+		count_v = (op & 0xFF00) >> 8;
+		count = count_u * count_v;
+	}
+
+	if (prim_type >= 7) {
+		ERROR_LOG(Log::G3D, "Unsupported prim type: %x", op);
+		return false;
+	}
+	if (!gpuDebug) {
+		ERROR_LOG(Log::G3D, "Invalid debugging environment, shutting down?");
+		return false;
+	}
+	if (count == 0 || which == 0) {
+		return false;
+	}
+
+	prim = static_cast<GEPrimitiveType>(prim_type);
+
+	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
+		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
+		return false;
+	}
+
+	if (cmd != GE_CMD_PRIM) {
+		static std::vector<SimpleVertex> generatedVerts;
+		static std::vector<u16> generatedInds;
+
+		static std::vector<SimpleVertex> simpleVerts;
+		simpleVerts.resize(vertices.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			// For now, let's just copy back so we can use TessellateBezierPatch/TessellateSplinePatch...
+			simpleVerts[i].uv[0] = vertices[i].u;
+			simpleVerts[i].uv[1] = vertices[i].v;
+			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
+		}
+
+		if (cmd == GE_CMD_BEZIER) {
+			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		} else if (cmd == GE_CMD_SPLINE) {
+			ExpandSpline(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		}
+
+		vertices.resize(generatedVerts.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			vertices[i].u = generatedVerts[i].uv[0];
+			vertices[i].v = generatedVerts[i].uv[1];
+			vertices[i].x = generatedVerts[i].pos.x;
+			vertices[i].y = generatedVerts[i].pos.y;
+			vertices[i].z = generatedVerts[i].pos.z;
+		}
+		indices = generatedInds;
+	}
+
+	if (prim == GE_PRIM_RECTANGLES) {
+		ExpandRectangles(vertices, indices, count, gpuDebug->GetGState().isModeThrough());
+	}
+
+	// TODO: Probably there's a better way and place to do this.
+	u16 minIndex = 0;
+	u16 maxIndex = count - 1;
+	if (!indices.empty()) {
+		_dbg_assert_(count <= indices.size());
+		minIndex = 0xFFFF;
+		maxIndex = 0;
+		for (int i = 0; i < count; ++i) {
+			if (minIndex > indices[i]) {
+				minIndex = indices[i];
+			}
+			if (maxIndex < indices[i]) {
+				maxIndex = indices[i];
+			}
+		}
+	}
+
+	auto wrapCoord = [](float &coord) {
+		if (coord < 0.0f) {
+			coord += ceilf(-coord);
+		}
+		if (coord > 1.0f) {
+			coord -= floorf(coord);
+		}
+	};
+
+	const float invTexWidth = 1.0f / gpuDebug->GetGState().getTextureWidth(0);
+	const float invTexHeight = 1.0f / gpuDebug->GetGState().getTextureHeight(0);
+	bool clampS = gpuDebug->GetGState().isTexCoordClampedS();
+	bool clampT = gpuDebug->GetGState().isTexCoordClampedT();
+	for (u16 i = minIndex; i <= maxIndex; ++i) {
+		vertices[i].u *= invTexWidth;
+		vertices[i].v *= invTexHeight;
+		if (!clampS)
+			wrapCoord(vertices[i].u);
+		if (!clampT)
+			wrapCoord(vertices[i].v);
+	}
+
+	return true;
 }
