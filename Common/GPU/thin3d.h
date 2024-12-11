@@ -708,6 +708,7 @@ struct ClippedDraw {
 	void *bindNativeTexture;
 	Draw::SamplerState *samplerState;
 	Draw::Pipeline *pipeline;
+	Draw::FBChannel aspect;
 };
 
 class DrawContext {

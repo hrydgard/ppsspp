@@ -45,7 +45,7 @@ public:
 	void setDebugger(DebugInterface *deb) {
 		if (debugger != deb) {
 			debugger = deb;
-			curAddress_ = debugger->getPC();
+			curAddress_ = debugger->GetPC();
 			manager.setCpu(deb);
 		}
 	}
@@ -70,7 +70,10 @@ public:
 		ScanVisibleFunctions();
 	}
 	void gotoPC() {
-		gotoAddr(debugger->getPC());
+		gotoAddr(debugger->GetPC());
+	}
+	void gotoLR() {
+		gotoAddr(debugger->GetLR());
 	}
 	u32 getSelection() {
 		return curAddress_;

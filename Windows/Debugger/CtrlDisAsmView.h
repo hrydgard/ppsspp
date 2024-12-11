@@ -111,7 +111,7 @@ public:
 	void setDebugger(DebugInterface *deb)
 	{
 		debugger=deb;
-		curAddress=debugger->getPC();
+		curAddress=debugger->GetPC();
 		manager.setCpu(deb);
 	}
 	DebugInterface *getDebugger()
@@ -140,7 +140,7 @@ public:
 	}
 	void gotoPC()
 	{
-		gotoAddr(debugger->getPC());
+		gotoAddr(debugger->GetPC());
 	}
 	u32 getSelection()
 	{

@@ -1599,7 +1599,7 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 		if (draw.bindTexture) {
 			BindTexture(0, draw.bindTexture);
 		} else if (draw.bindFramebufferAsTex) {
-			BindFramebufferAsTexture(draw.bindFramebufferAsTex, 0, FBChannel::FB_COLOR_BIT, 0);
+			BindFramebufferAsTexture(draw.bindFramebufferAsTex, 0, draw.aspect, 0);
 		} else if (draw.bindNativeTexture) {
 			BindNativeTexture(0, draw.bindNativeTexture);
 		}
@@ -1834,6 +1834,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 		break;
 	default:
+		// Hm, can we texture from stencil?
 		_assert_(false);
 		break;
 	}

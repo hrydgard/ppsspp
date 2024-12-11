@@ -35,8 +35,6 @@ public:
 	virtual void clearAllBreakpoints() = 0;
 	virtual void toggleBreakpoint(unsigned int address) = 0;
 	virtual unsigned int readMemory(unsigned int address) {return 0;}
-	virtual unsigned int getPC() = 0;
-	virtual void setPC(unsigned int address) {}
 	virtual void step() {}
 	virtual void runToBreakpoint() {}
 	virtual int getColor(unsigned int address, bool darkMode) const {return darkMode ? 0xFF101010 : 0xFFFFFFFF;}

@@ -41,6 +41,37 @@
 
 extern bool g_TakeScreenshot;
 
+// TODO: Style it.
+// Left click performs the preferred action, if any. Right click opens a menu for more.
+void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "%08x", addr);
+	if (ImGui::SmallButton(temp)) {
+		control.command = { cmd, addr };
+	}
+
+	// Create a right-click popup menu
+	if (ImGui::BeginPopupContextItem(temp)) {
+		if (ImGui::MenuItem("Copy address to clipboard")) {
+			System_CopyStringToClipboard(temp);
+		}
+		ImGui::Separator();
+		// Enable when we implement the memory viewer
+		if (cmd != ImCmd::SHOW_IN_MEMORY_VIEWER) {
+			if (ImGui::MenuItem("Show in memory viewer 1")) {
+				control.command = { ImCmd::SHOW_IN_MEMORY_VIEWER, addr };
+			}
+		}
+		if (ImGui::MenuItem("Show in CPU debugger")) {
+			control.command = { ImCmd::SHOW_IN_CPU_DISASM, addr };
+		}
+		if (ImGui::MenuItem("Show in GE debugger")) {
+			control.command = { ImCmd::SHOW_IN_GE_DISASM, addr };
+		}
+		ImGui::EndPopup();
+	}
+}
+
 void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Event Scheduler", &cfg.schedulerOpen)) {
@@ -69,9 +100,9 @@ void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
+void DrawRegisterView(ImConfig &config, ImControl &control, MIPSDebugInterface *mipsDebug) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Registers", open)) {
+	if (!ImGui::Begin("Registers", &config.regsOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -83,24 +114,30 @@ void DrawRegisterView(MIPSDebugInterface *mipsDebug, bool *open) {
 				ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
 
-				auto gprLine = [&](const char *regname, int value) {
+				auto gprLine = [&](int index, const char *regname, int value) {
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::TextUnformatted(regname);
 					ImGui::TableNextColumn();
-					ImGui::Text("%08x", value);
+					if (Memory::IsValid4AlignedAddress(value)) {
+						ImGui::PushID(index);
+						ImClickableAddress(value, control, index == MIPS_REG_RA ? ImCmd::SHOW_IN_CPU_DISASM : ImCmd::SHOW_IN_MEMORY_VIEWER);
+						ImGui::PopID();
+					} else {
+						ImGui::Text("%08x", value);
+					}
 					if (value >= -1000000 && value <= 1000000) {
 						ImGui::TableSetColumnIndex(2);
 						ImGui::Text("%d", value);
 					}
 				};
 				for (int i = 0; i < 32; i++) {
-					gprLine(mipsDebug->GetRegName(0, i).c_str(), mipsDebug->GetGPR32Value(i));
+					gprLine(i, mipsDebug->GetRegName(0, i).c_str(), mipsDebug->GetGPR32Value(i));
 				}
-				gprLine("hi", mipsDebug->GetHi());
-				gprLine("lo", mipsDebug->GetLo());
-				gprLine("pc", mipsDebug->GetPC());
-				gprLine("ll", mipsDebug->GetLLBit());
+				gprLine(32, "hi", mipsDebug->GetHi());
+				gprLine(33, "lo", mipsDebug->GetLo());
+				gprLine(34, "pc", mipsDebug->GetPC());
+				gprLine(35, "ll", mipsDebug->GetLLBit());
 				ImGui::EndTable();
 			}
 
@@ -207,7 +244,7 @@ void WaitIDToString(WaitType waitType, SceUID waitID, char *buffer, size_t bufSi
 
 }
 
-void DrawThreadView(ImConfig &cfg) {
+void DrawThreadView(ImConfig &cfg, ImControl &control) {
 	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Threads", &cfg.threadsOpen)) {
 		ImGui::End();
@@ -242,9 +279,9 @@ void DrawThreadView(ImConfig &cfg) {
 				ImGui::OpenPopup("threadPopup");
 			}
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", thread.curPC);
+			ImClickableAddress(thread.curPC, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", thread.entrypoint);
+			ImClickableAddress(thread.entrypoint, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", thread.priority);
 			ImGui::TableNextColumn();
@@ -842,6 +879,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		return;
 	}
 
+	ImControl control{};
+
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
 			switch (coreState) {
@@ -964,7 +1003,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.regsOpen) {
-		DrawRegisterView(mipsDebug, &cfg_.regsOpen);
+		DrawRegisterView(cfg_, control, mipsDebug);
 	}
 
 	if (cfg_.breakpointsOpen) {
@@ -984,7 +1023,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.threadsOpen) {
-		DrawThreadView(cfg_);
+		DrawThreadView(cfg_, control);
 	}
 
 	if (cfg_.callstackOpen) {
@@ -1024,16 +1063,30 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.geDebuggerOpen) {
-		geDebugger_.Draw(cfg_, gpuDebug);
+		geDebugger_.Draw(cfg_, control, gpuDebug);
 	}
 
 	if (cfg_.geStateOpen) {
-		DrawGeStateWindow(cfg_, gpuDebug);
+		geStateWindow_.Draw(cfg_, control, gpuDebug);
 	}
 
 	if (cfg_.schedulerOpen) {
 		DrawSchedulerView(cfg_);
 	}
+
+	// Process UI commands
+	switch (control.command.cmd) {
+	case ImCmd::SHOW_IN_CPU_DISASM:
+		disasm_.View().gotoAddr(control.command.param);
+		break;
+	case ImCmd::SHOW_IN_GE_DISASM:
+		geDebugger_.View().GotoAddr(control.command.param);
+		break;
+	}
+}
+
+void ImDebugger::Snapshot() {
+
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState) {
@@ -1116,6 +1169,12 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	}
 
 	ImGui::SameLine();
+	if (ImGui::SmallButton("Syscall")) {
+		hleDebugBreak();
+		Core_Resume();
+	}
+
+	ImGui::SameLine();
 	ImGui::SmallButton("Skim");
 	if (ImGui::IsItemActive()) {
 		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
@@ -1127,6 +1186,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Goto PC")) {
 		disasmView_.gotoPC();
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Goto LR")) {
+		disasmView_.gotoLR();
 	}
 
 	if (ImGui::BeginPopup("disSearch")) {

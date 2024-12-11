@@ -363,6 +363,9 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
+
+	const u32 pc = debugger->GetPC();
+
 	for (int i = 0; i < visibleRows_; i++) {
 		manager.getLine(address, displaySymbols_, line);
 
@@ -375,7 +378,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		ImColor backgroundColor = ImColor(0xFF000000 | debugger->getColor(address, true));
 		ImColor textColor = 0xFFFFFFFF;
 
-		if (isInInterval(address, line.totalSize, debugger->getPC())) {
+		if (isInInterval(address, line.totalSize, pc)) {
 			backgroundColor = scaleColor(backgroundColor, 1.3f);
 		}
 
@@ -404,7 +407,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		getDisasmAddressText(address, addressText, true, line.type == DISTYPE_OPCODE);
 		drawList->AddText(ImVec2(rect.left + pixelPositions_.addressStart, rect.top + rowY1 + 2), textColor, addressText);
 
-		if (isInInterval(address, line.totalSize, debugger->getPC())) {
+		if (isInInterval(address, line.totalSize, pc)) {
 			// Show the current PC with a little triangle.
 			drawList->AddTriangleFilled(
 				ImVec2(canvas_p0.x + pixelPositions_.opcodeStart - rowHeight_ * 0.7f, canvas_p0.y + rowY1 + 2),
@@ -414,7 +417,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		}
 
 		// display whether the condition of a branch is met
-		if (line.info.isConditional && address == debugger->getPC()) {
+		if (line.info.isConditional && address == pc) {
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
@@ -809,7 +812,7 @@ void ImDisasmView::PopupMenu() {
 		ImGui::Separator();
 
 		if (ImGui::MenuItem("Set PC to here")) {
-			debugger->setPC(curAddress_);
+			debugger->SetPC(curAddress_);
 		}
 		if (ImGui::MenuItem("Follow branch")) {
 			FollowBranch();

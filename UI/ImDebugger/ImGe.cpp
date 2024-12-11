@@ -236,7 +236,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	}
 }
 
-void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -304,28 +304,105 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 
 	// Display any pending step event.
 	if (GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE) {
-		ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel step")) {
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+		if (showBannerInFrames_ > 0) {
+			showBannerInFrames_--;
 		}
+		if (showBannerInFrames_ == 0) {
+			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel step")) {
+				GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+			}
+		}
+	} else {
+		showBannerInFrames_ = 2;
 	}
 
-	// Let's display the current CLUT.
+	// First, let's list any active display lists in the left column, on top of the disassembly.
 
-	// First, let's list any active display lists in the left column.
+	ImGui::BeginChild("left pane", ImVec2(400, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+
 	for (auto index : gpuDebug->GetDisplayListQueue()) {
 		const auto &list = gpuDebug->GetDisplayList(index);
 		char title[64];
 		snprintf(title, sizeof(title), "List %d", list.id);
 		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("PC: %08x (start: %08x)", list.pc, list.startpc);
+			ImGui::TextUnformatted("PC:");
+			ImGui::SameLine();
+			ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
+			ImGui::Text("StartPC:");
+			ImGui::SameLine();
+			ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
+			ImGui::Text("Pending interrupt: %d", (int)list.pendingInterrupt);
+			ImGui::Text("Stack depth: %d", (int)list.stackptr);
 			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 		}
 	}
 
 	// Display the disassembly view.
 	disasmView_.Draw(gpuDebug);
+
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
+
+	if (coreState == CORE_STEPPING_GE) {
+		FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
+		u32 fbptr = gstate.getFrameBufAddress();
+		VirtualFramebuffer *vfb = fbman->GetVFBAt(fbptr);
+
+		if (vfb) {
+			if (vfb->fbo) {
+				ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
+			} else {
+				ImGui::Text("Framebuffer");
+			}
+
+			if (ImGui::BeginTabBar("aspects")) {
+				if (ImGui::BeginTabItem("Color")) {
+					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+					// TODO: Draw vertex preview on top!
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Depth")) {
+					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_DEPTH_BIT, ImGuiPipeline::TexturedOpaque);
+					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Stencil")) {
+					// Nah, this isn't gonna work. We better just do a readback to texture, but then we need a message and some storage..
+					//
+					//ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
+					//ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
+			}
+
+			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
+		}
+
+		ImGui::Text("Texture: ");
+
+		TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+		TexCacheEntry *tex = texcache->SetTexture();
+		texcache->ApplyTexture();
+
+		void *nativeView = texcache->GetNativeTextureView(tex, true);
+		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+
+		ImGui::Image(texId, ImVec2(128, 128));
+
+		// Let's display the current CLUT.
+
+	} else {
+		ImGui::Text("Click the buttons above (Tex, etc) to stop");
+	}
+
+	ImGui::EndChild();
 
 	ImGui::End();
 }
@@ -505,8 +582,12 @@ static const StateItem g_vertexState[] = {
 	{false, GE_CMD_PATCHFACING},
 };
 
+void ImGeStateWindow::Snapshot() {
+
+}
+
 // TODO: Separate window or merge into Ge debugger?
-void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE State", &cfg.geStateOpen)) {
 		ImGui::End();
@@ -550,14 +631,24 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 							ImGui::TextUnformatted(info.uiName);
 							ImGui::TableNextColumn();
 						}
-						char temp[256];
+						if (rows[i].cmd != GE_CMD_NOP) {
+							char temp[256];
 
-						const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
-						const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
-						const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
+							const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
+							const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
+							const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
-						FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
-						ImGui::TextUnformatted(temp);
+							// Special handling for pointer and pointer/width entries
+							if (info.fmt == CMD_FMT_PTRWIDTH) {
+								const u32 val = value | (otherValue & 0x00FF0000) << 8;
+								ImClickableAddress(val, control, ImCmd::NONE);
+								ImGui::SameLine();
+								ImGui::Text("w=%d", otherValue & 0xFFFF);
+							} else {
+								FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
+								ImGui::TextUnformatted(temp);
+							}
+						}
 						if (!enabled)
 							ImGui::PopStyleColor();
 					}

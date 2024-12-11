@@ -75,6 +75,8 @@ public:
 			colorSRView->Release();
 		if (depthSRView)
 			depthSRView->Release();
+		if (stencilSRView)
+			stencilSRView->Release();
 		if (depthStencilTex)
 			depthStencilTex->Release();
 		if (depthStencilRTView)
@@ -85,6 +87,7 @@ public:
 	ID3D11RenderTargetView *colorRTView = nullptr;
 	ID3D11ShaderResourceView *colorSRView = nullptr;
 	ID3D11ShaderResourceView *depthSRView = nullptr;
+	ID3D11ShaderResourceView *stencilSRView = nullptr;
 	DXGI_FORMAT colorFormat = DXGI_FORMAT_UNKNOWN;
 
 	ID3D11Texture2D *depthStencilTex = nullptr;
@@ -1438,6 +1441,16 @@ void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCo
 			context_->PSSetShaderResources(0, 1, &view);
 		} else {
 			ID3D11ShaderResourceView *view = ((D3D11Framebuffer *)draws[i].bindFramebufferAsTex)->colorSRView;
+			switch (draws[i].aspect) {
+			case FB_DEPTH_BIT:
+				view = ((D3D11Framebuffer *)draws[i].bindFramebufferAsTex)->depthSRView;
+				break;
+			case FB_STENCIL_BIT:
+				view = ((D3D11Framebuffer *)draws[i].bindFramebufferAsTex)->stencilSRView;
+				break;
+			default:
+				break;
+			}
 			context_->PSSetShaderResources(0, 1, &view);
 		}
 		ID3D11SamplerState *sstate = ((D3D11SamplerState *)draws[i].samplerState)->ss;
@@ -1548,6 +1561,18 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->depthSRView);
 		if (FAILED(hr)) {
 			WARN_LOG(Log::G3D, "Failed to create SRV for depth buffer.");
+			fb->depthSRView = nullptr;
+		}
+
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC depthStencilViewDesc{};
+		depthStencilViewDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+		depthStencilViewDesc.Texture2D.MostDetailedMip = 0;
+		depthStencilViewDesc.Texture2D.MipLevels = 1;
+		depthStencilViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		hr = device_->CreateShaderResourceView(fb->depthStencilTex, &depthViewDesc, &fb->stencilSRView);
+		if (FAILED(hr)) {
+			WARN_LOG(Log::G3D, "Failed to create SRV for depth+stencil buffer.");
 			fb->depthSRView = nullptr;
 		}
 	}

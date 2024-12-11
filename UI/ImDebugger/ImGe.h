@@ -3,6 +3,7 @@
 // GE-related windows of the ImDebugger
 
 struct ImConfig;
+struct ImControl;
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -12,7 +13,6 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawDebugStatsWindow(ImConfig &cfg);
-void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug);
 
 class ImGeDisasmView {
 public:
@@ -22,6 +22,10 @@ public:
 
 	void GotoPC() {
 		gotoPC_ = true;
+	}
+
+	void GotoAddr(uint32_t addr) {
+		selectedAddr_ = addr;
 	}
 
 private:
@@ -34,13 +38,22 @@ private:
 	};
 };
 
+class ImGeStateWindow {
+public:
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+	void Snapshot();
+private:
+	u32 prevState_[256]{};
+};
+
 class ImGeDebuggerWindow {
 public:
-	void Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug);
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}
 
 private:
 	ImGeDisasmView disasmView_;
+	int showBannerInFrames_ = 0;
 };

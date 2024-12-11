@@ -89,6 +89,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	void *boundNativeTexture;
 	Draw::Pipeline *boundPipeline = bd->pipelines[0];
 	Draw::SamplerState *boundSampler = bd->fontSampler;
+	Draw::FBChannel boundAspect = Draw::FB_COLOR_BIT;
 
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
@@ -115,16 +116,19 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 					boundFBAsTexture = bd->tempTextures[index].framebuffer;
 					boundTexture = nullptr;
 					boundNativeTexture = nullptr;
+					boundAspect = bd->tempTextures[index].aspect;
 					break;
 				case RegisteredTextureType::Texture:
 					boundTexture = bd->tempTextures[index].texture;
 					boundFBAsTexture = nullptr;
 					boundNativeTexture = nullptr;
+					boundAspect = Draw::FB_COLOR_BIT;
 					break;
 				case RegisteredTextureType::NativeTexture:
 					boundTexture = nullptr;
 					boundFBAsTexture = nullptr;
-					boundNativeTexture = bd->tempTextures[index].nativeTexture;;
+					boundNativeTexture = bd->tempTextures[index].nativeTexture;
+					boundAspect = Draw::FB_COLOR_BIT;
 					break;
 				}
 				boundPipeline = bd->pipelines[(int)bd->tempTextures[index].pipeline];
@@ -149,6 +153,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 			clippedDraw.bindFramebufferAsTex = boundFBAsTexture;
 			clippedDraw.bindNativeTexture = boundNativeTexture;
 			clippedDraw.samplerState = boundSampler;
+			clippedDraw.aspect = boundAspect;
 			clippedDraw.clipx = clip_min.x;
 			clippedDraw.clipy = clip_min.y;
 			clippedDraw.clipw = clip_max.x - clip_min.x;
