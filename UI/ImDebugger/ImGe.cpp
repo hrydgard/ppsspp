@@ -331,6 +331,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::SameLine();
 			ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
 			ImGui::Text("StartPC:");
+			ImGui::SameLine();
 			ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
 			ImGui::Text("Pending interrupt: %d", (int)list.pendingInterrupt);
 			ImGui::Text("Stack depth: %d", (int)list.stackptr);
