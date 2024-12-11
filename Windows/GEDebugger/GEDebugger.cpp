@@ -568,7 +568,10 @@ void CGEDebugger::UpdatePreviews() {
 	UpdatePrimaryPreview(state);
 	UpdateSecondPreview(state);
 
-	u32 primOp = PrimPreviewOp();
+	u32 primOp = 0;
+	if (!showClut_) {
+		primOp = PrimPreviewOp();
+	}
 	if (primOp != 0) {
 		UpdatePrimPreview(primOp, 3);
 	}

@@ -102,7 +102,7 @@ private:
 	void UpdatePreviews();
 	void UpdatePrimaryPreview(const GPUgstate &state);
 	void UpdateSecondPreview(const GPUgstate &state);
-	u32 PrimPreviewOp();
+	static u32 PrimPreviewOp();
 	void UpdatePrimPreview(u32 op, int which);
 	void CleanupPrimPreview();
 	void HandleRedraw(int which);

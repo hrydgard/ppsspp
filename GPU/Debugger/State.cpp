@@ -6,6 +6,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SplineCommon.h"
 #include "Core/System.h"
 
 void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
@@ -645,4 +646,185 @@ static void FormatVertColRawColor(char *dest, size_t destSize, const void *data,
 		truncate_cpy(dest, destSize, "Invalid");
 		break;
 	}
+}
+
+
+static void SwapUVs(GPUDebugVertex &a, GPUDebugVertex &b) {
+	float tempu = a.u;
+	float tempv = a.v;
+	a.u = b.u;
+	a.v = b.v;
+	b.u = tempu;
+	b.v = tempv;
+}
+
+static void RotateUVThrough(GPUDebugVertex v[4]) {
+	float x1 = v[2].x;
+	float x2 = v[0].x;
+	float y1 = v[2].y;
+	float y2 = v[0].y;
+
+	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2))
+		SwapUVs(v[1], v[3]);
+}
+
+void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count, bool throughMode) {
+	static std::vector<GPUDebugVertex> newVerts;
+	static std::vector<u16> newInds;
+
+	bool useInds = true;
+	size_t numInds = indices.size();
+	if (indices.empty()) {
+		useInds = false;
+		numInds = count;
+	}
+
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1;
+
+	// Will need 4 coords and 6 points per rectangle (currently 2 each.)
+	newVerts.resize(numInds * 2);
+	newInds.resize(numInds * 3);
+
+	u16 v = 0;
+	GPUDebugVertex *vert = &newVerts[0];
+	u16 *ind = &newInds[0];
+	for (size_t i = 0; i < numInds; i += 2) {
+		const auto &orig_tl = useInds ? vertices[indices[i + 0]] : vertices[i + 0];
+		const auto &orig_br = useInds ? vertices[indices[i + 1]] : vertices[i + 1];
+
+		vert[0] = orig_br;
+
+		// Top right.
+		vert[1] = orig_br;
+		vert[1].y = orig_tl.y;
+		vert[1].v = orig_tl.v;
+
+		vert[2] = orig_tl;
+
+		// Bottom left.
+		vert[3] = orig_br;
+		vert[3].x = orig_tl.x;
+		vert[3].u = orig_tl.u;
+
+		// That's the four corners. Now process UV rotation.
+		// This is the same for through and non-through, since it's already transformed.
+		RotateUVThrough(vert);
+
+		// Build the two 3 point triangles from our 4 coordinates.
+		*ind++ = v + 0;
+		*ind++ = v + 1;
+		*ind++ = v + 2;
+		*ind++ = v + 3;
+		*ind++ = v + 0;
+		*ind++ = v + 2;
+
+		vert += 4;
+		v += 4;
+	}
+
+	std::swap(vertices, newVerts);
+	std::swap(indices, newInds);
+	count *= 3;
+}
+
+void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	using namespace Spline;
+
+	int count_u = (op >> 0) & 0xFF;
+	int count_v = (op >> 8) & 0xFF;
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4)
+		return;
+
+	BezierSurface surface;
+	surface.num_points_u = count_u;
+	surface.num_points_v = count_v;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.num_patches_u = (count_u - 1) / 3;
+	surface.num_patches_v = (count_v - 1) / 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = false;
+
+	int num_points = count_u * count_v;
+	// Make an array of pointers to the control points, to get rid of indices.
+	std::vector<const SimpleVertex *> points(num_points);
+	for (int idx = 0; idx < num_points; idx++)
+		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
+
+	int total_patches = surface.num_patches_u * surface.num_patches_v;
+	generatedVerts.resize((surface.tess_u + 1) * (surface.tess_v + 1) * total_patches);
+	generatedInds.resize(surface.tess_u * surface.tess_v * 6 * total_patches);
+
+	OutputBuffers output;
+	output.vertices = generatedVerts.data();
+	output.indices = generatedInds.data();
+	output.count = 0;
+
+	ControlPoints cpoints;
+	cpoints.pos = new Vec3f[num_points];
+	cpoints.tex = new Vec2f[num_points];
+	cpoints.col = new Vec4f[num_points];
+	cpoints.Convert(points.data(), num_points);
+
+	surface.Init((int)generatedVerts.size());
+	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
+	count = output.count;
+
+	delete[] cpoints.pos;
+	delete[] cpoints.tex;
+	delete[] cpoints.col;
+}
+
+void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	using namespace Spline;
+
+	int count_u = (op >> 0) & 0xFF;
+	int count_v = (op >> 8) & 0xFF;
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4)
+		return;
+
+	SplineSurface surface;
+	surface.num_points_u = count_u;
+	surface.num_points_v = count_v;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.type_u = (op >> 16) & 0x3;
+	surface.type_v = (op >> 18) & 0x3;
+	surface.num_patches_u = count_u - 3;
+	surface.num_patches_v = count_v - 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = false;
+
+	int num_points = count_u * count_v;
+	// Make an array of pointers to the control points, to get rid of indices.
+	std::vector<const SimpleVertex *> points(num_points);
+	for (int idx = 0; idx < num_points; idx++)
+		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
+
+	int patch_div_s = surface.num_patches_u * surface.tess_u;
+	int patch_div_t = surface.num_patches_v * surface.tess_v;
+	generatedVerts.resize((patch_div_s + 1) * (patch_div_t + 1));
+	generatedInds.resize(patch_div_s * patch_div_t * 6);
+
+	OutputBuffers output;
+	output.vertices = generatedVerts.data();
+	output.indices = generatedInds.data();
+	output.count = 0;
+
+	ControlPoints cpoints;
+	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
+	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
+	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
+	cpoints.Convert(points.data(), num_points);
+
+	surface.Init((int)generatedVerts.size());
+	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
+	count = output.count;
+
+	FreeAlignedMemory(cpoints.pos);
+	FreeAlignedMemory(cpoints.tex);
+	FreeAlignedMemory(cpoints.col);
 }
