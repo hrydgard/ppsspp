@@ -236,7 +236,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	}
 }
 
-void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -304,11 +304,18 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 
 	// Display any pending step event.
 	if (GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE) {
-		ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel step")) {
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+		if (showBannerInFrames_ > 0) {
+			showBannerInFrames_--;
 		}
+		if (showBannerInFrames_ == 0) {
+			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel step")) {
+				GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+			}
+		}
+	} else {
+		showBannerInFrames_ = 2;
 	}
 
 	// First, let's list any active display lists in the left column, on top of the disassembly.
@@ -320,8 +327,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 		char title[64];
 		snprintf(title, sizeof(title), "List %d", list.id);
 		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("PC: %08x", list.pc);
-			ImGui::Text("StartPC: %08x", list.startpc);
+			ImGui::TextUnformatted("PC:");
+			ImGui::SameLine();
+			ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
+			ImGui::Text("StartPC:");
+			ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
 			ImGui::Text("Pending interrupt: %d", (int)list.pendingInterrupt);
 			ImGui::Text("Stack depth: %d", (int)list.stackptr);
 			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
@@ -571,8 +581,12 @@ static const StateItem g_vertexState[] = {
 	{false, GE_CMD_PATCHFACING},
 };
 
+void ImGeStateWindow::Snapshot() {
+
+}
+
 // TODO: Separate window or merge into Ge debugger?
-void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
+void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE State", &cfg.geStateOpen)) {
 		ImGui::End();
@@ -623,8 +637,16 @@ void DrawGeStateWindow(ImConfig &cfg, GPUDebugInterface *gpuDebug) {
 							const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
 							const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
-							FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
-							ImGui::TextUnformatted(temp);
+							// Special handling for pointer and pointer/width entries
+							if (info.fmt == CMD_FMT_PTRWIDTH) {
+								const u32 val = value | (otherValue & 0x00FF0000) << 8;
+								ImClickableAddress(val, control, ImCmd::NONE);
+								ImGui::SameLine();
+								ImGui::Text("w=%d", otherValue & 0xFFFF);
+							} else {
+								FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
+								ImGui::TextUnformatted(temp);
+							}
 						}
 						if (!enabled)
 							ImGui::PopStyleColor();

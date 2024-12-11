@@ -103,12 +103,21 @@ struct ImConfig {
 	void SyncConfig(IniFile *ini, bool save);
 };
 
-enum ImUiCmd {
-	TRIGGER_FIND_POPUP = 0,
+enum class ImCmd {
+	NONE = 0,
+	TRIGGER_FIND_POPUP,
+	SHOW_IN_CPU_DISASM,
+	SHOW_IN_GE_DISASM,
+	SHOW_IN_MEMORY_VIEWER,
 };
 
-struct ImUiCommand {
-	ImUiCmd cmd;
+struct ImCommand {
+	ImCmd cmd;
+	uint32_t param;
+};
+
+struct ImControl {
+	ImCommand command;
 };
 
 class ImDebugger {
@@ -118,6 +127,10 @@ public:
 
 	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
 
+	// Should be called just before starting a step or run, so that things can
+	// save state that they can later compare with, to highlight changes.
+	void Snapshot();
+
 private:
 	Path ConfigPath();
 
@@ -125,8 +138,12 @@ private:
 
 	ImDisasmWindow disasm_;
 	ImGeDebuggerWindow geDebugger_;
+	ImGeStateWindow geStateWindow_;
 	ImStructViewer structViewer_;
 
 	// Open variables.
 	ImConfig cfg_{};
 };
+
+// Simple custom controls
+void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd);

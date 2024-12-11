@@ -41,6 +41,37 @@
 
 extern bool g_TakeScreenshot;
 
+// TODO: Style it.
+// Left click performs the preferred action, if any. Right click opens a menu for more.
+void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "%08x", addr);
+	if (ImGui::SmallButton(temp)) {
+		control.command = { cmd, addr };
+	}
+
+	// Create a right-click popup menu
+	if (ImGui::BeginPopupContextItem(temp)) {
+		if (ImGui::MenuItem("Copy address to clipboard")) {
+			System_CopyStringToClipboard(temp);
+		}
+		ImGui::Separator();
+		// Enable when we implement the memory viewer
+		if (cmd != ImCmd::SHOW_IN_MEMORY_VIEWER) {
+			if (ImGui::MenuItem("Show in memory viewer 1")) {
+				control.command = { ImCmd::SHOW_IN_MEMORY_VIEWER, addr };
+			}
+		}
+		if (ImGui::MenuItem("Show in CPU debugger")) {
+			control.command = { ImCmd::SHOW_IN_CPU_DISASM, addr };
+		}
+		if (ImGui::MenuItem("Show in GE debugger")) {
+			control.command = { ImCmd::SHOW_IN_GE_DISASM, addr };
+		}
+		ImGui::EndPopup();
+	}
+}
+
 void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Event Scheduler", &cfg.schedulerOpen)) {
@@ -842,6 +873,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		return;
 	}
 
+	ImControl control{};
+
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Debug")) {
 			switch (coreState) {
@@ -1024,16 +1057,30 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.geDebuggerOpen) {
-		geDebugger_.Draw(cfg_, gpuDebug);
+		geDebugger_.Draw(cfg_, control, gpuDebug);
 	}
 
 	if (cfg_.geStateOpen) {
-		DrawGeStateWindow(cfg_, gpuDebug);
+		geStateWindow_.Draw(cfg_, control, gpuDebug);
 	}
 
 	if (cfg_.schedulerOpen) {
 		DrawSchedulerView(cfg_);
 	}
+
+	// Process UI commands
+	switch (control.command.cmd) {
+	case ImCmd::SHOW_IN_CPU_DISASM:
+		disasm_.View().gotoAddr(control.command.param);
+		break;
+	case ImCmd::SHOW_IN_GE_DISASM:
+		geDebugger_.View().GotoAddr(control.command.param);
+		break;
+	}
+}
+
+void ImDebugger::Snapshot() {
+
 }
 
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState) {
