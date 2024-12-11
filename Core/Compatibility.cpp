@@ -19,8 +19,10 @@
 
 #include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -41,6 +43,10 @@ void Compatibility::Load(const std::string &gameID) {
 		// This loads from assets.
 		if (compat.LoadFromVFS(g_VFS, "compat.ini")) {
 			CheckSettings(compat, gameID);
+		} else {
+			auto e = GetI18NCategory(I18NCat::ERRORS);
+			std::string msg = ApplySafeSubstitutions(e->T("File not found: %1"), "compat.ini");
+			g_OSD.Show(OSDType::MESSAGE_ERROR, msg, 3.0f);
 		}
 	}
 
