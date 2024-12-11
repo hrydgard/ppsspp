@@ -35,6 +35,7 @@
 
 // GPU things
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Stepping.h"
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImGe.h"
@@ -879,6 +880,20 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		return;
 	}
 
+	// Watch the step counters to figure out when to update things.
+
+	if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
+		lastCpuStepCount_ = Core_GetSteppingCounter();
+		disasm_.View().NotifyStep();
+	}
+
+	if (lastGpuStepCount_ != GPUStepping::GetSteppingCounter()) {
+		// A GPU step has happened since last time. This means that we should re-center the cursor.
+		// Snapshot();
+		lastGpuStepCount_ = GPUStepping::GetSteppingCounter();
+		geDebugger_.View().NotifyStep();
+	}
+
 	ImControl control{};
 
 	if (ImGui::BeginMainMenuBar()) {
@@ -1096,6 +1111,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 }
 
 void ImDebugger::Snapshot() {
+
 }
 
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, int index) {

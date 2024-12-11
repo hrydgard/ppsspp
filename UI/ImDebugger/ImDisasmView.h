@@ -28,6 +28,7 @@ public:
 	void Draw(ImDrawList *drawList);
 
 	void PopupMenu();
+	void NotifyStep();
 
 	void ScrollRelative(int amount);
 
@@ -131,7 +132,6 @@ private:
 	void updateStatusBarText();
 	void drawBranchLine(ImDrawList *list, Bounds rc, std::map<u32, float> &addressPositions, const BranchLine &line);
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
-	void NopInstructions(u32 startAddr, u32 endAddr);
 	std::set<std::string> getSelectedLineArguments();
 	void drawArguments(ImDrawList *list, Bounds rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments);
 

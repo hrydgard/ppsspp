@@ -450,15 +450,6 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 	ProcessKeyboardShortcuts(ImGui::IsItemFocused());
 
-	int coreStep = Core_GetSteppingCounter();
-	if (coreStep != lastSteppingCount_) {
-		// A step has happened since last time. This means that we should re-center the cursor.
-		if (followPC_) {
-			gotoPC();
-		}
-		lastSteppingCount_ = coreStep;
-	}
-
 	if (pressed) {
 		// INFO_LOG(Log::System, "Clicked %f,%f", mousePos.x, mousePos.y);
 		if (mousePos.x < rowHeight_) {  // Left column
@@ -477,6 +468,12 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	PopupMenu();
 
 	drawList->PopClipRect();
+}
+
+void ImDisasmView::NotifyStep() {
+	if (followPC_) {
+		gotoPC();
+	}
 }
 
 void ImDisasmView::ScrollRelative(int amount) {
@@ -763,16 +760,6 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
-void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
-	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-		Memory::Write_U32(0, addr);
-	}
-
-	if (currentMIPS) {
-		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
-	}
-}
-
 void ImDisasmView::PopupMenu() {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
@@ -812,7 +799,12 @@ void ImDisasmView::PopupMenu() {
 			assembleOpcode(curAddress_, "");
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
-			NopInstructions(selectRangeStart_, selectRangeEnd_);
+			for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
+				Memory::Write_U32(0, addr);
+			}
+			if (currentMIPS) {
+				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
+			}
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Rename function")) {

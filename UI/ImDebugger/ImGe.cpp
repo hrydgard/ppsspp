@@ -14,6 +14,7 @@
 #include "GPU/Debugger/State.h"
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/GPUState.h"
 
@@ -82,6 +83,12 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	ImGui::End();
 }
 
+void ImGeDisasmView::NotifyStep() {
+	if (followPC_) {
+		gotoPC_ = true;
+	}
+}
+
 void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	const u32 branchColor = 0xFFA0FFFF;
 	const u32 gteColor = 0xFFFFEFA0;
@@ -123,7 +130,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	}
 
 	if (pc != 0xFFFFFFFF) {
-		if (gotoPC_ || followPC_) {
+		if (gotoPC_) {
 			selectedAddr_ = pc;
 			gotoPC_ = false;
 		}

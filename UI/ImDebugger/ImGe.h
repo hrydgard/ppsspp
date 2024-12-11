@@ -28,6 +28,8 @@ public:
 		selectedAddr_ = addr;
 	}
 
+	void NotifyStep();
+
 private:
 	u32 selectedAddr_ = INVALID_ADDR;
 	u32 dragAddr_ = INVALID_ADDR;

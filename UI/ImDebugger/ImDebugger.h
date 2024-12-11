@@ -171,6 +171,9 @@ private:
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
 
+	int lastCpuStepCount_ = -1;
+	int lastGpuStepCount_ = -1;
+
 	// Open variables.
 	ImConfig cfg_{};
 };
