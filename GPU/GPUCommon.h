@@ -349,9 +349,6 @@ public:
 	GPUDebugOp DisassembleOp(u32 pc, u32 op) override;
 	std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) override;
 
-	void NotifySteppingEnter() override;
-	void NotifySteppingExit() override;
-
 	u32 GetRelativeAddress(u32 data) override;
 	u32 GetVertexAddress() override;
 	u32 GetIndexAddress() override;
@@ -510,8 +507,4 @@ private:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
-
-	// Debug stats.
-	double timeSteppingStarted_;
-	double timeSpentStepping_;
 };

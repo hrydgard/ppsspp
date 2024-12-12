@@ -106,7 +106,7 @@ bool WatchItemWindow::FetchDialogData(HWND hwnd) {
 	GetWindowTextW(GetDlgItem(hwnd, IDC_BREAKPOINT_CONDITION), textValue, ARRAY_SIZE(textValue));
 	expression_ = ConvertWStringToUTF8(textValue);
 	PostfixExpression compiled;
-	if (!cpu_->initExpression(expression_.c_str(), compiled)) {
+	if (!initExpression(cpu_,  expression_.c_str(), compiled)) {
 		char errorMessage[512];
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", expression_.c_str(), getExpressionError());
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);

@@ -91,12 +91,12 @@ LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 static constexpr UINT_PTR IDT_UPDATE = 0xC0DE0042;
 static constexpr UINT UPDATE_DELAY = 1000 / 60;
 
-CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
+CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
 	lastTicks_ = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
 	breakpoints_ = &g_breakpoints;
 
-	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
+	SetWindowText(m_hDlg, L"R4");
 
 	RECT windowRect;
 	GetWindowRect(m_hDlg,&windowRect);

@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Core.h"
+#include "Core/HW/Display.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUState.h"
@@ -43,6 +44,10 @@ enum PauseAction {
 static bool isStepping;
 // Number of times we've entered stepping, to detect a resume asynchronously.
 static int stepCounter = 0;
+
+// Debug stats.
+static double g_timeSteppingStarted;
+static double g_timeSpentStepping;
 
 static std::mutex pauseLock;
 static PauseAction pauseAction = PAUSE_CONTINUE;
@@ -162,13 +167,11 @@ static void StartStepping() {
 		// Play it safe so we don't keep resetting.
 		lastGState.cmdmem[1] |= 0x01000000;
 	}
-	gpuDebug->NotifySteppingEnter();
 	isStepping = true;
 	stepCounter++;
 }
 
 static void StopStepping() {
-	gpuDebug->NotifySteppingExit();
 	lastGState = gstate;
 	isStepping = false;
 }

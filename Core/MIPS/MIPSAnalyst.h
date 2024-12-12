@@ -22,12 +22,10 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+#include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPS.h"
 
-class DebugInterface;
-
-namespace MIPSAnalyst
-{
+namespace MIPSAnalyst {
 	const int MIPS_NUM_GPRS = 32;
 
 	struct RegisterAnalysisResults {
@@ -139,8 +137,8 @@ namespace MIPSAnalyst
 	bool IsOpMemoryWrite(u32 pc);
 	bool OpHasDelaySlot(u32 pc);
 
-	typedef struct {
-		DebugInterface* cpu;
+	struct MipsOpcodeInfo {
+		DebugInterface *cpu;
 		u32 opcodeAddress;
 		MIPSOpcode encodedOpcode;
 
@@ -163,7 +161,7 @@ namespace MIPSAnalyst
 
 		bool hasRelevantAddress;
 		u32 relevantAddress;
-	} MipsOpcodeInfo;
+	};
 
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);
 

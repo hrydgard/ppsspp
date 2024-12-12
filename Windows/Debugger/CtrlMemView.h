@@ -13,6 +13,7 @@
 #include <vector>
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 enum OffsetSpacing {
 	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
@@ -34,10 +35,10 @@ public:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static CtrlMemView *getFrom(HWND wnd);
 
-	void setDebugger(DebugInterface *deb) {
+	void setDebugger(MIPSDebugInterface *deb) {
 		debugger_ = deb;
 	}
-	DebugInterface *getDebugger() {
+	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
 	std::vector<u32> searchString(const std::string &searchQuery);
@@ -74,7 +75,7 @@ private:
 	void ScrollCursor(int bytes, GotoMode mdoe);
 
 	static wchar_t szClassName[];
-	DebugInterface *debugger_ = nullptr;
+	MIPSDebugInterface *debugger_ = nullptr;
 
 	HWND wnd;
 	HFONT font;

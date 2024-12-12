@@ -1,4 +1,5 @@
 #include "Common/Data/Encoding/Utf8.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 #include "DebuggerShared.h"
 #include "../InputBox.h"
@@ -6,8 +7,9 @@
 bool parseExpression(const char* exp, DebugInterface* cpu, u32& dest)
 {
 	PostfixExpression postfix;
-	if (cpu->initExpression(exp,postfix) == false) return false;
-	return cpu->parseExpression(postfix,dest);
+	if (initExpression(cpu, exp, postfix) == false)
+		return false;
+	return parseExpression(cpu, postfix, dest);
 }
 
 void displayExpressionError(HWND hwnd)

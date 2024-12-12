@@ -35,6 +35,7 @@
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -1424,7 +1425,7 @@ skip:
 		return vec;
 	}
 
-	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address) {
+	MipsOpcodeInfo GetOpcodeInfo(DebugInterface *cpu, u32 address) {
 		MipsOpcodeInfo info;
 		memset(&info, 0, sizeof(info));
 

@@ -336,8 +336,8 @@ void ImStructViewer::DrawWatch() {
 			if (!watch.expression.empty()) {
 				u32 val;
 				PostfixExpression postfix;
-				if (mipsDebug_->initExpression(watch.expression.c_str(), postfix)
-				    && mipsDebug_->parseExpression(postfix, val)) {
+				if (initExpression(mipsDebug_, watch.expression.c_str(), postfix)
+				    && parseExpression(mipsDebug_, postfix, val)) {
 					address = val;
 				}
 			} else {
@@ -394,8 +394,8 @@ void ImStructViewer::DrawNewWatchEntry() {
 		PostfixExpression postfix;
 		if (newWatch_.typePathName.empty()) {
 			newWatch_.error = "type can't be empty";
-		} else if (!mipsDebug_->initExpression(newWatch_.expression, postfix)
-		           || !mipsDebug_->parseExpression(postfix, val)) {
+		} else if (!initExpression(mipsDebug_, newWatch_.expression, postfix)
+		           || !parseExpression(mipsDebug_, postfix, val)) {
 			newWatch_.error = "invalid expression";
 		} else {
 			std::string watchName = newWatch_.name;

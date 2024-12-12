@@ -52,10 +52,9 @@ enum ReferenceIndexType {
 };
 
 
-class MipsExpressionFunctions: public IExpressionFunctions
-{
+class MipsExpressionFunctions : public IExpressionFunctions {
 public:
-	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { }
+	MipsExpressionFunctions(const DebugInterface *_cpu): cpu(_cpu) {}
 
 	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
@@ -64,12 +63,12 @@ public:
 			char reg[8];
 			snprintf(reg, sizeof(reg), "r%d", i);
 
-			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i).c_str()) == 0)
+			if (strcasecmp(str, reg) == 0 || strcasecmp(str, MIPSDebugInterface::GetRegName(0, i).c_str()) == 0)
 			{
 				referenceIndex = i;
 				return true;
 			}
-			else if (strcasecmp(str, cpu->GetRegName(1, i).c_str()) == 0)
+			else if (strcasecmp(str, MIPSDebugInterface::GetRegName(1, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU | i;
 				return true;
@@ -85,7 +84,7 @@ public:
 
 		for (int i = 0; i < 128; i++)
 		{
-			if (strcasecmp(str, cpu->GetRegName(2, i).c_str()) == 0)
+			if (strcasecmp(str, MIPSDebugInterface::GetRegName(2, i).c_str()) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU | i;
 				return true;
@@ -200,17 +199,8 @@ public:
 	}
 
 private:
-	DebugInterface* cpu;
+	const DebugInterface *cpu;
 };
-
-
-
-void MIPSDebugInterface::DisAsm(u32 pc, char *out, size_t outSize) {
-	if (Memory::IsValidAddress(pc))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
-	else
-		truncate_cpy(out, outSize, "-");
-}
 
 unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
 	if (Memory::IsValidRange(address, 4))
@@ -252,7 +242,7 @@ int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 
 	int n = g_symbolMap->GetFunctionNum(address);
 	if (n == -1) {
-		return DebugInterface::getColor(address, darkMode);
+		return darkMode ? 0xFF101010 : 0xFFFFFFFF;
 	} else if (darkMode) {
 		return colorsDark[n % ARRAY_SIZE(colorsDark)];
 	} else {
@@ -262,28 +252,6 @@ int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 
 std::string MIPSDebugInterface::getDescription(unsigned int address) {
 	return g_symbolMap->GetDescription(address);
-}
-
-bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)
-{
-	MipsExpressionFunctions funcs(this);
-	return initPostfixExpression(exp,&funcs,dest);
-}
-
-bool MIPSDebugInterface::parseExpression(PostfixExpression& exp, u32& dest)
-{
-	MipsExpressionFunctions funcs(this);
-	return parsePostfixExpression(exp,&funcs,dest);
-}
-
-void MIPSDebugInterface::runToBreakpoint() 
-{
-
-}
-
-const char *MIPSDebugInterface::GetName()
-{
-	return ("R4");
 }
 
 std::string MIPSDebugInterface::GetRegName(int cat, int index) {
@@ -304,9 +272,9 @@ std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 		"f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
 	};
 
-	if (cat == 0 && (unsigned)index < sizeof(regName)) {
+	if (cat == 0 && (unsigned)index < ARRAY_SIZE(regName)) {
 		return regName[index];
-	} else if (cat == 1 && (unsigned)index < sizeof(fpRegName)) {
+	} else if (cat == 1 && (unsigned)index < ARRAY_SIZE(fpRegName)) {
 		return fpRegName[index];
 	} else if (cat == 2) {
 		return GetVectorNotation(index, V_Single);
@@ -314,3 +282,19 @@ std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 	return "???";
 }
 
+bool initExpression(const DebugInterface *debug, const char* exp, PostfixExpression& dest) {
+	MipsExpressionFunctions funcs(debug);
+	return initPostfixExpression(exp, &funcs, dest);
+}
+
+bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& dest) {
+	MipsExpressionFunctions funcs(debug);
+	return parsePostfixExpression(exp, &funcs, dest);
+}
+
+void DisAsm(u32 pc, char *out, size_t outSize) {
+	if (Memory::IsValidAddress(pc))
+		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
+	else
+		truncate_cpy(out, outSize, "-");
+}

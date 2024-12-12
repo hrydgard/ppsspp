@@ -3,9 +3,10 @@
 
 #include "Core/MemMap.h"
 
-#include "Core/Debugger/DebugInterface.h"
 #include "CtrlMemView.h"
 #include "Common/CommonWindows.h"
+
+class MIPSDebugInterface;
 
 class CMemoryDlg : public Dialog
 {
@@ -25,7 +26,7 @@ public:
 	void searchBoxRedraw(const std::vector<u32> &results);
 
 	// constructor
-	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu);
+	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *_cpu);
 	
 	// destructor
 	~CMemoryDlg(void);

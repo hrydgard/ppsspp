@@ -372,7 +372,7 @@ public:
 
 class PSPThread : public KernelObject {
 public:
-	PSPThread() : debug(currentMIPS, context) {}
+	PSPThread() : debug(context) {}
 
 	const char *GetName() override { return nt.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }

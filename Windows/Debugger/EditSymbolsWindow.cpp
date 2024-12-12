@@ -1,6 +1,7 @@
 #include "EditSymbolsWindow.h"
 #include "../resource.h"
 
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 bool EditSymbolsWindow::GetCheckState(HWND hwnd, int dlgItem) {
 	return SendMessage(GetDlgItem(hwnd, dlgItem), BM_GETCHECK, 0, 0) != 0;
@@ -16,13 +17,13 @@ bool EditSymbolsWindow::fetchDialogData(HWND hwnd)
 	// Parse the address
 	GetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_ADDRESS), str, 256);
 
-	if (cpu->initExpression(str, exp) == false)
+	if (initExpression(cpu, str, exp) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 		return false;
 	}
-	if (cpu->parseExpression(exp, address_) == false)
+	if (parseExpression(cpu, exp, address_) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
@@ -32,13 +33,13 @@ bool EditSymbolsWindow::fetchDialogData(HWND hwnd)
 	// Parse the size
 	GetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_SIZE), str, 256);
 
-	if (cpu->initExpression(str, exp) == false)
+	if (initExpression(cpu, str, exp) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 		return false;
 	}
-	if (cpu->parseExpression(exp, size_) == false)
+	if (parseExpression(cpu, exp, size_) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
 		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);

@@ -36,7 +36,7 @@ class CtrlDisAsmView;
 class CtrlBreakpointList: public GenericListControl
 {
 public:
-	CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm);
+	CtrlBreakpointList(HWND hwnd, MIPSDebugInterface* cpu, CtrlDisAsmView* disasm);
 	void reloadBreakpoints();
 protected:
 	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override;
@@ -49,7 +49,7 @@ private:
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 	std::wstring breakpointText;
-	DebugInterface* cpu;
+	MIPSDebugInterface* cpu;
 	CtrlDisAsmView* disasm;
 
 	void editBreakpoint(int itemIndex);

@@ -17,7 +17,7 @@ class CDisasm : public Dialog {
 private:
 	int minWidth;
 	int minHeight;
-	DebugInterface *cpu;
+	MIPSDebugInterface *cpu;
 	u64 lastTicks_;
 
 	HWND statusBarWnd;
@@ -45,7 +45,7 @@ private:
 public:
 	int index;
 
-	CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu);
+	CDisasm(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *cpu);
 	~CDisasm();
 
 	void Show(bool bShow, bool includeToTop = true) override;

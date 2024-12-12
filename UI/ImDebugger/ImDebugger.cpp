@@ -112,7 +112,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawRegisterView(ImConfig &config, ImControl &control, MIPSDebugInterface *mipsDebug) {
+void DrawRegisterView(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Registers", &config.regsOpen)) {
 		ImGui::End();
@@ -743,7 +743,7 @@ void DrawAudioChannels(ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
+static void DrawCallStacks(const MIPSDebugInterface *debug, bool *open) {
 	if (!ImGui::Begin("Callstacks", open)) {
 		ImGui::End();
 		return;
@@ -799,7 +799,7 @@ void DrawCallStacks(MIPSDebugInterface *debug, bool *open) {
 	ImGui::End();
 }
 
-void DrawModules(MIPSDebugInterface *debug, ImConfig &cfg) {
+static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg) {
 	if (!ImGui::Begin("Modules", &cfg.modulesOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;

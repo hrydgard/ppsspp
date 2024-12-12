@@ -213,10 +213,6 @@ public:
 	virtual GPUDebugOp DisassembleOp(u32 pc, u32 op) = 0;
 	virtual std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) = 0;
 
-	// Enter/exit stepping mode.  Mainly for better debug stats on time taken.
-	virtual void NotifySteppingEnter() = 0;
-	virtual void NotifySteppingExit() = 0;
-
 	virtual u32 GetRelativeAddress(u32 data) = 0;
 	virtual u32 GetVertexAddress() = 0;
 	virtual u32 GetIndexAddress() = 0;

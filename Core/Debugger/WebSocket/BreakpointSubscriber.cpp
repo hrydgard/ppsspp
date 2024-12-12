@@ -74,7 +74,7 @@ struct WebSocketCPUBreakpointParams {
 		if (hasCondition) {
 			if (!req.ParamString("condition", &condition))
 				return false;
-			if (!currentDebugMIPS->initExpression(condition.c_str(), compiledCondition)) {
+			if (!initExpression(currentDebugMIPS, condition.c_str(), compiledCondition)) {
 				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
 				return false;
 			}
@@ -292,7 +292,7 @@ struct WebSocketMemoryBreakpointParams {
 		if (hasCondition) {
 			if (!req.ParamString("condition", &condition))
 				return false;
-			if (!currentDebugMIPS->initExpression(condition.c_str(), compiledCondition)) {
+			if (!initExpression(currentDebugMIPS, condition.c_str(), compiledCondition)) {
 				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
 				return false;
 			}
