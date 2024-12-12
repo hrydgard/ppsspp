@@ -44,6 +44,7 @@
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
+#include "GPU/Debugger/Stepping.h"
 
 void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
@@ -105,7 +106,6 @@ void GPUCommon::Reinitialize() {
 	isbreak = false;
 	drawCompleteTicks = 0;
 	busyTicks = 0;
-	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
 
 	if (textureCache_)
@@ -615,23 +615,6 @@ u32 GPUCommon::Break(int mode) {
 	return currentList->id;
 }
 
-void GPUCommon::NotifySteppingEnter() {
-	if (coreCollectDebugStats) {
-		timeSteppingStarted_ = time_now_d();
-	}
-}
-void GPUCommon::NotifySteppingExit() {
-	if (coreCollectDebugStats) {
-		if (timeSteppingStarted_ <= 0.0) {
-			ERROR_LOG(Log::G3D, "Mismatched stepping enter/exit.");
-		}
-		double total = time_now_d() - timeSteppingStarted_;
-		_dbg_assert_msg_(total >= 0.0, "Time spent stepping became negative");
-		timeSpentStepping_ += total;
-		timeSteppingStarted_ = 0.0;
-	}
-}
-
 bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
@@ -683,6 +666,9 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 				FinishDeferred();
 				_dbg_assert_(!GPURecord::IsActive());
 				gpuState = GPUSTATE_BREAK;
+				if (coreCollectDebugStats) {
+					gpuStats.msProcessingDisplayLists += time_now_d() - start;
+				}
 				return false;
 			}
 		}
@@ -706,12 +692,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	list.offsetAddr = gstate_c.offsetAddr;
 
 	if (coreCollectDebugStats) {
-		double total = time_now_d() - start - timeSpentStepping_;
-		_dbg_assert_msg_(total >= 0.0, "Time spent DL processing became negative");
-		hleSetSteppingTime(timeSpentStepping_);
-		DisplayNotifySleep(timeSpentStepping_);
-		timeSpentStepping_ = 0.0;
-		gpuStats.msProcessingDisplayLists += total;
+		gpuStats.msProcessingDisplayLists += time_now_d() - start;
 	}
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
