@@ -71,11 +71,11 @@ public:
 		setCurAddress(newAddress);
 		ScanVisibleFunctions();
 	}
-	void gotoPC() {
+	void GotoPC() {
 		gotoAddr(debugger_->GetPC());
 	}
-	void gotoLR() {
-		gotoAddr(debugger_->GetLR());
+	void GotoRA() {
+		gotoAddr(debugger_->GetRA());
 	}
 	u32 getSelection() {
 		return curAddress_;

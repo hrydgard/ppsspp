@@ -472,7 +472,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 void ImDisasmView::NotifyStep() {
 	if (followPC_) {
-		gotoPC();
+		GotoPC();
 	}
 }
 
@@ -618,7 +618,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
 			if (jumpStack_.empty()) {
-				gotoPC();
+				GotoPC();
 			} else {
 				u32 addr = jumpStack_[jumpStack_.size() - 1];
 				jumpStack_.pop_back();

@@ -880,6 +880,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		return;
 	}
 
+	// TODO: Pass mipsDebug in where needed instead.
+	DisassemblyManager::setCpu(mipsDebug);
+	disasm_.View().setDebugger(mipsDebug);
+
 	// Watch the step counters to figure out when to update things.
 
 	if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
@@ -970,7 +974,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			for (int i = 0; i < 4; i++) {
 				char title[64];
 				snprintf(title, sizeof(title), "Memory %d", i + 1);
-				ImGui::MenuItem("Memory", nullptr, &cfg_.memViewOpen[i]);
+				ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
 			}
 			ImGui::EndMenu();
 		}
@@ -1096,7 +1100,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	for (int i = 0; i < 4; i++) {
-		mem_[i].Draw(mipsDebug, &cfg_.memViewOpen[i], i);
+		mem_[i].Draw(mipsDebug, cfg_, control, i);
 	}
 
 	// Process UI commands
@@ -1114,11 +1118,11 @@ void ImDebugger::Snapshot() {
 
 }
 
-void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, bool *open, int index) {
+void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
 	char title[256];
 	snprintf(title, sizeof(title), "Memory %d", index);
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(title, open, ImGuiWindowFlags_NoNavInputs)) {
+	if (!ImGui::Begin(title, &cfg.memViewOpen[index])) {
 		ImGui::End();
 		return;
 	}
@@ -1225,11 +1229,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Goto PC")) {
-		disasmView_.gotoPC();
+		disasmView_.GotoPC();
 	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Goto LR")) {
-		disasmView_.gotoLR();
+	if (ImGui::SmallButton("Goto RA")) {
+		disasmView_.GotoRA();
 	}
 
 	if (ImGui::BeginPopup("disSearch")) {

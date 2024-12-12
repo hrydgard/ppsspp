@@ -444,9 +444,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					UpdateDialog();
 				}
 				break;
-			case IDC_GOTOLR:
+			case IDC_GOTORA:
 				{
-					ptr->gotoAddr(cpu->GetLR());
+					ptr->gotoAddr(cpu->GetRA());
 					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 				}
 				break;
@@ -696,7 +696,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
 		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
 		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), TRUE);
-		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTORA), TRUE);
 		CtrlDisAsmView *ptr = DisAsmView();
 		ptr->setDontRedraw(false);
 		if (switchPC)
@@ -715,7 +715,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
 		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
 		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), FALSE);
-		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTORA), FALSE);
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
 	}

@@ -62,7 +62,7 @@ private:
 // Corresponds to the CMemView dialog
 class ImMemWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, bool *open, int index);
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index);
 	ImMemView &View() {
 		return memView_;
 	}

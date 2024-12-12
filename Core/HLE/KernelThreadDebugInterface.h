@@ -28,7 +28,7 @@ public:
 
 	u32 GetGPR32Value(int reg) override { return ctx.r[reg]; }
 	u32 GetPC() override { return ctx.pc; }
-	u32 GetLR() override { return ctx.r[MIPS_REG_RA]; }
+	u32 GetRA() override { return ctx.r[MIPS_REG_RA]; }
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
 
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
