@@ -1686,6 +1686,8 @@ void EmuScreen::renderImDebugger() {
 			io.AddKeyEvent(ImGuiMod_Alt, keyAltLeft_ || keyAltRight_);
 			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
 
+			ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
 			imDebugger_->Frame(currentDebugMIPS, gpuDebug);
 
 			ImGui::Render();

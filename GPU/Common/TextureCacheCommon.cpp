@@ -3067,7 +3067,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	auto &style = ImGui::GetStyle();
 	ImGui::BeginChild("left", ImVec2(140.0f, 0.0f), ImGuiChildFlags_ResizeX);
-	float window_visible_x2 = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+	float window_visible_x2 = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 
 	// Global texture stats
 	int replacementStateCounts[(int)ReplacementState::COUNT]{};
