@@ -25,6 +25,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Debugger/State.h"
 #include "GPU/GPUState.h"
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
@@ -73,318 +74,37 @@ static void BindPreviewProgram(GLSLProgram *&prog) {
 	glsl_bind(prog);
 }
 
-static void SwapUVs(GPUDebugVertex &a, GPUDebugVertex &b) {
-	float tempu = a.u;
-	float tempv = a.v;
-	a.u = b.u;
-	a.v = b.v;
-	b.u = tempu;
-	b.v = tempv;
-}
-
-static void RotateUVThrough(GPUDebugVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2))
-		SwapUVs(v[1], v[3]);
-}
-
-static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count, bool throughMode) {
-	static std::vector<GPUDebugVertex> newVerts;
-	static std::vector<u16> newInds;
-
-	bool useInds = true;
-	size_t numInds = indices.size();
-	if (indices.empty()) {
-		useInds = false;
-		numInds = count;
-	}
-
-	//rectangles always need 2 vertices, disregard the last one if there's an odd number
-	numInds = numInds & ~1;
-
-	// Will need 4 coords and 6 points per rectangle (currently 2 each.)
-	newVerts.resize(numInds * 2);
-	newInds.resize(numInds * 3);
-
-	u16 v = 0;
-	GPUDebugVertex *vert = &newVerts[0];
-	u16 *ind = &newInds[0];
-	for (size_t i = 0; i < numInds; i += 2) {
-		const auto &orig_tl = useInds ? vertices[indices[i + 0]] : vertices[i + 0];
-		const auto &orig_br = useInds ? vertices[indices[i + 1]] : vertices[i + 1];
-
-		vert[0] = orig_br;
-
-		// Top right.
-		vert[1] = orig_br;
-		vert[1].y = orig_tl.y;
-		vert[1].v = orig_tl.v;
-
-		vert[2] = orig_tl;
-
-		// Bottom left.
-		vert[3] = orig_br;
-		vert[3].x = orig_tl.x;
-		vert[3].u = orig_tl.u;
-
-		// That's the four corners. Now process UV rotation.
-		// This is the same for through and non-through, since it's already transformed.
-		RotateUVThrough(vert);
-
-		// Build the two 3 point triangles from our 4 coordinates.
-		*ind++ = v + 0;
-		*ind++ = v + 1;
-		*ind++ = v + 2;
-		*ind++ = v + 3;
-		*ind++ = v + 0;
-		*ind++ = v + 2;
-
-		vert += 4;
-		v += 4;
-	}
-
-	std::swap(vertices, newVerts);
-	std::swap(indices, newInds);
-	count *= 3;
-}
-
 u32 CGEDebugger::PrimPreviewOp() {
 	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list) && !showClut_) {
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		const u32 op = Memory::Read_U32(list.pc);
 		const u32 cmd = op >> 24;
 		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
 			return op;
 		}
 	}
-
 	return 0;
 }
 
-static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
-	using namespace Spline;
-
-	int count_u = (op >> 0) & 0xFF;
-	int count_v = (op >> 8) & 0xFF;
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	if (count_u < 4 || count_v < 4)
-		return;
-
-	BezierSurface surface;
-	surface.num_points_u = count_u;
-	surface.num_points_v = count_v;
-	surface.tess_u = gstate.getPatchDivisionU();
-	surface.tess_v = gstate.getPatchDivisionV();
-	surface.num_patches_u = (count_u - 1) / 3;
-	surface.num_patches_v = (count_v - 1) / 3;
-	surface.primType = gstate.getPatchPrimitiveType();
-	surface.patchFacing = false;
-
-	int num_points = count_u * count_v;
-	// Make an array of pointers to the control points, to get rid of indices.
-	std::vector<const SimpleVertex *> points(num_points);
-	for (int idx = 0; idx < num_points; idx++)
-		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
-
-	int total_patches = surface.num_patches_u * surface.num_patches_v;
-	generatedVerts.resize((surface.tess_u + 1) * (surface.tess_v + 1) * total_patches);
-	generatedInds.resize(surface.tess_u * surface.tess_v * 6 * total_patches);
-
-	OutputBuffers output;
-	output.vertices = generatedVerts.data();
-	output.indices = generatedInds.data();
-	output.count = 0;
-
-	ControlPoints cpoints;
-	cpoints.pos = new Vec3f[num_points];
-	cpoints.tex = new Vec2f[num_points];
-	cpoints.col = new Vec4f[num_points];
-	cpoints.Convert(points.data(), num_points);
-
-	surface.Init((int)generatedVerts.size());
-	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
-	count = output.count;
-
-	delete [] cpoints.pos;
-	delete [] cpoints.tex;
-	delete [] cpoints.col;
-}
-
-static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
-	using namespace Spline;
-
-	int count_u = (op >> 0) & 0xFF;
-	int count_v = (op >> 8) & 0xFF;
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	if (count_u < 4 || count_v < 4)
-		return;
-
-	SplineSurface surface;
-	surface.num_points_u = count_u;
-	surface.num_points_v = count_v;
-	surface.tess_u = gstate.getPatchDivisionU();
-	surface.tess_v = gstate.getPatchDivisionV();
-	surface.type_u = (op >> 16) & 0x3;
-	surface.type_v = (op >> 18) & 0x3;
-	surface.num_patches_u = count_u - 3;
-	surface.num_patches_v = count_v - 3;
-	surface.primType = gstate.getPatchPrimitiveType();
-	surface.patchFacing = false;
-
-	int num_points = count_u * count_v;
-	// Make an array of pointers to the control points, to get rid of indices.
-	std::vector<const SimpleVertex *> points(num_points);
-	for (int idx = 0; idx < num_points; idx++)
-		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
-
-	int patch_div_s = surface.num_patches_u * surface.tess_u;
-	int patch_div_t = surface.num_patches_v * surface.tess_v;
-	generatedVerts.resize((patch_div_s + 1) * (patch_div_t + 1));
-	generatedInds.resize(patch_div_s * patch_div_t * 6);
-
-	OutputBuffers output;
-	output.vertices = generatedVerts.data();
-	output.indices = generatedInds.data();
-	output.count = 0;
-
-	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
-	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
-	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
-	cpoints.Convert(points.data(), num_points);
-
-	surface.Init((int)generatedVerts.size());
-	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
-	count = output.count;
-
-	FreeAlignedMemory(cpoints.pos);
-	FreeAlignedMemory(cpoints.tex);
-	FreeAlignedMemory(cpoints.col);
-}
-
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
-	u32 prim_type = GE_PRIM_INVALID;
-	int count = 0;
-	int count_u = 0;
-	int count_v = 0;
-
-	const u32 cmd = op >> 24;
-	if (cmd == GE_CMD_PRIM) {
-		prim_type = (op >> 16) & 0x7;
-		count = op & 0xFFFF;
-	} else {
-		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
-		if (gstate.getPatchPrimitiveType() < ARRAY_SIZE(primLookup))
-			prim_type = primLookup[gstate.getPatchPrimitiveType()];
-		count_u = (op & 0x00FF) >> 0;
-		count_v = (op & 0xFF00) >> 8;
-		count = count_u * count_v;
-	}
-
-	if (prim_type >= 7) {
-		ERROR_LOG(Log::G3D, "Unsupported prim type: %x", op);
-		return;
-	}
-	if (!gpuDebug) {
-		ERROR_LOG(Log::G3D, "Invalid debugging environment, shutting down?");
-		return;
-	}
 	which &= previewsEnabled_;
-	if (count == 0 || which == 0) {
-		return;
-	}
 
-	const GEPrimitiveType prim = static_cast<GEPrimitiveType>(prim_type);
 	static std::vector<GPUDebugVertex> vertices;
 	static std::vector<u16> indices;
 
-	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
-		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
+	int count = 0;
+	GEPrimitiveType prim;
+	if (!GetPrimPreview(op, which, prim, vertices, indices, count)) {
 		return;
-	}
-
-	if (cmd != GE_CMD_PRIM) {
-		static std::vector<SimpleVertex> generatedVerts;
-		static std::vector<u16> generatedInds;
-
-		static std::vector<SimpleVertex> simpleVerts;
-		simpleVerts.resize(vertices.size());
-		for (size_t i = 0; i < vertices.size(); ++i) {
-			// For now, let's just copy back so we can use TessellateBezierPatch/TessellateSplinePatch...
-			simpleVerts[i].uv[0] = vertices[i].u;
-			simpleVerts[i].uv[1] = vertices[i].v;
-			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
-		}
-
-		if (cmd == GE_CMD_BEZIER) {
-			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
-		} else if (cmd == GE_CMD_SPLINE) {
-			ExpandSpline(count, op, simpleVerts, indices, generatedVerts, generatedInds);
-		}
-
-		vertices.resize(generatedVerts.size());
-		for (size_t i = 0; i < vertices.size(); ++i) {
-			vertices[i].u = generatedVerts[i].uv[0];
-			vertices[i].v = generatedVerts[i].uv[1];
-			vertices[i].x = generatedVerts[i].pos.x;
-			vertices[i].y = generatedVerts[i].pos.y;
-			vertices[i].z = generatedVerts[i].pos.z;
-		}
-		indices = generatedInds;
-	}
-
-	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertices, indices, count, gpuDebug->GetGState().isModeThrough());
 	}
 
 	float fw, fh;
 	float x, y;
 
-	// TODO: Probably there's a better way and place to do this.
-	u16 minIndex = 0;
-	u16 maxIndex = count - 1;
-	if (!indices.empty()) {
-		_dbg_assert_(count <= indices.size());
-		minIndex = 0xFFFF;
-		maxIndex = 0;
-		for (int i = 0; i < count; ++i) {
-			if (minIndex > indices[i]) {
-				minIndex = indices[i];
-			}
-			if (maxIndex < indices[i]) {
-				maxIndex = indices[i];
-			}
-		}
-	}
-
-	auto wrapCoord = [](float &coord) {
-		if (coord < 0.0f) {
-			coord += ceilf(-coord);
-		}
-		if (coord > 1.0f) {
-			coord -= floorf(coord);
-		}
-	};
-
-	const float invTexWidth = 1.0f / gpuDebug->GetGState().getTextureWidth(0);
-	const float invTexHeight = 1.0f / gpuDebug->GetGState().getTextureHeight(0);
 	const float invRealTexWidth = 1.0f / gstate_c.curTextureWidth;
 	const float invRealTexHeight = 1.0f / gstate_c.curTextureHeight;
-	bool clampS = gpuDebug->GetGState().isTexCoordClampedS();
-	bool clampT = gpuDebug->GetGState().isTexCoordClampedT();
-	for (u16 i = minIndex; i <= maxIndex; ++i) {
-		vertices[i].u *= invTexWidth;
-		vertices[i].v *= invTexHeight;
-		if (!clampS)
-			wrapCoord(vertices[i].u);
-		if (!clampT)
-			wrapCoord(vertices[i].v);
-	}
 
+	// Preview positions on the framebuffer
 	if (which & 1) {
 		primaryWindow->Begin();
 		primaryWindow->GetContentSize(x, y, fw, fh);
@@ -451,6 +171,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		primaryWindow->End();
 	}
 
+	// Preview UVs on the texture
 	if (which & 2) {
 		secondWindow->Begin();
 		secondWindow->GetContentSize(x, y, fw, fh);
@@ -533,7 +254,7 @@ void CGEDebugger::HandleRedraw(int which) {
 	}
 
 	u32 op = PrimPreviewOp();
-	if (op) {
+	if (op && !showClut_) {
 		UpdatePrimPreview(op, which);
 	}
 }

@@ -40,7 +40,7 @@ public:
 	void scrollAddressIntoView();
 	bool curAddressIsVisible();
 	void ScanVisibleFunctions();
-	void clearFunctions() { manager.clear(); };
+	void clearFunctions() { g_disassemblyManager.clear(); };
 
 	void getOpcodeText(u32 address, char *dest, int bufsize);
 	u32 yToAddress(float y);
@@ -49,7 +49,7 @@ public:
 		if (debugger_ != deb) {
 			debugger_ = deb;
 			curAddress_ = debugger_->GetPC();
-			manager.setCpu(deb);
+			g_disassemblyManager.setCpu(deb);
 		}
 	}
 
@@ -63,11 +63,11 @@ public:
 	void gotoAddr(unsigned int addr) {
 		if (positionLocked_ != 0)
 			return;
-		u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
-		u32 newAddress = manager.getStartAddress(addr);
+		u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
+		u32 newAddress = g_disassemblyManager.getStartAddress(addr);
 
 		if (newAddress < windowStart_ || newAddress >= windowEnd) {
-			windowStart_ = manager.getNthPreviousAddress(newAddress, visibleRows_ / 2);
+			windowStart_ = g_disassemblyManager.getNthPreviousAddress(newAddress, visibleRows_ / 2);
 		}
 
 		setCurAddress(newAddress);
@@ -89,8 +89,8 @@ public:
 	void editBreakpoint(ImConfig &cfg);
 
 	void setCurAddress(u32 newAddress, bool extend = false) {
-		newAddress = manager.getStartAddress(newAddress);
-		const u32 after = manager.getNthNextAddress(newAddress, 1);
+		newAddress = g_disassemblyManager.getStartAddress(newAddress);
+		const u32 after = g_disassemblyManager.getNthNextAddress(newAddress, 1);
 		curAddress_ = newAddress;
 		selectRangeStart_ = extend ? std::min(selectRangeStart_, newAddress) : newAddress;
 		selectRangeEnd_ = extend ? std::max(selectRangeEnd_, after) : after;
@@ -137,7 +137,6 @@ private:
 	std::set<std::string> getSelectedLineArguments();
 	void drawArguments(ImDrawList *list, Bounds rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments);
 
-	DisassemblyManager manager;
 	u32 curAddress_ = 0;
 	u32 selectRangeStart_ = 0;
 	u32 selectRangeEnd_ = 0;

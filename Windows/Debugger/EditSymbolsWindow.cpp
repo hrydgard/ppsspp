@@ -178,8 +178,7 @@ void EditSymbolsWindow::Remove() {
 		}
 
 		// Clear cache for branch lines and such.
-		DisassemblyManager manager;
-		manager.clear();
+		g_disassemblyManager.clear();
 	}
 }
 

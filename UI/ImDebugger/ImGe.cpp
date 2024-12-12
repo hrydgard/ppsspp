@@ -243,6 +243,17 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	}
 }
 
+static const char *DLStateToString(DisplayListState state) {
+	switch (state) {
+	case PSP_GE_DL_STATE_NONE: return "None";
+	case PSP_GE_DL_STATE_QUEUED: return "Queued";
+	case PSP_GE_DL_STATE_RUNNING: return "Running";
+	case PSP_GE_DL_STATE_COMPLETED: return "Completed";
+	case PSP_GE_DL_STATE_PAUSED: return "Paused";
+	default: return "N/A (bad)";
+	}
+}
+
 void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
@@ -333,14 +344,17 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		const auto &list = gpuDebug->GetDisplayList(index);
 		char title[64];
 		snprintf(title, sizeof(title), "List %d", list.id);
-		if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::CollapsingHeader(title)) {
+			ImGui::Text("State: %s", DLStateToString(list.state));
 			ImGui::TextUnformatted("PC:");
 			ImGui::SameLine();
 			ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
 			ImGui::Text("StartPC:");
 			ImGui::SameLine();
 			ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
-			ImGui::Text("Pending interrupt: %d", (int)list.pendingInterrupt);
+			if (list.pendingInterrupt) {
+				ImGui::TextUnformatted("(Pending interrupt)");
+			}
 			ImGui::Text("Stack depth: %d", (int)list.stackptr);
 			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 		}

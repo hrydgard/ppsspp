@@ -53,6 +53,7 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
+#include "GPU/Debugger/State.h"
 #include "GPU/Debugger/Stepping.h"
 
 using namespace GPUBreakpoints;
@@ -568,7 +569,10 @@ void CGEDebugger::UpdatePreviews() {
 	UpdatePrimaryPreview(state);
 	UpdateSecondPreview(state);
 
-	u32 primOp = PrimPreviewOp();
+	u32 primOp = 0;
+	if (!showClut_) {
+		primOp = PrimPreviewOp();
+	}
 	if (primOp != 0) {
 		UpdatePrimPreview(primOp, 3);
 	}
@@ -824,148 +828,6 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 	wchar_t w_desc[256];
 	ConvertUTF8ToWString(w_desc, ARRAY_SIZE(w_desc), desc);
 	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, w_desc);
-}
-
-void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]) {
-	switch (fmt) {
-	case GPU_DBG_FORMAT_565:
-	case GPU_DBG_FORMAT_565_REV:
-	case GPU_DBG_FORMAT_5551:
-	case GPU_DBG_FORMAT_5551_REV:
-	case GPU_DBG_FORMAT_5551_BGRA:
-	case GPU_DBG_FORMAT_4444:
-	case GPU_DBG_FORMAT_4444_REV:
-	case GPU_DBG_FORMAT_4444_BGRA:
-	case GPU_DBG_FORMAT_8888:
-	case GPU_DBG_FORMAT_8888_BGRA:
-		DescribePixelRGBA(pix, fmt, x, y, desc);
-		break;
-
-	case GPU_DBG_FORMAT_16BIT:
-		snprintf(desc, 256, "%d,%d: %d / %f", x, y, pix, pix * (1.0f / 65535.0f));
-		break;
-
-	case GPU_DBG_FORMAT_8BIT:
-		snprintf(desc, 256, "%d,%d: %d / %f", x, y, pix, pix * (1.0f / 255.0f));
-		break;
-
-	case GPU_DBG_FORMAT_24BIT_8X:
-	{
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-		snprintf(desc, 256, "%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), depthScale.DecodeToU16((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
-		break;
-	}
-
-	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
-		{
-			// These are only ever going to be depth values, so let's also show scaled to 16 bit.
-			int z24 = pix & 0x00FFFFFF;
-			int z16 = z24 - 0x800000 + 0x8000;
-			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, z16 * (1.0f / 65535.0f));
-		}
-		break;
-
-	case GPU_DBG_FORMAT_24X_8BIT:
-		snprintf(desc, 256, "%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
-		break;
-
-	case GPU_DBG_FORMAT_FLOAT: {
-		float pixf = *(float *)&pix;
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-		snprintf(desc, 256, "%d,%d: %f / %f", x, y, pixf, depthScale.DecodeToU16(pixf));
-		break;
-	}
-
-	case GPU_DBG_FORMAT_FLOAT_DIV_256:
-		{
-			double z = *(float *)&pix;
-			int z24 = (int)(z * 16777215.0);
-
-			DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
-			// TODO: Use GetDepthScaleFactors here too, verify it's the same.
-			int z16 = z24 - 0x800000 + 0x8000;
-
-			int z16_2 = factors.DecodeToU16(z);
-
-			snprintf(desc, 256, "%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
-		}
-		break;
-
-	default:
-		snprintf(desc, 256, "Unexpected format");
-	}
-}
-
-void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]) {
-	u32 r = -1, g = -1, b = -1, a = -1;
-
-	switch (fmt) {
-	case GPU_DBG_FORMAT_565:
-		r = Convert5To8((pix >> 0) & 0x1F);
-		g = Convert6To8((pix >> 5) & 0x3F);
-		b = Convert5To8((pix >> 11) & 0x1F);
-		break;
-	case GPU_DBG_FORMAT_565_REV:
-		b = Convert5To8((pix >> 0) & 0x1F);
-		g = Convert6To8((pix >> 5) & 0x3F);
-		r = Convert5To8((pix >> 11) & 0x1F);
-		break;
-	case GPU_DBG_FORMAT_5551:
-		r = Convert5To8((pix >> 0) & 0x1F);
-		g = Convert5To8((pix >> 5) & 0x1F);
-		b = Convert5To8((pix >> 10) & 0x1F);
-		a = (pix >> 15) & 1 ? 255 : 0;
-		break;
-	case GPU_DBG_FORMAT_5551_REV:
-		a = pix & 1 ? 255 : 0;
-		b = Convert5To8((pix >> 1) & 0x1F);
-		g = Convert5To8((pix >> 6) & 0x1F);
-		r = Convert5To8((pix >> 11) & 0x1F);
-		break;
-	case GPU_DBG_FORMAT_5551_BGRA:
-		b = Convert5To8((pix >> 0) & 0x1F);
-		g = Convert5To8((pix >> 5) & 0x1F);
-		r = Convert5To8((pix >> 10) & 0x1F);
-		a = (pix >> 15) & 1 ? 255 : 0;
-		break;
-	case GPU_DBG_FORMAT_4444:
-		r = Convert4To8((pix >> 0) & 0x0F);
-		g = Convert4To8((pix >> 4) & 0x0F);
-		b = Convert4To8((pix >> 8) & 0x0F);
-		a = Convert4To8((pix >> 12) & 0x0F);
-		break;
-	case GPU_DBG_FORMAT_4444_REV:
-		a = Convert4To8((pix >> 0) & 0x0F);
-		b = Convert4To8((pix >> 4) & 0x0F);
-		g = Convert4To8((pix >> 8) & 0x0F);
-		r = Convert4To8((pix >> 12) & 0x0F);
-		break;
-	case GPU_DBG_FORMAT_4444_BGRA:
-		b = Convert4To8((pix >> 0) & 0x0F);
-		g = Convert4To8((pix >> 4) & 0x0F);
-		r = Convert4To8((pix >> 8) & 0x0F);
-		a = Convert4To8((pix >> 12) & 0x0F);
-		break;
-	case GPU_DBG_FORMAT_8888:
-		r = (pix >> 0) & 0xFF;
-		g = (pix >> 8) & 0xFF;
-		b = (pix >> 16) & 0xFF;
-		a = (pix >> 24) & 0xFF;
-		break;
-	case GPU_DBG_FORMAT_8888_BGRA:
-		b = (pix >> 0) & 0xFF;
-		g = (pix >> 8) & 0xFF;
-		r = (pix >> 16) & 0xFF;
-		a = (pix >> 24) & 0xFF;
-		break;
-
-	default:
-		snprintf(desc, 256, "Unexpected format");
-		return;
-	}
-
-	snprintf(desc, 256, "%d,%d: r=%d, g=%d, b=%d, a=%d", x, y, r, g, b, a);
 }
 
 void CGEDebugger::UpdateTextureLevel(int level) {

@@ -36,10 +36,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DisassemblyManager.h"
 
-std::map<u32, DisassemblyEntry*> DisassemblyManager::entries;
-std::recursive_mutex DisassemblyManager::entriesLock_;
-DebugInterface* DisassemblyManager::cpu_;
-int DisassemblyManager::maxParamChars = 29;
+DisassemblyManager g_disassemblyManager;
 
 bool isInInterval(u32 start, u32 size, u32 value) {
 	return start <= value && value <= (start+size-1);
@@ -184,6 +181,11 @@ std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,Disa
 	// no match otherwise
 	return entries.end();
 }
+
+void DisassemblyManager::setCpu(DebugInterface *cpu) {
+	_dbg_assert_(cpu);
+	cpu_ = cpu;
+};
 
 void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 {
@@ -519,7 +521,7 @@ void DisassemblyFunction::generateBranchLines()
 	u32 end = address+size;
 
 	std::lock_guard<std::recursive_mutex> guard(lock_);
-	DebugInterface *cpu = DisassemblyManager::getCpu();
+	DebugInterface *cpu = g_disassemblyManager.getCpu();
 	for (u32 funcPos = address; funcPos < end; funcPos += 4)
 	{
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu, funcPos);
@@ -612,7 +614,7 @@ void DisassemblyFunction::load()
 		}
 	}
 	
-	DebugInterface *cpu = DisassemblyManager::getCpu();
+	DebugInterface *cpu = g_disassemblyManager.getCpu();
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
 
@@ -747,11 +749,7 @@ void DisassemblyFunction::clear()
 	hash = 0;
 }
 
-bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
-{
-	if (!cpuDebug)
-		cpuDebug = DisassemblyManager::getCpu();
-
+bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug) {
 	char opcode[64],arguments[256];
 	char dizz[512];
 	DisAsm(address, dizz, sizeof(dizz));
@@ -778,7 +776,7 @@ void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLi
 	int lane = 0;
 	for (u32 pos = start; pos < start+size; pos += 4)
 	{
-		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),pos);
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(g_disassemblyManager.getCpu(),pos);
 		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch) {
 			if (!Memory::IsValidAddress(info.branchTarget))
 				continue;
@@ -823,9 +821,6 @@ void DisassemblyMacro::setMacroMemory(std::string_view _name, u32 _immediate, u8
 
 bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
-	if (!cpuDebug)
-		cpuDebug = DisassemblyManager::getCpu();
-
 	char buffer[64];
 	dest.type = DISTYPE_MACRO;
 	dest.info = MIPSAnalyst::GetOpcodeInfo(cpuDebug, address);
@@ -874,7 +869,6 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 	dest.totalSize = getTotalSize();
 	return true;
 }
-
 
 DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
 {
@@ -950,8 +944,8 @@ void DisassemblyData::createLines()
 	lineAddresses.clear();
 
 	u32 pos = address;
-	u32 end = address+size;
-	u32 maxChars = DisassemblyManager::getMaxParamChars();
+	const u32 end = address+size;
+	const u32 maxChars = g_disassemblyManager.getMaxParamChars();
 	
 	std::string currentLine;
 	u32 currentLineStart = pos;

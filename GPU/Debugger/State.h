@@ -7,7 +7,8 @@
 #include "Common/CommonTypes.h"
 
 #include "GPU/Debugger/GECommandTable.h"
-// Extracted from Windows/GE Debugger/TabState.cpp
+#include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 enum VertexListCols {
 	VERTEXLIST_COL_X,
@@ -39,3 +40,11 @@ class VertexDecoder;
 void FormatStateRow(GPUDebugInterface *debug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2);
 void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int col);
 void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col);
+
+
+// These are utilities used by the debugger vertex preview.
+
+// Later I hope to re-use more of the real logic.
+bool GetPrimPreview(u32 op, int which, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count);
+void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
+void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
