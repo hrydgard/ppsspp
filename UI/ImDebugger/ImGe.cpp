@@ -338,7 +338,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	// First, let's list any active display lists in the left column, on top of the disassembly.
 
-	ImGui::BeginChild("left pane", ImVec2(400, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+	ImGui::BeginChild("left pane", ImVec2(400, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 
 	for (auto index : gpuDebug->GetDisplayListQueue()) {
 		const auto &list = gpuDebug->GetDisplayList(index);

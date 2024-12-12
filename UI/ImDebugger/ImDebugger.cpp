@@ -1161,7 +1161,12 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 
 	// Toolbars
 
-	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {
+	ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X");
+	if (ImGui::IsItemDeactivatedAfterEdit()) {
+		memView_.gotoAddr(gotoAddr_);
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Go")) {
 		memView_.gotoAddr(gotoAddr_);
 	}
 
@@ -1179,16 +1184,16 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 		if (ImGui::Selectable("VRAM")) {
 			GotoAddr(0x08800000);
 		}
-		ImGui::EndChild();
 	}
+	ImGui::EndChild();
+	
 	ImGui::SameLine();
-	ImGui::BeginGroup();
 	if (ImGui::BeginChild("memview", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()))) {
 		memView_.Draw(ImGui::GetWindowDrawList());
-		ImGui::EndChild();
 	}
+	ImGui::EndChild();
+
 	ImGui::TextUnformatted(memView_.StatusMessage().c_str());
-	ImGui::EndGroup();
 	ImGui::End();
 }
 
@@ -1331,7 +1336,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	}
 
 	ImGui::SetNextItemWidth(100);
-	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {
+	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X")) {
 		disasmView_.setCurAddress(gotoAddr_);
 		disasmView_.scrollAddressIntoView();
 	}

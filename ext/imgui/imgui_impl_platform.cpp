@@ -79,6 +79,7 @@ void ImGui_ImplPlatform_Init(const Path &configPath) {
 	static char path[1024];
 	truncate_cpy(path, configPath.ToString());
 	ImGui::GetIO().IniFilename = path;
+	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 }
 
 void ImGui_ImplPlatform_AxisEvent(const AxisInput &axis) {

@@ -47,6 +47,7 @@
 #include "Core/Util/PPGeDraw.h"
 
 #include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 
 
@@ -3066,7 +3067,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	auto &style = ImGui::GetStyle();
 	ImGui::BeginChild("left", ImVec2(140.0f, 0.0f), ImGuiChildFlags_ResizeX);
-	float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+	float window_visible_x2 = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 
 	// Global texture stats
 	int replacementStateCounts[(int)ReplacementState::COUNT]{};
