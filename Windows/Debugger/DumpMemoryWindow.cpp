@@ -6,6 +6,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Windows/Debugger/DumpMemoryWindow.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/ShellUtil.h"
@@ -149,8 +150,8 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 
 	// parse start address
 	GetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_STARTADDRESS),str,256);
-	if (cpu->initExpression(str,exp) == false
-		|| cpu->parseExpression(exp,start) == false)
+	if (initExpression(cpu, str,exp) == false
+		|| parseExpression(cpu, exp,start) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid address expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
@@ -159,8 +160,8 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 	
 	// parse size
 	GetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_SIZE),str,256);
-	if (cpu->initExpression(str,exp) == false
-		|| cpu->parseExpression(exp,size) == false)
+	if (initExpression(cpu, str,exp) == false
+		|| parseExpression(cpu, exp,size) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid size expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);

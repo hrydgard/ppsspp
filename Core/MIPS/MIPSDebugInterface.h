@@ -28,43 +28,36 @@ class MIPSDebugInterface : public DebugInterface
 	MIPSState *cpu;
 public:
 	MIPSDebugInterface(MIPSState *_cpu) { cpu = _cpu; }
-	int getInstructionSize(int instruction) override { return 4; }
-	bool isAlive() override;
-	bool isBreakpoint(unsigned int address) override;
-	void setBreakpoint(unsigned int address) override;
-	void clearBreakpoint(unsigned int address) override;
-	void clearAllBreakpoints() override;
-	void toggleBreakpoint(unsigned int address) override;
-	unsigned int readMemory(unsigned int address) override;
-	void step() override {}
-	void runToBreakpoint() override;
-	int getColor(unsigned int address, bool darkMode) const override;
-	std::string getDescription(unsigned int address) override;
-	bool initExpression(const char* exp, PostfixExpression& dest) override;
-	bool parseExpression(PostfixExpression& exp, u32& dest) override;
+	int getInstructionSize(int instruction) { return 4; }
+	bool isAlive();
+	bool isBreakpoint(unsigned int address);
+	void setBreakpoint(unsigned int address);
+	void clearBreakpoint(unsigned int address);
+	void clearAllBreakpoints();
+	void toggleBreakpoint(unsigned int address);
+	unsigned int readMemory(unsigned int address);
+	int getColor(unsigned int address, bool darkMode) const;
+	std::string getDescription(unsigned int address);
 
-	//overridden functions
-	const char *GetName() override;
 	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
-	float GetFPR32Value(int reg) override { return cpu->f[reg]; }
-	void SetGPR32Value(int reg, u32 value) override { cpu->r[reg] = value; }
+	float GetFPR32Value(int reg) { return cpu->f[reg]; }
+	void SetGPR32Value(int reg, u32 value) { cpu->r[reg] = value; }
 
 	u32 GetPC() override { return cpu->pc; }
 	u32 GetRA() override { return cpu->r[MIPS_REG_RA]; }
 	u32 GetFPCond() override { return cpu->fpcond; }
-	void DisAsm(u32 pc, char *out, size_t outSize) override;
 	void SetPC(u32 _pc) override { cpu->pc = _pc; }
 
-	const char *GetCategoryName(int cat) override {
+	static const char *GetCategoryName(int cat) {
 		static const char *const names[3] = { "GPR", "FPU", "VFPU" };
 		return names[cat];
 	}
-	int GetNumCategories() override { return 3; }
-	int GetNumRegsInCategory(int cat) override {
-		static int r[3] = { 32, 32, 128 };
+	static int GetNumCategories() { return 3; }
+	static constexpr int GetNumRegsInCategory(int cat) {
+		constexpr int r[3] = { 32, 32, 128 };
 		return r[cat];
 	}
-	std::string GetRegName(int cat, int index) override;
+	static std::string GetRegName(int cat, int index);
 
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
 		switch (cat) {
@@ -130,3 +123,7 @@ public:
 		}
 	}
 };
+
+bool initExpression(DebugInterface *debug, const char* exp, PostfixExpression& dest);
+bool parseExpression(DebugInterface *debug, PostfixExpression& exp, u32& dest);
+void DisAsm(u32 pc, char *out, size_t outSize);

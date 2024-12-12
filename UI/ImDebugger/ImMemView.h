@@ -23,10 +23,10 @@ public:
 	ImMemView();
 	~ImMemView();
 
-	void setDebugger(DebugInterface *deb) {
+	void setDebugger(MIPSDebugInterface *deb) {
 		debugger_ = deb;
 	}
-	DebugInterface *getDebugger() {
+	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
 	std::vector<u32> searchString(const std::string &searchQuery);
@@ -69,7 +69,7 @@ private:
 	void PopupMenu();
 
 	static wchar_t szClassName[];
-	DebugInterface *debugger_ = nullptr;
+	MIPSDebugInterface *debugger_ = nullptr;
 
 	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
 

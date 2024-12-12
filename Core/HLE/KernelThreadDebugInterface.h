@@ -21,14 +21,16 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-class KernelThreadDebugInterface : public MIPSDebugInterface {
+class KernelThreadDebugInterface : public DebugInterface {
 public:
-	KernelThreadDebugInterface(MIPSState *c, PSPThreadContext &t) : MIPSDebugInterface(c), ctx(t) {
+	KernelThreadDebugInterface(PSPThreadContext &t) : ctx(t) {
 	}
 
 	u32 GetGPR32Value(int reg) override { return ctx.r[reg]; }
 	u32 GetPC() override { return ctx.pc; }
 	u32 GetRA() override { return ctx.r[MIPS_REG_RA]; }
+	u32 GetLLBit() override { return 0; }
+	u32 GetFPCond() override { return ctx.fpcond; }
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
 
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {

@@ -288,6 +288,6 @@ void WebSocketSteppingState::AddThreadCondition(uint32_t breakpointAddress, uint
 	BreakPointCond cond;
 	cond.debug = currentDebugMIPS;
 	cond.expressionString = StringFromFormat("threadid == 0x%08x", threadID);
-	if (currentDebugMIPS->initExpression(cond.expressionString.c_str(), cond.expression))
+	if (initExpression(currentDebugMIPS, cond.expressionString.c_str(), cond.expression))
 		g_breakpoints.ChangeBreakPointAddCond(breakpointAddress, cond);
 }

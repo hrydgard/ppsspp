@@ -265,7 +265,7 @@ const char* CtrlThreadList::getCurrentThreadName()
 // CtrlBreakpointList
 //
 
-CtrlBreakpointList::CtrlBreakpointList(HWND hwnd, DebugInterface* cpu, CtrlDisAsmView* disasm)
+CtrlBreakpointList::CtrlBreakpointList(HWND hwnd, MIPSDebugInterface* cpu, CtrlDisAsmView* disasm)
 	: GenericListControl(hwnd,breakpointListDef),cpu(cpu),disasm(disasm)
 {
 	SetSendInvalidRows(true);
@@ -835,7 +835,7 @@ void CtrlWatchList::RefreshValues() {
 		}
 
 		uint32_t prevValue = watch.currentValue;
-		watch.evaluateFailed = !cpu_->parseExpression(watch.expression, watch.currentValue);
+		watch.evaluateFailed = !parseExpression(cpu_, watch.expression, watch.currentValue);
 		if (prevValue != watch.currentValue)
 			changes = true;
 	}
@@ -959,7 +959,7 @@ void CtrlWatchList::AddWatch() {
 	WatchItemWindow win(nullptr, GetHandle(), cpu_);
 	if (win.Exec()) {
 		WatchInfo info;
-		if (cpu_->initExpression(win.GetExpression().c_str(), info.expression)) {
+		if (initExpression(cpu_, win.GetExpression().c_str(), info.expression)) {
 			info.name = win.GetName();
 			info.originalExpression = win.GetExpression();
 			info.format = win.GetFormat();
@@ -978,7 +978,7 @@ void CtrlWatchList::EditWatch(int pos) {
 	WatchItemWindow win(nullptr, GetHandle(), cpu_);
 	win.Init(watch.name, watch.originalExpression, watch.format);
 	if (win.Exec()) {
-		if (cpu_->initExpression(win.GetExpression().c_str(), watch.expression)) {
+		if (initExpression(cpu_, win.GetExpression().c_str(), watch.expression)) {
 			watch.name = win.GetName();
 			watch.originalExpression = win.GetExpression();
 			watch.format = win.GetFormat();

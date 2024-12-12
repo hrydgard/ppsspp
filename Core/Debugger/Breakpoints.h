@@ -21,7 +21,7 @@
 #include <atomic>
 #include <mutex>
 
-#include "Core/Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 enum BreakAction : u32 {
 	BREAK_ACTION_IGNORE = 0x00,
@@ -45,7 +45,7 @@ struct BreakPointCond {
 
 	u32 Evaluate() {
 		u32 result;
-		if (debug->parseExpression(expression, result) == false)
+		if (parseExpression(debug, expression, result) == false)
 			return 0;
 		return result;
 	}
@@ -185,8 +185,8 @@ public:
 
 	void Update(u32 addr = 0);
 
-	bool ValidateLogFormat(DebugInterface *cpu, const std::string &fmt);
-	bool EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt, std::string &result);
+	bool ValidateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt);
+	bool EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result);
 
 private:
 	size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);

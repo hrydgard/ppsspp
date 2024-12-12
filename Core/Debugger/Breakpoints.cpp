@@ -647,12 +647,12 @@ void BreakpointManager::Update(u32 addr) {
 	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
-bool BreakpointManager::ValidateLogFormat(DebugInterface *cpu, const std::string &fmt) {
+bool BreakpointManager::ValidateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt) {
 	std::string ignore;
 	return EvaluateLogFormat(cpu, fmt, ignore);
 }
 
-bool BreakpointManager::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt, std::string &result) {
+bool BreakpointManager::EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result) {
 	PostfixExpression exp;
 	result.clear();
 
@@ -697,7 +697,7 @@ bool BreakpointManager::EvaluateLogFormat(DebugInterface *cpu, const std::string
 				}
 			}
 
-			if (!cpu->initExpression(expression.c_str(), exp)) {
+			if (!initExpression(cpu, expression.c_str(), exp)) {
 				return false;
 			}
 
@@ -707,7 +707,7 @@ bool BreakpointManager::EvaluateLogFormat(DebugInterface *cpu, const std::string
 				float f;
 			} expResult;
 			char resultString[256];
-			if (!cpu->parseExpression(exp, expResult.u)) {
+			if (!parseExpression(cpu, exp, expResult.u)) {
 				return false;
 			}
 

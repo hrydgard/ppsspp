@@ -19,7 +19,7 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"
-#include "Core/Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 
 class CtrlDisAsmView
@@ -38,7 +38,7 @@ class CtrlDisAsmView
 
 	bool hasFocus;
 	bool showHex;
-	DebugInterface *debugger;
+	MIPSDebugInterface *debugger;
 	static TCHAR szClassName[];
 
 	u32 windowStart;
@@ -108,7 +108,7 @@ public:
 	u32 yToAddress(int y);
 
 	void setDontRedraw(bool b) { dontRedraw = b; };
-	void setDebugger(DebugInterface *deb)
+	void setDebugger(MIPSDebugInterface *deb)
 	{
 		debugger=deb;
 		curAddress=debugger->GetPC();

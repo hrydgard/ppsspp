@@ -11,7 +11,7 @@
 #include "Common/Math/geom2d.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
-#include "Core/Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 struct ImConfig;
 struct ImControl;
@@ -45,14 +45,15 @@ public:
 	void getOpcodeText(u32 address, char *dest, int bufsize);
 	u32 yToAddress(float y);
 
-	void setDebugger(DebugInterface *deb) {
+	void setDebugger(MIPSDebugInterface *deb) {
 		if (debugger_ != deb) {
 			debugger_ = deb;
 			curAddress_ = debugger_->GetPC();
 			manager.setCpu(deb);
 		}
 	}
-	DebugInterface *getDebugger() {
+
+	MIPSDebugInterface *getDebugger() {
 		return debugger_;
 	}
 
@@ -147,7 +148,7 @@ private:
 	bool hasFocus_ = true;
 	bool showHex_ = false;
 
-	DebugInterface *debugger_ = nullptr;
+	MIPSDebugInterface *debugger_ = nullptr;
 
 	u32 windowStart_ = 0;
 	int visibleRows_ = 1;
