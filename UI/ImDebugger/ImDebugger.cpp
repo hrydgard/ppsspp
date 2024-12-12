@@ -1140,6 +1140,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		ImGui::SetWindowFocus(ImMemWindow::Title(index));
 		break;
 	}
+	case ImCmd::TRIGGER_FIND_POPUP:
+		// TODO
+		break;
+	case ImCmd::NONE:
+		break;
 	}
 }
 

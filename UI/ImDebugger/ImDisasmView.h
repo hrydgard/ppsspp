@@ -169,7 +169,6 @@ private:
 	bool mapReloaded_ = false;
 
 	int positionLocked_ = 0;
-	int lastSteppingCount_ = 0;
 
 	std::string statusBarText_;
 	u32 funcBegin_ = 0;
