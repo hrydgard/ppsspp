@@ -313,6 +313,10 @@ void ImGui_PopFont() {
 	ImGui::PopFont();
 }
 
+ImFont *ImGui_GetFixedFont() {
+	return g_fixedFont;
+}
+
 void ImGui_ImplThin3d_Shutdown() {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 	IM_ASSERT(bd != nullptr && "No renderer backend to shutdown, or already shutdown?");

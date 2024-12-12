@@ -43,13 +43,16 @@ public:
 	void toggleOffsetScale(CommonToggles toggle);
 	void setHighlightType(MemBlockFlags flags);
 
+	const std::string &StatusMessage() const {
+		return statusMessage_;
+	}
+
 private:
 	void ProcessKeyboardShortcuts(bool focused);
 
 	bool ParseSearchString(const std::string &query, bool asHex, std::vector<uint8_t> &data);
 	void updateStatusBarText();
 	void search(bool continueSearch);
-	uint32_t pickTagColor(const std::string &tag);
 
 	enum class GotoMode {
 		RESET,
@@ -57,6 +60,7 @@ private:
 		FROM_CUR,
 		EXTEND,
 	};
+
 	static GotoMode GotoModeFromModifiers(bool isRightClick);
 	void UpdateSelectRange(uint32_t target, GotoMode mode);
 	void GotoPoint(int x, int y, GotoMode mode);
@@ -67,28 +71,28 @@ private:
 	static wchar_t szClassName[];
 	DebugInterface *debugger_ = nullptr;
 
-	// Whether to draw things using focused styles.
-	bool hasFocus_ = false;
 	MemBlockFlags highlightFlags_ = MemBlockFlags::ALLOC;
 
 	// Current cursor position.
-	uint32_t curAddress_ = 0;
+	uint32_t curAddress_ = 0x08800000;
 	// Selected range, which should always be around the cursor.
 	uint32_t selectRangeStart_ = 0;
 	uint32_t selectRangeEnd_ = 0;
 	// Last select reset position, for selecting ranges.
 	uint32_t lastSelectReset_ = 0;
 	// Address of the first displayed byte.
-	uint32_t windowStart_ = 0;
+	uint32_t windowStart_ = 0x08800000;
 	// Number of bytes displayed per row.
 	int rowSize_ = 16;
 
 	// Width of one monospace character (to maintain grid.)
 	int charWidth_ = 0;
+	// Height of one monospace character (to maintain grid.)
+	int charHeight_ = 0;
 	// Height of one row of bytes.
 	int rowHeight_ = 0;
 	// Y position of offset header (at top.)
-	int offsetPositionY_;
+	int offsetPositionY_ = 0;
 	// X position of addresses (at left.)
 	int addressStartX_ = 0;
 	// X position of hex display.

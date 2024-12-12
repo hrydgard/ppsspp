@@ -14,6 +14,7 @@
 #include "Core/Debugger/DebugInterface.h"
 
 struct ImConfig;
+struct ImControl;
 
 // Corresponds to CtrlDisAsmView
 // TODO: Fold out common code.
@@ -25,9 +26,9 @@ public:
 	// Public variables bounds to imgui checkboxes
 	bool followPC_ = true;
 
-	void Draw(ImDrawList *drawList);
+	void Draw(ImDrawList *drawList, ImControl &control);
 
-	void PopupMenu();
+	void PopupMenu(ImControl &control);
 	void NotifyStep();
 
 	void ScrollRelative(int amount);
@@ -157,7 +158,7 @@ private:
 		int opcodeStart;
 		int argumentsStart;
 		int arrowsStart;
-	} pixelPositions_;
+	} pixelPositions_{};
 
 	std::vector<u32> jumpStack_;
 
@@ -171,6 +172,6 @@ private:
 	int lastSteppingCount_ = 0;
 
 	std::string statusBarText_;
-	u32 funcBegin_;
-	char funcNameTemp_[128];
+	u32 funcBegin_ = 0;
+	char funcNameTemp_[128]{};
 };

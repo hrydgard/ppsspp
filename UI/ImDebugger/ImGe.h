@@ -54,6 +54,9 @@ public:
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}
+	const char *Title() const {
+		return "GE Debugger";
+	}
 
 private:
 	ImGeDisasmView disasmView_;

@@ -42,6 +42,28 @@
 
 extern bool g_TakeScreenshot;
 
+void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
+	if (ImGui::BeginMenu("Show in memory viewer")) {
+		for (int i = 0; i < 4; i++) {
+			if (ImGui::MenuItem(ImMemWindow::Title(i))) {
+				control.command = { ImCmd::SHOW_IN_MEMORY_VIEWER, addr, (u32)i };
+			}
+		}
+		ImGui::EndMenu();
+	}
+}
+
+void ShowInWindowMenuItems(uint32_t addr, ImControl &control) {
+	// Enable when we implement the memory viewer
+	ShowInMemoryViewerMenuItem(addr, control);
+	if (ImGui::MenuItem("Show in CPU debugger")) {
+		control.command = { ImCmd::SHOW_IN_CPU_DISASM, addr };
+	}
+	if (ImGui::MenuItem("Show in GE debugger")) {
+		control.command = { ImCmd::SHOW_IN_GE_DISASM, addr };
+	}
+}
+
 // TODO: Style it.
 // Left click performs the preferred action, if any. Right click opens a menu for more.
 void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
@@ -57,18 +79,7 @@ void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
 			System_CopyStringToClipboard(temp);
 		}
 		ImGui::Separator();
-		// Enable when we implement the memory viewer
-		if (cmd != ImCmd::SHOW_IN_MEMORY_VIEWER) {
-			if (ImGui::MenuItem("Show in memory viewer 1")) {
-				control.command = { ImCmd::SHOW_IN_MEMORY_VIEWER, addr };
-			}
-		}
-		if (ImGui::MenuItem("Show in CPU debugger")) {
-			control.command = { ImCmd::SHOW_IN_CPU_DISASM, addr };
-		}
-		if (ImGui::MenuItem("Show in GE debugger")) {
-			control.command = { ImCmd::SHOW_IN_GE_DISASM, addr };
-		}
+		ShowInWindowMenuItems(addr, control);
 		ImGui::EndPopup();
 	}
 }
@@ -883,6 +894,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	// TODO: Pass mipsDebug in where needed instead.
 	DisassemblyManager::setCpu(mipsDebug);
 	disasm_.View().setDebugger(mipsDebug);
+	for (int i = 0; i < 4; i++) {
+		mem_[i].View().setDebugger(mipsDebug);
+	}
 
 	// Watch the step counters to figure out when to update things.
 
@@ -1024,7 +1038,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.disasmOpen) {
-		disasm_.Draw(mipsDebug, cfg_, coreState);
+		disasm_.Draw(mipsDebug, cfg_, control, coreState);
 	}
 
 	if (cfg_.regsOpen) {
@@ -1100,17 +1114,32 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	for (int i = 0; i < 4; i++) {
-		mem_[i].Draw(mipsDebug, cfg_, control, i);
+		if (cfg_.memViewOpen[i]) {
+			mem_[i].Draw(mipsDebug, cfg_, control, i);
+		}
 	}
 
 	// Process UI commands
 	switch (control.command.cmd) {
 	case ImCmd::SHOW_IN_CPU_DISASM:
 		disasm_.View().gotoAddr(control.command.param);
+		cfg_.disasmOpen = true;
+		ImGui::SetWindowFocus(disasm_.Title());
 		break;
 	case ImCmd::SHOW_IN_GE_DISASM:
 		geDebugger_.View().GotoAddr(control.command.param);
+		cfg_.geDebuggerOpen = true;
+		ImGui::SetWindowFocus(geDebugger_.Title());
 		break;
+	case ImCmd::SHOW_IN_MEMORY_VIEWER:
+	{
+		u32 index = control.command.param2;
+		_dbg_assert_(index < 4);
+		mem_[index].GotoAddr(control.command.param);
+		cfg_.memViewOpen[index] = true;
+		ImGui::SetWindowFocus(ImMemWindow::Title(index));
+		break;
+	}
 	}
 }
 
@@ -1119,28 +1148,55 @@ void ImDebugger::Snapshot() {
 }
 
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
-	char title[256];
-	snprintf(title, sizeof(title), "Memory %d", index);
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(title, &cfg.memViewOpen[index])) {
+	if (!ImGui::Begin(Title(index), &cfg.memViewOpen[index])) {
 		ImGui::End();
 		return;
 	}
 
-	memView_.setDebugger(mipsDebug);
-	memView_.Draw(ImGui::GetWindowDrawList());
+	// Toolbars
 
+	if (ImGui::InputScalar("Go to addr: ", ImGuiDataType_U32, &gotoAddr_, NULL, NULL, "%08X", ImGuiInputTextFlags_EnterReturnsTrue)) {
+		memView_.gotoAddr(gotoAddr_);
+	}
+
+	// Main views - list of interesting addresses to the left, memory view to the right.
+	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, 0.0))) {
+		if (ImGui::Selectable("Scratch")) {
+			GotoAddr(0x00010000);
+		}
+		if (ImGui::Selectable("Kernel RAM")) {
+			GotoAddr(0x08000000);
+		}
+		if (ImGui::Selectable("User RAM")) {
+			GotoAddr(0x08800000);
+		}
+		if (ImGui::Selectable("VRAM")) {
+			GotoAddr(0x08800000);
+		}
+		ImGui::EndChild();
+	}
+	ImGui::SameLine();
+	ImGui::BeginGroup();
+	if (ImGui::BeginChild("memview", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()))) {
+		memView_.Draw(ImGui::GetWindowDrawList());
+		ImGui::EndChild();
+	}
+	ImGui::TextUnformatted(memView_.StatusMessage().c_str());
+	ImGui::EndGroup();
 	ImGui::End();
 }
 
-void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState) {
-	char title[256];
-	snprintf(title, sizeof(title), "%s - Disassembly", "Allegrex MIPS");
-	
+const char *ImMemWindow::Title(int index) {
+	static const char *const titles[4] = { "Memory 1", "Memory 2", "Memory 3", "Memory 4" };
+	return titles[index];
+}
+
+void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState) {
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(title, &cfg.disasmOpen, ImGuiWindowFlags_NoNavInputs)) {
+	if (!ImGui::Begin(Title(), &cfg.disasmOpen, ImGuiWindowFlags_NoNavInputs)) {
 		ImGui::End();
 		return;
 	}
@@ -1322,7 +1378,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreStat
 		}
 
 		ImGui::TableSetColumnIndex(1);
-		disasmView_.Draw(ImGui::GetWindowDrawList());
+		disasmView_.Draw(ImGui::GetWindowDrawList(), control);
 		ImGui::EndTable();
 
 		ImGui::TextUnformatted(disasmView_.StatusBarText().c_str());

@@ -19,19 +19,10 @@
 #include "UI/ImDebugger/ImMemView.h"
 
 ImMemView::ImMemView() {
-	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
-	charWidth_ = g_Config.iFontWidth * fontScale;
-	rowHeight_ = g_Config.iFontHeight * fontScale;
-	offsetPositionY_ = offsetLine * rowHeight_;
-
 	windowStart_ = curAddress_;
 	selectRangeStart_ = curAddress_;
 	selectRangeEnd_ = curAddress_ + 1;
 	lastSelectReset_ = curAddress_;
-
-	addressStartX_ = charWidth_;
-	hexStartX_ = addressStartX_ + 9 * charWidth_;
-	asciiStartX_ = hexStartX_ + (rowSize_ * 3 + 1) * charWidth_;
 }
 
 ImMemView::~ImMemView() {}
@@ -47,6 +38,12 @@ LRESULT CALLBACK ImMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 }
 */
 
+static uint32_t pickTagColor(std::string_view tag) {
+	uint32_t colors[6] = { 0xFF301010, 0xFF103030, 0xFF403010, 0xFF103000, 0xFF301030, 0xFF101030 };
+	int which = XXH3_64bits(tag.data(), tag.length()) % ARRAY_SIZE(colors);
+	return colors[which];
+}
+
 void ImMemView::Draw(ImDrawList *drawList) {
 	if (!debugger_->isAlive()) {
 		return;
@@ -56,6 +53,13 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 	rowHeight_ = ImGui::GetTextLineHeightWithSpacing();
 	charWidth_ = ImGui::CalcTextSize("W", nullptr, false, -1.0f).x;
+	charHeight_ = ImGui::GetTextLineHeight();
+
+	offsetPositionY_ = offsetLine * rowHeight_;
+
+	addressStartX_ = charWidth_;
+	hexStartX_ = addressStartX_ + 9 * charWidth_;
+	asciiStartX_ = hexStartX_ + (rowSize_ * 3 + 1) * charWidth_;
 
 	const ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
 	const ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
@@ -104,8 +108,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 		char temp[32];
 		uint32_t address = windowStart_ + i * rowSize_;
 		snprintf(temp, sizeof(temp), "%08X", address);
-
-		drawList->AddText(ImVec2(canvas_p0.x + addressStartX_, canvas_p0.y + rowY), IM_COL32(0, 0, 0x60, 0xFF), temp);
+		drawList->AddText(ImVec2(canvas_p0.x + addressStartX_, canvas_p0.y + rowY), IM_COL32(0xE0, 0xE0, 0xE0, 0xFF), temp);
 
 		union {
 			uint32_t words[4];
@@ -118,11 +121,11 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 		for (int j = 0; j < rowSize_; j++) {
 			const uint32_t byteAddress = (address + j) & ~0xC0000000;
-			std::string tag;
+			std::string_view tag;
 			bool tagContinues = false;
-			for (auto info : memRangeInfo) {
+			for (const auto &info : memRangeInfo) {
 				if (info.start <= byteAddress && info.start + info.size > byteAddress) {
-					tag = info.tag;
+					tag = info.tag;  // doesn't take ownership!
 					tagContinues = byteAddress + 1 < info.start + info.size;
 				}
 			}
@@ -143,60 +146,58 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			}
 
 			ImColor standardBG = 0xFF000000;
-			ImColor continueBGCol = 0xFF000000;
-			ImColor hexBGCol = 0xFF000000;
+			bool continueRect = false;
+
+			ImColor hexBGCol = 0;
 			ImColor hexTextCol = 0xFFFFFFFF;
-			ImColor asciiBGCol = 0xFF000000;
+			ImColor asciiBGCol = 0;
 			ImColor asciiTextCol = 0xFFFFFFFF;
 			int underline = -1;
 
+			const ImColor primarySelFg = 0xFFFFFFFF;
+			const ImColor primarySelBg = 0xFFFF9933;
+			const ImColor secondarySelFg = 0xFFFFFFFF;
+			const ImColor secondarySelBg = 0xFF808080;
+
 			if (address + j >= selectRangeStart_ && address + j < selectRangeEnd_ && !searching_) {
 				if (asciiSelected_) {
-					hexBGCol = ImColor(0xFFC0C0C0);
-					hexTextCol = 0x000000;
-					asciiBGCol = hasFocus_ ? 0xFF9933 : 0xC0C0C0;
-					asciiTextCol = hasFocus_ ? 0xFFFFFF : 0x000000;
+					hexBGCol = secondarySelBg;
+					hexTextCol = secondarySelFg;
+					asciiBGCol = primarySelBg;
+					asciiTextCol = primarySelFg;
 				} else {
-					hexBGCol = hasFocus_ ? 0xFF9933 : 0xC0C0C0;
-					hexTextCol = hasFocus_ ? 0xFFFFFF : 0x000000;
-					asciiBGCol = 0xC0C0C0;
-					asciiTextCol = 0x000000;
+					hexBGCol = primarySelBg;
+					hexTextCol = primarySelFg;
+					asciiBGCol = secondarySelBg;
+					asciiTextCol = secondarySelFg;
 					if (address + j == curAddress_)
 						underline = selectedNibble_;
 				}
 				if (!tag.empty() && tagContinues) {
-					continueBGCol = pickTagColor(tag);
+					continueRect = true;
 				}
 			} else if (!tag.empty()) {
 				hexBGCol = pickTagColor(tag);
-				continueBGCol = hexBGCol;
-				asciiBGCol = pickTagColor(tag);
-				hexLen = tagContinues ? 3 : 2;
+				continueRect = tagContinues;
+				asciiBGCol = hexBGCol;
 			}
 
 			ImColor fg = hexTextCol;
 			ImColor bg = hexBGCol;
+			// SelectObject(hdc, underline == 0 ? (HGDIOBJ)underlineFont : (HGDIOBJ)font);
+			if (bg != 0) {
+				int bgWidth = 2; // continueRect ? 3 : 2;
+				drawList->AddRectFilled(ImVec2(canvas_p0.x + hexX - 1, canvas_p0.y + rowY), ImVec2(canvas_p0.x + hexX + charWidth_ * bgWidth, canvas_p0.y + rowY + charHeight_), bg);
+				drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
+			}
 			if (underline >= 0) {
-				// SelectObject(hdc, underline == 0 ? (HGDIOBJ)underlineFont : (HGDIOBJ)font);
-				drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[1]);
-				// SelectObject(hdc, underline == 0 ? (HGDIOBJ)font : (HGDIOBJ)underlineFont);
-				drawList->AddText(ImVec2(canvas_p0.x + hexX + charWidth_, canvas_p0.y + rowY), fg, &temp[1]);
-
-				// If the tag keeps going, draw the BG too.
-				if (continueBGCol != standardBG) {
-					// setTextColors(0x000000, continueBGCol);
-					// TextOutA(hdc, hexX + charWidth_ * 2, rowY, &temp[2], 1);
-				}
-			} else {
-				if (continueBGCol != hexBGCol) {
-					drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
-				} else {
-					drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
-				}
+				float x = canvas_p0.x + hexX + underline * charWidth_;
+				drawList->AddRectFilled(ImVec2(x, canvas_p0.y + rowY + charHeight_ - 2), ImVec2(x + charWidth_, canvas_p0.y + rowY + charHeight_), IM_COL32(0xFF, 0xFF, 0xFF, 0xFF));
 			}
 
-			// setTextColors(asciiTextCol, asciiBGCol);
-			// TextOutA(hdc, asciiX, rowY, &c, 1);
+			fg = asciiTextCol;
+			bg = asciiBGCol;
+			drawList->AddRectFilled(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), ImVec2(canvas_p0.x + asciiX + charWidth_, canvas_p0.y + rowY + charHeight_), bg);
 			drawList->AddText(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), fg, &c, &c + 1);
 		}
 	}
@@ -226,15 +227,19 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 	if (is_hovered) {
 		if (io.MouseWheel > 0.0f) {  // TODO: Scale steps by the value.
-			windowStart_ -= 4;
+			windowStart_ -= rowSize_ * 4;
 		} else if (io.MouseWheel < 0.0f) {
-			windowStart_ += 4;
+			windowStart_ += rowSize_ * 4;
 		}
 	}
 
 	ProcessKeyboardShortcuts(ImGui::IsItemFocused());
 
 	ImGui_PopFont();
+
+	ImGui::OpenPopupOnItemClick("memcontext", ImGuiPopupFlags_MouseButtonRight);
+	PopupMenu();
+
 	drawList->PopClipRect();
 }
 
@@ -372,19 +377,18 @@ void ImMemView::onMouseDown(float x, float y, int button) {
 }
 
 void ImMemView::PopupMenu() {
-	if (ImGui::BeginPopup("context")) {
+	if (ImGui::BeginPopup("memcontext")) {
 
 		int32_t selectedSize = selectRangeEnd_ - selectRangeStart_;
 		bool enable16 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 1) == 0);
 		bool enable32 = !asciiSelected_ && (selectedSize == 1 || (selectedSize & 3) == 0);
-
+		/*
 		if (ImGui::MenuItem("Dump memory")) {
-			/*
 			DumpMemoryWindow dump(wnd, debugger_);
 			dump.exec();
 			break;
-			*/
 		}
+		*/
 
 		if (ImGui::MenuItem("Copy value (8-bit)")) {
 			size_t tempSize = 3 * selectedSize + 1;
@@ -603,7 +607,8 @@ void ImMemView::GotoPoint(int x, int y, GotoMode mode) {
 		switch (col % 3) {
 		case 0: targetNibble = 0; break;
 		case 1: targetNibble = 1; break;
-		case 2: return;		// don't change position when clicking on the space
+		// case 2: return;		// don't change position when clicking on the space
+		case 2: targetNibble = 0; break;  // TODO: split the difference? Anyway, this feels better.
 		}
 
 		targetAscii = false;
@@ -848,10 +853,4 @@ void ImMemView::setHighlightType(MemBlockFlags flags) {
 		highlightFlags_ = flags;
 		updateStatusBarText();
 	}
-}
-
-uint32_t ImMemView::pickTagColor(const std::string &tag) {
-	int colors[6] = { 0xe0FFFF, 0xFFE0E0, 0xE8E8FF, 0xFFE0FF, 0xE0FFE0, 0xFFFFE0 };
-	int which = XXH3_64bits(tag.c_str(), tag.length()) % ARRAY_SIZE(colors);
-	return colors[which];
 }

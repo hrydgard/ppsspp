@@ -55,6 +55,10 @@ IMGUI_IMPL_API ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer
 void ImGui_PushFixedFont();
 void ImGui_PopFont();
 
+// To get metrics etc.
+ImFont *ImGui_GetFixedFont();
+
+
 // Helper structure to hold the data needed by one rendering context into one OS window
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT used by your own engine/app.)
 struct ImGui_ImplThin3dH_Window {

@@ -32,12 +32,15 @@ struct ImConfig;
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState);
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState);
 	ImDisasmView &View() {
 		return disasmView_;
 	}
 	void DirtySymbolMap() {
 		symsDirty_ = true;
+	}
+	const char *Title() const {
+		return "CPU Debugger";
 	}
 
 private:
@@ -47,7 +50,7 @@ private:
 		INVALID_ADDR = 0xFFFFFFFF,
 	};
 
-	u32 gotoAddr_ = 0x1000;
+	u32 gotoAddr_ = 0x08800000;
 
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
@@ -69,6 +72,10 @@ public:
 	void DirtySymbolMap() {
 		symsDirty_ = true;
 	}
+	void GotoAddr(u32 addr) {
+		memView_.gotoAddr(addr);
+	}
+	static const char *Title(int index);
 
 private:
 	// We just keep the state directly in the window. Can refactor later.
@@ -84,6 +91,8 @@ private:
 
 	ImMemView memView_;
 	char searchTerm_[64]{};
+
+	u32 gotoAddr_ = 0x08800000;
 };
 
 struct ImConfig {
@@ -137,12 +146,13 @@ enum class ImCmd {
 	TRIGGER_FIND_POPUP,
 	SHOW_IN_CPU_DISASM,
 	SHOW_IN_GE_DISASM,
-	SHOW_IN_MEMORY_VIEWER,
+	SHOW_IN_MEMORY_VIEWER,  // param is address, param2 is viewer index
 };
 
 struct ImCommand {
 	ImCmd cmd;
 	uint32_t param;
+	uint32_t param2;
 };
 
 struct ImControl {
@@ -178,5 +188,7 @@ private:
 	ImConfig cfg_{};
 };
 
-// Simple custom controls
+// Simple custom controls and utilities.
 void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd);
+void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
+void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);

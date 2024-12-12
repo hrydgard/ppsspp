@@ -245,7 +245,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 
 void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("GE Debugger", &cfg.geDebuggerOpen)) {
+	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
 		ImGui::End();
 		return;
 	}

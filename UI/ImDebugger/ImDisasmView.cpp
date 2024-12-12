@@ -17,6 +17,7 @@
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "UI/ImDebugger/ImDisasmView.h"
+#include "UI/ImDebugger/ImDebugger.h"
 
 ImDisasmView::ImDisasmView() {
 	curAddress_ = 0;
@@ -295,7 +296,7 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Bounds rc, const Disassem
 	}
 }
 
-void ImDisasmView::Draw(ImDrawList *drawList) {
+void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 	if (!debugger_->isAlive()) {
 		return;
 	}
@@ -465,7 +466,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	ImGui_PopFont();
 
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
-	PopupMenu();
+	PopupMenu(control);
 
 	drawList->PopClipRect();
 }
@@ -760,21 +761,19 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
-void ImDisasmView::PopupMenu() {
+void ImDisasmView::PopupMenu(ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
 		ImGui::Text("Address: %08x", curAddress_);
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
 			toggleBreakpoint();
 		}
-		if (ImGui::MenuItem("Go to in memory view")) {
-			// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, curAddress, 0);
+		ShowInMemoryViewerMenuItem(curAddress_, control);
+		if (ImGui::MenuItem("Copy address")) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::ADDRESSES);
 		}
 		if (ImGui::MenuItem("Copy instruction (disasm)")) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
-		}
-		if (ImGui::MenuItem("Copy address")) {
-			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::ADDRESSES);
 		}
 		if (ImGui::MenuItem("Copy instruction (hex)")) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::OPCODES);
