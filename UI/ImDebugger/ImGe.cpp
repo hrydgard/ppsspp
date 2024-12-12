@@ -367,7 +367,25 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::SameLine();
 
+	u32 op = 0;
+	DisplayList list;
+	if (gpuDebug->GetCurrentDisplayList(list)) {
+		op = Memory::Read_U32(list.pc);
+		bool isOnPrim = (op >> 24) == GE_CMD_PRIM;
+		if (isOnPrim) {
+			if (reloadPreview_) {
+				GetPrimPreview(op, previewPrim_, previewVertices_, previewIndices_, previewCount_);
+				reloadPreview_ = false;
+			}
+		} else {
+			previewCount_ = 0;
+		}
+	}
+
 	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
+
+
+	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
 		FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
@@ -384,8 +402,31 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			if (ImGui::BeginTabBar("aspects")) {
 				if (ImGui::BeginTabItem("Color")) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+					const ImVec2 p0 = ImGui::GetCursorScreenPos();
 					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-					// TODO: Draw vertex preview on top!
+					// Draw vertex preview on top!
+					if (previewCount_) {
+						switch (previewPrim_) {
+						case GE_PRIM_TRIANGLES:
+						case GE_PRIM_RECTANGLES:
+						{
+							for (int i = 0; i < previewCount_ - 2; i += 3) {
+								const auto &v1 = previewIndices_.empty() ? previewVertices_[i] : previewVertices_[previewIndices_[i]];
+								const auto &v2 = previewIndices_.empty() ? previewVertices_[i + 1] : previewVertices_[previewIndices_[i + 1]];
+								const auto &v3 = previewIndices_.empty() ? previewVertices_[i + 2] : previewVertices_[previewIndices_[i + 2]];
+								drawList->AddTriangleFilled(
+									ImVec2(p0.x + v1.x, p0.y + v1.y),
+									ImVec2(p0.x + v2.x, p0.y + v2.y),
+									ImVec2(p0.x + v3.x, p0.y + v3.y), ImColor(0x600000FF));
+							}
+							break;
+						}
+						default:
+							// TODO: Support lines etc.
+							break;
+						}
+					}
+
 					ImGui::EndTabItem();
 				}
 				if (ImGui::BeginTabItem("Depth")) {
@@ -415,7 +456,33 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		void *nativeView = texcache->GetNativeTextureView(tex, true);
 		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
 
-		ImGui::Image(texId, ImVec2(128, 128));
+		const ImVec2 p0 = ImGui::GetCursorScreenPos();
+		float texW = dimWidth(tex->dim);
+		float texH = dimHeight(tex->dim);
+		ImGui::Image(texId, ImVec2(texW, texH));
+
+		// Draw UVs of vertex preview on top of the texture!
+		if (previewCount_) {
+			switch (previewPrim_) {
+			case GE_PRIM_TRIANGLES:
+			case GE_PRIM_RECTANGLES:
+			{
+				for (int i = 0; i < previewCount_ - 2; i += 3) {
+					const auto &v1 = previewIndices_.empty() ? previewVertices_[i] : previewVertices_[previewIndices_[i]];
+					const auto &v2 = previewIndices_.empty() ? previewVertices_[i + 1] : previewVertices_[previewIndices_[i + 1]];
+					const auto &v3 = previewIndices_.empty() ? previewVertices_[i + 2] : previewVertices_[previewIndices_[i + 2]];
+					drawList->AddTriangleFilled(
+						ImVec2(p0.x + v1.u * texW, p0.y + v1.v * texH),
+						ImVec2(p0.x + v2.u * texW, p0.y + v2.v * texH),
+						ImVec2(p0.x + v3.u * texW, p0.y + v3.v * texH), ImColor(0x600000FF));
+				}
+				break;
+			}
+			default:
+				// TODO: Support lines etc.
+				break;
+			}
+		}
 
 		// Let's display the current CLUT.
 

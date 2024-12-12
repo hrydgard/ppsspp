@@ -89,12 +89,16 @@ u32 CGEDebugger::PrimPreviewOp() {
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	which &= previewsEnabled_;
 
+	if (which == 0) {
+		return;
+	}
+
 	static std::vector<GPUDebugVertex> vertices;
 	static std::vector<u16> indices;
 
 	int count = 0;
 	GEPrimitiveType prim;
-	if (!GetPrimPreview(op, which, prim, vertices, indices, count)) {
+	if (!GetPrimPreview(op, prim, vertices, indices, count)) {
 		return;
 	}
 
