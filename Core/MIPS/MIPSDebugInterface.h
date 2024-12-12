@@ -50,7 +50,7 @@ public:
 	void SetGPR32Value(int reg, u32 value) override { cpu->r[reg] = value; }
 
 	u32 GetPC() override { return cpu->pc; }
-	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
+	u32 GetRA() override { return cpu->r[MIPS_REG_RA]; }
 	u32 GetFPCond() override { return cpu->fpcond; }
 	void DisAsm(u32 pc, char *out, size_t outSize) override;
 	void SetPC(u32 _pc) override { cpu->pc = _pc; }

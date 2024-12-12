@@ -16,6 +16,7 @@
 #include "Core/Debugger/DebugInterface.h"
 
 #include "UI/ImDebugger/ImDisasmView.h"
+#include "UI/ImDebugger/ImMemView.h"
 #include "UI/ImDebugger/ImStructViewer.h"
 #include "UI/ImDebugger/ImGe.h"
 
@@ -31,12 +32,15 @@ struct ImConfig;
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, CoreState coreState);
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState);
 	ImDisasmView &View() {
 		return disasmView_;
 	}
 	void DirtySymbolMap() {
 		symsDirty_ = true;
+	}
+	const char *Title() const {
+		return "CPU Debugger";
 	}
 
 private:
@@ -46,7 +50,7 @@ private:
 		INVALID_ADDR = 0xFFFFFFFF,
 	};
 
-	u32 gotoAddr_ = 0x1000;
+	u32 gotoAddr_ = 0x08800000;
 
 	// Symbol cache
 	std::vector<SymbolEntry> symCache_;
@@ -56,6 +60,39 @@ private:
 
 	ImDisasmView disasmView_;
 	char searchTerm_[64]{};
+};
+
+// Corresponds to the CMemView dialog
+class ImMemWindow {
+public:
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index);
+	ImMemView &View() {
+		return memView_;
+	}
+	void DirtySymbolMap() {
+		symsDirty_ = true;
+	}
+	void GotoAddr(u32 addr) {
+		memView_.gotoAddr(addr);
+	}
+	static const char *Title(int index);
+
+private:
+	// We just keep the state directly in the window. Can refactor later.
+	enum {
+		INVALID_ADDR = 0xFFFFFFFF,
+	};
+
+	// Symbol cache
+	std::vector<SymbolEntry> symCache_;
+	bool symsDirty_ = true;
+	int selectedSymbol_ = -1;
+	char selectedSymbolName_[128];
+
+	ImMemView memView_;
+	char searchTerm_[64]{};
+
+	u32 gotoAddr_ = 0x08800000;
 };
 
 struct ImConfig {
@@ -82,6 +119,7 @@ struct ImConfig {
 	bool geDebuggerOpen;
 	bool geStateOpen;
 	bool schedulerOpen;
+	bool memViewOpen[4];
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -108,12 +146,13 @@ enum class ImCmd {
 	TRIGGER_FIND_POPUP,
 	SHOW_IN_CPU_DISASM,
 	SHOW_IN_GE_DISASM,
-	SHOW_IN_MEMORY_VIEWER,
+	SHOW_IN_MEMORY_VIEWER,  // param is address, param2 is viewer index
 };
 
 struct ImCommand {
 	ImCmd cmd;
 	uint32_t param;
+	uint32_t param2;
 };
 
 struct ImControl {
@@ -139,11 +178,17 @@ private:
 	ImDisasmWindow disasm_;
 	ImGeDebuggerWindow geDebugger_;
 	ImGeStateWindow geStateWindow_;
+	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
+
+	int lastCpuStepCount_ = -1;
+	int lastGpuStepCount_ = -1;
 
 	// Open variables.
 	ImConfig cfg_{};
 };
 
-// Simple custom controls
+// Simple custom controls and utilities.
 void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd);
+void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
+void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);

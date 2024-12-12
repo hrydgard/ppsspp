@@ -28,6 +28,8 @@ public:
 		selectedAddr_ = addr;
 	}
 
+	void NotifyStep();
+
 private:
 	u32 selectedAddr_ = INVALID_ADDR;
 	u32 dragAddr_ = INVALID_ADDR;
@@ -51,6 +53,9 @@ public:
 	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
 	ImGeDisasmView &View() {
 		return disasmView_;
+	}
+	const char *Title() const {
+		return "GE Debugger";
 	}
 
 private:

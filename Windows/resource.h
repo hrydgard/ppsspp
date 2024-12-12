@@ -70,7 +70,7 @@
 #define IDC_STEP                        1009
 #define IDC_VERSION                     1010
 #define IDC_MEMVIEW                     1069
-#define IDC_GOTOLR                      1070
+#define IDC_GOTORA                      1070
 #define IDC_GOTOINT                     1071
 #define IDC_MEMSORT                     1073
 #define IDC_SYMBOLS                     1097

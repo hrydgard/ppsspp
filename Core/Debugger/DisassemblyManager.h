@@ -200,7 +200,7 @@ public:
 
 	void clear();
 
-	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
+	static void setCpu(DebugInterface* _cpu) { cpu = _cpu; };
 	void setMaxParamChars(int num) { maxParamChars = num; clear(); };
 	void getLine(u32 address, bool insertSymbols, DisassemblyLineInfo &dest, DebugInterface *cpuDebug = nullptr);
 	void analyze(u32 address, u32 size);

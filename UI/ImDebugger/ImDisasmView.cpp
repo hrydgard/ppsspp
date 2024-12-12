@@ -1,9 +1,9 @@
-
 #include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
+#include "Common/Math/geom2d.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -17,6 +17,7 @@
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "UI/ImDebugger/ImDisasmView.h"
+#include "UI/ImDebugger/ImDebugger.h"
 
 ImDisasmView::ImDisasmView() {
 	curAddress_ = 0;
@@ -82,24 +83,6 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char* dest, bool abbreviate
 	}
 }
 
-// TODO: Replace with another impl.
-/*
-static std::string trimString(std::string input) {
-	size_t pos = input.find_first_not_of(" \t");
-	if (pos != 0 && pos != std::string::npos) {
-		input = input.erase(0, pos);
-	}
-
-	pos = input.find_last_not_of(" \t");
-	if (pos != std::string::npos) {
-		size_t size = input.length() - pos - 1;
-		input = input.erase(pos + 1, size);
-	}
-
-	return input;
-}
-*/
-
 void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 	/*
 	if (!Core_IsStepping()) {
@@ -157,7 +140,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 	*/
 }
 
-void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
+void ImDisasmView::drawBranchLine(ImDrawList *drawList, Bounds rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
 	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
 
 	float topY;
@@ -165,7 +148,7 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 	if (line.first < windowStart_) {
 		topY = -1;
 	} else if (line.first >= windowEnd) {
-		topY = rect.bottom + 1.0f;
+		topY = rect.y2() + 1.0f;
 	} else {
 		topY = (float)addressPositions[line.first] + rowHeight_ / 2;
 	}
@@ -173,12 +156,12 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 	if (line.second < windowStart_) {
 		bottomY = -1;
 	} else if (line.second >= windowEnd) {
-		bottomY = rect.bottom + 1.0f;
+		bottomY = rect.y2()  + 1.0f;
 	} else {
 		bottomY = (float)addressPositions[line.second] + rowHeight_ / 2;
 	}
 
-	if ((topY < 0 && bottomY < 0) || (topY > rect.bottom && bottomY > rect.bottom)) {
+	if ((topY < 0 && bottomY < 0) || (topY > rect.y2() && bottomY > rect.y2())) {
 		return;
 	}
 
@@ -200,7 +183,7 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 		curY = y;
 	};
 	auto lineTo = [&](float x, float y) {
-		drawList->AddLine(ImVec2(rect.left + curX, rect.top + curY), ImVec2(rect.left + (float)x, rect.top + (float)y), pen, 1.0f);
+		drawList->AddLine(ImVec2(rect.x + curX, rect.y + curY), ImVec2(rect.x + (float)x, rect.y + (float)y), pen, 1.0f);
 		curX = x;
 		curY = y;
 	};
@@ -215,10 +198,10 @@ void ImDisasmView::drawBranchLine(ImDrawList *drawList, Rect rect, std::map<u32,
 			lineTo(x - 4.f, bottomY);
 			lineTo(x + 1.f, bottomY + 5.f);
 		}
-	} else if (bottomY > rect.bottom) {// second is not visible, but first is
+	} else if (bottomY > rect.y2()) {// second is not visible, but first is
 		moveTo(x - 2.f, topY);
 		lineTo(x + 2.f, topY);
-		lineTo(x + 2.f, rect.bottom);
+		lineTo(x + 2.f, rect.y2());
 
 		if (line.type == LINE_UP) {
 			moveTo(x, topY - 4.f);
@@ -266,13 +249,13 @@ std::set<std::string> ImDisasmView::getSelectedLineArguments() {
 	return args;
 }
 
-void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments) {
+void ImDisasmView::drawArguments(ImDrawList *drawList, Bounds rc, const DisassemblyLineInfo &line, float x, float y, ImColor textColor, const std::set<std::string> &currentArguments) {
 	if (line.params.empty()) {
 		return;
 	}
 	// Don't highlight the selected lines.
 	if (isInInterval(selectRangeStart_, selectRangeEnd_ - selectRangeStart_, line.info.opcodeAddress)) {
-		drawList->AddText(ImVec2((float)(rc.left + x), (float)(rc.top + y)), textColor, line.params.data(), line.params.data() + line.params.size());
+		drawList->AddText(ImVec2((float)(rc.x + x), (float)(rc.y + y)), textColor, line.params.data(), line.params.data() + line.params.size());
 		return;
 	}
 
@@ -286,7 +269,7 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 	ImColor curColor = textColor;
 
 	auto Print = [&](std::string_view text) {
-		drawList->AddText(ImVec2(rc.left + curX, rc.top + curY), curColor, text.data(), text.data() + text.size());
+		drawList->AddText(ImVec2(rc.x + curX, rc.y + curY), curColor, text.data(), text.data() + text.size());
 		ImVec2 sz = ImGui::CalcTextSize(text.data(), text.data() + text.size(), false, -1.0f);
 		curX += sz.x;
 	};
@@ -313,8 +296,8 @@ void ImDisasmView::drawArguments(ImDrawList *drawList, Rect rc, const Disassembl
 	}
 }
 
-void ImDisasmView::Draw(ImDrawList *drawList) {
-	if (!debugger->isAlive()) {
+void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
+	if (!debugger_->isAlive()) {
 		return;
 	}
 
@@ -340,7 +323,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	}
 	ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
 
-	ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+	const ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
 
 	drawList->PushClipRect(canvas_p0, canvas_p1, true);
 	drawList->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
@@ -348,15 +331,15 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		drawList->AddRect(canvas_p0, canvas_p1, IM_COL32(255, 255, 255, 255));
 	}
 
-	Rect rect;
-	rect.left = canvas_p0.x;
-	rect.top = canvas_p0.y;
-	rect.right = canvas_p1.x;
-	rect.bottom = canvas_p1.y;
+	Bounds bounds;
+	bounds.x = canvas_p0.x;
+	bounds.y = canvas_p0.y;
+	bounds.w = canvas_p1.x - canvas_p0.x;
+	bounds.h = canvas_p1.y - canvas_p0.y;
 
 	calculatePixelPositions();
 
-	visibleRows_ = (int)((rect.bottom - rect.top + rowHeight_ - 1.f) / rowHeight_);
+	visibleRows_ = (int)((bounds.h + rowHeight_ - 1.f) / rowHeight_);
 
 	unsigned int address = windowStart_;
 	std::map<u32, float> addressPositions;
@@ -364,7 +347,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	const std::set<std::string> currentArguments = getSelectedLineArguments();
 	DisassemblyLineInfo line;
 
-	const u32 pc = debugger->GetPC();
+	const u32 pc = debugger_->GetPC();
 
 	for (int i = 0; i < visibleRows_; i++) {
 		manager.getLine(address, displaySymbols_, line);
@@ -375,7 +358,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 		addressPositions[address] = rowY1;
 
 		// draw background
-		ImColor backgroundColor = ImColor(0xFF000000 | debugger->getColor(address, true));
+		ImColor backgroundColor = ImColor(0xFF000000 | debugger_->getColor(address, true));
 		ImColor textColor = 0xFFFFFFFF;
 
 		if (isInInterval(address, line.totalSize, pc)) {
@@ -391,7 +374,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			}
 		}
 
-		drawList->AddRectFilled(ImVec2(rect.left, rect.top + rowY1), ImVec2(rect.right, rect.top + rowY1 + rowHeight_), backgroundColor);
+		drawList->AddRectFilled(ImVec2(bounds.x, bounds.y + rowY1), ImVec2(bounds.x2(), bounds.y + rowY1 + rowHeight_), backgroundColor);
 
 		// display breakpoint, if any
 		bool enabled;
@@ -405,7 +388,7 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 		char addressText[64];
 		getDisasmAddressText(address, addressText, true, line.type == DISTYPE_OPCODE);
-		drawList->AddText(ImVec2(rect.left + pixelPositions_.addressStart, rect.top + rowY1 + 2), textColor, addressText);
+		drawList->AddText(ImVec2(bounds.x + pixelPositions_.addressStart, bounds.y + rowY1 + 2), textColor, addressText);
 
 		if (isInInterval(address, line.totalSize, pc)) {
 			// Show the current PC with a little triangle.
@@ -421,18 +404,18 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 			line.params += line.info.conditionMet ? "  ; true" : "  ; false";
 		}
 
-		drawArguments(drawList, rect, line, pixelPositions_.argumentsStart, rowY1 + 2.f, textColor, currentArguments);
+		drawArguments(drawList, bounds, line, pixelPositions_.argumentsStart, rowY1 + 2.f, textColor, currentArguments);
 
 		// The actual opcode.
 		// Should be bold!
-		drawList->AddText(ImVec2(rect.left + pixelPositions_.opcodeStart, rect.top + rowY1 + 2.f), textColor, line.name.c_str());
+		drawList->AddText(ImVec2(bounds.x + pixelPositions_.opcodeStart, bounds.y + rowY1 + 2.f), textColor, line.name.c_str());
 
 		address += line.totalSize;
 	}
 
 	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart_, address - windowStart_);
 	for (size_t i = 0; i < branchLines.size(); i++) {
-		drawBranchLine(drawList, rect, addressPositions, branchLines[i]);
+		drawBranchLine(drawList, bounds, addressPositions, branchLines[i]);
 	}
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -468,20 +451,11 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 
 	ProcessKeyboardShortcuts(ImGui::IsItemFocused());
 
-	int coreStep = Core_GetSteppingCounter();
-	if (coreStep != lastSteppingCount_) {
-		// A step has happened since last time. This means that we should re-center the cursor.
-		if (followPC_) {
-			gotoPC();
-		}
-		lastSteppingCount_ = coreStep;
-	}
-
 	if (pressed) {
 		// INFO_LOG(Log::System, "Clicked %f,%f", mousePos.x, mousePos.y);
 		if (mousePos.x < rowHeight_) {  // Left column
 			// Toggle breakpoint at dragAddr_.
-			debugger->toggleBreakpoint(curAddress_);
+			debugger_->toggleBreakpoint(curAddress_);
 			bpPopup_ = true;
 		} else {
 			// disasmView_.selectedAddr_ = dragAddr_;
@@ -492,9 +466,15 @@ void ImDisasmView::Draw(ImDrawList *drawList) {
 	ImGui_PopFont();
 
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
-	PopupMenu();
+	PopupMenu(control);
 
 	drawList->PopClipRect();
+}
+
+void ImDisasmView::NotifyStep() {
+	if (followPC_) {
+		GotoPC();
+	}
 }
 
 void ImDisasmView::ScrollRelative(int amount) {
@@ -528,7 +508,8 @@ void ImDisasmView::FollowBranch() {
 }
 
 void ImDisasmView::onChar(int c) {
-	if (keyTaken) return;
+	if (keyTaken)
+		return;
 
 	char str[2];
 	str[0] = c;
@@ -638,7 +619,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
 			if (jumpStack_.empty()) {
-				gotoPC();
+				GotoPC();
 			} else {
 				u32 addr = jumpStack_[jumpStack_.size() - 1];
 				jumpStack_.pop_back();
@@ -758,14 +739,14 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	_assert_msg_((startAddr & 3) == 0, "readMemory() can't handle unaligned reads");
 
 	if (mode != CopyInstructionsMode::DISASM) {
-		int instructionSize = debugger->getInstructionSize(0);
+		int instructionSize = debugger_->getInstructionSize(0);
 		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
 		char *temp = new char[space];
 
 		char *p = temp, *end = temp + space;
 		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize) {
-			u32 data = mode == CopyInstructionsMode::OPCODES ? debugger->readMemory(pos) : pos;
+			u32 data = mode == CopyInstructionsMode::OPCODES ? debugger_->readMemory(pos) : pos;
 			p += snprintf(p, end - p, "%08X", data);
 
 			// Don't leave a trailing newline.
@@ -780,31 +761,19 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
-void ImDisasmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
-	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-		Memory::Write_U32(0, addr);
-	}
-
-	if (currentMIPS) {
-		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
-	}
-}
-
-void ImDisasmView::PopupMenu() {
+void ImDisasmView::PopupMenu(ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
 		ImGui::Text("Address: %08x", curAddress_);
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
 			toggleBreakpoint();
 		}
-		if (ImGui::MenuItem("Go to in memory view")) {
-			// SendMessage(GetParent(wnd), WM_DEB_GOTOHEXEDIT, curAddress, 0);
+		ShowInMemoryViewerMenuItem(curAddress_, control);
+		if (ImGui::MenuItem("Copy address")) {
+			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::ADDRESSES);
 		}
 		if (ImGui::MenuItem("Copy instruction (disasm)")) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::DISASM);
-		}
-		if (ImGui::MenuItem("Copy address")) {
-			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::ADDRESSES);
 		}
 		if (ImGui::MenuItem("Copy instruction (hex)")) {
 			CopyInstructions(selectRangeStart_, selectRangeEnd_, CopyInstructionsMode::OPCODES);
@@ -812,7 +781,7 @@ void ImDisasmView::PopupMenu() {
 		ImGui::Separator();
 
 		if (ImGui::MenuItem("Set PC to here")) {
-			debugger->SetPC(curAddress_);
+			debugger_->SetPC(curAddress_);
 		}
 		if (ImGui::MenuItem("Follow branch")) {
 			FollowBranch();
@@ -829,7 +798,12 @@ void ImDisasmView::PopupMenu() {
 			assembleOpcode(curAddress_, "");
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
-			NopInstructions(selectRangeStart_, selectRangeEnd_);
+			for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
+				Memory::Write_U32(0, addr);
+			}
+			if (currentMIPS) {
+				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
+			}
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Rename function")) {
@@ -1112,8 +1086,8 @@ std::string ImDisasmView::disassembleRange(u32 start, u32 size) {
 
 	// gather all branch targets without labels
 	std::set<u32> branchAddresses;
-	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0)) {
-		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger, start + i);
+	for (u32 i = 0; i < size; i += debugger_->getInstructionSize(0)) {
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger_, start + i);
 
 		if (info.isBranch && g_symbolMap->GetLabelString(info.branchTarget).empty()) {
 			if (branchAddresses.find(info.branchTarget) == branchAddresses.end()) {

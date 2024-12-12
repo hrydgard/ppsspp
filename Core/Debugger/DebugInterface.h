@@ -57,7 +57,7 @@ public:
 
 	virtual u32 GetPC() = 0;
 	virtual void SetPC(u32 _pc) = 0;
-	virtual u32 GetLR() = 0;
+	virtual u32 GetRA() = 0;
 
 	virtual void DisAsm(u32 pc, char *out, size_t outSize) = 0;
 

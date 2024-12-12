@@ -1327,7 +1327,7 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 }
 
 void sendChat(const std::string &chatString) {
-	SceNetAdhocctlChatPacketC2S chat;
+	SceNetAdhocctlChatPacketC2S chat{};
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
 	if (friendFinderRunning) {
