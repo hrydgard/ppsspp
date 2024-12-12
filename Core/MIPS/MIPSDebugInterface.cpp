@@ -54,7 +54,7 @@ enum ReferenceIndexType {
 
 class MipsExpressionFunctions : public IExpressionFunctions {
 public:
-	MipsExpressionFunctions(DebugInterface *_cpu): cpu(_cpu) {}
+	MipsExpressionFunctions(const DebugInterface *_cpu): cpu(_cpu) {}
 
 	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
@@ -199,7 +199,7 @@ public:
 	}
 
 private:
-	DebugInterface *cpu;
+	const DebugInterface *cpu;
 };
 
 unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
@@ -282,12 +282,12 @@ std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 	return "???";
 }
 
-bool initExpression(DebugInterface *debug, const char* exp, PostfixExpression& dest) {
+bool initExpression(const DebugInterface *debug, const char* exp, PostfixExpression& dest) {
 	MipsExpressionFunctions funcs(debug);
 	return initPostfixExpression(exp, &funcs, dest);
 }
 
-bool parseExpression(DebugInterface *debug, PostfixExpression& exp, u32& dest) {
+bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& dest) {
 	MipsExpressionFunctions funcs(debug);
 	return parsePostfixExpression(exp, &funcs, dest);
 }

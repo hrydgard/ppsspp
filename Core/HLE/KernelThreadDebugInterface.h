@@ -23,17 +23,20 @@
 
 class KernelThreadDebugInterface : public DebugInterface {
 public:
-	KernelThreadDebugInterface(PSPThreadContext &t) : ctx(t) {
-	}
+	KernelThreadDebugInterface(PSPThreadContext &t) : ctx(t) {}
 
-	u32 GetGPR32Value(int reg) override { return ctx.r[reg]; }
-	u32 GetPC() override { return ctx.pc; }
-	u32 GetRA() override { return ctx.r[MIPS_REG_RA]; }
-	u32 GetLLBit() override { return 0; }
-	u32 GetFPCond() override { return ctx.fpcond; }
+	u32 GetGPR32Value(int reg) const override { return ctx.r[reg]; }
+	u32 GetHi() const override { return ctx.hi; }
+	u32 GetLo() const override { return ctx.lo; }
+	u32 GetPC() const override { return ctx.pc; }
+	u32 GetRA() const override { return ctx.r[MIPS_REG_RA]; }
+	u32 GetLLBit() const override { return 0; }
+	u32 GetFPCond() const override { return ctx.fpcond; }
 	void SetPC(u32 _pc) override { ctx.pc = _pc; }
+	void SetHi(u32 val) override { ctx.hi = val; }
+	void SetLo(u32 val) override { ctx.lo = val; }
 
-	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
+	void PrintRegValue(int cat, int index, char *out, size_t outSize) const override {
 		switch (cat) {
 		case 0: snprintf(out, outSize, "%08X", ctx.r[index]); break;
 		case 1: snprintf(out, outSize, "%f", ctx.f[index]); break;
@@ -41,23 +44,7 @@ public:
 		}
 	}
 
-	u32 GetHi() override {
-		return ctx.hi;
-	}
-
-	u32 GetLo() override {
-		return ctx.lo;
-	}
-
-	void SetHi(u32 val) override {
-		ctx.hi = val;
-	}
-
-	void SetLo(u32 val) override {
-		ctx.lo = val;
-	}
-
-	u32 GetRegValue(int cat, int index) override {
+	u32 GetRegValue(int cat, int index) const override {
 		switch (cat) {
 		case 0: return ctx.r[index];
 		case 1: return ctx.fi[index];

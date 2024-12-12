@@ -26,21 +26,19 @@ struct MemMap;
 
 class DebugInterface {
 public:
-	virtual u32 GetHi() = 0;
-	virtual u32 GetLo() = 0;
-	virtual u32 GetLLBit() = 0;
-	virtual u32 GetFPCond() = 0;
+	virtual u32 GetPC() const = 0;
+	virtual u32 GetRA() const = 0;
+	virtual u32 GetHi() const = 0;
+	virtual u32 GetLo() const = 0;
+	virtual u32 GetLLBit() const = 0;
+	virtual u32 GetFPCond() const = 0;
+	virtual u32 GetGPR32Value(int reg) const = 0;
 
+	virtual void SetPC(u32 _pc) = 0;
 	virtual void SetHi(u32 val) = 0;
 	virtual void SetLo(u32 val) = 0;
-	virtual u32 GetGPR32Value(int reg) = 0;
 
-	virtual u32 GetPC() = 0;
-	virtual void SetPC(u32 _pc) = 0;
-	virtual u32 GetRA() = 0;
-
-	// More stuff for debugger
-	virtual u32 GetRegValue(int cat, int index) = 0;
+	virtual u32 GetRegValue(int cat, int index) const = 0;
+	virtual void PrintRegValue(int cat, int index, char *out, size_t outSize) const = 0;
 	virtual void SetRegValue(int cat, int index, u32 value) {}
-	virtual void PrintRegValue(int cat, int index, char *out, size_t outSize) = 0;
 };

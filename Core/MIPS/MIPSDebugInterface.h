@@ -39,13 +39,13 @@ public:
 	int getColor(unsigned int address, bool darkMode) const;
 	std::string getDescription(unsigned int address);
 
-	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
-	float GetFPR32Value(int reg) { return cpu->f[reg]; }
+	u32 GetGPR32Value(int reg) const override { return cpu->r[reg]; }
+	float GetFPR32Value(int reg) const { return cpu->f[reg]; }
 	void SetGPR32Value(int reg, u32 value) { cpu->r[reg] = value; }
 
-	u32 GetPC() override { return cpu->pc; }
-	u32 GetRA() override { return cpu->r[MIPS_REG_RA]; }
-	u32 GetFPCond() override { return cpu->fpcond; }
+	u32 GetPC() const override { return cpu->pc; }
+	u32 GetRA() const override { return cpu->r[MIPS_REG_RA]; }
+	u32 GetFPCond() const override { return cpu->fpcond; }
 	void SetPC(u32 _pc) override { cpu->pc = _pc; }
 
 	static const char *GetCategoryName(int cat) {
@@ -59,7 +59,7 @@ public:
 	}
 	static std::string GetRegName(int cat, int index);
 
-	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
+	void PrintRegValue(int cat, int index, char *out, size_t outSize) const override {
 		switch (cat) {
 		case 0: snprintf(out, outSize, "%08X", cpu->r[index]); break;
 		case 1: snprintf(out, outSize, "%f", cpu->f[index]); break;
@@ -67,15 +67,15 @@ public:
 		}
 	}
 
-	u32 GetHi() override {
+	u32 GetHi() const override {
 		return cpu->hi;
 	}
 
-	u32 GetLLBit() override {
+	u32 GetLLBit() const override {
 		return cpu->llBit;
 	}
 
-	u32 GetLo() override {
+	u32 GetLo() const override {
 		return cpu->lo;
 	}
 	
@@ -87,7 +87,7 @@ public:
 		cpu->lo = val;
 	}
 
-	u32 GetRegValue(int cat, int index) override {
+	u32 GetRegValue(int cat, int index) const override {
 		switch (cat) {
 		case 0:
 			return cpu->r[index];
@@ -124,6 +124,6 @@ public:
 	}
 };
 
-bool initExpression(DebugInterface *debug, const char* exp, PostfixExpression& dest);
-bool parseExpression(DebugInterface *debug, PostfixExpression& exp, u32& dest);
+bool initExpression(const DebugInterface *debug, const char* exp, PostfixExpression& dest);
+bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& dest);
 void DisAsm(u32 pc, char *out, size_t outSize);
