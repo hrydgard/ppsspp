@@ -115,8 +115,6 @@ private:
 	void SecondPreviewHover(int x, int y);
 	void PreviewExport(const GPUDebugBuffer *buffer);
 	void PreviewToClipboard(const GPUDebugBuffer *buffer, bool saveAlpha);
-	static void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
-	static void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 	void UpdateMenus();
 	void UpdateTab(GEDebuggerTab *tab);
 	void AddTab(GEDebuggerTab *tab, GETabPosition mask);
