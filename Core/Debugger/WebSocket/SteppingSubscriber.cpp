@@ -30,10 +30,10 @@ using namespace MIPSAnalyst;
 
 struct WebSocketSteppingState : public DebuggerSubscriber {
 	WebSocketSteppingState() {
-		disasm_.setCpu(currentDebugMIPS);
+		g_disassemblyManager.setCpu(currentDebugMIPS);
 	}
 	~WebSocketSteppingState() {
-		disasm_.clear();
+		g_disassemblyManager.clear();
 	}
 
 	void Into(DebuggerRequest &req);
@@ -47,8 +47,6 @@ protected:
 	int GetNextInstructionCount(DebugInterface *cpuDebug);
 	void PrepareResume();
 	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
-
-	DisassemblyManager disasm_;
 };
 
 DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
@@ -266,8 +264,8 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 }
 
 uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
-	uint32_t current = disasm_.getStartAddress(cpuDebug->GetPC());
-	return disasm_.getNthNextAddress(current, 1);
+	uint32_t current = g_disassemblyManager.getStartAddress(cpuDebug->GetPC());
+	return g_disassemblyManager.getNthNextAddress(current, 1);
 }
 
 int WebSocketSteppingState::GetNextInstructionCount(DebugInterface *cpuDebug) {

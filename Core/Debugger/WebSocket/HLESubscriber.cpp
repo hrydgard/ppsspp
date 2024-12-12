@@ -297,8 +297,7 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 	}
 
 	// Clear cache for branch lines and such.
-	DisassemblyManager manager;
-	manager.clear();
+	g_disassemblyManager.clear();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("address", addr);
@@ -354,8 +353,7 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 	}
 
 	// Clear cache for branch lines and such.
-	DisassemblyManager manager;
-	manager.clear();
+	g_disassemblyManager.clear();
 
 	JsonWriter &json = req.Respond();
 	json.writeUint("address", funcBegin);
@@ -392,8 +390,7 @@ static u32 RemoveFuncSymbolsInRange(u32 addr, u32 size) {
 		}
 
 		// Clear cache for branch lines and such.
-		DisassemblyManager manager;
-		manager.clear();
+		g_disassemblyManager.clear();
 	}
 	return counter;
 }
@@ -592,9 +589,8 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 		json.writeUint("sp", f.sp);
 		json.writeUint("stackSize", f.stackSize);
 
-		DisassemblyManager manager;
 		DisassemblyLineInfo line;
-		manager.getLine(manager.getStartAddress(f.pc), true, line, cpuDebug);
+		g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
 		json.writeString("code", line.name + " " + line.params);
 
 		json.pop();

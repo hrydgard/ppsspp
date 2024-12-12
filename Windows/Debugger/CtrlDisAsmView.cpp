@@ -63,7 +63,7 @@ void CtrlDisAsmView::deinit()
 
 void CtrlDisAsmView::scanVisibleFunctions()
 {
-	manager.analyze(windowStart,manager.getNthNextAddress(windowStart,visibleRows)-windowStart);
+	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
 LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -206,7 +206,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 {
 	DeleteObject(font);
 	DeleteObject(boldfont);
-	manager.clear();
+	g_disassemblyManager.clear();
 }
 
 static COLORREF scaleColor(COLORREF color, float factor)
@@ -326,7 +326,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 		scanVisibleFunctions();
 
 		if (address == curAddress)
-			gotoAddr(manager.getNthNextAddress(curAddress,1));
+			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress,1));
 
 		redraw();
 	} else {
@@ -337,7 +337,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 
 void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions, const BranchLine &line) {
 	HPEN pen;
-	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 	
 	int topY;
 	int bottomY;
@@ -433,7 +433,7 @@ std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
 
 	DisassemblyLineInfo line;
 	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-		manager.getLine(addr, displaySymbols, line);
+		g_disassemblyManager.getLine(addr, displaySymbols, line, debugger);
 		size_t p = 0, nextp = line.params.find(',');
 		while (nextp != line.params.npos) {
 			args.emplace(line.params.substr(p, nextp - p));
@@ -520,7 +520,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	DisassemblyLineInfo line;
 	for (int i = 0; i < visibleRows; i++)
 	{
-		manager.getLine(address,displaySymbols,line);
+		g_disassemblyManager.getLine(address,displaySymbols,line, debugger);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
@@ -594,7 +594,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		address += line.totalSize;
 	}
 
-	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart,address-windowStart);
+	std::vector<BranchLine> branchLines = g_disassemblyManager.getBranchLines(windowStart,address-windowStart);
 	for (size_t i = 0; i < branchLines.size(); i++)
 	{
 		drawBranchLine(hdc,addressPositions,branchLines[i]);
@@ -627,16 +627,16 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	switch (wParam & 0xFFFF)
 	{
 	case SB_LINEDOWN:
-		windowStart = manager.getNthNextAddress(windowStart,1);
+		windowStart = g_disassemblyManager.getNthNextAddress(windowStart,1);
 		break;
 	case SB_LINEUP:
-		windowStart = manager.getNthPreviousAddress(windowStart,1);
+		windowStart = g_disassemblyManager.getNthPreviousAddress(windowStart,1);
 		break;
 	case SB_PAGEDOWN:
-		windowStart = manager.getNthNextAddress(windowStart,visibleRows);
+		windowStart = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 		break;
 	case SB_PAGEUP:
-		windowStart = manager.getNthPreviousAddress(windowStart,visibleRows);
+		windowStart = g_disassemblyManager.getNthPreviousAddress(windowStart,visibleRows);
 		break;
 	default:
 		return;
@@ -649,7 +649,7 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 void CtrlDisAsmView::followBranch()
 {
 	DisassemblyLineInfo line;
-	manager.getLine(curAddress,true,line);
+	g_disassemblyManager.getLine(curAddress, true, line, debugger);
 
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
@@ -721,7 +721,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		return;
 
 	dontRedraw = false;
-	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 	keyTaken = true;
 
 	if (KeyDownAsync(VK_CONTROL))
@@ -764,7 +764,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			scanVisibleFunctions();
 			break;
 		case VK_NEXT:
-			setCurAddress(manager.getNthPreviousAddress(windowEnd,1),KeyDownAsync(VK_SHIFT));
+			setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowEnd,1),KeyDownAsync(VK_SHIFT));
 			break;
 		case VK_PRIOR:
 			setCurAddress(windowStart,KeyDownAsync(VK_SHIFT));
@@ -774,19 +774,19 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		switch (wParam & 0xFFFF)
 		{
 		case VK_DOWN:
-			setCurAddress(manager.getNthNextAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
+			setCurAddress(g_disassemblyManager.getNthNextAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 			break;
 		case VK_UP:
-			setCurAddress(manager.getNthPreviousAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
+			setCurAddress(g_disassemblyManager.getNthPreviousAddress(curAddress,1), KeyDownAsync(VK_SHIFT));
 			scrollAddressIntoView();
 			break;
 		case VK_NEXT:
-			if (manager.getNthNextAddress(curAddress,1) != windowEnd && curAddressIsVisible()) {
-				setCurAddress(manager.getNthPreviousAddress(windowEnd,1), KeyDownAsync(VK_SHIFT));
+			if (g_disassemblyManager.getNthNextAddress(curAddress,1) != windowEnd && curAddressIsVisible()) {
+				setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowEnd,1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(manager.getNthNextAddress(windowEnd,visibleRows-1), KeyDownAsync(VK_SHIFT));
+				setCurAddress(g_disassemblyManager.getNthNextAddress(windowEnd,visibleRows-1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -795,7 +795,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 				setCurAddress(windowStart, KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(manager.getNthPreviousAddress(windowStart,visibleRows), KeyDownAsync(VK_SHIFT));
+				setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowStart,visibleRows), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -836,19 +836,19 @@ void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::scrollAddressIntoView()
 {
-	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 
 	if (curAddress < windowStart)
 		windowStart = curAddress;
 	else if (curAddress >= windowEnd)
-		windowStart =  manager.getNthPreviousAddress(curAddress,visibleRows-1);
+		windowStart = g_disassemblyManager.getNthPreviousAddress(curAddress,visibleRows-1);
 
 	scanVisibleFunctions();
 }
 
 bool CtrlDisAsmView::curAddressIsVisible()
 {
-	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 	return curAddress >= windowStart && curAddress < windowEnd;
 }
 
@@ -1060,7 +1060,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					
 					g_symbolMap->RemoveFunction(funcBegin,true);
 					g_symbolMap->SortSymbols();
-					manager.clear();
+					g_disassemblyManager.clear();
 
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
@@ -1094,7 +1094,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 						snprintf(symname,128,"u_un_%08X",curAddress);
 						g_symbolMap->AddFunction(symname,curAddress,newSize);
 						g_symbolMap->SortSymbols();
-						manager.clear();
+						g_disassemblyManager.clear();
 
 						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
@@ -1143,7 +1143,7 @@ void CtrlDisAsmView::updateStatusBarText()
 
 	char text[512];
 	DisassemblyLineInfo line;
-	manager.getLine(curAddress,true,line);
+	g_disassemblyManager.getLine(curAddress,true,line, debugger);
 	
 	text[0] = 0;
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
@@ -1242,7 +1242,7 @@ void CtrlDisAsmView::updateStatusBarText()
 u32 CtrlDisAsmView::yToAddress(int y)
 {
 	int line = y/rowHeight;
-	return manager.getNthNextAddress(windowStart,line);
+	return g_disassemblyManager.getNthNextAddress(windowStart,line);
 }
 
 void CtrlDisAsmView::calculatePixelPositions()
@@ -1272,9 +1272,9 @@ void CtrlDisAsmView::search(bool continueSearch)
 			searchQuery[i] = tolower(searchQuery[i]);
 		}
 		SetFocus(wnd);
-		searchAddress = manager.getNthNextAddress(curAddress,1);
+		searchAddress = g_disassemblyManager.getNthNextAddress(curAddress,1);
 	} else {
-		searchAddress = manager.getNthNextAddress(matchAddress,1);
+		searchAddress = g_disassemblyManager.getNthNextAddress(matchAddress,1);
 	}
 
 	// limit address to sensible ranges
@@ -1291,7 +1291,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 	DisassemblyLineInfo lineInfo;
 	while (searchAddress < 0x0A000000)
 	{
-		manager.getLine(searchAddress,displaySymbols,lineInfo);
+		g_disassemblyManager.getLine(searchAddress,displaySymbols,lineInfo, debugger);
 
 		char addressText[64];
 		getDisasmAddressText(searchAddress,addressText,true,lineInfo.type == DISTYPE_OPCODE);
@@ -1326,7 +1326,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 			return;
 		}
 
-		searchAddress = manager.getNthNextAddress(searchAddress,1);
+		searchAddress = g_disassemblyManager.getNthNextAddress(searchAddress,1);
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 	
@@ -1361,7 +1361,7 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	{
 		char addressText[64],buffer[512];
 
-		manager.getLine(disAddress,displaySymbols,line);
+		g_disassemblyManager.getLine(disAddress,displaySymbols,line, debugger);
 		bool isLabel = getDisasmAddressText(disAddress,addressText,false,line.type == DISTYPE_OPCODE);
 
 		if (isLabel)
@@ -1423,25 +1423,25 @@ void CtrlDisAsmView::disassembleToFile() {
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
-	address = manager.getStartAddress(address);
-	manager.getLine(address,displaySymbols,line);
+	address = g_disassemblyManager.getStartAddress(address);
+	g_disassemblyManager.getLine(address,displaySymbols,line, debugger);
 	snprintf(dest, bufsize, "%s  %s",line.name.c_str(),line.params.c_str());
 }
 
 void CtrlDisAsmView::scrollStepping(u32 newPc)
 {
-	u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
 
-	newPc = manager.getStartAddress(newPc);
-	if (newPc >= windowEnd || newPc >= manager.getNthPreviousAddress(windowEnd,1))
+	newPc = g_disassemblyManager.getStartAddress(newPc);
+	if (newPc >= windowEnd || newPc >= g_disassemblyManager.getNthPreviousAddress(windowEnd,1))
 	{
-		windowStart = manager.getNthPreviousAddress(newPc,visibleRows-2);
+		windowStart = g_disassemblyManager.getNthPreviousAddress(newPc,visibleRows-2);
 	}
 }
 
 u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
 {
-	u32 start = manager.getStartAddress(address);
-	u32 next  = manager.getNthNextAddress(start,1);
+	u32 start = g_disassemblyManager.getStartAddress(address);
+	u32 next  = g_disassemblyManager.getNthNextAddress(start,1);
 	return next - address;
 }

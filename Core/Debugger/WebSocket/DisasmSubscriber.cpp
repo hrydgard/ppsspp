@@ -34,10 +34,10 @@
 class WebSocketDisasmState : public DebuggerSubscriber {
 public:
 	WebSocketDisasmState() {
-		disasm_.setCpu(currentDebugMIPS);
+		g_disassemblyManager.setCpu(currentDebugMIPS);
 	}
 	~WebSocketDisasmState() {
-		disasm_.clear();
+		g_disassemblyManager.clear();
 	}
 
 	void Base(DebuggerRequest &req);
@@ -48,8 +48,6 @@ public:
 protected:
 	void WriteDisasmLine(JsonWriter &json, const DisassemblyLineInfo &l);
 	void WriteBranchGuide(JsonWriter &json, const BranchLine &l);
-
-	DisassemblyManager disasm_;
 };
 
 DebuggerSubscriber *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
@@ -316,18 +314,18 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	if (count != 0) {
 		count = std::min(count, MAX_RANGE);
 		// Let's assume everything is two instructions.
-		disasm_.analyze(start - 4, count * 8 + 8);
-		start = disasm_.getStartAddress(start);
+		g_disassemblyManager.analyze(start - 4, count * 8 + 8);
+		start = g_disassemblyManager.getStartAddress(start);
 		if (start == -1)
 			req.ParamU32("address", &start);
-		end = disasm_.getNthNextAddress(start, count);
+		end = g_disassemblyManager.getNthNextAddress(start, count);
 	} else if (req.ParamU32("end", &end)) {
 		end = std::max(start, end);
 		if (end - start > MAX_RANGE * 4)
 			end = start + MAX_RANGE * 4;
 		// Let's assume everything is two instructions at most.
-		disasm_.analyze(start - 4, end - start + 8);
-		start = disasm_.getStartAddress(start);
+		g_disassemblyManager.analyze(start - 4, end - start + 8);
+		start = g_disassemblyManager.getStartAddress(start);
 		if (start == -1)
 			req.ParamU32("address", &start);
 		// Correct end and calculate count based on it.
@@ -336,11 +334,11 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 		u32 next = start;
 		count = 0;
 		if (stop < start) {
-			for (next = start; next > stop; next = disasm_.getNthNextAddress(next, 1)) {
+			for (next = start; next > stop; next = g_disassemblyManager.getNthNextAddress(next, 1)) {
 				count++;
 			}
 		}
-		for (end = next; end < stop && end >= next; end = disasm_.getNthNextAddress(end, 1)) {
+		for (end = next; end < stop && end >= next; end = g_disassemblyManager.getNthNextAddress(end, 1)) {
 			count++;
 		}
 	} else {
@@ -362,7 +360,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	DisassemblyLineInfo line;
 	uint32_t addr = start;
 	for (uint32_t i = 0; i < count; ++i) {
-		disasm_.getLine(addr, displaySymbols, line, cpuDebug);
+		g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
 		WriteDisasmLine(json, line);
 		addr += line.totalSize;
 
@@ -373,7 +371,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	json.pop();
 
 	json.pushArray("branchGuides");
-	auto branchGuides = disasm_.getBranchLines(start, end - start);
+	auto branchGuides = g_disassemblyManager.getBranchLines(start, end - start);
 	for (auto bl : branchGuides)
 		WriteBranchGuide(json, bl);
 	json.pop();
@@ -428,7 +426,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 	bool found = false;
 	uint32_t addr = start;
 	do {
-		disasm_.getLine(addr, displaySymbols, line, cpuDebug);
+		g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
 		const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
 
 		std::string mergeForSearch;

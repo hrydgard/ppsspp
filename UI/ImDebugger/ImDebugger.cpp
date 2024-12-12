@@ -892,7 +892,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	// TODO: Pass mipsDebug in where needed instead.
-	DisassemblyManager::setCpu(mipsDebug);
+	g_disassemblyManager.setCpu(mipsDebug);
 	disasm_.View().setDebugger(mipsDebug);
 	for (int i = 0; i < 4; i++) {
 		mem_[i].View().setDebugger(mipsDebug);

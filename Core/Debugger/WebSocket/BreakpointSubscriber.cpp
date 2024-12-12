@@ -227,9 +227,8 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 		else
 			json.writeString("symbol", symbol);
 
-		DisassemblyManager manager;
 		DisassemblyLineInfo line;
-		manager.getLine(manager.getStartAddress(bp.addr), true, line);
+		g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(bp.addr), true, line, currentDebugMIPS);
 		json.writeString("code", line.name + " " + line.params);
 
 		json.pop();

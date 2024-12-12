@@ -33,11 +33,11 @@ ImDisasmView::ImDisasmView() {
 }
 
 ImDisasmView::~ImDisasmView() {
-	manager.clear();
+	g_disassemblyManager.clear();
 }
 
 void ImDisasmView::ScanVisibleFunctions() {
-	manager.analyze(windowStart_, manager.getNthNextAddress(windowStart_, visibleRows_) - windowStart_);
+	g_disassemblyManager.analyze(windowStart_, g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_) - windowStart_);
 }
 
 static ImColor scaleColor(ImColor color, float factor) {
@@ -130,7 +130,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 		ScanVisibleFunctions();
 
 		if (address == curAddress)
-			gotoAddr(manager.getNthNextAddress(curAddress, 1));
+			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress, 1));
 
 		redraw();
 	} else {
@@ -141,7 +141,7 @@ void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
 }
 
 void ImDisasmView::drawBranchLine(ImDrawList *drawList, Bounds rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
-	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 
 	float topY;
 	float bottomY;
@@ -235,7 +235,7 @@ std::set<std::string> ImDisasmView::getSelectedLineArguments() {
 	std::set<std::string> args;
 	DisassemblyLineInfo line;
 	for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
-		manager.getLine(addr, displaySymbols_, line);
+		g_disassemblyManager.getLine(addr, displaySymbols_, line, debugger_);
 		size_t p = 0, nextp = line.params.find(',');
 		while (nextp != line.params.npos) {
 			args.emplace(line.params.substr(p, nextp - p));
@@ -350,7 +350,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 	const u32 pc = debugger_->GetPC();
 
 	for (int i = 0; i < visibleRows_; i++) {
-		manager.getLine(address, displaySymbols_, line);
+		g_disassemblyManager.getLine(address, displaySymbols_, line, debugger_);
 
 		float rowY1 = rowHeight_ * i;
 		float rowY2 = rowHeight_ * (i + 1);
@@ -413,7 +413,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 		address += line.totalSize;
 	}
 
-	std::vector<BranchLine> branchLines = manager.getBranchLines(windowStart_, address - windowStart_);
+	std::vector<BranchLine> branchLines = g_disassemblyManager.getBranchLines(windowStart_, address - windowStart_);
 	for (size_t i = 0; i < branchLines.size(); i++) {
 		drawBranchLine(drawList, bounds, addressPositions, branchLines[i]);
 	}
@@ -443,9 +443,9 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 
 	if (is_hovered) {
 		if (io.MouseWheel > 0.0f) {  // TODO: Scale steps by the value.
-			windowStart_ = manager.getNthPreviousAddress(windowStart_, 4);
+			windowStart_ = g_disassemblyManager.getNthPreviousAddress(windowStart_, 4);
 		} else if (io.MouseWheel < 0.0f) {
-			windowStart_ = manager.getNthNextAddress(windowStart_, 4);
+			windowStart_ = g_disassemblyManager.getNthNextAddress(windowStart_, 4);
 		}
 	}
 
@@ -479,9 +479,9 @@ void ImDisasmView::NotifyStep() {
 
 void ImDisasmView::ScrollRelative(int amount) {
 	if (amount > 0) {
-		windowStart_ = manager.getNthNextAddress(windowStart_, amount);
+		windowStart_ = g_disassemblyManager.getNthNextAddress(windowStart_, amount);
 	} else if (amount < 0) {
-		windowStart_ = manager.getNthPreviousAddress(windowStart_, amount);
+		windowStart_ = g_disassemblyManager.getNthPreviousAddress(windowStart_, amount);
 	}
 	ScanVisibleFunctions();
 }
@@ -489,7 +489,7 @@ void ImDisasmView::ScrollRelative(int amount) {
 // Follows branches and jumps.
 void ImDisasmView::FollowBranch() {
 	DisassemblyLineInfo line;
-	manager.getLine(curAddress_, true, line);
+	g_disassemblyManager.getLine(curAddress_, true, line, debugger_);
 
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
 		if (line.info.isBranch) {
@@ -551,7 +551,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 		return;
 	}
 
-	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 	keyTaken = true;
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -591,27 +591,27 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 			ScanVisibleFunctions();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-			setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowEnd, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
 			setCurAddress(windowStart_, ImGui::IsKeyDown(ImGuiKey_LeftShift));
 		}
 	} else {
 		if (ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-			windowStart_ = manager.getNthNextAddress(windowStart_, visibleRows_);
+			windowStart_ = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-			windowStart_ = manager.getNthPreviousAddress(windowStart_, visibleRows_);
+			windowStart_ = g_disassemblyManager.getNthPreviousAddress(windowStart_, visibleRows_);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
 			SearchNext(!ImGui::IsKeyPressed(ImGuiKey_LeftShift));
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-			setCurAddress(manager.getNthNextAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			setCurAddress(g_disassemblyManager.getNthNextAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
 			scrollAddressIntoView();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-			setCurAddress(manager.getNthPreviousAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
+			setCurAddress(g_disassemblyManager.getNthPreviousAddress(curAddress_, 1), (io.KeyMods & ImGuiMod_Shift) != 0);
 			scrollAddressIntoView();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
@@ -637,11 +637,11 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 	} else {
 		switch (wParam & 0xFFFF) {
 		case VK_NEXT:
-			if (manager.getNthNextAddress(curAddress, 1) != windowEnd && curAddressIsVisible()) {
-				setCurAddress(manager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
+			if (g_disassemblyManager.getNthNextAddress(curAddress, 1) != windowEnd && curAddressIsVisible()) {
+				setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowEnd, 1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(manager.getNthNextAddress(windowEnd, visibleRows_ - 1), KeyDownAsync(VK_SHIFT));
+				setCurAddress(g_disassemblyManager.getNthNextAddress(windowEnd, visibleRows_ - 1), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -650,7 +650,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 				setCurAddress(windowStart_, KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			} else {
-				setCurAddress(manager.getNthPreviousAddress(windowStart_, visibleRows_), KeyDownAsync(VK_SHIFT));
+				setCurAddress(g_disassemblyManager.getNthPreviousAddress(windowStart_, visibleRows_), KeyDownAsync(VK_SHIFT));
 				scrollAddressIntoView();
 			}
 			break;
@@ -666,18 +666,18 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 }
 
 void ImDisasmView::scrollAddressIntoView() {
-	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 
 	if (curAddress_ < windowStart_)
 		windowStart_ = curAddress_;
 	else if (curAddress_ >= windowEnd)
-		windowStart_ = manager.getNthPreviousAddress(curAddress_, visibleRows_ - 1);
+		windowStart_ = g_disassemblyManager.getNthPreviousAddress(curAddress_, visibleRows_ - 1);
 
 	ScanVisibleFunctions();
 }
 
 bool ImDisasmView::curAddressIsVisible() {
-	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 	return curAddress_ >= windowStart_ && curAddress_ < windowEnd;
 }
 
@@ -828,7 +828,7 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 
 				g_symbolMap->RemoveFunction(funcBegin, true);
 				g_symbolMap->SortSymbols();
-				manager.clear();
+				g_disassemblyManager.clear();
 
 				mapReloaded_ = true;
 			} else {
@@ -852,7 +852,7 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 					snprintf(symname, 128, "u_un_%08X", curAddress_);
 					g_symbolMap->AddFunction(symname, curAddress_, newSize);
 					g_symbolMap->SortSymbols();
-					manager.clear();
+					g_disassemblyManager.clear();
 
 					mapReloaded_ = true;
 				}
@@ -902,7 +902,7 @@ void ImDisasmView::updateStatusBarText() {
 
 	char text[512];
 	DisassemblyLineInfo line;
-	manager.getLine(curAddress_, true, line);
+	g_disassemblyManager.getLine(curAddress_, true, line, debugger_);
 
 	text[0] = 0;
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
@@ -997,7 +997,7 @@ void ImDisasmView::updateStatusBarText() {
 
 u32 ImDisasmView::yToAddress(float y) {
 	int line = (int)(y / rowHeight_);
-	return manager.getNthNextAddress(windowStart_, line);
+	return g_disassemblyManager.getNthNextAddress(windowStart_, line);
 }
 
 void ImDisasmView::calculatePixelPositions() {
@@ -1022,7 +1022,7 @@ void ImDisasmView::SearchNext(bool forward) {
 	}
 
 	// Note: Search will replace matchAddress_ with the current address.
-	u32 searchAddress = manager.getNthNextAddress(matchAddress_, 1);
+	u32 searchAddress = g_disassemblyManager.getNthNextAddress(matchAddress_, 1);
 
 	// limit address to sensible ranges
 	if (searchAddress < 0x04000000)
@@ -1038,7 +1038,7 @@ void ImDisasmView::SearchNext(bool forward) {
 
 	DisassemblyLineInfo lineInfo;
 	while (searchAddress < 0x0A000000) {
-		manager.getLine(searchAddress, displaySymbols_, lineInfo);
+		g_disassemblyManager.getLine(searchAddress, displaySymbols_, lineInfo, debugger_);
 
 		char addressText[64];
 		getDisasmAddressText(searchAddress, addressText, true, lineInfo.type == DISTYPE_OPCODE);
@@ -1071,7 +1071,7 @@ void ImDisasmView::SearchNext(bool forward) {
 			return;
 		}
 
-		searchAddress = manager.getNthNextAddress(searchAddress, 1);
+		searchAddress = g_disassemblyManager.getNthNextAddress(searchAddress, 1);
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 
@@ -1102,7 +1102,7 @@ std::string ImDisasmView::disassembleRange(u32 start, u32 size) {
 	while (disAddress < start + size) {
 		char addressText[64], buffer[512];
 
-		manager.getLine(disAddress, displaySymbols_, line);
+		g_disassemblyManager.getLine(disAddress, displaySymbols_, line, debugger_);
 		bool isLabel = getDisasmAddressText(disAddress, addressText, false, line.type == DISTYPE_OPCODE);
 
 		if (isLabel) {
@@ -1162,23 +1162,23 @@ void ImDisasmView::disassembleToFile() { 	// get size
 
 void ImDisasmView::getOpcodeText(u32 address, char* dest, int bufsize) {
 	DisassemblyLineInfo line;
-	address = manager.getStartAddress(address);
-	manager.getLine(address, displaySymbols_, line);
+	address = g_disassemblyManager.getStartAddress(address);
+	g_disassemblyManager.getLine(address, displaySymbols_, line, debugger_);
 	snprintf(dest, bufsize, "%s  %s", line.name.c_str(), line.params.c_str());
 }
 
 void ImDisasmView::scrollStepping(u32 newPc) {
-	u32 windowEnd = manager.getNthNextAddress(windowStart_, visibleRows_);
+	u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_);
 
-	newPc = manager.getStartAddress(newPc);
-	if (newPc >= windowEnd || newPc >= manager.getNthPreviousAddress(windowEnd, 1))
+	newPc = g_disassemblyManager.getStartAddress(newPc);
+	if (newPc >= windowEnd || newPc >= g_disassemblyManager.getNthPreviousAddress(windowEnd, 1))
 	{
-		windowStart_ = manager.getNthPreviousAddress(newPc, visibleRows_ - 2);
+		windowStart_ = g_disassemblyManager.getNthPreviousAddress(newPc, visibleRows_ - 2);
 	}
 }
 
 u32 ImDisasmView::getInstructionSizeAt(u32 address) {
-	u32 start = manager.getStartAddress(address);
-	u32 next = manager.getNthNextAddress(start, 1);
+	u32 start = g_disassemblyManager.getStartAddress(address);
+	u32 next = g_disassemblyManager.getNthNextAddress(start, 1);
 	return next - address;
 }

@@ -29,7 +29,6 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-	DisassemblyManager manager;
 	u32 curAddress;
 	u32 selectRangeStart;
 	u32 selectRangeEnd;
@@ -101,7 +100,7 @@ public:
 	bool curAddressIsVisible();
 	void redraw();
 	void scanVisibleFunctions();
-	void clearFunctions() { manager.clear(); };
+	void clearFunctions() { g_disassemblyManager.clear(); };
 
 	void getOpcodeText(u32 address, char* dest, int bufsize);
 	int getRowHeight() { return rowHeight; };
@@ -112,7 +111,7 @@ public:
 	{
 		debugger=deb;
 		curAddress=debugger->GetPC();
-		manager.setCpu(deb);
+		g_disassemblyManager.setCpu(deb);
 	}
 	DebugInterface *getDebugger()
 	{
@@ -126,12 +125,12 @@ public:
 	{
 		if (positionLocked_ != 0)
 			return;
-		u32 windowEnd = manager.getNthNextAddress(windowStart,visibleRows);
-		u32 newAddress = manager.getStartAddress(addr);
+		u32 windowEnd = g_disassemblyManager.getNthNextAddress(windowStart,visibleRows);
+		u32 newAddress = g_disassemblyManager.getStartAddress(addr);
 
 		if (newAddress < windowStart || newAddress >= windowEnd)
 		{
-			windowStart = manager.getNthPreviousAddress(newAddress,visibleRows/2);
+			windowStart = g_disassemblyManager.getNthPreviousAddress(newAddress,visibleRows/2);
 		}
 
 		setCurAddress(newAddress);
@@ -158,9 +157,9 @@ public:
 	void scrollWindow(int lines)
 	{
 		if (lines < 0)
-			windowStart = manager.getNthPreviousAddress(windowStart,abs(lines));
+			windowStart = g_disassemblyManager.getNthPreviousAddress(windowStart,abs(lines));
 		else
-			windowStart = manager.getNthNextAddress(windowStart,lines);
+			windowStart = g_disassemblyManager.getNthNextAddress(windowStart,lines);
 
 		scanVisibleFunctions();
 		redraw();
@@ -168,8 +167,8 @@ public:
 
 	void setCurAddress(u32 newAddress, bool extend = false)
 	{
-		newAddress = manager.getStartAddress(newAddress);
-		const u32 after = manager.getNthNextAddress(newAddress,1);
+		newAddress = g_disassemblyManager.getStartAddress(newAddress);
+		const u32 after = g_disassemblyManager.getNthNextAddress(newAddress,1);
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
