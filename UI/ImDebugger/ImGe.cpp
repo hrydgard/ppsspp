@@ -426,23 +426,25 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::BeginChild("left pane", ImVec2(400, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 
-	for (auto index : gpuDebug->GetDisplayListQueue()) {
-		const auto &list = gpuDebug->GetDisplayList(index);
-		char title[64];
-		snprintf(title, sizeof(title), "List %d", list.id);
-		if (ImGui::CollapsingHeader(title)) {
-			ImGui::Text("State: %s", DLStateToString(list.state));
-			ImGui::TextUnformatted("PC:");
-			ImGui::SameLine();
-			ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
-			ImGui::Text("StartPC:");
-			ImGui::SameLine();
-			ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
-			if (list.pendingInterrupt) {
-				ImGui::TextUnformatted("(Pending interrupt)");
+	if (ImGui::CollapsingHeader("Display lists")) {
+		for (auto index : gpuDebug->GetDisplayListQueue()) {
+			const auto &list = gpuDebug->GetDisplayList(index);
+			char title[64];
+			snprintf(title, sizeof(title), "List %d", list.id);
+			if (ImGui::CollapsingHeader(title)) {
+				ImGui::Text("State: %s", DLStateToString(list.state));
+				ImGui::TextUnformatted("PC:");
+				ImGui::SameLine();
+				ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
+				ImGui::Text("StartPC:");
+				ImGui::SameLine();
+				ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
+				if (list.pendingInterrupt) {
+					ImGui::TextUnformatted("(Pending interrupt)");
+				}
+				ImGui::Text("Stack depth: %d", (int)list.stackptr);
+				ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 			}
-			ImGui::Text("Stack depth: %d", (int)list.stackptr);
-			ImGui::Text("BBOX result: %d", (int)list.bboxResult);
 		}
 	}
 

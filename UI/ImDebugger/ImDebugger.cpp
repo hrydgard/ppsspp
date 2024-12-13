@@ -64,6 +64,14 @@ void ShowInWindowMenuItems(uint32_t addr, ImControl &control) {
 	}
 }
 
+void StatusBar(std::string_view status) {
+	ImGui::TextUnformatted(status.data(), status.data() + status.length());
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Copy")) {
+		System_CopyStringToClipboard(status);
+	}
+}
+
 // TODO: Style it.
 // Left click performs the preferred action, if any. Right click opens a menu for more.
 void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
@@ -1170,8 +1178,10 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 		memView_.gotoAddr(gotoAddr_);
 	}
 
+	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());
+
 	// Main views - list of interesting addresses to the left, memory view to the right.
-	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, 0.0))) {
+	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, size.y), ImGuiChildFlags_ResizeX)) {
 		if (ImGui::Selectable("Scratch")) {
 			GotoAddr(0x00010000);
 		}
@@ -1182,18 +1192,19 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 			GotoAddr(0x08800000);
 		}
 		if (ImGui::Selectable("VRAM")) {
-			GotoAddr(0x08800000);
+			GotoAddr(0x04000000);
 		}
 	}
 	ImGui::EndChild();
 	
 	ImGui::SameLine();
-	if (ImGui::BeginChild("memview", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()))) {
+	if (ImGui::BeginChild("memview", size)) {
 		memView_.Draw(ImGui::GetWindowDrawList());
 	}
 	ImGui::EndChild();
 
-	ImGui::TextUnformatted(memView_.StatusMessage().c_str());
+	StatusBar(memView_.StatusMessage());
+
 	ImGui::End();
 }
 
@@ -1206,7 +1217,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(Title(), &cfg.disasmOpen, ImGuiWindowFlags_NoNavInputs)) {
+	if (!ImGui::Begin(Title(), &cfg.disasmOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -1273,10 +1284,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 		Core_RequestCPUStep(CPUStepType::Out, 0);
 	}
 
+	/*
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Frame")) {
 		Core_RequestCPUStep(CPUStepType::Frame, 0);
-	}
+	}*/
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Syscall")) {
@@ -1346,12 +1358,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 		disasmView_.scrollAddressIntoView();
 	}
 
-	if (ImGui::BeginTable("main", 2)) {
-		ImGui::TableSetupColumn("left", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableNextRow();
-		ImGui::TableSetColumnIndex(0);
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	avail.y -= ImGui::GetTextLineHeightWithSpacing();
 
+	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
 		if (symCache_.empty() || symsDirty_) {
 			symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
 			symsDirty_ = false;
@@ -1369,8 +1379,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			}
 		}
 
-		ImVec2 sz = ImGui::GetContentRegionAvail();
-		if (ImGui::BeginListBox("##symbols", ImVec2(150.0, sz.y - ImGui::GetTextLineHeightWithSpacing() * 2))) {
+		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
 			ImGuiListClipper clipper;
 			clipper.Begin((int)symCache_.size(), -1);
 			while (clipper.Step()) {
@@ -1386,13 +1395,16 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			clipper.End();
 			ImGui::EndListBox();
 		}
-
-		ImGui::TableSetColumnIndex(1);
-		disasmView_.Draw(ImGui::GetWindowDrawList(), control);
-		ImGui::EndTable();
-
-		ImGui::TextUnformatted(disasmView_.StatusBarText().c_str());
 	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	if (ImGui::BeginChild("right", ImVec2(0.0f, avail.y))) {
+		disasmView_.Draw(ImGui::GetWindowDrawList(), control);
+	}
+	ImGui::EndChild();
+
+	StatusBar(disasmView_.StatusBarText());
 	ImGui::End();
 }
 
