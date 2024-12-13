@@ -27,17 +27,6 @@ ImMemView::ImMemView() {
 
 ImMemView::~ImMemView() {}
 
-/*
-LRESULT CALLBACK ImMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
-			ccp->ScrollWindow(-3, GotoModeFromModifiers(false));
-		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
-			ccp->ScrollWindow(3, GotoModeFromModifiers(false));
-		}
-	return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-*/
-
 static uint32_t pickTagColor(std::string_view tag) {
 	uint32_t colors[6] = { 0xFF301010, 0xFF103030, 0xFF403010, 0xFF103000, 0xFF301030, 0xFF101030 };
 	int which = XXH3_64bits(tag.data(), tag.length()) % ARRAY_SIZE(colors);
@@ -107,7 +96,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 		char temp[32];
 		uint32_t address = windowStart_ + i * rowSize_;
-		snprintf(temp, sizeof(temp), "%08X", address);
+		snprintf(temp, sizeof(temp), "%08x", address);
 		drawList->AddText(ImVec2(canvas_p0.x + addressStartX_, canvas_p0.y + rowY), IM_COL32(0xE0, 0xE0, 0xE0, 0xFF), temp);
 
 		union {
@@ -136,7 +125,7 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 			char c;
 			if (valid) {
-				snprintf(temp, sizeof(temp), "%02X ", memory.bytes[j]);
+				snprintf(temp, sizeof(temp), "%02x ", memory.bytes[j]);
 				c = (char)memory.bytes[j];
 				if (memory.bytes[j] < 32 || memory.bytes[j] >= 128)
 					c = '.';
@@ -188,8 +177,8 @@ void ImMemView::Draw(ImDrawList *drawList) {
 			if (bg != 0) {
 				int bgWidth = 2; // continueRect ? 3 : 2;
 				drawList->AddRectFilled(ImVec2(canvas_p0.x + hexX - 1, canvas_p0.y + rowY), ImVec2(canvas_p0.x + hexX + charWidth_ * bgWidth, canvas_p0.y + rowY + charHeight_), bg);
-				drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
 			}
+			drawList->AddText(ImVec2(canvas_p0.x + hexX, canvas_p0.y + rowY), fg, &temp[0], &temp[2]);
 			if (underline >= 0) {
 				float x = canvas_p0.x + hexX + underline * charWidth_;
 				drawList->AddRectFilled(ImVec2(x, canvas_p0.y + rowY + charHeight_ - 2), ImVec2(x + charWidth_, canvas_p0.y + rowY + charHeight_), IM_COL32(0xFF, 0xFF, 0xFF, 0xFF));
@@ -197,7 +186,9 @@ void ImMemView::Draw(ImDrawList *drawList) {
 
 			fg = asciiTextCol;
 			bg = asciiBGCol;
-			drawList->AddRectFilled(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), ImVec2(canvas_p0.x + asciiX + charWidth_, canvas_p0.y + rowY + charHeight_), bg);
+			if (bg) {
+				drawList->AddRectFilled(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), ImVec2(canvas_p0.x + asciiX + charWidth_, canvas_p0.y + rowY + charHeight_), bg);
+			}
 			drawList->AddText(ImVec2(canvas_p0.x + asciiX, canvas_p0.y + rowY), fg, &c, &c + 1);
 		}
 	}
@@ -533,7 +524,7 @@ void ImMemView::updateStatusBarText() {
 	snprintf(text, sizeof(text), "%08x", curAddress_);
 	// There should only be one.
 	for (MemBlockInfo info : memRangeInfo) {
-		snprintf(text, sizeof(text), "%08x - %s %08x-%08x (alloc'd at PC %08x / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
+		snprintf(text, sizeof(text), "%08x - %s %08x-%08x (PC %08x / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
 	}
 	statusMessage_ = text;
 }

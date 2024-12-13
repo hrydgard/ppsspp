@@ -1180,7 +1180,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 			}
 
 			// Chat Packet
-			SceNetAdhocctlChatPacketS2C packet;
+			SceNetAdhocctlChatPacketS2C packet{};
 
 			// Set Chat Opcode
 			packet.base.base.opcode = OPCODE_CHAT;

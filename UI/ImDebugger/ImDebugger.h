@@ -76,6 +76,7 @@ public:
 		symsDirty_ = true;
 	}
 	void GotoAddr(u32 addr) {
+		gotoAddr_ = addr;
 		memView_.gotoAddr(addr);
 	}
 	static const char *Title(int index);
@@ -122,6 +123,7 @@ struct ImConfig {
 	bool geDebuggerOpen;
 	bool geStateOpen;
 	bool schedulerOpen;
+	bool watchOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
@@ -195,3 +197,4 @@ private:
 void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd);
 void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);
+void StatusBar(std::string_view str);

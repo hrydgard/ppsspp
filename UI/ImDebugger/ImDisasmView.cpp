@@ -309,9 +309,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 
 	ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
 	ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
-	if (canvas_sz.x < 50.0f) canvas_sz.x = 50.0f;
-	if (canvas_sz.y < 50.0f) canvas_sz.y = 50.0f;
-	canvas_sz.y -= rowHeight_ * 2.0f;  // space for status bar
+	const ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
 
 	// This will catch our interactions
 	bool pressed = ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
@@ -322,8 +320,6 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 		// INFO_LOG(Log::System, "Pressed");
 	}
 	ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
-
-	const ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
 
 	drawList->PushClipRect(canvas_p0, canvas_p1, true);
 	drawList->AddRectFilled(canvas_p0, canvas_p1, IM_COL32(25, 25, 25, 255));
