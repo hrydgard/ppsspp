@@ -529,12 +529,11 @@ void ImMemView::onMouseMove(float x, float y, int button) {
 
 void ImMemView::updateStatusBarText() {
 	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress_, 1);
-
 	char text[512];
-	snprintf(text, sizeof(text), "%08X", curAddress_);
+	snprintf(text, sizeof(text), "%08x", curAddress_);
 	// There should only be one.
 	for (MemBlockInfo info : memRangeInfo) {
-		snprintf(text, sizeof(text), "%08X - %s %08X-%08X (at PC %08X / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
+		snprintf(text, sizeof(text), "%08x - %s %08x-%08x (alloc'd at PC %08x / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
 	}
 	statusMessage_ = text;
 }

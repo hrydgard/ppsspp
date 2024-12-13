@@ -254,6 +254,92 @@ static const char *DLStateToString(DisplayListState state) {
 	}
 }
 
+static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int count, bool uvToPos, float sx = 1.0f, float sy = 1.0f) {
+	if (count) {
+		auto x = [sx, uvToPos](const GPUDebugVertex &vert) {
+			return sx * (uvToPos ? vert.u : vert.x);
+		};
+		auto y = [sy, uvToPos](const GPUDebugVertex &vert) {
+			return sy * (uvToPos ? vert.v : vert.y);
+		};
+
+		// TODO: Maybe not the best idea to use the heavy AddTriangleFilled API instead of just adding raw triangles.
+		switch (prim) {
+		case GE_PRIM_TRIANGLES:
+		case GE_PRIM_RECTANGLES:
+		{
+			for (int i = 0; i < count - 2; i += 3) {
+				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
+				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
+				const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[i + 2]];
+				drawList->AddTriangleFilled(
+					ImVec2(p0.x + x(v1), p0.y + y(v1)),
+					ImVec2(p0.x + x(v2), p0.y + y(v2)),
+					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
+			}
+			break;
+		}
+		case GE_PRIM_TRIANGLE_FAN:
+		{
+			for (int i = 0; i < count - 2; i++) {
+				const auto &v1 = indices.empty() ? verts[0] : verts[indices[0]];
+				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
+				const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[i + 2]];
+				drawList->AddTriangleFilled(
+					ImVec2(p0.x + x(v1), p0.y + y(v1)),
+					ImVec2(p0.x + x(v2), p0.y + y(v2)),
+					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
+			}
+			break;
+		}
+		case GE_PRIM_TRIANGLE_STRIP:
+		{
+			int t = 2;
+			for (int i = 0; i < count - 2; i++) {
+				int i0 = i;
+				int i1 = i + t;
+				int i2 = i + (t ^ 3);
+				const auto &v1 = indices.empty() ? verts[i0] : verts[indices[i0]];
+				const auto &v2 = indices.empty() ? verts[i1] : verts[indices[i1]];
+				const auto &v3 = indices.empty() ? verts[i2] : verts[indices[i2]];
+				drawList->AddTriangleFilled(
+					ImVec2(p0.x + x(v1), p0.y + y(v1)),
+					ImVec2(p0.x + x(v2), p0.y + y(v2)),
+					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
+				t ^= 3;
+			}
+			break;
+		}
+		case GE_PRIM_LINES:
+		{
+			for (int i = 0; i < count - 1; i += 2) {
+				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
+				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
+				drawList->AddLine(
+					ImVec2(p0.x + x(v1), p0.y + y(v1)),
+					ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(0x600000FF));
+			}
+			break;
+		}
+		case GE_PRIM_LINE_STRIP:
+		{
+			for (int i = 0; i < count - 2; i++) {
+				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
+				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
+				drawList->AddLine(
+					ImVec2(p0.x + x(v1), p0.y + y(v1)),
+					ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(0x600000FF));
+			}
+			break;
+		}
+		default:
+			// TODO: Support lines etc.
+			break;
+		}
+	}
+}
+
+
 void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
@@ -384,7 +470,6 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
 
-
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
@@ -403,29 +488,17 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				if (ImGui::BeginTabItem("Color")) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 					const ImVec2 p0 = ImGui::GetCursorScreenPos();
+					const ImVec2 p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
+
+					// Draw border and background color
+					drawList->PushClipRect(p0, p1, true);
+
 					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+
 					// Draw vertex preview on top!
-					if (previewCount_) {
-						switch (previewPrim_) {
-						case GE_PRIM_TRIANGLES:
-						case GE_PRIM_RECTANGLES:
-						{
-							for (int i = 0; i < previewCount_ - 2; i += 3) {
-								const auto &v1 = previewIndices_.empty() ? previewVertices_[i] : previewVertices_[previewIndices_[i]];
-								const auto &v2 = previewIndices_.empty() ? previewVertices_[i + 1] : previewVertices_[previewIndices_[i + 1]];
-								const auto &v3 = previewIndices_.empty() ? previewVertices_[i + 2] : previewVertices_[previewIndices_[i + 2]];
-								drawList->AddTriangleFilled(
-									ImVec2(p0.x + v1.x, p0.y + v1.y),
-									ImVec2(p0.x + v2.x, p0.y + v2.y),
-									ImVec2(p0.x + v3.x, p0.y + v3.y), ImColor(0x600000FF));
-							}
-							break;
-						}
-						default:
-							// TODO: Support lines etc.
-							break;
-						}
-					}
+					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
+
+					drawList->PopClipRect();
 
 					ImGui::EndTabItem();
 				}
@@ -447,40 +520,37 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
 		}
 
-		ImGui::Text("Texture: ");
+		if (gstate.isModeClear()) {
+			ImGui::Text("(clear mode - texturing not used)");
+		} else if (!gstate.isTextureMapEnabled()) {
+			ImGui::Text("(texturing not enabled");
+		} else {
+			TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+			TexCacheEntry *tex = texcache->SetTexture();
+			if (tex) {
+				ImGui::Text("Texture: ");
+				texcache->ApplyTexture();
 
-		TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-		TexCacheEntry *tex = texcache->SetTexture();
-		texcache->ApplyTexture();
+				void *nativeView = texcache->GetNativeTextureView(tex, true);
+				ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
 
-		void *nativeView = texcache->GetNativeTextureView(tex, true);
-		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+				float texW = dimWidth(tex->dim);
+				float texH = dimHeight(tex->dim);
 
-		const ImVec2 p0 = ImGui::GetCursorScreenPos();
-		float texW = dimWidth(tex->dim);
-		float texH = dimHeight(tex->dim);
-		ImGui::Image(texId, ImVec2(texW, texH));
+				const ImVec2 p0 = ImGui::GetCursorScreenPos();
+				const ImVec2 sz = ImGui::GetContentRegionAvail();
+				const ImVec2 p1 = ImVec2(p0.x + texW, p0.y + texH);
 
-		// Draw UVs of vertex preview on top of the texture!
-		if (previewCount_) {
-			switch (previewPrim_) {
-			case GE_PRIM_TRIANGLES:
-			case GE_PRIM_RECTANGLES:
-			{
-				for (int i = 0; i < previewCount_ - 2; i += 3) {
-					const auto &v1 = previewIndices_.empty() ? previewVertices_[i] : previewVertices_[previewIndices_[i]];
-					const auto &v2 = previewIndices_.empty() ? previewVertices_[i + 1] : previewVertices_[previewIndices_[i + 1]];
-					const auto &v3 = previewIndices_.empty() ? previewVertices_[i + 2] : previewVertices_[previewIndices_[i + 2]];
-					drawList->AddTriangleFilled(
-						ImVec2(p0.x + v1.u * texW, p0.y + v1.v * texH),
-						ImVec2(p0.x + v2.u * texW, p0.y + v2.v * texH),
-						ImVec2(p0.x + v3.u * texW, p0.y + v3.v * texH), ImColor(0x600000FF));
-				}
-				break;
-			}
-			default:
-				// TODO: Support lines etc.
-				break;
+				// Draw border and background color
+				drawList->PushClipRect(p0, p1, true);
+
+				ImGui::Image(texId, ImVec2(texW, texH));
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
+
+				drawList->PopClipRect();
+			} else {
+				ImGui::Text("(no valid texture bound)");
+				// TODO: List some of the texture params here.
 			}
 		}
 
