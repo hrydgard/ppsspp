@@ -236,8 +236,6 @@ public:
 
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
-	bool InterpretList(DisplayList &list);
-
 	DLResult ProcessDLQueue();
 
 	u32 UpdateStall(int listid, u32 newstall, bool *runList);

@@ -615,70 +615,6 @@ u32 GPUCommon::Break(int mode) {
 	return currentList->id;
 }
 
-bool GPUCommon::InterpretList(DisplayList &list) {
-	// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
-	currentList = &list;
-
-	if (!list.started && list.context.IsValid()) {
-		gstate.Save(list.context);
-	}
-	list.started = true;
-
-	gstate_c.offsetAddr = list.offsetAddr;
-
-	cycleLastPC = list.pc;
-	cyclesExecuted += 60;
-	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
-	list.state = PSP_GE_DL_STATE_RUNNING;
-	list.interrupted = false;
-
-	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
-
-	// To enable breakpoints, we don't do fast matrix loads while debugger active.
-	debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
-	const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
-	while (gpuState == GPUSTATE_RUNNING) {
-		if (list.pc == list.stall) {
-			gpuState = GPUSTATE_STALL;
-			downcount = 0;
-		}
-
-		if (useFastRunLoop) {
-			// When no Ge debugger is active, we go full speed.
-			FastRunLoop(list);
-		} else {
-			// When a Ge debugger is active (or similar), we do more checking.
-			if (!SlowRunLoop(list)) {
-				// Hit a breakpoint, so we set the state and bail. We can resume later.
-				// TODO: Cycle counting might need some more care?
-				FinishDeferred();
-				_dbg_assert_(!GPURecord::IsActive());
-				gpuState = GPUSTATE_BREAK;
-				return false;
-			}
-		}
-
-		downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
-		if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
-			// Unstalled (Can this happen?)
-			gpuState = GPUSTATE_RUNNING;
-		}
-	}
-
-	FinishDeferred();
-	if (debugRecording_)
-		GPURecord::NotifyCPU();
-
-	// We haven't run the op at list.pc, so it shouldn't count.
-	if (cycleLastPC != list.pc) {
-		UpdatePC(list.pc - 4, list.pc);
-	}
-
-	list.offsetAddr = gstate_c.offsetAddr;
-
-	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
-}
-
 void GPUCommon::PSPFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
@@ -829,10 +765,73 @@ DLResult GPUCommon::ProcessDLQueue() {
 		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)",
 			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
 
-		if (list.state == PSP_GE_DL_STATE_PAUSED)
-			goto bail;
+		if (list.state == PSP_GE_DL_STATE_PAUSED) {
+			return DLResult::Done;
+		}
 
-		if (!InterpretList(list)) {
+		// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
+		currentList = &list;
+
+		if (!list.started && list.context.IsValid()) {
+			gstate.Save(list.context);
+		}
+		list.started = true;
+
+		gstate_c.offsetAddr = list.offsetAddr;
+
+		cycleLastPC = list.pc;
+		cyclesExecuted += 60;
+		downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+		list.state = PSP_GE_DL_STATE_RUNNING;
+		list.interrupted = false;
+
+		gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+
+		// To enable breakpoints, we don't do fast matrix loads while debugger active.
+		debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+		const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
+		while (gpuState == GPUSTATE_RUNNING) {
+			if (list.pc == list.stall) {
+				gpuState = GPUSTATE_STALL;
+				downcount = 0;
+			}
+
+			if (useFastRunLoop) {
+				// When no Ge debugger is active, we go full speed.
+				FastRunLoop(list);
+			} else {
+				// When a Ge debugger is active (or similar), we do more checking.
+				if (!SlowRunLoop(list)) {
+					// Hit a breakpoint, so we set the state and bail. We can resume later.
+					// TODO: Cycle counting might need some more care?
+					FinishDeferred();
+					_dbg_assert_(!GPURecord::IsActive());
+					gpuState = GPUSTATE_BREAK;
+					return DLResult::Break;
+				}
+			}
+
+			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
+				// Unstalled (Can this happen?)
+				gpuState = GPUSTATE_RUNNING;
+			}
+		}
+
+		FinishDeferred();
+		if (debugRecording_)
+			GPURecord::NotifyCPU();
+
+		// We haven't run the op at list.pc, so it shouldn't count.
+		if (cycleLastPC != list.pc) {
+			UpdatePC(list.pc - 4, list.pc);
+		}
+
+		list.offsetAddr = gstate_c.offsetAddr;
+
+		if (gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR) {
+			// return true
+		} else {
 			goto bail;
 		}
 
