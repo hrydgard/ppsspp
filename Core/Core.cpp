@@ -186,7 +186,7 @@ void Core_RunLoopUntil(u64 globalticks) {
 			break;  // Will loop around to go to RUNNING_GE or NEXTFRAME, which will exit.
 		case CORE_RUNNING_GE:
 			switch (gpu->ProcessDLQueue()) {
-			case DLResult::Break:
+			case DLResult::DebugBreak:
 				GPUStepping::EnterStepping();
 				break;
 			case DLResult::Error:

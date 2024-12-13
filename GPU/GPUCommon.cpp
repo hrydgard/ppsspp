@@ -743,13 +743,15 @@ int GPUCommon::GetNextListIndex() {
 // This is now called when coreState == CORE_RUNNING_GE.
 // TODO: It should return the next action.. (break into debugger or continue running)
 DLResult GPUCommon::ProcessDLQueue() {
-	startingTicks = CoreTiming::GetTicks();
-	cyclesExecuted = 0;
+	if (!resumingFromDebugBreak_) {
+		startingTicks = CoreTiming::GetTicks();
+		cyclesExecuted = 0;
 
-	// ?? Seems to be correct behaviour to process the list anyway?
-	if (startingTicks < busyTicks) {
-		DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-		//return;
+		// ?? Seems to be correct behaviour to process the list anyway?
+		if (startingTicks < busyTicks) {
+			DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
+			//return;
+		}
 	}
 
 	TimeCollector collectStat(&gpuStats.msProcessingDisplayLists, coreCollectDebugStats);
@@ -769,27 +771,41 @@ DLResult GPUCommon::ProcessDLQueue() {
 			return DLResult::Done;
 		}
 
-		// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
-		currentList = &list;
+		if (!resumingFromDebugBreak_) {
+			// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
+			currentList = &list;
 
-		if (!list.started && list.context.IsValid()) {
-			gstate.Save(list.context);
+			if (!list.started && list.context.IsValid()) {
+				gstate.Save(list.context);
+			}
+			list.started = true;
+
+			gstate_c.offsetAddr = list.offsetAddr;
+
+			cycleLastPC = list.pc;
+			cyclesExecuted += 60;
+			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			list.state = PSP_GE_DL_STATE_RUNNING;
+			list.interrupted = false;
+
+			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+
+			// To enable breakpoints, we don't do fast matrix loads while debugger active.
+			debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+		} else {
+			resumingFromDebugBreak_ = false;
+			// The bottom part of the gpuState loop below, that wasn't executed
+			// when we bailed.
+			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
+				// Unstalled (Can this happen?)
+				gpuState = GPUSTATE_RUNNING;
+			}
+			// Proceed...
 		}
-		list.started = true;
 
-		gstate_c.offsetAddr = list.offsetAddr;
-
-		cycleLastPC = list.pc;
-		cyclesExecuted += 60;
-		downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
-		list.state = PSP_GE_DL_STATE_RUNNING;
-		list.interrupted = false;
-
-		gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
-
-		// To enable breakpoints, we don't do fast matrix loads while debugger active.
-		debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
 		const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
+
 		while (gpuState == GPUSTATE_RUNNING) {
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
@@ -806,7 +822,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 					// TODO: Cycle counting might need some more care?
 					FinishDeferred();
 					_dbg_assert_(!GPURecord::IsActive());
-					return DLResult::Break;
+
+					resumingFromDebugBreak_ = true;
+					return DLResult::DebugBreak;
 				}
 			}
 
