@@ -616,14 +616,7 @@ u32 GPUCommon::Break(int mode) {
 }
 
 bool GPUCommon::InterpretList(DisplayList &list) {
-	// Initialized to avoid a race condition with bShowDebugStats changing.
-	double start = 0.0;
-	if (coreCollectDebugStats) {
-		start = time_now_d();
-	}
-
 	// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
-
 	if (list.state == PSP_GE_DL_STATE_PAUSED)
 		return false;
 	currentList = &list;
@@ -668,9 +661,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 				FinishDeferred();
 				_dbg_assert_(!GPURecord::IsActive());
 				gpuState = GPUSTATE_BREAK;
-				if (coreCollectDebugStats) {
-					gpuStats.msProcessingDisplayLists += time_now_d() - start;
-				}
 				return false;
 			}
 		}
@@ -693,9 +683,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	list.offsetAddr = gstate_c.offsetAddr;
 
-	if (coreCollectDebugStats) {
-		gpuStats.msProcessingDisplayLists += time_now_d() - start;
-	}
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
@@ -830,11 +817,13 @@ DLResult GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
-	// Seems to be correct behaviour to process the list anyway?
+	// ?? Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
 		DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
 		//return;
 	}
+
+	TimeCollector collectStat(&gpuStats.msProcessingDisplayLists, coreCollectDebugStats);
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
