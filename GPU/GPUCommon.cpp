@@ -806,7 +806,6 @@ DLResult GPUCommon::ProcessDLQueue() {
 					// TODO: Cycle counting might need some more care?
 					FinishDeferred();
 					_dbg_assert_(!GPURecord::IsActive());
-					gpuState = GPUSTATE_BREAK;
 					return DLResult::Break;
 				}
 			}
@@ -829,10 +828,15 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 		list.offsetAddr = gstate_c.offsetAddr;
 
-		if (gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR) {
-			// return true
-		} else {
-			goto bail;
+		switch (gpuState) {
+		case GPUSTATE_DONE:
+		case GPUSTATE_ERROR:
+			// don't do anything - though dunno about error...
+			break;
+		case GPUSTATE_STALL:
+			return DLResult::Done;
+		default:
+			return DLResult::Error;
 		}
 
 		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
@@ -855,16 +859,6 @@ DLResult GPUCommon::ProcessDLQueue() {
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 	return DLResult::Done;
-
-bail:
-	switch (gpuState) {
-	case GPURunState::GPUSTATE_STALL:
-		return DLResult::Done;
-	case GPURunState::GPUSTATE_BREAK:
-		return DLResult::Break;
-	default:
-		return DLResult::Error;
-	}
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {

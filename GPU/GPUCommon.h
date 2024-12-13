@@ -80,7 +80,6 @@ enum GPURunState {
 	GPUSTATE_STALL = 2,
 	GPUSTATE_INTERRUPT = 3,
 	GPUSTATE_ERROR = 4,
-	GPUSTATE_BREAK = 5,
 };
 
 enum GPUSyncType {
