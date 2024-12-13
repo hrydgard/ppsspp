@@ -622,6 +622,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		start = time_now_d();
 	}
 
+	// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
+
 	if (list.state == PSP_GE_DL_STATE_PAUSED)
 		return false;
 	currentList = &list;

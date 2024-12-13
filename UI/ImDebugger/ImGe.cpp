@@ -457,6 +457,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	DisplayList list;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
 		op = Memory::Read_U32(list.pc);
+
+		// TODO: Also add support for block transfer previews!
+
 		bool isOnPrim = (op >> 24) == GE_CMD_PRIM;
 		if (isOnPrim) {
 			if (reloadPreview_) {
