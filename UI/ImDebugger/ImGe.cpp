@@ -470,7 +470,6 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
 
-
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
@@ -489,10 +488,17 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				if (ImGui::BeginTabItem("Color")) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 					const ImVec2 p0 = ImGui::GetCursorScreenPos();
+					const ImVec2 p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
+
+					// Draw border and background color
+					drawList->PushClipRect(p0, p1, true);
+
 					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 
 					// Draw vertex preview on top!
 					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
+
+					drawList->PopClipRect();
 
 					ImGui::EndTabItem();
 				}
@@ -514,25 +520,38 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
 		}
 
-
-		TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-		TexCacheEntry *tex = texcache->SetTexture();
-		if (tex) {
-			ImGui::Text("Texture: ");
-			texcache->ApplyTexture();
-
-			void *nativeView = texcache->GetNativeTextureView(tex, true);
-			ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
-
-			const ImVec2 p0 = ImGui::GetCursorScreenPos();
-			float texW = dimWidth(tex->dim);
-			float texH = dimHeight(tex->dim);
-			ImGui::Image(texId, ImVec2(texW, texH));
-
-			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
+		if (gstate.isModeClear()) {
+			ImGui::Text("(clear mode - texturing not used)");
+		} else if (!gstate.isTextureMapEnabled()) {
+			ImGui::Text("(texturing not enabled");
 		} else {
-			ImGui::Text("(no valid texture bound)");
-			// TODO: List some of the texture params here.
+			TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+			TexCacheEntry *tex = texcache->SetTexture();
+			if (tex) {
+				ImGui::Text("Texture: ");
+				texcache->ApplyTexture();
+
+				void *nativeView = texcache->GetNativeTextureView(tex, true);
+				ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+
+				float texW = dimWidth(tex->dim);
+				float texH = dimHeight(tex->dim);
+
+				const ImVec2 p0 = ImGui::GetCursorScreenPos();
+				const ImVec2 sz = ImGui::GetContentRegionAvail();
+				const ImVec2 p1 = ImVec2(p0.x + texW, p0.y + texH);
+
+				// Draw border and background color
+				drawList->PushClipRect(p0, p1, true);
+
+				ImGui::Image(texId, ImVec2(texW, texH));
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
+
+				drawList->PopClipRect();
+			} else {
+				ImGui::Text("(no valid texture bound)");
+				// TODO: List some of the texture params here.
+			}
 		}
 
 		// Let's display the current CLUT.
