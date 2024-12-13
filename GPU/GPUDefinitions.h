@@ -67,5 +67,5 @@ enum GPUInvalidationType {
 enum class DLResult {
 	Done,  // Or stall
 	Error,
-	Break,  // used for stepping, breakpoints
+	DebugBreak,  // used for stepping, breakpoints
 };
