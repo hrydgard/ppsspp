@@ -617,8 +617,6 @@ u32 GPUCommon::Break(int mode) {
 
 bool GPUCommon::InterpretList(DisplayList &list) {
 	// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
-	if (list.state == PSP_GE_DL_STATE_PAUSED)
-		return false;
 	currentList = &list;
 
 	if (!list.started && list.context.IsValid()) {
@@ -831,15 +829,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)",
 			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
 
+		if (list.state == PSP_GE_DL_STATE_PAUSED)
+			goto bail;
+
 		if (!InterpretList(list)) {
-			switch (gpuState) {
-			case GPURunState::GPUSTATE_STALL:
-				return DLResult::Done;
-			case GPURunState::GPUSTATE_BREAK:
-				return DLResult::Break;
-			default:
-				return DLResult::Error;
-			}
+			goto bail;
 		}
 
 		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
@@ -862,6 +856,16 @@ DLResult GPUCommon::ProcessDLQueue() {
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
 	return DLResult::Done;
+
+bail:
+	switch (gpuState) {
+	case GPURunState::GPUSTATE_STALL:
+		return DLResult::Done;
+	case GPURunState::GPUSTATE_BREAK:
+		return DLResult::Break;
+	default:
+		return DLResult::Error;
+	}
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {
@@ -929,6 +933,9 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 }
 
 void GPUCommon::DoExecuteCall(u32 target) {
+	// Local variable for better codegen
+	DisplayList *currentList = this->currentList;
+
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording - so the matrix data gets recorded.
 	if (!debugRecording_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -958,6 +965,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 }
 
 void GPUCommon::Execute_Ret(u32 op, u32 diff) {
+	// Local variable for better codegen
+	DisplayList *currentList = this->currentList;
 	if (currentList->stackptr == 0) {
 		DEBUG_LOG(Log::G3D, "RET: Stack empty!");
 	} else {
@@ -1159,7 +1168,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		}
 		break;
 	default:
-		DEBUG_LOG(Log::G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
+		DEBUG_LOG(Log::G3D, "END: Not finished: %06x", prev & 0xFFFFFF);
 		break;
 	}
 }
@@ -1179,43 +1188,44 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	VertexDecoder *dec = drawEngineCommon_->GetVertexDecoder(gstate.vertType);
 	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
 
-	if (Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
-		const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-		if (!control_points) {
-			ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Invalid verts in bounding box check");
-			currentList->bboxResult = true;
-			return;
-		}
-
-		const void *inds = nullptr;
-		if (useInds) {
-			int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-			inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
-				ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
-				currentList->bboxResult = true;
-				return;
-			}
-		}
-
-		// Test if the bounding box is within the drawing region.
-		// The PSP only seems to vary the result based on a single range of 0x100.
-		if (count > 0x200) {
-			// The second to last set of 0x100 is checked (even for odd counts.)
-			size_t skipSize = (count - 0x200) * dec->VertexSize();
-			currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, gstate.vertType);
-		} else if (count > 0x100) {
-			int checkSize = count - 0x100;
-			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, gstate.vertType);
-		} else {
-			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, gstate.vertType);
-		}
-		AdvanceVerts(gstate.vertType, count, bytesRead);
-	} else {
+	if (!Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
 		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Bad bounding box data: %06x", count);
 		// Data seems invalid. Let's assume the box test passed.
 		currentList->bboxResult = true;
+		return;
 	}
+
+	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	if (!control_points) {
+		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Invalid verts in bounding box check");
+		currentList->bboxResult = true;
+		return;
+	}
+
+	const void *inds = nullptr;
+	if (useInds) {
+		int indexShift = ((gstate.vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+		if (!inds || !Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
+			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
+			currentList->bboxResult = true;
+			return;
+		}
+	}
+
+	// Test if the bounding box is within the drawing region.
+	// The PSP only seems to vary the result based on a single range of 0x100.
+	if (count > 0x200) {
+		// The second to last set of 0x100 is checked (even for odd counts.)
+		size_t skipSize = (count - 0x200) * dec->VertexSize();
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, gstate.vertType);
+	} else if (count > 0x100) {
+		int checkSize = count - 0x100;
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, gstate.vertType);
+	} else {
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, gstate.vertType);
+	}
+	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
@@ -1234,7 +1244,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		return;
 	}
 
-	int prim = (op >> 8) & 0x7;
+	const int prim = (op >> 8) & 0x7;
 	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		// Flush before changing the prim type.  Only continue can be used to continue a prim.
 		FlushImm();
