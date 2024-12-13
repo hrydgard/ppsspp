@@ -834,7 +834,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 		if (!InterpretList(list)) {
 			switch (gpuState) {
 			case GPURunState::GPUSTATE_STALL:
-				return DLResult::Stall;
+				return DLResult::Done;
 			case GPURunState::GPUSTATE_BREAK:
 				return DLResult::Break;
 			default:
