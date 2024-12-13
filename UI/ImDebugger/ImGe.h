@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GPU/Common/GPUDebugInterface.h"
+
 // GE-related windows of the ImDebugger
 
 struct ImConfig;
@@ -7,7 +9,6 @@ struct ImControl;
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
-class GPUDebugInterface;
 
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
@@ -57,8 +58,17 @@ public:
 	const char *Title() const {
 		return "GE Debugger";
 	}
+	void NotifyStep() {
+		reloadPreview_ = true;
+		disasmView_.NotifyStep();
+	}
 
 private:
 	ImGeDisasmView disasmView_;
 	int showBannerInFrames_ = 0;
+	bool reloadPreview_ = false;
+	GEPrimitiveType previewPrim_;
+	std::vector<u16> previewIndices_;
+	std::vector<GPUDebugVertex> previewVertices_;
+	int previewCount_ = 0;
 };

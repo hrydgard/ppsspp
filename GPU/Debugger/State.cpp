@@ -831,7 +831,7 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	FreeAlignedMemory(cpoints.col);
 }
 
-bool GetPrimPreview(u32 op, int which, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count) {
+bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count) {
 	u32 prim_type = GE_PRIM_INVALID;
 	int count_u = 0;
 	int count_v = 0;
@@ -857,7 +857,7 @@ bool GetPrimPreview(u32 op, int which, GEPrimitiveType &prim, std::vector<GPUDeb
 		ERROR_LOG(Log::G3D, "Invalid debugging environment, shutting down?");
 		return false;
 	}
-	if (count == 0 || which == 0) {
+	if (count == 0) {
 		return false;
 	}
 

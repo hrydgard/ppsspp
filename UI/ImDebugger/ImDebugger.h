@@ -36,6 +36,9 @@ public:
 	ImDisasmView &View() {
 		return disasmView_;
 	}
+	void NotifyStep() {
+		disasmView_.NotifyStep();
+	}
 	void DirtySymbolMap() {
 		symsDirty_ = true;
 	}
