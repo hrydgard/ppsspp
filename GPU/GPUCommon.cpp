@@ -628,11 +628,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	gstate_c.offsetAddr = list.offsetAddr;
 
-	if (!Memory::IsValidAddress(list.pc)) {
-		ERROR_LOG_REPORT(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
-		return true;
-	}
-
 	cycleLastPC = list.pc;
 	cyclesExecuted += 60;
 	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
@@ -826,9 +821,17 @@ DLResult GPUCommon::ProcessDLQueue() {
 	TimeCollector collectStat(&gpuStats.msProcessingDisplayLists, coreCollectDebugStats);
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
-		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)", l.pc == l.startpc ? "Starting" : "Resuming", l.pc, l.stall, startingTicks);
-		if (!InterpretList(l)) {
+		DisplayList &list = dls[listIndex];
+
+		if (!Memory::IsValidAddress(list.pc)) {
+			ERROR_LOG(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
+			return DLResult::Error;
+		}
+
+		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)",
+			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
+
+		if (!InterpretList(list)) {
 			switch (gpuState) {
 			case GPURunState::GPUSTATE_STALL:
 				return DLResult::Stall;
@@ -841,7 +844,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 		// Some other list could've taken the spot while we dilly-dallied around, so we need the check.
 		// Yes, this does happen.
-		if (l.state != PSP_GE_DL_STATE_QUEUED) {
+		if (list.state != PSP_GE_DL_STATE_QUEUED) {
 			// At the end, we can remove it from the queue and continue.
 			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
