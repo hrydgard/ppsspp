@@ -80,7 +80,6 @@ enum GPURunState {
 	GPUSTATE_STALL = 2,
 	GPUSTATE_INTERRUPT = 3,
 	GPUSTATE_ERROR = 4,
-	GPUSTATE_BREAK = 5,
 };
 
 enum GPUSyncType {
@@ -235,8 +234,6 @@ public:
 	void DumpNextFrame();
 
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
-
-	bool InterpretList(DisplayList &list);
 
 	DLResult ProcessDLQueue();
 

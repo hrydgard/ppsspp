@@ -22,7 +22,11 @@
 #undef None
 #endif
 
-enum DisplayListStatus {
+// NOTE: This seems a bit insane, but these are two very similar enums!
+
+// These are return values from DrawSync(), and also sceGeDrawSync().
+// So these are frozen and "official".
+enum DisplayListDrawSyncStatus {
 	// The list has been completed
 	PSP_GE_LIST_COMPLETED = 0,
 	// The list is queued but not executed yet
@@ -35,12 +39,13 @@ enum DisplayListStatus {
 	PSP_GE_LIST_PAUSED = 4,
 };
 
+// These are states, stored on the lists! not sure if these are exposed, or if their values can be changed?
 enum DisplayListState {
 	// No state assigned, the list is empty
 	PSP_GE_DL_STATE_NONE = 0,
 	// The list has been queued
 	PSP_GE_DL_STATE_QUEUED = 1,
-	// The list is being executed
+	// The list is being executed (or stalled?)
 	PSP_GE_DL_STATE_RUNNING = 2,
 	// The list was completed and will be removed
 	PSP_GE_DL_STATE_COMPLETED = 3,
@@ -60,8 +65,7 @@ enum GPUInvalidationType {
 };
 
 enum class DLResult {
-	Done,
+	Done,  // Or stall
 	Error,
-	Stall,
 	Break,  // used for stepping, breakpoints
 };

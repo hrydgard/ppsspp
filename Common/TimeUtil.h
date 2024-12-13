@@ -45,3 +45,19 @@ private:
 	int64_t nsecs_;
 #endif
 };
+
+class TimeCollector {
+public:
+	TimeCollector(double *target, bool enable) : target_(enable ? target : nullptr) {
+		if (enable)
+			startTime_ = time_now_d();
+	}
+	~TimeCollector() {
+		if (target_) {
+			*target_ += time_now_d() - startTime_;
+		}
+	}
+private:
+	double startTime_;
+	double *target_;
+};
