@@ -176,7 +176,7 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS FPRs", &config.vfpuOpen)) {
+	if (!ImGui::Begin("MIPS FPRs", &config.fprOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -197,15 +197,26 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 		for (int i = 0; i < 32; i++) {
 			float fvalue = mipsDebug->GetFPR32Value(i);
+			float prevValue = prev.fpr[i];
+
+			// NOTE: Using memcmp to avoid NaN problems.
+			bool diff = memcmp(&fvalue, &prevValue, 4) != 0 && !noDiff;
+
 			u32 fivalue;
 			memcpy(&fivalue, &fvalue, sizeof(fivalue));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
+			if (diff) {
+				ImGui::PushStyleColor(ImGuiCol_Text, ImDebuggerColor_Diff);
+			}
 			ImGui::TextUnformatted(mipsDebug->GetRegName(1, i).c_str());
 			ImGui::TableNextColumn();
 			ImGui::Text("%0.7f", fvalue);
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", fivalue);
+			if (diff) {
+				ImGui::PopStyleColor();
+			}
 		}
 
 		ImGui::EndTable();
@@ -215,7 +226,7 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS FPRs", &config.vfpuOpen)) {
+	if (!ImGui::Begin("MIPS VFPU regs", &config.vfpuOpen)) {
 		ImGui::End();
 		return;
 	}
