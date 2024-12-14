@@ -746,7 +746,7 @@ static const StateItem g_vertexState[] = {
 };
 
 void ImGeStateWindow::Snapshot() {
-
+	// Not needed for now, we have GPUStepping::LastState()
 }
 
 // TODO: Separate window or merge into Ge debugger?
@@ -769,6 +769,8 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 					bool sectionOpen = false;
 					for (size_t i = 0; i < numRows; i++) {
 						const GECmdInfo &info = GECmdInfoByCmd(rows[i].cmd);
+						const GPUgstate &lastState = GPUStepping::LastState();
+						bool diff = lastState.cmdmem[rows[i].cmd] != gstate.cmdmem[rows[i].cmd];
 
 						if (rows[i].header) {
 							anySection = true;
@@ -788,31 +790,37 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 						}
 
 						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
-						if (!enabled)
+						if (diff) {
+							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 96, 32, enabled ? 255 : 128));
+						} else if (!enabled) {
 							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
+						}
 						if (!rows[i].header) {
 							ImGui::TextUnformatted(info.uiName);
 							ImGui::TableNextColumn();
 						}
 						if (rows[i].cmd != GE_CMD_NOP) {
-							char temp[256];
+							char temp[128], temp2[128];
 
-							const u32 value = gstate.cmdmem[info.cmd] & 0xFFFFFF;
-							const u32 otherValue = gstate.cmdmem[info.otherCmd] & 0xFFFFFF;
-							const u32 otherValue2 = gstate.cmdmem[info.otherCmd2] & 0xFFFFFF;
+							const u32 value = gstate.cmdmem[info.cmd];
+							const u32 otherValue = gstate.cmdmem[info.otherCmd];
 
-							// Special handling for pointer and pointer/width entries
+							// Special handling for pointer and pointer/width entries - create an address control
 							if (info.fmt == CMD_FMT_PTRWIDTH) {
 								const u32 val = value | (otherValue & 0x00FF0000) << 8;
 								ImClickableAddress(val, control, ImCmd::NONE);
 								ImGui::SameLine();
 								ImGui::Text("w=%d", otherValue & 0xFFFF);
 							} else {
-								FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, otherValue2);
+								FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, gstate.cmdmem[info.otherCmd2]);
 								ImGui::TextUnformatted(temp);
 							}
+							if (diff && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+								FormatStateRow(gpuDebug, temp2, sizeof(temp2), info.fmt, lastState.cmdmem[info.cmd], true, lastState.cmdmem[info.otherCmd], lastState.cmdmem[info.otherCmd2]);
+								ImGui::SetTooltip("Previous: %s", temp2);
+							}
 						}
-						if (!enabled)
+						if (diff || !enabled)
 							ImGui::PopStyleColor();
 					}
 					if (sectionOpen) {

@@ -12,6 +12,9 @@
 #include "Core/System.h"
 
 void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
+	value &= 0xFFFFFF;
+	otherValue &= 0xFFFFFF;
+	otherValue2 &= 0xFFFFFF;
 	switch (fmt) {
 	case CMD_FMT_HEX:
 		snprintf(dest, destSize, "%06x", value);
