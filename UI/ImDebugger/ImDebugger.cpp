@@ -65,6 +65,9 @@ void ShowInWindowMenuItems(uint32_t addr, ImControl &control) {
 }
 
 void StatusBar(std::string_view status) {
+	if (!status.size()) {
+		return;
+	}
 	ImGui::TextUnformatted(status.data(), status.data() + status.length());
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Copy")) {
