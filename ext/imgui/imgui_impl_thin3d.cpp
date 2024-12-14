@@ -49,6 +49,10 @@ static BackendData *ImGui_ImplThin3d_GetBackendData() {
 
 // Render function
 void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *draw) {
+	if (!draw_data) {
+		// Possible race condition.
+		return;
+	}
 	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 	int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
 	int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);

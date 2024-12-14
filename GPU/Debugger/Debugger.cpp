@@ -36,7 +36,7 @@ static int primsLastFrame = 0;
 static int primsThisFrame = 0;
 static int thisFlipNum = 0;
 
-bool g_drawNotified = false;
+bool g_primAfterDraw = false;
 
 static double lastStepTime = -1.0;
 static uint32_t g_skipPcOnce = 0;
@@ -79,6 +79,15 @@ void SetActive(bool flag) {
 		GPUStepping::ResumeFromStepping();
 		lastStepTime = -1.0;
 	}
+	/*
+	active = false;
+	breakAtCount = -1;
+	hasBreakpoints = false;
+	thisFlipNum = 0;
+	g_primAfterDraw = false;
+	lastStepTime = -1.0f;
+	g_skipPcOnce = false;
+	*/
 }
 
 bool IsActive() {
@@ -103,7 +112,12 @@ void SetBreakNext(BreakNext next) {
 	} else if (next == BreakNext::CURVE) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
+	} else if (next == BreakNext::DRAW) {
+		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
+		// This will take us to the following actual draw.
+		g_primAfterDraw = true;
 	}
+
 	if (GPUStepping::IsStepping()) {
 		GPUStepping::ResumeFromStepping();
 	}
@@ -122,12 +136,6 @@ NotifyResult NotifyCommand(u32 pc) {
 	if (!active) {
 		_dbg_assert_(false);
 		return NotifyResult::Skip;  // return false
-	}
-
-	// Hack to handle draw notifications, that don't come in via NotifyCommand.
-	if (g_drawNotified) {
-		g_drawNotified = false;
-		return NotifyResult::Break;
 	}
 
 	u32 op = Memory::ReadUnchecked_U32(pc);
@@ -198,13 +206,13 @@ void NotifyDraw() {
 	if (!active)
 		return;
 	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
-		if (lastStepTime >= 0.0) {
-			NOTICE_LOG(Log::GeDebugger, "Waiting at a draw (%fms)", (time_now_d() - lastStepTime) * 1000.0);
-			lastStepTime = -1.0;
-		} else {
-			NOTICE_LOG(Log::GeDebugger, "Waiting at a draw");
+		// Hack to handle draw notifications, that don't come in via NotifyCommand.
+		if (g_primAfterDraw) {
+			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
+			g_primAfterDraw = false;
+			// Switch to PRIM mode.
+			SetBreakNext(BreakNext::PRIM);
 		}
-		g_drawNotified = true;
 	}
 }
 
