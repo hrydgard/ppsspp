@@ -127,18 +127,19 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 		return;
 	}
 
-	bool noDiff = coreState == CORE_RUNNING_CPU;
+	bool noDiff = coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_GE;
 
 	if (ImGui::BeginTable("gpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Reg", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Decimal", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
 
 		auto gprLine = [&](int index, const char *regname, int value, int prevValue) {
 			bool diff = value != prevValue && !noDiff;
 			bool disabled = value == 0xdeadbeef;
 
-			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(regname);
 			ImGui::TableNextColumn();
@@ -154,8 +155,8 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			} else {
 				ImGui::Text("%08x", value);
 			}
+			ImGui::TableNextColumn();
 			if (value >= -1000000 && value <= 1000000) {
-				ImGui::TableSetColumnIndex(2);
 				ImGui::Text("%d", value);
 			}
 			if (diff || disabled) {
@@ -163,11 +164,16 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			}
 		};
 		for (int i = 0; i < 32; i++) {
+			ImGui::TableNextRow();
 			gprLine(i, mipsDebug->GetRegName(0, i).c_str(), mipsDebug->GetGPR32Value(i), prev.gpr[i]);
 		}
+		ImGui::TableNextRow();
 		gprLine(32, "hi", mipsDebug->GetHi(), prev.hi);
+		ImGui::TableNextRow();
 		gprLine(33, "lo", mipsDebug->GetLo(), prev.lo);
+		ImGui::TableNextRow();
 		gprLine(34, "pc", mipsDebug->GetPC(), prev.pc);
+		ImGui::TableNextRow();
 		gprLine(35, "ll", mipsDebug->GetLLBit(), prev.ll);
 		ImGui::EndTable();
 	}
@@ -181,12 +187,14 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 		return;
 	}
 
-	bool noDiff = coreState == CORE_RUNNING_CPU;
+	bool noDiff = coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_GE;
 
 	if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-		ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Reg", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Hex", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
 
 		// fpcond
 		ImGui::TableNextRow();
