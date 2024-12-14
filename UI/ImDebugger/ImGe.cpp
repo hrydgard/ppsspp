@@ -791,7 +791,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 
 						const bool enabled = info.enableCmd == 0 || (gstate.cmdmem[info.enableCmd] & 1) == 1;
 						if (diff) {
-							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 96, 32, enabled ? 255 : 128));
+							ImGui::PushStyleColor(ImGuiCol_Text, enabled ? ImDebuggerColor_Diff : ImDebuggerColor_DiffAlpha);
 						} else if (!enabled) {
 							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
 						}
