@@ -199,6 +199,7 @@ private:
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
 
+	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
 
 	int lastCpuStepCount_ = -1;

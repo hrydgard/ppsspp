@@ -127,13 +127,15 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 		return;
 	}
 
+	bool noDiff = coreState == CORE_RUNNING_CPU;
+
 	if (ImGui::BeginTable("gpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("value_i", ImGuiTableColumnFlags_WidthStretch);
 
 		auto gprLine = [&](int index, const char *regname, int value, int prevValue) {
-			bool diff = false; // value != prevValue;
+			bool diff = value != prevValue && !noDiff;
 			bool disabled = value == 0xdeadbeef;
 
 			ImGui::TableNextRow();
@@ -141,7 +143,7 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			ImGui::TextUnformatted(regname);
 			ImGui::TableNextColumn();
 			if (diff) {
-				ImGui::PushStyleColor(ImGuiCol_Text, disabled ? ImDebuggerColor_Diff : ImDebuggerColor_DiffAlpha);
+				ImGui::PushStyleColor(ImGuiCol_Text, !disabled ? ImDebuggerColor_Diff : ImDebuggerColor_DiffAlpha);
 			} else if (disabled) {
 				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
 			}
@@ -178,6 +180,9 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 		ImGui::End();
 		return;
 	}
+
+	bool noDiff = coreState == CORE_RUNNING_CPU;
+
 	if (ImGui::BeginTable("fpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("regname", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed);
@@ -926,6 +931,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
 		lastCpuStepCount_ = Core_GetSteppingCounter();
+		snapshot_ = newSnapshot_;  // Compare against the previous snapshot.
 		Snapshot(currentMIPS);
 		disasm_.NotifyStep();
 	}
@@ -1184,13 +1190,13 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 }
 
 void ImDebugger::Snapshot(MIPSState *mips) {
-	memcpy(snapshot_.gpr, mips->r, sizeof(snapshot_.gpr));
-	memcpy(snapshot_.fpr, mips->fs, sizeof(snapshot_.fpr));
-	memcpy(snapshot_.vpr, mips->v, sizeof(snapshot_.vpr));
-	snapshot_.pc = mips->pc;
-	snapshot_.lo = mips->lo;
-	snapshot_.hi = mips->hi;
-	snapshot_.ll = mips->llBit;
+	memcpy(newSnapshot_.gpr, mips->r, sizeof(newSnapshot_.gpr));
+	memcpy(newSnapshot_.fpr, mips->fs, sizeof(newSnapshot_.fpr));
+	memcpy(newSnapshot_.vpr, mips->v, sizeof(newSnapshot_.vpr));
+	newSnapshot_.pc = mips->pc;
+	newSnapshot_.lo = mips->lo;
+	newSnapshot_.hi = mips->hi;
+	newSnapshot_.ll = mips->llBit;
 }
 
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
