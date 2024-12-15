@@ -27,7 +27,7 @@
 namespace GPUStepping {
 	// Should be called from the emu thread.
 	// Begins stepping and increments the stepping counter while inside a lock.
-	bool EnterStepping();
+	bool EnterStepping(CoreState coreState);
 	bool IsStepping();
 	void ResumeFromStepping();
 

@@ -494,7 +494,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	displayStride_ = stride;
 	displayFormat_ = format;
 	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	GPURecord::NotifyDisplay(framebuf, stride, format);
+	recorder_.NotifyDisplay(framebuf, stride, format);
 }
 
 DSStretch g_DarkStalkerStretch;
@@ -1305,7 +1305,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) 
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
-		GPURecord::NotifyMemcpy(dest, src, size);
+		recorder_.NotifyMemcpy(dest, src, size);
 	// Let's just be safe.
 	MarkDirty(dest, size, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 	return false;
@@ -1315,7 +1315,7 @@ bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemset(dest, v, size);
+	recorder_.NotifyMemset(dest, v, size);
 	// Let's just be safe.
 	MarkDirty(dest, size, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
 	return false;
@@ -1332,7 +1332,7 @@ bool SoftGPU::PerformWriteColorFromMemory(u32 dest, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyUpload(dest, size);
+	recorder_.NotifyUpload(dest, size);
 	return false;
 }
 

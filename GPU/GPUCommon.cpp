@@ -625,7 +625,7 @@ void GPUCommon::PSPFrame() {
 		dumpThisFrame_ = false;
 	}
 	GPUDebug::NotifyBeginFrame();
-	GPURecord::NotifyBeginFrame();
+	recorder_.NotifyBeginFrame();
 }
 
 // Returns false on breakpoint.
@@ -635,7 +635,7 @@ bool GPUCommon::SlowRunLoop(DisplayList &list) {
 		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc);
 
 		if (result == GPUDebug::NotifyResult::Execute) {
-			GPURecord::NotifyCommand(list.pc);
+			recorder_.NotifyCommand(list.pc);
 			u32 op = Memory::ReadUnchecked_U32(list.pc);
 			u32 cmd = op >> 24;
 
@@ -790,7 +790,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
-			debugRecording_ = GPURecord::IsActive();
+			debugRecording_ = recorder_.IsActive();
 			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter());
 		} else {
 			resumingFromDebugBreak_ = false;
@@ -821,7 +821,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 					// Hit a breakpoint, so we set the state and bail. We can resume later.
 					// TODO: Cycle counting might need some more care?
 					FinishDeferred();
-					_dbg_assert_(!GPURecord::IsActive());
+					_dbg_assert_(!recorder_.IsActive());
 
 					resumingFromDebugBreak_ = true;
 					return DLResult::DebugBreak;
@@ -837,7 +837,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 		FinishDeferred();
 		if (debugRecording_)
-			GPURecord::NotifyCPU();
+			recorder_.NotifyCPU();
 
 		// We haven't run the op at list.pc, so it shouldn't count.
 		if (cycleLastPC != list.pc) {
@@ -1944,7 +1944,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
-		GPURecord::NotifyMemcpy(dest, src, size);
+		recorder_.NotifyMemcpy(dest, src, size);
 	return false;
 }
 
@@ -1961,7 +1961,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemset");
 	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemset(dest, v, size);
+	recorder_.NotifyMemset(dest, v, size);
 	return false;
 }
 
@@ -1974,7 +1974,7 @@ bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 
 bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
-		GPURecord::NotifyUpload(dest, size);
+		recorder_.NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
 	}
 	return false;

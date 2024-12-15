@@ -34,6 +34,10 @@ class TextureCacheCommon;
 struct VirtualFramebuffer;
 struct DisplayList;
 
+namespace GPURecord {
+class Recorder;
+}
+
 struct GPUDebugOp {
 	u32 pc;
 	u8 cmd;
@@ -238,6 +242,8 @@ public:
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 	virtual const std::list<int> &GetDisplayListQueue() = 0;
 	virtual const DisplayList &GetDisplayList(int index) = 0;
+
+	virtual GPURecord::Recorder *GetRecorder() = 0;
 
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;

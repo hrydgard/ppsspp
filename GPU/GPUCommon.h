@@ -12,6 +12,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"
@@ -377,6 +378,10 @@ public:
 
 	void PSPFrame();
 
+	GPURecord::Recorder *GetRecorder() override {
+		return &recorder_;
+	}
+
 protected:
 	virtual void ClearCacheNextFrame() {}
 
@@ -500,6 +505,8 @@ protected:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	GPURecord::Recorder recorder_;
 
 private:
 	void DoExecuteCall(u32 target);

@@ -153,7 +153,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	});
 
 	items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
-		GPURecord::RecordNextFrame([](const Path &dumpPath) {
+		gpuDebug->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
 			NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
 			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 				System_ShowFileInFolder(dumpPath);

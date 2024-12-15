@@ -186,7 +186,7 @@ bool ProcessStepping() {
 	return true;
 }
 
-bool EnterStepping() {
+bool EnterStepping(CoreState coreState) {
 	_dbg_assert_(gpuDebug);
 
 	std::unique_lock<std::mutex> guard(pauseLock);
@@ -216,7 +216,7 @@ bool EnterStepping() {
 		pauseAction = PAUSE_BREAK;
 	}
 
-	coreState = CORE_STEPPING_GE;
+	::coreState = CORE_STEPPING_GE;
 	return true;
 }
 

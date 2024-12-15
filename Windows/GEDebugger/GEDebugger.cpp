@@ -1083,7 +1083,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_RECORD:
-			GPURecord::RecordNextFrame([](const Path &path) {
+			gpuDebug->GetRecorder()->RecordNextFrame([](const Path &path) {
 				// Opens a Windows Explorer window with the file, when done.
 				System_ShowFileInFolder(path);
 			});

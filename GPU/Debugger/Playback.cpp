@@ -909,7 +909,7 @@ void WriteRunDumpCode(u32 codeStart) {
 
 // This is called by the syscall.
 ReplayResult RunMountedReplay(const std::string &filename) {
-	_assert_msg_(!GPURecord::IsActivePending(), "Cannot run replay while recording.");
+	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
 
 	Core_ListenStopRequest(&ReplayStop);
 

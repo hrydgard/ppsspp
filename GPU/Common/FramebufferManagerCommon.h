@@ -273,6 +273,10 @@ namespace Draw {
 class DrawContext;
 }
 
+namespace GPURecord {
+class Recorder;
+}
+
 struct DrawPixelsEntry {
 	Draw::Texture *tex;
 	uint64_t contentsHash;
@@ -302,7 +306,7 @@ public:
 
 	void Init(int msaaLevel);
 	virtual void BeginFrame();
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format, GPURecord::Recorder *recorder);
 	void DestroyFramebuf(VirtualFramebuffer *v);
 
 	VirtualFramebuffer *DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason);
