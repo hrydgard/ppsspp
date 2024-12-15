@@ -517,17 +517,17 @@ public:
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override {
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspect, const char *tag) override {
 		// Not implemented
 	}
-	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) override;
 
-	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, Aspect aspect, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -576,7 +576,7 @@ public:
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
 	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) override;
 
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
+	void Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override {
 		switch (obj) {
@@ -1246,11 +1246,11 @@ static uint32_t SwapRB(uint32_t c) {
 	return (c & 0xFF00FF00) | ((c >> 16) & 0xFF) | ((c << 16) & 0xFF0000);
 }
 
-void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void D3D9Context::Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) {
 	UINT d3dMask = 0;
-	if (mask & FBChannel::FB_COLOR_BIT) d3dMask |= D3DCLEAR_TARGET;
-	if (mask & FBChannel::FB_DEPTH_BIT) d3dMask |= D3DCLEAR_ZBUFFER;
-	if (mask & FBChannel::FB_STENCIL_BIT) d3dMask |= D3DCLEAR_STENCIL;
+	if (aspects & Aspect::COLOR_BIT) d3dMask |= D3DCLEAR_TARGET;
+	if (aspects & Aspect::DEPTH_BIT) d3dMask |= D3DCLEAR_ZBUFFER;
+	if (aspects & Aspect::STENCIL_BIT) d3dMask |= D3DCLEAR_STENCIL;
 	if (d3dMask) {
 		device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
 	}
@@ -1398,42 +1398,42 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 	}
 }
 
-uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
+uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, Aspect aspect, int attachment) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-	if (channelBits & FB_SURFACE_BIT) {
-		switch (channelBits & 7) {
-		case FB_DEPTH_BIT:
+	if (aspect & Aspect::SURFACE_BIT) {
+		switch ((Aspect)(aspect & (Aspect)7)) {
+		case Aspect::DEPTH_BIT:
 			return (uintptr_t)fb->depthstencil.Get();
-		case FB_STENCIL_BIT:
+		case Aspect::STENCIL_BIT:
 			return (uintptr_t)fb->depthstencil.Get();
-		case FB_COLOR_BIT:
+		case Aspect::COLOR_BIT:
 		default:
 			return (uintptr_t)fb->surf.Get();
 		}
 	} else {
-		switch (channelBits & 7) {
-		case FB_DEPTH_BIT:
+		switch ((Aspect)(aspect & (Aspect)7)) {
+		case Aspect::DEPTH_BIT:
 			return (uintptr_t)fb->depthstenciltex.Get();
-		case FB_STENCIL_BIT:
+		case Aspect::STENCIL_BIT:
 			return 0;  // Can't texture from stencil
-		case FB_COLOR_BIT:
+		case Aspect::COLOR_BIT:
 		default:
 			return (uintptr_t)fb->tex.Get();
 		}
 	}
 }
 
-void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) {
 	_dbg_assert_(binding < MAX_BOUND_TEXTURES);
 	_dbg_assert_(layer == ALL_LAYERS || layer == 0);  // No stereo support
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
-	case FB_DEPTH_BIT:
+	case Aspect::DEPTH_BIT:
 		if (fb->depthstenciltex) {
 			device_->SetTexture(binding, fb->depthstenciltex.Get());
 		}
 		break;
-	case FB_COLOR_BIT:
+	case Aspect::COLOR_BIT:
 	default:
 		if (fb->tex) {
 			device_->SetTexture(binding, fb->tex.Get());
@@ -1453,7 +1453,7 @@ void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	}
 }
 
-bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) {
+bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) {
 	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
 	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
 
@@ -1461,10 +1461,10 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	ComPtr<IDirect3DSurface9> dstSurf;
 	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
 	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
-	if (channelBits == FB_COLOR_BIT) {
+	if (aspects == Aspect::COLOR_BIT) {
 		srcSurf = src ? src->surf : deviceRTsurf;
 		dstSurf = dst ? dst->surf : deviceRTsurf;
-	} else if (channelBits & FB_DEPTH_BIT) {
+	} else if (aspects & Aspect::DEPTH_BIT) {
 		if (!src || !dst) {
 			// Might have implications for non-buffered rendering.
 			return false;
@@ -1474,10 +1474,10 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	} else {
 		return false;
 	}
-	return SUCCEEDED(device_->StretchRect(srcSurf.Get(), &srcRect, dstSurf.Get(), &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+	return SUCCEEDED(device_->StretchRect(srcSurf.Get(), &srcRect, dstSurf.Get(), &dstRect, (filter == FB_BLIT_LINEAR && aspects == Aspect::COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
-bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, Aspect aspects, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)src;
 
 	if (fb) {
@@ -1493,7 +1493,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 		return true;
 
 	DataFormat srcFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-	if (channelBits != FB_COLOR_BIT) {
+	if (aspects != Aspect::COLOR_BIT) {
 		srcFormat = Draw::DataFormat::D24_S8;
 		if (!supportsINTZ)
 			return false;
@@ -1505,7 +1505,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 
 	ComPtr<IDirect3DSurface9> offscreen;
 	HRESULT hr = E_UNEXPECTED;
-	if (channelBits == FB_COLOR_BIT) {
+	if (aspects == Aspect::COLOR_BIT) {
 		if (fb)
 			fb->tex->GetLevelDesc(0, &desc);
 		else
@@ -1525,12 +1525,12 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 	}
 
 	if (SUCCEEDED(hr)) {
-		switch (channelBits) {
-		case FB_COLOR_BIT:
+		switch (aspects) {
+		case Aspect::COLOR_BIT:
 			// Pixel size always 4 here because we always request BGRA8888.
 			ConvertFromBGRA8888((uint8_t *)pixels, (const uint8_t *)locked.pBits, pixelStride, locked.Pitch / sizeof(uint32_t), bw, bh, destFormat);
 			break;
-		case FB_DEPTH_BIT:
+		case Aspect::DEPTH_BIT:
 			if (srcFormat == destFormat) {
 				// Can just memcpy when it matches no matter the format!
 				uint8_t *dst = (uint8_t *)pixels;
@@ -1548,7 +1548,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 				_assert_(false);
 			}
 			break;
-		case FB_STENCIL_BIT:
+		case Aspect::STENCIL_BIT:
 			if (srcFormat == destFormat) {
 				uint8_t *dst = (uint8_t *)pixels;
 				const uint8_t *src = (const uint8_t *)locked.pBits;
@@ -1572,7 +1572,7 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int
 		}
 	}
 
-	if (channelBits != FB_COLOR_BIT) {
+	if (aspects != Aspect::COLOR_BIT) {
 		fb->depthstenciltex->UnlockRect(0);
 	}
 	if (offscreen) {

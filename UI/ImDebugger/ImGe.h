@@ -54,14 +54,24 @@ private:
 
 namespace Draw {
 class Texture;
+enum class Aspect;
+enum class DataFormat : uint8_t;
 }
 
-struct ImGePixelViewer {
+class PixelLookup {
+public:
+	virtual ~PixelLookup() {}
+
+	virtual uint32_t GetColorAt(int x, int y) const = 0;
+};
+
+struct ImGePixelViewer : public PixelLookup {
 	~ImGePixelViewer();
-	void Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	void Snapshot() {
 		dirty_ = true;
 	}
+	uint32_t GetColorAt(int x, int y) const override;
 
 	uint32_t addr = 0x04000000;
 	uint16_t stride = 512;
@@ -74,6 +84,28 @@ struct ImGePixelViewer {
 
 private:
 	void UpdateTexture(Draw::DrawContext *draw);
+	Draw::Texture *texture_ = nullptr;
+	bool dirty_ = true;
+};
+
+// Reads back framebuffers, not textures.
+struct ImGeReadbackViewer : public PixelLookup {
+	ImGeReadbackViewer();
+	~ImGeReadbackViewer();
+	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *);
+	void Snapshot() {
+		dirty_ = true;
+	}
+	uint32_t GetColorAt(int x, int y) const override;
+
+	VirtualFramebuffer *vfb = nullptr;
+
+	// This specifies what to show
+	Draw::Aspect channel;
+
+private:
+	uint8_t *data_ = nullptr;
+	Draw::DataFormat readbackFmt_;
 	Draw::Texture *texture_ = nullptr;
 	bool dirty_ = true;
 };
@@ -111,6 +143,7 @@ public:
 
 private:
 	ImGeDisasmView disasmView_;
+	ImGeReadbackViewer rbViewer_;
 	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;

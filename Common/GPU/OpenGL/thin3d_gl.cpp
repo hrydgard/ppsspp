@@ -377,13 +377,13 @@ public:
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
-	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -446,7 +446,7 @@ public:
 	void DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) override;
 	void DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, const void *idata, int indexCount, Slice<ClippedDraw> draws, const void *ub, size_t ubSize) override;
 
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
+	void Clear(Aspect mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
@@ -1042,18 +1042,18 @@ static void LogReadPixelsError(GLenum error) {
 }
 #endif
 
-bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
-	if (gl_extensions.IsGLES && (channelBits & FB_COLOR_BIT) == 0) {
+bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+	if (gl_extensions.IsGLES && (channelBits & Aspect::COLOR_BIT) == 0) {
 		// Can't readback depth or stencil on GLES.
 		return false;
 	}
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
 	GLuint aspect = 0;
-	if (channelBits & FB_COLOR_BIT)
+	if (channelBits & Aspect::COLOR_BIT)
 		aspect |= GL_COLOR_BUFFER_BIT;
-	if (channelBits & FB_DEPTH_BIT)
+	if (channelBits & Aspect::DEPTH_BIT)
 		aspect |= GL_DEPTH_BUFFER_BIT;
-	if (channelBits & FB_STENCIL_BIT)
+	if (channelBits & Aspect::STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
 	return renderManager_.CopyFramebufferToMemory(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, mode, tag);
 }
@@ -1491,17 +1491,17 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 	}
 }
 
-void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void OpenGLContext::Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) {
 	float col[4];
 	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
-	if (mask & FBChannel::FB_COLOR_BIT) {
+	if (aspects & Aspect::COLOR_BIT) {
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
-	if (mask & FBChannel::FB_DEPTH_BIT) {
+	if (aspects & Aspect::DEPTH_BIT) {
 		glMask |= GL_DEPTH_BUFFER_BIT;
 	}
-	if (mask & FBChannel::FB_STENCIL_BIT) {
+	if (aspects & Aspect::STENCIL_BIT) {
 		glMask |= GL_STENCIL_BUFFER_BIT;
 	}
 	renderManager_.Clear(colorval, depthVal, stencilVal, glMask, 0xF, 0, 0, targetWidth_, targetHeight_);
@@ -1582,55 +1582,55 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	curRenderTarget_ = fb;
 }
 
-void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {
+void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 
-	int aspect = 0;
-	if (channelBits & FB_COLOR_BIT) {
-		aspect |= GL_COLOR_BUFFER_BIT;
-	} else if (channelBits & (FB_STENCIL_BIT | FB_DEPTH_BIT)) {
-		if (channelBits & FB_DEPTH_BIT)
-			aspect |= GL_DEPTH_BUFFER_BIT;
-		if (channelBits & FB_STENCIL_BIT)
-			aspect |= GL_STENCIL_BUFFER_BIT;
+	int glAspect = 0;
+	if (aspects & Aspect::COLOR_BIT) {
+		glAspect |= GL_COLOR_BUFFER_BIT;
+	} else if (aspects & (Aspect::STENCIL_BIT | Aspect::DEPTH_BIT)) {
+		if (aspects & Aspect::DEPTH_BIT)
+			glAspect |= GL_DEPTH_BUFFER_BIT;
+		if (aspects & Aspect::STENCIL_BIT)
+			glAspect |= GL_STENCIL_BUFFER_BIT;
 	}
-	renderManager_.CopyFramebuffer(src->framebuffer_, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer_, GLOffset2D{ dstX, dstY }, aspect, tag);
+	renderManager_.CopyFramebuffer(src->framebuffer_, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer_, GLOffset2D{ dstX, dstY }, glAspect, tag);
 }
 
-bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter, const char *tag) {
+bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter linearFilter, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 	GLuint aspect = 0;
-	if (channels & FB_COLOR_BIT)
+	if (aspects & Aspect::COLOR_BIT)
 		aspect |= GL_COLOR_BUFFER_BIT;
-	if (channels & FB_DEPTH_BIT)
+	if (aspects & Aspect::DEPTH_BIT)
 		aspect |= GL_DEPTH_BUFFER_BIT;
-	if (channels & FB_STENCIL_BIT)
+	if (aspects & Aspect::STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
 
 	renderManager_.BlitFramebuffer(src->framebuffer_, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer_, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR, tag);
 	return true;
 }
 
-void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspects, int layer) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	_assert_(binding < MAX_TEXTURE_SLOTS);
 
-	GLuint aspect = 0;
-	if (channelBit & FB_COLOR_BIT) {
-		aspect |= GL_COLOR_BUFFER_BIT;
+	GLuint glAspect = 0;
+	if (aspects & Aspect::COLOR_BIT) {
+		glAspect |= GL_COLOR_BUFFER_BIT;
 		boundTextures_[binding] = &fb->framebuffer_->color_texture;
 	}
-	if (channelBit & FB_DEPTH_BIT) {
-		aspect |= GL_DEPTH_BUFFER_BIT;
+	if (aspects & Aspect::DEPTH_BIT) {
+		glAspect |= GL_DEPTH_BUFFER_BIT;
 		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
 	}
-	if (channelBit & FB_STENCIL_BIT) {
-		aspect |= GL_STENCIL_BUFFER_BIT;
+	if (aspects & Aspect::STENCIL_BIT) {
+		glAspect |= GL_STENCIL_BUFFER_BIT;
 		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
 	}
-	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, aspect);
+	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, glAspect);
 }
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

@@ -611,15 +611,15 @@ bool PresentationCommon::BindSource(int binding, bool bindStereo) {
 	} else if (srcFramebuffer_) {
 		if (bindStereo) {
 			if (srcFramebuffer_->Layers() > 1) {
-				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::Aspect::COLOR_BIT, Draw::ALL_LAYERS);
 				return true;
 			} else {
 				// Single layer. This might be from a post shader and those don't yet support stereo.
-				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+				draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::Aspect::COLOR_BIT, 0);
 				return false;
 			}
 		} else {
-			draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::Aspect::COLOR_BIT, 0);
 			return false;
 		}
 	} else {
@@ -765,13 +765,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	PostShaderUniforms uniforms;
 	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline, int vertsOffset) {
 		if (postShaderOutput) {
-			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::Aspect::COLOR_BIT, 0);
 		} else {
 			BindSource(0, false);
 		}
 		BindSource(1, false);
 		if (shaderInfo->usePreviousFrame)
-			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::Aspect::COLOR_BIT, 0);
 
 		int nextWidth, nextHeight;
 		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -879,7 +879,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 		draw_->BindPipeline(pipeline);
 		if (postShaderOutput) {
-			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(postShaderOutput, 0, Draw::Aspect::COLOR_BIT, 0);
 		} else {
 			BindSource(0, false);
 		}

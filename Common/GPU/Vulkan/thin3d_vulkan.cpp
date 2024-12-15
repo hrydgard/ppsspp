@@ -452,14 +452,14 @@ public:
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
-	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
-	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -498,7 +498,7 @@ public:
 	void BindCurrentPipeline();
 	void ApplyDynamicState();
 
-	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
+	void Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
@@ -547,7 +547,7 @@ public:
 
 	void Invalidate(InvalidationFlags flags) override;
 
-	void InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) override;
+	void InvalidateFramebuffer(FBInvalidationStage stage, Aspect aspects) override;
 
 	void SetInvalidationCallback(InvalidationCallback callback) override {
 		renderManager_.SetInvalidationCallback(callback);
@@ -1618,13 +1618,13 @@ void VKContext::BindCurrentPipeline() {
 	renderManager_.BindPipeline(curPipeline_->pipeline, curPipeline_->flags, pipelineLayout_);
 }
 
-void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
+void VKContext::Clear(Aspect aspects, uint32_t colorval, float depthVal, int stencilVal) {
 	int mask = 0;
-	if (clearMask & FBChannel::FB_COLOR_BIT)
+	if (aspects & Aspect::COLOR_BIT)
 		mask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (clearMask & FBChannel::FB_DEPTH_BIT)
+	if (aspects & Aspect::DEPTH_BIT)
 		mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (clearMask & FBChannel::FB_STENCIL_BIT)
+	if (aspects & Aspect::STENCIL_BIT)
 		mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
@@ -1760,38 +1760,38 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 
-void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {
+void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
 
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (aspects & Aspect::COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (aspects & Aspect::DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (aspects & Aspect::STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
 	renderManager_.CopyFramebuffer(src->GetFB(), VkRect2D{ {x, y}, {(uint32_t)width, (uint32_t)height } }, dst->GetFB(), VkOffset2D{ dstX, dstY }, aspectMask, tag);
 }
 
-bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) {
+bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
 
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (aspects & Aspect::COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (aspects & Aspect::DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (aspects & Aspect::STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
 	renderManager_.BlitFramebuffer(src->GetFB(), VkRect2D{ {srcX1, srcY1}, {(uint32_t)(srcX2 - srcX1), (uint32_t)(srcY2 - srcY1) } }, dst->GetFB(), VkRect2D{ {dstX1, dstY1}, {(uint32_t)(dstX2 - dstX1), (uint32_t)(dstY2 - dstY1) } }, aspectMask, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST, tag);
 	return true;
 }
 
-bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (aspects & Aspect::COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (aspects & Aspect::DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (aspects & Aspect::STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
 	return renderManager_.CopyFramebufferToMemory(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride, mode, tag);
 }
@@ -1817,7 +1817,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	curFramebuffer_ = fb;
 }
 
-void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) {
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
 
@@ -1827,10 +1827,10 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 
 	int aspect = 0;
 	switch (channelBit) {
-	case FBChannel::FB_COLOR_BIT:
+	case Aspect::COLOR_BIT:
 		aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		break;
-	case FBChannel::FB_DEPTH_BIT:
+	case Aspect::DEPTH_BIT:
 		aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 		break;
 	default:
@@ -1868,13 +1868,13 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 	}
 }
 
-void VKContext::InvalidateFramebuffer(FBInvalidationStage stage, uint32_t channels) {
+void VKContext::InvalidateFramebuffer(FBInvalidationStage stage, Aspect aspects) {
 	VkImageAspectFlags flags = 0;
-	if (channels & FBChannel::FB_COLOR_BIT)
+	if (aspects & Aspect::COLOR_BIT)
 		flags |= VK_IMAGE_ASPECT_COLOR_BIT;
-	if (channels & FBChannel::FB_DEPTH_BIT)
+	if (aspects & Aspect::DEPTH_BIT)
 		flags |= VK_IMAGE_ASPECT_DEPTH_BIT;
-	if (channels & FBChannel::FB_STENCIL_BIT)
+	if (aspects & Aspect::STENCIL_BIT)
 		flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	if (stage == FB_INVALIDATION_LOAD) {
 		renderManager_.SetLoadDontCare(flags);

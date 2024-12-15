@@ -1266,12 +1266,12 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_FLOAT, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
-		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
+		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::DEPTH_BIT, x, y, w, h, Draw::DataFormat::D32F, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
 	} else {
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_8888, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
-		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
+		retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::COLOR_BIT, x, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), desiredW, Draw::ReadbackMode::BLOCK, "GetCurrentTextureDebug");
 	}
 
 	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
@@ -2368,16 +2368,16 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->BindTexture(0, nullptr);
 		draw_->BindTexture(1, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
+		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::Aspect::DEPTH_BIT | Draw::Aspect::STENCIL_BIT);
 		draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
 		Draw::Viewport viewport{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewport(viewport);
 
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::Aspect::DEPTH_BIT : Draw::Aspect::COLOR_BIT, Draw::ALL_LAYERS);
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
 			draw_->BindTexture(1, clutTexture.texture);
 		} else {
-			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
 		}
 		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
@@ -2394,7 +2394,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, Draw::ALL_LAYERS);
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::Aspect::COLOR_BIT, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -2474,13 +2474,13 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	draw_->BindTexture(0, nullptr);
 	draw_->BindTexture(1, nullptr);
 	draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
-	draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::FB_DEPTH_BIT | Draw::FB_STENCIL_BIT);
+	draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::Aspect::DEPTH_BIT | Draw::Aspect::STENCIL_BIT);
 	draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
 	Draw::Viewport viewport{ 0.0f, 0.0f, (float)texWidth, (float)texHeight, 0.0f, 1.0f };
 	draw_->SetViewport(viewport);
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry, false));
-	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::FB_COLOR_BIT, 0);
+	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
 	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
 	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
 	draw_->BindSamplerStates(0, 1, &nearest);
@@ -2496,7 +2496,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	draw_->BindTexture(0, nullptr);
 	framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 
-	draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+	draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::Aspect::COLOR_BIT, 0);
 	BoundFramebufferTexture();
 
 	const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
