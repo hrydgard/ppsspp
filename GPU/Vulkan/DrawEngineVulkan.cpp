@@ -546,12 +546,12 @@ void DrawEngineVulkan::Flush() {
 			bool clearColor = gstate.isClearModeColorMask();
 			bool clearAlpha = gstate.isClearModeAlphaMask();  // and stencil
 			bool clearDepth = gstate.isClearModeDepthMask();
-			int mask = 0;
+			Draw::Aspect mask = Draw::Aspect::NO_BIT;
 			// The Clear detection takes care of doing a regular draw instead if separate masking
 			// of color and alpha is needed, so we can just treat them as the same.
-			if (clearColor || clearAlpha) mask |= Draw::FBChannel::FB_COLOR_BIT;
-			if (clearDepth) mask |= Draw::FBChannel::FB_DEPTH_BIT;
-			if (clearAlpha) mask |= Draw::FBChannel::FB_STENCIL_BIT;
+			if (clearColor || clearAlpha) mask |= Draw::Aspect::COLOR_BIT;
+			if (clearDepth) mask |= Draw::Aspect::DEPTH_BIT;
+			if (clearAlpha) mask |= Draw::Aspect::STENCIL_BIT;
 			// Note that since the alpha channel and the stencil channel are shared on the PSP,
 			// when we clear alpha, we also clear stencil to the same value.
 			draw_->Clear(mask, result.color, result.depth, result.color >> 24);

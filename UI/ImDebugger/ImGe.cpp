@@ -65,7 +65,7 @@ void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManag
 
 	VirtualFramebuffer *fb = framebufferManager->GetVFBAt(topaddr.ptr);
 	if (fb && fb->fbo) {
-		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+		ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(fb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 		ImGui::Image(texId, ImVec2(fb->width, fb->height));
 		ImGui::Text("%s - %08x", fb->fbo->Tag(), topaddr.ptr);
 	} else {
@@ -205,7 +205,7 @@ uint32_t ImGePixelViewer::GetColorAt(int x, int y) const {
 
 ImGeReadbackViewer::ImGeReadbackViewer() {
 	// These are only forward declared in the header, so we initialize them here.
-	channel = Draw::FB_COLOR_BIT;
+	channel = Draw::Aspect::COLOR_BIT;
 	readbackFmt_ = Draw::DataFormat::UNDEFINED;
 }
 
@@ -235,7 +235,7 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 		// But for now, let's just draw the original FB, and we can always do that with color at least.
 	}
 
-	ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+	ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width(), (float)vfb->fbo->Height()));
 	return true;
 }
@@ -244,7 +244,7 @@ uint32_t ImGeReadbackViewer::GetColorAt(int x, int y) const {
 	if (!vfb || !vfb->fbo || !data_) {
 		return 0;
 	}
-	int bpp = Draw::DataFormatSizeInBytes(readbackFmt_);
+	int bpp = (int)Draw::DataFormatSizeInBytes(readbackFmt_);
 	int offset = (y * vfb->fbo->Width() + x) * bpp;
 	switch (readbackFmt_) {
 	case Draw::DataFormat::R8G8B8A8_UNORM:
@@ -818,7 +818,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				if (vfb) {
 					rbViewer_.Draw(gpuDebug, draw);
 					lookup = &rbViewer_;
-					// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+					// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 					// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 				} else {
 					swViewer_.Draw(gpuDebug, draw);

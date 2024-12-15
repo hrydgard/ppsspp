@@ -208,7 +208,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		draw_->SetViewport(viewport);
 		draw_->SetScissorRect(0, 0, fbo->Width() * scaleX, fbo->Height() * scaleY);
 
-		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, FB_DEPTH_BIT, 0);
+		draw_->BindFramebufferAsTexture(fbo, TEX_SLOT_PSP_TEXTURE, Aspect::DEPTH_BIT, 0);
 		draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &depthReadbackSampler_);
 
 		// We must bind the program after starting the render pass.
@@ -239,7 +239,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		};
 		draw_->DrawUP(positions, 3);
 
-		draw_->CopyFramebufferToMemory(blitFBO, FB_COLOR_BIT,
+		draw_->CopyFramebufferToMemory(blitFBO, Aspect::COLOR_BIT,
 			x * scaleX, y * scaleY, w * scaleX, h * scaleY,
 			DataFormat::R8G8B8A8_UNORM, convBuf_, destW, mode, "ReadbackDepthbufferSync");
 
@@ -247,7 +247,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// TODO: Use 4444 (or better, R16_UNORM) so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemory(fbo, FB_DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, mode, "ReadbackDepthbufferSync");
+		draw_->CopyFramebufferToMemory(fbo, Aspect::DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, mode, "ReadbackDepthbufferSync");
 		format16Bit = false;
 	}
 

@@ -54,7 +54,7 @@ private:
 
 namespace Draw {
 class Texture;
-enum FBChannel;
+enum class Aspect;
 enum class DataFormat : uint8_t;
 }
 
@@ -101,7 +101,7 @@ struct ImGeReadbackViewer : public PixelLookup {
 	VirtualFramebuffer *vfb = nullptr;
 
 	// This specifies what to show
-	Draw::FBChannel channel;
+	Draw::Aspect channel;
 
 private:
 	uint8_t *data_ = nullptr;

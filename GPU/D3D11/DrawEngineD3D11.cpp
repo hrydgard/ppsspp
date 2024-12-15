@@ -461,11 +461,11 @@ void DrawEngineD3D11::Flush() {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
 
-			uint32_t clearFlag = 0;
+			Draw::Aspect clearFlag = Draw::Aspect::NO_BIT;
 
-			if (gstate.isClearModeColorMask()) clearFlag |= Draw::FBChannel::FB_COLOR_BIT;
-			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::FBChannel::FB_STENCIL_BIT;
-			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::FBChannel::FB_DEPTH_BIT;
+			if (gstate.isClearModeColorMask()) clearFlag |= Draw::Aspect::COLOR_BIT;
+			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::Aspect::STENCIL_BIT;
+			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::Aspect::DEPTH_BIT;
 
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);

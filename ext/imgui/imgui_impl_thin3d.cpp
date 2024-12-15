@@ -25,7 +25,7 @@ struct RegisteredTexture {
 		Draw::Texture *texture;
 		struct {
 			Draw::Framebuffer *framebuffer;
-			Draw::FBChannel aspect;
+			Draw::Aspect aspect;
 		};
 	};
 	ImGuiPipeline pipeline;
@@ -93,7 +93,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	void *boundNativeTexture;
 	Draw::Pipeline *boundPipeline = bd->pipelines[0];
 	Draw::SamplerState *boundSampler = bd->fontSampler;
-	Draw::FBChannel boundAspect = Draw::FB_COLOR_BIT;
+	Draw::Aspect boundAspect = Draw::Aspect::COLOR_BIT;
 
 	// Render command lists
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
@@ -126,13 +126,13 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 					boundTexture = bd->tempTextures[index].texture;
 					boundFBAsTexture = nullptr;
 					boundNativeTexture = nullptr;
-					boundAspect = Draw::FB_COLOR_BIT;
+					boundAspect = Draw::Aspect::COLOR_BIT;
 					break;
 				case RegisteredTextureType::NativeTexture:
 					boundTexture = nullptr;
 					boundFBAsTexture = nullptr;
 					boundNativeTexture = bd->tempTextures[index].nativeTexture;
-					boundAspect = Draw::FB_COLOR_BIT;
+					boundAspect = Draw::Aspect::COLOR_BIT;
 					break;
 				}
 				boundPipeline = bd->pipelines[(int)bd->tempTextures[index].pipeline];
@@ -364,7 +364,7 @@ ImTextureID ImGui_ImplThin3d_AddTextureTemp(Draw::Texture *texture, ImGuiPipelin
 	return (ImTextureID)(uint64_t)(TEX_ID_OFFSET + bd->tempTextures.size() - 1);
 }
 
-ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::FBChannel aspect, ImGuiPipeline pipeline) {
+ImTextureID ImGui_ImplThin3d_AddFBAsTextureTemp(Draw::Framebuffer *framebuffer, Draw::Aspect aspect, ImGuiPipeline pipeline) {
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
 
 	RegisteredTexture tex{ RegisteredTextureType::Framebuffer };
