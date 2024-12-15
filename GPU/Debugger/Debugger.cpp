@@ -27,10 +27,8 @@
 namespace GPUDebug {
 
 static bool active = false;
-static bool inited = false;
 static BreakNext breakNext = BreakNext::NONE;
 static int breakAtCount = -1;
-static bool hasBreakpoints = false;
 
 static int primsLastFrame = 0;
 static int primsThisFrame = 0;
@@ -60,18 +58,7 @@ const char *BreakNextToString(BreakNext next) {
 	}
 }
 
-static void Init() {
-	if (!inited) {
-		GPUBreakpoints::Init([](bool flag) {
-			hasBreakpoints = flag;
-		});
-		inited = true;
-	}
-}
-
 void SetActive(bool flag) {
-	Init();
-
 	active = flag;
 	if (!active) {
 		breakNext = BreakNext::NONE;
@@ -82,7 +69,6 @@ void SetActive(bool flag) {
 	/*
 	active = false;
 	breakAtCount = -1;
-	hasBreakpoints = false;
 	thisFlipNum = 0;
 	g_primAfterDraw = false;
 	lastStepTime = -1.0f;
@@ -166,7 +152,7 @@ NotifyResult NotifyCommand(u32 pc) {
 		isBreakpoint = true;
 	} else if (breakNext == BreakNext::COUNT) {
 		isBreakpoint = primsThisFrame == breakAtCount;
-	} else if (hasBreakpoints) {
+	} else if (GPUBreakpoints::g_hasBreakpoints) {
 		isBreakpoint = GPUBreakpoints::IsBreakpoint(pc, op);
 	}
 
