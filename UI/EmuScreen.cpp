@@ -1693,8 +1693,9 @@ void EmuScreen::runImDebugger() {
 
 			ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
-			imDebugger_->Frame(currentDebugMIPS, gpuDebug);
+			imDebugger_->Frame(currentDebugMIPS, gpuDebug, draw);
 
+			// Convert to drawlists.
 			ImGui::Render();
 		}
 	}

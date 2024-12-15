@@ -137,6 +137,7 @@ struct ImConfig {
 	bool geStateOpen;
 	bool schedulerOpen;
 	bool watchOpen;
+	bool pixelViewerOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
@@ -182,7 +183,7 @@ public:
 	ImDebugger();
 	~ImDebugger();
 
-	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug);
+	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 
 	// Should be called just before starting a step or run, so that things can
 	// save state that they can later compare with, to highlight changes.
@@ -198,6 +199,7 @@ private:
 	ImGeStateWindow geStateWindow_;
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
+	ImGePixelViewer pixelViewer_;
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
