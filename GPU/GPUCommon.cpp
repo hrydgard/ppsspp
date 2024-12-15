@@ -740,8 +740,7 @@ int GPUCommon::GetNextListIndex() {
 	}
 }
 
-// This is now called when coreState == CORE_RUNNING_GE.
-// TODO: It should return the next action.. (break into debugger or continue running)
+// This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks();

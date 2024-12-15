@@ -129,16 +129,15 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 		stallAddr = displayList.stall;
 	}
 
-	if (pc != 0xFFFFFFFF) {
-		if (gotoPC_) {
-			selectedAddr_ = pc;
-			gotoPC_ = false;
-		}
+	if (pc != 0xFFFFFFFF && gotoPC_) {
+		selectedAddr_ = pc;
+		gotoPC_ = false;
 	}
 
 	float pcY = canvas_p0.y + ((pc - windowStartAddr) / instrWidth) * lineHeight;
 	draw_list->AddRectFilled(ImVec2(canvas_p0.x, pcY), ImVec2(canvas_p1.x, pcY + lineHeight), IM_COL32(0x10, 0x70, 0x10, 255));
-
+	float stallY = canvas_p0.y + ((stallAddr - windowStartAddr) / instrWidth) * lineHeight;
+	draw_list->AddRectFilled(ImVec2(canvas_p0.x, stallY), ImVec2(canvas_p1.x, stallY + lineHeight), IM_COL32(0x70, 0x20, 0x10, 255));
 	u32 addr = windowStartAddr;
 	for (int line = 0; line < numLines; line++) {
 		char addrBuffer[128];
