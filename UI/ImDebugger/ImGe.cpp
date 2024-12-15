@@ -612,6 +612,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::EndDisabled();
 	}
 
+	// TODO: this doesn't seem very accurate? strange double-increments when stepping.
+	ImGui::SameLine();
+	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
+
+	// TODO: Break on count!
+
 	// Line break
 	if (ImGui::Button("Goto PC")) {
 		disasmView_.GotoPC();
@@ -711,45 +717,50 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			} else {
 				ImGui::Text("Framebuffer");
 			}
+		}
 
-			if (ImGui::BeginTabBar("aspects")) {
-				if (ImGui::BeginTabItem("Color")) {
+		if (ImGui::BeginTabBar("aspects")) {
+			if (ImGui::BeginTabItem("Color")) {
+				const ImVec2 p0 = ImGui::GetCursorScreenPos();
+				ImVec2 p1;
+				if (vfb) {
+					p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
+				} else {
+					// Guess
+					p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
+				}
+
+				// Draw border and background color
+				drawList->PushClipRect(p0, p1, true);
+
+				if (vfb) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-					const ImVec2 p0 = ImGui::GetCursorScreenPos();
-					const ImVec2 p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
-
-					// Draw border and background color
-					drawList->PushClipRect(p0, p1, true);
-
 					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-
-					// Draw vertex preview on top!
-					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
-
-					drawList->PopClipRect();
-
-					ImGui::EndTabItem();
+				} else {
+					swViewer_.Draw(gpuDebug, draw);
 				}
-				if (ImGui::BeginTabItem("Depth")) {
-					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_DEPTH_BIT, ImGuiPipeline::TexturedOpaque);
-					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-					ImGui::EndTabItem();
-				}
-				if (ImGui::BeginTabItem("Stencil")) {
-					// Nah, this isn't gonna work. We better just do a readback to texture, but then we need a message and some storage..
-					//
-					//ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
-					//ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-					ImGui::EndTabItem();
-				}
-				ImGui::EndTabBar();
+
+				// Draw vertex preview on top!
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
+
+				drawList->PopClipRect();
+
+				ImGui::EndTabItem();
 			}
+			if (ImGui::BeginTabItem("Depth")) {
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("Stencil")) {
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
+		}
 
+		if (vfb) {
 			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
 		} else {
 			// Use the swViewer_!
 			ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));
-			swViewer_.Draw(gpuDebug, draw);
 		}
 
 		if (gstate.isModeClear()) {
