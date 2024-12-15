@@ -1290,6 +1290,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	}
 	NativeAxis(axis, count);
 	delete[] axis;
+	env->ReleaseIntArrayElements(axisIds, axisIdBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
+	env->ReleaseFloatArrayElements(values, valueBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(

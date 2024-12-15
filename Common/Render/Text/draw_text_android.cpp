@@ -170,7 +170,7 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	} else {
 		_assert_msg_(false, "Bad TextDrawer format");
 	}
-	env->ReleaseIntArrayElements(imageData, jimage, 0);
+	env->ReleaseIntArrayElements(imageData, jimage, JNI_ABORT);
 	env->DeleteLocalRef(imageData);
 	return true;
 }
