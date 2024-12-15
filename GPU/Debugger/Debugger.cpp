@@ -204,14 +204,9 @@ static bool ParseRange(const std::string &s, std::pair<int, int> &range) {
 	return true;
 }
 
-bool SetRestrictPrims(const char *rule) {
-	if (rule == nullptr || rule[0] == 0 || (rule[0] == '*' && rule[1] == 0)) {
-		restrictPrimRanges.clear();
-		restrictPrimRule.clear();
-		return true;
-	}
+bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *output) {
+	constexpr int MAX_PRIMS = 0x7FFFFFFF;
 
-	static constexpr int MAX_PRIMS = 0x7FFFFFFF;
 	std::vector<std::string> parts;
 	SplitString(rule, ',', parts);
 
@@ -264,10 +259,23 @@ bool SetRestrictPrims(const char *rule) {
 			updated.push_back(range);
 		}
 	}
-
-	restrictPrimRanges = updated;
-	restrictPrimRule = rule;
+	*output = updated;
 	return true;
+}
+
+bool SetRestrictPrims(std::string_view rule) {
+	if (rule.empty() || rule == "*") {
+		restrictPrimRanges.clear();
+		restrictPrimRule.clear();
+		return true;
+	}
+
+	if (ParsePrimRanges(rule, &restrictPrimRanges)) {
+		restrictPrimRule = rule;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 const char *GetRestrictPrims() {

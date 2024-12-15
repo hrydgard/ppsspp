@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string_view>
 #include "Common/CommonTypes.h"
 
 namespace GPUDebug {
@@ -56,7 +57,7 @@ void NotifyBeginFrame();
 int PrimsThisFrame();
 int PrimsLastFrame();
 
-bool SetRestrictPrims(const char *rule);
+bool SetRestrictPrims(std::string_view rule);
 const char *GetRestrictPrims();
 
 }  // namespace
