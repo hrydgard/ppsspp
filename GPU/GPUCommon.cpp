@@ -791,7 +791,8 @@ DLResult GPUCommon::ProcessDLQueue() {
 			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
-			debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+			debugRecording_ = GPURecord::IsActive();
+			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter());
 		} else {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed
@@ -804,7 +805,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// Proceed...
 		}
 
-		const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
+		const bool useFastRunLoop = useFastRunLoop_;
 
 		while (gpuState == GPUSTATE_RUNNING) {
 			if (list.pc == list.stall) {
@@ -880,9 +881,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {
-	// Check for debugger active, etc.
+	// Check for debugger active.
 	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
-	return GPUDebug::IsActive() || g_Config.bShowImDebugger;
+	return GPUDebug::NeedsSlowInterpreter();
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
@@ -948,8 +949,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	DisplayList *currentList = this->currentList;
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
-	// We don't optimize during recording - so the matrix data gets recorded.
-	if (!debugRecording_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+	// We don't optimize during recording or debugging - so the matrix data gets recorded.
+	if (useFastRunLoop_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 			(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&

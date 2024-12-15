@@ -925,8 +925,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		return TRUE;
 
 	case WM_CLOSE:
-		GPUDebug::SetActive(false);
-
 		stepCountDlg.Show(false);
 		Show(false);
 		return TRUE;
@@ -978,7 +976,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
@@ -1025,7 +1023,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
-				GPUDebug::SetActive(true);
 				if (!gpuDebug) {
 					break;
 				}
@@ -1044,7 +1041,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTARGET:
 			{
-				GPUDebug::SetActive(true);
 				if (!gpuDebug) {
 					break;
 				}
@@ -1062,15 +1058,15 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_TEXLEVELDOWN:
-			UpdateTextureLevel(textureLevel_ - 1);
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
+				UpdateTextureLevel(textureLevel_ - 1);
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_TEXLEVELUP:
-			UpdateTextureLevel(textureLevel_ + 1);
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
+				UpdateTextureLevel(textureLevel_ + 1);
 				UpdatePreviews();
 			}
 			break;
@@ -1094,7 +1090,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FLUSH:
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
 				if (!autoFlush_)
 					GPU_FlushDrawing();
 				UpdatePreviews();
@@ -1106,14 +1102,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
 				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_SHOWCLUT:
-			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
+			if (gpuDebug != nullptr) {
 				showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
@@ -1136,7 +1132,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
-			GPUDebug::SetActive(true);
 			u32 pc = (u32)wParam;
 			bool temp;
 			bool isBreak = IsAddressBreakpoint(pc, temp);
@@ -1156,7 +1151,6 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_RUNTOWPARAM:
 		{
-			GPUDebug::SetActive(true);
 			u32 pc = (u32)wParam;
 			AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);

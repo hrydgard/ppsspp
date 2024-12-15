@@ -26,7 +26,6 @@
 
 namespace GPUDebug {
 
-static bool active = false;
 static BreakNext breakNext = BreakNext::NONE;
 static int breakAtCount = -1;
 
@@ -58,26 +57,15 @@ const char *BreakNextToString(BreakNext next) {
 	}
 }
 
-void SetActive(bool flag) {
-	active = flag;
-	if (!active) {
-		breakNext = BreakNext::NONE;
-		breakAtCount = -1;
-		GPUStepping::ResumeFromStepping();
-		lastStepTime = -1.0;
-	}
-	/*
-	active = false;
-	breakAtCount = -1;
-	thisFlipNum = 0;
-	g_primAfterDraw = false;
-	lastStepTime = -1.0f;
-	g_skipPcOnce = false;
-	*/
+bool NeedsSlowInterpreter() {
+	return breakNext != BreakNext::NONE || GPUBreakpoints::g_hasBreakpoints;
 }
 
-bool IsActive() {
-	return active;
+void ClearBreak() {
+	breakNext = BreakNext::NONE;
+	breakAtCount = -1;
+	GPUStepping::ResumeFromStepping();
+	lastStepTime = -1.0;
 }
 
 BreakNext GetBreakNext() {
@@ -85,7 +73,6 @@ BreakNext GetBreakNext() {
 }
 
 void SetBreakNext(BreakNext next) {
-	SetActive(true);
 	breakNext = next;
 	breakAtCount = -1;
 	if (next == BreakNext::TEX) {
@@ -119,11 +106,6 @@ void SetBreakCount(int c, bool relative) {
 }
 
 NotifyResult NotifyCommand(u32 pc) {
-	if (!active) {
-		_dbg_assert_(false);
-		return NotifyResult::Skip;  // return false
-	}
-
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
 	if (thisFlipNum != gpuStats.numFlips) {
@@ -187,12 +169,9 @@ NotifyResult NotifyCommand(u32 pc) {
 	return process ? NotifyResult::Execute : NotifyResult::Skip;
 }
 
-// TODO: This mechanism is a bit hacky.
-void NotifyDraw() {
-	if (!active)
-		return;
+void NotifyFlush() {
 	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
-		// Hack to handle draw notifications, that don't come in via NotifyCommand.
+		// Break on the first PRIM after a flush.
 		if (g_primAfterDraw) {
 			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
 			g_primAfterDraw = false;
@@ -203,17 +182,13 @@ void NotifyDraw() {
 }
 
 void NotifyDisplay(u32 framebuf, u32 stride, int format) {
-	if (!active)
-		return;
 	if (breakNext == BreakNext::FRAME) {
-		// This should work fine, start stepping at the first op of the new frame.
+		// Start stepping at the first op of the new frame.
 		breakNext = BreakNext::OP;
 	}
 }
 
 void NotifyBeginFrame() {
-	if (!active)
-		return;
 	if (breakNext == BreakNext::VSYNC) {
 		// Just start stepping as soon as we can once the vblank finishes.
 		breakNext = BreakNext::OP;
@@ -238,7 +213,6 @@ static bool ParseRange(const std::string &s, std::pair<int, int> &range) {
 }
 
 bool SetRestrictPrims(const char *rule) {
-	SetActive(true);
 	if (rule == nullptr || rule[0] == 0 || (rule[0] == '*' && rule[1] == 0)) {
 		restrictPrimRanges.clear();
 		restrictPrimRule.clear();

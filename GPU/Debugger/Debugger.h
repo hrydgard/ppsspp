@@ -34,8 +34,7 @@ enum class BreakNext {
 	COUNT,
 };
 
-void SetActive(bool flag);
-bool IsActive();
+bool NeedsSlowInterpreter();
 
 void SetBreakNext(BreakNext next);
 void SetBreakCount(int c, bool relative = false);
@@ -50,7 +49,7 @@ enum class NotifyResult {
 
 // While debugging is active, these may block.
 NotifyResult NotifyCommand(u32 pc);
-void NotifyDraw();
+void NotifyFlush();
 void NotifyDisplay(u32 framebuf, u32 stride, int format);
 void NotifyBeginFrame();
 

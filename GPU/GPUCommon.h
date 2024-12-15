@@ -447,7 +447,7 @@ protected:
 
 	bool interruptRunning = false;
 	GPURunState gpuState = GPUSTATE_RUNNING;
-	bool isbreak;
+	bool isbreak;  // This doesn't mean debugger breakpoints.
 	u64 drawCompleteTicks;
 	u64 busyTicks;
 
@@ -459,8 +459,9 @@ protected:
 	bool resumingFromDebugBreak_ = false;
 	bool dumpNextFrame_ = false;
 	bool dumpThisFrame_ = false;
-	bool debugRecording_;
-	bool interruptsEnabled_;
+	bool useFastRunLoop_ = false;
+	bool debugRecording_ = false;
+	bool interruptsEnabled_ = false;
 	bool displayResized_ = false;
 	bool renderResized_ = false;
 	bool configChanged_ = false;

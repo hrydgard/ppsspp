@@ -421,7 +421,7 @@ void DrawEngineDX9::DoFlush() {
 
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-	GPUDebug::NotifyDraw();
+	GPUDebug::NotifyFlush();
 }
 
 void TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
