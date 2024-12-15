@@ -437,7 +437,6 @@ void DrawEngineGLES::Flush() {
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH);
-			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate_c.framebufFormat == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();

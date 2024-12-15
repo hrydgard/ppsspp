@@ -404,10 +404,6 @@ void DrawEngineDX9::Flush() {
 			if (gstate.isClearModeAlphaMask()) mask |= D3DCLEAR_STENCIL;
 			if (gstate.isClearModeDepthMask()) mask |= D3DCLEAR_ZBUFFER;
 
-			if (mask & D3DCLEAR_TARGET) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
-
 			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
 
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate_c.framebufFormat == GE_FORMAT_565)) {

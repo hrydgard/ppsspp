@@ -467,10 +467,6 @@ void DrawEngineD3D11::Flush() {
 			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::FBChannel::FB_STENCIL_BIT;
 			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::FBChannel::FB_DEPTH_BIT;
 
-			if (clearFlag & Draw::FBChannel::FB_COLOR_BIT) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
-
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
 
