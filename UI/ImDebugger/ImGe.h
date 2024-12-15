@@ -100,20 +100,18 @@ private:
 
 class ImGeDebuggerWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}
 	const char *Title() const {
 		return "GE Debugger";
 	}
-	void NotifyStep() {
-		reloadPreview_ = true;
-		disasmView_.NotifyStep();
-	}
+	void NotifyStep();
 
 private:
 	ImGeDisasmView disasmView_;
+	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
 	GEPrimitiveType previewPrim_;

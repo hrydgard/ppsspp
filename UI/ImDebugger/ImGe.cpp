@@ -546,8 +546,20 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveTyp
 	}
 }
 
+void ImGeDebuggerWindow::NotifyStep() {
+	reloadPreview_ = true;
+	disasmView_.NotifyStep();
+	swViewer_.width = gstate.FrameBufStride();
+	// Height heuristic
+	swViewer_.height = gstate.getScissorY2() + 1 - gstate.getScissorY1();  // Just guessing the height, we have no reliable way to tell
+	swViewer_.format = gstate.FrameBufFormat();
+	swViewer_.addr = gstate.getFrameBufAddress();
+	swViewer_.showAlpha = false;
+	swViewer_.useAlpha = false;
+	swViewer_.Snapshot();
+}
 
-void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -734,6 +746,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			}
 
 			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
+		} else {
+			// Use the swViewer_!
+			ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));
+			swViewer_.Draw(gpuDebug, draw);
 		}
 
 		if (gstate.isModeClear()) {
