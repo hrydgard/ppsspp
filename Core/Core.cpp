@@ -187,7 +187,7 @@ void Core_RunLoopUntil(u64 globalticks) {
 		case CORE_RUNNING_GE:
 			switch (gpu->ProcessDLQueue()) {
 			case DLResult::DebugBreak:
-				GPUStepping::EnterStepping();
+				GPUStepping::EnterStepping(coreState);
 				break;
 			case DLResult::Error:
 				// We should elegantly report the error somehow, or I guess ignore it.

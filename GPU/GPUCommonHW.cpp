@@ -512,7 +512,7 @@ void GPUCommonHW::BeginHostFrame() {
 }
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format, &recorder_);
 }
 
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
@@ -1457,7 +1457,7 @@ void GPUCommonHW::Execute_TexLevel(u32 op, u32 diff) {
 
 void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes(), &recorder_);
 }
 
 

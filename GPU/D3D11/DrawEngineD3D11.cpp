@@ -485,7 +485,7 @@ void DrawEngineD3D11::DoFlush() {
 
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-	GPUDebug::NotifyDraw();
+	GPUDebug::NotifyFlush();
 }
 
 TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)

@@ -625,17 +625,17 @@ void GPUCommon::PSPFrame() {
 		dumpThisFrame_ = false;
 	}
 	GPUDebug::NotifyBeginFrame();
-	GPURecord::NotifyBeginFrame();
+	recorder_.NotifyBeginFrame();
 }
 
 // Returns false on breakpoint.
 bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
-		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc);
+		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc, &breakpoints_);
 
 		if (result == GPUDebug::NotifyResult::Execute) {
-			GPURecord::NotifyCommand(list.pc);
+			recorder_.NotifyCommand(list.pc);
 			u32 op = Memory::ReadUnchecked_U32(list.pc);
 			u32 cmd = op >> 24;
 
@@ -740,8 +740,7 @@ int GPUCommon::GetNextListIndex() {
 	}
 }
 
-// This is now called when coreState == CORE_RUNNING_GE.
-// TODO: It should return the next action.. (break into debugger or continue running)
+// This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks();
@@ -791,7 +790,8 @@ DLResult GPUCommon::ProcessDLQueue() {
 			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
-			debugRecording_ = GPUDebug::IsActive() || GPURecord::IsActive();
+			debugRecording_ = recorder_.IsActive();
+			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints());
 		} else {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed
@@ -804,7 +804,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// Proceed...
 		}
 
-		const bool useFastRunLoop = !dumpThisFrame_ && !debugRecording_;
+		const bool useFastRunLoop = useFastRunLoop_;
 
 		while (gpuState == GPUSTATE_RUNNING) {
 			if (list.pc == list.stall) {
@@ -821,7 +821,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 					// Hit a breakpoint, so we set the state and bail. We can resume later.
 					// TODO: Cycle counting might need some more care?
 					FinishDeferred();
-					_dbg_assert_(!GPURecord::IsActive());
+					_dbg_assert_(!recorder_.IsActive());
 
 					resumingFromDebugBreak_ = true;
 					return DLResult::DebugBreak;
@@ -837,7 +837,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 		FinishDeferred();
 		if (debugRecording_)
-			GPURecord::NotifyCPU();
+			recorder_.NotifyCPU();
 
 		// We haven't run the op at list.pc, so it shouldn't count.
 		if (cycleLastPC != list.pc) {
@@ -880,9 +880,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 }
 
 bool GPUCommon::ShouldSplitOverGe() const {
-	// Check for debugger active, etc.
+	// Check for debugger active.
 	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
-	return GPUDebug::IsActive() || g_Config.bShowImDebugger;
+	return GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints();
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
@@ -948,8 +948,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	DisplayList *currentList = this->currentList;
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
-	// We don't optimize during recording - so the matrix data gets recorded.
-	if (!debugRecording_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+	// We don't optimize during recording or debugging - so the matrix data gets recorded.
+	if (useFastRunLoop_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 			(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
@@ -1944,7 +1944,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
-		GPURecord::NotifyMemcpy(dest, src, size);
+		recorder_.NotifyMemcpy(dest, src, size);
 	return false;
 }
 
@@ -1961,7 +1961,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "GPUMemset");
 	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	GPURecord::NotifyMemset(dest, v, size);
+	recorder_.NotifyMemset(dest, v, size);
 	return false;
 }
 
@@ -1974,7 +1974,7 @@ bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 
 bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
-		GPURecord::NotifyUpload(dest, size);
+		recorder_.NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::DEBUG_NOTIFIED);
 	}
 	return false;

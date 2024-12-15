@@ -12,6 +12,8 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Record.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"
@@ -377,6 +379,13 @@ public:
 
 	void PSPFrame();
 
+	GPURecord::Recorder *GetRecorder() override {
+		return &recorder_;
+	}
+	GPUBreakpoints *GetBreakpoints() override {
+		return &breakpoints_;
+	}
+
 protected:
 	virtual void ClearCacheNextFrame() {}
 
@@ -447,7 +456,7 @@ protected:
 
 	bool interruptRunning = false;
 	GPURunState gpuState = GPUSTATE_RUNNING;
-	bool isbreak;
+	bool isbreak;  // This doesn't mean debugger breakpoints.
 	u64 drawCompleteTicks;
 	u64 busyTicks;
 
@@ -459,8 +468,9 @@ protected:
 	bool resumingFromDebugBreak_ = false;
 	bool dumpNextFrame_ = false;
 	bool dumpThisFrame_ = false;
-	bool debugRecording_;
-	bool interruptsEnabled_;
+	bool useFastRunLoop_ = false;
+	bool debugRecording_ = false;
+	bool interruptsEnabled_ = false;
 	bool displayResized_ = false;
 	bool renderResized_ = false;
 	bool configChanged_ = false;
@@ -499,6 +509,9 @@ protected:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	GPURecord::Recorder recorder_;
+	GPUBreakpoints breakpoints_;
 
 private:
 	void DoExecuteCall(u32 target);

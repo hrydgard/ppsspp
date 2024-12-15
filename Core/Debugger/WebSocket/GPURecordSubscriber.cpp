@@ -21,6 +21,8 @@
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/System.h"
 #include "GPU/Debugger/Record.h"
+#include "GPU/GPU.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 struct WebSocketGPURecordState : public DebuggerSubscriber {
 	~WebSocketGPURecordState();
@@ -44,7 +46,7 @@ DebuggerSubscriber *WebSocketGPURecordInit(DebuggerEventHandlerMap &map) {
 WebSocketGPURecordState::~WebSocketGPURecordState() {
 	// Clear the callback to hopefully avoid a crash.
 	if (pending_)
-		GPURecord::ClearCallback();
+		gpuDebug->GetRecorder()->ClearCallback();
 }
 
 // Begin recording (gpu.record.dump)
@@ -60,7 +62,7 @@ void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	bool result = GPURecord::RecordNextFrame([=](const Path &filename) {
+	bool result = gpuDebug->GetRecorder()->RecordNextFrame([=](const Path &filename) {
 		lastFilename_ = filename;
 		pending_ = false;
 	});

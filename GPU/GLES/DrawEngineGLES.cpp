@@ -451,7 +451,7 @@ void DrawEngineGLES::DoFlush() {
 bail:
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-	GPUDebug::NotifyDraw();
+	GPUDebug::NotifyFlush();
 }
 
 // TODO: Refactor this to a single USE flag.

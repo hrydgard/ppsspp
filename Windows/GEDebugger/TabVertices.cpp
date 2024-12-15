@@ -437,16 +437,16 @@ void CtrlMatrixList::ToggleBreakpoint(int row) {
 		return;
 
 	// Okay, this command is in range.  Toggle the actual breakpoint.
-	bool state = !GPUBreakpoints::IsCmdBreakpoint(info->cmd);
+	bool state = !gpuDebug->GetBreakpoints()->IsCmdBreakpoint(info->cmd);
 	if (state) {
-		GPUBreakpoints::AddCmdBreakpoint(info->cmd);
+		gpuDebug->GetBreakpoints()->AddCmdBreakpoint(info->cmd);
 	} else {
-		if (GPUBreakpoints::GetCmdBreakpointCond(info->cmd, nullptr)) {
+		if (gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			if (ret != IDYES)
 				return;
 		}
-		GPUBreakpoints::RemoveCmdBreakpoint(info->cmd);
+		gpuDebug->GetBreakpoints()->RemoveCmdBreakpoint(info->cmd);
 	}
 
 	for (int r = info->row; r < (info + 1)->row; ++r) {
@@ -460,12 +460,12 @@ void CtrlMatrixList::PromptBreakpointCond(int row) {
 		return;
 
 	std::string expression;
-	GPUBreakpoints::GetCmdBreakpointCond(info->cmd, &expression);
+	gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
 		return;
 
 	std::string error;
-	if (!GPUBreakpoints::SetCmdBreakpointCond(info->cmd, expression, &error))
+	if (!gpuDebug->GetBreakpoints()->SetCmdBreakpointCond(info->cmd, expression, &error))
 		MessageBox(GetHandle(), ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 }
 
@@ -531,7 +531,7 @@ void CtrlMatrixList::OnRightClick(int row, int column, const POINT &point) {
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_MATRIX);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
-	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, info && GPUBreakpoints::IsCmdBreakpoint(info->cmd) ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, info && gpuDebug->GetBreakpoints()->IsCmdBreakpoint(info->cmd) ? MF_ENABLED : MF_GRAYED);
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_MATRIX, GetHandle(), ContextPoint::FromClient(point))) {
 	case ID_DISASM_TOGGLEBREAKPOINT:

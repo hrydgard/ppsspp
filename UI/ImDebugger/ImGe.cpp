@@ -129,16 +129,15 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 		stallAddr = displayList.stall;
 	}
 
-	if (pc != 0xFFFFFFFF) {
-		if (gotoPC_) {
-			selectedAddr_ = pc;
-			gotoPC_ = false;
-		}
+	if (pc != 0xFFFFFFFF && gotoPC_) {
+		selectedAddr_ = pc;
+		gotoPC_ = false;
 	}
 
 	float pcY = canvas_p0.y + ((pc - windowStartAddr) / instrWidth) * lineHeight;
 	draw_list->AddRectFilled(ImVec2(canvas_p0.x, pcY), ImVec2(canvas_p1.x, pcY + lineHeight), IM_COL32(0x10, 0x70, 0x10, 255));
-
+	float stallY = canvas_p0.y + ((stallAddr - windowStartAddr) / instrWidth) * lineHeight;
+	draw_list->AddRectFilled(ImVec2(canvas_p0.x, stallY), ImVec2(canvas_p1.x, stallY + lineHeight), IM_COL32(0x70, 0x20, 0x10, 255));
 	u32 addr = windowStartAddr;
 	for (int line = 0; line < numLines; line++) {
 		char addrBuffer[128];
@@ -161,7 +160,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 			// 	draw_list->AddText(liveStart, 0xFFFFFFFF, disMeta.liveInfo);
 			// }
 
-			bool bp = GPUBreakpoints::IsAddressBreakpoint(addr);
+			bool bp = gpuDebug->GetBreakpoints()->IsAddressBreakpoint(addr);
 			if (bp) {
 				draw_list->AddCircleFilled(ImVec2(canvas_p0.x + lineHeight * 0.5f, lineStart.y + lineHeight * 0.5f), lineHeight * 0.45f, 0xFF0000FF, 12);
 			}
@@ -190,10 +189,10 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	if (pressed) {
 		if (io.MousePos.x < canvas_p0.x + lineHeight) {
 			// Toggle breakpoint
-			if (!GPUBreakpoints::IsAddressBreakpoint(dragAddr_)) {
-				GPUBreakpoints::AddAddressBreakpoint(dragAddr_);
+			if (!gpuDebug->GetBreakpoints()->IsAddressBreakpoint(dragAddr_)) {
+				gpuDebug->GetBreakpoints()->AddAddressBreakpoint(dragAddr_);
 			} else {
-				GPUBreakpoints::RemoveAddressBreakpoint(dragAddr_);
+				gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(dragAddr_);
 			}
 			bpPopup_ = true;
 		} else {
@@ -209,7 +208,7 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 	if (ImGui::BeginPopup("context")) {
 		if (bpPopup_) {
 			if (ImGui::MenuItem("Remove breakpoint", NULL, false)) {
-				GPUBreakpoints::RemoveAddressBreakpoint(dragAddr_);
+				gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(dragAddr_);
 			}
 		} else if (Memory::IsValid4AlignedAddress(dragAddr_)) {
 			char buffer[64];
@@ -367,27 +366,27 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Tex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX, gpuDebug->GetBreakpoints());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("NonTex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX, gpuDebug->GetBreakpoints());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Prim")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM, gpuDebug->GetBreakpoints());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Draw")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW, gpuDebug->GetBreakpoints());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Curve")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE, gpuDebug->GetBreakpoints());
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Single step")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
 	}
 	if (disableStepButtons) {
 		ImGui::EndDisabled();
@@ -415,7 +414,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
 			ImGui::SameLine();
 			if (ImGui::Button("Cancel step")) {
-				GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+				GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE, gpuDebug->GetBreakpoints());
 			}
 		}
 	} else {
@@ -431,7 +430,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			const auto &list = gpuDebug->GetDisplayList(index);
 			char title[64];
 			snprintf(title, sizeof(title), "List %d", list.id);
-			if (ImGui::CollapsingHeader(title)) {
+			if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) {
 				ImGui::Text("State: %s", DLStateToString(list.state));
 				ImGui::TextUnformatted("PC:");
 				ImGui::SameLine();
@@ -441,6 +440,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
 				if (list.pendingInterrupt) {
 					ImGui::TextUnformatted("(Pending interrupt)");
+				}
+				if (list.stall) {
+					ImGui::TextUnformatted("Stall addr:");
+					ImGui::SameLine();
+					ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
 				}
 				ImGui::Text("Stack depth: %d", (int)list.stackptr);
 				ImGui::Text("BBOX result: %d", (int)list.bboxResult);

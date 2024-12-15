@@ -35,7 +35,7 @@ public:
 	void NotifyStep();
 
 private:
-	u32 selectedAddr_ = INVALID_ADDR;
+	u32 selectedAddr_ = 0;
 	u32 dragAddr_ = INVALID_ADDR;
 	bool bpPopup_ = false;
 	bool gotoPC_ = false;

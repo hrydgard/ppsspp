@@ -41,10 +41,7 @@ void FormatStateRow(GPUDebugInterface *debug, char *dest, size_t destSize, CmdFo
 void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int col);
 void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col);
 
-
 // These are utilities used by the debugger vertex preview.
-
-// Later I hope to re-use more of the real logic.
 bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count);
 void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);

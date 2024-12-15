@@ -896,7 +896,7 @@ void TransformUnit::Flush(const char *reason) {
 		return;
 
 	binner_->Flush(reason);
-	GPUDebug::NotifyDraw();
+	GPUDebug::NotifyFlush();
 	hasDraws_ = false;
 }
 
