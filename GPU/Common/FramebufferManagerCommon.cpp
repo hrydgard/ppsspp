@@ -140,14 +140,12 @@ bool FramebufferManagerCommon::PresentedThisFrame() const {
 	return presentation_->PresentedThisFrame();
 }
 
-void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format, GPURecord::Recorder *recorder) {
+void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	displayFramebufPtr_ = framebuf & 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(displayFramebufPtr_))
 		displayFramebufPtr_ = framebuf & 0x041FFFFF;
 	displayStride_ = stride;
 	displayFormat_ = format;
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	recorder->NotifyDisplay(framebuf, stride, format);
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) const {

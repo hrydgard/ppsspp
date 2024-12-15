@@ -13,6 +13,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Debugger/Debugger.h"
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -512,7 +513,9 @@ void GPUCommonHW::BeginHostFrame() {
 }
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format, &recorder_);
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+	GPUDebug::NotifyDisplay(framebuf, stride, format);
+	recorder_.NotifyDisplay(framebuf, stride, format);
 }
 
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {

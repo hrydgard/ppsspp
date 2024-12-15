@@ -18,6 +18,8 @@
 #pragma once
 
 #include <string_view>
+#include <vector>
+#include <string>
 #include "Common/CommonTypes.h"
 
 namespace GPUDebug {
@@ -34,6 +36,9 @@ enum class BreakNext {
 	CURVE,
 	COUNT,
 };
+
+const char *BreakNextToString(BreakNext next);
+bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *output);
 
 bool NeedsSlowInterpreter();
 

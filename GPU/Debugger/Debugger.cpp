@@ -18,7 +18,6 @@
 #include <vector>
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/TimeUtil.h"
 #include "GPU/GPU.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
