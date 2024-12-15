@@ -200,7 +200,7 @@ private:
 	ImGeStateWindow geStateWindow_;
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
-	ImGePixelViewer pixelViewer_;
+	ImGePixelViewerWindow pixelViewer_;
 
 	ImSnapshotState newSnapshot_;
 	ImSnapshotState snapshot_;
