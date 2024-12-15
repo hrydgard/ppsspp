@@ -64,6 +64,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerVulkan_;
 
+	drawEngine_.SetGPUCommon(this);
 	drawEngine_.SetTextureCache(textureCacheVulkan_);
 	drawEngine_.SetFramebufferManager(framebufferManagerVulkan_);
 	drawEngine_.SetShaderManager(shaderManagerVulkan_);

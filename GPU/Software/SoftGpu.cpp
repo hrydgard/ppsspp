@@ -436,6 +436,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (!drawEngine_)
 		return;
 
+	drawEngine_->SetGPUCommon(this);
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
 

@@ -82,6 +82,11 @@ public:
 	virtual ~DrawEngineCommon();
 
 	void Init();
+
+	void SetGPUCommon(GPUCommon *gpuCommon) {
+		gpuCommon_ = gpuCommon;
+	}
+
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
@@ -330,4 +335,6 @@ protected:
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
 	bool offsetOutsideEdge_;
+
+	GPUCommon *gpuCommon_;
 };
