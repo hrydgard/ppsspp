@@ -52,6 +52,39 @@ private:
 	u32 prevState_[256]{};
 };
 
+namespace Draw {
+class Texture;
+}
+
+class ImGePixelViewer {
+public:
+	~ImGePixelViewer();
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Snapshot() {
+		dirty_ = true;
+	}
+	void Show(uint32_t address, int width, int height, int stride, GEBufferFormat format) {
+		addr_ = address;
+		width_ = width;
+		height_ = height;
+		stride_ = stride;
+		format_ = format;
+	}
+
+private:
+	void UpdateTexture(Draw::DrawContext *draw);
+	Draw::Texture *texture_ = nullptr;
+	GEBufferFormat format_ = GE_FORMAT_565;
+	bool dirty_ = true;
+	bool useAlpha_ = false;
+	bool showAlpha_ = false;
+	float scale_ = 1.0f;
+	uint32_t addr_ = 0x04000000;
+	uint16_t stride_ = 512;
+	uint16_t width_ = 480;
+	uint16_t height_ = 272;
+};
+
 class ImGeDebuggerWindow {
 public:
 	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);

@@ -1,6 +1,7 @@
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -25,7 +26,12 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	framebufferManager->DrawImGuiDebug(cfg.selectedFramebuffer);
+	if (framebufferManager) {
+		framebufferManager->DrawImGuiDebug(cfg.selectedFramebuffer);
+	} else {
+		// Although technically, we could track them...
+		ImGui::TextUnformatted("(Framebuffers not available in software mode)");
+	}
 
 	ImGui::End();
 }
@@ -81,6 +87,202 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 	ImGui::TextUnformatted(statbuf);
 	ImGui::End();
+}
+
+ImGePixelViewer::~ImGePixelViewer() {
+	texture_->Release();
+}
+
+void ImGePixelViewer::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Pixel Viewer", &cfg.pixelViewerOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (dirty_) {
+		UpdateTexture(draw);
+		dirty_ = false;
+	}
+
+	if (gpuDebug->GetFramebufferManagerCommon()) {
+		if (gpuDebug->GetFramebufferManagerCommon()->GetVFBAt(addr_)) {
+			ImGui::Text("NOTE: There's a hardware framebuffer at %08x.", addr_);
+			// TODO: Add a button link.
+		}
+	}
+
+	if (ImGui::BeginChild("left", ImVec2(200.0f, 0.0f))) {
+		if (ImGui::InputScalar("Address", ImGuiDataType_U32, &addr_, 0, 0, "%08x")) {
+			dirty_ = true;
+		}
+
+		if (ImGui::BeginCombo("Aspect", GeBufferFormatToString(format_))) {
+			for (int i = 0; i < 5; i++) {
+				if (ImGui::Selectable(GeBufferFormatToString((GEBufferFormat)i), i == (int)format_)) {
+					format_ = (GEBufferFormat)i;
+					dirty_ = true;
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		bool alphaPresent = format_ == GE_FORMAT_8888 || format_ == GE_FORMAT_4444 || format_ == GE_FORMAT_5551;
+
+		if (!alphaPresent) {
+			ImGui::BeginDisabled();
+		}
+		if (ImGui::Checkbox("Use alpha", &useAlpha_)) {
+			dirty_ = true;
+		}
+		if (ImGui::Checkbox("Show alpha", &showAlpha_)) {
+			dirty_ = true;
+		}
+		if (!alphaPresent) {
+			ImGui::EndDisabled();
+		}
+		if (ImGui::InputScalar("Width", ImGuiDataType_U16, &width_)) {
+			dirty_ = true;
+		}
+		if (ImGui::InputScalar("Height", ImGuiDataType_U16, &height_)) {
+			dirty_ = true;
+		}
+		if (ImGui::InputScalar("Stride", ImGuiDataType_U16, &stride_)) {
+			dirty_ = true;
+		}
+		if (format_ == GE_FORMAT_DEPTH16) {
+			if (ImGui::SliderFloat("Scale", &scale_, 0.5f, 256.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
+				dirty_ = true;
+			}
+		}
+		if (ImGui::Button("Refresh")) {
+			dirty_ = true;
+		}
+	}
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+	if (ImGui::BeginChild("right")) {
+		if (Memory::IsValid4AlignedAddress(addr_)) {
+			if (texture_) {
+				ImTextureID texId = ImGui_ImplThin3d_AddTextureTemp(texture_, useAlpha_ ? ImGuiPipeline::TexturedAlphaBlend : ImGuiPipeline::TexturedOpaque);
+				ImGui::Image(texId, ImVec2((float)width_, (float)height_));
+			} else {
+				ImGui::Text("(invalid params: %dx%d, %08x)", width_, height_, addr_);
+			}
+		} else {
+			ImGui::Text("(invalid address %08x)", addr_);
+		}
+	}
+	ImGui::EndChild();
+	ImGui::End();
+}
+
+void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
+	if (texture_) {
+		texture_->Release();
+		texture_ = nullptr;
+	}
+	if (!Memory::IsValid4AlignedAddress(addr_) || width_ == 0 || height_ == 0 || stride_ > 1024 || stride_ == 0) {
+		INFO_LOG(Log::GeDebugger, "PixelViewer: Bad texture params");
+		return;
+	}
+
+	int bpp = BufferFormatBytesPerPixel(format_);
+
+	int srcBytes = width_ * stride_ * bpp;
+	if (stride_ > width_)
+		srcBytes -= stride_ - width_;
+	if (Memory::ValidSize(addr_, srcBytes) != srcBytes) {
+		// TODO: Show a message that the address is out of bounds.
+		return;
+	}
+
+	// Read pixels into a buffer and transform them accordingly.
+	// For now we convert all formats to RGBA here, for backend compatibility.
+	uint8_t *buf = new uint8_t[width_ * height_ * 4];
+
+	for (int y = 0; y < height_; y++) {
+		u32 rowAddr = addr_ + y * stride_ * bpp;
+		const u8 *src = Memory::GetPointerUnchecked(rowAddr);
+		u8 *dst = buf + y * width_ * 4;
+		switch (format_) {
+		case GE_FORMAT_8888:
+			if (showAlpha_) {
+				for (int x = 0; x < width_; x++) {
+					dst[0] = src[3];
+					dst[1] = src[3];
+					dst[2] = src[3];
+					dst[3] = 0xFF;
+					src += 4;
+					dst += 4;
+				}
+			} else {
+				memcpy(dst, src, width_ * 4);
+			}
+			break;
+		case GE_FORMAT_565:
+			// No showAlpha needed (would just be white)
+			ConvertRGB565ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+			break;
+		case GE_FORMAT_5551:
+			if (showAlpha_) {
+				uint32_t *dst32 = (uint32_t *)dst;
+				uint16_t *src16 = (uint16_t *)dst;
+				for (int x = 0; x < width_; x++) {
+					dst[x] = (src16[x] >> 15) ? 0xFFFFFFFF : 0xFF000000;
+				}
+			} else {
+				ConvertRGBA5551ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+			}
+			break;
+		case GE_FORMAT_4444:
+			ConvertRGBA4444ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+			break;
+		case GE_FORMAT_DEPTH16:
+		{
+			uint16_t *src16 = (uint16_t *)src;
+			float scale = scale_ / 256.0f;
+			for (int x = 0; x < width_; x++) {
+				// Just pick off the upper bits by adding 1 to the byte address
+				// We don't visualize the lower bits for now, although we could - should add a scale slider like RenderDoc.
+				float fval = (float)src16[x] * scale;
+				u8 val;
+				if (fval < 0.0f) {
+					val = 0;
+				} else if (fval >= 255.0f) {
+					val = 255;
+				} else {
+					val = (u8)fval;
+				}
+				dst[0] = val;
+				dst[1] = val;
+				dst[2] = val;
+				dst[3] = 0xFF;
+				dst += 4;
+			}
+			break;
+		}
+		default:
+			memset(buf, 0x80, width_ * height_ * 4);
+			break;
+		}
+	}
+
+	Draw::TextureDesc desc{ Draw::TextureType::LINEAR2D,
+		Draw::DataFormat::R8G8B8A8_UNORM,
+		(int)width_,
+		(int)height_,
+		1,
+		1,
+		false,
+		Draw::TextureSwizzle::DEFAULT,
+		"PixelViewer temp",
+		{ buf },
+		nullptr,
+	};
+
+	texture_ = draw->CreateTexture(desc);
 }
 
 void ImGeDisasmView::NotifyStep() {
@@ -486,8 +688,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	if (coreState == CORE_STEPPING_GE) {
 		FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
 		u32 fbptr = gstate.getFrameBufAddress();
-		VirtualFramebuffer *vfb = fbman->GetVFBAt(fbptr);
-
+		VirtualFramebuffer *vfb = fbman ? fbman->GetVFBAt(fbptr) : nullptr;
 		if (vfb) {
 			if (vfb->fbo) {
 				ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
@@ -537,7 +738,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("(texturing not enabled");
 		} else {
 			TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-			TexCacheEntry *tex = texcache->SetTexture();
+			TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
 			if (tex) {
 				ImGui::Text("Texture: ");
 				texcache->ApplyTexture();
@@ -561,6 +762,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				drawList->PopClipRect();
 			} else {
 				ImGui::Text("(no valid texture bound)");
+				// In software mode, we should just decode the texture here.
 				// TODO: List some of the texture params here.
 			}
 		}
@@ -813,7 +1015,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 
 							// Special handling for pointer and pointer/width entries - create an address control
 							if (info.fmt == CMD_FMT_PTRWIDTH) {
-								const u32 val = value | (otherValue & 0x00FF0000) << 8;
+								const u32 val = (value & 0xFFFFFF) | (otherValue & 0x00FF0000) << 8;
 								ImClickableAddress(val, control, ImCmd::NONE);
 								ImGui::SameLine();
 								ImGui::Text("w=%d", otherValue & 0xFFFF);

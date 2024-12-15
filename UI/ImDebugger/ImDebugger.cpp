@@ -125,7 +125,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 
 static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS GPRs", &config.vfpuOpen)) {
+	if (!ImGui::Begin("MIPS GPRs", &config.gprOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -930,7 +930,7 @@ ImDebugger::~ImDebugger() {
 	cfg_.SaveConfig(ConfigPath());
 }
 
-void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug) {
+void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
 
@@ -962,6 +962,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		// A GPU step has happened since last time. This means that we should re-center the cursor.
 		// Snapshot();
 		lastGpuStepCount_ = GPUStepping::GetSteppingCounter();
+		SnapshotGPU(gpuDebug);
 		geDebugger_.NotifyStep();
 	}
 
@@ -1060,6 +1061,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
 			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
 			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
+			ImGui::MenuItem("Pixel Viewer", nullptr, &cfg_.pixelViewerOpen);
 			// More to come here...
 			ImGui::EndMenu();
 		}
@@ -1176,6 +1178,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawSchedulerView(cfg_);
 	}
 
+	if (cfg_.pixelViewerOpen) {
+		pixelViewer_.Draw(cfg_, control, gpuDebug, draw);
+	}
+
 	for (int i = 0; i < 4; i++) {
 		if (cfg_.memViewOpen[i]) {
 			mem_[i].Draw(mipsDebug, cfg_, control, i);
@@ -1219,6 +1225,11 @@ void ImDebugger::Snapshot(MIPSState *mips) {
 	newSnapshot_.lo = mips->lo;
 	newSnapshot_.hi = mips->hi;
 	newSnapshot_.ll = mips->llBit;
+	pixelViewer_.Snapshot();
+}
+
+void ImDebugger::SnapshotGPU(GPUDebugInterface *gpuDebug) {
+	pixelViewer_.Snapshot();
 }
 
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {
@@ -1532,6 +1543,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
+	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);
