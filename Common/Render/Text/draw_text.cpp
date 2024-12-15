@@ -167,6 +167,9 @@ void TextDrawer::MeasureStringRect(std::string_view str, const Bounds &bounds, f
 }
 
 void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
+	if (bounds.w < 0.0f || bounds.h < 0.0f) {
+		return;
+	}
 	float x = bounds.x;
 	float y = bounds.y;
 	if (align & ALIGN_HCENTER) {

@@ -99,12 +99,25 @@ private:
 	u32 gotoAddr_ = 0x08800000;
 };
 
+// Snapshot of the MIPS CPU and other things we want to show diffs off.
+struct ImSnapshotState {
+	u32 gpr[32];
+	float fpr[32];
+	float vpr[128];
+	u32 pc;
+	u32 lo;
+	u32 hi;
+	u32 ll;
+};
+
 struct ImConfig {
 	// Defaults for saved settings are set in SyncConfig.
 
 	bool disasmOpen;
 	bool demoOpen;
-	bool regsOpen;
+	bool gprOpen;
+	bool fprOpen;
+	bool vfpuOpen;
 	bool threadsOpen;
 	bool callstackOpen;
 	bool breakpointsOpen;
@@ -173,7 +186,7 @@ public:
 
 	// Should be called just before starting a step or run, so that things can
 	// save state that they can later compare with, to highlight changes.
-	void Snapshot();
+	void Snapshot(MIPSState *mips);
 
 private:
 	Path ConfigPath();
@@ -185,6 +198,9 @@ private:
 	ImGeStateWindow geStateWindow_;
 	ImMemWindow mem_[4];  // We support 4 separate instances of the memory viewer.
 	ImStructViewer structViewer_;
+
+	ImSnapshotState newSnapshot_;
+	ImSnapshotState snapshot_;
 
 	int lastCpuStepCount_ = -1;
 	int lastGpuStepCount_ = -1;

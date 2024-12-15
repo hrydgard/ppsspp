@@ -10,6 +10,9 @@ struct ImControl;
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 
+constexpr ImU32 ImDebuggerColor_Diff = IM_COL32(255, 96, 32, 255);
+constexpr ImU32 ImDebuggerColor_DiffAlpha = IM_COL32(255, 96, 32, 128);
+
 void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);
 void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache);
 void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManager);

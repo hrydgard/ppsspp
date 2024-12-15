@@ -71,6 +71,7 @@ static int bufferLevel;
 static bool lastWasFramebuffer;
 static u32 pauseSetCmdValue;
 
+// This is used only to highlight differences. Should really be owned by the debugger.
 static GPUgstate lastGState;
 
 const char *PauseActionToString(PauseAction action) {
@@ -161,21 +162,6 @@ void WaitForPauseAction() {
 	actionWait.wait(guard);
 }
 
-static void StartStepping() {
-	if (lastGState.cmdmem[1] == 0) {
-		lastGState = gstate;
-		// Play it safe so we don't keep resetting.
-		lastGState.cmdmem[1] |= 0x01000000;
-	}
-	isStepping = true;
-	stepCounter++;
-}
-
-static void StopStepping() {
-	lastGState = gstate;
-	isStepping = false;
-}
-
 bool ProcessStepping() {
 	_dbg_assert_(gpuDebug);
 
@@ -215,7 +201,15 @@ bool EnterStepping() {
 		return false;
 	}
 
-	StartStepping();
+	// StartStepping
+	if (lastGState.cmdmem[1] == 0) {
+		lastGState = gstate;
+		// Play it safe so we don't keep resetting.
+		lastGState.cmdmem[1] |= 0x01000000;
+	}
+
+	isStepping = true;
+	stepCounter++;
 
 	// Just to be sure.
 	if (pauseAction == PAUSE_CONTINUE) {
@@ -227,7 +221,8 @@ bool EnterStepping() {
 }
 
 void ResumeFromStepping() {
-	StopStepping();
+	lastGState = gstate;
+	isStepping = false;
 	SetPauseAction(PAUSE_CONTINUE, false);
 }
 
@@ -300,7 +295,7 @@ bool GPU_FlushDrawing() {
 	return true;
 }
 
-GPUgstate LastState() {
+const GPUgstate &LastState() {
 	return lastGState;
 }
 

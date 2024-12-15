@@ -46,5 +46,6 @@ namespace GPUStepping {
 	bool GPU_SetCmdValue(u32 op);
 	bool GPU_FlushDrawing();
 
-	GPUgstate LastState();
+	// Can be used to highlight differences in a debugger.
+	const GPUgstate &LastState();
 };
