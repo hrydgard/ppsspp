@@ -37,6 +37,7 @@ struct DisplayList;
 namespace GPURecord {
 class Recorder;
 }
+class GPUBreakpoints;
 
 struct GPUDebugOp {
 	u32 pc;
@@ -244,6 +245,7 @@ public:
 	virtual const DisplayList &GetDisplayList(int index) = 0;
 
 	virtual GPURecord::Recorder *GetRecorder() = 0;
+	virtual GPUBreakpoints *GetBreakpoints() = 0;
 
 	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;

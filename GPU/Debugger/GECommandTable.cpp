@@ -417,23 +417,3 @@ const GECmdInfo &GECmdInfoByCmd(GECommand reg) {
 	_assert_msg_((reg & 0xFF) == reg, "Invalid reg");
 	return geCmdInfo[reg & 0xFF];
 }
-
-bool ToggleBreakpoint(const GECmdInfo &info) {
-	using namespace GPUBreakpoints;
-	if (IsCmdBreakpoint(info.cmd)) {
-		RemoveCmdBreakpoint(info.cmd);
-		if (info.otherCmd)
-			RemoveCmdBreakpoint(info.otherCmd);
-		if (info.otherCmd2)
-			RemoveCmdBreakpoint(info.otherCmd2);
-		return false;
-	}
-
-	AddCmdBreakpoint(info.cmd);
-	if (info.otherCmd)
-		AddCmdBreakpoint(info.otherCmd);
-	if (info.otherCmd2)
-		AddCmdBreakpoint(info.otherCmd2);
-	return true;
-}
-

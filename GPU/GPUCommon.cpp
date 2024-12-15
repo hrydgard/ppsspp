@@ -632,7 +632,7 @@ void GPUCommon::PSPFrame() {
 bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
-		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc);
+		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc, &breakpoints_);
 
 		if (result == GPUDebug::NotifyResult::Execute) {
 			recorder_.NotifyCommand(list.pc);
@@ -791,7 +791,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
 			debugRecording_ = recorder_.IsActive();
-			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter());
+			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints());
 		} else {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed
@@ -882,7 +882,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 bool GPUCommon::ShouldSplitOverGe() const {
 	// Check for debugger active.
 	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
-	return GPUDebug::NeedsSlowInterpreter();
+	return GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints();
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {

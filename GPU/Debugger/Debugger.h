@@ -36,7 +36,7 @@ enum class BreakNext {
 
 bool NeedsSlowInterpreter();
 
-void SetBreakNext(BreakNext next);
+void SetBreakNext(BreakNext next, GPUBreakpoints *breakpoints);
 void SetBreakCount(int c, bool relative = false);
 BreakNext GetBreakNext();
 const char *BreakNextToString(BreakNext next);
@@ -48,7 +48,7 @@ enum class NotifyResult {
 };
 
 // While debugging is active, these may block.
-NotifyResult NotifyCommand(u32 pc);
+NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints);
 void NotifyFlush();
 void NotifyDisplay(u32 framebuf, u32 stride, int format);
 void NotifyBeginFrame();

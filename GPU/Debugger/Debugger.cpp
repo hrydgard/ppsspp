@@ -58,7 +58,7 @@ const char *BreakNextToString(BreakNext next) {
 }
 
 bool NeedsSlowInterpreter() {
-	return breakNext != BreakNext::NONE || GPUBreakpoints::g_hasBreakpoints;
+	return breakNext != BreakNext::NONE;
 }
 
 void ClearBreak() {
@@ -72,19 +72,19 @@ BreakNext GetBreakNext() {
 	return breakNext;
 }
 
-void SetBreakNext(BreakNext next) {
+void SetBreakNext(BreakNext next, GPUBreakpoints *breakpoints) {
 	breakNext = next;
 	breakAtCount = -1;
 	if (next == BreakNext::TEX) {
-		GPUBreakpoints::AddTextureChangeTempBreakpoint();
+		breakpoints->AddTextureChangeTempBreakpoint();
 	} else if (next == BreakNext::PRIM || next == BreakNext::COUNT) {
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_PRIM, true);
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_VAP, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_PRIM, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_SPLINE, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_VAP, true);
 	} else if (next == BreakNext::CURVE) {
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
-		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		breakpoints->AddCmdBreakpoint(GE_CMD_SPLINE, true);
 	} else if (next == BreakNext::DRAW) {
 		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
 		// This will take us to the following actual draw.
@@ -105,7 +105,7 @@ void SetBreakCount(int c, bool relative) {
 	}
 }
 
-NotifyResult NotifyCommand(u32 pc) {
+NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints) {
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
 	if (thisFlipNum != gpuStats.numFlips) {
@@ -134,8 +134,8 @@ NotifyResult NotifyCommand(u32 pc) {
 		isBreakpoint = true;
 	} else if (breakNext == BreakNext::COUNT) {
 		isBreakpoint = primsThisFrame == breakAtCount;
-	} else if (GPUBreakpoints::g_hasBreakpoints) {
-		isBreakpoint = GPUBreakpoints::IsBreakpoint(pc, op);
+	} else if (breakpoints->HasBreakpoints()) {
+		isBreakpoint = breakpoints->IsBreakpoint(pc, op);
 	}
 
 	if (isBreakpoint && pc == g_skipPcOnce) {
@@ -146,7 +146,7 @@ NotifyResult NotifyCommand(u32 pc) {
 	g_skipPcOnce = 0;
 
 	if (isBreakpoint) {
-		GPUBreakpoints::ClearTempBreakpoints();
+		breakpoints->ClearTempBreakpoints();
 
 		if (coreState == CORE_POWERDOWN || !gpuDebug) {
 			breakNext = BreakNext::NONE;
@@ -176,7 +176,7 @@ void NotifyFlush() {
 			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
 			g_primAfterDraw = false;
 			// Switch to PRIM mode.
-			SetBreakNext(BreakNext::PRIM);
+			SetBreakNext(BreakNext::PRIM, gpuDebug->GetBreakpoints());
 		}
 	}
 }

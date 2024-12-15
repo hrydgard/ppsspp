@@ -56,7 +56,6 @@
 #include "GPU/Debugger/State.h"
 #include "GPU/Debugger/Stepping.h"
 
-using namespace GPUBreakpoints;
 using namespace GPUStepping;
 
 enum PrimaryDisplayType {
@@ -136,7 +135,7 @@ StepCountDlg::~StepCountDlg() {
 void StepCountDlg::Jump(int count, bool relative) {
 	if (relative && count == 0)
 		return;
-	GPUDebug::SetBreakNext(GPUDebug::BreakNext::COUNT);
+	GPUDebug::SetBreakNext(GPUDebug::BreakNext::COUNT, gpuDebug->GetBreakpoints());
 	GPUDebug::SetBreakCount(count, relative);
 };
 
@@ -680,9 +679,9 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_, &primaryIsFramebuffer_);
 		flags = TexturePreviewFlags(state);
 		if (bufferResult) {
-			UpdateLastTexture(state.getTextureAddress(textureLevel_));
+			gpuDebug->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
-			UpdateLastTexture((u32)-1);
+			gpuDebug->GetBreakpoints()->UpdateLastTexture((u32)-1);
 		}
 	} else {
 		switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
@@ -733,9 +732,9 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 	} else {
 		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_, &secondIsFramebuffer_);
 		if (bufferResult) {
-			UpdateLastTexture(state.getTextureAddress(textureLevel_));
+			gpuDebug->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
-			UpdateLastTexture((u32)-1);
+			gpuDebug->GetBreakpoints()->UpdateLastTexture((u32)-1);
 		}
 	}
 
@@ -990,31 +989,31 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEP:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPTEX:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPFRAME:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPVSYNC:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::VSYNC);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::VSYNC, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPPRIM:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPCURVE:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
@@ -1030,10 +1029,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				u32 texAddr = state.getTextureAddress(textureLevel_);
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
-					if (IsTextureBreakpoint(texAddr)) {
-						RemoveTextureBreakpoint(texAddr);
+					if (gpuDebug->GetBreakpoints()->IsTextureBreakpoint(texAddr)) {
+						gpuDebug->GetBreakpoints()->RemoveTextureBreakpoint(texAddr);
 					} else {
-						AddTextureBreakpoint(texAddr);
+						gpuDebug->GetBreakpoints()->AddTextureBreakpoint(texAddr);
 					}
 				}
 			}
@@ -1048,10 +1047,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				u32 fbAddr = state.getFrameBufRawAddress();
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Framebuffer Address", fbAddr, fbAddr)) {
-					if (IsRenderTargetBreakpoint(fbAddr)) {
-						RemoveRenderTargetBreakpoint(fbAddr);
+					if (gpuDebug->GetBreakpoints()->IsRenderTargetBreakpoint(fbAddr)) {
+						gpuDebug->GetBreakpoints()->RemoveRenderTargetBreakpoint(fbAddr);
 					} else {
-						AddRenderTargetBreakpoint(fbAddr);
+						gpuDebug->GetBreakpoints()->AddRenderTargetBreakpoint(fbAddr);
 					}
 				}
 			}
@@ -1079,7 +1078,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE);
+			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE, gpuDebug->GetBreakpoints());
 			break;
 
 		case IDC_GEDBG_RECORD:
@@ -1127,24 +1126,24 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP);
+		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
 			u32 pc = (u32)wParam;
 			bool temp;
-			bool isBreak = IsAddressBreakpoint(pc, temp);
+			bool isBreak = gpuDebug->GetBreakpoints()->IsAddressBreakpoint(pc, temp);
 			if (isBreak && !temp) {
-				if (GetAddressBreakpointCond(pc, nullptr)) {
+				if (gpuDebug->GetBreakpoints()->GetAddressBreakpointCond(pc, nullptr)) {
 					int ret = MessageBox(m_hDlg, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 					if (ret == IDYES)
-						RemoveAddressBreakpoint(pc);
+						gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(pc);
 				} else {
-					RemoveAddressBreakpoint(pc);
+					gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(pc);
 				}
 			} else {
-				AddAddressBreakpoint(pc);
+				gpuDebug->GetBreakpoints()->AddAddressBreakpoint(pc);
 			}
 		}
 		break;
@@ -1152,7 +1151,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GEDBG_RUNTOWPARAM:
 		{
 			u32 pc = (u32)wParam;
-			AddAddressBreakpoint(pc, true);
+			gpuDebug->GetBreakpoints()->AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
 		}
 		break;

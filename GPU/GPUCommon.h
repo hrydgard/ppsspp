@@ -13,6 +13,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Record.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"
@@ -381,6 +382,9 @@ public:
 	GPURecord::Recorder *GetRecorder() override {
 		return &recorder_;
 	}
+	GPUBreakpoints *GetBreakpoints() override {
+		return &breakpoints_;
+	}
 
 protected:
 	virtual void ClearCacheNextFrame() {}
@@ -507,6 +511,7 @@ protected:
 	std::string reportingFullInfo_;
 
 	GPURecord::Recorder recorder_;
+	GPUBreakpoints breakpoints_;
 
 private:
 	void DoExecuteCall(u32 target);

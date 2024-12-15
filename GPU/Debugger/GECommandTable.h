@@ -130,5 +130,3 @@ struct GECmdInfo {
 
 bool GECmdInfoByName(const char *name, GECmdInfo &info);
 const GECmdInfo &GECmdInfoByCmd(GECommand reg);
-
-bool ToggleBreakpoint(const GECmdInfo &info);
