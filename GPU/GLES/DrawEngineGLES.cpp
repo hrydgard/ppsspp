@@ -230,7 +230,10 @@ void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-void DrawEngineGLES::DoFlush() {
+void DrawEngineGLES::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	VShaderID vsid;

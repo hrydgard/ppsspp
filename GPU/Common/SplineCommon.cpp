@@ -580,7 +580,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);
 
 	if (flushOnParams_)
-		DispatchFlush();
+		Flush();
 
 	if (origVertType & GE_VTYPE_TC_MASK) {
 		gstate_c.uv = prevUVScale;

@@ -66,7 +66,7 @@ void SoftwareDrawEngine::NotifyConfigChanged() {
 	decOptions_.applySkinInDecode = true;
 }
 
-void SoftwareDrawEngine::DispatchFlush() {
+void SoftwareDrawEngine::Flush() {
 	transformUnit.Flush("debug");
 }
 

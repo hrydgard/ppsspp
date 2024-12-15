@@ -3256,7 +3256,7 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 		// all the irrelevant state checking it'll use to decide what to do. Should
 		// do something more focused here.
 		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-		drawEngine_->DispatchFlush();
+		drawEngine_->Flush();
 	}
 }
 

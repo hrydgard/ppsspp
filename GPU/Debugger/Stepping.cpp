@@ -143,7 +143,7 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_FLUSHDRAW:
-		gpuDebug->DispatchFlush();
+		gpuDebug->Flush();
 		break;
 
 	default:

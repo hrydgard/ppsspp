@@ -123,26 +123,13 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	// So that this can be inlined
-	void Flush() {
-		if (!numDrawInds_)
-			return;
-		DoFlush();
-	}
+	void Flush() override;
 
 	void FinishDeferred() {
-		if (!numDrawInds_)
-			return;
 		// Decode any pending vertices. And also flush while we're at it, for simplicity.
 		// It might be possible to only decode like in the other backends, but meh, it can't matter.
 		// Issue #10095 has a nice example of where this is required.
-		DoFlush();
-	}
-
-	void DispatchFlush() override {
-		if (!numDrawInds_)
-			return;
-		DoFlush();
+		Flush();
 	}
 
 	VKRPipelineLayout *GetPipelineLayout() const {
@@ -183,7 +170,6 @@ private:
 
 	void DestroyDeviceObjects();
 
-	void DoFlush();
 	void UpdateUBOs();
 
 	NO_INLINE void ResetAfterDraw();

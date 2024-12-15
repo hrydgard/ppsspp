@@ -252,8 +252,10 @@ void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls_ == 0
-void DrawEngineD3D11::DoFlush() {
+void DrawEngineD3D11::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();

@@ -47,11 +47,7 @@
 #include "GPU/Debugger/Stepping.h"
 
 void GPUCommon::Flush() {
-	drawEngineCommon_->DispatchFlush();
-}
-
-void GPUCommon::DispatchFlush() {
-	drawEngineCommon_->DispatchFlush();
+	drawEngineCommon_->Flush();
 }
 
 GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
@@ -1348,7 +1344,7 @@ void GPUCommon::FlushImm() {
 	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
 	changed = changed || prevShading != shading || prevFog != fog;
 	if (changed) {
-		DispatchFlush();
+		Flush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
@@ -1363,7 +1359,7 @@ void GPUCommon::FlushImm() {
 	immFirstSent_ = true;
 
 	if (changed) {
-		DispatchFlush();
+		Flush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)prevAntialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)prevShading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)prevCullEnable;

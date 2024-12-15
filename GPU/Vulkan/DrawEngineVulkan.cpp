@@ -216,7 +216,11 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 }
 
 // The inline wrapper in the header checks for numDrawCalls_ == 0
-void DrawEngineVulkan::DoFlush() {
+void DrawEngineVulkan::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
+
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	renderManager->AssertInRenderPass();

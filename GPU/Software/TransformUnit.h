@@ -177,7 +177,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw) override {}
 
 	void NotifyConfigChanged() override;
-	void DispatchFlush() override;
+	void Flush() override;
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, bool clockwise, int *bytesRead) override;
 	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
