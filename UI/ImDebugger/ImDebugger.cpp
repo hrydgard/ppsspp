@@ -125,7 +125,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 
 static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS GPRs", &config.vfpuOpen)) {
+	if (!ImGui::Begin("MIPS GPRs", &config.gprOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -962,6 +962,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		// A GPU step has happened since last time. This means that we should re-center the cursor.
 		// Snapshot();
 		lastGpuStepCount_ = GPUStepping::GetSteppingCounter();
+		SnapshotGPU(gpuDebug);
 		geDebugger_.NotifyStep();
 	}
 
@@ -1224,6 +1225,11 @@ void ImDebugger::Snapshot(MIPSState *mips) {
 	newSnapshot_.lo = mips->lo;
 	newSnapshot_.hi = mips->hi;
 	newSnapshot_.ll = mips->llBit;
+	pixelViewer_.Snapshot();
+}
+
+void ImDebugger::SnapshotGPU(GPUDebugInterface *gpuDebug) {
+	pixelViewer_.Snapshot();
 }
 
 void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, int index) {

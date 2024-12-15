@@ -188,6 +188,7 @@ public:
 	// Should be called just before starting a step or run, so that things can
 	// save state that they can later compare with, to highlight changes.
 	void Snapshot(MIPSState *mips);
+	void SnapshotGPU(GPUDebugInterface *mips);
 
 private:
 	Path ConfigPath();

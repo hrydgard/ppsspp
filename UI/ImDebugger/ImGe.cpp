@@ -150,6 +150,14 @@ void ImGePixelViewer::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 		if (ImGui::InputScalar("Stride", ImGuiDataType_U16, &stride_)) {
 			dirty_ = true;
 		}
+		if (format_ == GE_FORMAT_DEPTH16) {
+			if (ImGui::SliderFloat("Scale", &scale_, 0.5f, 256.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
+				dirty_ = true;
+			}
+		}
+		if (ImGui::Button("Refresh")) {
+			dirty_ = true;
+		}
 	}
 	ImGui::EndChild();
 
@@ -232,18 +240,29 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 			ConvertRGBA4444ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
 			break;
 		case GE_FORMAT_DEPTH16:
+		{
+			uint16_t *src16 = (uint16_t *)src;
+			float scale = scale_ / 256.0f;
 			for (int x = 0; x < width_; x++) {
 				// Just pick off the upper bits by adding 1 to the byte address
 				// We don't visualize the lower bits for now, although we could - should add a scale slider like RenderDoc.
-				u8 val = src[x + 1];
+				float fval = (float)src16[x] * scale;
+				u8 val;
+				if (fval < 0.0f) {
+					val = 0;
+				} else if (fval >= 255.0f) {
+					val = 255;
+				} else {
+					val = (u8)fval;
+				}
 				dst[0] = val;
 				dst[1] = val;
 				dst[2] = val;
 				dst[3] = 0xFF;
-				src += 2;
 				dst += 4;
 			}
 			break;
+		}
 		default:
 			memset(buf, 0x80, width_ * height_ * 4);
 			break;
@@ -719,7 +738,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::Text("(texturing not enabled");
 		} else {
 			TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-			TexCacheEntry *tex = texcache->SetTexture();
+			TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
 			if (tex) {
 				ImGui::Text("Texture: ");
 				texcache->ApplyTexture();
@@ -743,6 +762,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				drawList->PopClipRect();
 			} else {
 				ImGui::Text("(no valid texture bound)");
+				// In software mode, we should just decode the texture here.
 				// TODO: List some of the texture params here.
 			}
 		}
@@ -995,7 +1015,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 
 							// Special handling for pointer and pointer/width entries - create an address control
 							if (info.fmt == CMD_FMT_PTRWIDTH) {
-								const u32 val = value | (otherValue & 0x00FF0000) << 8;
+								const u32 val = (value & 0xFFFFFF) | (otherValue & 0x00FF0000) << 8;
 								ImClickableAddress(val, control, ImCmd::NONE);
 								ImGui::SameLine();
 								ImGui::Text("w=%d", otherValue & 0xFFFF);

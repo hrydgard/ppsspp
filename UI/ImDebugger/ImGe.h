@@ -74,10 +74,11 @@ public:
 private:
 	void UpdateTexture(Draw::DrawContext *draw);
 	Draw::Texture *texture_ = nullptr;
-	GEBufferFormat format_;
+	GEBufferFormat format_ = GE_FORMAT_565;
 	bool dirty_ = true;
 	bool useAlpha_ = false;
 	bool showAlpha_ = false;
+	float scale_ = 1.0f;
 	uint32_t addr_ = 0x04000000;
 	uint16_t stride_ = 512;
 	uint16_t width_ = 480;
