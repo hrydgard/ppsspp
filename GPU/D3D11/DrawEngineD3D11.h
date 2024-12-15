@@ -77,23 +77,10 @@ public:
 
 	void BeginFrame();
 
-	// So that this can be inlined
-	void Flush() {
-		if (!numDrawVerts_)
-			return;
-		DoFlush();
-	}
+	void Flush() override;
 
 	void FinishDeferred() {
-		if (!numDrawVerts_)
-			return;
 		DecodeVerts(decoded_);
-	}
-
-	void DispatchFlush() override {
-		if (!numDrawVerts_)
-			return;
-		Flush();
 	}
 
 	void NotifyConfigChanged() override;
@@ -102,8 +89,6 @@ public:
 
 private:
 	void Invalidate(InvalidationCallbackFlags flags);
-
-	void DoFlush();
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);

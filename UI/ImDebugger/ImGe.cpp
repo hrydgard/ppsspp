@@ -150,7 +150,8 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 		if (Memory::IsValid4AlignedAddress(addr)) {
 			draw_list->AddText(lineStart, 0xFFC0C0C0, addrBuffer);
 
-			GPUDebugOp op = gpuDebug->DisassembleOp(addr);
+			u32 opcode = Memory::Read_U32(addr);
+			GPUDebugOp op = gpuDebug->DisassembleOp(addr, opcode);
 			u32 color = 0xFFFFFFFF;
 			char temp[16];
 			snprintf(temp, sizeof(temp), "%08x", op.op);
@@ -212,7 +213,8 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 			}
 		} else if (Memory::IsValid4AlignedAddress(dragAddr_)) {
 			char buffer[64];
-			GPUDebugOp op = gpuDebug->DisassembleOp(pc);
+			u32 opcode = Memory::Read_U32(dragAddr_);
+			GPUDebugOp op = gpuDebug->DisassembleOp(dragAddr_, opcode);
 			// affect dragAddr_?
 			if (ImGui::MenuItem("Copy Address", NULL, false)) {
 				snprintf(buffer, sizeof(buffer), "%08x", dragAddr_);
@@ -359,34 +361,34 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	//	GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
 	//}
 
-	bool disableStepButtons = GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE;
+	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE;
 
 	if (disableStepButtons) {
 		ImGui::BeginDisabled();
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Tex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("NonTex")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONTEX, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::NONTEX);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Prim")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Draw")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Curve")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Single step")) {
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
 	if (disableStepButtons) {
 		ImGui::EndDisabled();
@@ -406,15 +408,15 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	}
 
 	// Display any pending step event.
-	if (GPUDebug::GetBreakNext() != GPUDebug::BreakNext::NONE) {
+	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE) {
 		if (showBannerInFrames_ > 0) {
 			showBannerInFrames_--;
 		}
 		if (showBannerInFrames_ == 0) {
-			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(GPUDebug::GetBreakNext()));
+			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
 			ImGui::SameLine();
 			if (ImGui::Button("Cancel step")) {
-				GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE, gpuDebug->GetBreakpoints());
+				gpuDebug->ClearBreakNext();
 			}
 		}
 	} else {

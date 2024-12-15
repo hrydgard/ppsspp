@@ -68,22 +68,10 @@ public:
 	void BeginFrame();
 
 	// So that this can be inlined
-	void Flush() {
-		if (!numDrawVerts_)
-			return;
-		DoFlush();
-	}
+	void Flush() override;
 
 	void FinishDeferred() {
-		if (!numDrawVerts_)
-			return;
 		DecodeVerts(decoded_);
-	}
-
-	void DispatchFlush() override {
-		if (!numDrawVerts_)
-			return;
-		Flush();
 	}
 
 protected:
@@ -92,7 +80,6 @@ protected:
 
 private:
 	void Invalidate(InvalidationCallbackFlags flags);
-	void DoFlush();
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();

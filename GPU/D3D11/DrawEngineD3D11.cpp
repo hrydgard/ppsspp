@@ -252,8 +252,10 @@ void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls_ == 0
-void DrawEngineD3D11::DoFlush() {
+void DrawEngineD3D11::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -465,10 +467,6 @@ void DrawEngineD3D11::DoFlush() {
 			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::FBChannel::FB_STENCIL_BIT;
 			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::FBChannel::FB_DEPTH_BIT;
 
-			if (clearFlag & Draw::FBChannel::FB_COLOR_BIT) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
-
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
 
@@ -485,7 +483,7 @@ void DrawEngineD3D11::DoFlush() {
 
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-	GPUDebug::NotifyFlush();
+	gpuCommon_->NotifyFlush();
 }
 
 TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)

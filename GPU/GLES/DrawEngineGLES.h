@@ -85,21 +85,8 @@ public:
 	void EndFrame();
 
 	// So that this can be inlined
-	void Flush() {
-		if (!numDrawVerts_)
-			return;
-		DoFlush();
-	}
-
+	void Flush() override;
 	void FinishDeferred() {
-		if (!numDrawVerts_)
-			return;
-		DoFlush();
-	}
-
-	void DispatchFlush() override {
-		if (!numDrawVerts_)
-			return;
 		Flush();
 	}
 

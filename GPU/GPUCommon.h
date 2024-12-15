@@ -14,6 +14,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"
@@ -305,9 +306,7 @@ public:
 
 	static int EstimatePerVertexCost();
 
-	// Note: Not virtual!
 	void Flush();
-	void DispatchFlush() override;
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -386,7 +385,29 @@ public:
 		return &breakpoints_;
 	}
 
+	void ClearBreakNext() override;
+	void SetBreakNext(GPUDebug::BreakNext next) override;
+	void SetBreakCount(int c, bool relative = false) override;
+	GPUDebug::BreakNext GetBreakNext() override;
+	bool SetRestrictPrims(std::string_view rule) override;
+	const char *GetRestrictPrims() override;
+
+	int PrimsThisFrame() const override {
+		return primsThisFrame;
+	}
+	int PrimsLastFrame() const override {
+		return primsLastFrame;
+	}
+
+	void NotifyFlush();
+
 protected:
+	// While debugging is active, these may block.
+	void NotifyDisplay(u32 framebuf, u32 stride, int format);
+
+	bool NeedsSlowInterpreter() const;
+	GPUDebug::NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints);
+
 	virtual void ClearCacheNextFrame() {}
 
 	virtual void CheckRenderResized() {}
@@ -469,7 +490,6 @@ protected:
 	bool dumpNextFrame_ = false;
 	bool dumpThisFrame_ = false;
 	bool useFastRunLoop_ = false;
-	bool debugRecording_ = false;
 	bool interruptsEnabled_ = false;
 	bool displayResized_ = false;
 	bool renderResized_ = false;
@@ -510,8 +530,25 @@ protected:
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
 
+	// Debugging state
+	bool debugRecording_ = false;
+
 	GPURecord::Recorder recorder_;
 	GPUBreakpoints breakpoints_;
+
+	GPUDebug::BreakNext breakNext = GPUDebug::BreakNext::NONE;
+	int breakAtCount = -1;
+
+	int primsLastFrame = 0;
+	int primsThisFrame = 0;
+	int thisFlipNum = 0;
+
+	bool primAfterDraw_ = false;
+
+	uint32_t g_skipPcOnce = 0;
+
+	std::vector<std::pair<int, int>> restrictPrimRanges;
+	std::string restrictPrimRule;
 
 private:
 	void DoExecuteCall(u32 target);

@@ -13,6 +13,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Debugger/Debugger.h"
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -512,7 +513,8 @@ void GPUCommonHW::BeginHostFrame() {
 }
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format, &recorder_);
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+	NotifyDisplay(framebuf, stride, format);
 }
 
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
@@ -521,7 +523,7 @@ void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(Log::G3D, "================ FLUSH ================");
 		}
-		drawEngineCommon_->DispatchFlush();
+		drawEngineCommon_->Flush();
 	}
 }
 
@@ -531,7 +533,7 @@ void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {
 
 void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
-	drawEngineCommon_->DispatchFlush();
+	drawEngineCommon_->Flush();
 
 	shaderManager_->DirtyLastShader();
 
@@ -847,7 +849,7 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 		} else {
 			uint64_t flags = info.flags;
 			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
-				drawEngineCommon_->DispatchFlush();
+				drawEngineCommon_->Flush();
 			}
 			gstate.cmdmem[cmd] = op;
 			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
@@ -1253,7 +1255,7 @@ bail:
 		// flush back cull mode
 		if (cullMode != gstate.getCullMode()) {
 			// We rewrote everything to the old cull mode, so flush first.
-			drawEngineCommon_->DispatchFlush();
+			drawEngineCommon_->Flush();
 
 			// Now update things for next time.
 			gstate.cmdmem[GE_CMD_CULL] ^= 1;
@@ -1300,7 +1302,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
 	if (flushOnParams_)
-		drawEngineCommon_->DispatchFlush();
+		drawEngineCommon_->Flush();
 
 	Spline::BezierSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();
@@ -1372,7 +1374,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
 	if (flushOnParams_)
-		drawEngineCommon_->DispatchFlush();
+		drawEngineCommon_->Flush();
 
 	Spline::SplineSurface surface;
 	surface.tess_u = gstate.getPatchDivisionU();

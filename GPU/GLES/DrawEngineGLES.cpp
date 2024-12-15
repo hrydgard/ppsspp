@@ -230,7 +230,10 @@ void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-void DrawEngineGLES::DoFlush() {
+void DrawEngineGLES::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	VShaderID vsid;
@@ -434,7 +437,6 @@ void DrawEngineGLES::DoFlush() {
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH);
-			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate_c.framebufFormat == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
@@ -451,7 +453,7 @@ void DrawEngineGLES::DoFlush() {
 bail:
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-	GPUDebug::NotifyFlush();
+	gpuCommon_->NotifyFlush();
 }
 
 // TODO: Refactor this to a single USE flag.

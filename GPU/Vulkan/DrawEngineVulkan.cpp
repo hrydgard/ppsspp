@@ -216,7 +216,11 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 }
 
 // The inline wrapper in the header checks for numDrawCalls_ == 0
-void DrawEngineVulkan::DoFlush() {
+void DrawEngineVulkan::Flush() {
+	if (!numDrawVerts_) {
+		return;
+	}
+
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	renderManager->AssertInRenderPass();
@@ -551,9 +555,6 @@ void DrawEngineVulkan::DoFlush() {
 			// Note that since the alpha channel and the stencil channel are shared on the PSP,
 			// when we clear alpha, we also clear stencil to the same value.
 			draw_->Clear(mask, result.color, result.depth, result.color >> 24);
-			if (clearColor || clearAlpha) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				int scissorX1 = gstate.getScissorX1();
 				int scissorY1 = gstate.getScissorY1();
@@ -569,7 +570,7 @@ void DrawEngineVulkan::DoFlush() {
 
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
-	GPUDebug::NotifyFlush();
+	gpuCommon_->NotifyFlush();
 }
 
 void DrawEngineVulkan::ResetAfterDraw() {

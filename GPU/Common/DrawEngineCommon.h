@@ -82,6 +82,11 @@ public:
 	virtual ~DrawEngineCommon();
 
 	void Init();
+
+	void SetGPUCommon(GPUCommon *gpuCommon) {
+		gpuCommon_ = gpuCommon;
+	}
+
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
@@ -89,9 +94,8 @@ public:
 
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
-	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code, which is expensive anyway.
-	// Not really sure if these wrappers are worth it...
-	virtual void DispatchFlush() = 0;
+	// Dispatches the queued-up draws.
+	virtual void Flush() = 0;
 
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
@@ -331,4 +335,6 @@ protected:
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
 	bool offsetOutsideEdge_;
+
+	GPUCommon *gpuCommon_;
 };

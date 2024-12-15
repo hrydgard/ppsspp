@@ -27,6 +27,7 @@
 #include "GPU/GPUDefinitions.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Debugger/Debugger.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -212,9 +213,6 @@ public:
 	virtual void ResetListStall(int listID, u32 stall) = 0;
 	virtual void ResetListState(int listID, DisplayListState state) = 0;
 
-	GPUDebugOp DisassembleOp(u32 pc) {
-		return DisassembleOp(pc, Memory::Read_U32(pc));
-	}
 	virtual GPUDebugOp DisassembleOp(u32 pc, u32 op) = 0;
 	virtual std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) = 0;
 
@@ -225,7 +223,7 @@ public:
 	// Needs to be called from the GPU thread.
 	// Calling from a separate thread (e.g. UI) may fail.
 	virtual void SetCmdValue(u32 op) = 0;
-	virtual void DispatchFlush() = 0;
+	virtual void Flush() = 0;
 
 	virtual void GetStats(char *buffer, size_t bufsize) = 0;
 
@@ -243,6 +241,16 @@ public:
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 	virtual const std::list<int> &GetDisplayListQueue() = 0;
 	virtual const DisplayList &GetDisplayList(int index) = 0;
+
+	virtual int PrimsThisFrame() const = 0;
+	virtual int PrimsLastFrame() const = 0;
+
+	virtual void ClearBreakNext() = 0;
+	virtual void SetBreakNext(GPUDebug::BreakNext next) = 0 ;
+	virtual void SetBreakCount(int c, bool relative = false) = 0 ;
+	virtual GPUDebug::BreakNext GetBreakNext() = 0 ;
+	virtual bool SetRestrictPrims(std::string_view rule) = 0 ;
+	virtual const char *GetRestrictPrims() = 0 ;
 
 	virtual GPURecord::Recorder *GetRecorder() = 0;
 	virtual GPUBreakpoints *GetBreakpoints() = 0;

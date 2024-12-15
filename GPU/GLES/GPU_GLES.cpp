@@ -58,6 +58,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;
 
+	drawEngine_.SetGPUCommon(this);
 	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
 	drawEngine_.SetFramebufferManager(framebufferManagerGL_);

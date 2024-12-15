@@ -45,10 +45,6 @@ static bool isStepping;
 // Number of times we've entered stepping, to detect a resume asynchronously.
 static int stepCounter = 0;
 
-// Debug stats.
-static double g_timeSteppingStarted;
-static double g_timeSpentStepping;
-
 static std::mutex pauseLock;
 static PauseAction pauseAction = PAUSE_CONTINUE;
 static std::mutex actionLock;
@@ -143,7 +139,7 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_FLUSHDRAW:
-		gpuDebug->DispatchFlush();
+		gpuDebug->Flush();
 		break;
 
 	default:

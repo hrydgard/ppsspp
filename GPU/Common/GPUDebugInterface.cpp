@@ -703,10 +703,10 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 		return state.getTransferDstAddress();
 
 	case GEReferenceIndex::PRIMCOUNT:
-		return GPUDebug::PrimsThisFrame();
+		return gpu_->PrimsThisFrame();
 
 	case GEReferenceIndex::LASTPRIMCOUNT:
-		return GPUDebug::PrimsLastFrame();
+		return gpu_->PrimsLastFrame();
 
 	case GEReferenceIndex::TEXADDR0:
 	case GEReferenceIndex::TEXADDR1:

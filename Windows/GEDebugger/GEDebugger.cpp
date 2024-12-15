@@ -135,8 +135,8 @@ StepCountDlg::~StepCountDlg() {
 void StepCountDlg::Jump(int count, bool relative) {
 	if (relative && count == 0)
 		return;
-	GPUDebug::SetBreakNext(GPUDebug::BreakNext::COUNT, gpuDebug->GetBreakpoints());
-	GPUDebug::SetBreakCount(count, relative);
+	gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
+	gpuDebug->SetBreakCount(count, relative);
 };
 
 BOOL StepCountDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -577,7 +577,7 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	wchar_t primCounter[1024]{};
-	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", GPUDebug::PrimsThisFrame(), GPUDebug::PrimsLastFrame());
+	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
 	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 
 	for (GEDebuggerTab &tabState : tabStates_) {
@@ -989,31 +989,31 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::DRAW, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 			break;
 
 		case IDC_GEDBG_STEP:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 			break;
 
 		case IDC_GEDBG_STEPTEX:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::TEX, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
 			break;
 
 		case IDC_GEDBG_STEPFRAME:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::FRAME);
 			break;
 
 		case IDC_GEDBG_STEPVSYNC:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::VSYNC, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::VSYNC);
 			break;
 
 		case IDC_GEDBG_STEPPRIM:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::PRIM, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
 			break;
 
 		case IDC_GEDBG_STEPCURVE:
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::CURVE, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
@@ -1078,7 +1078,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
-			GPUDebug::SetBreakNext(GPUDebug::BreakNext::NONE, gpuDebug->GetBreakpoints());
+			gpuDebug->SetBreakNext(GPUDebug::BreakNext::NONE);
 			break;
 
 		case IDC_GEDBG_RECORD:
@@ -1116,9 +1116,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_SETPRIMFILTER:
 		{
-			std::string value = GPUDebug::GetRestrictPrims();
+			std::string value = gpuDebug->GetRestrictPrims();
 			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", value, value)) {
-				GPUDebug::SetRestrictPrims(value.c_str());
+				gpuDebug->SetRestrictPrims(value.c_str());
 			}
 			break;
 		}
@@ -1126,7 +1126,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
-		GPUDebug::SetBreakNext(GPUDebug::BreakNext::OP, gpuDebug->GetBreakpoints());
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:

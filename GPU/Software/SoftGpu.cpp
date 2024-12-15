@@ -436,6 +436,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (!drawEngine_)
 		return;
 
+	drawEngine_->SetGPUCommon(this);
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
 
@@ -493,8 +494,8 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	displayFramebuf_ = (framebuf & 0xFF000000) == 0 ? 0x44000000 | framebuf : framebuf;
 	displayStride_ = stride;
 	displayFormat_ = format;
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	recorder_.NotifyDisplay(framebuf, stride, format);
+
+	NotifyDisplay(framebuf, stride, format);
 }
 
 DSStretch g_DarkStalkerStretch;
@@ -651,7 +652,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
-	drawEngine_->transformUnit.Flush("output");
+	drawEngine_->transformUnit.Flush(this, "output");
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	MarkDirty(displayFramebuf_, displayStride_, 272, displayFormat_, SoftGPUVRAMDirty::CLEAR);
@@ -839,10 +840,10 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	// Need to flush both source and target, so we overwrite properly.
 	if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
-		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", false, src, srcStride, width * bpp, height);
-		drawEngine_->transformUnit.FlushIfOverlap("blockxfer", true, dst, dstStride, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", false, src, srcStride, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", true, dst, dstStride, width * bpp, height);
 	} else {
-		drawEngine_->transformUnit.Flush("blockxfer_wrap");
+		drawEngine_->transformUnit.Flush(this, "blockxfer_wrap");
 	}
 
 	DoBlockTransfer(gstate_c.skipDrawReason);
@@ -1004,7 +1005,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 		clutTotalBytes = 1024;
 
 	// Might be copying drawing into the CLUT, so flush.
-	drawEngine_->transformUnit.FlushIfOverlap("loadclut", false, clutAddr, clutTotalBytes, clutTotalBytes, 1);
+	drawEngine_->transformUnit.FlushIfOverlap(this, "loadclut", false, clutAddr, clutTotalBytes, clutTotalBytes, 1);
 
 	bool changed = false;
 	if (Memory::IsValidAddress(clutAddr)) {
@@ -1032,7 +1033,7 @@ void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
 void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 	// We assume fb.data won't change while we're drawing.
 	if (diff) {
-		drawEngine_->transformUnit.Flush("framebuf");
+		drawEngine_->transformUnit.Flush(this, "framebuf");
 		fb.data = Memory::GetPointerWrite(gstate.getFrameBufAddress());
 	}
 }
@@ -1040,7 +1041,7 @@ void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
 	if (diff)
-		drawEngine_->transformUnit.Flush("framebuf");
+		drawEngine_->transformUnit.Flush(this, "framebuf");
 }
 
 void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
@@ -1051,7 +1052,7 @@ void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
 	if (diff) {
-		drawEngine_->transformUnit.Flush("depthbuf");
+		drawEngine_->transformUnit.Flush(this, "depthbuf");
 		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
 		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
 		depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress() & 0x041FFFF0);
@@ -1272,18 +1273,18 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 
 void SoftGPU::FinishDeferred() {
 	// Need to flush before going back to CPU, so drawing is appropriately visible.
-	drawEngine_->transformUnit.Flush("finish");
+	drawEngine_->transformUnit.Flush(this, "finish");
 }
 
 int SoftGPU::ListSync(int listid, int mode) {
 	// Take this as a cue that we need to finish drawing.
-	drawEngine_->transformUnit.Flush("listsync");
+	drawEngine_->transformUnit.Flush(this, "listsync");
 	return GPUCommon::ListSync(listid, mode);
 }
 
 u32 SoftGPU::DrawSync(int mode) {
 	// Take this as a cue that we need to finish drawing.
-	drawEngine_->transformUnit.Flush("drawsync");
+	drawEngine_->transformUnit.Flush(this, "drawsync");
 	return GPUCommon::DrawSync(mode);
 }
 
