@@ -89,93 +89,97 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	ImGui::End();
 }
 
-ImGePixelViewer::~ImGePixelViewer() {
-	texture_->Release();
-}
-
-void ImGePixelViewer::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
-	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
+void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+	ImGui::SetNextWindowSize(ImVec2(600, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Pixel Viewer", &cfg.pixelViewerOpen)) {
 		ImGui::End();
 		return;
 	}
 
-	if (dirty_) {
-		UpdateTexture(draw);
-		dirty_ = false;
-	}
-
 	if (gpuDebug->GetFramebufferManagerCommon()) {
-		if (gpuDebug->GetFramebufferManagerCommon()->GetVFBAt(addr_)) {
-			ImGui::Text("NOTE: There's a hardware framebuffer at %08x.", addr_);
+		if (gpuDebug->GetFramebufferManagerCommon()->GetVFBAt(viewer_.addr)) {
+			ImGui::Text("NOTE: There's a hardware framebuffer at %08x.", viewer_.addr);
 			// TODO: Add a button link.
 		}
 	}
 
 	if (ImGui::BeginChild("left", ImVec2(200.0f, 0.0f))) {
-		if (ImGui::InputScalar("Address", ImGuiDataType_U32, &addr_, 0, 0, "%08x")) {
-			dirty_ = true;
+		if (ImGui::InputScalar("Address", ImGuiDataType_U32, &viewer_.addr, 0, 0, "%08x")) {
+			viewer_.Snapshot();
 		}
 
-		if (ImGui::BeginCombo("Aspect", GeBufferFormatToString(format_))) {
+		if (ImGui::BeginCombo("Aspect", GeBufferFormatToString(viewer_.format))) {
 			for (int i = 0; i < 5; i++) {
-				if (ImGui::Selectable(GeBufferFormatToString((GEBufferFormat)i), i == (int)format_)) {
-					format_ = (GEBufferFormat)i;
-					dirty_ = true;
+				if (ImGui::Selectable(GeBufferFormatToString((GEBufferFormat)i), i == (int)viewer_.format)) {
+					viewer_.format = (GEBufferFormat)i;
+					viewer_.Snapshot();
 				}
 			}
 			ImGui::EndCombo();
 		}
 
-		bool alphaPresent = format_ == GE_FORMAT_8888 || format_ == GE_FORMAT_4444 || format_ == GE_FORMAT_5551;
+		bool alphaPresent = viewer_.format == GE_FORMAT_8888 || viewer_.format == GE_FORMAT_4444 || viewer_.format == GE_FORMAT_5551;
 
 		if (!alphaPresent) {
 			ImGui::BeginDisabled();
 		}
-		if (ImGui::Checkbox("Use alpha", &useAlpha_)) {
-			dirty_ = true;
+		if (ImGui::Checkbox("Use alpha", &viewer_.useAlpha)) {
+			viewer_.Snapshot();
 		}
-		if (ImGui::Checkbox("Show alpha", &showAlpha_)) {
-			dirty_ = true;
+		if (ImGui::Checkbox("Show alpha", &viewer_.showAlpha)) {
+			viewer_.Snapshot();
 		}
 		if (!alphaPresent) {
 			ImGui::EndDisabled();
 		}
-		if (ImGui::InputScalar("Width", ImGuiDataType_U16, &width_)) {
-			dirty_ = true;
+		if (ImGui::InputScalar("Width", ImGuiDataType_U16, &viewer_.width)) {
+			viewer_.Snapshot();
 		}
-		if (ImGui::InputScalar("Height", ImGuiDataType_U16, &height_)) {
-			dirty_ = true;
+		if (ImGui::InputScalar("Height", ImGuiDataType_U16, &viewer_.height)) {
+			viewer_.Snapshot();
 		}
-		if (ImGui::InputScalar("Stride", ImGuiDataType_U16, &stride_)) {
-			dirty_ = true;
+		if (ImGui::InputScalar("Stride", ImGuiDataType_U16, &viewer_.stride)) {
+			viewer_.Snapshot();
 		}
-		if (format_ == GE_FORMAT_DEPTH16) {
-			if (ImGui::SliderFloat("Scale", &scale_, 0.5f, 256.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
-				dirty_ = true;
+		if (viewer_.format == GE_FORMAT_DEPTH16) {
+			if (ImGui::SliderFloat("Scale", &viewer_.scale, 0.5f, 256.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
+				viewer_.Snapshot();
 			}
 		}
 		if (ImGui::Button("Refresh")) {
-			dirty_ = true;
+			viewer_.Snapshot();
 		}
 	}
 	ImGui::EndChild();
 
 	ImGui::SameLine();
 	if (ImGui::BeginChild("right")) {
-		if (Memory::IsValid4AlignedAddress(addr_)) {
-			if (texture_) {
-				ImTextureID texId = ImGui_ImplThin3d_AddTextureTemp(texture_, useAlpha_ ? ImGuiPipeline::TexturedAlphaBlend : ImGuiPipeline::TexturedOpaque);
-				ImGui::Image(texId, ImVec2((float)width_, (float)height_));
-			} else {
-				ImGui::Text("(invalid params: %dx%d, %08x)", width_, height_, addr_);
-			}
-		} else {
-			ImGui::Text("(invalid address %08x)", addr_);
-		}
+		viewer_.Draw(gpuDebug, draw);
 	}
 	ImGui::EndChild();
 	ImGui::End();
+}
+
+ImGePixelViewer::~ImGePixelViewer() {
+	texture_->Release();
+}
+
+void ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+	if (dirty_) {
+		UpdateTexture(draw);
+		dirty_ = false;
+	}
+
+	if (Memory::IsValid4AlignedAddress(addr)) {
+		if (texture_) {
+			ImTextureID texId = ImGui_ImplThin3d_AddTextureTemp(texture_, useAlpha ? ImGuiPipeline::TexturedAlphaBlend : ImGuiPipeline::TexturedOpaque);
+			ImGui::Image(texId, ImVec2((float)width, (float)height));
+		} else {
+			ImGui::Text("(invalid params: %dx%d, %08x)", width, height, addr);
+		}
+	} else {
+		ImGui::Text("(invalid address %08x)", addr);
+	}
 }
 
 void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
@@ -183,33 +187,33 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 		texture_->Release();
 		texture_ = nullptr;
 	}
-	if (!Memory::IsValid4AlignedAddress(addr_) || width_ == 0 || height_ == 0 || stride_ > 1024 || stride_ == 0) {
+	if (!Memory::IsValid4AlignedAddress(addr) || width == 0 || height == 0 || stride > 1024 || stride == 0) {
 		INFO_LOG(Log::GeDebugger, "PixelViewer: Bad texture params");
 		return;
 	}
 
-	int bpp = BufferFormatBytesPerPixel(format_);
+	int bpp = BufferFormatBytesPerPixel(format);
 
-	int srcBytes = width_ * stride_ * bpp;
-	if (stride_ > width_)
-		srcBytes -= stride_ - width_;
-	if (Memory::ValidSize(addr_, srcBytes) != srcBytes) {
+	int srcBytes = width * stride * bpp;
+	if (stride > width)
+		srcBytes -= stride - width;
+	if (Memory::ValidSize(addr, srcBytes) != srcBytes) {
 		// TODO: Show a message that the address is out of bounds.
 		return;
 	}
 
 	// Read pixels into a buffer and transform them accordingly.
 	// For now we convert all formats to RGBA here, for backend compatibility.
-	uint8_t *buf = new uint8_t[width_ * height_ * 4];
+	uint8_t *buf = new uint8_t[width * height * 4];
 
-	for (int y = 0; y < height_; y++) {
-		u32 rowAddr = addr_ + y * stride_ * bpp;
+	for (int y = 0; y < height; y++) {
+		u32 rowAddr = addr + y * stride * bpp;
 		const u8 *src = Memory::GetPointerUnchecked(rowAddr);
-		u8 *dst = buf + y * width_ * 4;
-		switch (format_) {
+		u8 *dst = buf + y * width * 4;
+		switch (format) {
 		case GE_FORMAT_8888:
-			if (showAlpha_) {
-				for (int x = 0; x < width_; x++) {
+			if (showAlpha) {
+				for (int x = 0; x < width; x++) {
 					dst[0] = src[3];
 					dst[1] = src[3];
 					dst[2] = src[3];
@@ -218,32 +222,32 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 					dst += 4;
 				}
 			} else {
-				memcpy(dst, src, width_ * 4);
+				memcpy(dst, src, width * 4);
 			}
 			break;
 		case GE_FORMAT_565:
 			// No showAlpha needed (would just be white)
-			ConvertRGB565ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+			ConvertRGB565ToRGBA8888((u32 *)dst, (const u16 *)src, width);
 			break;
 		case GE_FORMAT_5551:
-			if (showAlpha_) {
+			if (showAlpha) {
 				uint32_t *dst32 = (uint32_t *)dst;
 				uint16_t *src16 = (uint16_t *)dst;
-				for (int x = 0; x < width_; x++) {
+				for (int x = 0; x < width; x++) {
 					dst[x] = (src16[x] >> 15) ? 0xFFFFFFFF : 0xFF000000;
 				}
 			} else {
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+				ConvertRGBA5551ToRGBA8888((u32 *)dst, (const u16 *)src, width);
 			}
 			break;
 		case GE_FORMAT_4444:
-			ConvertRGBA4444ToRGBA8888((u32 *)dst, (const u16 *)src, width_);
+			ConvertRGBA4444ToRGBA8888((u32 *)dst, (const u16 *)src, width);
 			break;
 		case GE_FORMAT_DEPTH16:
 		{
 			uint16_t *src16 = (uint16_t *)src;
-			float scale = scale_ / 256.0f;
-			for (int x = 0; x < width_; x++) {
+			float scale = this->scale / 256.0f;
+			for (int x = 0; x < width; x++) {
 				// Just pick off the upper bits by adding 1 to the byte address
 				// We don't visualize the lower bits for now, although we could - should add a scale slider like RenderDoc.
 				float fval = (float)src16[x] * scale;
@@ -264,15 +268,15 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 			break;
 		}
 		default:
-			memset(buf, 0x80, width_ * height_ * 4);
+			memset(buf, 0x80, width * height * 4);
 			break;
 		}
 	}
 
 	Draw::TextureDesc desc{ Draw::TextureType::LINEAR2D,
 		Draw::DataFormat::R8G8B8A8_UNORM,
-		(int)width_,
-		(int)height_,
+		(int)width,
+		(int)height,
 		1,
 		1,
 		false,
@@ -542,8 +546,20 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveTyp
 	}
 }
 
+void ImGeDebuggerWindow::NotifyStep() {
+	reloadPreview_ = true;
+	disasmView_.NotifyStep();
+	swViewer_.width = gstate.FrameBufStride();
+	// Height heuristic
+	swViewer_.height = gstate.getScissorY2() + 1 - gstate.getScissorY1();  // Just guessing the height, we have no reliable way to tell
+	swViewer_.format = gstate.FrameBufFormat();
+	swViewer_.addr = gstate.getFrameBufAddress();
+	swViewer_.showAlpha = false;
+	swViewer_.useAlpha = false;
+	swViewer_.Snapshot();
+}
 
-void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -595,6 +611,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	if (disableStepButtons) {
 		ImGui::EndDisabled();
 	}
+
+	// TODO: this doesn't seem very accurate? strange double-increments when stepping.
+	ImGui::SameLine();
+	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
+
+	// TODO: Break on count!
 
 	// Line break
 	if (ImGui::Button("Goto PC")) {
@@ -695,41 +717,50 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			} else {
 				ImGui::Text("Framebuffer");
 			}
+		}
 
-			if (ImGui::BeginTabBar("aspects")) {
-				if (ImGui::BeginTabItem("Color")) {
+		if (ImGui::BeginTabBar("aspects")) {
+			if (ImGui::BeginTabItem("Color")) {
+				const ImVec2 p0 = ImGui::GetCursorScreenPos();
+				ImVec2 p1;
+				if (vfb) {
+					p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
+				} else {
+					// Guess
+					p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
+				}
+
+				// Draw border and background color
+				drawList->PushClipRect(p0, p1, true);
+
+				if (vfb) {
 					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-					const ImVec2 p0 = ImGui::GetCursorScreenPos();
-					const ImVec2 p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
-
-					// Draw border and background color
-					drawList->PushClipRect(p0, p1, true);
-
 					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-
-					// Draw vertex preview on top!
-					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
-
-					drawList->PopClipRect();
-
-					ImGui::EndTabItem();
+				} else {
+					swViewer_.Draw(gpuDebug, draw);
 				}
-				if (ImGui::BeginTabItem("Depth")) {
-					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_DEPTH_BIT, ImGuiPipeline::TexturedOpaque);
-					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-					ImGui::EndTabItem();
-				}
-				if (ImGui::BeginTabItem("Stencil")) {
-					// Nah, this isn't gonna work. We better just do a readback to texture, but then we need a message and some storage..
-					//
-					//ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_STENCIL_BIT, ImGuiPipeline::TexturedOpaque);
-					//ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-					ImGui::EndTabItem();
-				}
-				ImGui::EndTabBar();
+
+				// Draw vertex preview on top!
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
+
+				drawList->PopClipRect();
+
+				ImGui::EndTabItem();
 			}
+			if (ImGui::BeginTabItem("Depth")) {
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("Stencil")) {
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
+		}
 
+		if (vfb) {
 			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
+		} else {
+			// Use the swViewer_!
+			ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));
 		}
 
 		if (gstate.isModeClear()) {

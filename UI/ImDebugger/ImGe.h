@@ -56,51 +56,62 @@ namespace Draw {
 class Texture;
 }
 
-class ImGePixelViewer {
-public:
+struct ImGePixelViewer {
 	~ImGePixelViewer();
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	void Snapshot() {
 		dirty_ = true;
 	}
-	void Show(uint32_t address, int width, int height, int stride, GEBufferFormat format) {
-		addr_ = address;
-		width_ = width;
-		height_ = height;
-		stride_ = stride;
-		format_ = format;
-	}
+
+	uint32_t addr = 0x04000000;
+	uint16_t stride = 512;
+	uint16_t width = 480;
+	uint16_t height = 272;
+	GEBufferFormat format = GE_FORMAT_565;
+	bool useAlpha = false;
+	bool showAlpha = false;
+	float scale = 1.0f;
 
 private:
 	void UpdateTexture(Draw::DrawContext *draw);
 	Draw::Texture *texture_ = nullptr;
-	GEBufferFormat format_ = GE_FORMAT_565;
 	bool dirty_ = true;
-	bool useAlpha_ = false;
-	bool showAlpha_ = false;
-	float scale_ = 1.0f;
-	uint32_t addr_ = 0x04000000;
-	uint16_t stride_ = 512;
-	uint16_t width_ = 480;
-	uint16_t height_ = 272;
+};
+
+class ImGePixelViewerWindow {
+public:
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Snapshot() {
+		viewer_.Snapshot();
+	}
+	void Show(uint32_t address, int width, int height, int stride, GEBufferFormat format) {
+		viewer_.addr = address;
+		viewer_.width = width;
+		viewer_.height = height;
+		viewer_.stride = stride;
+		viewer_.format = format;
+	}
+
+private:
+	void UpdateTexture(Draw::DrawContext *draw);
+
+	ImGePixelViewer viewer_;
 };
 
 class ImGeDebuggerWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}
 	const char *Title() const {
 		return "GE Debugger";
 	}
-	void NotifyStep() {
-		reloadPreview_ = true;
-		disasmView_.NotifyStep();
-	}
+	void NotifyStep();
 
 private:
 	ImGeDisasmView disasmView_;
+	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
 	GEPrimitiveType previewPrim_;
