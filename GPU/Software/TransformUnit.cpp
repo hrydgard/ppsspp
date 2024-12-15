@@ -67,7 +67,7 @@ void SoftwareDrawEngine::NotifyConfigChanged() {
 }
 
 void SoftwareDrawEngine::Flush() {
-	transformUnit.Flush("debug");
+	transformUnit.Flush(gpuCommon_, "debug");
 }
 
 void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
@@ -891,12 +891,12 @@ void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts,
 	}
 }
 
-void TransformUnit::Flush(const char *reason) {
+void TransformUnit::Flush(GPUCommon *common, const char *reason) {
 	if (!hasDraws_)
 		return;
 
 	binner_->Flush(reason);
-	GPUDebug::NotifyFlush();
+	common->NotifyFlush();
 	hasDraws_ = false;
 }
 
@@ -905,14 +905,14 @@ void TransformUnit::GetStats(char *buffer, size_t bufsize) {
 	binner_->GetStats(buffer, bufsize);
 }
 
-void TransformUnit::FlushIfOverlap(const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
+void TransformUnit::FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {
 	if (!hasDraws_)
 		return;
 
 	if (binner_->HasPendingWrite(addr, stride, w, h))
-		Flush(reason);
+		Flush(common, reason);
 	if (modifying && binner_->HasPendingRead(addr, stride, w, h))
-		Flush(reason);
+		Flush(common, reason);
 }
 
 void TransformUnit::NotifyClutUpdate(const void *src) {

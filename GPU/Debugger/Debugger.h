@@ -37,32 +37,13 @@ enum class BreakNext {
 	COUNT,
 };
 
-const char *BreakNextToString(BreakNext next);
-bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *output);
-
-bool NeedsSlowInterpreter();
-
-void SetBreakNext(BreakNext next, GPUBreakpoints *breakpoints);
-void SetBreakCount(int c, bool relative = false);
-BreakNext GetBreakNext();
-const char *BreakNextToString(BreakNext next);
-
 enum class NotifyResult {
 	Execute,
 	Skip,
 	Break
 };
 
-// While debugging is active, these may block.
-NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints);
-void NotifyFlush();
-void NotifyDisplay(u32 framebuf, u32 stride, int format);
-void NotifyBeginFrame();
-
-int PrimsThisFrame();
-int PrimsLastFrame();
-
-bool SetRestrictPrims(std::string_view rule);
-const char *GetRestrictPrims();
+const char *BreakNextToString(GPUDebug::BreakNext next);
+bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *output);
 
 }  // namespace

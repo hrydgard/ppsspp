@@ -25,20 +25,6 @@
 
 namespace GPUDebug {
 
-static BreakNext breakNext = BreakNext::NONE;
-static int breakAtCount = -1;
-
-static int primsLastFrame = 0;
-static int primsThisFrame = 0;
-static int thisFlipNum = 0;
-
-bool g_primAfterDraw = false;
-
-static uint32_t g_skipPcOnce = 0;
-
-static std::vector<std::pair<int, int>> restrictPrimRanges;
-static std::string restrictPrimRule;
-
 const char *BreakNextToString(BreakNext next) {
 	switch (next) {
 	case BreakNext::NONE: return "NONE,";
@@ -53,145 +39,6 @@ const char *BreakNextToString(BreakNext next) {
 	case BreakNext::COUNT: return "COUNT";
 	default: return "N/A";
 	}
-}
-
-bool NeedsSlowInterpreter() {
-	return breakNext != BreakNext::NONE;
-}
-
-void ClearBreak() {
-	breakNext = BreakNext::NONE;
-	breakAtCount = -1;
-	GPUStepping::ResumeFromStepping();
-}
-
-BreakNext GetBreakNext() {
-	return breakNext;
-}
-
-void SetBreakNext(BreakNext next, GPUBreakpoints *breakpoints) {
-	breakNext = next;
-	breakAtCount = -1;
-	if (next == BreakNext::TEX) {
-		breakpoints->AddTextureChangeTempBreakpoint();
-	} else if (next == BreakNext::PRIM || next == BreakNext::COUNT) {
-		breakpoints->AddCmdBreakpoint(GE_CMD_PRIM, true);
-		breakpoints->AddCmdBreakpoint(GE_CMD_BEZIER, true);
-		breakpoints->AddCmdBreakpoint(GE_CMD_SPLINE, true);
-		breakpoints->AddCmdBreakpoint(GE_CMD_VAP, true);
-	} else if (next == BreakNext::CURVE) {
-		breakpoints->AddCmdBreakpoint(GE_CMD_BEZIER, true);
-		breakpoints->AddCmdBreakpoint(GE_CMD_SPLINE, true);
-	} else if (next == BreakNext::DRAW) {
-		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
-		// This will take us to the following actual draw.
-		g_primAfterDraw = true;
-	}
-
-	if (GPUStepping::IsStepping()) {
-		GPUStepping::ResumeFromStepping();
-	}
-}
-
-void SetBreakCount(int c, bool relative) {
-	if (relative) {
-		breakAtCount = primsThisFrame + c;
-	} else {
-		breakAtCount = c;
-	}
-}
-
-NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints) {
-	u32 op = Memory::ReadUnchecked_U32(pc);
-	u32 cmd = op >> 24;
-	if (thisFlipNum != gpuStats.numFlips) {
-		primsLastFrame = primsThisFrame;
-		primsThisFrame = 0;
-		thisFlipNum = gpuStats.numFlips;
-	}
-
-	bool process = true;
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {
-		primsThisFrame++;
-
-		if (!restrictPrimRanges.empty()) {
-			process = false;
-			for (const auto &range : restrictPrimRanges) {
-				if (primsThisFrame >= range.first && primsThisFrame <= range.second) {
-					process = true;
-					break;
-				}
-			}
-		}
-	}
-
-	bool isBreakpoint = false;
-	if (breakNext == BreakNext::OP) {
-		isBreakpoint = true;
-	} else if (breakNext == BreakNext::COUNT) {
-		isBreakpoint = primsThisFrame == breakAtCount;
-	} else if (breakpoints->HasBreakpoints()) {
-		isBreakpoint = breakpoints->IsBreakpoint(pc, op);
-	}
-
-	if (isBreakpoint && pc == g_skipPcOnce) {
-		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", g_skipPcOnce);
-		g_skipPcOnce = 0;
-		return process ? NotifyResult::Execute : NotifyResult::Skip;
-	}
-	g_skipPcOnce = 0;
-
-	if (isBreakpoint) {
-		breakpoints->ClearTempBreakpoints();
-
-		if (coreState == CORE_POWERDOWN || !gpuDebug) {
-			breakNext = BreakNext::NONE;
-			return process ? NotifyResult::Execute : NotifyResult::Skip;
-		}
-
-		auto info = gpuDebug->DisassembleOp(pc);
-		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
-
-		g_skipPcOnce = pc;
-		breakNext = BreakNext::NONE;
-		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
-	}
-
-	return process ? NotifyResult::Execute : NotifyResult::Skip;
-}
-
-void NotifyFlush() {
-	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
-		// Break on the first PRIM after a flush.
-		if (g_primAfterDraw) {
-			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
-			g_primAfterDraw = false;
-			// Switch to PRIM mode.
-			SetBreakNext(BreakNext::PRIM, gpuDebug->GetBreakpoints());
-		}
-	}
-}
-
-void NotifyDisplay(u32 framebuf, u32 stride, int format) {
-	if (breakNext == BreakNext::FRAME) {
-		// Start stepping at the first op of the new frame.
-		breakNext = BreakNext::OP;
-	}
-}
-
-void NotifyBeginFrame() {
-	if (breakNext == BreakNext::VSYNC) {
-		// Just start stepping as soon as we can once the vblank finishes.
-		breakNext = BreakNext::OP;
-	}
-}
-
-int PrimsThisFrame() {
-	return primsThisFrame;
-}
-
-int PrimsLastFrame() {
-	return primsLastFrame;
 }
 
 static bool ParseRange(const std::string &s, std::pair<int, int> &range) {
@@ -260,25 +107,6 @@ bool ParsePrimRanges(std::string_view rule, std::vector<std::pair<int, int>> *ou
 	}
 	*output = updated;
 	return true;
-}
-
-bool SetRestrictPrims(std::string_view rule) {
-	if (rule.empty() || rule == "*") {
-		restrictPrimRanges.clear();
-		restrictPrimRule.clear();
-		return true;
-	}
-
-	if (ParsePrimRanges(rule, &restrictPrimRanges)) {
-		restrictPrimRule = rule;
-		return true;
-	} else {
-		return false;
-	}
-}
-
-const char *GetRestrictPrims() {
-	return restrictPrimRule.c_str();
 }
 
 }

@@ -514,8 +514,7 @@ void GPUCommonHW::BeginHostFrame() {
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
-	GPUDebug::NotifyDisplay(framebuf, stride, format);
-	recorder_.NotifyDisplay(framebuf, stride, format);
+	NotifyDisplay(framebuf, stride, format);
 }
 
 void GPUCommonHW::CheckFlushOp(int cmd, u32 diff) {

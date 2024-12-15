@@ -27,6 +27,7 @@
 #include "GPU/GPUDefinitions.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Debugger/Debugger.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -243,6 +244,16 @@ public:
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 	virtual const std::list<int> &GetDisplayListQueue() = 0;
 	virtual const DisplayList &GetDisplayList(int index) = 0;
+
+	virtual int PrimsThisFrame() = 0;
+	virtual int PrimsLastFrame() = 0;
+
+	virtual void ClearBreakNext() = 0 ;
+	virtual void SetBreakNext(GPUDebug::BreakNext next) = 0 ;
+	virtual void SetBreakCount(int c, bool relative = false) = 0 ;
+	virtual GPUDebug::BreakNext GetBreakNext() = 0 ;
+	virtual bool SetRestrictPrims(std::string_view rule) = 0 ;
+	virtual const char *GetRestrictPrims() = 0 ;
 
 	virtual GPURecord::Recorder *GetRecorder() = 0;
 	virtual GPUBreakpoints *GetBreakpoints() = 0;

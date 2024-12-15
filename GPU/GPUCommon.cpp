@@ -620,15 +620,14 @@ void GPUCommon::PSPFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	GPUDebug::NotifyBeginFrame();
-	recorder_.NotifyBeginFrame();
+	NotifyBeginFrame();
 }
 
 // Returns false on breakpoint.
 bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0) {
-		GPUDebug::NotifyResult result = GPUDebug::NotifyCommand(list.pc, &breakpoints_);
+		GPUDebug::NotifyResult result = NotifyCommand(list.pc, &breakpoints_);
 
 		if (result == GPUDebug::NotifyResult::Execute) {
 			recorder_.NotifyCommand(list.pc);
@@ -787,7 +786,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
 			debugRecording_ = recorder_.IsActive();
-			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints());
+			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || NeedsSlowInterpreter() || breakpoints_.HasBreakpoints());
 		} else {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed
@@ -878,7 +877,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 bool GPUCommon::ShouldSplitOverGe() const {
 	// Check for debugger active.
 	// We only need to do this if we want to be able to step through Ge display lists using the Ge debuggers.
-	return GPUDebug::NeedsSlowInterpreter() || breakpoints_.HasBreakpoints();
+	return NeedsSlowInterpreter() || breakpoints_.HasBreakpoints();
 }
 
 void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
@@ -2003,3 +2002,167 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return drawEngineCommon_->DescribeCodePtr(ptr, name);
 }
 
+bool GPUCommon::NeedsSlowInterpreter() const {
+	return breakNext != GPUDebug::BreakNext::NONE;
+}
+
+void GPUCommon::ClearBreakNext() {
+	breakNext = GPUDebug::BreakNext::NONE;
+	breakAtCount = -1;
+	GPUStepping::ResumeFromStepping();
+}
+
+GPUDebug::BreakNext GPUCommon::GetBreakNext() {
+	return breakNext;
+}
+
+void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
+	breakNext = next;
+	breakAtCount = -1;
+	if (next == GPUDebug::BreakNext::TEX) {
+		breakpoints_.AddTextureChangeTempBreakpoint();
+	} else if (next == GPUDebug::BreakNext::PRIM || next == GPUDebug::BreakNext::COUNT) {
+		breakpoints_.AddCmdBreakpoint(GE_CMD_PRIM, true);
+		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
+		breakpoints_.AddCmdBreakpoint(GE_CMD_VAP, true);
+	} else if (next == GPUDebug::BreakNext::CURVE) {
+		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
+	} else if (next == GPUDebug::BreakNext::DRAW) {
+		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
+		// This will take us to the following actual draw.
+		primAfterDraw_ = true;
+	}
+
+	if (GPUStepping::IsStepping()) {
+		GPUStepping::ResumeFromStepping();
+	}
+}
+
+void GPUCommon::SetBreakCount(int c, bool relative) {
+	if (relative) {
+		breakAtCount = primsThisFrame + c;
+	} else {
+		breakAtCount = c;
+	}
+}
+
+GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoints) {
+	using namespace GPUDebug;
+
+	u32 op = Memory::ReadUnchecked_U32(pc);
+	u32 cmd = op >> 24;
+	if (thisFlipNum != gpuStats.numFlips) {
+		primsLastFrame = primsThisFrame;
+		primsThisFrame = 0;
+		thisFlipNum = gpuStats.numFlips;
+	}
+
+	bool process = true;
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {
+		primsThisFrame++;
+
+		if (!restrictPrimRanges.empty()) {
+			process = false;
+			for (const auto &range : restrictPrimRanges) {
+				if (primsThisFrame >= range.first && primsThisFrame <= range.second) {
+					process = true;
+					break;
+				}
+			}
+		}
+	}
+
+	bool isBreakpoint = false;
+	if (breakNext == BreakNext::OP) {
+		isBreakpoint = true;
+	} else if (breakNext == BreakNext::COUNT) {
+		isBreakpoint = primsThisFrame == breakAtCount;
+	} else if (breakpoints->HasBreakpoints()) {
+		isBreakpoint = breakpoints->IsBreakpoint(pc, op);
+	}
+
+	if (isBreakpoint && pc == g_skipPcOnce) {
+		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", g_skipPcOnce);
+		g_skipPcOnce = 0;
+		return process ? NotifyResult::Execute : NotifyResult::Skip;
+	}
+	g_skipPcOnce = 0;
+
+	if (isBreakpoint) {
+		breakpoints->ClearTempBreakpoints();
+
+		if (coreState == CORE_POWERDOWN || !gpuDebug) {
+			breakNext = BreakNext::NONE;
+			return process ? NotifyResult::Execute : NotifyResult::Skip;
+		}
+
+		auto info = gpuDebug->DisassembleOp(pc);
+		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
+
+		g_skipPcOnce = pc;
+		breakNext = BreakNext::NONE;
+		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
+	}
+
+	return process ? NotifyResult::Execute : NotifyResult::Skip;
+}
+
+void GPUCommon::NotifyFlush() {
+	using namespace GPUDebug;
+	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
+		// Break on the first PRIM after a flush.
+		if (primAfterDraw_) {
+			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
+			primAfterDraw_ = false;
+			// Switch to PRIM mode.
+			SetBreakNext(BreakNext::PRIM);
+		}
+	}
+}
+
+void GPUCommon::NotifyDisplay(u32 framebuf, u32 stride, int format) {
+	using namespace GPUDebug;
+	if (breakNext == BreakNext::FRAME) {
+		// Start stepping at the first op of the new frame.
+		breakNext = BreakNext::OP;
+	}
+	recorder_.NotifyDisplay(framebuf, stride, format);
+}
+
+void GPUCommon::NotifyBeginFrame() {
+	using namespace GPUDebug;
+	if (breakNext == BreakNext::VSYNC) {
+		// Just start stepping as soon as we can once the vblank finishes.
+		breakNext = BreakNext::OP;
+	}
+	recorder_.NotifyBeginFrame();
+}
+
+int GPUCommon::PrimsThisFrame() {
+	return primsThisFrame;
+}
+
+int GPUCommon::PrimsLastFrame() {
+	return primsLastFrame;
+}
+
+bool GPUCommon::SetRestrictPrims(std::string_view rule) {
+	if (rule.empty() || rule == "*") {
+		restrictPrimRanges.clear();
+		restrictPrimRule.clear();
+		return true;
+	}
+
+	if (GPUDebug::ParsePrimRanges(rule, &restrictPrimRanges)) {
+		restrictPrimRule = rule;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+const char *GPUCommon::GetRestrictPrims() {
+	return restrictPrimRule.c_str();
+}

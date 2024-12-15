@@ -570,7 +570,7 @@ void DrawEngineVulkan::Flush() {
 
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
-	GPUDebug::NotifyFlush();
+	gpuCommon_->NotifyFlush();
 }
 
 void DrawEngineVulkan::ResetAfterDraw() {
