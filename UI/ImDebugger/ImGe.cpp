@@ -161,7 +161,8 @@ void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInte
 }
 
 ImGePixelViewer::~ImGePixelViewer() {
-	texture_->Release();
+	if (texture_)
+		texture_->Release();
 }
 
 void ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
@@ -180,6 +181,40 @@ void ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw)
 	} else {
 		ImGui::Text("(invalid address %08x)", addr);
 	}
+}
+
+ImGeReadbackViewer::ImGeReadbackViewer() {
+	channel = Draw::FB_COLOR_BIT;
+}
+
+ImGeReadbackViewer::~ImGeReadbackViewer() {
+	if (texture_)
+		texture_->Release();
+	delete[] data_;
+}
+
+void ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
+	if (!vfb || !vfb->fbo || !fbmanager) {
+		ImGui::TextUnformatted("(N/A)");
+		return;
+	}
+
+	if (dirty_) {
+		dirty_ = false;
+
+		delete[] data_;
+		int w = vfb->fbo->Width();
+		int h = vfb->fbo->Height();
+		Draw::DataFormat fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		data_ = new uint8_t[w * h * 4];
+		draw->CopyFramebufferToMemory(vfb->fbo, channel, 0, 0, w, h, fmt, data_, w, Draw::ReadbackMode::BLOCK, "debugger");
+
+		// But for now, let's just draw the original FB, and we can always do that with color at least.
+	}
+
+	ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width(), (float)vfb->fbo->Height()));
 }
 
 void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
@@ -557,6 +592,12 @@ void ImGeDebuggerWindow::NotifyStep() {
 	swViewer_.showAlpha = false;
 	swViewer_.useAlpha = false;
 	swViewer_.Snapshot();
+
+	FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
+	if (fbman) {
+		rbViewer_.vfb = fbman->GetExactVFB(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.FrameBufFormat());
+	}
+	rbViewer_.Snapshot();
 }
 
 void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
@@ -708,9 +749,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
-		FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
-		u32 fbptr = gstate.getFrameBufAddress();
-		VirtualFramebuffer *vfb = fbman ? fbman->GetVFBAt(fbptr) : nullptr;
+		VirtualFramebuffer *vfb = rbViewer_.vfb;
 		if (vfb) {
 			if (vfb->fbo) {
 				ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
@@ -723,8 +762,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			if (ImGui::BeginTabItem("Color")) {
 				const ImVec2 p0 = ImGui::GetCursorScreenPos();
 				ImVec2 p1;
-				if (vfb) {
-					p1 = ImVec2(p0.x + vfb->width, p0.y + vfb->height);
+				float scale = 1.0f;
+				if (vfb && vfb->fbo) {
+					scale = vfb->renderScaleFactor;
+					p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
 				} else {
 					// Guess
 					p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
@@ -734,14 +775,15 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				drawList->PushClipRect(p0, p1, true);
 
 				if (vfb) {
-					ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-					ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+					rbViewer_.Draw(gpuDebug, draw);
+					// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::FB_COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+					// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 				} else {
 					swViewer_.Draw(gpuDebug, draw);
 				}
 
 				// Draw vertex preview on top!
-				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false);
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
 
 				drawList->PopClipRect();
 
@@ -756,8 +798,8 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			ImGui::EndTabBar();
 		}
 
-		if (vfb) {
-			ImGui::Text("%dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->bufferWidth, vfb->bufferHeight);
+		if (vfb && vfb->fbo) {
+			ImGui::Text("VFB %dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->fbo->Width(), vfb->fbo->Height());
 		} else {
 			// Use the swViewer_!
 			ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));

@@ -54,9 +54,17 @@ private:
 
 namespace Draw {
 class Texture;
+enum FBChannel;
 }
 
-struct ImGePixelViewer {
+class PixelLookup {
+public:
+	virtual ~PixelLookup() {}
+
+	uint32_t GetPixel(int x, int y);
+};
+
+struct ImGePixelViewer : public PixelLookup {
 	~ImGePixelViewer();
 	void Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	void Snapshot() {
@@ -74,6 +82,26 @@ struct ImGePixelViewer {
 
 private:
 	void UpdateTexture(Draw::DrawContext *draw);
+	Draw::Texture *texture_ = nullptr;
+	bool dirty_ = true;
+};
+
+// Reads back framebuffers, not textures.
+struct ImGeReadbackViewer : public PixelLookup {
+	ImGeReadbackViewer();
+	~ImGeReadbackViewer();
+	void Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *);
+	void Snapshot() {
+		dirty_ = true;
+	}
+
+	VirtualFramebuffer *vfb = nullptr;
+
+	// This specifies what to show
+	Draw::FBChannel channel;
+
+private:
+	uint8_t *data_ = nullptr;
 	Draw::Texture *texture_ = nullptr;
 	bool dirty_ = true;
 };
@@ -111,6 +139,7 @@ public:
 
 private:
 	ImGeDisasmView disasmView_;
+	ImGeReadbackViewer rbViewer_;
 	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
