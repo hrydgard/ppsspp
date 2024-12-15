@@ -150,7 +150,8 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 		if (Memory::IsValid4AlignedAddress(addr)) {
 			draw_list->AddText(lineStart, 0xFFC0C0C0, addrBuffer);
 
-			GPUDebugOp op = gpuDebug->DisassembleOp(addr);
+			u32 opcode = Memory::Read_U32(addr);
+			GPUDebugOp op = gpuDebug->DisassembleOp(addr, opcode);
 			u32 color = 0xFFFFFFFF;
 			char temp[16];
 			snprintf(temp, sizeof(temp), "%08x", op.op);
@@ -212,7 +213,8 @@ void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
 			}
 		} else if (Memory::IsValid4AlignedAddress(dragAddr_)) {
 			char buffer[64];
-			GPUDebugOp op = gpuDebug->DisassembleOp(pc);
+			u32 opcode = Memory::Read_U32(dragAddr_);
+			GPUDebugOp op = gpuDebug->DisassembleOp(dragAddr_, opcode);
 			// affect dragAddr_?
 			if (ImGui::MenuItem("Copy Address", NULL, false)) {
 				snprintf(buffer, sizeof(buffer), "%08x", dragAddr_);

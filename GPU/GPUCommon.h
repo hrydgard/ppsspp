@@ -392,15 +392,18 @@ public:
 	bool SetRestrictPrims(std::string_view rule) override;
 	const char *GetRestrictPrims() override;
 
-	int PrimsThisFrame() override;
-	int PrimsLastFrame() override;
+	int PrimsThisFrame() const override {
+		return primsThisFrame;
+	}
+	int PrimsLastFrame() const override {
+		return primsLastFrame;
+	}
 
 	void NotifyFlush();
 
 protected:
 	// While debugging is active, these may block.
 	void NotifyDisplay(u32 framebuf, u32 stride, int format);
-	void NotifyBeginFrame();
 
 	bool NeedsSlowInterpreter() const;
 	GPUDebug::NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints);

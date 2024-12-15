@@ -213,9 +213,6 @@ public:
 	virtual void ResetListStall(int listID, u32 stall) = 0;
 	virtual void ResetListState(int listID, DisplayListState state) = 0;
 
-	GPUDebugOp DisassembleOp(u32 pc) {
-		return DisassembleOp(pc, Memory::Read_U32(pc));
-	}
 	virtual GPUDebugOp DisassembleOp(u32 pc, u32 op) = 0;
 	virtual std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) = 0;
 
@@ -245,10 +242,10 @@ public:
 	virtual const std::list<int> &GetDisplayListQueue() = 0;
 	virtual const DisplayList &GetDisplayList(int index) = 0;
 
-	virtual int PrimsThisFrame() = 0;
-	virtual int PrimsLastFrame() = 0;
+	virtual int PrimsThisFrame() const = 0;
+	virtual int PrimsLastFrame() const = 0;
 
-	virtual void ClearBreakNext() = 0 ;
+	virtual void ClearBreakNext() = 0;
 	virtual void SetBreakNext(GPUDebug::BreakNext next) = 0 ;
 	virtual void SetBreakCount(int c, bool relative = false) = 0 ;
 	virtual GPUDebug::BreakNext GetBreakNext() = 0 ;

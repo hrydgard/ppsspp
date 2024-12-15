@@ -620,7 +620,12 @@ void GPUCommon::PSPFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	NotifyBeginFrame();
+
+	if (breakNext == GPUDebug::BreakNext::VSYNC) {
+		// Just start stepping as soon as we can once the vblank finishes.
+		breakNext = GPUDebug::BreakNext::OP;
+	}
+	recorder_.NotifyBeginFrame();
 }
 
 // Returns false on breakpoint.
@@ -2019,20 +2024,28 @@ GPUDebug::BreakNext GPUCommon::GetBreakNext() {
 void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 	breakNext = next;
 	breakAtCount = -1;
-	if (next == GPUDebug::BreakNext::TEX) {
+	switch (next) {
+	case GPUDebug::BreakNext::TEX:
 		breakpoints_.AddTextureChangeTempBreakpoint();
-	} else if (next == GPUDebug::BreakNext::PRIM || next == GPUDebug::BreakNext::COUNT) {
+		break;
+	case GPUDebug::BreakNext::PRIM:
+	case GPUDebug::BreakNext::COUNT:
 		breakpoints_.AddCmdBreakpoint(GE_CMD_PRIM, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_VAP, true);
-	} else if (next == GPUDebug::BreakNext::CURVE) {
+		break;
+	case GPUDebug::BreakNext::CURVE:
 		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
-	} else if (next == GPUDebug::BreakNext::DRAW) {
+		break;
+	case GPUDebug::BreakNext::DRAW:
 		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
 		// This will take us to the following actual draw.
 		primAfterDraw_ = true;
+		break;
+	default:
+		break;
 	}
 
 	if (GPUStepping::IsStepping()) {
@@ -2093,12 +2106,13 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (isBreakpoint) {
 		breakpoints->ClearTempBreakpoints();
 
-		if (coreState == CORE_POWERDOWN || !gpuDebug) {
+		if (coreState == CORE_POWERDOWN) {
 			breakNext = BreakNext::NONE;
 			return process ? NotifyResult::Execute : NotifyResult::Skip;
 		}
 
-		auto info = gpuDebug->DisassembleOp(pc);
+		u32 op = Memory::Read_U32(pc);
+		auto info = DisassembleOp(pc, op);
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 
 		g_skipPcOnce = pc;
@@ -2129,23 +2143,6 @@ void GPUCommon::NotifyDisplay(u32 framebuf, u32 stride, int format) {
 		breakNext = BreakNext::OP;
 	}
 	recorder_.NotifyDisplay(framebuf, stride, format);
-}
-
-void GPUCommon::NotifyBeginFrame() {
-	using namespace GPUDebug;
-	if (breakNext == BreakNext::VSYNC) {
-		// Just start stepping as soon as we can once the vblank finishes.
-		breakNext = BreakNext::OP;
-	}
-	recorder_.NotifyBeginFrame();
-}
-
-int GPUCommon::PrimsThisFrame() {
-	return primsThisFrame;
-}
-
-int GPUCommon::PrimsLastFrame() {
-	return primsLastFrame;
 }
 
 bool GPUCommon::SetRestrictPrims(std::string_view rule) {
