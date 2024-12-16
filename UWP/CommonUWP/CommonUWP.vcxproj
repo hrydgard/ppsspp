@@ -190,7 +190,6 @@
     <ClInclude Include="..\..\Common\CommonTypes.h" />
     <ClInclude Include="..\..\Common\CommonWindows.h" />
     <ClInclude Include="..\..\Common\Log\ConsoleListener.h" />
-    <ClInclude Include="..\..\Common\Log\StdioListener.h" />
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\Crypto\md5.h" />
     <ClInclude Include="..\..\Common\Crypto\sha1.h" />
@@ -354,7 +353,6 @@
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
     <ClCompile Include="..\..\Common\Data\Convert\ColorConv.cpp" />
     <ClCompile Include="..\..\Common\Log\ConsoleListener.cpp" />
-    <ClCompile Include="..\..\Common\Log\StdioListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
     <ClCompile Include="..\..\Common\FakeCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\Crypto\md5.cpp" />

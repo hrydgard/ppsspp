@@ -586,7 +586,6 @@
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="CommonWindows.h" />
     <ClInclude Include="Log\ConsoleListener.h" />
-    <ClInclude Include="Log\StdioListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />
     <ClInclude Include="Crypto\sha1.h" />
@@ -1060,7 +1059,6 @@
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="Log\ConsoleListener.cpp" />
-    <ClCompile Include="Log\StdioListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

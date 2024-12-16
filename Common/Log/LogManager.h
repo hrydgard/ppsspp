@@ -27,7 +27,6 @@
 #include "Common/CommonFuncs.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
-#include "Common/Log/StdioListener.h"
 
 #define	MAX_MESSAGES 8000   
 

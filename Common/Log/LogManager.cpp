@@ -34,7 +34,6 @@
 #include "Common/Log/ConsoleListener.h"
 #endif
 
-#include "Common/Log/StdioListener.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/FileUtil.h"
@@ -343,7 +342,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 		PrintfLog(message);
 	}
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (outputs_ & LogOutput::WinConsole) {
 		if (consoleLog_) {
 			consoleLog_->Log(message);
@@ -388,7 +387,7 @@ void OutputDebugStringUTF8(const char *p) {
 
 #endif
 
-void LogManager::StdioLog(const LogMessage &msg) {
+void LogManager::StdioLog(const LogMessage &message) {
 #if PPSSPP_PLATFORM(ANDROID)
 #ifndef LOG_APP_NAME
 #define LOG_APP_NAME "PPSSPP"
@@ -413,25 +412,25 @@ void LogManager::StdioLog(const LogMessage &msg) {
 		// Log with simplified headers as Android already provides timestamp etc.
 		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, message.msg.c_str());
 	} else {
-		std::string msg = message.msg;
+		std::string_view msg = message.msg;
 
 		// Ideally we should split at line breaks, but it's at least fairly usable anyway.
-		std::string first_part = msg.substr(0, maxLogLength);
-		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, first_part.c_str());
+		std::string_view first_part = msg.substr(0, maxLogLength);
+		__android_log_print(mode, LOG_APP_NAME, "[%s] %.*s", message.log, (int)first_part.size(), first_part.data());
 		msg = msg.substr(maxLogLength);
 
 		while (msg.length() > maxLogLength) {
-			std::string first_part = msg.substr(0, maxLogLength);
-			__android_log_print(mode, LOG_APP_NAME, "%s", first_part.c_str());
+			std::string_view next_part = msg.substr(0, maxLogLength);
+			__android_log_print(mode, LOG_APP_NAME, "%.*s", (int)next_part.size(), next_part.data());
 			msg = msg.substr(maxLogLength);
 		}
 		// Print the final part.
-		__android_log_print(mode, LOG_APP_NAME, "%s", msg.c_str());
+		__android_log_print(mode, LOG_APP_NAME, "%.*s", (int)msg.size(), msg.data());
 	}
 #else
 	std::lock_guard<std::mutex> lock(stdioLock_);
 	char text[2048];
-	snprintf(text, sizeof(text), "%s %s %s", msg.timestamp, msg.header, msg.msg.c_str());
+	snprintf(text, sizeof(text), "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 	text[sizeof(text) - 2] = '\n';
 	text[sizeof(text) - 1] = '\0';
 
@@ -440,7 +439,7 @@ void LogManager::StdioLog(const LogMessage &msg) {
 
 	if (stdioUseColor_) {
 		resetAttr = "\033[0m";
-		switch (msg.level) {
+		switch (message.level) {
 		case LogLevel::LNOTICE: // light green
 			colorAttr = "\033[92m";
 			break;

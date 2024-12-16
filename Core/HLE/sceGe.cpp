@@ -344,7 +344,7 @@ static int __GeSubIntrBase(int callbackId) {
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
 		"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
-		listAddress, stallAddress, callbackId, optParamAddr, CoreTiming::GetTicks());
+		listAddress, stallAddress, callbackId, optParamAddr, (int)CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;
@@ -366,7 +366,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
 		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
-		listAddress, stallAddress, callbackId, optParamAddr, CoreTiming::GetTicks());
+		listAddress, stallAddress, callbackId, optParamAddr, (int)CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;
