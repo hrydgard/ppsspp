@@ -36,6 +36,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Log/LogManager.h"
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
@@ -1149,6 +1150,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	TimeInit();
+
+	g_logManager.EnableOutput(LogOutput::Stdio);
 
 #ifdef HAVE_LIBNX
 	socketInitializeDefault();

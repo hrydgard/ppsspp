@@ -4,9 +4,6 @@
 
 #include <string>
 #include <stdexcept>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 #include <cstring>
 
 #include <zlib.h>
@@ -48,8 +45,7 @@ bool compress_string(const std::string& str, std::string *dest, int compressionl
 	deflateEnd(&zs);
 
 	if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
-		std::ostringstream oss;
-		oss << "Exception during zlib compression: (" << ret << ") " << zs.msg;
+		ERROR_LOG(Log::IO, "Exception during zlib compression: (%d): %s", ret, zs.msg);
 		return false;
 	}
 

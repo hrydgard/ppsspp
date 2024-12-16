@@ -46,6 +46,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Log/LogManager.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -804,6 +805,8 @@ Q_DECL_EXPORT
 int main(int argc, char *argv[])
 {
 	TimeInit();
+
+	g_logManager.EnableOutput(LogOutput::Stdio);
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--version")) {
