@@ -185,76 +185,37 @@ bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw)
 	return false;
 }
 
-uint32_t ImGePixelViewer::GetColorAt(int x, int y) const {
+bool ImGePixelViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) const {
 	// Go look directly in RAM.
 	int bpp = BufferFormatBytesPerPixel(format);
 	u32 pixelAddr = addr + (y * stride + x) * bpp;
 	switch (format) {
 	case GE_FORMAT_8888:
-		return Memory::Read_U32(pixelAddr);
+		snprintf(buf, bufSize, "%08x", Memory::Read_U32(pixelAddr));
+		break;
 	case GE_FORMAT_4444:
-		return RGBA4444ToRGBA8888(Memory::Read_U16(pixelAddr));
-	case GE_FORMAT_565:
-		return RGB565ToRGBA8888(Memory::Read_U16(pixelAddr));
-	case GE_FORMAT_5551:
-		return RGBA5551ToRGBA8888(Memory::Read_U16(pixelAddr));
-	default:
-		return 0;
+	{
+		u16 raw = Memory::Read_U16(pixelAddr);
+		snprintf(buf, bufSize, "%08x (raw: %04x)", RGBA4444ToRGBA8888(raw), raw);
+		break;
 	}
-}
-
-ImGeReadbackViewer::ImGeReadbackViewer() {
-	// These are only forward declared in the header, so we initialize them here.
-	channel = Draw::Aspect::COLOR_BIT;
-	readbackFmt_ = Draw::DataFormat::UNDEFINED;
-}
-
-ImGeReadbackViewer::~ImGeReadbackViewer() {
-	if (texture_)
-		texture_->Release();
-	delete[] data_;
-}
-
-bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
-	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
-	if (!vfb || !vfb->fbo || !fbmanager) {
-		ImGui::TextUnformatted("(N/A)");
+	case GE_FORMAT_565:
+	{
+		u16 raw = Memory::Read_U16(pixelAddr);
+		snprintf(buf, bufSize, "%08x (raw: %04x)", RGB565ToRGBA8888(raw), raw);
+		break;
+	}
+	case GE_FORMAT_5551:
+	{
+		u16 raw = Memory::Read_U16(pixelAddr);
+		snprintf(buf, bufSize, "%08x (raw: %04x)", RGBA5551ToRGBA8888(raw), raw);
+		break;
+	}
+	default:
+		snprintf(buf, bufSize, "N/A");
 		return false;
 	}
-
-	if (dirty_) {
-		dirty_ = false;
-
-		delete[] data_;
-		int w = vfb->fbo->Width();
-		int h = vfb->fbo->Height();
-		readbackFmt_ = Draw::DataFormat::R8G8B8A8_UNORM;
-		data_ = new uint8_t[w * h * 4];
-		draw->CopyFramebufferToMemory(vfb->fbo, channel, 0, 0, w, h, readbackFmt_, data_, w, Draw::ReadbackMode::BLOCK, "debugger");
-
-		// But for now, let's just draw the original FB, and we can always do that with color at least.
-	}
-
-	ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width(), (float)vfb->fbo->Height()));
 	return true;
-}
-
-uint32_t ImGeReadbackViewer::GetColorAt(int x, int y) const {
-	if (!vfb || !vfb->fbo || !data_) {
-		return 0;
-	}
-	int bpp = (int)Draw::DataFormatSizeInBytes(readbackFmt_);
-	int offset = (y * vfb->fbo->Width() + x) * bpp;
-	switch (readbackFmt_) {
-	case Draw::DataFormat::R8G8B8A8_UNORM:
-	{
-		uint32_t *read32 = (uint32_t *)(data_ + offset);
-		return read32[0];
-	}
-	default:
-		return 0;
-	}
 }
 
 void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
@@ -362,6 +323,127 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 	};
 
 	texture_ = draw->CreateTexture(desc);
+}
+
+ImGeReadbackViewer::ImGeReadbackViewer() {
+	// These are only forward declared in the header, so we initialize them here.
+	aspect = Draw::Aspect::COLOR_BIT;
+	readbackFmt_ = Draw::DataFormat::UNDEFINED;
+}
+
+ImGeReadbackViewer::~ImGeReadbackViewer() {
+	if (texture_)
+		texture_->Release();
+	delete[] data_;
+}
+
+bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
+	if (!vfb || !vfb->fbo || !fbmanager) {
+		ImGui::TextUnformatted("(N/A)");
+		return false;
+	}
+
+	if (dirty_) {
+		dirty_ = false;
+
+		delete[] data_;
+		int w = vfb->fbo->Width();
+		int h = vfb->fbo->Height();
+		int rbBpp = 4;
+		switch (aspect) {
+		case Draw::Aspect::COLOR_BIT:
+			readbackFmt_ = Draw::DataFormat::R8G8B8A8_UNORM;
+			break;
+		case Draw::Aspect::DEPTH_BIT:
+			readbackFmt_ = Draw::DataFormat::D32F;
+			break;
+		case Draw::Aspect::STENCIL_BIT:
+			readbackFmt_ = Draw::DataFormat::S8;
+			rbBpp = 1;
+			break;
+		}
+
+		data_ = new uint8_t[w * h * rbBpp];
+		draw->CopyFramebufferToMemory(vfb->fbo, aspect, 0, 0, w, h, readbackFmt_, data_, w, Draw::ReadbackMode::BLOCK, "debugger");
+
+		if (texture_) {
+			texture_->Release();
+			texture_ = nullptr;
+		}
+
+		// For now, we just draw the color texture. The others we convert.
+		if (aspect != Draw::Aspect::COLOR_BIT) {
+			uint8_t *texData = data_;
+			if (aspect == Draw::Aspect::DEPTH_BIT && scale != 1.0f) {
+				texData = new uint8_t[w * h * rbBpp];
+				// Apply scale
+				float *ptr = (float *)data_;
+				float *tptr = (float *)texData;
+				for (int i = 0; i < w * h; i++) {
+					tptr[i] = ptr[i] * scale;
+				}
+			}
+
+			Draw::TextureDesc desc{ Draw::TextureType::LINEAR2D,
+				rbBpp == 1 ? Draw::DataFormat::R8_UNORM : Draw::DataFormat::R32_FLOAT,
+				(int)w,
+				(int)h,
+				1,
+				1,
+				false,
+				rbBpp == 1 ? Draw::TextureSwizzle::R8_AS_ALPHA : Draw::TextureSwizzle::DEFAULT,
+				"PixelViewer temp",
+				{ texData },
+				nullptr,
+			};
+
+			texture_ = draw->CreateTexture(desc);
+
+			if (texData != data_) {
+				delete[] texData;
+			}
+		}
+	}
+
+	ImTextureID texId;
+	if (texture_) {
+		texId = ImGui_ImplThin3d_AddTextureTemp(texture_, ImGuiPipeline::TexturedOpaque);
+	} else {
+		texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+	}
+	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width(), (float)vfb->fbo->Height()));
+	return true;
+}
+
+bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) const {
+	if (!vfb || !vfb->fbo || !data_) {
+		snprintf(buf, bufSize, "N/A");
+	}
+	int bpp = (int)Draw::DataFormatSizeInBytes(readbackFmt_);
+	int offset = (y * vfb->fbo->Width() + x) * bpp;
+	switch (readbackFmt_) {
+	case Draw::DataFormat::R8G8B8A8_UNORM:
+	{
+		const uint32_t *read32 = (const uint32_t *)(data_ + offset);
+		snprintf(buf, bufSize, "%08x", *read32);
+		return true;
+	}
+	case Draw::DataFormat::D32F:
+	{
+		const float *read = (const float *)(data_ + offset);
+		snprintf(buf, bufSize, "%0.4f", *read);
+		return true;
+	}
+	case Draw::DataFormat::S8:
+	{
+		uint8_t value = data_[offset];
+		snprintf(buf, bufSize, "%d (%02x)", value, value);
+		return true;
+	}
+	default:
+		return false;
+	}
 }
 
 void ImGeDisasmView::NotifyStep() {
@@ -621,21 +703,41 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveTyp
 	}
 }
 
+ImGeDebuggerWindow::ImGeDebuggerWindow() {
+	selectedAspect_ = Draw::Aspect::COLOR_BIT;
+}
+
 void ImGeDebuggerWindow::NotifyStep() {
 	reloadPreview_ = true;
 	disasmView_.NotifyStep();
-	swViewer_.width = gstate.FrameBufStride();
-	// Height heuristic
-	swViewer_.height = gstate.getScissorY2() + 1 - gstate.getScissorY1();  // Just guessing the height, we have no reliable way to tell
-	swViewer_.format = gstate.FrameBufFormat();
-	swViewer_.addr = gstate.getFrameBufAddress();
-	swViewer_.showAlpha = false;
-	swViewer_.useAlpha = false;
-	swViewer_.Snapshot();
+
+	// In software mode, or written back to RAM, the alpha channel is the stencil channel
+	switch (selectedAspect_) {
+	case Draw::Aspect::COLOR_BIT:
+	case Draw::Aspect::STENCIL_BIT:
+		swViewer_.width = gstate.FrameBufStride();
+		// Height heuristic
+		swViewer_.height = gstate.getScissorY2() + 1 - gstate.getScissorY1();  // Just guessing the height, we have no reliable way to tell
+		swViewer_.format = gstate.FrameBufFormat();
+		swViewer_.addr = gstate.getFrameBufAddress();
+		swViewer_.showAlpha = selectedAspect_ == Draw::Aspect::STENCIL_BIT;
+		swViewer_.useAlpha = false;
+		swViewer_.Snapshot();
+		break;
+	case Draw::Aspect::DEPTH_BIT:
+		swViewer_.width = gstate.DepthBufStride();
+		swViewer_.height = gstate.getScissorY2() + 1 - gstate.getScissorY1();  // Just guessing the height, we have no reliable way to tell
+		swViewer_.format = GE_FORMAT_DEPTH16;
+		swViewer_.addr = gstate.getDepthBufAddress();
+		swViewer_.showAlpha = false;
+		swViewer_.useAlpha = false;
+		break;
+	}
 
 	FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
 	if (fbman) {
 		rbViewer_.vfb = fbman->GetExactVFB(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.FrameBufFormat());
+		rbViewer_.aspect = selectedAspect_;
 	}
 	rbViewer_.Snapshot();
 }
@@ -798,57 +900,70 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			}
 		}
 
-		if (ImGui::BeginTabBar("aspects")) {
-			if (ImGui::BeginTabItem("Color")) {
-				const ImVec2 p0 = ImGui::GetCursorScreenPos();
-				ImVec2 p1;
-				float scale = 1.0f;
-				if (vfb && vfb->fbo) {
-					scale = vfb->renderScaleFactor;
-					p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
-				} else {
-					// Guess
-					p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
-				}
-
-				// Draw border and background color
-				drawList->PushClipRect(p0, p1, true);
-
-				PixelLookup *lookup = nullptr;
-				if (vfb) {
-					rbViewer_.Draw(gpuDebug, draw);
-					lookup = &rbViewer_;
-					// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-					// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-				} else {
-					swViewer_.Draw(gpuDebug, draw);
-					lookup = &swViewer_;
-				}
-
-				// Draw vertex preview on top!
-				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
-
-				drawList->PopClipRect();
-
-				if (ImGui::IsItemHovered()) {
-					int x = (int)(ImGui::GetMousePos().x - p0.x);
-					int y = (int)(ImGui::GetMousePos().y - p0.y);
-
-					uint32_t value = lookup->GetColorAt(x, y);
-					ImGui::Text("%d, %d: %08x", x, y, value);
-				} else {
-					ImGui::TextUnformatted("(no pixel hovered)");
-				}
-
-				ImGui::EndTabItem();
+		// Use selectable instead of tab bar so we can get events (haven't figured that out).
+		static const Draw::Aspect aspects[3] = { Draw::Aspect::COLOR_BIT, Draw::Aspect::DEPTH_BIT, Draw::Aspect::STENCIL_BIT, };
+		static const char *const aspectNames[3] = { "Color", "Depth", "Stencil" };
+		for (int i = 0; i < ARRAY_SIZE(aspects); i++) {
+			if (i != 0)
+				ImGui::SameLine();
+			if (ImGui::Selectable(aspectNames[i], aspects[i] == selectedAspect_, 0, ImVec2(120.0f, 0.0f))) {
+				selectedAspect_ = aspects[i];
+				NotifyStep();
 			}
-			if (ImGui::BeginTabItem("Depth")) {
-				ImGui::EndTabItem();
+		}
+
+		if (selectedAspect_ == Draw::Aspect::DEPTH_BIT) {
+			float minimum = 0.5f;
+			float maximum = 256.0f;
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(200.0f);
+			if (ImGui::DragFloat("Z scale", &rbViewer_.scale, 1.0f, 0.5f, 256.0f, "%0.2f", ImGuiSliderFlags_Logarithmic)) {
+				rbViewer_.Snapshot();
+				swViewer_.Snapshot();
 			}
-			if (ImGui::BeginTabItem("Stencil")) {
-				ImGui::EndTabItem();
+		}
+
+		const ImVec2 p0 = ImGui::GetCursorScreenPos();
+		ImVec2 p1;
+		float scale = 1.0f;
+		if (vfb && vfb->fbo) {
+			scale = vfb->renderScaleFactor;
+			p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
+		} else {
+			// Guess
+			p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
+		}
+
+		// Draw border and background color
+		drawList->PushClipRect(p0, p1, true);
+
+		PixelLookup *lookup = nullptr;
+		if (vfb) {
+			rbViewer_.Draw(gpuDebug, draw);
+			lookup = &rbViewer_;
+			// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+			// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
+		} else {
+			swViewer_.Draw(gpuDebug, draw);
+			lookup = &swViewer_;
+		}
+
+		// Draw vertex preview on top!
+		DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
+
+		drawList->PopClipRect();
+
+		if (ImGui::IsItemHovered()) {
+			int x = (int)(ImGui::GetMousePos().x - p0.x);
+			int y = (int)(ImGui::GetMousePos().y - p0.y);
+			char temp[128];
+			if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
+				ImGui::Text("(%d, %d): %s", x, y, temp);
+			} else {
+				ImGui::Text("%d, %d: N/A");
 			}
-			ImGui::EndTabBar();
+		} else {
+			ImGui::TextUnformatted("(no pixel hovered)");
 		}
 
 		if (vfb && vfb->fbo) {

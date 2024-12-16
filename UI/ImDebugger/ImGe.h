@@ -62,7 +62,7 @@ class PixelLookup {
 public:
 	virtual ~PixelLookup() {}
 
-	virtual uint32_t GetColorAt(int x, int y) const = 0;
+	virtual bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const = 0;
 };
 
 struct ImGePixelViewer : public PixelLookup {
@@ -71,7 +71,7 @@ struct ImGePixelViewer : public PixelLookup {
 	void Snapshot() {
 		dirty_ = true;
 	}
-	uint32_t GetColorAt(int x, int y) const override;
+	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 
 	uint32_t addr = 0x04000000;
 	uint16_t stride = 512;
@@ -96,12 +96,13 @@ struct ImGeReadbackViewer : public PixelLookup {
 	void Snapshot() {
 		dirty_ = true;
 	}
-	uint32_t GetColorAt(int x, int y) const override;
+	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 
 	VirtualFramebuffer *vfb = nullptr;
 
 	// This specifies what to show
-	Draw::Aspect channel;
+	Draw::Aspect aspect;
+	float scale = 1.0f;  // Scales depth values.
 
 private:
 	uint8_t *data_ = nullptr;
@@ -132,6 +133,7 @@ private:
 
 class ImGeDebuggerWindow {
 public:
+	ImGeDebuggerWindow();
 	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
 	ImGeDisasmView &View() {
 		return disasmView_;
@@ -147,8 +149,9 @@ private:
 	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
-	GEPrimitiveType previewPrim_;
+	GEPrimitiveType previewPrim_ = GEPrimitiveType::GE_PRIM_TRIANGLES;
 	std::vector<u16> previewIndices_;
 	std::vector<GPUDebugVertex> previewVertices_;
 	int previewCount_ = 0;
+	Draw::Aspect selectedAspect_;
 };
