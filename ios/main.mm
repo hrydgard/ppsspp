@@ -35,6 +35,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Common/Log.h"
+#include "Common/Log/LogManager.h"
 #include "UI/DarwinFileSystemServices.h"
 
 // Compile out all the hackery in app store builds.
@@ -577,6 +578,8 @@ int main(int argc, char *argv[])
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
 	}
+
+	g_logManager.EnableOutput(LogOutput::Stdio);
 
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	g_jitAvailable = false;

@@ -21,9 +21,9 @@
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-class DebuggerLogListener : public LogListener {
+class DebuggerLogListener {
 public:
-	void Log(const LogMessage &msg) override {
+	void Log(const LogMessage &msg) {
 		std::lock_guard<std::mutex> guard(lock_);
 		messages_[nextMessage_] = msg;
 		nextMessage_++;
@@ -73,13 +73,20 @@ private:
 	int read_ = 0;
 };
 
+static void BroadcastCallback(const LogMessage &message, void *userdata) {
+	DebuggerLogListener *listener = (DebuggerLogListener *)userdata;
+	listener->Log(message);
+}
+
 LogBroadcaster::LogBroadcaster() {
 	listener_ = new DebuggerLogListener();
-	g_logManager.AddListener(listener_);
+	g_logManager.SetExternalLogCallback(&BroadcastCallback, (void *)listener_);
+	g_logManager.EnableOutput(LogOutput::ExternalCallback);
 }
 
 LogBroadcaster::~LogBroadcaster() {
-	g_logManager.RemoveListener(listener_);
+	g_logManager.DisableOutput(LogOutput::ExternalCallback);
+	g_logManager.SetExternalLogCallback(nullptr, nullptr);
 	delete listener_;
 }
 

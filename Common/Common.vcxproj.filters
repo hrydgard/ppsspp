@@ -559,7 +559,6 @@
     <ClInclude Include="Render\Text\draw_text_cocoa.h">
       <Filter>Render\Text</Filter>
     </ClInclude>
-    <ClInclude Include="Log\StdioListener.h" />
     <ClInclude Include="Log\ConsoleListener.h">
       <Filter>Log</Filter>
     </ClInclude>
@@ -680,7 +679,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
-    <ClCompile Include="Log\StdioListener.cpp" />
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="FakeCPUDetect.cpp" />
     <ClCompile Include="MipsCPUDetect.cpp" />

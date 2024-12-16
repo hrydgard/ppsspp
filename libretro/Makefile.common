@@ -480,7 +480,6 @@ SOURCES_CXX += \
 	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
 	$(COMMONDIR)/Log/ConsoleListener.cpp \
-	$(COMMONDIR)/Log/StdioListener.cpp \
 	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FakeCPUDetect.cpp \
 	$(COMMONDIR)/GhidraClient.cpp \

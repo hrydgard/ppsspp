@@ -845,8 +845,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		count = op & 0xFFFF;
 	} else {
 		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
-		if (gstate.getPatchPrimitiveType() < ARRAY_SIZE(primLookup))
-			prim_type = primLookup[gstate.getPatchPrimitiveType()];
+		prim_type = primLookup[gstate.getPatchPrimitiveType()];
 		count_u = (op & 0x00FF) >> 0;
 		count_v = (op & 0xFF00) >> 8;
 		count = count_u * count_v;

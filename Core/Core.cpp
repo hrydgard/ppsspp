@@ -166,6 +166,7 @@ bool Core_GetPowerSaving() {
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
 		switch (coreState) {
+		case CORE_POWERUP:
 		case CORE_POWERDOWN:
 		case CORE_BOOT_ERROR:
 		case CORE_RUNTIME_ERROR:

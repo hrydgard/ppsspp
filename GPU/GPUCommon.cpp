@@ -763,7 +763,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			return DLResult::Error;
 		}
 
-		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%d)",
+		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%lld)",
 			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
 
 		if (list.state == PSP_GE_DL_STATE_PAUSED) {

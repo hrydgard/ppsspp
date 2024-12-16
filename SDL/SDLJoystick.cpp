@@ -1,4 +1,3 @@
-#include <iostream>
 #include <string>
 
 #include "Common/File/FileUtil.h"
@@ -6,6 +5,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/Log.h"
 
 #include "Core/Config.h"
 #include "Core/KeyMap.h"
@@ -13,8 +13,7 @@
 
 using namespace std;
 
-static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event)
-{
+static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event) {
 	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
 	return 0;
 }
@@ -26,7 +25,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	}
 
 	const char *dbPath = "gamecontrollerdb.txt";
-	cout << "loading control pad mappings from " << dbPath << ": ";
+	INFO_LOG(Log::System, "loading control pad mappings from %s:", dbPath);
 
 	size_t size;
 	u8 *mappingData = g_VFS.ReadFile(dbPath, &size);
@@ -34,13 +33,12 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 		SDL_RWops *rw = SDL_RWFromConstMem(mappingData, size);
 		// 1 to free the rw after use
 		if (SDL_GameControllerAddMappingsFromRW(rw, 1) == -1) {
-			cout << "Failed to read mapping data - corrupt?" << endl;
+			ERROR_LOG(Log::System, "Failed to read mapping data - corrupt?");
 		}
 		delete[] mappingData;
 	} else {
-		cout << "gamecontrollerdb.txt missing" << endl;
+		WARN_LOG(Log::System, "gamecontrollerdb.txt missing?");
 	}
-	cout << "SUCCESS!" << endl;
 	setUpControllers();
 }
 
@@ -50,7 +48,7 @@ void SDLJoystick::setUpControllers() {
 		setUpController(i);
 	}
 	if (controllers.size() > 0) {
-		cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
+		INFO_LOG(Log::System, "pad 1 has been assigned to control pad: %s", SDL_GameControllerName(controllers.front()));
 	}
 }
 
@@ -59,7 +57,7 @@ void SDLJoystick::setUpController(int deviceIndex) {
 	char pszGUID[cbGUID];
 
 	if (!SDL_IsGameController(deviceIndex)) {
-		cout << "Control pad device " << deviceIndex << " not supported by SDL game controller database, attempting to create default mapping..." << endl;
+		WARN_LOG(Log::System, "Control pad device %d not supported by SDL game controller database, attempting to create default mapping...", deviceIndex);
 		SDL_Joystick *joystick = SDL_JoystickOpen(deviceIndex);
 		if (joystick) {
 			SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
@@ -67,13 +65,13 @@ void SDLJoystick::setUpController(int deviceIndex) {
 			const std::string safeName = ReplaceAll(SDL_JoystickName(joystick), ",", "");
 			std::string mapping = std::string(pszGUID) + "," + safeName + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
 			if (SDL_GameControllerAddMapping(mapping.c_str()) == 1){
-				cout << "Added default mapping ok" << endl;
+				INFO_LOG(Log::System, "Added default mapping ok");
 			} else {
-				cout << "Failed to add default mapping" << endl;
+				ERROR_LOG(Log::System, "Failed to add default mapping");
 			}
 			SDL_JoystickClose(joystick);
 		} else {
-			cout << "Failed to get joystick identifier. Read-only device? Control pad device " + std::to_string(deviceIndex) << endl;
+			ERROR_LOG(Log::System, "Failed to get joystick identifier. Read-only device? Control pad device %d", deviceIndex);
 		}
 	} else {
 		SDL_Joystick *joystick = SDL_JoystickOpen(deviceIndex);
@@ -87,15 +85,14 @@ void SDLJoystick::setUpController(int deviceIndex) {
 		if (SDL_GameControllerGetAttached(controller)) {
 			controllers.push_back(controller);
 			controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
-			cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
+			INFO_LOG(Log::System, "found control pad: %s, loading mapping", SDL_GameControllerName(controller));
 			// NOTE: The case to InputDeviceID here is wrong, we should do some kind of lookup.
 			KeyMap::NotifyPadConnected((InputDeviceID)deviceIndex, std::string(pszGUID) + ": " + SDL_GameControllerName(controller));
-			auto mapping = SDL_GameControllerMapping(controller);
-			if (mapping == NULL) {
-				//cout << "FAILED" << endl;
-				cout << "Could not find mapping in SDL2 controller database" << endl;
+			const char *mapping = SDL_GameControllerMapping(controller);
+			if (!mapping) {
+				WARN_LOG(Log::System, "Could not find mapping in SDL2 controller database");
 			} else {
-				cout << "SUCCESS, mapping is:" << endl << mapping << endl;
+				INFO_LOG(Log::System, "SUCCESS, mapping is: %s", mapping);
 			}
 		} else {
 			SDL_GameControllerClose(controller);
@@ -239,7 +236,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 		int prevNumControllers = controllers.size();
 		setUpController(event.cdevice.which);
 		if (prevNumControllers == 0 && controllers.size() > 0) {
-			cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
+			INFO_LOG(Log::System, "pad 1 has been assigned to control pad: %s", SDL_GameControllerName(controllers.front()));
 		}
 		break;
 	}
@@ -248,8 +245,8 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 int SDLJoystick::getDeviceIndex(int instanceId) {
 	auto it = controllerDeviceMap.find(instanceId);
 	if (it == controllerDeviceMap.end()) {
-			// could not find device
-			return -1;
+		// could not find device
+		return -1;
 	}
 	return it->second;
 }

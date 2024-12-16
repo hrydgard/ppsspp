@@ -193,32 +193,7 @@ WindowsAudioBackend *winAudioBackend;
 
 std::thread *graphicsLoadThread;
 
-class PrintfLogger : public LogListener {
-public:
-	void Log(const LogMessage &message) override {
-		// Log with simplified headers as Android already provides timestamp etc.
-		switch (message.level) {
-		case LogLevel::LVERBOSE:
-		case LogLevel::LDEBUG:
-		case LogLevel::LINFO:
-			printf("INFO [%s] %s", message.log, message.msg.c_str());
-			break;
-		case LogLevel::LERROR:
-			printf("ERR  [%s] %s", message.log, message.msg.c_str());
-			break;
-		case LogLevel::LWARNING:
-			printf("WARN [%s] %s", message.log, message.msg.c_str());
-			break;
-		case LogLevel::LNOTICE:
-		default:
-			printf("NOTE [%s] !!! %s", message.log, message.msg.c_str());
-			break;
-		}
-	}
-};
-
 // globals
-static LogListener *logger = nullptr;
 Path boot_filename;
 
 int NativeMix(short *audio, int numSamples, int sampleRateHz) {
@@ -669,8 +644,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (fileToLog)
-		g_logManager.ChangeFileLog(fileToLog);
+	if (fileToLog) {
+		g_logManager.EnableOutput(LogOutput::File);
+		g_logManager.ChangeFileLog(Path(fileToLog));
+	}
 
 	if (forceLogLevel)
 		g_logManager.SetAllLogLevels(logLevel);
@@ -678,13 +655,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	PostLoadConfig();
 
 #if PPSSPP_PLATFORM(ANDROID)
-	logger = new AndroidLogger();
-	g_logManager.AddListener(logger);
+	// Stdio is used for Android logging too.
+	g_logManager.EnableOutput(LogOutput::Stdio);
 #elif (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
-	logger = new PrintfLogger();
-	g_logManager.AddListener(logger);
+	// TODO: Why not use stdio?
+	g_logManager.EnableOutput(LogOutput::Printf);
 #endif
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
@@ -1488,11 +1465,6 @@ void NativeShutdown() {
 	// Avoid shutting this down when restarting core.
 	if (!restarting)
 		g_logManager.Shutdown();
-
-	if (logger) {
-		delete logger;
-		logger = nullptr;
-	}
 
 	g_threadManager.Teardown();
 

@@ -306,7 +306,7 @@ public:
 
 	static int EstimatePerVertexCost();
 
-	void Flush();
+	void Flush() override;
 
 #ifdef USE_CRT_DBG
 #undef new

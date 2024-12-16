@@ -891,8 +891,6 @@ add_library(Common STATIC
 	Common/Log.cpp
 	Common/Log/ConsoleListener.cpp
 	Common/Log/ConsoleListener.h
-	Common/Log/StdioListener.cpp
-	Common/Log/StdioListener.h
 	Common/Log/LogManager.cpp
 	Common/Log/LogManager.h
 	Common/LogReporting.cpp
