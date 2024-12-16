@@ -596,14 +596,18 @@ private:
 };
 
 // Bits per pixel, not bytes.
+// VERY incomplete!
 static int GetBpp(VkFormat format) {
 	switch (format) {
+	case VK_FORMAT_R32_SFLOAT:
 	case VK_FORMAT_R8G8B8A8_UNORM:
 	case VK_FORMAT_B8G8R8A8_UNORM:
 		return 32;
 	case VK_FORMAT_R8_UNORM:
+	case VK_FORMAT_S8_UINT:
 		return 8;
 	case VK_FORMAT_R8G8_UNORM:
+	case VK_FORMAT_R16_SFLOAT:
 	case VK_FORMAT_R16_UNORM:
 		return 16;
 	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
@@ -833,6 +837,7 @@ void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, 
 	int d = depth_;
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
+	_dbg_assert_(bpp != 0);
 	int bytesPerPixel = bpp / 8;
 	TextureCopyBatch batch;
 	batch.reserve(numLevels);
