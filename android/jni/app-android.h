@@ -21,10 +21,6 @@ std::string Android_GetInputDeviceDebugString();
 jclass findClass(const char* name);
 JNIEnv* getEnv();
 
-class AndroidLogger : public LogListener {
-public:
-	void Log(const LogMessage &message) override;
-};
 #endif
 
 #endif

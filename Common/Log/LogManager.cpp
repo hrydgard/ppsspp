@@ -38,6 +38,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Data/Format/IniFile.h"
 #include "Common/StringUtils.h"
 
 LogManager g_logManager;
@@ -52,6 +53,10 @@ static const char level_to_char[8] = "-NEWIDV";
 #define LOG_MSC_OUTPUTDEBUG true
 #else
 #define LOG_MSC_OUTPUTDEBUG false
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+void AndroidLog(const LogMessage &message);
 #endif
 
 void GenericLog(LogLevel level, Log type, const char *file, int line, const char* fmt, ...) {
@@ -106,6 +111,10 @@ static const char * const g_logTypeNames[] = {
 	"SCEMISC",
 };
 
+const char *LogManager::GetLogTypeName(Log type) {
+	return g_logTypeNames[(size_t)type];
+}
+
 void LogManager::Init(bool *enabledSetting, bool headless) {
 	g_bLogEnabledSetting = enabledSetting;
 	if (initialized_) {
@@ -115,9 +124,9 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 	initialized_ = true;
 
 	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == (size_t)Log::NUMBER_OF_LOGS);
+	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == ARRAY_SIZE(log_));
 
-	for (size_t i = 0; i < ARRAY_SIZE(g_logTypeNames); i++) {
-		truncate_cpy(log_[i].m_shortName, g_logTypeNames[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(log_); i++) {
 		log_[i].enabled = true;
 #if defined(_DEBUG)
 		log_[i].level = LogLevel::LDEBUG;
@@ -126,75 +135,42 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 #endif
 	}
 
-	// Remove file logging on small devices in Release mode.
-#if PPSSPP_PLATFORM(UWP)
-	if (IsDebuggerPresent())
-		debuggerLog_ = new OutputDebugStringLogListener();
-#else
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	fileLog_ = new FileLogListener("");
-#if PPSSPP_PLATFORM(WINDOWS)
-#if !PPSSPP_PLATFORM(UWP)
-	consoleLog_ = new ConsoleListener();
-#endif
-	if (IsDebuggerPresent())
-		debuggerLog_ = new OutputDebugStringLogListener();
-#else
-	stdioLog_ = new StdioListener();
-#endif
-#endif
-	ringLog_ = new RingbufferLogListener();
-#endif
-
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	AddListener(fileLog_);
-#if PPSSPP_PLATFORM(WINDOWS)
-#if !PPSSPP_PLATFORM(UWP)
-	AddListener(consoleLog_);
-#endif
-#else
-	AddListener(stdioLog_);
-#endif
-#if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
-	if (IsDebuggerPresent() && debuggerLog_ && (LOG_MSC_OUTPUTDEBUG || headless))
-		AddListener(debuggerLog_);
-#endif
-	AddListener(ringLog_);
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	if (!consoleLog_) {
+		consoleLog_ = new ConsoleListener();
+	}
 #endif
 }
+
 void LogManager::Shutdown() {
 	if (!initialized_) {
 		// already done
 		return;
 	}
 
-	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-		RemoveListener(fileLog_);
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-		RemoveListener(consoleLog_);
-#endif
-		RemoveListener(stdioLog_);
-#if defined(_MSC_VER) && defined(USING_WIN_UI)
-		RemoveListener(debuggerLog_);
-#endif
-#endif
+	if (fp_) {
+		fclose(fp_);
+		fp_ = nullptr;
 	}
 
-	// Make sure we don't shutdown while logging.  RemoveListener locks too, but there are gaps.
-	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
+	outputs_ = (LogOutput)0;
 
-	delete fileLog_;
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	delete consoleLog_;
+	consoleLog_ = nullptr;
 #endif
-	delete stdioLog_;
-	delete debuggerLog_;
-#endif
-	delete ringLog_;
 
+	ringLog_.Clear();
 	initialized_ = false;
+
+	for (size_t i = 0; i < ARRAY_SIZE(log_); i++) {
+		log_[i].enabled = true;
+#if defined(_DEBUG)
+		log_[i].level = LogLevel::LDEBUG;
+#else
+		log_[i].level = LogLevel::LINFO;
+#endif
+	}
 }
 
 LogManager::LogManager() {}
@@ -203,23 +179,30 @@ LogManager::~LogManager() {
 	Shutdown();
 }
 
-void LogManager::ChangeFileLog(const char *filename) {
-	if (fileLog_) {
-		RemoveListener(fileLog_);
-		delete fileLog_;
-		fileLog_ = nullptr;
+void LogManager::ChangeFileLog(const Path &filename) {
+	if (fp_ && filename == logFilename_) {
+		// All good
+		return;
 	}
 
-	if (filename) {
-		fileLog_ = new FileLogListener(filename);
-		AddListener(fileLog_);
+	if (fp_) {
+		fclose(fp_);
+	}
+
+	if (!filename.empty()) {
+		logFilename_ = Path(filename);
+		fp_ = File::OpenCFile(logFilename_, "at");
+		logFileOpenFailed_ = fp_ == nullptr;
+		if (logFileOpenFailed_) {
+			printf("Failed to open log file %s", filename.c_str());
+		}
 	}
 }
 
 void LogManager::SaveConfig(Section *section) {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
-		section->Set((std::string(log_[i].m_shortName) + "Enabled"), log_[i].enabled);
-		section->Set((std::string(log_[i].m_shortName) + "Level"), (int)log_[i].level);
+		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), log_[i].enabled);
+		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)log_[i].level);
 	}
 }
 
@@ -227,10 +210,17 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		bool enabled = false;
 		int level = 0;
-		section->Get((std::string(log_[i].m_shortName) + "Enabled"), &enabled, true);
-		section->Get((std::string(log_[i].m_shortName) + "Level"), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
+		section->Get((std::string(g_logTypeNames[i]) + "Enabled"), &enabled, true);
+		section->Get((std::string(g_logTypeNames[i]) + "Level"), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
 		log_[i].enabled = enabled;
 		log_[i].level = (LogLevel)level;
+	}
+}
+
+void LogManager::SetOutputsEnabled(LogOutput outputs) {
+	outputs_ = outputs; 
+	if (outputs & LogOutput::File) {
+		ChangeFileLog(logFilename_);
 	}
 }
 
@@ -252,12 +242,12 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	}
 
 	const LogChannel &log = log_[(size_t)type];
-	if (level > log.level || !log.enabled)
+	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0)
 		return;
 
 	LogMessage message;
 	message.level = level;
-	message.log = log.m_shortName;
+	message.log = g_logTypeNames[(size_t)type];
 
 #ifdef _WIN32
 	static const char sep = '\\';
@@ -290,12 +280,12 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	if (threadName) {
 		snprintf(message.header, sizeof(message.header), "%-12.12s %c[%s]: %s:%d",
 			threadName, level_to_char[(int)level],
-			log.m_shortName,
+			message.log,
 			file, line);
 	} else {
 		snprintf(message.header, sizeof(message.header), "%s:%d %c[%s]:",
 			file, line, level_to_char[(int)level],
-			log.m_shortName);
+			message.log);
 	}
 
 	GetCurrentTimeFormatted(message.timestamp);
@@ -314,70 +304,61 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	message.msg[neededBytes] = '\n';
 	va_end(args_copy);
 
-	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
-	for (auto &iter : listeners_) {
-		iter->Log(message);
+	if (outputs_ & LogOutput::Stdio) {
+		// This has its own mutex.
+		stdioLog_.Log(message);
 	}
-}
 
-bool LogManager::IsEnabled(LogLevel level, Log type) {
-	LogChannel &log = log_[(size_t)type];
-	if (level > log.level || !log.enabled)
-		return false;
-	return true;
-}
-
-void LogManager::AddListener(LogListener *listener) {
-	_dbg_assert_(initialized_);
-	if (!listener)
-		return;
-	std::lock_guard<std::mutex> lk(listeners_lock_);
-	listeners_.push_back(listener);
-}
-
-void LogManager::RemoveListener(LogListener *listener) {
-	_dbg_assert_(initialized_);
-	if (!listener)
-		return;
-	std::lock_guard<std::mutex> lk(listeners_lock_);
-	auto iter = std::find(listeners_.begin(), listeners_.end(), listener);
-	if (iter != listeners_.end())
-		listeners_.erase(iter);
-}
-
-FileLogListener::FileLogListener(const char *filename) {
-	if (strlen(filename) > 0) {
-		fp_ = File::OpenCFile(Path(std::string(filename)), "at");
+	// OK, now go through the possible listeners in order.
+	if (outputs_ & LogOutput::File) {
+		if (fp_) {
+			std::lock_guard<std::mutex> lk(logFileLock_);
+			fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
+			// Is this really necessary to do every time? I guess to catch the last message before a crash..
+			fflush(fp_);
+		}
 	}
-	SetEnabled(fp_ != nullptr);
-}
 
-FileLogListener::~FileLogListener() {
-	if (fp_)
-		fclose(fp_);
-}
-
-void FileLogListener::Log(const LogMessage &message) {
-	if (!IsEnabled() || !IsValid())
-		return;
-
-	std::lock_guard<std::mutex> lk(m_log_lock);
-	fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
-	fflush(fp_);
-}
-
-void OutputDebugStringLogListener::Log(const LogMessage &message) {
-	char buffer[4096];
-	// We omit the timestamp for easy copy-paste-diffing.
-	snprintf(buffer, sizeof(buffer), "%s %s", message.header, message.msg.c_str());
+	if (outputs_ & LogOutput::DebugString) {
+		// No mutex needed
 #if _MSC_VER
-	OutputDebugStringUTF8(buffer);
+		char buffer[4096];
+		// We omit the timestamp for easy copy-paste-diffing.
+		snprintf(buffer, sizeof(buffer), "%s %s", message.header, message.msg.c_str());
+		OutputDebugStringUTF8(buffer);
 #endif
+	}
+
+	if (outputs_ & LogOutput::RingBuffer) {
+		ringLog_.Log(message);
+	}
+
+	if (outputs_ & LogOutput::Printf) {
+		PrintfLog(message);
+	}
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	if (outputs_ & LogOutput::WinConsole) {
+		if (consoleLog_) {
+			consoleLog_->Log(message);
+		}
+	}
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	if (outputs_ & LogOutput::Android) {
+		AndroidLog(message);
+	}
+#endif
+
+	if (outputs_ & LogOutput::ExternalCallback) {
+		if (externalCallback_) {
+			externalCallback_(message, externalUserData_);
+		}
+	}
 }
 
-void RingbufferLogListener::Log(const LogMessage &message) {
-	if (!enabled_)
-		return;
+void RingbufferLog::Log(const LogMessage &message) {
 	messages_[curMessage_] = message;
 	curMessage_++;
 	if (curMessage_ >= MAX_LOGS)
@@ -405,4 +386,49 @@ void OutputDebugStringUTF8(const char *p) {
 	INFO_LOG(Log::System, "%s", p);
 }
 
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+
+#ifndef LOG_APP_NAME
+#define LOG_APP_NAME "PPSSPP"
+#endif
+
+void AndroidLog(const LogMessage &message) {
+	int mode;
+	switch (message.level) {
+	case LogLevel::LWARNING:
+		mode = ANDROID_LOG_WARN;
+		break;
+	case LogLevel::LERROR:
+		mode = ANDROID_LOG_ERROR;
+		break;
+	default:
+		mode = ANDROID_LOG_INFO;
+		break;
+	}
+
+	// Long log messages need splitting up.
+	// Not sure what the actual limit is (seems to vary), but let's be conservative.
+	const size_t maxLogLength = 512;
+	if (message.msg.length() < maxLogLength) {
+		// Log with simplified headers as Android already provides timestamp etc.
+		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, message.msg.c_str());
+	} else {
+		std::string msg = message.msg;
+
+		// Ideally we should split at line breaks, but it's at least fairly usable anyway.
+		std::string first_part = msg.substr(0, maxLogLength);
+		__android_log_print(mode, LOG_APP_NAME, "[%s] %s", message.log, first_part.c_str());
+		msg = msg.substr(maxLogLength);
+
+		while (msg.length() > maxLogLength) {
+			std::string first_part = msg.substr(0, maxLogLength);
+			__android_log_print(mode, LOG_APP_NAME, "%s", first_part.c_str());
+			msg = msg.substr(maxLogLength);
+		}
+		// Print the final part.
+		__android_log_print(mode, LOG_APP_NAME, "%s", msg.c_str());
+	}
+}
 #endif

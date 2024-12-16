@@ -175,10 +175,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	scroll->Add(items);
 	parent->Add(scroll);
 
-	RingbufferLogListener *ring = g_logManager.GetRingbufferListener();
-	if (ring) {
-		ring->SetEnabled(true);
-	}
+	g_logManager.EnableOutput(LogOutput::RingBuffer);
 }
 
 UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
@@ -236,7 +233,7 @@ void GPIGPOScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void LogScreen::UpdateLog() {
 	using namespace UI;
-	RingbufferLogListener *ring = g_logManager.GetRingbufferListener();
+	const RingbufferLog *ring = g_logManager.GetRingbuffer();
 	if (!ring)
 		return;
 	vert_->Clear();
@@ -331,7 +328,7 @@ void LogConfigScreen::CreateViews() {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
 		row->Add(new CheckBox(&chan->enabled, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, I18NCat::NONE, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new PopupMultiChoice((int *)&chan->level, LogManager::GetLogTypeName(type), logLevelList, 1, 6, I18NCat::NONE, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }

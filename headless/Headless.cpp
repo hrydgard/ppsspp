@@ -66,33 +66,6 @@ bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
 #endif
 
-class PrintfLogger : public LogListener {
-public:
-	void Log(const LogMessage &message) override {
-		switch (message.level) {
-		case LogLevel::LVERBOSE:
-			fprintf(stderr, "V %s", message.msg.c_str());
-			break;
-		case LogLevel::LDEBUG:
-			fprintf(stderr, "D %s", message.msg.c_str());
-			break;
-		case LogLevel::LINFO:
-			fprintf(stderr, "I %s", message.msg.c_str());
-			break;
-		case LogLevel::LERROR:
-			fprintf(stderr, "E %s", message.msg.c_str());
-			break;
-		case LogLevel::LWARNING:
-			fprintf(stderr, "W %s", message.msg.c_str());
-			break;
-		case LogLevel::LNOTICE:
-		default:
-			fprintf(stderr, "N %s", message.msg.c_str());
-			break;
-		}
-	}
-};
-
 // Temporary hacks around annoying linking errors.
 void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
@@ -436,7 +409,6 @@ int main(int argc, const char* argv[])
 
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
-	PrintfLogger *printfLogger = new PrintfLogger();
 
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		Log type = (Log)i;
@@ -445,7 +417,7 @@ int main(int argc, const char* argv[])
 	}
 	if (fullLog) {
 		// Only with --log, add the printfLogger.
-		g_logManager.AddListener(printfLogger);
+		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
 	// Needs to be after log so we don't interfere with test output.
@@ -629,7 +601,6 @@ int main(int argc, const char* argv[])
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
-	delete printfLogger;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	timeEndPeriod(1);

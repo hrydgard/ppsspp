@@ -34,6 +34,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/CommonTypes.h"
+#include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
 #include "Common/StringUtils.h"
 

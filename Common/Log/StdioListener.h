@@ -19,18 +19,19 @@
 
 #pragma once
 
-#include <atomic>
+#include <mutex>
 
-#include "Common/Log/LogManager.h"
+struct LogMessage;
 
-#ifdef _WIN32
-#include "Common/CommonWindows.h"
-#endif
-
-class StdioListener : public LogListener {
+// Nice, colored output.
+class StdioLog {
 public:
-	StdioListener();
-	void Log(const LogMessage &message) override;
+	StdioLog();
+	void Log(const LogMessage &message);
 private:
+	std::mutex lock_;
 	bool bUseColor = true;
 };
+
+// Ultra plain output, for CI and stuff.
+void PrintfLog(const LogMessage &message);

@@ -15,24 +15,18 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include <atomic>
-#include <algorithm>  // min
 #include <cstring>
-#include <string> // System: To be able to add strings with "+"
-#include <cmath>
-#include <cstdarg>
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
 
 #include "ppsspp_config.h"
-#include "Common/Thread/ThreadUtil.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/CommonTypes.h"
+#include "Common/Log/LogManager.h"
 #include "Common/Log/StdioListener.h"
 #include "Common/StringUtils.h"
 
-StdioListener::StdioListener()  {
+StdioLog::StdioLog()  {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
 	bUseColor = false;
 #elif defined(_MSC_VER)
@@ -46,36 +40,60 @@ StdioListener::StdioListener()  {
 #endif
 }
 
-void StdioListener::Log(const LogMessage &msg) {
-	char Text[2048];
-	snprintf(Text, sizeof(Text), "%s %s %s", msg.timestamp, msg.header, msg.msg.c_str());
-	Text[sizeof(Text) - 2] = '\n';
-	Text[sizeof(Text) - 1] = '\0';
+void StdioLog::Log(const LogMessage &msg) {
+	char text[2048];
+	snprintf(text, sizeof(text), "%s %s %s", msg.timestamp, msg.header, msg.msg.c_str());
+	text[sizeof(text) - 2] = '\n';
+	text[sizeof(text) - 1] = '\0';
 
-	char ColorAttr[16] = "";
-	char ResetAttr[16] = "";
+	const char *colorAttr = "";
+	const char *resetAttr = "";
 
 	if (bUseColor) {
-		strcpy(ResetAttr, "\033[0m");
+		resetAttr = "\033[0m";
 		switch (msg.level) {
 		case LogLevel::LNOTICE: // light green
-			strcpy(ColorAttr, "\033[92m");
+			colorAttr = "\033[92m";
 			break;
 		case LogLevel::LERROR: // light red
-			strcpy(ColorAttr, "\033[91m");
+			colorAttr = "\033[91m";
 			break;
 		case LogLevel::LWARNING: // light yellow
-			strcpy(ColorAttr, "\033[93m");
+			colorAttr = "\033[93m";
 			break;
 		case LogLevel::LINFO: // cyan
-			strcpy(ColorAttr, "\033[96m");
+			colorAttr = "\033[96m";
 			break;
 		case LogLevel::LDEBUG: // gray
-			strcpy(ColorAttr, "\033[90m");
+			colorAttr = "\033[90m";
 			break;
 		default:
 			break;
 		}
 	}
-	fprintf(stderr, "%s%s%s", ColorAttr, Text, ResetAttr);
+	fprintf(stderr, "%s%s%s", colorAttr, text, resetAttr);
+}
+
+void PrintfLog(const LogMessage &message) {
+	switch (message.level) {
+	case LogLevel::LVERBOSE:
+		fprintf(stderr, "V %s", message.msg.c_str());
+		break;
+	case LogLevel::LDEBUG:
+		fprintf(stderr, "D %s", message.msg.c_str());
+		break;
+	case LogLevel::LINFO:
+		fprintf(stderr, "I %s", message.msg.c_str());
+		break;
+	case LogLevel::LERROR:
+		fprintf(stderr, "E %s", message.msg.c_str());
+		break;
+	case LogLevel::LWARNING:
+		fprintf(stderr, "W %s", message.msg.c_str());
+		break;
+	case LogLevel::LNOTICE:
+	default:
+		fprintf(stderr, "N %s", message.msg.c_str());
+		break;
+	}
 }

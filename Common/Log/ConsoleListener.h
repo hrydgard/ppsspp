@@ -26,10 +26,12 @@
 #include <atomic>
 #include <thread>
 
-#include "Common/Log/LogManager.h"
+#include "Common/Log.h"
 #include "Common/CommonWindows.h"
 
-class ConsoleListener : public LogListener {
+struct LogMessage;
+
+class ConsoleListener {
 public:
 	ConsoleListener();
 	~ConsoleListener();
@@ -43,7 +45,7 @@ public:
 	void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
 	void PixelSpace(int Left, int Top, int Width, int Height, bool);
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
-	void Log(const LogMessage &message) override;
+	void Log(const LogMessage &message);
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);
