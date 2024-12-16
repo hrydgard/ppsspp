@@ -88,9 +88,9 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	ImTextureID prevTexId = (ImTextureID)-1;
 
 	std::vector<Draw::ClippedDraw> draws;
-	Draw::Texture *boundTexture;
-	Draw::Framebuffer *boundFBAsTexture;
-	void *boundNativeTexture;
+	Draw::Texture *boundTexture = nullptr;
+	Draw::Framebuffer *boundFBAsTexture = nullptr;
+	void *boundNativeTexture = nullptr;
 	Draw::Pipeline *boundPipeline = bd->pipelines[0];
 	Draw::SamplerState *boundSampler = bd->fontSampler;
 	Draw::Aspect boundAspect = Draw::Aspect::COLOR_BIT;
@@ -249,12 +249,13 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 		size_t upload_size = width * height * 4 * sizeof(char);
 
-		Draw::TextureDesc desc;
+		Draw::TextureDesc desc{};
 		desc.width = width;
 		desc.height = height;
 		desc.mipLevels = 1;
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 		desc.type = Draw::TextureType::LINEAR2D;
+		desc.swizzle = Draw::TextureSwizzle::DEFAULT;
 		desc.depth = 1;
 		desc.tag = "imgui-font";
 		desc.initData.push_back((const uint8_t *)pixels);
