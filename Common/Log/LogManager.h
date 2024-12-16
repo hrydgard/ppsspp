@@ -49,9 +49,8 @@ enum class LogOutput {
 	RingBuffer = (1 << 2),
 	File = (1 << 3),
 	WinConsole = (1 << 4),
-	Android = (1 << 5),
-	Printf = (1 << 6),
-	ExternalCallback = (1 << 7),
+	Printf = (1 << 5),
+	ExternalCallback = (1 << 6),
 };
 ENUM_CLASS_BITOPS(LogOutput);
 
@@ -178,7 +177,10 @@ private:
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *consoleLog_ = nullptr;
 #endif
-	StdioLog stdioLog_;
+	// Stdio logging
+	void StdioLog(const LogMessage &message);
+	std::mutex stdioLock_;
+	bool stdioUseColor_ = true;
 
 	LogOutput outputs_ = (LogOutput)0;
 

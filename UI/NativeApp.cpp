@@ -652,10 +652,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	PostLoadConfig();
 
-#if PPSSPP_PLATFORM(ANDROID)
-	g_logManager.EnableOutput(LogOutput::Android);
-#elif (defined(MOBILE_DEVICE) && !defined(_DEBUG))
+#if PPSSPP_PLATFORM(ANDROID) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
+	// Printf is used for Android logging too.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
 	g_logManager.EnableOutput(LogOutput::Printf);
 #endif

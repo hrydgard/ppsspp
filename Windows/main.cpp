@@ -955,9 +955,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// This will be overridden by the actual config. But we do want to log during startup.
 	g_Config.bEnableLogging = true;
 	g_logManager.Init(&g_Config.bEnableLogging);
-	if (IsDebuggerPresent()) {
-		g_logManager.EnableOutput(LogOutput::WinConsole);
-	}
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.

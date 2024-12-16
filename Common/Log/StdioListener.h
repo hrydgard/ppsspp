@@ -22,16 +22,3 @@
 #include <mutex>
 
 struct LogMessage;
-
-// Nice, colored output.
-class StdioLog {
-public:
-	StdioLog();
-	void Log(const LogMessage &message);
-private:
-	std::mutex lock_;
-	bool bUseColor = true;
-};
-
-// Ultra plain output, for CI and stuff.
-void PrintfLog(const LogMessage &message);

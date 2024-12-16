@@ -115,6 +115,9 @@ const char *LogManager::GetLogTypeName(Log type) {
 	return g_logTypeNames[(size_t)type];
 }
 
+// Ultra plain output, for CI and stuff.
+void PrintfLog(const LogMessage &message);
+
 void LogManager::Init(bool *enabledSetting, bool headless) {
 	g_bLogEnabledSetting = enabledSetting;
 	if (initialized_) {
@@ -134,12 +137,6 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 		log_[i].level = LogLevel::LINFO;
 #endif
 	}
-
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	if (!consoleLog_) {
-		consoleLog_ = new ConsoleListener();
-	}
-#endif
 }
 
 void LogManager::Shutdown() {
@@ -155,11 +152,6 @@ void LogManager::Shutdown() {
 
 	outputs_ = (LogOutput)0;
 
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	delete consoleLog_;
-	consoleLog_ = nullptr;
-#endif
-
 	ringLog_.Clear();
 	initialized_ = false;
 
@@ -173,10 +165,38 @@ void LogManager::Shutdown() {
 	}
 }
 
-LogManager::LogManager() {}
+LogManager::LogManager() {
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
+	stdioUseColor_ = false;
+#elif defined(_MSC_VER)
+	stdioUseColor_ = false;
+#elif defined(__APPLE__)
+	// Xcode builtin terminal used for debugging does not support colours.
+	// Fortunately it can be detected with a TERM env variable.
+	stdioUseColor_ = isatty(fileno(stdout)) && getenv("TERM") != NULL;
+#else
+	stdioUseColor_ = isatty(fileno(stdout));
+#endif
+
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	if (IsDebuggerPresent()) {
+		outputs_ |= LogOutput::DebugString;
+	}
+
+	if (!consoleLog_) {
+		consoleLog_ = new ConsoleListener();
+	}
+	outputs_ |= LogOutput::WinConsole;
+#endif
+}
 
 LogManager::~LogManager() {
 	Shutdown();
+
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	delete consoleLog_;
+	consoleLog_ = nullptr;
+#endif
 }
 
 void LogManager::ChangeFileLog(const Path &filename) {
@@ -226,20 +246,6 @@ void LogManager::SetOutputsEnabled(LogOutput outputs) {
 
 void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, const char *format, va_list args) {
 	char msgBuf[1024];
-	if (!initialized_) {
-		// Fall back to printf or direct android logger with a small buffer if the log manager hasn't been initialized yet.
-#if PPSSPP_PLATFORM(ANDROID)
-		vsnprintf(msgBuf, sizeof(msgBuf), format, args);
-		__android_log_print(ANDROID_LOG_INFO, "PPSSPP", "EARLY: %s", msgBuf);
-#elif _MSC_VER
-		vsnprintf(msgBuf, sizeof(msgBuf), format, args);
-		OutputDebugStringUTF8(msgBuf);
-#else
-		vprintf(format, args);
-		printf("\n");
-#endif
-		return;
-	}
 
 	const LogChannel &log = log_[(size_t)type];
 	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0)
@@ -306,7 +312,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 
 	if (outputs_ & LogOutput::Stdio) {
 		// This has its own mutex.
-		stdioLog_.Log(message);
+		StdioLog(message);
 	}
 
 	// OK, now go through the possible listeners in order.
@@ -319,15 +325,15 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 		}
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
 	if (outputs_ & LogOutput::DebugString) {
 		// No mutex needed
-#if _MSC_VER
 		char buffer[4096];
 		// We omit the timestamp for easy copy-paste-diffing.
 		snprintf(buffer, sizeof(buffer), "%s %s", message.header, message.msg.c_str());
 		OutputDebugStringUTF8(buffer);
-#endif
 	}
+#endif
 
 	if (outputs_ & LogOutput::RingBuffer) {
 		ringLog_.Log(message);
@@ -342,12 +348,6 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 		if (consoleLog_) {
 			consoleLog_->Log(message);
 		}
-	}
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-	if (outputs_ & LogOutput::Android) {
-		AndroidLog(message);
 	}
 #endif
 
@@ -388,13 +388,11 @@ void OutputDebugStringUTF8(const char *p) {
 
 #endif
 
+void LogManager::StdioLog(const LogMessage &msg) {
 #if PPSSPP_PLATFORM(ANDROID)
-
 #ifndef LOG_APP_NAME
 #define LOG_APP_NAME "PPSSPP"
 #endif
-
-void AndroidLog(const LogMessage &message) {
 	int mode;
 	switch (message.level) {
 	case LogLevel::LWARNING:
@@ -430,5 +428,62 @@ void AndroidLog(const LogMessage &message) {
 		// Print the final part.
 		__android_log_print(mode, LOG_APP_NAME, "%s", msg.c_str());
 	}
-}
+#else
+	std::lock_guard<std::mutex> lock(stdioLock_);
+	char text[2048];
+	snprintf(text, sizeof(text), "%s %s %s", msg.timestamp, msg.header, msg.msg.c_str());
+	text[sizeof(text) - 2] = '\n';
+	text[sizeof(text) - 1] = '\0';
+
+	const char *colorAttr = "";
+	const char *resetAttr = "";
+
+	if (stdioUseColor_) {
+		resetAttr = "\033[0m";
+		switch (msg.level) {
+		case LogLevel::LNOTICE: // light green
+			colorAttr = "\033[92m";
+			break;
+		case LogLevel::LERROR: // light red
+			colorAttr = "\033[91m";
+			break;
+		case LogLevel::LWARNING: // light yellow
+			colorAttr = "\033[93m";
+			break;
+		case LogLevel::LINFO: // cyan
+			colorAttr = "\033[96m";
+			break;
+		case LogLevel::LDEBUG: // gray
+			colorAttr = "\033[90m";
+			break;
+		default:
+			break;
+		}
+	}
+	fprintf(stderr, "%s%s%s", colorAttr, text, resetAttr);
 #endif
+}
+
+void PrintfLog(const LogMessage &message) {
+	switch (message.level) {
+	case LogLevel::LVERBOSE:
+		fprintf(stderr, "V %s", message.msg.c_str());
+		break;
+	case LogLevel::LDEBUG:
+		fprintf(stderr, "D %s", message.msg.c_str());
+		break;
+	case LogLevel::LINFO:
+		fprintf(stderr, "I %s", message.msg.c_str());
+		break;
+	case LogLevel::LERROR:
+		fprintf(stderr, "E %s", message.msg.c_str());
+		break;
+	case LogLevel::LWARNING:
+		fprintf(stderr, "W %s", message.msg.c_str());
+		break;
+	case LogLevel::LNOTICE:
+	default:
+		fprintf(stderr, "N %s", message.msg.c_str());
+		break;
+	}
+}
