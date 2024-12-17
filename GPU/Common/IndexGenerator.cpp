@@ -193,6 +193,7 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 #endif
 }
 
+// God of War uses this for text. Otherwise rare, not much reason to optimize.
 void IndexGenerator::AddFan(int numVerts, int indexOffset, bool clockwise) {
 	const int numTris = numVerts - 2;
 	u16 *outInds = inds_;
