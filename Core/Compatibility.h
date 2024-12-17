@@ -112,6 +112,7 @@ struct CompatFlags {
 	bool DisableMemcpySlicing;
 	bool ForceEnableGPUReadback;
 	bool UseFFMPEGFindStreamInfo;
+	bool SoftwareRasterDepth;
 };
 
 struct VRCompat {
