@@ -235,7 +235,7 @@ void DrawEngineCommon::UpdatePlanes() {
 //   - Less accurate, but..
 //   - Only requires six plane evaluations then.
 
-bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 1024) {
 		return true;
@@ -285,7 +285,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// TODO: Avoid normalization if just plain skinning.
 			// Force software skinning.
 			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
-			VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, dec, vertType);
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
@@ -295,7 +294,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			}
 		} else {
 			// Simple, most common case.
-			VertexDecoder *dec = GetVertexDecoder(vertType);
 			int stride = dec->VertexSize();
 			int offset = dec->posoff;
 			switch (vertType & GE_VTYPE_POS_MASK) {
@@ -372,7 +370,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 }
 
 // NOTE: This doesn't handle through-mode, indexing, morph, or skinning.
-bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
 
@@ -395,7 +393,6 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 		return true;
 
 	// Simple, most common case.
-	VertexDecoder *dec = GetVertexDecoder(vertType);
 	int stride = dec->VertexSize();
 	int offset = dec->posoff;
 	int vertStride = 3;
@@ -546,7 +543,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions.
-bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 16) {
 		return true;
@@ -563,7 +560,6 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	// and a large vertex format.
 	u8 *temp_buffer = decoded_ + 65536 * 24;
 	// Simple, most common case.
-	VertexDecoder *dec = GetVertexDecoder(vertType);
 	int stride = dec->VertexSize();
 	int offset = dec->posoff;
 
@@ -801,7 +797,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	return cmd - start;
 }
 
-void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim)) {
 		Flush();
 	}
@@ -817,13 +813,7 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertT
 		prevPrim_ = prim;
 	}
 
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_ || !dec_) {
-		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
-	}
-
-	*bytesRead = vertexCount * dec_->VertexSize();
+	*bytesRead = vertexCount * dec->VertexSize();
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.

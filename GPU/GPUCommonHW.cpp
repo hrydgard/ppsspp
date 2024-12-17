@@ -1001,7 +1001,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
 	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
-		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, vertexType)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType)) {
 			gpuStats.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.vertexGPUCycles += cycles;
@@ -1027,7 +1027,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	bool passCulling = PASSES_CULLING;
 	if (!passCulling) {
 		// Do software culling.
-		if (drawEngineCommon_->TestBoundingBoxFast(verts, count, vertexType)) {
+		if (drawEngineCommon_->TestBoundingBoxFast(verts, count, decoder, vertexType)) {
 			passCulling = true;
 		} else {
 			gpuStats.numCulledDraws++;
@@ -1044,7 +1044,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		onePassed = true;
 	} else {
 		// Still need to advance bytesRead.
-		drawEngineCommon_->SkipPrim(prim, count, vertTypeID, &bytesRead);
+		drawEngineCommon_->SkipPrim(prim, count, decoder, vertTypeID, &bytesRead);
 		canExtend = false;
 	}
 
@@ -1109,7 +1109,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			if (!passCulling) {
 				// Do software culling.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				if (drawEngineCommon_->TestBoundingBoxFast(verts, count, vertexType)) {
+				if (drawEngineCommon_->TestBoundingBoxFast(verts, count, decoder, vertexType)) {
 					passCulling = true;
 				} else {
 					gpuStats.numCulledDraws++;
@@ -1123,7 +1123,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				onePassed = true;
 			} else {
 				// Still need to advance bytesRead.
-				drawEngineCommon_->SkipPrim(newPrim, count, vertTypeID, &bytesRead);
+				drawEngineCommon_->SkipPrim(newPrim, count, decoder, vertTypeID, &bytesRead);
 				canExtend = false;
 			}
 			AdvanceVerts(vertexType, count, bytesRead);
