@@ -79,8 +79,6 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void ClearTrackedVertexArrays() override {}
-
 	void BeginFrame() override;
 	void EndFrame();
 
@@ -103,7 +101,6 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 

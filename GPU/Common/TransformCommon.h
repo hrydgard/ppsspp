@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
+#include "GPU/GPU.h"
 
 struct Color4 {
 	float r, g, b, a;
@@ -94,3 +95,14 @@ private:
 	float lcolor[3][4][3];
 };
 
+// PSP compatible format so we can use the end of the pipeline in beziers etc
+// 8 + 4 + 12 + 12 = 36 bytes
+struct SimpleVertex {
+	float uv[2];
+	union {
+		u8 color[4];
+		u32_le color_32;
+	};
+	Vec3Packedf nrm;
+	Vec3Packedf pos;
+};

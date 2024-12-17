@@ -554,7 +554,6 @@ void GPUCommonHW::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		drawEngineCommon_->ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManager_->DestroyAllFBOs();
@@ -998,6 +997,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
 	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
 	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
@@ -1038,7 +1038,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Cuts down on checking, while not losing that much efficiency.
 	bool onePassed = false;
 	if (passCulling) {
-		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, true, &bytesRead)) {
+		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead)) {
 			canExtend = false;
 		}
 		onePassed = true;
@@ -1116,7 +1116,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				}
 			}
 			if (passCulling) {
-				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, clockwise, &bytesRead)) {
+				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead)) {
 					canExtend = false;
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.
@@ -1141,6 +1141,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = data;
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
 			break;
 		}

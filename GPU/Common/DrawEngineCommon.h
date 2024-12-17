@@ -88,8 +88,6 @@ public:
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
-
 	// Dispatches the queued-up draws.
 	virtual void Flush() = 0;
 
@@ -97,7 +95,8 @@ public:
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
 	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, clockwise, bytesRead);
+		VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead);
 	}
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
@@ -109,14 +108,18 @@ public:
 	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType);
 
+	void FlushPartialDecode() {
+		DecodeVerts(dec_, decoded_);
+	}
+
 	void FlushSkin() {
 		if (dec_->skinInDecode) {
-			DecodeVerts(dec_, decoded_);
+			FlushPartialDecode();
 		}
 	}
 
 	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
 	void SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
 
 	template<class Surface>
@@ -143,9 +146,16 @@ public:
 		return numDrawVerts_;
 	}
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
-
-	virtual void ClearTrackedVertexArrays() {}
+	VertexDecoder *GetVertexDecoder(u32 vertTypeID) {
+		VertexDecoder *dec;
+		if (decoderMap_.Get(vertTypeID, &dec))
+			return dec;
+		dec = new VertexDecoder();
+		_assert_(dec);
+		dec->SetVertexType(vertTypeID, decOptions_, decJitCache_);
+		decoderMap_.Insert(vertTypeID, dec);
+		return dec;
+	}
 
 	void AssertEmpty() {
 		_dbg_assert_(numDrawVerts_ == 0 && numDrawInds_ == 0);
@@ -157,9 +167,6 @@ protected:
 
 	void DecodeVerts(VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
-
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
 	int ComputeNumVertsToDecode() const;
 

@@ -115,7 +115,6 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 		draw_->SetInvalidationCallback(InvalidationCallback());
 	}
 
-	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
 	delete tessDataTransferD3D11;
 	tessDataTransferD3D11 = nullptr;
