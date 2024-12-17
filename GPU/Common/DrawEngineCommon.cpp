@@ -119,7 +119,6 @@ void DrawEngineCommon::NotifyConfigChanged() {
 		delete decoder;
 	});
 	decoderMap_.Clear();
-	ClearTrackedVertexArrays();
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);

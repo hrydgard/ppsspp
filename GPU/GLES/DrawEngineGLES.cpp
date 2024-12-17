@@ -130,8 +130,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		frameData_[i].pushIndex = nullptr;
 	}
 
-	ClearTrackedVertexArrays();
-
 	if (softwareInputLayout_)
 		render_->DeleteInputLayout(softwareInputLayout_);
 	softwareInputLayout_ = nullptr;

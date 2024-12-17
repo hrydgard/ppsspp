@@ -156,8 +156,6 @@ public:
 		return dec;
 	}
 
-	virtual void ClearTrackedVertexArrays() {}
-
 	void AssertEmpty() {
 		_dbg_assert_(numDrawVerts_ == 0 && numDrawInds_ == 0);
 	}

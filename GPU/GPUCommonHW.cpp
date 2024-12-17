@@ -554,7 +554,6 @@ void GPUCommonHW::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
-		drawEngineCommon_->ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManager_->DestroyAllFBOs();

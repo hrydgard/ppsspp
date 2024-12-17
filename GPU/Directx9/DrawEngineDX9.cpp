@@ -111,7 +111,6 @@ void DrawEngineDX9::DestroyDeviceObjects() {
 	if (draw_) {
 		draw_->SetInvalidationCallback(InvalidationCallback());
 	}
-	ClearTrackedVertexArrays();
 }
 
 struct DeclTypeInfo {
