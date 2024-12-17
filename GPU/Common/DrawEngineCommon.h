@@ -107,9 +107,13 @@ public:
 	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType);
 
+	void FlushPartialDecode() {
+		DecodeVerts(dec_, decoded_);
+	}
+
 	void FlushSkin() {
 		if (dec_->skinInDecode) {
-			DecodeVerts(dec_, decoded_);
+			FlushPartialDecode();
 		}
 	}
 
