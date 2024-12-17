@@ -34,6 +34,7 @@ enum class BreakNext {
 	VSYNC,
 	PRIM,
 	CURVE,
+	BLOCK_TRANSFER,
 	COUNT,
 };
 

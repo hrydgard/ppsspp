@@ -784,6 +784,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
+	if (ImGui::Button("Block xfer")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::BLOCK_TRANSFER);
+	}
+	ImGui::SameLine();
 	if (ImGui::Button("Curve")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
@@ -798,7 +802,26 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	ImGui::SameLine();
 	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
 
-	// TODO: Break on count!
+	if (disableStepButtons) {
+		ImGui::BeginDisabled();
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(160.0f);
+	ImGui::InputInt("Number", &cfg.breakCount);
+
+	ImGui::SameLine();
+	if (ImGui::Button("Break on #")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
+		gpuDebug->SetBreakCount(cfg.breakCount);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Step by")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
+		gpuDebug->SetBreakCount(cfg.breakCount, true);  // relative
+	}
+	if (disableStepButtons) {
+		ImGui::EndDisabled();
+	}
 
 	// Line break
 	if (ImGui::Button("Goto PC")) {
@@ -821,6 +844,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		if (showBannerInFrames_ == 0) {
 			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
 			ImGui::SameLine();
+			if (gpuDebug->GetBreakNext() == GPUDebug::BreakNext::COUNT) {
+				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
+				ImGui::SameLine();
+			}
 			if (ImGui::Button("Cancel step")) {
 				gpuDebug->ClearBreakNext();
 			}

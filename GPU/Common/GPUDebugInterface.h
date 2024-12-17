@@ -248,9 +248,10 @@ public:
 	virtual void ClearBreakNext() = 0;
 	virtual void SetBreakNext(GPUDebug::BreakNext next) = 0 ;
 	virtual void SetBreakCount(int c, bool relative = false) = 0 ;
-	virtual GPUDebug::BreakNext GetBreakNext() = 0 ;
+	virtual GPUDebug::BreakNext GetBreakNext() const = 0;
+	virtual int GetBreakCount() const = 0;
 	virtual bool SetRestrictPrims(std::string_view rule) = 0 ;
-	virtual const char *GetRestrictPrims() = 0 ;
+	virtual std::string_view GetRestrictPrims() = 0;
 
 	virtual GPURecord::Recorder *GetRecorder() = 0;
 	virtual GPUBreakpoints *GetBreakpoints() = 0;

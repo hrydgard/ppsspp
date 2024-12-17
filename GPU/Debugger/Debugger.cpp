@@ -36,6 +36,7 @@ const char *BreakNextToString(BreakNext next) {
 	case BreakNext::VSYNC: return "VSYNC";
 	case BreakNext::PRIM: return "PRIM";
 	case BreakNext::CURVE: return "CURVE";
+	case BreakNext::BLOCK_TRANSFER: return "BLOCK_TRANSFER";
 	case BreakNext::COUNT: return "COUNT";
 	default: return "N/A";
 	}

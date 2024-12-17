@@ -2017,10 +2017,6 @@ void GPUCommon::ClearBreakNext() {
 	GPUStepping::ResumeFromStepping();
 }
 
-GPUDebug::BreakNext GPUCommon::GetBreakNext() {
-	return breakNext_;
-}
-
 void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 	breakNext_ = next;
 	breakAtCount_ = -1;
@@ -2034,6 +2030,7 @@ void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_VAP, true);
+		breakpoints_.AddCmdBreakpoint(GE_CMD_TRANSFERSTART, true);  // We count block transfers as prims, too.
 		break;
 	case GPUDebug::BreakNext::CURVE:
 		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
@@ -2043,6 +2040,9 @@ void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 		// This is now handled by switching to BreakNext::PRIM when we encounter a flush.
 		// This will take us to the following actual draw.
 		primAfterDraw_ = true;
+		break;
+	case GPUDebug::BreakNext::BLOCK_TRANSFER:
+		breakpoints_.AddCmdBreakpoint(GE_CMD_TRANSFERSTART, true);
 		break;
 	default:
 		break;
@@ -2075,14 +2075,14 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	bool isPrim = false;
 
 	bool process = true;
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {  // VAP is immediate mode prims.
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP || cmd == GE_CMD_TRANSFERSTART) {  // VAP is immediate mode prims.
 		isPrim = true;
 
 		// TODO: Should restricted prim ranges also avoid breakpoints?
 
-		if (!restrictPrimRanges.empty()) {
+		if (!restrictPrimRanges_.empty()) {
 			process = false;
-			for (const auto &range : restrictPrimRanges) {
+			for (const auto &range : restrictPrimRanges_) {
 				if ((primsThisFrame_ + 1) >= range.first && (primsThisFrame_ + 1) <= range.second) {
 					process = true;
 					break;
@@ -2100,12 +2100,12 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		debugBreak = breakpoints->IsBreakpoint(pc, op);
 	}
 
-	if (debugBreak && pc == g_skipPcOnce) {
-		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", g_skipPcOnce);
-		g_skipPcOnce = 0;
+	if (debugBreak && pc == skipPcOnce_) {
+		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", skipPcOnce_);
+		skipPcOnce_ = 0;
 		goto bail;
 	}
-	g_skipPcOnce = 0;
+	skipPcOnce_ = 0;
 
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
@@ -2119,7 +2119,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		auto info = DisassembleOp(pc, op);
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 
-		g_skipPcOnce = pc;
+		skipPcOnce_ = pc;
 		breakNext_ = BreakNext::NONE;
 		// Not incrementing the prim counter!
 		return NotifyResult::Break;  // caller will call GPUStepping::EnterStepping().
@@ -2159,19 +2159,15 @@ void GPUCommon::NotifyDisplay(u32 framebuf, u32 stride, int format) {
 
 bool GPUCommon::SetRestrictPrims(std::string_view rule) {
 	if (rule.empty() || rule == "*") {
-		restrictPrimRanges.clear();
-		restrictPrimRule.clear();
+		restrictPrimRanges_.clear();
+		restrictPrimRule_.clear();
 		return true;
 	}
 
-	if (GPUDebug::ParsePrimRanges(rule, &restrictPrimRanges)) {
-		restrictPrimRule = rule;
+	if (GPUDebug::ParsePrimRanges(rule, &restrictPrimRanges_)) {
+		restrictPrimRule_ = rule;
 		return true;
 	} else {
 		return false;
 	}
-}
-
-const char *GPUCommon::GetRestrictPrims() {
-	return restrictPrimRule.c_str();
 }

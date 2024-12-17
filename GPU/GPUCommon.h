@@ -388,9 +388,16 @@ public:
 	void ClearBreakNext() override;
 	void SetBreakNext(GPUDebug::BreakNext next) override;
 	void SetBreakCount(int c, bool relative = false) override;
-	GPUDebug::BreakNext GetBreakNext() override;
+	GPUDebug::BreakNext GetBreakNext() const override {
+		return breakNext_;
+	}
+	int GetBreakCount() const override {
+		return breakAtCount_;
+	}
 	bool SetRestrictPrims(std::string_view rule) override;
-	const char *GetRestrictPrims() override;
+	std::string_view GetRestrictPrims() override {
+		return restrictPrimRule_;
+	}
 
 	int PrimsThisFrame() const override {
 		return primsThisFrame_;
@@ -545,10 +552,10 @@ protected:
 
 	bool primAfterDraw_ = false;
 
-	uint32_t g_skipPcOnce = 0;
+	uint32_t skipPcOnce_ = 0;
 
-	std::vector<std::pair<int, int>> restrictPrimRanges;
-	std::string restrictPrimRule;
+	std::vector<std::pair<int, int>> restrictPrimRanges_;
+	std::string restrictPrimRule_;
 
 private:
 	void DoExecuteCall(u32 target);

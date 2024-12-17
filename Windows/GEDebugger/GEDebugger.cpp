@@ -1116,8 +1116,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_SETPRIMFILTER:
 		{
-			std::string value = gpuDebug->GetRestrictPrims();
-			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", value, value)) {
+			std::string value;
+			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", gpuDebug->GetRestrictPrims(), value)) {
 				gpuDebug->SetRestrictPrims(value.c_str());
 			}
 			break;
