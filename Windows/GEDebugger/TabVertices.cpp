@@ -175,8 +175,8 @@ int CtrlVertexList::GetRowCount() {
 	}
 	VertexDecoderOptions options{};
 	// TODO: Maybe an option?
-	options.applySkinInDecode = true;
-	decoder->SetVertexType(state.vertType, options);
+	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
+	decoder->SetVertexType(vertTypeID, options);
 	return rowCount_;
 }
 

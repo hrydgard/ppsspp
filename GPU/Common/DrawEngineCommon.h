@@ -53,12 +53,6 @@ enum FBOTexState {
 	FBO_TEX_READ_FRAMEBUFFER,
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
-}
-
 struct SimpleVertex;
 namespace Spline { struct Weight2D; }
 
@@ -82,6 +76,8 @@ public:
 	virtual ~DrawEngineCommon();
 
 	void Init();
+
+	virtual void BeginFrame();
 
 	void SetGPUCommon(GPUCommon *gpuCommon) {
 		gpuCommon_ = gpuCommon;
@@ -114,9 +110,8 @@ public:
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType);
 
 	void FlushSkin() {
-		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
-		if (applySkin) {
-			DecodeVerts(decoded_);
+		if (dec_->skinInDecode) {
+			DecodeVerts(dec_, decoded_);
 		}
 	}
 
@@ -160,7 +155,7 @@ protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
 
-	void DecodeVerts(u8 *dest);
+	void DecodeVerts(VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 
 	// Preprocessing for spline/bezier
@@ -313,6 +308,8 @@ protected:
 	int seenPrims_ = 0;
 	bool anyCCWOrIndexed_ = 0;
 	bool anyIndexed_ = 0;
+
+	bool applySkinInDecode_ = false;
 
 	// Vertex collector state
 	IndexGenerator indexGen;

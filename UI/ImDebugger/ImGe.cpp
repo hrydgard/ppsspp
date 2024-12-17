@@ -1360,15 +1360,13 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 				if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 					rowCount_ = 0;
 				}
-				VertexDecoderOptions options{};
-				// TODO: Maybe an option?
-				options.applySkinInDecode = true;
-
 				auto buildVertexTable = [&](bool raw) {
 					// Ignore indices for now.
 					if (ImGui::BeginTable("rawverts", VERTEXLIST_COL_COUNT + 1, tableFlags)) {
 						static VertexDecoder decoder;
-						decoder.SetVertexType(state.vertType, options);
+						u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
+						VertexDecoderOptions options{};
+						decoder.SetVertexType(vertTypeID, options);
 
 						static const char * const colNames[] = {
 							"Index",

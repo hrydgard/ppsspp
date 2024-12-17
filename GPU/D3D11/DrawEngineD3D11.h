@@ -75,12 +75,12 @@ public:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void BeginFrame();
+	void BeginFrame() override;
 
 	void Flush() override;
 
 	void FinishDeferred() {
-		DecodeVerts(decoded_);
+		DecodeVerts(dec_, decoded_);
 	}
 
 	void NotifyConfigChanged() override;
