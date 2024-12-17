@@ -393,10 +393,10 @@ public:
 	const char *GetRestrictPrims() override;
 
 	int PrimsThisFrame() const override {
-		return primsThisFrame;
+		return primsThisFrame_;
 	}
 	int PrimsLastFrame() const override {
-		return primsLastFrame;
+		return primsLastFrame_;
 	}
 
 	void NotifyFlush();
@@ -536,12 +536,12 @@ protected:
 	GPURecord::Recorder recorder_;
 	GPUBreakpoints breakpoints_;
 
-	GPUDebug::BreakNext breakNext = GPUDebug::BreakNext::NONE;
-	int breakAtCount = -1;
+	GPUDebug::BreakNext breakNext_ = GPUDebug::BreakNext::NONE;
+	int breakAtCount_ = -1;
 
-	int primsLastFrame = 0;
-	int primsThisFrame = 0;
-	int thisFlipNum = 0;
+	int primsLastFrame_ = 0;
+	int primsThisFrame_ = 0;
+	int thisFlipNum_ = 0;
 
 	bool primAfterDraw_ = false;
 

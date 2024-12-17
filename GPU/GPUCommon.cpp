@@ -621,9 +621,9 @@ void GPUCommon::PSPFrame() {
 		dumpThisFrame_ = false;
 	}
 
-	if (breakNext == GPUDebug::BreakNext::VSYNC) {
+	if (breakNext_ == GPUDebug::BreakNext::VSYNC) {
 		// Just start stepping as soon as we can once the vblank finishes.
-		breakNext = GPUDebug::BreakNext::OP;
+		breakNext_ = GPUDebug::BreakNext::OP;
 	}
 	recorder_.NotifyBeginFrame();
 }
@@ -2008,22 +2008,22 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 bool GPUCommon::NeedsSlowInterpreter() const {
-	return breakNext != GPUDebug::BreakNext::NONE;
+	return breakNext_ != GPUDebug::BreakNext::NONE;
 }
 
 void GPUCommon::ClearBreakNext() {
-	breakNext = GPUDebug::BreakNext::NONE;
-	breakAtCount = -1;
+	breakNext_ = GPUDebug::BreakNext::NONE;
+	breakAtCount_ = -1;
 	GPUStepping::ResumeFromStepping();
 }
 
 GPUDebug::BreakNext GPUCommon::GetBreakNext() {
-	return breakNext;
+	return breakNext_;
 }
 
 void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
-	breakNext = next;
-	breakAtCount = -1;
+	breakNext_ = next;
+	breakAtCount_ = -1;
 	switch (next) {
 	case GPUDebug::BreakNext::TEX:
 		breakpoints_.AddTextureChangeTempBreakpoint();
@@ -2055,9 +2055,9 @@ void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 
 void GPUCommon::SetBreakCount(int c, bool relative) {
 	if (relative) {
-		breakAtCount = primsThisFrame + c;
+		breakAtCount_ = primsThisFrame_ + c;
 	} else {
-		breakAtCount = c;
+		breakAtCount_ = c;
 	}
 }
 
@@ -2066,20 +2066,20 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
-	if (thisFlipNum != gpuStats.numFlips) {
-		primsLastFrame = primsThisFrame;
-		primsThisFrame = 0;
-		thisFlipNum = gpuStats.numFlips;
+	if (thisFlipNum_ != gpuStats.numFlips) {
+		primsLastFrame_ = primsThisFrame_;
+		primsThisFrame_ = 0;
+		thisFlipNum_ = gpuStats.numFlips;
 	}
 
 	bool process = true;
 	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {
-		primsThisFrame++;
+		primsThisFrame_++;
 
 		if (!restrictPrimRanges.empty()) {
 			process = false;
 			for (const auto &range : restrictPrimRanges) {
-				if (primsThisFrame >= range.first && primsThisFrame <= range.second) {
+				if (primsThisFrame_ >= range.first && primsThisFrame_ <= range.second) {
 					process = true;
 					break;
 				}
@@ -2088,10 +2088,10 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	}
 
 	bool isBreakpoint = false;
-	if (breakNext == BreakNext::OP) {
+	if (breakNext_ == BreakNext::OP) {
 		isBreakpoint = true;
-	} else if (breakNext == BreakNext::COUNT) {
-		isBreakpoint = primsThisFrame == breakAtCount;
+	} else if (breakNext_ == BreakNext::COUNT) {
+		isBreakpoint = primsThisFrame_ == breakAtCount_;
 	} else if (breakpoints->HasBreakpoints()) {
 		isBreakpoint = breakpoints->IsBreakpoint(pc, op);
 	}
@@ -2107,7 +2107,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		breakpoints->ClearTempBreakpoints();
 
 		if (coreState == CORE_POWERDOWN) {
-			breakNext = BreakNext::NONE;
+			breakNext_ = BreakNext::NONE;
 			return process ? NotifyResult::Execute : NotifyResult::Skip;
 		}
 
@@ -2116,7 +2116,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 
 		g_skipPcOnce = pc;
-		breakNext = BreakNext::NONE;
+		breakNext_ = BreakNext::NONE;
 		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
 	}
 
@@ -2125,7 +2125,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 void GPUCommon::NotifyFlush() {
 	using namespace GPUDebug;
-	if (breakNext == BreakNext::DRAW && !GPUStepping::IsStepping()) {
+	if (breakNext_ == BreakNext::DRAW && !GPUStepping::IsStepping()) {
 		// Break on the first PRIM after a flush.
 		if (primAfterDraw_) {
 			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
@@ -2138,9 +2138,9 @@ void GPUCommon::NotifyFlush() {
 
 void GPUCommon::NotifyDisplay(u32 framebuf, u32 stride, int format) {
 	using namespace GPUDebug;
-	if (breakNext == BreakNext::FRAME) {
+	if (breakNext_ == BreakNext::FRAME) {
 		// Start stepping at the first op of the new frame.
-		breakNext = BreakNext::OP;
+		breakNext_ = BreakNext::OP;
 	}
 	recorder_.NotifyDisplay(framebuf, stride, format);
 }
