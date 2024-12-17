@@ -258,7 +258,7 @@ void DrawEngineVulkan::Flush() {
 		uint32_t vbOffset;
 
 		VkBuffer vbuf = VK_NULL_HANDLE;
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
 			VkDeviceSize size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
@@ -302,7 +302,7 @@ void DrawEngineVulkan::Flush() {
 			VulkanFragmentShader *fshader = nullptr;
 			VulkanGeometryShader *gshader = nullptr;
 
-			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
+			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
@@ -381,8 +381,8 @@ void DrawEngineVulkan::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		if (!decOptions_.applySkinInDecode) {
-			decOptions_.applySkinInDecode = true;
+		if (!applySkinInDecode_) {
+			applySkinInDecode_ = true;
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
@@ -563,7 +563,7 @@ void DrawEngineVulkan::Flush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+		applySkinInDecode_ = g_Config.bSoftwareSkinning;
 	}
 
 	ResetAfterDrawInline();
@@ -581,7 +581,7 @@ void DrawEngineVulkan::ResetAfterDraw() {
 	vertexCountInDrawCalls_ = 0;
 	decodeIndsCounter_ = 0;
 	decodeVertsCounter_ = 0;
-	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+	applySkinInDecode_ = g_Config.bSoftwareSkinning;
 	gstate_c.vertexFullAlpha = true;
 }
 

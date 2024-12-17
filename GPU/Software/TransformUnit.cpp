@@ -63,7 +63,7 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
 	DrawEngineCommon::NotifyConfigChanged();
-	decOptions_.applySkinInDecode = true;
+	applySkinInDecode_ = true;
 }
 
 void SoftwareDrawEngine::Flush() {
@@ -973,8 +973,8 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options{};
-	options.applySkinInDecode = true;
-	vdecoder.SetVertexType(gstate.vertType, options);
+	u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
+	vdecoder.SetVertexType(vertTypeID, options);
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))
 		return false;

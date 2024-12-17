@@ -133,11 +133,11 @@ void DrawEngineCommon::NotifyConfigChanged() {
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
-	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+	applySkinInDecode_ = g_Config.bSoftwareSkinning;
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
-	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), decOptions_.applySkinInDecode);
+	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	if (vertexSize)
 		*vertexSize = dec->VertexSize();
@@ -185,7 +185,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 
 	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0, decOptions_.applySkinInDecode);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0, applySkinInDecode_);
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, clockwise, &bytesRead);
@@ -303,10 +303,10 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			}
 			// TODO: Avoid normalization if just plain skinning.
 			// Force software skinning.
-			bool wasApplyingSkinInDecode = decOptions_.applySkinInDecode;
-			decOptions_.applySkinInDecode = true;
+			bool wasApplyingSkinInDecode = applySkinInDecode_;
+			applySkinInDecode_ = true;
 			NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, vertType);
-			decOptions_.applySkinInDecode = wasApplyingSkinInDecode;
+			applySkinInDecode_ = wasApplyingSkinInDecode;
 
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
@@ -985,7 +985,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		}
 	}
 
-	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
+	bool applySkin = dec_->skinInDecode;
 
 	DeferredInds &di = drawInds_[numDrawInds_++];
 	di.inds = inds;

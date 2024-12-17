@@ -276,7 +276,7 @@ void DrawEngineDX9::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate();
 
-		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
+		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, pipelineState_);
 		ComPtr<IDirect3DVertexDeclaration9> pHardwareVertexDecl;
 		SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType(), &pHardwareVertexDecl);
 
@@ -301,8 +301,8 @@ void DrawEngineDX9::Flush() {
 			}
 		}
 	} else {
-		if (!decOptions_.applySkinInDecode) {
-			decOptions_.applySkinInDecode = true;
+		if (!applySkinInDecode_) {
+			applySkinInDecode_ = true;
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
@@ -414,7 +414,7 @@ void DrawEngineDX9::Flush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
-		decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+		applySkinInDecode_ = g_Config.bSoftwareSkinning;
 	}
 
 	ResetAfterDrawInline();
