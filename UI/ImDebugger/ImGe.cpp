@@ -751,7 +751,19 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_GE);
 	if (ImGui::Button("Run/Resume")) {
-		Core_Resume();
+		// Core_Resume();
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DEBUG_RUN);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("...")) {
+		ImGui::OpenPopup("dotdotdot");
+	}
+	if (ImGui::BeginPopup("dotdotdot")) {
+		if (ImGui::MenuItem("RunFast")) {
+			gpuDebug->ClearBreakNext();
+			Core_Resume();
+		}
+		ImGui::EndPopup();
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
@@ -762,7 +774,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	//	GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
 	//}
 
-	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE;
+	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN;
 
 	if (disableStepButtons) {
 		ImGui::BeginDisabled();
@@ -828,7 +840,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		disasmView_.GotoPC();
 	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Settings")) {
+	if (ImGui::Button("Settings")) {
 		ImGui::OpenPopup("disSettings");
 	}
 	if (ImGui::BeginPopup("disSettings")) {
@@ -837,7 +849,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	}
 
 	// Display any pending step event.
-	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE) {
+	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN) {
 		if (showBannerInFrames_ > 0) {
 			showBannerInFrames_--;
 		}

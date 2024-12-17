@@ -38,6 +38,7 @@ const char *BreakNextToString(BreakNext next) {
 	case BreakNext::CURVE: return "CURVE";
 	case BreakNext::BLOCK_TRANSFER: return "BLOCK_TRANSFER";
 	case BreakNext::COUNT: return "COUNT";
+	case BreakNext::DEBUG_RUN: return "DEBUG_RUN";
 	default: return "N/A";
 	}
 }

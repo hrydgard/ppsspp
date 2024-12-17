@@ -2074,9 +2074,10 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 	bool isPrim = false;
 
-	bool process = true;
+	bool process = true;  // Process is only for the restrictPrimRanges functionality
 	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP || cmd == GE_CMD_TRANSFERSTART) {  // VAP is immediate mode prims.
 		isPrim = true;
+		primsThisFrame_++;
 
 		// TODO: Should restricted prim ranges also avoid breakpoints?
 
@@ -2103,7 +2104,9 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (debugBreak && pc == skipPcOnce_) {
 		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", skipPcOnce_);
 		skipPcOnce_ = 0;
-		goto bail;
+		if (isPrim)
+			primsThisFrame_--;  // Compensate for the wrong increment above - we didn't run anything.
+		return process ? NotifyResult::Execute : NotifyResult::Skip;
 	}
 	skipPcOnce_ = 0;
 
@@ -2112,7 +2115,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 		if (coreState == CORE_POWERDOWN) {
 			breakNext_ = BreakNext::NONE;
-			goto bail;
+			return process ? NotifyResult::Execute : NotifyResult::Skip;
 		}
 
 		u32 op = Memory::Read_U32(pc);
@@ -2125,14 +2128,7 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		return NotifyResult::Break;  // caller will call GPUStepping::EnterStepping().
 	}
 
-bail:
-	if (process) {
-		if (isPrim)
-			primsThisFrame_++;
-		return NotifyResult::Execute;
-	} else {
-		return NotifyResult::Skip;
-	}
+	return process ? NotifyResult::Execute : NotifyResult::Skip;
 }
 
 void GPUCommon::NotifyFlush() {
