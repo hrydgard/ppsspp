@@ -71,14 +71,14 @@ struct ImGePixelViewer : public PixelLookup {
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 
-	uint32_t addr = 0x04000000;
+	uint32_t addr = 0x04110000;
 	uint16_t stride = 512;
 	uint16_t width = 480;
 	uint16_t height = 272;
-	GEBufferFormat format = GE_FORMAT_565;
+	GEBufferFormat format = GE_FORMAT_DEPTH16;
 	bool useAlpha = false;
 	bool showAlpha = false;
-	float scale = 1.0f;
+	float scale = 20.0f;
 
 private:
 	void UpdateTexture(Draw::DrawContext *draw);

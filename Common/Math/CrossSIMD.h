@@ -5,4 +5,3 @@
 #pragma once
 
 #include "Common/Math/SIMDHeaders.h"
-

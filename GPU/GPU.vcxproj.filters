@@ -279,6 +279,9 @@
     <ClInclude Include="Debugger\State.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Common\DepthRaster.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -553,6 +556,9 @@
     </ClCompile>
     <ClCompile Include="Debugger\State.cpp">
       <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DepthRaster.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
