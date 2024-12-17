@@ -2072,14 +2072,18 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		thisFlipNum_ = gpuStats.numFlips;
 	}
 
+	bool isPrim = false;
+
 	bool process = true;
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {
-		primsThisFrame_++;
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP) {  // VAP is immediate mode prims.
+		isPrim = true;
+
+		// TODO: Should restricted prim ranges also avoid breakpoints?
 
 		if (!restrictPrimRanges.empty()) {
 			process = false;
 			for (const auto &range : restrictPrimRanges) {
-				if (primsThisFrame_ >= range.first && primsThisFrame_ <= range.second) {
+				if ((primsThisFrame_ + 1) >= range.first && (primsThisFrame_ + 1) <= range.second) {
 					process = true;
 					break;
 				}
@@ -2087,28 +2091,28 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 		}
 	}
 
-	bool isBreakpoint = false;
+	bool debugBreak = false;
 	if (breakNext_ == BreakNext::OP) {
-		isBreakpoint = true;
+		debugBreak = true;
 	} else if (breakNext_ == BreakNext::COUNT) {
-		isBreakpoint = primsThisFrame_ == breakAtCount_;
+		debugBreak = primsThisFrame_ == breakAtCount_;
 	} else if (breakpoints->HasBreakpoints()) {
-		isBreakpoint = breakpoints->IsBreakpoint(pc, op);
+		debugBreak = breakpoints->IsBreakpoint(pc, op);
 	}
 
-	if (isBreakpoint && pc == g_skipPcOnce) {
+	if (debugBreak && pc == g_skipPcOnce) {
 		INFO_LOG(Log::GeDebugger, "Skipping GE break at %08x (last break was here)", g_skipPcOnce);
 		g_skipPcOnce = 0;
-		return process ? NotifyResult::Execute : NotifyResult::Skip;
+		goto bail;
 	}
 	g_skipPcOnce = 0;
 
-	if (isBreakpoint) {
+	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
 
 		if (coreState == CORE_POWERDOWN) {
 			breakNext_ = BreakNext::NONE;
-			return process ? NotifyResult::Execute : NotifyResult::Skip;
+			goto bail;
 		}
 
 		u32 op = Memory::Read_U32(pc);
@@ -2117,10 +2121,18 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 		g_skipPcOnce = pc;
 		breakNext_ = BreakNext::NONE;
-		return NotifyResult::Break;  // new. caller will call GPUStepping::EnterStepping().
+		// Not incrementing the prim counter!
+		return NotifyResult::Break;  // caller will call GPUStepping::EnterStepping().
 	}
 
-	return process ? NotifyResult::Execute : NotifyResult::Skip;
+bail:
+	if (process) {
+		if (isPrim)
+			primsThisFrame_++;
+		return NotifyResult::Execute;
+	} else {
+		return NotifyResult::Skip;
+	}
 }
 
 void GPUCommon::NotifyFlush() {

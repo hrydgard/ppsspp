@@ -795,7 +795,6 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::EndDisabled();
 	}
 
-	// TODO: this doesn't seem very accurate? strange double-increments when stepping.
 	ImGui::SameLine();
 	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
 
