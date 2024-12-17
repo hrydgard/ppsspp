@@ -164,6 +164,8 @@ void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void DrawEngineVulkan::BeginFrame() {
+	DrawEngineCommon::BeginFrame();
+
 	lastPipeline_ = nullptr;
 
 	// These will be re-bound if needed, let's not let old bindings linger around too long.
@@ -381,15 +383,16 @@ void DrawEngineVulkan::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-
-		if (!applySkinInDecode_) {
-			applySkinInDecode_ = true;
-			lastVType_ |= (1 << 26);
-			dec_ = GetVertexDecoder(lastVType_);
+		VertexDecoder *swDec = dec_;
+		if (swDec->nweights != 0) {
+			u32 withSkinning = lastVType_ | (1 << 26);
+			if (withSkinning != lastVType_) {
+				swDec = GetVertexDecoder(withSkinning);
+			}
 		}
 		int prevDecodedVerts = numDecodedVerts_;
 
-		DecodeVerts(dec_, decoded_);
+		DecodeVerts(swDec, decoded_);
 		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -445,7 +448,7 @@ void DrawEngineVulkan::Flush() {
 		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
-		swTransform.Transform(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, &result);
+		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
@@ -453,7 +456,7 @@ void DrawEngineVulkan::Flush() {
 
 		if (result.action == SW_NOT_READY) {
 			// decIndex_ here is always equal to inds currently, but it may not be in the future.
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, swDec->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		}
 
 		if (result.setSafeSize)
@@ -481,9 +484,9 @@ void DrawEngineVulkan::Flush() {
 				VulkanFragmentShader *fshader = nullptr;
 				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+				shaderManager_->GetShaders(prim, swDec, &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					ResetAfterDraw();
@@ -564,7 +567,6 @@ void DrawEngineVulkan::Flush() {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
-		applySkinInDecode_ = g_Config.bSoftwareSkinning;
 	}
 
 	ResetAfterDrawInline();
@@ -582,7 +584,6 @@ void DrawEngineVulkan::ResetAfterDraw() {
 	vertexCountInDrawCalls_ = 0;
 	decodeIndsCounter_ = 0;
 	decodeVertsCounter_ = 0;
-	applySkinInDecode_ = g_Config.bSoftwareSkinning;
 	gstate_c.vertexFullAlpha = true;
 }
 

@@ -133,7 +133,6 @@ void DrawEngineCommon::NotifyConfigChanged() {
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
-	applySkinInDecode_ = g_Config.bSoftwareSkinning;
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
@@ -1038,7 +1037,14 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	return true;
 }
 
+void DrawEngineCommon::BeginFrame() {
+	applySkinInDecode_ = g_Config.bSoftwareSkinning;
+}
+
 void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
+	if (!numDrawVerts_) {
+		return;
+	}
 	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
 	int i = decodeVertsCounter_;
 	int stride = (int)dec->GetDecVtxFmt().stride;

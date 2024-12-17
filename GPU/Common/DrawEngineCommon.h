@@ -77,6 +77,8 @@ public:
 
 	void Init();
 
+	virtual void BeginFrame();
+
 	void SetGPUCommon(GPUCommon *gpuCommon) {
 		gpuCommon_ = gpuCommon;
 	}

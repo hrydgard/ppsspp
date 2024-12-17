@@ -81,7 +81,7 @@ public:
 
 	void ClearTrackedVertexArrays() override {}
 
-	void BeginFrame();
+	void BeginFrame() override;
 	void EndFrame();
 
 	// So that this can be inlined

@@ -65,7 +65,7 @@ public:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void BeginFrame();
+	void BeginFrame() override;
 
 	// So that this can be inlined
 	void Flush() override;

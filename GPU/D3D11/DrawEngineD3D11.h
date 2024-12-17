@@ -75,7 +75,7 @@ public:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void BeginFrame();
+	void BeginFrame() override;
 
 	void Flush() override;
 

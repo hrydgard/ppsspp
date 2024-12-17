@@ -136,7 +136,7 @@ public:
 		return pipelineLayout_;
 	}
 
-	void BeginFrame();
+	void BeginFrame() override;
 	void EndFrame();
 
 	void DirtyAllUBOs();
