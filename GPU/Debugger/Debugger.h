@@ -34,6 +34,8 @@ enum class BreakNext {
 	VSYNC,
 	PRIM,
 	CURVE,
+	BLOCK_TRANSFER,
+	DEBUG_RUN,  // This is just running as normal, but with debug instrumentation.
 	COUNT,
 };
 

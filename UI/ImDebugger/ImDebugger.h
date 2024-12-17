@@ -151,6 +151,8 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 	uint64_t selectedTexAddr = 0;
 
+	int breakCount = 0;
+
 	bool displayLatched = false;
 
 	// We use a separate ini file from the main PPSSPP config.

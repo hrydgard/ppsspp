@@ -59,7 +59,7 @@ static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPA
 	}
 }
 
-bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, const std::string &defaultValue, std::string &outvalue, InputBoxFlags flags) {
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, std::string_view defaultValue, std::string &outvalue, InputBoxFlags flags) {
 	const wchar_t *defaultTitle = L"Input value";
 
 	g_params.defaultSelected = flags & InputBoxFlags::Selected;

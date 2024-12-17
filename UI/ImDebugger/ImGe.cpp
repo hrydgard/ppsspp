@@ -751,7 +751,19 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	ImGui::BeginDisabled(coreState != CORE_STEPPING_GE);
 	if (ImGui::Button("Run/Resume")) {
-		Core_Resume();
+		// Core_Resume();
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DEBUG_RUN);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("...")) {
+		ImGui::OpenPopup("dotdotdot");
+	}
+	if (ImGui::BeginPopup("dotdotdot")) {
+		if (ImGui::MenuItem("RunFast")) {
+			gpuDebug->ClearBreakNext();
+			Core_Resume();
+		}
+		ImGui::EndPopup();
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
@@ -762,7 +774,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	//	GPUDebug::SetBreakNext(GPUDebug::BreakNext::FRAME);
 	//}
 
-	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE;
+	bool disableStepButtons = gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN;
 
 	if (disableStepButtons) {
 		ImGui::BeginDisabled();
@@ -784,6 +796,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
 	}
 	ImGui::SameLine();
+	if (ImGui::Button("Block xfer")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::BLOCK_TRANSFER);
+	}
+	ImGui::SameLine();
 	if (ImGui::Button("Curve")) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
 	}
@@ -795,18 +811,36 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::EndDisabled();
 	}
 
-	// TODO: this doesn't seem very accurate? strange double-increments when stepping.
 	ImGui::SameLine();
 	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
 
-	// TODO: Break on count!
+	if (disableStepButtons) {
+		ImGui::BeginDisabled();
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(160.0f);
+	ImGui::InputInt("Number", &cfg.breakCount);
+
+	ImGui::SameLine();
+	if (ImGui::Button("Break on #")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
+		gpuDebug->SetBreakCount(cfg.breakCount);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Step by")) {
+		gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
+		gpuDebug->SetBreakCount(cfg.breakCount, true);  // relative
+	}
+	if (disableStepButtons) {
+		ImGui::EndDisabled();
+	}
 
 	// Line break
 	if (ImGui::Button("Goto PC")) {
 		disasmView_.GotoPC();
 	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Settings")) {
+	if (ImGui::Button("Settings")) {
 		ImGui::OpenPopup("disSettings");
 	}
 	if (ImGui::BeginPopup("disSettings")) {
@@ -815,13 +849,17 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	}
 
 	// Display any pending step event.
-	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE) {
+	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN) {
 		if (showBannerInFrames_ > 0) {
 			showBannerInFrames_--;
 		}
 		if (showBannerInFrames_ == 0) {
 			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
 			ImGui::SameLine();
+			if (gpuDebug->GetBreakNext() == GPUDebug::BreakNext::COUNT) {
+				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
+				ImGui::SameLine();
+			}
 			if (ImGui::Button("Cancel step")) {
 				gpuDebug->ClearBreakNext();
 			}
@@ -870,20 +908,30 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	u32 op = 0;
 	DisplayList list;
+	bool isOnBlockTransfer = false;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
 		op = Memory::Read_U32(list.pc);
 
 		// TODO: Also add support for block transfer previews!
 
-		bool isOnPrim = (op >> 24) == GE_CMD_PRIM;
-		if (isOnPrim) {
+		bool isOnPrim = false;
+		switch (op >> 24) {
+		case GE_CMD_PRIM:
+			isOnPrim = true;
 			if (reloadPreview_) {
 				GetPrimPreview(op, previewPrim_, previewVertices_, previewIndices_, previewCount_);
 				reloadPreview_ = false;
 			}
-		} else {
+			break;
+		case GE_CMD_TRANSFERSTART:
+			isOnBlockTransfer = true;
+			break;
+		default:
+			// Disable the current preview.
 			previewCount_ = 0;
+			break;
 		}
+
 	}
 
 	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
@@ -891,125 +939,134 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
-		VirtualFramebuffer *vfb = rbViewer_.vfb;
-		if (vfb) {
-			if (vfb->fbo) {
-				ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
-			} else {
-				ImGui::Text("Framebuffer");
+		if (isOnBlockTransfer) {
+			ImGui::Text("Block transfer! Proper preview coming in the future.\n");
+			ImGui::Text("%08x -> %08x, %d bpp (strides: %d, %d)", gstate.getTransferSrcAddress(), gstate.getTransferDstAddress(), gstate.getTransferBpp(), gstate.getTransferSrcStride(), gstate.getTransferDstStride());
+			ImGui::Text("%dx%d pixels", gstate.getTransferWidth(), gstate.getTransferHeight());
+			ImGui::Text("Src pos: %d, %d", gstate.getTransferSrcX(), gstate.getTransferSrcY());
+			ImGui::Text("Dst pos: %d, %d", gstate.getTransferDstX(), gstate.getTransferDstY());
+			ImGui::Text("Total bytes to transfer: %d", gstate.getTransferWidth() * gstate.getTransferHeight() * gstate.getTransferBpp());
+		} else {
+			// Visualize prim by default (even if we're not directly on a prim instruction).
+			VirtualFramebuffer *vfb = rbViewer_.vfb;
+			if (vfb) {
+				if (vfb->fbo) {
+					ImGui::Text("Framebuffer: %s", vfb->fbo->Tag());
+				} else {
+					ImGui::Text("Framebuffer");
+				}
 			}
-		}
 
-		// Use selectable instead of tab bar so we can get events (haven't figured that out).
-		static const Draw::Aspect aspects[3] = { Draw::Aspect::COLOR_BIT, Draw::Aspect::DEPTH_BIT, Draw::Aspect::STENCIL_BIT, };
-		static const char *const aspectNames[3] = { "Color", "Depth", "Stencil" };
-		for (int i = 0; i < ARRAY_SIZE(aspects); i++) {
-			if (i != 0)
+			// Use selectable instead of tab bar so we can get events (haven't figured that out).
+			static const Draw::Aspect aspects[3] = { Draw::Aspect::COLOR_BIT, Draw::Aspect::DEPTH_BIT, Draw::Aspect::STENCIL_BIT, };
+			static const char *const aspectNames[3] = { "Color", "Depth", "Stencil" };
+			for (int i = 0; i < ARRAY_SIZE(aspects); i++) {
+				if (i != 0)
+					ImGui::SameLine();
+				if (ImGui::Selectable(aspectNames[i], aspects[i] == selectedAspect_, 0, ImVec2(120.0f, 0.0f))) {
+					selectedAspect_ = aspects[i];
+					NotifyStep();
+				}
+			}
+
+			if (selectedAspect_ == Draw::Aspect::DEPTH_BIT) {
+				float minimum = 0.5f;
+				float maximum = 256.0f;
 				ImGui::SameLine();
-			if (ImGui::Selectable(aspectNames[i], aspects[i] == selectedAspect_, 0, ImVec2(120.0f, 0.0f))) {
-				selectedAspect_ = aspects[i];
-				NotifyStep();
+				ImGui::SetNextItemWidth(200.0f);
+				if (ImGui::DragFloat("Z scale", &rbViewer_.scale, 1.0f, 0.5f, 256.0f, "%0.2f", ImGuiSliderFlags_Logarithmic)) {
+					rbViewer_.Snapshot();
+					swViewer_.Snapshot();
+				}
 			}
-		}
 
-		if (selectedAspect_ == Draw::Aspect::DEPTH_BIT) {
-			float minimum = 0.5f;
-			float maximum = 256.0f;
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(200.0f);
-			if (ImGui::DragFloat("Z scale", &rbViewer_.scale, 1.0f, 0.5f, 256.0f, "%0.2f", ImGuiSliderFlags_Logarithmic)) {
-				rbViewer_.Snapshot();
-				swViewer_.Snapshot();
-			}
-		}
-
-		const ImVec2 p0 = ImGui::GetCursorScreenPos();
-		ImVec2 p1;
-		float scale = 1.0f;
-		if (vfb && vfb->fbo) {
-			scale = vfb->renderScaleFactor;
-			p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
-		} else {
-			// Guess
-			p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
-		}
-
-		// Draw border and background color
-		drawList->PushClipRect(p0, p1, true);
-
-		PixelLookup *lookup = nullptr;
-		if (vfb) {
-			rbViewer_.Draw(gpuDebug, draw);
-			lookup = &rbViewer_;
-			// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
-			// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
-		} else {
-			swViewer_.Draw(gpuDebug, draw);
-			lookup = &swViewer_;
-		}
-
-		// Draw vertex preview on top!
-		DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
-
-		drawList->PopClipRect();
-
-		if (ImGui::IsItemHovered()) {
-			int x = (int)(ImGui::GetMousePos().x - p0.x);
-			int y = (int)(ImGui::GetMousePos().y - p0.y);
-			char temp[128];
-			if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
-				ImGui::Text("(%d, %d): %s", x, y, temp);
+			const ImVec2 p0 = ImGui::GetCursorScreenPos();
+			ImVec2 p1;
+			float scale = 1.0f;
+			if (vfb && vfb->fbo) {
+				scale = vfb->renderScaleFactor;
+				p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
 			} else {
-				ImGui::Text("%d, %d: N/A");
+				// Guess
+				p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
 			}
-		} else {
-			ImGui::TextUnformatted("(no pixel hovered)");
-		}
 
-		if (vfb && vfb->fbo) {
-			ImGui::Text("VFB %dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->fbo->Width(), vfb->fbo->Height());
-		} else {
-			// Use the swViewer_!
-			ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));
-		}
+			// Draw border and background color
+			drawList->PushClipRect(p0, p1, true);
 
-		if (gstate.isModeClear()) {
-			ImGui::Text("(clear mode - texturing not used)");
-		} else if (!gstate.isTextureMapEnabled()) {
-			ImGui::Text("(texturing not enabled");
-		} else {
-			TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-			TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
-			if (tex) {
-				ImGui::Text("Texture: ");
-				texcache->ApplyTexture();
-
-				void *nativeView = texcache->GetNativeTextureView(tex, true);
-				ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
-
-				float texW = dimWidth(tex->dim);
-				float texH = dimHeight(tex->dim);
-
-				const ImVec2 p0 = ImGui::GetCursorScreenPos();
-				const ImVec2 sz = ImGui::GetContentRegionAvail();
-				const ImVec2 p1 = ImVec2(p0.x + texW, p0.y + texH);
-
-				// Draw border and background color
-				drawList->PushClipRect(p0, p1, true);
-
-				ImGui::Image(texId, ImVec2(texW, texH));
-				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
-
-				drawList->PopClipRect();
+			PixelLookup *lookup = nullptr;
+			if (vfb) {
+				rbViewer_.Draw(gpuDebug, draw);
+				lookup = &rbViewer_;
+				// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
+				// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 			} else {
-				ImGui::Text("(no valid texture bound)");
-				// In software mode, we should just decode the texture here.
-				// TODO: List some of the texture params here.
+				swViewer_.Draw(gpuDebug, draw);
+				lookup = &swViewer_;
 			}
+
+			// Draw vertex preview on top!
+			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
+
+			drawList->PopClipRect();
+
+			if (ImGui::IsItemHovered()) {
+				int x = (int)(ImGui::GetMousePos().x - p0.x);
+				int y = (int)(ImGui::GetMousePos().y - p0.y);
+				char temp[128];
+				if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
+					ImGui::Text("(%d, %d): %s", x, y, temp);
+				} else {
+					ImGui::Text("%d, %d: N/A");
+				}
+			} else {
+				ImGui::TextUnformatted("(no pixel hovered)");
+			}
+
+			if (vfb && vfb->fbo) {
+				ImGui::Text("VFB %dx%d (emulated: %dx%d)", vfb->width, vfb->height, vfb->fbo->Width(), vfb->fbo->Height());
+			} else {
+				// Use the swViewer_!
+				ImGui::Text("Raw FB: %08x (%s)", gstate.getFrameBufRawAddress(), GeBufferFormatToString(gstate.FrameBufFormat()));
+			}
+
+			if (gstate.isModeClear()) {
+				ImGui::Text("(clear mode - texturing not used)");
+			} else if (!gstate.isTextureMapEnabled()) {
+				ImGui::Text("(texturing not enabled");
+			} else {
+				TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
+				TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
+				if (tex) {
+					ImGui::Text("Texture: ");
+					texcache->ApplyTexture();
+
+					void *nativeView = texcache->GetNativeTextureView(tex, true);
+					ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+
+					float texW = dimWidth(tex->dim);
+					float texH = dimHeight(tex->dim);
+
+					const ImVec2 p0 = ImGui::GetCursorScreenPos();
+					const ImVec2 sz = ImGui::GetContentRegionAvail();
+					const ImVec2 p1 = ImVec2(p0.x + texW, p0.y + texH);
+
+					// Draw border and background color
+					drawList->PushClipRect(p0, p1, true);
+
+					ImGui::Image(texId, ImVec2(texW, texH));
+					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
+
+					drawList->PopClipRect();
+				} else {
+					ImGui::Text("(no valid texture bound)");
+					// In software mode, we should just decode the texture here.
+					// TODO: List some of the texture params here.
+				}
+			}
+
+			// Let's display the current CLUT.
 		}
-
-		// Let's display the current CLUT.
-
 	} else {
 		ImGui::Text("Click the buttons above (Tex, etc) to stop");
 	}

@@ -1067,8 +1067,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
-	if (debugRecording_)
-		goto bail;
+	if (!useFastRunLoop_)
+		goto bail;  // we're either recording or stepping.
 
 	while (src != stall) {
 		uint32_t data = *src;
