@@ -37,7 +37,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
+DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	if (g_Config.bVertexDecoderJit && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR)) {
 		decJitCache_ = new VertexDecoderJitCache();
 	}
@@ -136,7 +136,7 @@ void DrawEngineCommon::NotifyConfigChanged() {
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
-u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
+u32 DrawEngineCommon::NormalizeVertices(SimpleVertex *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
 	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	if (vertexSize)
@@ -303,11 +303,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			}
 			// TODO: Avoid normalization if just plain skinning.
 			// Force software skinning.
-			bool wasApplyingSkinInDecode = applySkinInDecode_;
-			applySkinInDecode_ = true;
-			NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, vertType);
-			applySkinInDecode_ = wasApplyingSkinInDecode;
-
+			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
+			VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, dec, vertType);
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
 				verts[i * 3] = corners[conv(i)].pos.x;
@@ -680,7 +678,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	static std::vector<SimpleVertex> simpleVertices;
 	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
 	simpleVertices.resize(indexUpperBound + 1);
-	NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+	NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
 
 	float world[16];
 	float view[16];

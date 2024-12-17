@@ -507,7 +507,8 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	if (indices)
 		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
 
-	VertexDecoder *origVDecoder = GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_));
+	u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
+	VertexDecoder *origVDecoder = GetVertexDecoder(vertTypeID);
 	*bytesRead = num_points * origVDecoder->VertexSize();
 
 	// Simplify away bones and morph before proceeding
@@ -525,7 +526,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	}
 
 	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
+	vertType = NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
 
@@ -574,7 +575,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		gstate_c.uv.vOff = 0;
 	}
 
-	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
+	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
 	int generatedBytesRead;
 	if (output.count)
 		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);

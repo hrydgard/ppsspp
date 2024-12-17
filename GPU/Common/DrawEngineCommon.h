@@ -157,7 +157,7 @@ protected:
 	int DecodeInds();
 
 	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
+	u32 NormalizeVertices(SimpleVertex *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
 	int ComputeNumVertsToDecode() const;
 
