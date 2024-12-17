@@ -64,17 +64,6 @@ void DrawEngineCommon::Init() {
 	NotifyConfigChanged();
 }
 
-VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
-	VertexDecoder *dec;
-	if (decoderMap_.Get(vtype, &dec))
-		return dec;
-	dec = new VertexDecoder();
-	_assert_(dec);
-	dec->SetVertexType(vtype, decOptions_, decJitCache_);
-	decoderMap_.Insert(vtype, dec);
-	return dec;
-}
-
 std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	std::vector<std::string> ids;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
@@ -134,14 +123,6 @@ void DrawEngineCommon::NotifyConfigChanged() {
 
 	useHWTransform_ = g_Config.bHardwareTransform;
 	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
-}
-
-u32 DrawEngineCommon::NormalizeVertices(SimpleVertex *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
-	const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
-	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-	if (vertexSize)
-		*vertexSize = dec->VertexSize();
-	return ::NormalizeVertices(outPtr, bufPtr, inPtr, lowerBound, upperBound, dec, vertType);
 }
 
 void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
@@ -678,7 +659,10 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	static std::vector<SimpleVertex> simpleVertices;
 	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
 	simpleVertices.resize(indexUpperBound + 1);
-	NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
+
+	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), applySkinInDecode_);
+	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+	NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, dec, gstate.vertType);
 
 	float world[16];
 	float view[16];

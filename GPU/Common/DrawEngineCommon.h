@@ -141,7 +141,16 @@ public:
 		return numDrawVerts_;
 	}
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
+	VertexDecoder *GetVertexDecoder(u32 vtype) {
+		VertexDecoder *dec;
+		if (decoderMap_.Get(vtype, &dec))
+			return dec;
+		dec = new VertexDecoder();
+		_assert_(dec);
+		dec->SetVertexType(vtype, decOptions_, decJitCache_);
+		decoderMap_.Insert(vtype, dec);
+		return dec;
+	}
 
 	virtual void ClearTrackedVertexArrays() {}
 
@@ -155,9 +164,6 @@ protected:
 
 	void DecodeVerts(VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
-
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(SimpleVertex *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
 	int ComputeNumVertsToDecode() const;
 

@@ -24,6 +24,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
@@ -526,7 +527,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	}
 
 	u32 origVertType = vertType;
-	vertType = NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
+	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, origVDecoder, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
 
