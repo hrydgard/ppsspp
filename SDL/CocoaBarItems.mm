@@ -644,8 +644,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 }
 
 -(void)openSystemFileBrowser {
-    int g = 0;
-    DarwinDirectoryPanelCallback panelCallback = [g] (bool succ, Path thePathChosen) {
+    DarwinDirectoryPanelCallback panelCallback = [] (bool succ, Path thePathChosen) {
         if (succ)
             System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, thePathChosen.c_str());
     };

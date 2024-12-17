@@ -270,7 +270,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 				uint32_t *dst32 = (uint32_t *)dst;
 				uint16_t *src16 = (uint16_t *)dst;
 				for (int x = 0; x < width; x++) {
-					dst[x] = (src16[x] >> 15) ? 0xFFFFFFFF : 0xFF000000;
+					dst32[x] = (src16[x] >> 15) ? 0xFFFFFFFF : 0xFF000000;
 				}
 			} else {
 				ConvertRGBA5551ToRGBA8888((u32 *)dst, (const u16 *)src, width);
@@ -732,6 +732,8 @@ void ImGeDebuggerWindow::NotifyStep() {
 		swViewer_.showAlpha = false;
 		swViewer_.useAlpha = false;
 		break;
+	default:
+		break;
 	}
 
 	FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
@@ -1017,7 +1019,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
 					ImGui::Text("(%d, %d): %s", x, y, temp);
 				} else {
-					ImGui::Text("%d, %d: N/A");
+					ImGui::Text("%d, %d: N/A", x, y);
 				}
 			} else {
 				ImGui::TextUnformatted("(no pixel hovered)");
