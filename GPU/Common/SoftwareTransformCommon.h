@@ -84,3 +84,6 @@ protected:
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;
 };
+
+// Slow. See description in the cpp file.
+u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, VertexDecoder *dec, u32 vertType);

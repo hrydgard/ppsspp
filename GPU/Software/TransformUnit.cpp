@@ -27,6 +27,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Debugger/Debugger.h"
@@ -979,7 +980,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))
 		return false;
 
-	DrawEngineCommon::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), &vdecoder, indexLowerBound, indexUpperBound, gstate.vertType);
+	::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, &vdecoder, gstate.vertType);
 
 	float world[16];
 	float view[16];
