@@ -48,8 +48,6 @@ class ImGeStateWindow {
 public:
 	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
 	void Snapshot();
-private:
-	u32 prevState_[256]{};
 };
 
 namespace Draw {
