@@ -271,7 +271,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	const char *threadName;
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)
 	const char *hostThreadName = GetCurrentThreadName();
-	if (hostThreadName && strcmp(hostThreadName, "EmuThread") != 0 || !hleCurrentThreadName) {
+	if ((hostThreadName && strcmp(hostThreadName, "EmuThread") != 0) || !hleCurrentThreadName) {
 		// Use the host thread name.
 		threadName = hostThreadName;
 	} else {
