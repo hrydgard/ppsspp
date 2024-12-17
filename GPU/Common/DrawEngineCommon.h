@@ -95,7 +95,8 @@ public:
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
 	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, clockwise, bytesRead);
+		VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead);
 	}
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
@@ -118,7 +119,7 @@ public:
 	}
 
 	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
 	void SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
 
 	template<class Surface>
@@ -145,14 +146,14 @@ public:
 		return numDrawVerts_;
 	}
 
-	VertexDecoder *GetVertexDecoder(u32 vtype) {
+	VertexDecoder *GetVertexDecoder(u32 vertTypeID) {
 		VertexDecoder *dec;
-		if (decoderMap_.Get(vtype, &dec))
+		if (decoderMap_.Get(vertTypeID, &dec))
 			return dec;
 		dec = new VertexDecoder();
 		_assert_(dec);
-		dec->SetVertexType(vtype, decOptions_, decJitCache_);
-		decoderMap_.Insert(vtype, dec);
+		dec->SetVertexType(vertTypeID, decOptions_, decJitCache_);
+		decoderMap_.Insert(vertTypeID, dec);
 		return dec;
 	}
 

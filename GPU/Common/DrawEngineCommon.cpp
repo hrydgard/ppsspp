@@ -168,7 +168,8 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0, applySkinInDecode_);
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
-	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, clockwise, &bytesRead);
+	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, dec, vertTypeID, clockwise, &bytesRead);
 	Flush();
 
 	if (!prevThrough) {
@@ -826,7 +827,7 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertT
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
@@ -846,8 +847,11 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 	// If vtype has changed, setup the vertex decoder. Don't need to nullcheck dec_ since we set lastVType_ to an invalid value whenever we null it.
 	if (vertTypeID != lastVType_) {
-		dec_ = GetVertexDecoder(vertTypeID);
+		dec_ = dec;
+		_dbg_assert_(dec->VertexType() == vertTypeID);
 		lastVType_ = vertTypeID;
+	} else {
+		_dbg_assert_(dec_->VertexType() == lastVType_);
 	}
 
 	*bytesRead = vertexCount * dec_->VertexSize();
