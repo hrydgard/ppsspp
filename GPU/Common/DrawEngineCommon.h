@@ -109,7 +109,7 @@ public:
 
 	void FlushSkin() {
 		if (dec_->skinInDecode) {
-			DecodeVerts(decoded_);
+			DecodeVerts(dec_, decoded_);
 		}
 	}
 
@@ -153,7 +153,7 @@ protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
 
-	void DecodeVerts(u8 *dest);
+	void DecodeVerts(VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 
 	// Preprocessing for spline/bezier

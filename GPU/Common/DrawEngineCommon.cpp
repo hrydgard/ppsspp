@@ -1038,10 +1038,10 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	return true;
 }
 
-void DrawEngineCommon::DecodeVerts(u8 *dest) {
+void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
 	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
 	int i = decodeVertsCounter_;
-	int stride = (int)dec_->GetDecVtxFmt().stride;
+	int stride = (int)dec->GetDecVtxFmt().stride;
 	for (; i < numDrawVerts_; i++) {
 		DeferredVerts &dv = drawVerts_[i];
 
@@ -1056,7 +1056,7 @@ void DrawEngineCommon::DecodeVerts(u8 *dest) {
 		}
 
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		dec_->DecodeVerts(dest + numDecodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
+		dec->DecodeVerts(dest + numDecodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
 		numDecodedVerts_ += indexUpperBound - indexLowerBound + 1;
 	}
 	decodeVertsCounter_ = i;

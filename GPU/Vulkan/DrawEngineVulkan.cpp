@@ -260,7 +260,7 @@ void DrawEngineVulkan::Flush() {
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
-			DecodeVerts(decoded_);
+			DecodeVerts(dec_, decoded_);
 			VkDeviceSize size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
 			memcpy(dest, decoded_, size);
@@ -269,7 +269,7 @@ void DrawEngineVulkan::Flush() {
 			int vertsToDecode = ComputeNumVertsToDecode();
 			// Decode directly into the pushbuffer
 			u8 *dest = pushVertex_->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vbuf, &vbOffset);
-			DecodeVerts(dest);
+			DecodeVerts(dec_, dest);
 		}
 
 		int vertexCount;
@@ -381,6 +381,7 @@ void DrawEngineVulkan::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
+
 		if (!applySkinInDecode_) {
 			applySkinInDecode_ = true;
 			lastVType_ |= (1 << 26);
@@ -388,7 +389,7 @@ void DrawEngineVulkan::Flush() {
 		}
 		int prevDecodedVerts = numDecodedVerts_;
 
-		DecodeVerts(decoded_);
+		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;

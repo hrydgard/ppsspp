@@ -80,7 +80,7 @@ public:
 	void Flush() override;
 
 	void FinishDeferred() {
-		DecodeVerts(decoded_);
+		DecodeVerts(dec_, decoded_);
 	}
 
 	void NotifyConfigChanged() override;
