@@ -16,26 +16,18 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
-#include <algorithm>
-
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Profiler/Profiler.h"
-#include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/Common/SplineCommon.h"
-#include "GPU/Common/TextureDecoder.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
-#include "GPU/Software/FuncId.h"
 #include "GPU/Software/Lighting.h"
-#include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
 #include "GPU/Software/TransformUnit.h"
 
@@ -922,7 +914,7 @@ void TransformUnit::NotifyClutUpdate(const void *src) {
 
 // TODO: This probably is not the best interface.
 // Also, we should try to merge this into the similar function in DrawEngineCommon.
-bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+bool TransformUnit::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;

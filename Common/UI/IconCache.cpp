@@ -5,6 +5,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Log.h"
+#include "Common/GPU/thin3d.h"
 
 #define ICON_CACHE_VERSION 1
 #define MK_FOURCC(str) (str[0] | ((uint8_t)str[1] << 8) | ((uint8_t)str[2] << 16) | ((uint8_t)str[3] << 24))

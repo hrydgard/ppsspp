@@ -16,12 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdint>
-#include <limits>
-#include <cstdio>
 #include <cstring>
 
 #include "Common/BitScan.h"
-#include "Common/CommonFuncs.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"

@@ -18,7 +18,6 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
-#include <algorithm>
 #include <set>
 #include <mutex>
 

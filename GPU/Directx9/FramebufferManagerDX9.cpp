@@ -23,7 +23,6 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferManagerDX9.h"
 
 FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)

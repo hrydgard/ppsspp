@@ -17,7 +17,6 @@
 
 // This code is part shamelessly "inspired" from JPSCP.
 #include <map>
-#include <algorithm>
 #include <memory>
 
 #include "Common/Serialize/SerializeFuncs.h"
@@ -33,8 +32,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "Core/HLE/sceKernelMemory.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.

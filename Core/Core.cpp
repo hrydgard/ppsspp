@@ -17,17 +17,12 @@
 
 #include "ppsspp_config.h"
 
-#include <set>
-#include <chrono>
 #include <cstdint>
 #include <mutex>
+#include <set>
 #include <condition_variable>
 
-#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
-#include "Common/System/Display.h"
-#include "Common/TimeUtil.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"

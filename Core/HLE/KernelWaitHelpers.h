@@ -19,9 +19,10 @@
 
 #include <vector>
 #include <map>
-#include <algorithm>
+#include <algorithm> // std::erase/remove
 
 #include "Common/CommonTypes.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernelThread.h"
 
 namespace HLEKernel

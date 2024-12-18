@@ -26,6 +26,7 @@
 #include "Core/RetroAchievements.h"
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"

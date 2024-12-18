@@ -16,15 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
 #include <map>
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
-#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -40,11 +37,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/GPUState.h"
-
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-#include <emmintrin.h>
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 enum class GPUReplacementSkip {
 	MEMSET = 1,

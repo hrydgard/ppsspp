@@ -17,7 +17,6 @@
 
 #include <cstring>
 #include <thread>
-#include <algorithm>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"

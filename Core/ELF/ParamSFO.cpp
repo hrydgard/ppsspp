@@ -22,8 +22,9 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/Swap.h"
+#include "Common/File/Path.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 
 struct Header
 {

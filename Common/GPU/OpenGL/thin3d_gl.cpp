@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <map>
 
 #include "ppsspp_config.h"

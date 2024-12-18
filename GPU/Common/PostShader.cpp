@@ -24,14 +24,12 @@
 
 #include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
-#include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 
-#include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/Common/PostShader.h"
 

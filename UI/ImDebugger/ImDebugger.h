@@ -110,6 +110,8 @@ struct ImSnapshotState {
 	u32 ll;
 };
 
+class IniFile;
+
 struct ImConfig {
 	// Defaults for saved settings are set in SyncConfig.
 

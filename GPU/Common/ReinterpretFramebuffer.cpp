@@ -4,10 +4,7 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
-#include "Core/System.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 
 static const VaryingDef varyings[1] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },

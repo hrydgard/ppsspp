@@ -22,7 +22,6 @@
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Core/ThreadPools.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/MemBlockInfo.h"

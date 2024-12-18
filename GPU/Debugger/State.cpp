@@ -865,7 +865,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 
 	prim = static_cast<GEPrimitiveType>(prim_type);
 
-	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
+	if (!gpuDebug->GetCurrentDrawAsDebugVertices(count, vertices, indices)) {
 		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
 		return false;
 	}

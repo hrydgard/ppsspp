@@ -19,7 +19,6 @@
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include <atomic>
-#include <algorithm>  // min
 #include <array>
 #include <cstring>
 #include <string> // System: To be able to add strings with "+"

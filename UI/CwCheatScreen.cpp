@@ -25,7 +25,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"

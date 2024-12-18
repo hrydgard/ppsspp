@@ -17,14 +17,12 @@
 
 #include <map>
 
-#include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "GPU/GPUState.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "GPU/Common/Draw2D.h"
-#include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 

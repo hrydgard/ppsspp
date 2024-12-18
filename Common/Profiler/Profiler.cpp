@@ -1,6 +1,5 @@
 // Ultra-lightweight category profiler with history.
 
-#include <algorithm>
 #include <mutex>
 #include <vector>
 #include <cstring>

@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
-#include <algorithm>
+
+#include <algorithm>  // for std::search
 #include <cctype>
 #include <cstring>
 

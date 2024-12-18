@@ -22,15 +22,12 @@
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
 #include <string>
-#include <codecvt>
 #if !PPSSPP_PLATFORM(UWP)
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 #endif
 
-#include <thread>
 #include <mutex>
-#include <condition_variable>
 
 #include "ext/lua/lapi.h"
 
@@ -39,9 +36,6 @@
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
-#include "Common/Math/math_util.h"
-#include "Common/Thread/ThreadUtil.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
 
@@ -57,8 +51,6 @@
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
-#include "Core/HLE/sceKernelMemory.h"
-#include "Core/HLE/sceAudio.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -70,10 +62,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Common/ExceptionHandlerSetup.h"
-#include "Core/HLE/sceAudiocodec.h"
-#include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 

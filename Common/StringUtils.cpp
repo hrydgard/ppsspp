@@ -30,11 +30,8 @@
 
 #include <cstdarg>
 
-#include <cerrno>
-
 #include <string>
 #include <sstream>
-#include <climits>
 
 #include <algorithm>
 #include <iomanip>

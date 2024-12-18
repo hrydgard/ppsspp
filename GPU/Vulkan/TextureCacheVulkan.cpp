@@ -28,7 +28,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/System/OSD.h"
-#include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -36,8 +35,6 @@
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "Core/Config.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

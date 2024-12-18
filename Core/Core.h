@@ -17,12 +17,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
-#include "Core/System.h"
-#include "Core/CoreParameter.h"
-#include "GPU/GPUDefinitions.h"
+#include "Common/CommonTypes.h"
 
 class GraphicsContext;
 

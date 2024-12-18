@@ -1,5 +1,4 @@
 #include "ppsspp_config.h"
-#include <algorithm>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"

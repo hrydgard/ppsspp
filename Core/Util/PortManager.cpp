@@ -25,20 +25,19 @@
 // All credit goes to him and the official miniupnp project! http://miniupnp.free.fr/
 
 
-#include <algorithm>
-#include <cstdlib>
+#include <algorithm>  // find_if
 #include <cstring>
 #include <string>
 #include <thread>
 
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Net/Resolve.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PortManager.h"
 

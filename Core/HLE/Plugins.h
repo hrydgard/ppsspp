@@ -19,7 +19,7 @@
 
 #include <cstdint>
 #include <string>
-#include "Input/KeyCodes.h"
+#include "Common/Input/KeyCodes.h"
 
 class PointerWrap;
 

@@ -15,7 +15,7 @@
 //   CtrlDisAsmView::getFrom(GetDlgItem(yourdialog, IDC_yourid)).
 
 #include <vector>
-#include <algorithm>
+#include <set>
 
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"

@@ -1,12 +1,11 @@
 #include <cctype>
-#include <tchar.h>
 #include <cmath>
-#include <iomanip>
 #include <sstream>
 
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"

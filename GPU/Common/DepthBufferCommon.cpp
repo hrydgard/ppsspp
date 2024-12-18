@@ -19,7 +19,6 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/LogReporting.h"
-#include "Core/ConfigValues.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"

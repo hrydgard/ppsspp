@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <algorithm>  // for sort
 
 #include <inttypes.h>
 
@@ -12,7 +13,6 @@
 #include <strings.h>
 #endif
 
-#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>

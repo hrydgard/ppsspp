@@ -6,6 +6,8 @@
 // of defines that translate to either NEON or SSE. It would be possible to write quite a lot of
 // our various color conversion functions and so on in a pretty generic manner.
 
+#pragma once
+
 #include "ppsspp_config.h"
 
 #include "stdint.h"

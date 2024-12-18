@@ -5,6 +5,7 @@
 #include "Common/UI/Context.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/IconCache.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"

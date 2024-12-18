@@ -32,8 +32,8 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 
 enum ReferenceIndexType {
 	REF_INDEX_PC       = 32,

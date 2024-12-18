@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <png.h>
@@ -25,26 +24,19 @@
 #include "ext/basis_universal/basisu_transcoder.h"
 #include "ext/xxhash.h"
 
-#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Format/IniFile.h"
-#include "Common/Data/Format/ZIMLoad.h"
-#include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
-#include "Common/Thread/ParallelLoop.h"
-#include "Common/Thread/Waitable.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "Core/ThreadPools.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/TextureDecoder.h"

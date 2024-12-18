@@ -16,11 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-#include <string>
-#include <cstdio>
 
 #include "Common/CommonTypes.h"
-#include "Common/Math/expression_parser.h"
 
 struct MemMap;
 

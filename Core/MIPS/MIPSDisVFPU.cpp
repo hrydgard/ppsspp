@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstring>
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/StringUtils.h"
 #include "Core/MIPS/MIPS.h"

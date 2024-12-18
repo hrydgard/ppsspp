@@ -19,7 +19,6 @@
 #include <cmath>
 
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"

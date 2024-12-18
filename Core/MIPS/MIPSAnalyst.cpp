@@ -17,8 +17,6 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
-#include <map>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
@@ -35,7 +33,6 @@
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"

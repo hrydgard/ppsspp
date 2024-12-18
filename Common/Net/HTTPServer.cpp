@@ -28,7 +28,6 @@
 #define in6addr_any IN6ADDR_ANY_INIT
 #endif
 
-#include <algorithm>
 #include <functional>
 
 #include <cstdio>

@@ -20,7 +20,6 @@
 #include <mutex>
 #include <utility>
 
-#include "Common/Math/math_util.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
@@ -34,6 +33,7 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 

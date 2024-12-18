@@ -18,18 +18,17 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include "Common/File/Path.h"
 
 #include "GPU/GPUCommonHW.h"
 #include "GPU/Common/TextureShaderCommon.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 
 class ShaderManagerGLES;
 class TextureCacheGLES;
+class FramebufferManagerGLES;
 class LinkedShader;
 
 class GPU_GLES : public GPUCommonHW {

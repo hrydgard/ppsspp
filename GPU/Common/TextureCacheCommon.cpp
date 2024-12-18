@@ -36,13 +36,9 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/ge_constants.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
-#include "GPU/GPUCommon.h"
-#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "Core/Util/PPGeDraw.h"
 

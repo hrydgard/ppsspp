@@ -17,8 +17,6 @@
 
 #include <cstring>
 #include <cstdio>
-#include <ctype.h>
-#include <algorithm>
 
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"

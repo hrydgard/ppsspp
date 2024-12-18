@@ -15,19 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-#include <cstdio>
-
 #include "ppsspp_config.h"
 
 #include "Common/CommonTypes.h"
-#include "Common/CPUDetect.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8

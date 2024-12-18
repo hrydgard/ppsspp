@@ -21,27 +21,22 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#include <algorithm>
 #include <mutex>
 
-#include "Common/Common.h"
-#include "Common/MemoryUtil.h"
+#include "Common/CommonTypes.h"
 #include "Common/MemArena.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
+#include "Core/System.h"
 #include "Core/Core.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HDRemaster.h"
-#include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
 #include "Core/MemFault.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Common/Thread/ParallelLoop.h"
 

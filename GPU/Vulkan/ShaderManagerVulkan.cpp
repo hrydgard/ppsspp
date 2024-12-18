@@ -20,30 +20,19 @@
 #endif
 
 #include "Common/LogReporting.h"
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/Math/math_util.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Data/Encoding/Utf8.h"
-#include "Common/TimeUtil.h"
 #include "Common/MemoryUtil.h"
 
 #include "Common/StringUtils.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
-#include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Log.h"
-#include "Common/CommonTypes.h"
-#include "Core/Config.h"
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/GeometryShaderGenerator.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
-#include "GPU/Vulkan/FramebufferManagerVulkan.h"
 
 // Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.

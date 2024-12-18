@@ -4,7 +4,6 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
-#include "Core/System.h"
 #include "Core/Config.h"
 
 #include "GPU/ge_constants.h"

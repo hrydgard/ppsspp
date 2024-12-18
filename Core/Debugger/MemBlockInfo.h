@@ -18,9 +18,10 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
 #include <string>
 #include <vector>
+#include <cstring>
+
 #include "Common/Common.h"
 
 class PointerWrap;

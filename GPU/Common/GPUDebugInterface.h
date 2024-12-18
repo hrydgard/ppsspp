@@ -256,7 +256,7 @@ public:
 	virtual GPURecord::Recorder *GetRecorder() = 0;
 	virtual GPUBreakpoints *GetBreakpoints() = 0;
 
-	virtual bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	virtual bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 		return false;
 	}
 

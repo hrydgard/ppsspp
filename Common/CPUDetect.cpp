@@ -32,7 +32,6 @@
 #include <sys/sysctl.h>
 #endif
 
-#include <algorithm>
 #include <cstdint>
 #include <memory.h>
 #include <set>

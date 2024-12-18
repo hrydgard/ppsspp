@@ -21,6 +21,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Font/PGF.h"
 
 enum {

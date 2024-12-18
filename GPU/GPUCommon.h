@@ -14,7 +14,6 @@
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Breakpoints.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"
@@ -323,7 +322,7 @@ public:
 
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
+	bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	int GetCurrentPrimCount() override;
 	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
 		return nullptr;

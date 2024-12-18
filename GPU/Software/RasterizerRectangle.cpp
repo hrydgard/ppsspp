@@ -1,38 +1,23 @@
 // See comment in header for the purpose of the code in this file.
 
 #include "ppsspp_config.h"
-#include <algorithm>
 #include <cmath>
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
-#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 extern DSStretch g_DarkStalkerStretch;
 // For Darkstalkers hack. Ugh.

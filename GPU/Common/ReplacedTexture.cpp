@@ -27,7 +27,6 @@
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
 
-#include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/PNGLoad.h"

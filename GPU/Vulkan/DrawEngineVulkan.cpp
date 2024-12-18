@@ -16,22 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
 #include <functional>
 
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/Log.h"
-#include "Common/MemoryUtil.h"
-#include "Common/TimeUtil.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
-#include "Core/Config.h"
-#include "Core/CoreTiming.h"
 
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
@@ -44,13 +35,11 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/ShaderUniforms.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/GPU_Vulkan.h"
 
 using namespace PPSSPP_VK;
 

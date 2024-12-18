@@ -33,6 +33,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"

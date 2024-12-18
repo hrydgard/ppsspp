@@ -302,9 +302,6 @@ void ImMemView::ProcessKeyboardShortcuts(bool focused) {
 }
 
 void ImMemView::onChar(int c) {
-	if (!PSP_IsInited())
-		return;
-
 	ImGuiIO& io = ImGui::GetIO();
 
 	if (io.KeyMods & ImGuiMod_Ctrl) {
@@ -702,9 +699,6 @@ bool ImMemView::ParseSearchString(const std::string &query, bool asHex, std::vec
 
 std::vector<u32> ImMemView::searchString(const std::string &searchQuery) {
 	std::vector<u32> searchResAddrs;
-
-	if (!PSP_IsInited())
-		return searchResAddrs;
 
 	std::vector<u8> searchData;
 	if (!ParseSearchString(searchQuery, false, searchData))

@@ -15,13 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string.h>
-#include <algorithm>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Profiler/Profiler.h"
-#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"

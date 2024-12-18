@@ -6,17 +6,8 @@
 
 #include "Common/Common.h"
 #include "ppsspp_config.h"
+#include "Common/Math/CrossSIMD.h"
 
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
 
 extern const float one_over_255_x4[4];
 extern const float exactly_255_x4[4];
