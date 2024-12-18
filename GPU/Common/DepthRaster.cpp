@@ -217,8 +217,9 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		break;
 	}
 
-	// TODO: Ditch indexed primitives for now.
-	if (vertTypeID & GE_VTYPE_IDX_MASK) {
+	// TODO: Ditch indexed primitives for now, also ditched skinned ones since we don't have a fast way to skin without
+	// running the full decoder.
+	if (vertTypeID & (GE_VTYPE_IDX_MASK | GE_VTYPE_WEIGHT_MASK)) {
 		return;
 	}
 
