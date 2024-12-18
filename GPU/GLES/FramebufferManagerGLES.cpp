@@ -21,7 +21,6 @@
 #include "Core/System.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :

@@ -20,7 +20,6 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 
-#include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"

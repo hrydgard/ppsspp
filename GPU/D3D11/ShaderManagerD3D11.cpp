@@ -22,15 +22,9 @@
 
 #include <map>
 
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/Math/math_util.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
-#include "Core/Config.h"
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/VertexShaderGenerator.h"

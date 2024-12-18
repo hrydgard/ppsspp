@@ -21,7 +21,6 @@
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/File/Path.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexShaderGenerator.h"
@@ -29,6 +28,7 @@
 
 class DrawEngineGLES;
 class Shader;
+class Path;
 struct ShaderLanguageDesc;
 
 namespace File {

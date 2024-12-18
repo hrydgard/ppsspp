@@ -3,18 +3,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
-#ifdef _M_SSE
-#include <emmintrin.h>
-#include <smmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 // Candidates for hand-writing
 // (found using our custom Very Sleepy).

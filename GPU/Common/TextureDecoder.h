@@ -19,7 +19,7 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/Common.h"
+#include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"

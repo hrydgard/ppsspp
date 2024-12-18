@@ -22,18 +22,11 @@
 #include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Text/I18n.h"
-#include "Core/Debugger/Breakpoints.h"
-#include "Core/MemMapHelpers.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
-#include "Core/ConfigValues.h"
-#include "Core/System.h"
 
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"

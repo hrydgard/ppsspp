@@ -17,11 +17,9 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
-#include "Core/Config.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Common/ShaderId.h"
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;

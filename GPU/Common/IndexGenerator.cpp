@@ -19,22 +19,8 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/CPUDetect.h"
 #include "Common/Common.h"
-#include "Common/Log.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
-
+#include "Common/Math/CrossSIMD.h"
 #include "GPU/Common/IndexGenerator.h"
 
 // Points don't need indexing...

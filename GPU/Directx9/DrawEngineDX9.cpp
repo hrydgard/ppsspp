@@ -19,16 +19,9 @@
 #include <wrl/client.h>
 
 #include "Common/Log.h"
-#include "Common/MemoryUtil.h"
-#include "Common/TimeUtil.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
-#include "Core/Config.h"
-#include "Core/CoreTiming.h"
 
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
@@ -36,11 +29,10 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
-#include "GPU/Directx9/GPU_DX9.h"
+#include "GPU/Directx9/FramebufferManagerDX9.h"
 
 using Microsoft::WRL::ComPtr;
 

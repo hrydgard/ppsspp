@@ -15,23 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
+#include "ppsspp_config.h"
 #include <limits>
 
-#include "Common/System/Display.h"
-
-#include "Common/StringUtils.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/Config.h"
+#include "Core/Reporting.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderId.h"
-#include "GPU/Common/VertexDecoderCommon.h"
 
 #include "GPU/Common/GPUStateUtils.h"
 
@@ -1324,7 +1319,7 @@ static void ConvertBlendState(GenericBlendState &blendState, bool forceReplaceBl
 
 	// Some Android devices (especially old Mali, it seems) composite badly if there's alpha in the backbuffer.
 	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	if (g_Config.bSkipBufferEffects) {
 		if (glBlendFuncA == BlendFactor::DST_ALPHA) glBlendFuncA = BlendFactor::ZERO;
 		if (glBlendFuncB == BlendFactor::DST_ALPHA) glBlendFuncB = BlendFactor::ZERO;

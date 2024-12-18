@@ -15,12 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "GPU/GPUState.h"
 
 #include "GPU/Vulkan/FramebufferManagerVulkan.h"
-#include "GPU/Vulkan/VulkanUtil.h"
-
-using namespace PPSSPP_VK;
 
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw) {

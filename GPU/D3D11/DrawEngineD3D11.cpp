@@ -15,33 +15,23 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
 
 #include "Common/Log.h"
-#include "Common/MemoryUtil.h"
-#include "Common/TimeUtil.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Core/MemMap.h"
-#include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/CoreTiming.h"
 
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
-#include "GPU/D3D11/GPU_D3D11.h"
 
 const D3D11_PRIMITIVE_TOPOLOGY d3d11prim[8] = {
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Points are expanded to triangles.

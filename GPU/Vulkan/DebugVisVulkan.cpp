@@ -23,8 +23,6 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/UI/Context.h"
-#include "Common/UI/View.h"
-#include "Common/System/Display.h"
 #include "Common/System/System.h"
 
 #include "ext/vma/vk_mem_alloc.h"
@@ -32,9 +30,7 @@
 #include "DebugVisVulkan.h"
 #include "Common/GPU/GPUBackendCommon.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
-#include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/Data/Text/Parsers.h"
-#include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 

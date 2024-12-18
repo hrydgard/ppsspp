@@ -21,12 +21,8 @@
 #include <d3d11_1.h>
 
 #include "Common/Data/Collections/Hashmaps.h"
-#include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 

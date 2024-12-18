@@ -15,20 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
 #include <cmath>
 
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/TransformCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 

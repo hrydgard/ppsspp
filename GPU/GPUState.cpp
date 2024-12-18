@@ -19,24 +19,11 @@
 #include "Common/Common.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/CoreParameter.h"
-#include "Core/Config.h"
-#include "Core/System.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 // This must be aligned so that the matrices within are aligned.
 alignas(16) GPUgstate gstate;

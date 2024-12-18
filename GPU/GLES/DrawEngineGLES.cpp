@@ -18,31 +18,20 @@
 #include <algorithm>
 
 #include "Common/LogReporting.h"
-#include "Common/MemoryUtil.h"
-#include "Common/TimeUtil.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
-#include "Core/Config.h"
-#include "Core/CoreTiming.h"
 
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/Debugger/Debugger.h"
-#include "GPU/GLES/FragmentTestCacheGLES.h"
-#include "GPU/GLES/StateMappingGLES.h"
-#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 
 static const GLuint glprim[8] = {
 	// Points, which are expanded to triangles.
