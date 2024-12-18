@@ -114,6 +114,10 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 				boundSampler = bd->fontSampler;
 			} else {
 				size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
+				if (index >= bd->tempTextures.size()) {
+					WARN_LOG(Log::System, "Missing temp texture %d (out of %d)", index, (int)bd->tempTextures.size());
+					continue;
+				}
 				_dbg_assert_(index < bd->tempTextures.size());
 				switch (bd->tempTextures[index].type) {
 				case RegisteredTextureType::Framebuffer:

@@ -74,6 +74,7 @@ bool DataFormatIsDepthStencil(DataFormat fmt);
 inline bool DataFormatIsColor(DataFormat fmt) {
 	return !DataFormatIsDepthStencil(fmt);
 }
+int DataFormatNumChannels(DataFormat fmt);
 bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize);
 
 // Limited format support for now.
