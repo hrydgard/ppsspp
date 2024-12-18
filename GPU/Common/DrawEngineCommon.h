@@ -86,8 +86,6 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-
 	// Dispatches the queued-up draws.
 	virtual void Flush() = 0;
 
@@ -118,7 +116,7 @@ public:
 		}
 	}
 
-	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
+	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
 	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
 	void SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead);
 

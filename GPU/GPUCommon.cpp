@@ -42,6 +42,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
@@ -1996,9 +1997,9 @@ bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil f
 	return false;
 }
 
-bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+bool GPUCommon::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	gstate_c.UpdateUVScaleOffset();
-	return drawEngineCommon_->GetCurrentSimpleVertices(count, vertices, indices);
+	return ::GetCurrentDrawAsDebugVertices(drawEngineCommon_, count, vertices, indices);
 }
 
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {

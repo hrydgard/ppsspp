@@ -1086,7 +1086,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
 				// are consecutive in memory. We also ignore culling here.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, vertTypeID, clockwise, &bytesRead, isTriangle);
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle);
 				if (!commandsExecuted) {
 					goto bail;
 				}

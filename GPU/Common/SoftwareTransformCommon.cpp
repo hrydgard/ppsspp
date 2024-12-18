@@ -30,6 +30,7 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly without geometry shaders, and may be easier to use for
@@ -1034,4 +1035,158 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 
 	// Okay, there we are! Return the new type (but keep the index bits)
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
+}
+
+// clip space to screen space
+Vec3f ClipToScreen(const Vec4f& coords) {
+	float xScale = gstate.getViewportXScale();
+	float xCenter = gstate.getViewportXCenter();
+	float yScale = gstate.getViewportYScale();
+	float yCenter = gstate.getViewportYCenter();
+	float zScale = gstate.getViewportZScale();
+	float zCenter = gstate.getViewportZCenter();
+
+	float x = coords.x * xScale / coords.w + xCenter;
+	float y = coords.y * yScale / coords.w + yCenter;
+	float z = coords.z * zScale / coords.w + zCenter;
+
+	// 16 = 0xFFFF / 4095.9375
+	return Vec3f(x * 16 - gstate.getOffsetX16(), y * 16 - gstate.getOffsetY16(), z);
+}
+
+static Vec3f ScreenToDrawing(const Vec3f& coords) {
+	Vec3f ret;
+	ret.x = coords.x * (1.0f / 16.0f);
+	ret.y = coords.y * (1.0f / 16.0f);
+	ret.z = coords.z;
+	return ret;
+}
+
+// TODO: This probably is not the best interface.
+// drawEngine is just for the vertex decoder lookup.
+// This is really just for vertex preview in the debugger, not for actual rendering!
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	// This is always for the current vertices.
+	u16 indexLowerBound = 0;
+	u16 indexUpperBound = count - 1;
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0)
+		return false;
+
+	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
+
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
+		const u16_le *inds16 = (const u16_le *)inds;
+		const u32_le *inds32 = (const u32_le *)inds;
+
+		if (inds) {
+			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
+			indices.resize(count);
+			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			case GE_VTYPE_IDX_8BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds[i];
+				}
+				break;
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_32BIT:
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
+				for (int i = 0; i < count; ++i) {
+					// These aren't documented and should be rare.  Let's bounds check each one.
+					if (inds32[i] != (u16)inds32[i]) {
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
+					}
+					indices[i] = (u16)inds32[i];
+				}
+				break;
+			}
+		} else {
+			indices.clear();
+		}
+	} else {
+		indices.clear();
+	}
+
+	static std::vector<u32> temp_buffer;
+	static std::vector<SimpleVertex> simpleVertices;
+	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
+	simpleVertices.resize(indexUpperBound + 1);
+
+	// We always want "applyskinindecode" here, faster than letting NormalizeVertices handle it.
+	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
+	VertexDecoder *dec = drawEngine->GetVertexDecoder(vertTypeID);
+	NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, dec, gstate.vertType);
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	// This transforms the vertices.
+	// NOTE: We really should just run the full software transform?
+
+	vertices.resize(indexUpperBound + 1);
+	uint32_t vertType = gstate.vertType;
+	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
+		const SimpleVertex &vert = simpleVertices[i];
+
+		if ((vertType & GE_VTYPE_THROUGH) != 0) {
+			if (vertType & GE_VTYPE_TC_MASK) {
+				vertices[i].u = vert.uv[0];
+				vertices[i].v = vert.uv[1];
+			} else {
+				vertices[i].u = 0.0f;
+				vertices[i].v = 0.0f;
+			}
+			vertices[i].x = vert.pos.x;
+			vertices[i].y = vert.pos.y;
+			vertices[i].z = vert.pos.z;
+			if (vertType & GE_VTYPE_COL_MASK) {
+				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			} else {
+				memset(vertices[i].c, 0, sizeof(vertices[i].c));
+			}
+			vertices[i].nx = 0.0f;  // No meaningful normals in through mode
+			vertices[i].ny = 0.0f;
+			vertices[i].nz = 1.0f;
+		} else {
+			float clipPos[4];
+			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
+			Vec3f screenPos = ClipToScreen(clipPos);
+			Vec3f drawPos = ScreenToDrawing(screenPos);
+
+			if (vertType & GE_VTYPE_TC_MASK) {
+				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
+				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
+			} else {
+				vertices[i].u = 0.0f;
+				vertices[i].v = 0.0f;
+			}
+			// Should really have separate coordinates for before and after transform.
+			vertices[i].x = drawPos.x;
+			vertices[i].y = drawPos.y;
+			vertices[i].z = drawPos.z;
+			if (vertType & GE_VTYPE_COL_MASK) {
+				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			} else {
+				memset(vertices[i].c, 0, sizeof(vertices[i].c));
+			}
+			vertices[i].nx = vert.nrm.x;
+			vertices[i].ny = vert.nrm.y;
+			vertices[i].nz = vert.nrm.z;
+		}
+	}
+
+	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
+
+	return true;
 }

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <vector>
 #include "Common/CommonTypes.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -88,3 +89,4 @@ protected:
 
 // Slow. See description in the cpp file.
 u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, VertexDecoder *dec, u32 vertType);
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);

@@ -1359,7 +1359,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 				int rowCount_ = gpuDebug->GetCurrentPrimCount();
 				std::vector<GPUDebugVertex> vertices;
 				std::vector<u16> indices;
-				if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
+				if (!gpuDebug->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
 					rowCount_ = 0;
 				}
 				auto buildVertexTable = [&](bool raw) {
