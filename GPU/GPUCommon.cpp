@@ -1229,12 +1229,12 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (count > 0x200) {
 		// The second to last set of 0x100 is checked (even for odd counts.)
 		size_t skipSize = (count - 0x200) * dec->VertexSize();
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox((const uint8_t *)control_points + skipSize, inds, 0x100, dec, gstate.vertType);
 	} else if (count > 0x100) {
 		int checkSize = count - 0x100;
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, gstate.vertType);
 	} else {
-		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, gstate.vertType);
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, gstate.vertType);
 	}
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }

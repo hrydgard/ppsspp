@@ -101,12 +101,12 @@ public:
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
 
-	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
+	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType);
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
-	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, u32 vertType);
+	bool TestBoundingBoxFast(const void *control_points, int vertexCount, VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType);
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
@@ -120,7 +120,7 @@ public:
 
 	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
 	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
-	void SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
+	void SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead);
 
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
