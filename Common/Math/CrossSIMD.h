@@ -21,6 +21,7 @@
 
 #if PPSSPP_ARCH(SSE2)
 #include <emmintrin.h>
+#include <smmintrin.h>
 #endif
 
 #if PPSSPP_ARCH(ARM_NEON)
