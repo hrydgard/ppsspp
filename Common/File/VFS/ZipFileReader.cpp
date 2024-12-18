@@ -1,6 +1,6 @@
-#include <algorithm>
-#include <ctype.h>
+#include <cctype>
 #include <set>
+#include <algorithm>  // for sort
 #include <cstdio>
 #include <cstring>
 

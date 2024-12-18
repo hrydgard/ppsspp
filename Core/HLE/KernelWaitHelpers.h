@@ -19,7 +19,7 @@
 
 #include <vector>
 #include <map>
-#include <algorithm>
+#include <algorithm> // std::erase/remove
 
 #include "Common/CommonTypes.h"
 #include "Core/CoreTiming.h"

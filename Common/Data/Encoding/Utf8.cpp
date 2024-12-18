@@ -23,7 +23,6 @@
 #include <cstdarg>
 #include <cstdint>
 
-#include <algorithm>
 #include <string>
 
 #include "Common/Data/Encoding/Utf8.h"

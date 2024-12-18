@@ -4,7 +4,6 @@
 // Only draws and binds are handled here, resource creation and allocations are handled as normal -
 // that's the nice thing with Vulkan.
 
-#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>

@@ -1,8 +1,8 @@
 #include "Common/Net/HTTPHeaders.h"
 
-#include <algorithm>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <algorithm>  // std::transform
 
 #include "Common/Net/Sinks.h"
 

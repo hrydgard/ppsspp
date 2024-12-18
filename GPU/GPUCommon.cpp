@@ -1,5 +1,7 @@
 #include "ppsspp_config.h"
 
+#include <algorithm>  // std::remove
+
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GraphicsContext.h"

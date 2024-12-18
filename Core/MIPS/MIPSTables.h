@@ -18,6 +18,8 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 

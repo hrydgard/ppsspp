@@ -25,6 +25,7 @@
 // All credit goes to him and the official miniupnp project! http://miniupnp.free.fr/
 
 
+#include <algorithm>  // find_if
 #include <cstring>
 #include <string>
 #include <thread>
