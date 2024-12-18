@@ -17,6 +17,8 @@
 
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
+
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"

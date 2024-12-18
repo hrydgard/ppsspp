@@ -20,6 +20,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -108,6 +109,8 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		SetGPU(new GPU_Vulkan(ctx, draw));
 		break;
 #endif
+	default:
+		break;
 	}
 
 	if (gpu && !gpu->IsStarted())

@@ -18,6 +18,7 @@
 #include <atomic>
 #include <cstring>
 #include <mutex>
+#include <condition_variable>
 #include <thread>
 
 #include "Common/Log.h"

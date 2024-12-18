@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 #include <cmath>
+#include <cstring>
 
 #include "Common/Common.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8

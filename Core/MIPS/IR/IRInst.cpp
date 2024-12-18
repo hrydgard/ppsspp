@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Common/CommonFuncs.h"
 #include "Common/Log.h"
 #include "Core/MIPS/IR/IRInst.h"

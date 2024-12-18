@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <cstring>
+
 #include "Common/Common.h"
 
 class PointerWrap;

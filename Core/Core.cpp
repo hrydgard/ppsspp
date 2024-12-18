@@ -19,6 +19,8 @@
 
 #include <cstdint>
 #include <mutex>
+#include <set>
+#include <condition_variable>
 
 #include "Common/System/System.h"
 #include "Common/Profiler/Profiler.h"
