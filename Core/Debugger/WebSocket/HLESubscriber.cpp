@@ -18,6 +18,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"

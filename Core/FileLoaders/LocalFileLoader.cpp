@@ -15,11 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstdio>
 
 #include "ppsspp_config.h"
 
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"

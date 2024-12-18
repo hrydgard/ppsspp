@@ -15,9 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
 #include <atomic>
-#include <condition_variable>
 #include <cstring>
 #include <mutex>
 #include <thread>

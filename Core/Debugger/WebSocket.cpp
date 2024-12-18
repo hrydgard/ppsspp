@@ -16,11 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <mutex>
-#include <condition_variable>
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
-#include "Core/MemMap.h"
 
 // This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
 // Currently, the only subprotocol "debugger.ppsspp.org" uses a simple JSON based interface.

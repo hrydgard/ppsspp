@@ -3,9 +3,9 @@
 #include <mutex>
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Windows/Debugger/DumpMemoryWindow.h"
 #include "Windows/resource.h"

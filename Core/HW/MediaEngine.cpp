@@ -17,16 +17,13 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Math/CrossSIMD.h"
-#include "Core/Config.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"  // Used by TextureDecoder.h when templates get instanced
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/GPUCommon.h"
 #include "Core/HW/SimpleAudioDec.h"
 
 #include <algorithm>

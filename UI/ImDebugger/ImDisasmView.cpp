@@ -14,8 +14,7 @@
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
 
-#include "Core/Core.h"
-#include "Core/CoreParameter.h"
+#include "Core/System.h"
 #include "UI/ImDebugger/ImDisasmView.h"
 #include "UI/ImDebugger/ImDebugger.h"
 

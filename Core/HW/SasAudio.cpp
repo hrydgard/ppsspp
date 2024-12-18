@@ -25,7 +25,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "SasAudio.h"
 
 static const u8 f[16][2] = {

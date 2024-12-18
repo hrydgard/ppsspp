@@ -16,8 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
-
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -32,7 +30,6 @@
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "GPU/GPUState.h"
 
 #ifndef _WIN32
 #include <ctype.h>

@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
 #include <cmath>
 
 #include "Common/Common.h"
@@ -37,10 +36,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#include <smmintrin.h>
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 namespace Rasterizer {
 

@@ -12,16 +12,10 @@
 // md5_hash(PSP_GAME/EBOOT.BIN)
 // hash = md5_finalize()
 
-#include <algorithm>
-#include <atomic>
-#include <cstdarg>
-#include <cstdlib>
-#include <ctime>
 #include <functional>
 #include <set>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "ext/rcheevos/include/rcheevos.h"
 #include "ext/rcheevos/include/rc_client.h"
@@ -38,8 +32,7 @@
 #include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
-#include "Common/File/FileUtil.h"
-#include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPRequest.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
@@ -53,13 +46,9 @@
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
-#include "Core/CoreParameter.h"
 #include "Core/Core.h"
 #include "Core/System.h"
-#include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/FileSystems/BlockDevices.h"
-#include "Core/ELF/ParamSFO.h"
-#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/RetroAchievements.h"
 

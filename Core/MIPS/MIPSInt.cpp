@@ -34,7 +34,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "Core/System.h"
 
 #define R(i) (currentMIPS->r[i])
 #define F(i) (currentMIPS->f[i])

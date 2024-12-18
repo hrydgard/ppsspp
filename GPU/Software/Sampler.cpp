@@ -21,26 +21,13 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
-#include "Common/StringUtils.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/GPUState.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRegCache.h"
 #include "GPU/Software/Sampler.h"
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
 
 using namespace Math3D;
 using namespace Rasterizer;

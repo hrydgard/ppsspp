@@ -19,7 +19,6 @@
 #include <cstring>
 
 #include "Common/Log.h"
-#include "Common/File/FileUtil.h"
 #include "Core/Loaders.h"
 #include "Core/ELF/PBPReader.h"
 

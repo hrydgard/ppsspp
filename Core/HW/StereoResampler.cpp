@@ -38,14 +38,11 @@
 
 #include "Common/Common.h"
 #include "Common/System/System.h"
-#include "Common/Math/math_util.h"
-#include "Common/Serialize/Serializer.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
-#include "Core/HLE/__sceAudio.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/System.h"
 

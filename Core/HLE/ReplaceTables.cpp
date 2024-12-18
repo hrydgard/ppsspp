@@ -37,7 +37,6 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/GPUState.h"
 #include "Common/Math/CrossSIMD.h"
 
 enum class GPUReplacementSkip {

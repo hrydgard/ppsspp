@@ -17,16 +17,13 @@
 
 #include "ppsspp_config.h"
 
-#include <algorithm>
 #include <functional>
 
 using namespace std::placeholders;
 
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Render/Text/draw_text.h"
 #include "Common/File/FileUtil.h"
-#include "Common/Battery/Battery.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/UI.h"
@@ -41,11 +38,11 @@ using namespace std::placeholders;
 #include "Common/Log.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
-#include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/curves.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
 #ifndef MOBILE_DEVICE

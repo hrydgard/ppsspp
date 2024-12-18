@@ -18,7 +18,6 @@
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
-#include "Core/System.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"

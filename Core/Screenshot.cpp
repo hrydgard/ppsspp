@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#include <algorithm>
 #include <png.h>
 #include "ext/jpge/jpge.h"
 
@@ -26,13 +25,11 @@
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/System/Display.h"
-#include "Core/Config.h"
 #include "Core/Screenshot.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/GPUState.h"
 
 // This is used to make non-ASCII paths work for filename.
 // Technically only needed on Windows.

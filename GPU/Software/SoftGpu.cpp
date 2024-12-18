@@ -28,11 +28,9 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
-#include "Core/MemMapHelpers.h"
-#include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Common/Profiler/Profiler.h"
@@ -47,7 +45,6 @@
 #include "GPU/Common/PresentationCommon.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/SplineCommon.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;

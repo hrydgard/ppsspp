@@ -28,9 +28,9 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
-#include "UI/OnScreenDisplay.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 
 #include "Windows/W32Util/Misc.h"

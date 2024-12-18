@@ -3,11 +3,9 @@
 #include <map>
 #include <set>
 #include <string>
-#include <cstdio>
 #include <mutex>
 #include <cstdint>
 
-#include "Common/GPU/thin3d.h"
 
 class UIContext;
 

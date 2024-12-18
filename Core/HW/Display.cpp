@@ -24,7 +24,7 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/Display.h"

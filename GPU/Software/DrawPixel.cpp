@@ -20,7 +20,6 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Core/Config.h"
-#include "GPU/GPUState.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/FuncId.h"

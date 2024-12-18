@@ -39,7 +39,6 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/SysError.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
-#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/CoreTiming.h"

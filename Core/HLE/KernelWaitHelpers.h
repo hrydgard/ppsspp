@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "Common/CommonTypes.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernelThread.h"
 
 namespace HLEKernel

@@ -17,6 +17,7 @@
 
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"

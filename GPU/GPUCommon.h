@@ -14,7 +14,6 @@
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Breakpoints.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUDefinitions.h"

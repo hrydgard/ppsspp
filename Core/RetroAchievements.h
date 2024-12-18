@@ -9,15 +9,9 @@
 
 #pragma once
 
-#include <functional>
-#include <optional>
 #include <string>
-#include <utility>
-#include <vector>
 #include <set>
-#include <mutex>
 
-#include "Common/StringUtils.h"
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"  // for IdentifiedFileType
 

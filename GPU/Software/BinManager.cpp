@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <atomic>
-#include <condition_variable>
 #include <mutex>
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"

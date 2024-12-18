@@ -1,6 +1,5 @@
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/W32Util/ShellUtil.h"
@@ -15,7 +14,6 @@
 #include "Core/Reporting.h"
 #include "Common/StringUtils.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
-#include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Windows/Debugger/EditSymbolsWindow.h"
@@ -24,10 +22,8 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "ext/xxhash.h"
 #include "Common/System/Display.h"
 
-#include <CommDlg.h>
 #include <tchar.h>
 #include <set>
 

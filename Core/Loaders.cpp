@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-#include <cstdio>
-
 #include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
@@ -32,6 +29,7 @@
 #include "Core/MemMap.h"
 #include "Core/Loaders.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 
