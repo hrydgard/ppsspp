@@ -643,6 +643,7 @@ typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, u
 enum class TextureSwizzle {
 	DEFAULT,
 	R8_AS_ALPHA,
+	R8_AS_GRAYSCALE,
 };
 
 struct TextureDesc {
