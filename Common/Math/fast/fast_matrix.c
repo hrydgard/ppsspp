@@ -4,9 +4,7 @@
 
 #include "fast_matrix.h"
 
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-
-#include <emmintrin.h>
+#if PPSSPP_ARCH(SSE2)
 
 #include "fast_matrix.h"
 
@@ -27,12 +25,6 @@ void fast_matrix_mul_4x4_sse(float *dest, const float *a, const float *b) {
 }
 
 #elif PPSSPP_ARCH(ARM_NEON)
-
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
 
 #if PPSSPP_ARCH(ARM)
 static inline float32x4_t vfmaq_laneq_f32(float32x4_t _s, float32x4_t _a, float32x4_t _b, int lane) {

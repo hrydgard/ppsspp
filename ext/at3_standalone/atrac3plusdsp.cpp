@@ -659,7 +659,7 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
             const float *coeffs2 = ipqf_coeffs2[t];
 
             float *outp = out + s * 16;
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(SSE2)
             auto _mm_reverse = [](__m128 x) -> __m128 {
                 return _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3));
             };

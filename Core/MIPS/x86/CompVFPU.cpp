@@ -23,11 +23,10 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <cmath>
 #include <limits>
-#include <emmintrin.h>
-
 #include "Common/Math/math_util.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Log.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"

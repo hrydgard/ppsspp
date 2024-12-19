@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/Common.h"
 #include "GPU/Math3D.h"
+#include "Common/Common.h"
+#include "Common/Math/SIMDHeaders.h"
 
 #if PPSSPP_ARCH(SSE2)
 // For the SSE4 stuff.

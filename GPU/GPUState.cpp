@@ -17,13 +17,13 @@
 
 #include "ppsspp_config.h"
 #include "Common/Common.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "Common/Math/SIMDHeaders.h"
 
 // This must be aligned so that the matrices within are aligned.
 alignas(16) GPUgstate gstate;

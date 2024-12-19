@@ -19,8 +19,7 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <cstring>
-#include <emmintrin.h>
-
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPSAnalyst.h"

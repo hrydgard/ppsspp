@@ -38,6 +38,11 @@
 
 #include "Common/Math/SIMDHeaders.h"
 
+// For the SSE4 stuff
+#if PPSSPP_ARCH(SSE2)
+#include <smmintrin.h>
+#endif
+
 namespace Rasterizer {
 
 // Only OK on x64 where our stack is aligned

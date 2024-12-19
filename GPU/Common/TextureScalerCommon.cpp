@@ -25,11 +25,9 @@
 #include "Core/Config.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "ext/xbrz/xbrz.h"
-
-#include "Common/Math/SIMDHeaders.h"
-
 
 // Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME

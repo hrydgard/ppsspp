@@ -16,12 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(AMD64)
 
-#include <emmintrin.h>
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
 #include "Common/LogReporting.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
 #include "GPU/Software/SoftGpu.h"

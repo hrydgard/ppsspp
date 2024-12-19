@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
-#include <emmintrin.h>
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/x64Emitter.h"
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"

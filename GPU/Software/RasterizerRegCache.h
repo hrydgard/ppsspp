@@ -25,9 +25,8 @@
 #include <vector>
 
 #include "Common/Common.h"
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
+#include "Common/Math/SIMDHeaders.h"
+
 #if PPSSPP_ARCH(ARM64_NEON)
 #if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
 #include <arm64_neon.h>
