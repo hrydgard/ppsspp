@@ -163,8 +163,13 @@ void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInte
 			viewer_.width = viewer_.stride;
 			viewer_.Snapshot();
 		}
+		ImGui::Checkbox("Realtime", &cfg.realtimePixelPreview);
 	}
 	ImGui::EndChild();
+
+	if (cfg.realtimePixelPreview) {
+		viewer_.Snapshot();
+	}
 
 	ImGui::SameLine();
 	if (ImGui::BeginChild("right")) {

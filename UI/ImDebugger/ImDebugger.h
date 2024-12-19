@@ -153,6 +153,7 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 	uint64_t selectedTexAddr = 0;
 
+	bool realtimePixelPreview = false;
 	int breakCount = 0;
 
 	bool displayLatched = false;

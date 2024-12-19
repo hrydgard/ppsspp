@@ -124,8 +124,6 @@ public:
 	}
 
 private:
-	void UpdateTexture(Draw::DrawContext *draw);
-
 	ImGePixelViewer viewer_;
 };
 
