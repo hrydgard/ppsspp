@@ -254,11 +254,12 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 
 	float oneOverTriArea = (1.0f / float(triArea));
 
-	// END triangle setup.
 	float zz[3];
-	for (int vv = 0; vv < 3; vv++) {
-		zz[vv] = (float)verts[vv].z * oneOverTriArea;
-	}
+	zz[0] = (float)verts[0].z;
+	zz[1] = (float)(verts[1].z - verts[0].z) * oneOverTriArea;
+	zz[2] = (float)(verts[2].z - verts[0].z) * oneOverTriArea;
+
+	// END triangle setup.
 
 	// Incrementally compute Fab(x, y) for all the pixels inside the bounding box formed by (startX, endX) and (startY, endY)
 	for (int r = startY; r < endY; r++,
@@ -287,7 +288,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 				continue;
 			}
 			// Compute barycentric-interpolated depth
-			float depth = alpha * zz[0] + beta * zz[1] + gamma * zz[2];
+			float depth = zz[0] + beta * zz[1] + gamma * zz[2];
 			float previousDepthValue = (float)depthBuf[idx];
 
 			int depthMask;
