@@ -185,6 +185,10 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int tileStartY = y1;
 	int tileEndY = y2;
 
+	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
+	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
+	// are slow on SSE2.
+
 	// Convert to whole pixels for now. Later subpixel precision.
 	ScreenVert verts[3];
 	verts[0].x = vertsSub[0].x;
@@ -235,13 +239,6 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 		return;
 	}
 
-	float oneOverTriArea = (1.0f / float(triArea));
-
-	float zz[3];
-	for (int vv = 0; vv < 3; vv++) {
-		zz[vv] = (float)verts[vv].z * oneOverTriArea;
-	}
-
 	int rowIdx = (startY * stride + startX);
 	int col = startX;
 	int row = startY;
@@ -250,6 +247,14 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int alpha0 = (A0 * col) + (B0 * row) + C0;
 	int beta0 = (A1 * col) + (B1 * row) + C1;
 	int gamma0 = (A2 * col) + (B2 * row) + C2;
+
+	float oneOverTriArea = (1.0f / float(triArea));
+
+	// END triangle setup.
+	float zz[3];
+	for (int vv = 0; vv < 3; vv++) {
+		zz[vv] = (float)verts[vv].z * oneOverTriArea;
+	}
 
 	// Incrementally compute Fab(x, y) for all the pixels inside the bounding box formed by (startX, endX) and (startY, endY)
 	for (int r = startY; r < endY; r++,
