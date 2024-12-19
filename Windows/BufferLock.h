@@ -13,6 +13,9 @@
 
 #pragma once
 
+#include "CaptureDevice.h"
+#include <wrl/client.h>
+
 
 //-------------------------------------------------------------------
 //  VideoBufferLock class
@@ -27,8 +30,7 @@ public:
 	VideoBufferLock(IMFMediaBuffer *pBuffer) : m_p2DBuffer(NULL), m_bLocked(FALSE)
 	{
 		m_pBuffer = pBuffer;
-		m_pBuffer->AddRef();
-
+	
 		// Query for the 2-D buffer interface. OK if this fails.
 		(void)m_pBuffer->QueryInterface(IID_PPV_ARGS(&m_p2DBuffer));
 	}
@@ -36,8 +38,6 @@ public:
 	~VideoBufferLock()
 	{
 		UnlockBuffer();
-		SafeRelease(&m_pBuffer);
-		SafeRelease(&m_p2DBuffer);
 	}
 
 	//-------------------------------------------------------------------
@@ -116,8 +116,8 @@ public:
 	}
 
 private:
-	IMFMediaBuffer  *m_pBuffer;
-	IMF2DBuffer     *m_p2DBuffer;
+	Microsoft::WRL::ComPtr<IMFMediaBuffer>  m_pBuffer;
+	Microsoft::WRL::ComPtr<IMF2DBuffer>     m_p2DBuffer;
 
 	BOOL            m_bLocked;
 };
