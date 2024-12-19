@@ -158,6 +158,11 @@ public:
 		_dbg_assert_(numDrawVerts_ == 0 && numDrawInds_ == 0);
 	}
 
+	// temporary hack
+	uint8_t *GetTempSpace() {
+		return decoded_ + 12 * 65536;
+	}
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();

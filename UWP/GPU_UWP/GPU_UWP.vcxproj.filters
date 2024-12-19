@@ -80,6 +80,7 @@
     <ClCompile Include="..\..\GPU\Debugger\GECommandTable.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\DepthRaster.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -163,6 +164,7 @@
     <ClInclude Include="..\..\GPU\Debugger\GECommandTable.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\DepthRaster.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Debugger">

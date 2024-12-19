@@ -543,6 +543,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
 	$(GPUDIR)/Common/DepthBufferCommon.cpp \
+	$(GPUDIR)/Common/DepthRaster.cpp \
 	$(GPUDIR)/Common/StencilCommon.cpp \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
