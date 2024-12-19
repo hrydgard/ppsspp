@@ -6,7 +6,7 @@
 
 #include "Common/GraphicsContext.h"
 #include "Common/LogReporting.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"

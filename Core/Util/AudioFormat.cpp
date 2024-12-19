@@ -19,18 +19,7 @@
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Core/Util/AudioFormat.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif // PPSSPP_ARCH(ARM_NEON)
+#include "Common/Math/SIMDHeaders.h"
 
 // TODO: This shouldn't be a global.
 #if PPSSPP_ARCH(ARM_NEON)

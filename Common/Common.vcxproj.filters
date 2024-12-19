@@ -676,6 +676,9 @@
     <ClInclude Include="Data\Collections\LinkedList.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
+    <ClInclude Include="Math\SIMDHeaders.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

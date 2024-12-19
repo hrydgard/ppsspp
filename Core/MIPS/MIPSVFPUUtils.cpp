@@ -20,6 +20,7 @@
 
 #include "Common/BitScan.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -711,9 +712,7 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
 	return result.f;
 }
 
-#if defined(__SSE2__)
-
-#include <emmintrin.h>
+#if PPSSPP_ARCH(SSE2)
 
 static inline __m128i mulhi32x4(__m128i a, __m128i b) {
 	__m128i m02 = _mm_mul_epu32(a, b);
@@ -873,10 +872,10 @@ static float vfpu_dot_sse2(const float a[4], const float b[4])
 	return result.f;
 }
 
-#endif // defined(__SSE2__)
+#endif // PPSSPP_ARCH(SSE2)
 
 float vfpu_dot(const float a[4], const float b[4]) {
-#if defined(__SSE2__)
+#if PPSSPP_ARCH(SSE2)
 	return vfpu_dot_sse2(a, b);
 #else
 	return vfpu_dot_cpp(a, b);

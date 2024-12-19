@@ -21,7 +21,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"

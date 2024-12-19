@@ -15,7 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <cmath>
+
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
@@ -25,11 +28,17 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Lighting.h"
 #include "GPU/Software/RasterizerRectangle.h"
 #include "GPU/Software/TransformUnit.h"
+
+// For the SSE4 stuff
+#if PPSSPP_ARCH(SSE2)
+#include <smmintrin.h>
+#endif
 
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 

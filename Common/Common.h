@@ -87,17 +87,3 @@
 
 #define __forceinline inline __attribute__((always_inline))
 #endif
-
-#if defined __SSE4_2__
-# define _M_SSE 0x402
-#elif defined __SSE4_1__
-# define _M_SSE 0x401
-#elif defined __SSSE3__
-# define _M_SSE 0x301
-#elif defined __SSE3__
-# define _M_SSE 0x300
-#elif defined __SSE2__
-# define _M_SSE 0x200
-#elif !defined(__GNUC__) && (defined(_M_X64) || defined(_M_IX86))
-# define _M_SSE 0x402
-#endif

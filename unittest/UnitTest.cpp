@@ -55,6 +55,12 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Buffer.h"
 #include "Common/File/Path.h"
+#include "Common/Math/SIMDHeaders.h"
+// Get some more instructions for testing
+#if PPSSPP_ARCH(SSE2)
+#include <immintrin.h>
+#endif
+
 #include "Common/Input/InputState.h"
 #include "Common/Math/math_util.h"
 #include "Common/Render/DrawBuffer.h"
@@ -1092,6 +1098,32 @@ bool TestBuffer() {
 	return true;
 }
 
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+bool TestSIMD() {
+#if PPSSPP_ARCH(SSE2)
+	__m128i x = _mm_set_epi16(0, 0x4444, 0, 0x3333, 0, 0x2222, 0, 0x1111);
+	__m128i y = _mm_packu_epi32_SSE2(x);
+
+	uint64_t testdata[2];
+	_mm_store_si128((__m128i *)testdata, y);
+	EXPECT_EQ_INT(testdata[0], 0x4444333322221111);
+	EXPECT_EQ_INT(testdata[1], 0);
+
+	__m128i a = _mm_set_epi16(0, 0x4444, 0, 0x3333, 0, 0x2222, 0, 0x1111);
+	__m128i b = _mm_set_epi16(0, 0x8888, 0, 0x7777, 0, 0x6666, 0, 0x5555);
+	__m128i c = _mm_packu2_epi32_SSE2(a, b);
+	__m128i d = _mm_packus_epi32(a, b);
+
+	uint64_t testdata2[2];
+	_mm_store_si128((__m128i *)testdata2, c);
+	EXPECT_EQ_INT(testdata2[0], 0x4444333322221111);
+	EXPECT_EQ_INT(testdata2[1], 0x8888777766665555);
+#endif
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1154,6 +1186,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),
+	TEST_ITEM(SIMD),
 };
 
 int main(int argc, const char *argv[]) {

@@ -39,7 +39,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 enum class GPUReplacementSkip {
 	MEMSET = 1,

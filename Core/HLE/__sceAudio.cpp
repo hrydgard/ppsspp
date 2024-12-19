@@ -24,11 +24,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Common/System/System.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
+#include "Common/Math/SIMDHeaders.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"

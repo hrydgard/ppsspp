@@ -541,6 +541,7 @@
     <ClInclude Include="Math\lin\matrix4x4.h" />
     <ClInclude Include="Math\lin\vec3.h" />
     <ClInclude Include="Math\math_util.h" />
+    <ClInclude Include="Math\SIMDHeaders.h" />
     <ClInclude Include="Math\Statistics.h" />
     <ClInclude Include="Net\HTTPNaettRequest.h" />
     <ClInclude Include="Net\NetBuffer.h" />

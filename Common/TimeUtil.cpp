@@ -25,7 +25,7 @@
 
 // for _mm_pause
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-#include <immintrin.h>
+#include <emmintrin.h>
 #endif
 
 #include <ctime>

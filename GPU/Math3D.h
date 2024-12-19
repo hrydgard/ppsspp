@@ -24,19 +24,7 @@
 #include "Common/Common.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Common/Math/fast/fast_matrix.h"
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#include <smmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/SIMDHeaders.h"
 
 #if PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
 #define MATH3D_CALL __vectorcall
