@@ -18,14 +18,11 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
-#include <set>
-#include <mutex>
-
+#include <algorithm>
 #include "Common/Math/math_util.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
-#include "Common/Math/math_util.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/Data/Text/Parsers.h"
 

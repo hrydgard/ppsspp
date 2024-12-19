@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 

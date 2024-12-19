@@ -22,6 +22,8 @@
 #endif
 #endif
 
+
+#include <algorithm>
 #include <thread>
 
 #include "Common/Data/Encoding/Utf8.h"

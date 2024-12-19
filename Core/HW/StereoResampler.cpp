@@ -33,6 +33,7 @@
 #define CONTROL_AVG     32.0f
 
 #include "ppsspp_config.h"
+#include <algorithm>
 #include <cstring>
 #include <atomic>
 

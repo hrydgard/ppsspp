@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <set>
 #include <mutex>

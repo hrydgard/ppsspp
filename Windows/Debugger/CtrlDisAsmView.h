@@ -14,8 +14,11 @@
 // To get a class instance to be able to access it, just use 
 //   CtrlDisAsmView::getFrom(GetDlgItem(yourdialog, IDC_yourid)).
 
+#include <algorithm>
 #include <vector>
+#include <string>
 #include <set>
+#include <map>
 
 #include "Common/CommonWindows.h"
 #include "Common/Log.h"

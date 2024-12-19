@@ -12,7 +12,7 @@
 // md5_hash(PSP_GAME/EBOOT.BIN)
 // hash = md5_finalize()
 
-#include <functional>
+#include <algorithm>
 #include <set>
 #include <string>
 #include <vector>

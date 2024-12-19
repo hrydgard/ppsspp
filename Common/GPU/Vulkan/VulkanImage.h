@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "VulkanLoader.h"
 
 class VulkanContext;
