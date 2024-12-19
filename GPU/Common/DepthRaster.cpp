@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 
 #include "Common/Math/CrossSIMD.h"
 #include "GPU/Common/DepthRaster.h"
@@ -6,7 +7,91 @@
 #include "Common/Math/math_util.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-// TODO: Should respect the scissor rect.
+#if PPSSPP_ARCH(SSE2)
+
+struct Vec4S32 {
+	__m128i v;
+
+	Vec4S32 operator +(Vec4S32 other) const {
+		return Vec4S32{ _mm_add_epi32(v, other.v) };
+	}
+	Vec4S32 operator -(Vec4S32 other) const {
+		return Vec4S32{ _mm_sub_epi32(v, other.v) };
+	}
+	// This is really bad if we restrict ourselves to SSE2 only.
+	// If we have SSE4, we can do _mm_mullo_epi32.
+	// Let's avoid using it as much as possible.
+	// https://stackoverflow.com/questions/17264399/fastest-way-to-multiply-two-vectors-of-32bit-integers-in-c-with-sse
+	Vec4S32 operator *(Vec4S32 other) const {
+		__m128i a13 = _mm_shuffle_epi32(v, 0xF5);          // (-,a3,-,a1)
+		__m128i b13 = _mm_shuffle_epi32(other.v, 0xF5);          // (-,b3,-,b1)
+		__m128i prod02 = _mm_mul_epu32(v, other.v);                 // (-,a2*b2,-,a0*b0)
+		__m128i prod13 = _mm_mul_epu32(a13, b13);             // (-,a3*b3,-,a1*b1)
+		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
+		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
+		return Vec4S32{ _mm_unpacklo_epi64(prod01, prod23) };   // (ab3,ab2,ab1,ab0)
+	}
+};
+
+struct Vec4F32 {
+	__m128 v;
+
+	static Vec4F32 FromVec4S32(Vec4S32 other) {
+		return Vec4F32{ _mm_cvtepi32_ps(other.v) };
+	}
+
+	Vec4F32 operator +(Vec4F32 other) const {
+		return Vec4F32{ _mm_add_ps(v, other.v) };
+	}
+	Vec4F32 operator -(Vec4F32 other) const {
+		return Vec4F32{ _mm_sub_ps(v, other.v) };
+	}
+	Vec4F32 operator *(Vec4F32 other) const {
+		return Vec4F32{ _mm_mul_ps(v, other.v) };
+	}
+};
+
+#elif PPSSPP_ARCH(ARM_NEON)
+
+struct Vec4S32 {
+	uint32x4_t v;
+
+	Vec4S32 operator +(Vec4S32 other) const {
+		return Vec4S32{ vaddq_s32(v, other.v) };
+	}
+	Vec4S32 operator -(Vec4S32 other) const {
+		return Vec4S32{ vsubq_s32(v, other.v) };
+	}
+	Vec4S32 operator *(Vec4S32 other) const {
+		return Vec4S32{ vmulq_s32(v, other.v) };
+	}
+};
+
+struct Vec4F32 {
+	float32x4_t v;
+
+	static Vec4F32 FromVec4S32(Vec4S32 other) {
+		return Vec4F32{ _mm_cvtepi32_ps(other.v) };
+	}
+
+	Vec4F32 operator +(Vec4F32 other) const {
+		return Vec4F32{ vaddq_f32(v, other.v) };
+	}
+	Vec4F32 operator -(Vec4F32 other) const {
+		return Vec4F32{ vsubq_f32(v, other.v) };
+	}
+	Vec4F32 operator *(Vec4F32 other) const {
+		return Vec4F32{ vmulq_f32(v, other.v) };
+	}
+};
+
+#else
+
+struct Vec4S32 {
+	s32 v[4];
+};
+
+#endif
 
 struct ScreenVert {
 	int x;
@@ -28,19 +113,21 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		return;
 	}
 
-	__m128i valueX8 = _mm_set1_epi16(depthValue);
-
 #if PPSSPP_ARCH(SSE2)
+	__m128i valueX8 = _mm_set1_epi16(depthValue);
 	for (int y = y1; y < y2; y++) {
 		__m128i *ptr = (__m128i *)(dest + stride * y + x1);
 		int w = x2 - x1;
-
 		switch (depthCompare) {
 		case GE_COMP_ALWAYS:
-			while (w >= 8) {
-				_mm_storeu_si128(ptr, valueX8);
-				ptr++;
-				w -= 8;
+			if (depthValue == 0) {
+				memset(ptr, 0, w * 2);
+			} else {
+				while (w >= 8) {
+					_mm_storeu_si128(ptr, valueX8);
+					ptr++;
+					w -= 8;
+				}
 			}
 			break;
 			// TODO: Trailer
@@ -51,8 +138,33 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 			break;
 		}
 	}
-#elif PPSSPP_ARCH(ARM64_NEON)
 
+#elif PPSSPP_ARCH(ARM64_NEON)
+	uint16x8_t valueX8 = vdupq_n_u16(depthValue);
+	for (int y = y1; y < y2; y++) {
+		uint16_t *ptr = (uint16_t *)(dest + stride * y + x1);
+		int w = x2 - x1;
+
+		switch (depthCompare) {
+		case GE_COMP_ALWAYS:
+			if (depthValue == 0) {
+				memset(ptr, 0, w * 2);
+			} else {
+				while (w >= 8) {
+					vst1q_u16(ptr, valueX8);
+					ptr += 8;
+					w -= 8;
+				}
+			}
+			break;
+			// TODO: Trailer
+		case GE_COMP_NEVER:
+			break;
+		default:
+			// TODO
+			break;
+		}
+	}
 #else
 	// Do nothing for now
 #endif
@@ -69,6 +181,7 @@ struct int2 {
 
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
+// x1/y1 etc are the scissor rect.
 void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const ScreenVert vertsSub[3], GEComparison compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
@@ -76,29 +189,33 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int tileStartY = y1;
 	int tileEndY = y2;
 
+	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
+	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
+	// are slow on SSE2.
+
 	// Convert to whole pixels for now. Later subpixel precision.
 	ScreenVert verts[3];
-	verts[0].x = vertsSub[0].x >> 4;
-	verts[0].y = vertsSub[0].y >> 4;
+	verts[0].x = vertsSub[0].x;
+	verts[0].y = vertsSub[0].y;
 	verts[0].z = vertsSub[0].z;
-	verts[1].x = vertsSub[2].x >> 4;
-	verts[1].y = vertsSub[2].y >> 4;
+	verts[1].x = vertsSub[2].x;
+	verts[1].y = vertsSub[2].y;
 	verts[1].z = vertsSub[2].z;
-	verts[2].x = vertsSub[1].x >> 4;
-	verts[2].y = vertsSub[1].y >> 4;
+	verts[2].x = vertsSub[1].x;
+	verts[2].y = vertsSub[1].y;
 	verts[2].z = vertsSub[1].z;
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
-	int startX = std::max(std::min(std::min(verts[0].x, verts[1].x), verts[2].x), tileStartX) & int(0xFFFFFFFE);
+	int startX = std::max(std::min(std::min(verts[0].x, verts[1].x), verts[2].x), tileStartX);
 	int endX = std::min(std::max(std::max(verts[0].x, verts[1].x), verts[2].x) + 1, tileEndX);
 
-	int startY = std::max(std::min(std::min(verts[0].y, verts[1].y), verts[2].y), tileStartY) & int(0xFFFFFFFE);
+	int startY = std::max(std::min(std::min(verts[0].y, verts[1].y), verts[2].y), tileStartY);
 	int endY = std::min(std::max(std::max(verts[0].y, verts[1].y), verts[2].y) + 1, tileEndY);
-
 	if (endX == startX || endY == startY) {
 		// No pixels
 		return;
 	}
+	// TODO: Cull really small triangles here.
 
 	// Fab(x, y) =     Ax       +       By     +      C              = 0
 	// Fab(x, y) = (ya - yb)x   +   (xb - xa)y + (xa * yb - xb * ya) = 0
@@ -126,13 +243,6 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 		return;
 	}
 
-	float oneOverTriArea = (1.0f / float(triArea));
-
-	float zz[3];
-	for (int vv = 0; vv < 3; vv++) {
-		zz[vv] = (float)verts[vv].z * oneOverTriArea;
-	}
-
 	int rowIdx = (startY * stride + startX);
 	int col = startX;
 	int row = startY;
@@ -140,7 +250,15 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	// Calculate slopes at starting corner.
 	int alpha0 = (A0 * col) + (B0 * row) + C0;
 	int beta0 = (A1 * col) + (B1 * row) + C1;
-	int gama0 = (A2 * col) + (B2 * row) + C2;
+	int gamma0 = (A2 * col) + (B2 * row) + C2;
+
+	float oneOverTriArea = (1.0f / float(triArea));
+
+	// END triangle setup.
+	float zz[3];
+	for (int vv = 0; vv < 3; vv++) {
+		zz[vv] = (float)verts[vv].z * oneOverTriArea;
+	}
 
 	// Incrementally compute Fab(x, y) for all the pixels inside the bounding box formed by (startX, endX) and (startY, endY)
 	for (int r = startY; r < endY; r++,
@@ -148,27 +266,28 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 		rowIdx += stride,
 		alpha0 += B0,
 		beta0 += B1,
-		gama0 += B2)
+		gamma0 += B2)
 	{
-		// Compute barycentric coordinates 
 		int idx = rowIdx;
+
+		// Restore row steppers.
 		int alpha = alpha0;
 		int beta = beta0;
-		int gama = gama0;
+		int gamma = gamma0;
 
 		for (int c = startX; c < endX; c++,
 			idx++,
 			alpha += A0,
 			beta += A1,
-			gama += A2)
+			gamma += A2)
 		{
-			int mask = alpha >= 0 && beta >= 0 && gama >= 0;
+			int mask = alpha >= 0 && beta >= 0 && gamma >= 0;
 			// Early out if all of this quad's pixels are outside the triangle.
 			if (!mask) {
 				continue;
 			}
 			// Compute barycentric-interpolated depth
-			float depth = alpha * zz[0] + beta * zz[1] + gama * zz[2];
+			float depth = alpha * zz[0] + beta * zz[1] + gamma * zz[2];
 			float previousDepthValue = (float)depthBuf[idx];
 
 			int depthMask;
@@ -224,6 +343,8 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 	}
 
 	bool isThroughMode = (vertTypeID & GE_VTYPE_THROUGH_MASK) != 0;
+	bool cullEnabled = false;
+	bool cullCCW = false;
 
 	// Turn the input data into a raw float array that we can pass to an optimized triangle rasterizer.
 	float *verts = (float *)bufferData;
@@ -244,7 +365,7 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 				verts[i * 3 + j] = data[j] * factor;
 			}
 		}
-		break;
+		break; 
 	case GE_VTYPE_POS_16BIT:
 		if (!isThroughMode) {
 			factor = 1.0f / 32768.0f;
@@ -264,6 +385,8 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 
 	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
 	if (!(vertTypeID & GE_VTYPE_THROUGH_MASK)) {
+		cullEnabled = gstate.isCullEnabled();
+
 		// TODO: This is very suboptimal. This should be one matrix multiplication per vertex.
 
 		float viewportX = gstate.getViewportXCenter();
@@ -308,8 +431,8 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 			if (screen[2] >= 65535.0f) {
 				screen[2] = 65535.0f;
 			}
-			screenVerts[i].x = screen[0];
-			screenVerts[i].y = screen[1];
+			screenVerts[i].x = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
+			screenVerts[i].y = screen[1] * (1.0f / 16.0f);
 			screenVerts[i].z = screen[2];
 		}
 		if (allBehind) {
@@ -318,8 +441,8 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		}
 	} else {
 		for (int i = 0; i < count; i++) {
-			screenVerts[i].x = (int)verts[i * 3 + 0] << 4;
-			screenVerts[i].y = (int)verts[i * 3 + 1] << 4;
+			screenVerts[i].x = (int)verts[i * 3 + 0];
+			screenVerts[i].y = (int)verts[i * 3 + 1];
 			screenVerts[i].z = (u16)clamp_value(verts[i * 3 + 2], 0.0f, 65535.0f);
 		}
 	}
@@ -331,8 +454,9 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 	case GE_PRIM_RECTANGLES:
 		for (int i = 0; i < count / 2; i++) {
 			uint16_t z = screenVerts[i + 1].z;  // depth from second vertex
+			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
-			DepthRasterRect(depth, depthStride, screenVerts[i].x >> 4, screenVerts[i].y >> 4, screenVerts[i + 1].x >> 4, screenVerts[i + 1].y >> 4,
+			DepthRasterRect(depth, depthStride, screenVerts[i].x, screenVerts[i].y, screenVerts[i + 1].x, screenVerts[i + 1].y,
 				z, compareMode);
 		}
 		break;
