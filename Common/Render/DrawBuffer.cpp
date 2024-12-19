@@ -1,5 +1,6 @@
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #include <stddef.h>
 
 #include "Common/System/Display.h"
@@ -578,7 +579,7 @@ void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float
 	float totalWidth, totalHeight;
 	MeasureTextRect(font, toDraw, Bounds(x, y, w, h), &totalWidth, &totalHeight, align);
 
-	std::vector<std::string> lines;
+	std::vector<std::string_view> lines;
 	SplitString(toDraw, '\n', lines);
 
 	float baseY = y;
@@ -591,7 +592,7 @@ void DrawBuffer::DrawTextRect(FontID font, std::string_view text, float x, float
 	}
 
 	// This allows each line to be horizontally centered by itself.
-	for (const std::string &line : lines) {
+	for (std::string_view line : lines) {
 		DrawText(font, line, x, baseY, color, align);
 
 		float tw, th;

@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <memory.h>
 #include <set>
+#include <algorithm>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"

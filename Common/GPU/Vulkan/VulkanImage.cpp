@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanAlloc.h"

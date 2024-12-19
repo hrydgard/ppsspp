@@ -16,6 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
+#include <cctype>
+#include <cmath>
+#include <algorithm>
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -30,11 +34,6 @@
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-
-#ifndef _WIN32
-#include <ctype.h>
-#include <math.h>
-#endif
 
 // These are rough, it seems to take a long time to init, and probably depends on threads.
 // TODO: This takes like 700ms on a PSP but that's annoyingly long.

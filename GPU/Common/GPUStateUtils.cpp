@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
 #include <limits>
 
 #include "Core/ConfigValues.h"

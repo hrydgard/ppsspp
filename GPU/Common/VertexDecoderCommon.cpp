@@ -17,6 +17,10 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+#include <vector>
+#include <string>
+
 #include "Common/CommonTypes.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"

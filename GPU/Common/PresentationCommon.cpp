@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <cstdint>
-
 #include "Common/GPU/thin3d.h"
 
 #include "Common/System/Display.h"

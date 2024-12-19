@@ -17,6 +17,8 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+
 #include <png.h>
 #include "ext/jpge/jpge.h"
 

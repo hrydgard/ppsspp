@@ -21,6 +21,7 @@
 #include "Common/CommonWindows.h"
 #endif
 
+#include <algorithm>
 #include <mutex>
 
 #include "Common/CommonTypes.h"
