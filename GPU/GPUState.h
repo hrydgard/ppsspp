@@ -24,17 +24,7 @@
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/SIMDHeaders.h"
 
 class PointerWrap;
 

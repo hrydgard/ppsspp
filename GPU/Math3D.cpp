@@ -18,6 +18,11 @@
 #include "Common/Common.h"
 #include "GPU/Math3D.h"
 
+#if PPSSPP_ARCH(SSE2)
+// For the SSE4 stuff.
+#include <smmintrin.h>
+#endif
+
 namespace Math3D {
 
 template<>

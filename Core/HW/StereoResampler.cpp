@@ -40,23 +40,13 @@
 #include "Common/Common.h"
 #include "Common/System/System.h"
 #include "Common/Log.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/System.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
 
 StereoResampler::StereoResampler() noexcept
 		: m_maxBufsize(MAX_BUFSIZE_DEFAULT)

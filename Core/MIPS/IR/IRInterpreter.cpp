@@ -7,19 +7,7 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
-
+#include "Common/Math/SIMDHeaders.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"

@@ -26,6 +26,7 @@
 #include "Common/LogReporting.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/TimeUtil.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
@@ -45,18 +46,6 @@
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
-
-
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
 
 // Videos should be updated every few frames, so we forget quickly.
 #define VIDEO_DECIMATE_AGE 4

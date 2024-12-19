@@ -19,8 +19,8 @@
 // short instruction sequences. Surprisingly many are possible.
 
 #include "ppsspp_config.h"
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <cmath>
 #include <limits>
 #include <emmintrin.h>

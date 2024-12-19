@@ -19,8 +19,14 @@
 #include <cmath>
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Lighting.h"
+
+#if PPSSPP_ARCH(SSE2)
+// For the SSE4 stuff.
+#include <smmintrin.h>
+#endif
 
 namespace Lighting {
 
