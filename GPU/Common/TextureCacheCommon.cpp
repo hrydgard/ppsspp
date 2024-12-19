@@ -3096,7 +3096,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 
 	ImGui::SameLine();
 	ImGui::BeginChild("right", ImVec2(0.f, 0.0f));
-	if (ImGui::CollapsingHeader("Texture", ImGuiTreeNodeFlags_DefaultOpen)) {
+	if (ImGui::CollapsingHeader("Texture", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
 		if (selectedTextureId) {
 			auto iter = cache_.find(selectedTextureId);
 			if (iter != cache_.end()) {
@@ -3143,7 +3143,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Texture Cache State"), ImGuiTreeNodeFlags_DefaultOpen) {
+	if (ImGui::CollapsingHeader("Texture Cache State", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
 		ImGui::Text("Cache: %d textures, size est %d", (int)cache_.size(), cacheSizeEstimate_);
 		if (!secondCache_.empty()) {
 			ImGui::Text("Second: %d textures, size est %d", (int)secondCache_.size(), secondCacheSizeEstimate_);
@@ -3168,5 +3168,6 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 			}
 		}
 	}
+
 	ImGui::EndChild();
 }

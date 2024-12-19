@@ -1098,6 +1098,9 @@ bool TestBuffer() {
 	return true;
 }
 
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
 bool TestSIMD() {
 #if PPSSPP_ARCH(SSE2)
 	__m128i x = _mm_set_epi16(0, 0x4444, 0, 0x3333, 0, 0x2222, 0, 0x1111);
