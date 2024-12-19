@@ -6,7 +6,7 @@
 
 #include "Common/Common.h"
 #include "ppsspp_config.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 
 extern const float one_over_255_x4[4];

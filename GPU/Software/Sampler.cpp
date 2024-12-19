@@ -21,7 +21,7 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"

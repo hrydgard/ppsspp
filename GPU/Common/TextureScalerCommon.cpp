@@ -28,7 +28,7 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "ext/xbrz/xbrz.h"
 
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 
 // Report the time and throughput for each larger scaling operation in the log

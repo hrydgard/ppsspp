@@ -1,6 +1,6 @@
 #include "ppsspp_config.h"
 
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 #include "fast_matrix.h"
 

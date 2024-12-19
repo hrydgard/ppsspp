@@ -23,7 +23,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 // This must be aligned so that the matrices within are aligned.
 alignas(16) GPUgstate gstate;
