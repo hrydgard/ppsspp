@@ -292,23 +292,23 @@ namespace Libretro
 using namespace Libretro;
 
 void RetroLogCallback(const LogMessage &message, void *userdata) {
-   retro_log_printf_t *fn = (retro_log_printf_t *)userdata;
+   retro_log_printf_t fn = (retro_log_printf_t)userdata;
    switch (message.level) {
    case LogLevel::LVERBOSE:
    case LogLevel::LDEBUG:
-      (*fn)(RETRO_LOG_DEBUG, "[%s] %s", message.log, message.msg.c_str());
+      (fn)(RETRO_LOG_DEBUG, "[%s] %s", message.log, message.msg.c_str());
       break;
 
    case LogLevel::LERROR:
-      (*fn)(RETRO_LOG_ERROR, "[%s] %s", message.log, message.msg.c_str());
+      (fn)(RETRO_LOG_ERROR, "[%s] %s", message.log, message.msg.c_str());
       break;
    case LogLevel::LNOTICE:
    case LogLevel::LWARNING:
-      (*fn)(RETRO_LOG_WARN, "[%s] %s", message.log, message.msg.c_str());
+      (fn)(RETRO_LOG_WARN, "[%s] %s", message.log, message.msg.c_str());
       break;
    case LogLevel::LINFO:
    default:
-      (*fn)(RETRO_LOG_INFO, "[%s] %s", message.log, message.msg.c_str());
+      (fn)(RETRO_LOG_INFO, "[%s] %s", message.log, message.msg.c_str());
       break;
    }
 }
