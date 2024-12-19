@@ -18,18 +18,9 @@ struct Vec4S32 {
 	Vec4S32 operator -(Vec4S32 other) const {
 		return Vec4S32{ _mm_sub_epi32(v, other.v) };
 	}
-	// This is really bad if we restrict ourselves to SSE2 only.
-	// If we have SSE4, we can do _mm_mullo_epi32.
-	// Let's avoid using it as much as possible.
-	// https://stackoverflow.com/questions/17264399/fastest-way-to-multiply-two-vectors-of-32bit-integers-in-c-with-sse
+	// NOTE: This uses a CrossSIMD wrapper if we don't compile with SSE4 support, and is thus slow.
 	Vec4S32 operator *(Vec4S32 other) const {
-		__m128i a13 = _mm_shuffle_epi32(v, 0xF5);          // (-,a3,-,a1)
-		__m128i b13 = _mm_shuffle_epi32(other.v, 0xF5);          // (-,b3,-,b1)
-		__m128i prod02 = _mm_mul_epu32(v, other.v);                 // (-,a2*b2,-,a0*b0)
-		__m128i prod13 = _mm_mul_epu32(a13, b13);             // (-,a3*b3,-,a1*b1)
-		__m128i prod01 = _mm_unpacklo_epi32(prod02, prod13);   // (-,-,a1*b1,a0*b0) 
-		__m128i prod23 = _mm_unpackhi_epi32(prod02, prod13);   // (-,-,a3*b3,a2*b2) 
-		return Vec4S32{ _mm_unpacklo_epi64(prod01, prod23) };   // (ab3,ab2,ab1,ab0)
+		return Vec4S32{ _mm_mullo_epi32(v, other.v) };   // (ab3,ab2,ab1,ab0)
 	}
 };
 
@@ -283,7 +274,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			if (!mask) {
 				continue;
 			}
-			// Compute barycentric-interpolated depth
+			// Compute barycentric-interpolated depth. Could also compute it incrementally.
 			float depth = zz[0] + beta * zz[1] + gamma * zz[2];
 			float previousDepthValue = (float)depthBuf[idx];
 
