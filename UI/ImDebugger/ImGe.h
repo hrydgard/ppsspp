@@ -127,6 +127,7 @@ private:
 	void UpdateTexture(Draw::DrawContext *draw);
 
 	ImGePixelViewer viewer_;
+	bool realtime_ = false;
 };
 
 class ImGeDebuggerWindow {
