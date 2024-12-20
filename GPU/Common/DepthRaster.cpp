@@ -81,7 +81,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const DepthScreenVertex vertsSub[3], GEComparison compareMode) {
+void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, GEComparison compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -94,15 +94,15 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 
 	// Convert to whole pixels for now. Later subpixel precision.
 	DepthScreenVertex verts[3];
-	verts[0].x = vertsSub[0].x;
-	verts[0].y = vertsSub[0].y;
-	verts[0].z = vertsSub[0].z;
-	verts[1].x = vertsSub[2].x;
-	verts[1].y = vertsSub[2].y;
-	verts[1].z = vertsSub[2].z;
-	verts[2].x = vertsSub[1].x;
-	verts[2].y = vertsSub[1].y;
-	verts[2].z = vertsSub[1].z;
+	verts[0].x = tx[0];
+	verts[0].y = ty[0];
+	verts[0].z = tz[0];
+	verts[1].x = tx[2];
+	verts[1].y = ty[2];
+	verts[1].z = tz[2];
+	verts[2].x = tx[1];
+	verts[2].y = ty[1];
+	verts[2].z = tz[1];
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	int startX = std::max(std::min(std::min(verts[0].x, verts[1].x), verts[2].x), tileStartX);
@@ -242,7 +242,7 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 	}
 }
 
-int DepthRasterClipIndexedTriangles(DepthScreenVertex *screenVerts, const float *transformed, const uint16_t *indexBuffer, int count) {
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 
 	const float viewportX = gstate.getViewportXCenter();
@@ -289,28 +289,28 @@ int DepthRasterClipIndexedTriangles(DepthScreenVertex *screenVerts, const float 
 			if (screen[2] >= 65535.0f) {
 				screen[2] = 65535.0f;
 			}
-			screenVerts[outCount].x = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
-			screenVerts[outCount].y = screen[1] * (1.0f / 16.0f);
-			screenVerts[outCount].z = screen[2];
-
+			tx[outCount] = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
+			ty[outCount] = screen[1] * (1.0f / 16.0f);
+			tz[outCount] = screen[2];
 			outCount++;
 		}
 	}
 	return outCount;
 }
 
-void DepthRasterConvertTransformed(DepthScreenVertex *screenVerts, GEPrimitiveType prim, const TransformedVertex *transformed, int count) {
+void DepthRasterConvertTransformed(int *tx, int *ty, int *tz, GEPrimitiveType prim, const TransformedVertex *transformed, int count) {
 	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
 
+	// TODO: This is basically a transpose, or AoS->SoA conversion. There may be fast ways.
 	for (int i = 0; i < count; i++) {
-		screenVerts[i].x = (int)transformed[i].pos[0];
-		screenVerts[i].y = (int)transformed[i].pos[1];
-		screenVerts[i].z = (u16)transformed[i].pos[2];
+		tx[i] = (int)transformed[i].pos[0];
+		ty[i] = (int)transformed[i].pos[1];
+		tz[i] = (u16)transformed[i].pos[2];
 	}
 }
 
 // Rasterizes screen-space vertices.
-void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const DepthScreenVertex *screenVerts, int count) {
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, int count) {
 	// Prim should now be either TRIANGLES or RECTs.
 	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
 
@@ -327,17 +327,16 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 
 	switch (prim) {
 	case GE_PRIM_RECTANGLES:
-		for (int i = 0; i < count / 2; i++) {
-			uint16_t z = screenVerts[i + 1].z;  // depth from second vertex
+		for (int i = 0; i < count; i += 2) {
+			uint16_t z = tz[i + 1];  // depth from second vertex
 			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
-			DepthRasterRect(depth, depthStride, screenVerts[i].x, screenVerts[i].y, screenVerts[i + 1].x, screenVerts[i + 1].y,
-				z, compareMode);
+			DepthRasterRect(depth, depthStride, tx[i], ty[i], tx[i + 1], ty[i + 1], z, compareMode);
 		}
 		break;
 	case GE_PRIM_TRIANGLES:
-		for (int i = 0; i < count / 3; i++) {
-			DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, screenVerts + i * 3, compareMode);
+		for (int i = 0; i < count; i += 3) {
+			DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], compareMode);
 		}
 		break;
 	default:

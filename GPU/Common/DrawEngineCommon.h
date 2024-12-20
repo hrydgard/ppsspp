@@ -357,5 +357,5 @@ protected:
 	bool useDepthRaster_ = false;
 
 	float *depthTransformed_ = nullptr;
-	DepthScreenVertex *depthScreenVerts_ = nullptr;
+	int *depthScreenVerts_ = nullptr;
 };
