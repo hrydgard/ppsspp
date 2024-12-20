@@ -227,7 +227,7 @@ struct GPUgstate {
 
 	// Cull
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
-	int getCullMode()   const { return cullmode & 1; }
+	GECullMode getCullMode()   const { return (GECullMode)(cullmode & 1); }
 
 	// Color Mask
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }

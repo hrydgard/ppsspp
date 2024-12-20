@@ -97,12 +97,12 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	verts[0].x = tx[0];
 	verts[0].y = ty[0];
 	verts[0].z = tz[0];
-	verts[1].x = tx[2];
-	verts[1].y = ty[2];
-	verts[1].z = tz[2];
-	verts[2].x = tx[1];
-	verts[2].y = ty[1];
-	verts[2].z = tz[1];
+	verts[1].x = tx[1];
+	verts[1].y = ty[1];
+	verts[1].z = tz[1];
+	verts[2].x = tx[2];
+	verts[2].y = ty[2];
+	verts[2].z = tz[2];
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	int startX = std::max(std::min(std::min(verts[0].x, verts[1].x), verts[2].x), tileStartX);
@@ -249,6 +249,7 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 
 int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
+	GECullMode cullMode = gstate.getCullMode();
 
 	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
 	// However, hard to find a common abstraction.
@@ -265,11 +266,16 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 	bool cullCCW = false;
 
 	int outCount = 0;
+
+	int flipCull = 0;
+	if (cullEnabled && cullMode == GE_CULL_CW) {
+		flipCull = 3;
+	}
 	for (int i = 0; i < count; i += 3) {
 		const float *verts[3] = {
 			transformed + indexBuffer[i] * 4,
-			transformed + indexBuffer[i + 1] * 4,
-			transformed + indexBuffer[i + 2] * 4,
+			transformed + indexBuffer[i + (1 ^ flipCull)] * 4,
+			transformed + indexBuffer[i + (2 ^ flipCull)] * 4,
 		};
 
 		// Check if any vertex is behind the 0 plane.
@@ -292,15 +298,24 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 		y *= recipW;
 		z *= recipW;
 
-		Vec4F32 screen[3];
-		screen[0] = (x * viewportScaleX + viewportX) - offsetX;
-		screen[1] = (y * viewportScaleY + viewportY) - offsetY;
-		screen[2] = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
+		Vec4S32 screen[3];
+		screen[0] = VecS32FromF32((x * viewportScaleX + viewportX) - offsetX);
+		screen[1] = VecS32FromF32((y * viewportScaleY + viewportY) - offsetY);
+		screen[2] = VecS32FromF32((z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f));
 
-		VecS32FromF32(screen[0]).Store(tx + outCount);
-		VecS32FromF32(screen[1]).Store(ty + outCount);
-		VecS32FromF32(screen[2]).Store(tz + outCount);
+		screen[0].Store(tx + outCount);
+		screen[1].Store(ty + outCount);
+		screen[2].Store(tz + outCount);
 		outCount += 3;
+
+		if (!cullEnabled) {
+			// If culling is off, shuffle the three vectors to produce the opposite triangle, and store them after.
+			// Or on ARM we might be better off just storing individual elements...
+			screen[0].SwapLowerElements().Store(tx + outCount);
+			screen[1].SwapLowerElements().Store(ty + outCount);
+			screen[2].SwapLowerElements().Store(tz + outCount);
+			outCount += 3;
+		}
 	}
 	return outCount;
 }
