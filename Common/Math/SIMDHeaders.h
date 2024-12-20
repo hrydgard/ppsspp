@@ -128,4 +128,26 @@ inline __m128i _mm_packu2_epi32_SSE2(const __m128i v0, const __m128i v1) {
 	return _mm_castps_si128(_mm_shuffle_ps(packed0, packed1, _MM_SHUFFLE(2, 0, 2, 0)));
 }
 
+// The below are not real SSE instructions in any generation, but should exist.
+
+// Return 0xFFFF where x <= y, else 0x0000.
+inline __m128i _mm_cmple_epu16(__m128i x, __m128i y) {
+	return _mm_cmpeq_epi16(_mm_subs_epu16(x, y), _mm_setzero_si128());
+}
+
+// Return 0xFFFF where x >= y, else 0x0000.
+inline __m128i _mm_cmpge_epu16(__m128i x, __m128i y) {
+	return _mm_cmple_epu16(y, x);
+}
+
+// Return 0xFFFF where x > y, else 0x0000.
+inline __m128i _mm_cmpgt_epu16(__m128i x, __m128i y) {
+	return _mm_andnot_si128(_mm_cmpeq_epi16(x, y), _mm_cmple_epu16(y, x));
+}
+
+// Return 0xFFFF where x < y, else 0x0000.
+inline __m128i _mm_cmplt_epu16(__m128i x, __m128i y) {
+	return _mm_cmpgt_epu16(y, x);
+}
+
 #endif
