@@ -19,8 +19,7 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/Common.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "GPU/Common/IndexGenerator.h"
 
 // Points don't need indexing...

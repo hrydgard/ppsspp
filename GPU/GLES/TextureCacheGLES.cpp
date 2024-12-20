@@ -33,10 +33,6 @@
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

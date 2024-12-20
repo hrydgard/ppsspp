@@ -17,7 +17,7 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 extern DSStretch g_DarkStalkerStretch;
 // For Darkstalkers hack. Ugh.

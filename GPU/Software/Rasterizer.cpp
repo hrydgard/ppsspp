@@ -36,7 +36,12 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
+
+// For the SSE4 stuff
+#if PPSSPP_ARCH(SSE2)
+#include <smmintrin.h>
+#endif
 
 namespace Rasterizer {
 

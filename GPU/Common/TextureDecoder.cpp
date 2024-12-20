@@ -21,12 +21,12 @@
 
 #include "Common/Common.h"
 #include "Common/Log.h"
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoder.h"
 
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,

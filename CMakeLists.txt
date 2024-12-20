@@ -781,7 +781,8 @@ add_library(Common STATIC
 	Common/Input/InputState.cpp
 	Common/Input/InputState.h
 	Common/Math/fast/fast_matrix.c
-	Common/Math/CrossSIMD.h
+	Common/Math/SIMDHeaders.h
+	Common/Math/SIMDHeaders.h
 	Common/Math/curves.cpp
 	Common/Math/curves.h
 	Common/Math/expression_parser.cpp

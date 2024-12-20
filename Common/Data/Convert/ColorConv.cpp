@@ -20,22 +20,10 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#include <smmintrin.h>
-#endif
-
-#if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
-#include <arm64_neon.h>
-#else
-#include <arm_neon.h>
-#endif
-#endif
+#include "Common/Math/SIMDHeaders.h"
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels) {
-#ifdef _M_SSE
+#if PPSSPP_ARCH(SSE2)
 	const __m128i maskGA = _mm_set1_epi32(0xFF00FF00);
 
 	const __m128i *srcp = (const __m128i *)src;
@@ -76,11 +64,13 @@ void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
+/*
 #if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
 [[gnu::target("sse4.1")]]
 #endif
-static inline void ConvertRGBA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
+*/
+static inline void ConvertRGBA8888ToRGBA5551(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
@@ -102,21 +92,25 @@ static inline void ConvertRGBA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *
 		rb = _mm_or_si128(_mm_srli_epi32(rb, 3), _mm_srli_epi32(rb, 9));
 		c2 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
 
+#if 0
 		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
+#else
+		_mm_store_si128(&dstp[i / 2], _mm_packu2_epi32_SSE2(c1, c2));
+#endif
 	}
 }
 #endif
 
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 	const __m128i *srcp = (const __m128i *)src;
 	__m128i *dstp = (__m128i *)dst;
 	u32 sseChunks = (numPixels / 4) & ~1;
 	// SSE 4.1 required for _mm_packus_epi32.
-	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
 		sseChunks = 0;
 	} else {
-		ConvertRGBA8888ToRGBA5551_SSE4(dstp, srcp, sseChunks);
+		ConvertRGBA8888ToRGBA5551(dstp, srcp, sseChunks);
 	}
 
 	// The remainder starts right after those done via SSE.
@@ -129,11 +123,13 @@ void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
+/*
 #if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
 [[gnu::target("sse4.1")]]
 #endif
-static inline void ConvertBGRA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
+*/
+static inline void ConvertBGRA8888ToRGBA5551(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
 	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
@@ -155,7 +151,14 @@ static inline void ConvertBGRA8888ToRGBA5551_SSE4(__m128i *dstp, const __m128i *
 		rb = _mm_or_si128(_mm_srli_epi32(rb, 19), _mm_slli_epi32(rb, 7));
 		c2 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
 
+		// Unfortunately no good SSE2 way to do _mm_packus_epi32.
+		// We can approximate it with a few shuffles.
+#if 0
 		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
+#else
+		// SSE2 path.
+		_mm_store_si128(&dstp[i / 2], _mm_packu2_epi32_SSE2(c1, c2));
+#endif
 	}
 }
 #endif
@@ -165,13 +168,11 @@ void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels) {
 	const __m128i *srcp = (const __m128i *)src;
 	__m128i *dstp = (__m128i *)dst;
 	u32 sseChunks = (numPixels / 4) & ~1;
-	// SSE 4.1 required for _mm_packus_epi32.
-	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
 		sseChunks = 0;
 	} else {
-		ConvertBGRA8888ToRGBA5551_SSE4(dstp, srcp, sseChunks);
+		ConvertBGRA8888ToRGBA5551(dstp, srcp, sseChunks);
 	}
-
 	// The remainder starts right after those done via SSE.
 	u32 i = sseChunks * 4;
 #else
@@ -439,7 +440,7 @@ void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 }
 
 void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, u32 numPixels) {
-#ifdef _M_SSE
+#if PPSSPP_ARCH(SSE2)
 	const __m128i mask0040 = _mm_set1_epi16(0x00F0);
 
 	const __m128i *srcp = (const __m128i *)src;
@@ -505,7 +506,7 @@ void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, u32 numPixels) {
 }
 
 void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
-#ifdef _M_SSE
+#if PPSSPP_ARCH(SSE2)
 	const __m128i maskB = _mm_set1_epi16(0x003E);
 	const __m128i maskG = _mm_set1_epi16(0x07C0);
 
@@ -573,7 +574,7 @@ void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, u32 numPixels) {
 }
 
 void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, u32 numPixels) {
-#ifdef _M_SSE
+#if PPSSPP_ARCH(SSE2)
 	const __m128i maskG = _mm_set1_epi16(0x07E0);
 
 	const __m128i *srcp = (const __m128i *)src;

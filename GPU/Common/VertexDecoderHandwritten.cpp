@@ -3,7 +3,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
-#include "Common/Math/CrossSIMD.h"
+#include "Common/Math/SIMDHeaders.h"
 
 // Candidates for hand-writing
 // (found using our custom Very Sleepy).
