@@ -245,19 +245,21 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 
-	const float viewportX = gstate.getViewportXCenter();
-	const float viewportY = gstate.getViewportYCenter();
-	const float viewportZ = gstate.getViewportZCenter();
-	const float viewportScaleX = gstate.getViewportXScale();
-	const float viewportScaleY = gstate.getViewportYScale();
-	const float viewportScaleZ = gstate.getViewportZScale();
+	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
+	// However, hard to find a common abstraction.
+	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter());
+	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter());
+	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
+	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
+	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
+	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
+
+	const Vec4F32 offsetX = Vec4F32::Splat(gstate.getOffsetX());  // We remove the 16 scale here
+	const Vec4F32 offsetY = Vec4F32::Splat(gstate.getOffsetY());
 
 	bool cullCCW = false;
 
-	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
-
 	int outCount = 0;
-
 	for (int i = 0; i < count; i += 3) {
 		const float *verts[3] = {
 			transformed + indexBuffer[i] * 4,
@@ -271,29 +273,29 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 			continue;
 		}
 
-		for (int c = 0; c < 3; c++) {
-			const float *src = verts[c];
-			float invW = 1.0f / src[3];
+		// These names are wrong .. until we transpose.
+		Vec4F32 x = Vec4F32::Load(verts[0]);
+		Vec4F32 y = Vec4F32::Load(verts[1]);
+		Vec4F32 z = Vec4F32::Load(verts[2]);
+		Vec4F32 w = Vec4F32::Zero();
+		Vec4F32::Transpose(x, y, z, w);
+		// Now the names are accurate! Since we only have three vertices, the fourth member of each vector is zero
+		// and will not be stored (well it will be stored, but it'll be overwritten by the next vertex).
+		Vec4F32 recipW = w.Recip();
 
-			float x = src[0] * invW;
-			float y = src[1] * invW;
-			float z = src[2] * invW;
+		x *= recipW;
+		y *= recipW;
+		z *= recipW;
 
-			float screen[3];
-			screen[0] = (x * viewportScaleX + viewportX) * 16.0f - gstate.getOffsetX16();
-			screen[1] = (y * viewportScaleY + viewportY) * 16.0f - gstate.getOffsetY16();
-			screen[2] = (z * viewportScaleZ + viewportZ);
-			if (screen[2] < 0.0f) {
-				screen[2] = 0.0f;
-			}
-			if (screen[2] >= 65535.0f) {
-				screen[2] = 65535.0f;
-			}
-			tx[outCount] = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
-			ty[outCount] = screen[1] * (1.0f / 16.0f);
-			tz[outCount] = screen[2];
-			outCount++;
-		}
+		Vec4F32 screen[3];
+		screen[0] = (x * viewportScaleX + viewportX) - offsetX;
+		screen[1] = (y * viewportScaleY + viewportY) - offsetY;
+		screen[2] = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
+
+		VecS32FromF32(screen[0]).Store(tx + outCount);
+		VecS32FromF32(screen[1]).Store(ty + outCount);
+		VecS32FromF32(screen[2]).Store(tz + outCount);
+		outCount += 3;
 	}
 	return outCount;
 }
