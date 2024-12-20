@@ -218,30 +218,25 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 	int vertexStride = dec->VertexSize();
 	int offset = dec->posoff;
 
-	float temp[3];
+	Mat4F32 mat(worldviewproj);
+
 	switch (vertTypeID & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
+	case GE_VTYPE_POS_FLOAT:
 		for (int i = 0; i < count; i++) {
-			const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
-			for (int j = 0; j < 3; j++) {
-				temp[j] = data[j] * (1.0f / 128.0f);  // TODO: Can we bake this factor in somewhere?
-			}
-			Vec3ByMatrix44(dest + i * 4, temp, worldviewproj);
+			const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
+			Vec4F32::Load(data).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
 	case GE_VTYPE_POS_16BIT:
 		for (int i = 0; i < count; i++) {
 			const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
-			for (int j = 0; j < 3; j++) {
-				temp[j] = data[j] * (1.0f / 32768.0f); // TODO: Can we bake this factor in somewhere?
-			}
-			Vec3ByMatrix44(dest + i * 4, temp, worldviewproj);
+			Vec4F32::LoadConvertS16(data).Mul(1.0f / 32768.f).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
-	case GE_VTYPE_POS_FLOAT:
+	case GE_VTYPE_POS_8BIT:
 		for (int i = 0; i < count; i++) {
-			const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
-			Vec3ByMatrix44(dest + i * 4, data, worldviewproj);
+			const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
+			Vec4F32::LoadConvertS8(data).Mul(1.0f / 128.0f).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
 	}
