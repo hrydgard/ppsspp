@@ -255,56 +255,26 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 	bool cullCCW = false;
 
 	// Turn the input data into a raw float array that we can pass to an optimized triangle rasterizer.
-	float *verts = (float *)bufferData;
+	float *transformed = (float *)bufferData;
+
 	ScreenVert *screenVerts = (ScreenVert *)((uint8_t *)bufferData + 65536 * 8);
 
 	// Simple, most common case.
 	int vertexStride = dec->VertexSize();
 	int offset = dec->posoff;
-	float factor = 1.0f;
-	switch (vertTypeID & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
-		if (!isThroughMode) {
-			factor = 1.0f / 128.0f;
-		}
-		for (int i = 0; i < count; i++) {
-			const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * factor;
-			}
-		}
-		break; 
-	case GE_VTYPE_POS_16BIT:
-		if (!isThroughMode) {
-			factor = 1.0f / 32768.0f;
-		}
-		for (int i = 0; i < count; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * factor;
-			}
-		}
-		break;
-	case GE_VTYPE_POS_FLOAT:
-		for (int i = 0; i < count; i++)
-			memcpy(&verts[i * 3], (const u8 *)vertexData + vertexStride * i + offset, sizeof(float) * 3);
-		break;
-	}
-
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
 	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
 	if (!(vertTypeID & GE_VTYPE_THROUGH_MASK)) {
-		cullEnabled = gstate.isCullEnabled();
+		float world[16];
+		float view[16];
+		float worldview[16];
+		float worldviewproj[16];
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		Matrix4ByMatrix4(worldview, world, view);
+		Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);   // TODO: Include adjustments to the proj matrix?
 
-		// TODO: This is very suboptimal. This should be one matrix multiplication per vertex.
+		cullEnabled = gstate.isCullEnabled();
 
 		float viewportX = gstate.getViewportXCenter();
 		float viewportY = gstate.getViewportYCenter();
@@ -315,9 +285,39 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		
 		bool allBehind = true;
 
+		float temp[3];
+		for (int i = 0; i < count; i++) {
+			switch (vertTypeID & GE_VTYPE_POS_MASK) {
+			case GE_VTYPE_POS_8BIT:
+				for (int i = 0; i < count; i++) {
+					const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
+					for (int j = 0; j < 3; j++) {
+						temp[j] = data[j] * (1.0f / 128.0f);  // TODO: Can we bake this factor in somewhere?
+					}
+					Vec3ByMatrix44(transformed + i * 4, temp, worldviewproj);
+				}
+				break;
+			case GE_VTYPE_POS_16BIT:
+				for (int i = 0; i < count; i++) {
+					const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
+					for (int j = 0; j < 3; j++) {
+						temp[j] = data[j] * (1.0f / 32768.0f); // TODO: Can we bake this factor in somewhere?
+					}
+					Vec3ByMatrix44(transformed + i * 4, temp, worldviewproj);
+				}
+				break;
+			case GE_VTYPE_POS_FLOAT:
+				for (int i = 0; i < count; i++) {
+					const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
+					Vec3ByMatrix44(transformed + i * 4, data, worldviewproj);
+				}
+				break;
+			}
+		}
+
 		for (int i = 0; i < count; i++) {
 			float proj[4];
-			Vec3ByMatrix44(proj, verts + i * 3, worldviewproj);  // TODO: Include adjustments to the proj matrix?
+			memcpy(proj, transformed + i * 4, 4 * sizeof(float));
 
 			float w = proj[3];
 
@@ -353,10 +353,38 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 			return;
 		}
 	} else {
+		float factor = 1.0f;
+		switch (vertTypeID & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT:
+			for (int i = 0; i < count; i++) {
+				const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
+				for (int j = 0; j < 3; j++) {
+					transformed[i * 4 + j] = data[j] * factor;
+				}
+				transformed[i * 4 + 3] = 1.0f;
+			}
+			break;
+		case GE_VTYPE_POS_16BIT:
+			for (int i = 0; i < count; i++) {
+				const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
+				for (int j = 0; j < 3; j++) {
+					transformed[i * 4 + j] = data[j] * factor;
+				}
+				transformed[i * 4 + 3] = 1.0f;
+			}
+			break;
+		case GE_VTYPE_POS_FLOAT:
+			for (int i = 0; i < count; i++) {
+				memcpy(&transformed[i * 4], (const u8 *)vertexData + vertexStride * i + offset, sizeof(float) * 3);
+				transformed[i * 4 + 3] = 1.0f;
+			}
+			break;
+		}
+
 		for (int i = 0; i < count; i++) {
-			screenVerts[i].x = (int)verts[i * 3 + 0];
-			screenVerts[i].y = (int)verts[i * 3 + 1];
-			screenVerts[i].z = (u16)clamp_value(verts[i * 3 + 2], 0.0f, 65535.0f);
+			screenVerts[i].x = (int)transformed[i * 4 + 0];
+			screenVerts[i].y = (int)transformed[i * 4 + 1];
+			screenVerts[i].z = (u16)clamp_value(transformed[i * 4 + 2], 0.0f, 65535.0f);
 		}
 	}
 
