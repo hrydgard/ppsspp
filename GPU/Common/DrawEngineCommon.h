@@ -175,7 +175,7 @@ protected:
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
-	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID);
+	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPretransformed(GEPrimitiveType prim, const TransformedVertex *inVerts, int count);
 
 	static inline int IndexSize(u32 vtype) {

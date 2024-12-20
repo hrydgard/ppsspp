@@ -903,7 +903,7 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	}
 }
 
-void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID) {
+void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -931,8 +931,20 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	// Decode.
 	int numDec = 0;
 	for (int i = 0; i < numDrawVerts_; i++) {
-		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, prim, worldviewproj, drawVerts_[i].verts, drawVerts_[i].vertexCount, dec, vertTypeID);
-		numDec += drawVerts_[i].vertexCount;
+		DeferredVerts &dv = drawVerts_[i];
+
+		int indexLowerBound = dv.indexLowerBound;
+		drawVertexOffsets_[i] = numDec - indexLowerBound;
+
+		int indexUpperBound = dv.indexUpperBound;
+		if (indexUpperBound + 1 - indexLowerBound + numDec >= VERTEX_BUFFER_MAX) {
+			// Hit our limit! Stop decoding in this draw.
+			break;
+		}
+
+		// Decode the verts (and at the same time apply morphing/skinning). Simple.
+		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, prim, worldviewproj, dv.verts, indexLowerBound, indexUpperBound, dec, vertTypeID);
+		numDec += indexUpperBound - indexLowerBound + 1;
 	}
 
 	int *tx = depthScreenVerts_;
@@ -940,7 +952,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	int *tz = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2;
 
 	// Clip and triangulate using the index buffer.
-	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, numDec);
+	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
 	if (outVertCount & 15) {
 		// Zero padding
 		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {

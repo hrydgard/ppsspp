@@ -161,6 +161,8 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 
 	// END triangle setup.
 
+	// Here we should draw four triangles in a sequence.
+
 	// Incrementally compute Fab(x, y) for all the pixels inside the bounding box formed by (startX, endX) and (startY, endY)
 	for (int r = startY; r < endY; r++,
 		row++,
@@ -211,7 +213,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	} // for each row
 }
 
-void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const float *worldviewproj, const void *vertexData, int count, VertexDecoder *dec, u32 vertTypeID) {
+void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
 
@@ -220,22 +222,25 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 
 	Mat4F32 mat(worldviewproj);
 
+	const u8 *startPtr = (const u8 *)vertexData + indexLowerBound * vertexStride;
+	int count = indexUpperBound - indexLowerBound + 1;
+
 	switch (vertTypeID & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_FLOAT:
 		for (int i = 0; i < count; i++) {
-			const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
+			const float *data = (const float *)(startPtr + i * vertexStride + offset);
 			Vec4F32::Load(data).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
 	case GE_VTYPE_POS_16BIT:
 		for (int i = 0; i < count; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
+			const s16 *data = ((const s16 *)((const s8 *)startPtr + i * vertexStride + offset));
 			Vec4F32::LoadConvertS16(data).Mul(1.0f / 32768.f).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
 	case GE_VTYPE_POS_8BIT:
 		for (int i = 0; i < count; i++) {
-			const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
+			const s8 *data = (const s8 *)startPtr + i * vertexStride + offset;
 			Vec4F32::LoadConvertS8(data).Mul(1.0f / 128.0f).AsVec3ByMatrix44(mat).Store(dest + i * 4);
 		}
 		break;
