@@ -65,38 +65,29 @@ void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
 }
 
 #if PPSSPP_ARCH(SSE2)
-/*
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-*/
+// fp64's improved version, see #19751
 static inline void ConvertRGBA8888ToRGBA5551(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
-	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
-	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
+	const __m128i maskGA = _mm_set1_epi32(0x8000F800);
+	const __m128i mulRB = _mm_set1_epi32(0x04000001);
+	const __m128i mulGA = _mm_set1_epi32(0x00400001);
 
 	for (u32 i = 0; i < sseChunks; i += 2) {
-		__m128i c1 = _mm_load_si128(&srcp[i + 0]);
-		__m128i c2 = _mm_load_si128(&srcp[i + 1]);
-		__m128i ag, rb;
+		__m128i c0 = _mm_load_si128(&srcp[i + 0]);
+		__m128i c1 = _mm_load_si128(&srcp[i + 1]);
 
-		ag = _mm_and_si128(c1, maskAG);
-		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
-		rb = _mm_and_si128(c1, maskRB);
-		rb = _mm_or_si128(_mm_srli_epi32(rb, 3), _mm_srli_epi32(rb, 9));
-		c1 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
+		__m128i rb0 = _mm_and_si128(c0, maskRB);              // 00000000bbbbb00000000000rrrrr000
+		__m128i rb1 = _mm_and_si128(c1, maskRB);              // 00000000bbbbb00000000000rrrrr000
+		__m128i ga0 = _mm_and_si128(c0, maskGA);              // a000000000000000ggggg00000000000
+		__m128i ga1 = _mm_and_si128(c1, maskGA);              // a000000000000000ggggg00000000000
+		rb0 = _mm_madd_epi16(_mm_srli_epi32(rb0,  3), mulRB); // 00000000000000000bbbbb00000rrrrr
+		rb1 = _mm_madd_epi16(_mm_srli_epi32(rb1,  3), mulRB); // 00000000000000000bbbbb00000rrrrr
+		ga0 = _mm_madd_epi16(_mm_srli_epi32(ga0, 11), mulGA); // 000000000000000000000a00000ggggg
+		ga1 = _mm_madd_epi16(_mm_srli_epi32(ga1, 11), mulGA); // 000000000000000000000a00000ggggg
+		__m128i rb = _mm_packs_epi32(rb0, rb1);
+		__m128i ga = _mm_slli_epi32(_mm_packs_epi32(ga0, ga1), 5);
 
-		ag = _mm_and_si128(c2, maskAG);
-		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
-		rb = _mm_and_si128(c2, maskRB);
-		rb = _mm_or_si128(_mm_srli_epi32(rb, 3), _mm_srli_epi32(rb, 9));
-		c2 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
-
-#if 0
-		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
-#else
-		_mm_store_si128(&dstp[i / 2], _mm_packu2_epi32_SSE2(c1, c2));
-#endif
+		_mm_store_si128(&dstp[i / 2], _mm_or_si128(ga, rb));
 	}
 }
 #endif
