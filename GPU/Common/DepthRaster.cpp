@@ -184,10 +184,12 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			beta += A1,
 			gamma += A2)
 		{
-			int mask = alpha >= 0 && beta >= 0 && gamma >= 0;
+			int mask = alpha | beta | gamma;
 			// Early out if all of this quad's pixels are outside the triangle.
-			if (!mask) {
+			if (mask < 0) {
 				continue;
+			} else {
+				mask = 1;
 			}
 			// Compute barycentric-interpolated depth. Could also compute it incrementally.
 			float depth = zz[0] + beta * zz[1] + gamma * zz[2];
