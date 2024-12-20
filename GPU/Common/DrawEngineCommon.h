@@ -27,6 +27,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DepthRaster.h"
 
 class VertexDecoder;
 
@@ -174,6 +175,9 @@ protected:
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
+	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID);
+	void DepthRasterPretransformed(GEPrimitiveType prim, const TransformedVertex *inVerts, int count);
+
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
 		if (indexType == GE_VTYPE_IDX_16BIT) {
@@ -228,6 +232,11 @@ protected:
 	}
 
 	inline bool CollectedPureDraw() const {
+		// TODO: Do something faster.
+		if (useDepthRaster_) {
+			return false;
+		}
+
 		switch (seenPrims_) {
 		case 1 << GE_PRIM_TRIANGLE_STRIP:
 			return !anyCCWOrIndexed_ && numDrawInds_ == 1;
@@ -343,4 +352,10 @@ protected:
 	bool offsetOutsideEdge_;
 
 	GPUCommon *gpuCommon_;
+
+	// Software depth raster
+	bool useDepthRaster_ = false;
+
+	float *depthTransformed_ = nullptr;
+	DepthScreenVertex *depthScreenVerts_ = nullptr;
 };

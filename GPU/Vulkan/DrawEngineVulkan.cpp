@@ -370,6 +370,9 @@ void DrawEngineVulkan::Flush() {
 		} else {
 			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
+		if (useDepthRaster_) {
+			DepthRasterTransform(prim, dec_, dec_->VertexType());
+		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		VertexDecoder *swDec = dec_;
@@ -438,6 +441,12 @@ void DrawEngineVulkan::Flush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
+
+		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
+		if (useDepthRaster_) {
+			DepthRasterPretransformed(prim, transformed_, numDecodedVerts_);
+		}
+
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)

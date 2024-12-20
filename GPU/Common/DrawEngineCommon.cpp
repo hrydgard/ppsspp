@@ -23,9 +23,11 @@
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/DepthRaster.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
@@ -34,7 +36,9 @@
 #define QUAD_INDICES_MAX 65536
 
 enum {
-	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
+	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex),
+	DEPTH_TRANSFORMED_SIZE = VERTEX_BUFFER_MAX * 4,
+	DEPTH_SCREENVERTS_SIZE = VERTEX_BUFFER_MAX * sizeof(DepthScreenVertex),
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
@@ -46,6 +50,12 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	decoded_ = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	indexGen.Setup(decIndex_);
+
+	useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
+	if (useDepthRaster_) {
+		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthScreenVerts_ = (DepthScreenVertex *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -53,6 +63,10 @@ DrawEngineCommon::~DrawEngineCommon() {
 	FreeMemoryPages(decIndex_, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed_, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded_, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	if (depthTransformed_) {
+		FreeMemoryPages(depthTransformed_, DEPTH_TRANSFORMED_SIZE);
+		FreeMemoryPages(depthScreenVerts_, DEPTH_SCREENVERTS_SIZE);
+	}
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
@@ -885,4 +899,62 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	} else {
 		return false;
 	}
+}
+
+void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID) {
+	switch (prim) {
+	case GE_PRIM_INVALID:
+	case GE_PRIM_KEEP_PREVIOUS:
+	case GE_PRIM_LINES:
+	case GE_PRIM_LINE_STRIP:
+	case GE_PRIM_POINTS:
+		return;
+	default:
+		break;
+	}
+
+	if (vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
+		return;
+	}
+
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);   // TODO: Include adjustments to the proj matrix?
+
+	// Decode.
+	int numDec = 0;
+	for (int i = 0; i < numDrawVerts_; i++) {
+		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, prim, worldviewproj, drawVerts_[i].verts, drawVerts_[i].vertexCount, dec, vertTypeID);
+		numDec += drawVerts_[i].vertexCount;
+	}
+
+	// Clip and triangulate using the index buffer.
+	int outVertCount = DepthRasterClipIndexedTriangles(depthScreenVerts_, depthTransformed_, decIndex_, numDec);
+
+	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
+		GE_PRIM_TRIANGLES, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
+		depthScreenVerts_, outVertCount);
+}
+
+void DrawEngineCommon::DepthRasterPretransformed(GEPrimitiveType prim, const TransformedVertex *inVerts, int count) {
+	switch (prim) {
+	case GE_PRIM_INVALID:
+	case GE_PRIM_KEEP_PREVIOUS:
+	case GE_PRIM_LINES:
+	case GE_PRIM_LINE_STRIP:
+	case GE_PRIM_POINTS:
+		return;
+	default:
+		break;
+	}
+
+	DepthRasterConvertTransformed(depthScreenVerts_, inVerts, count);
+	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
+		prim, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
+		depthScreenVerts_, count);
 }

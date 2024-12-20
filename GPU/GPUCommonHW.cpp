@@ -13,7 +13,6 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/DepthRaster.h"
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -1040,10 +1039,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if (passCulling) {
 		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead)) {
 			canExtend = false;
-		} else if (PSP_CoreParameter().compat.flags().SoftwareRasterDepth) {
-			DepthRasterPrim((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-				gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(), drawEngineCommon_->GetTempSpace(),
-				verts, inds, prim, count, decoder, vertTypeID, false);
 		}
 		onePassed = true;
 	} else {
@@ -1122,10 +1117,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			if (passCulling) {
 				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead)) {
 					canExtend = false;
-				} else if (PSP_CoreParameter().compat.flags().SoftwareRasterDepth) {
-					DepthRasterPrim((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-						gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(), drawEngineCommon_->GetTempSpace(),
-						verts, inds, newPrim, count, decoder, vertTypeID, clockwise);
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.
 				onePassed = true;

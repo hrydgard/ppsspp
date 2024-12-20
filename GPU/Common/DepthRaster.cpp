@@ -8,13 +8,6 @@
 #include "Common/Math/math_util.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-struct ScreenVert {
-	int x;
-	int y;
-	uint16_t z;
-	uint16_t behind;
-};
-
 void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2, short depthValue, GEComparison depthCompare) {
 	// Swap coordinates if needed, we don't back-face-cull rects.
 	// We also ignore the UV rotation here.
@@ -88,7 +81,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const ScreenVert vertsSub[3], GEComparison compareMode) {
+void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const DepthScreenVertex vertsSub[3], GEComparison compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -100,7 +93,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	// are slow on SSE2.
 
 	// Convert to whole pixels for now. Later subpixel precision.
-	ScreenVert verts[3];
+	DepthScreenVertex verts[3];
 	verts[0].x = vertsSub[0].x;
 	verts[0].y = vertsSub[0].y;
 	verts[0].z = vertsSub[0].z;
@@ -218,9 +211,111 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	} // for each row
 }
 
-// We ignore lots of primitive types for now.
-void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, int y2, void *bufferData,
-	const void *vertexData, const void *indexData, GEPrimitiveType prim, int count, VertexDecoder *dec, u32 vertTypeID, bool clockwise) {
+void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const float *worldviewproj, const void *vertexData, int count, VertexDecoder *dec, u32 vertTypeID) {
+	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
+	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
+
+	int vertexStride = dec->VertexSize();
+	int offset = dec->posoff;
+
+	float temp[3];
+	switch (vertTypeID & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_8BIT:
+		for (int i = 0; i < count; i++) {
+			const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
+			for (int j = 0; j < 3; j++) {
+				temp[j] = data[j] * (1.0f / 128.0f);  // TODO: Can we bake this factor in somewhere?
+			}
+			Vec3ByMatrix44(dest + i * 4, temp, worldviewproj);
+		}
+		break;
+	case GE_VTYPE_POS_16BIT:
+		for (int i = 0; i < count; i++) {
+			const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
+			for (int j = 0; j < 3; j++) {
+				temp[j] = data[j] * (1.0f / 32768.0f); // TODO: Can we bake this factor in somewhere?
+			}
+			Vec3ByMatrix44(dest + i * 4, temp, worldviewproj);
+		}
+		break;
+	case GE_VTYPE_POS_FLOAT:
+		for (int i = 0; i < count; i++) {
+			const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
+			Vec3ByMatrix44(dest + i * 4, data, worldviewproj);
+		}
+		break;
+	}
+}
+
+void DepthRasterConvertTransformed(DepthScreenVertex *screenVerts, const TransformedVertex *transformed, int count) {
+	for (int i = 0; i < count; i++) {
+		screenVerts[i].x = (int)transformed[i].pos[0];
+		screenVerts[i].y = (int)transformed[i].pos[1];
+		screenVerts[i].z = (u16)transformed[i].pos[2];
+	}
+}
+
+int DepthRasterClipIndexedTriangles(DepthScreenVertex *screenVerts, const float *transformed, const uint16_t *indexBuffer, int count) {
+	bool cullEnabled = gstate.isCullEnabled();
+
+	const float viewportX = gstate.getViewportXCenter();
+	const float viewportY = gstate.getViewportYCenter();
+	const float viewportZ = gstate.getViewportZCenter();
+	const float viewportScaleX = gstate.getViewportXScale();
+	const float viewportScaleY = gstate.getViewportYScale();
+	const float viewportScaleZ = gstate.getViewportZScale();
+
+	bool cullCCW = false;
+
+	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
+
+	int outCount = 0;
+
+	for (int i = 0; i < count; i += 3) {
+		const float *verts[3] = {
+			transformed + indexBuffer[i] * 4,
+			transformed + indexBuffer[i + 1] * 4,
+			transformed + indexBuffer[i + 2] * 4,
+		};
+
+		// Check if any vertex is behind the 0 plane.
+		if (verts[0][3] < 0.0f || verts[1][3] < 0.0f || verts[2][3] < 0.0f) {
+			// Ditch this triangle. Later we should clip here.
+			continue;
+		}
+
+		for (int c = 0; c < 3; c++) {
+			const float *src = verts[c];
+			float invW = 1.0f / src[3];
+
+			float x = src[0] * invW;
+			float y = src[1] * invW;
+			float z = src[2] * invW;
+
+			float screen[3];
+			screen[0] = (x * viewportScaleX + viewportX) * 16.0f - gstate.getOffsetX16();
+			screen[1] = (y * viewportScaleY + viewportY) * 16.0f - gstate.getOffsetY16();
+			screen[2] = (z * viewportScaleZ + viewportZ);
+			if (screen[2] < 0.0f) {
+				screen[2] = 0.0f;
+			}
+			if (screen[2] >= 65535.0f) {
+				screen[2] = 65535.0f;
+			}
+			screenVerts[outCount].x = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
+			screenVerts[outCount].y = screen[1] * (1.0f / 16.0f);
+			screenVerts[outCount].z = screen[2];
+
+			outCount++;
+		}
+	}
+	return outCount;
+}
+
+// Rasterizes screen-space vertices.
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const DepthScreenVertex *screenVerts, int count) {
+	// Prim should now be either TRIANGLES or RECTs.
+	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
 
 	GEComparison compareMode = gstate.getDepthTestFunction();
 	if (gstate.isModeClear()) {
@@ -234,164 +329,6 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 	}
 
 	switch (prim) {
-	case GE_PRIM_INVALID:
-	case GE_PRIM_KEEP_PREVIOUS:
-	case GE_PRIM_LINES:
-	case GE_PRIM_LINE_STRIP:
-	case GE_PRIM_POINTS:
-		return;
-	default:
-		break;
-	}
-
-	// TODO: Ditch indexed primitives for now, also ditched skinned ones since we don't have a fast way to skin without
-	// running the full decoder.
-	if (vertTypeID & (GE_VTYPE_IDX_MASK | GE_VTYPE_WEIGHT_MASK)) {
-		return;
-	}
-
-	bool isThroughMode = (vertTypeID & GE_VTYPE_THROUGH_MASK) != 0;
-	bool cullEnabled = false;
-	bool cullCCW = false;
-
-	// Turn the input data into a raw float array that we can pass to an optimized triangle rasterizer.
-	float *transformed = (float *)bufferData;
-
-	ScreenVert *screenVerts = (ScreenVert *)((uint8_t *)bufferData + 65536 * 8);
-
-	// Simple, most common case.
-	int vertexStride = dec->VertexSize();
-	int offset = dec->posoff;
-
-	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
-	if (!(vertTypeID & GE_VTYPE_THROUGH_MASK)) {
-		float world[16];
-		float view[16];
-		float worldview[16];
-		float worldviewproj[16];
-		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-		Matrix4ByMatrix4(worldview, world, view);
-		Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);   // TODO: Include adjustments to the proj matrix?
-
-		cullEnabled = gstate.isCullEnabled();
-
-		float viewportX = gstate.getViewportXCenter();
-		float viewportY = gstate.getViewportYCenter();
-		float viewportZ = gstate.getViewportZCenter();
-		float viewportScaleX = gstate.getViewportXScale();
-		float viewportScaleY = gstate.getViewportYScale();
-		float viewportScaleZ = gstate.getViewportZScale();
-		
-		bool allBehind = true;
-
-		float temp[3];
-		for (int i = 0; i < count; i++) {
-			switch (vertTypeID & GE_VTYPE_POS_MASK) {
-			case GE_VTYPE_POS_8BIT:
-				for (int i = 0; i < count; i++) {
-					const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
-					for (int j = 0; j < 3; j++) {
-						temp[j] = data[j] * (1.0f / 128.0f);  // TODO: Can we bake this factor in somewhere?
-					}
-					Vec3ByMatrix44(transformed + i * 4, temp, worldviewproj);
-				}
-				break;
-			case GE_VTYPE_POS_16BIT:
-				for (int i = 0; i < count; i++) {
-					const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
-					for (int j = 0; j < 3; j++) {
-						temp[j] = data[j] * (1.0f / 32768.0f); // TODO: Can we bake this factor in somewhere?
-					}
-					Vec3ByMatrix44(transformed + i * 4, temp, worldviewproj);
-				}
-				break;
-			case GE_VTYPE_POS_FLOAT:
-				for (int i = 0; i < count; i++) {
-					const float *data = (const float *)((const u8 *)vertexData + vertexStride * i + offset);
-					Vec3ByMatrix44(transformed + i * 4, data, worldviewproj);
-				}
-				break;
-			}
-		}
-
-		for (int i = 0; i < count; i++) {
-			float proj[4];
-			memcpy(proj, transformed + i * 4, 4 * sizeof(float));
-
-			float w = proj[3];
-
-			bool inFront = w > 0.0f;
-			screenVerts[i].behind = !inFront;
-			if (inFront) {
-				allBehind = false;
-			}
-
-			// Clip to the w=0 plane.
-			proj[0] /= w;
-			proj[1] /= w;
-			proj[2] /= w;
-
-			// Then transform by the viewport and offset to finally get subpixel coordinates. Normally, this is done by the viewport
-			// and offset params.
-			float screen[3];
-			screen[0] = (proj[0] * viewportScaleX + viewportX) * 16.0f - gstate.getOffsetX16();
-			screen[1] = (proj[1] * viewportScaleY + viewportY) * 16.0f - gstate.getOffsetY16();
-			screen[2] = (proj[2] * viewportScaleZ + viewportZ);
-			if (screen[2] < 0.0f) {
-				screen[2] = 0.0f;
-			}
-			if (screen[2] >= 65535.0f) {
-				screen[2] = 65535.0f;
-			}
-			screenVerts[i].x = screen[0] * (1.0f / 16.0f);  // We ditch the subpixel precision here.
-			screenVerts[i].y = screen[1] * (1.0f / 16.0f);
-			screenVerts[i].z = screen[2];
-		}
-		if (allBehind) {
-			// Cull the whole draw.
-			return;
-		}
-	} else {
-		float factor = 1.0f;
-		switch (vertTypeID & GE_VTYPE_POS_MASK) {
-		case GE_VTYPE_POS_8BIT:
-			for (int i = 0; i < count; i++) {
-				const s8 *data = (const s8 *)vertexData + i * vertexStride + offset;
-				for (int j = 0; j < 3; j++) {
-					transformed[i * 4 + j] = data[j] * factor;
-				}
-				transformed[i * 4 + 3] = 1.0f;
-			}
-			break;
-		case GE_VTYPE_POS_16BIT:
-			for (int i = 0; i < count; i++) {
-				const s16 *data = ((const s16 *)((const s8 *)vertexData + i * vertexStride + offset));
-				for (int j = 0; j < 3; j++) {
-					transformed[i * 4 + j] = data[j] * factor;
-				}
-				transformed[i * 4 + 3] = 1.0f;
-			}
-			break;
-		case GE_VTYPE_POS_FLOAT:
-			for (int i = 0; i < count; i++) {
-				memcpy(&transformed[i * 4], (const u8 *)vertexData + vertexStride * i + offset, sizeof(float) * 3);
-				transformed[i * 4 + 3] = 1.0f;
-			}
-			break;
-		}
-
-		for (int i = 0; i < count; i++) {
-			screenVerts[i].x = (int)transformed[i * 4 + 0];
-			screenVerts[i].y = (int)transformed[i * 4 + 1];
-			screenVerts[i].z = (u16)clamp_value(transformed[i * 4 + 2], 0.0f, 65535.0f);
-		}
-	}
-
-	// Then we need to stitch primitives from strips, etc etc...
-	// For now we'll just do it tri by tri. Later let's be more efficient.
-	
-	switch (prim) {
 	case GE_PRIM_RECTANGLES:
 		for (int i = 0; i < count / 2; i++) {
 			uint16_t z = screenVerts[i + 1].z;  // depth from second vertex
@@ -403,30 +340,10 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		break;
 	case GE_PRIM_TRIANGLES:
 		for (int i = 0; i < count / 3; i++) {
-			if (screenVerts[i * 3].behind || screenVerts[i * 3 + 1].behind || screenVerts[i * 3 + 2].behind) {
-				continue;
-			}
 			DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, screenVerts + i * 3, compareMode);
 		}
 		break;
-	case GE_PRIM_TRIANGLE_STRIP:
-	{
-		int wind = 2;
-		for (int i = 0; i < count - 2; i++) {
-			int i0 = i;
-			int i1 = i + wind;
-			wind ^= 3;
-			int i2 = i + wind;
-			if (screenVerts[i0].behind || screenVerts[i1].behind || screenVerts[i2].behind) {
-				continue;
-			}
-			ScreenVert v[3];
-			v[0] = screenVerts[i0];
-			v[1] = screenVerts[i1];
-			v[2] = screenVerts[i2];
-			DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, v, compareMode);
-		}
-		break;
-	}
+	default:
+		_dbg_assert_(false);
 	}
 }
