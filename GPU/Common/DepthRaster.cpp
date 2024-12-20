@@ -247,14 +247,6 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 	}
 }
 
-void DepthRasterConvertTransformed(DepthScreenVertex *screenVerts, const TransformedVertex *transformed, int count) {
-	for (int i = 0; i < count; i++) {
-		screenVerts[i].x = (int)transformed[i].pos[0];
-		screenVerts[i].y = (int)transformed[i].pos[1];
-		screenVerts[i].z = (u16)transformed[i].pos[2];
-	}
-}
-
 int DepthRasterClipIndexedTriangles(DepthScreenVertex *screenVerts, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 
@@ -310,6 +302,16 @@ int DepthRasterClipIndexedTriangles(DepthScreenVertex *screenVerts, const float 
 		}
 	}
 	return outCount;
+}
+
+void DepthRasterConvertTransformed(DepthScreenVertex *screenVerts, GEPrimitiveType prim, const TransformedVertex *transformed, int count) {
+	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
+
+	for (int i = 0; i < count; i++) {
+		screenVerts[i].x = (int)transformed[i].pos[0];
+		screenVerts[i].y = (int)transformed[i].pos[1];
+		screenVerts[i].z = (u16)transformed[i].pos[2];
+	}
 }
 
 // Rasterizes screen-space vertices.

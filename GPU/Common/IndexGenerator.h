@@ -54,7 +54,7 @@ public:
 	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
 
 	// This is really the number of generated indices, or 3x the number of triangles.
-	int VertexCount() const { return inds_ - indsBase_; }
+	int VertexCount() const { return (int)(inds_ - indsBase_); }
 
 private:
 	// Points (why index these? code simplicity)

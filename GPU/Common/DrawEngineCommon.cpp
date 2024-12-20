@@ -953,7 +953,9 @@ void DrawEngineCommon::DepthRasterPretransformed(GEPrimitiveType prim, const Tra
 		break;
 	}
 
-	DepthRasterConvertTransformed(depthScreenVerts_, inVerts, count);
+	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
+
+	DepthRasterConvertTransformed(depthScreenVerts_, prim, inVerts, count);
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
 		prim, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
 		depthScreenVerts_, count);

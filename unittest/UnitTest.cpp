@@ -1112,7 +1112,7 @@ bool TestSIMD() {
 	EXPECT_EQ_INT(testdata[1], 0);
 
 	__m128i a = _mm_set_epi16(0, 0x4444, 0, 0x3333, 0, 0x2222, 0, 0x1111);
-	__m128i b = _mm_set_epi16(0, 0x8888, 0, 0x7777, 0, 0x6666, 0, 0x5555);
+	__m128i b = _mm_set_epi16(0, (int16_t)0x8888, 0, 0x7777, 0, 0x6666, 0, 0x5555);
 	__m128i c = _mm_packu2_epi32_SSE2(a, b);
 	__m128i d = _mm_packus_epi32(a, b);
 
