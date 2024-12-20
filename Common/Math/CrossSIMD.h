@@ -16,10 +16,6 @@ struct Mat4F32 {
 		col3 = _mm_loadu_ps(matrix + 12);
 	}
 
-	void Transpose() {
-		_MM_TRANSPOSE4_PS(col0, col1, col2, col3);
-	}
-
 	__m128 col0;
 	__m128 col1;
 	__m128 col2;
@@ -36,6 +32,13 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ _mm_load_si128((const __m128i *)src) }; }
 	void Store(int *dst) { _mm_storeu_si128((__m128i *)dst, v); }
 	void StoreAligned(int *dst) { _mm_store_si128((__m128i *)dst, v);}
+
+	// Swaps the two lower elements. Useful for reversing triangles..
+	Vec4S32 SwapLowerElements() {
+		return Vec4S32{
+			_mm_shuffle_epi32(v, _MM_SHUFFLE(3, 2, 0, 1))
+		};
+	}
 
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ _mm_add_epi32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ _mm_sub_epi32(v, other.v) }; }
@@ -64,7 +67,7 @@ struct Vec4F32 {
 		__m128i value = _mm_loadl_epi64((const __m128i *)src);
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
-		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 16)) };
+		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) { return Vec4F32{ _mm_cvtepi32_ps(other.v) }; }
@@ -72,8 +75,20 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ _mm_add_ps(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ _mm_sub_ps(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ _mm_mul_ps(v, other.v) }; }
+	void operator +=(Vec4F32 other) { v = _mm_add_ps(v, other.v); }
+	void operator -=(Vec4F32 other) { v = _mm_sub_ps(v, other.v); }
+	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
+	void operator /=(Vec4F32 other) { v = _mm_div_ps(v, other.v); }
+	Vec4F32 operator *(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
+	Vec4F32 Recip() { return Vec4F32{ _mm_rcp_ps(v) }; }
+
+	Vec4F32 Clamp(float lower, float higher) {
+		return Vec4F32{
+			_mm_min_ps(_mm_max_ps(v, _mm_set1_ps(lower)), _mm_set1_ps(higher))
+		};
+	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
@@ -87,7 +102,13 @@ struct Vec4F32 {
 			)
 		};
 	}
+
+	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		_MM_TRANSPOSE4_PS(col0.v, col1.v, col2.v, col3.v);
+	}
 };
+
+inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvtps_epi32(f.v) }; }
 
 struct Vec4U16 {
 	__m128i v;  // we only use the lower 64 bits.
@@ -112,16 +133,6 @@ struct Mat4F32 {
 		col2 = vld1q_f32(matrix + 8);
 		col3 = vld1q_f32(matrix + 12);
 	}
-	void Transpose() {
-		float32x4_t temp0 = vzip1q_s32(col0, col2);
-		float32x4_t temp1 = vzip2q_s32(col0, col2);
-		float32x4_t temp2 = vzip1q_s32(col1, col3);
-		float32x4_t temp3 = vzip2q_s32(col1, col3);
-		col0 = vzip1q_s32(temp0, temp2);
-		col1 = vzip2q_s32(temp0, temp2);
-		col2 = vzip1q_s32(temp1, temp3);
-		col3 = vzip2q_s32(temp1, temp3);
-	}
 	float32x4_t col0;
 	float32x4_t col1;
 	float32x4_t col2;
@@ -138,6 +149,14 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	void Store(int *dst) { vst1q_s32(dst, v); }
 	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
+
+	// Swaps the two lower elements, but NOT the two upper ones. Useful for reversing triangles..
+	// This is quite awkward on ARM64 :/ Maybe there's a better solution?
+	Vec4S32 SwapLowerElements() {
+		float32x2_t upper = vget_high_s32(v);
+		float32x2_t lowerSwapped = vrev64_s32(vget_low_s32(v));
+		return Vec4S32{ vcombine_s32(lowerSwapped, upper) };
+	};
 
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ vaddq_s32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ vsubq_s32(v, other.v) }; }
@@ -175,8 +194,39 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ vaddq_f32(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ vsubq_f32(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v) }; }
+	void operator +=(Vec4F32 other) { v = vaddq_f32(v, other.v); }
+	void operator -=(Vec4F32 other) { v = vsubq_f32(v, other.v); }
+	void operator *=(Vec4F32 other) { v = vmulq_f32(v, other.v); }
+	void operator /=(Vec4F32 other) { v = vmulq_f32(v, other.Recip().v); }
+	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
+	Vec4F32 Recip() {
+		float32x4_t recip = vrecpeq_f32(v);
+		// Use a couple Newton-Raphson steps to refine the estimate.
+		// May be able to get away with only one refinement, not sure!
+		recip = vmulq_f32(vrecpsq_f32(v, recip), recip);
+		recip = vmulq_f32(vrecpsq_f32(v, recip), recip);
+		return Vec4F32{ recip };
+	}
+
+	Vec4F32 Clamp(float lower, float higher) {
+		return Vec4F32{
+			vminq_f32(vmaxq_f32(v, vdupq_n_f32(lower)), vdupq_n_f32(higher))
+		};
+	}
+
+	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
+	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		float32x4_t temp0 = vzip1q_s32(col0.v, col2.v);
+		float32x4_t temp1 = vzip2q_s32(col0.v, col2.v);
+		float32x4_t temp2 = vzip1q_s32(col1.v, col3.v);
+		float32x4_t temp3 = vzip2q_s32(col1.v, col3.v);
+		col0.v = vzip1q_s32(temp0, temp2);
+		col1.v = vzip2q_s32(temp0, temp2);
+		col2.v = vzip1q_s32(temp1, temp3);
+		col3.v = vzip2q_s32(temp1, temp3);
+	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 #if PPSSPP_ARCH(ARM64_NEON)
@@ -191,6 +241,8 @@ struct Vec4F32 {
 		return Vec4F32{ sum };
 	}
 };
+
+inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
 
 struct Vec4U16 {
 	uint16x4_t v;  // we only use the lower 64 bits.
