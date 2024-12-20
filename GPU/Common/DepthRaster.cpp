@@ -85,15 +85,6 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 #endif
 }
 
-using namespace Math3D;
-struct int2 {
-	int x, y;
-	int2(float a, float b) {
-		x = (int)(a + 0.5f);
-		y = (int)(b + 0.5f);
-	}
-};
-
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
@@ -127,7 +118,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int startY = std::max(std::min(std::min(verts[0].y, verts[1].y), verts[2].y), tileStartY);
 	int endY = std::min(std::max(std::max(verts[0].y, verts[1].y), verts[2].y) + 1, tileEndY);
 	if (endX == startX || endY == startY) {
-		// No pixels
+		// No pixels, or outside screen.
 		return;
 	}
 	// TODO: Cull really small triangles here.
@@ -300,6 +291,15 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		break;
 	}
 
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
 	// OK, we now have the coordinates. Let's transform, we can actually do this in-place.
 	if (!(vertTypeID & GE_VTYPE_THROUGH_MASK)) {
 		cullEnabled = gstate.isCullEnabled();
@@ -316,12 +316,8 @@ void DepthRasterPrim(uint16_t *depth, int depthStride, int x1, int y1, int x2, i
 		bool allBehind = true;
 
 		for (int i = 0; i < count; i++) {
-			float world[3];
-			float view[3];
 			float proj[4];
-			Vec3ByMatrix43(world, verts + i * 3, gstate.worldMatrix);
-			Vec3ByMatrix43(view, world, gstate.viewMatrix);
-			Vec3ByMatrix44(proj, view, gstate.projMatrix);  // TODO: Include adjustments to the proj matrix?
+			Vec3ByMatrix44(proj, verts + i * 3, worldviewproj);  // TODO: Include adjustments to the proj matrix?
 
 			float w = proj[3];
 
