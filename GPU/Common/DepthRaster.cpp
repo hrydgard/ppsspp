@@ -136,16 +136,21 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	Vec4F32 zz1 = Vec4F32::Splat((float)(v1z - v0z) * oneOverTriArea);
 	Vec4F32 zz2 = Vec4F32::Splat((float)(v2z - v0z) * oneOverTriArea);
 
+	Vec4F32 zdeltaX = zz1 * Vec4F32FromS32(e20.oneStepX) + zz2 * Vec4F32FromS32(e01.oneStepX);
+	Vec4F32 zdeltaY = zz1 * Vec4F32FromS32(e20.oneStepY) + zz2 * Vec4F32FromS32(e01.oneStepY);
+	Vec4F32 zrow = zz0 + Vec4F32FromS32(w1_row) * zz1 + Vec4F32FromS32(w2_row) * zz2;
+
 	// Rasterize
-	for (int y = minY; y <= maxY; y += Edge::stepYSize, w0_row += e12.oneStepY, w1_row += e20.oneStepY, w2_row += e01.oneStepY) {
+	for (int y = minY; y <= maxY; y += Edge::stepYSize, w0_row += e12.oneStepY, w1_row += e20.oneStepY, w2_row += e01.oneStepY, zrow += zdeltaY) {
 		// Barycentric coordinates at start of row
 		Vec4S32 w0 = w0_row;
 		Vec4S32 w1 = w1_row;
 		Vec4S32 w2 = w2_row;
+		Vec4F32 zs = zrow;
 
 		uint16_t *rowPtr = depthBuf + stride * y;
 
-		for (int x = minX; x <= maxX; x += Edge::stepXSize, w0 += e12.oneStepX, w1 += e20.oneStepX, w2 += e01.oneStepX) {
+		for (int x = minX; x <= maxX; x += Edge::stepXSize, w0 += e12.oneStepX, w1 += e20.oneStepX, w2 += e01.oneStepX, zs += zdeltaX) {
 			// If p is on or inside all edges for any pixels,
 			// render those pixels.
 			Vec4S32 signCalc = w0 | w1 | w2;
@@ -157,9 +162,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			Vec4U16 shortMaskInv = SignBits32ToMaskU16(signCalc);
 			// Now, the mask has 1111111 where we should preserve the contents of the depth buffer.
 
-			// Compute the Z value for all four pixels.
-			// float depth = zz[0] + beta * zz[1] + gamma * zz[2];
-			Vec4U16 shortZ = Vec4U16::FromVec4F32(zz0 + Vec4F32FromS32(w1) * zz1 + Vec4F32FromS32(w2) * zz2);
+			Vec4U16 shortZ = Vec4U16::FromVec4F32(zs);
 
 			// TODO: Lift this switch out of the inner loop, or even out of the function with templating.
 			switch (compareMode) {
