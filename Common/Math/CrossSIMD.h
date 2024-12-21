@@ -264,6 +264,8 @@ struct Vec4F32 {
 
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+#if PPSSPP_ARCH(ARM64_NEON)
+		// Only works on ARM64
 		float32x4_t temp0 = vzip1q_f32(col0.v, col2.v);
 		float32x4_t temp1 = vzip2q_f32(col0.v, col2.v);
 		float32x4_t temp2 = vzip1q_f32(col1.v, col3.v);
@@ -272,6 +274,14 @@ struct Vec4F32 {
 		col1.v = vzip2q_f32(temp0, temp2);
 		col2.v = vzip1q_f32(temp1, temp3);
 		col3.v = vzip2q_f32(temp1, temp3);
+#else
+   		float32x4x2_t col01 = vtrnq_f32(col0.v, col1.v);
+        float32x4x2_t col23 = vtrnq_f32(col2.v, col3.v);
+        col0.v = vcombine_f32(vget_low_f32(col01.val[0]), vget_low_f32(col23.val[0]));
+        col1.v = vcombine_f32(vget_low_f32(col01.val[1]), vget_low_f32(col23.val[1]));
+        col2.v = vcombine_f32(vget_high_f32(col01.val[0]), vget_high_f32(col23.val[0]));
+        col3.v = vcombine_f32(vget_high_f32(col01.val[1]), vget_high_f32(col23.val[1]));
+#endif
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
