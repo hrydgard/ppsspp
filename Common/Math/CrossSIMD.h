@@ -39,12 +39,28 @@ struct Vec4S32 {
 			_mm_shuffle_epi32(v, _MM_SHUFFLE(3, 2, 0, 1))
 		};
 	}
+	Vec4S32 SignBits32ToMask() {
+		return Vec4S32{
+			_mm_srai_epi32(v, 31)
+		};
+	}
 
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ _mm_add_epi32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ _mm_sub_epi32(v, other.v) }; }
+	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ _mm_or_si128(v, other.v) }; }
+	Vec4S32 operator &(Vec4S32 other) const { return Vec4S32{ _mm_and_si128(v, other.v) }; }
+	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ _mm_xor_si128(v, other.v) }; }
+	// TODO: andnot
+	void operator +=(Vec4S32 other) { v = _mm_add_epi32(v, other.v); }
+	void operator -=(Vec4S32 other) { v = _mm_sub_epi32(v, other.v); }
+
 	// NOTE: This uses a CrossSIMD wrapper if we don't compile with SSE4 support, and is thus slow.
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ _mm_mullo_epi32_SSE2(v, other.v) }; }  // (ab3,ab2,ab1,ab0)
 };
+
+inline bool AnyZeroSignBit(Vec4S32 value) {
+	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0xF;
+}
 
 struct Vec4F32 {
 	__m128 v;
@@ -108,9 +124,8 @@ struct Vec4F32 {
 	}
 };
 
-inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
-inline Vec4S32 VecS32FromF32Round(Vec4F32 f) { return Vec4S32{ _mm_cvtps_epi32(f.v) }; }
-inline Vec4F32 VecF32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
+inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
+inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
 
 struct Vec4U16 {
 	__m128i v;  // we only use the lower 64 bits.
@@ -121,10 +136,35 @@ struct Vec4U16 {
 	static Vec4U16 Load(const uint16_t *mem) { return Vec4U16{ _mm_loadl_epi64((__m128i *)mem) }; }
 	void Store(uint16_t *mem) { _mm_storel_epi64((__m128i *)mem, v); }
 
-	static Vec4U16 Max(Vec4U16 a, Vec4U16 b) { return Vec4U16{ _mm_max_epu16_SSE2(a.v, b.v) }; }
-	static Vec4U16 Min(Vec4U16 a, Vec4U16 b) { return Vec4U16{ _mm_max_epu16_SSE2(a.v, b.v) }; }
+	// NOTE: 16-bit signed saturation! Will work for a lot of things, but not all.
+	static Vec4U16 FromVec4S32(Vec4S32 v) {
+		return Vec4U16{ _mm_packu_epi32_SSE2(v.v)};
+	}
+	static Vec4U16 FromVec4F32(Vec4F32 v) {
+		return Vec4U16{ _mm_packu_epi32_SSE2(_mm_cvtps_epi32(v.v)) };
+	}
+
+	Vec4U16 operator |(Vec4U16 other) const { return Vec4U16{ _mm_or_si128(v, other.v) }; }
+	Vec4U16 operator &(Vec4U16 other) const { return Vec4U16{ _mm_and_si128(v, other.v) }; }
+	Vec4U16 operator ^(Vec4U16 other) const { return Vec4U16{ _mm_xor_si128(v, other.v) }; }
+
+	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ _mm_max_epu16_SSE2(v, other.v) }; }
+	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ _mm_max_epu16_SSE2(v, other.v) }; }
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ _mm_cmplt_epu16(v, other.v) }; }
 };
+
+Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+	__m128i temp = _mm_srai_epi32(v.v, 31);
+	return Vec4U16 {
+		_mm_packs_epi32(temp, temp)
+	};
+}
+
+Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
+	return Vec4U16{
+		_mm_andnot_si128(inverted.v, a.v)  // NOTE: with andnot, the first parameter is inverted, and then and is performed.
+	};
+}
 
 #elif PPSSPP_ARCH(ARM_NEON)
 
@@ -163,6 +203,12 @@ struct Vec4S32 {
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ vaddq_s32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ vsubq_s32(v, other.v) }; }
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ vorrq_s32(v, other.v) }; }
+	Vec4S32 operator &(Vec4S32 other) const { return Vec4S32{ vandq_s32(v, other.v) }; }
+	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ veorq_s32(v, other.v) }; }
+
+	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
+	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
 };
 
 struct Vec4F32 {
@@ -178,14 +224,12 @@ struct Vec4F32 {
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
 		int16x4_t value = vld1_s16(src);
-		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value)) };
 	}
 
 	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes
 		int8x8_t value = vld1_s8(src);
 		int16x4_t value16 = vget_low_s16(vmovl_s8(value));
-		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value)) };
 	}
 
@@ -244,7 +288,15 @@ struct Vec4F32 {
 	}
 };
 
-inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
+inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
+inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ vcvtq_f32_s32(f.v) }; }
+
+inline bool AnyZeroSignBit(Vec4S32 value) {
+	// Very suboptimal, let's optimize later.
+	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return (mask & 0x80000000) != 0;
+}
 
 struct Vec4U16 {
 	uint16x4_t v;  // we only use the lower 64 bits.
@@ -254,15 +306,43 @@ struct Vec4U16 {
 	static Vec4U16 Load(const uint16_t *mem) { return Vec4U16{ vld1_u16(mem) }; }
 	void Store(uint16_t *mem) { vst1_u16(mem, v); }
 
-	static Vec4U16 Max(Vec4U16 a, Vec4U16 b) { return Vec4U16{ vmax_u16(a.v, b.v) }; }
-	static Vec4U16 Min(Vec4U16 a, Vec4U16 b) { return Vec4U16{ vmin_u16(a.v, b.v) }; }
+	static Vec4U16 FromVec4S32(Vec4S32 v) {
+		return Vec4U16{ vmovn_u16(v.v) };
+	}
+	static Vec4U16 FromVec4F32(Vec4F32 v) {
+		return Vec4U16{ vmovn_u16(vcvtq_u32_f32(v.v)) };
+	}
+
+	Vec4U16 operator |(Vec4U16 other) const { return Vec4U16{ vorr_u16(v, other.v) }; }
+	Vec4U16 operator &(Vec4U16 other) const { return Vec4U16{ vand_u16(v, other.v) }; }
+	Vec4U16 operator ^(Vec4U16 other) const { return Vec4U16{ veor_u16(v, other.v) }; }
+
+	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ vmax_u16(v, other.v) }; }
+	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ vmin_u16(v, other.v) }; }
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ vclt_u16(v, other.v) }; }
 };
+
+Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+	int32x4_t sign_mask = vshrq_n_s32(v.v, 31);
+	uint16x4_t result = vreinterpret_u16_s16(vmovn_s32(sign_mask));
+	return Vec4U16{ result };
+}
+
+Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
+	return Vec4U16{ vand_u16(a.v, vmvn_u16(inverted.v)) };
+}
 
 #else
 
 struct Vec4S32 {
 	s32 v[4];
+
+	Vec4S32 operator +(Vec4S32 other) const {
+		return Vec4S32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
+	}
+	Vec4S32 operator -(Vec4S32 other) const {
+		return Vec4S32{ { v[0] - other.v[0], v[1] - other.v[1], v[2] - other.v[2], v[3] - other.v[3], } };
+	}
 };
 
 #endif

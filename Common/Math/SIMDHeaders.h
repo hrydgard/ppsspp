@@ -118,6 +118,24 @@ inline __m128i _mm_packu_epi32_SSE2(const __m128i v0) {
 	return _mm_castps_si128(_mm_shuffle_ps(temp2, temp2, _MM_SHUFFLE(3, 3, 2, 0)));
 }
 
+#ifdef __cplusplus
+
+alignas(16) static const uint32_t g_sign32[4] = { 0x00008000, 0x00008000, 0x00008000, 0x00008000 };
+alignas(16) static const uint32_t g_sign16[4] = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
+
+// Alternate solution to the above, not sure if faster or slower.
+// SSE2 replacement for half of _mm_packus_epi32 but without the saturation.
+// Not ideal! pshufb would make this faster but that's SSSE3.
+inline __m128i _mm_packu1_epi32_SSE2(const __m128i v0) {
+	// Toggle the sign bit, pack, then toggle back.
+	__m128i toggled = _mm_sub_epi32(v0, _mm_load_si128((const __m128i *)g_sign32));
+	__m128i temp = _mm_packs_epi32(toggled, toggled);
+	__m128i restored = _mm_add_epi16(temp, _mm_load_si128((const __m128i *)g_sign16));
+	return restored;
+}
+
+#endif
+
 // SSE2 replacement for the entire _mm_packus_epi32 but without the saturation.
 // Not ideal! pshufb would make this faster but that's SSSE3.
 inline __m128i _mm_packu2_epi32_SSE2(const __m128i v0, const __m128i v1) {

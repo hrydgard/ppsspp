@@ -1114,12 +1114,15 @@ bool TestSIMD() {
 	__m128i a = _mm_set_epi16(0, 0x4444, 0, 0x3333, 0, 0x2222, 0, 0x1111);
 	__m128i b = _mm_set_epi16(0, (int16_t)0x8888, 0, 0x7777, 0, 0x6666, 0, 0x5555);
 	__m128i c = _mm_packu2_epi32_SSE2(a, b);
-	__m128i d = _mm_packus_epi32(a, b);
+	__m128i d = _mm_packu1_epi32_SSE2(b);
 
-	uint64_t testdata2[2];
+	uint64_t testdata2[4];
 	_mm_store_si128((__m128i *)testdata2, c);
+	_mm_store_si128((__m128i *)testdata2 + 1, d);
 	EXPECT_EQ_INT(testdata2[0], 0x4444333322221111);
 	EXPECT_EQ_INT(testdata2[1], 0x8888777766665555);
+	EXPECT_EQ_INT(testdata2[2], 0x8888777766665555);
+	EXPECT_EQ_INT(testdata2[2], 0x8888777766665555);
 #endif
 	return true;
 }
