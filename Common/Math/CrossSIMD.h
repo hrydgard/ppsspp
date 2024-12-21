@@ -108,7 +108,9 @@ struct Vec4F32 {
 	}
 };
 
-inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvtps_epi32(f.v) }; }
+inline Vec4S32 VecS32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
+inline Vec4S32 VecS32FromF32Round(Vec4F32 f) { return Vec4S32{ _mm_cvtps_epi32(f.v) }; }
+inline Vec4F32 VecF32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
 
 struct Vec4U16 {
 	__m128i v;  // we only use the lower 64 bits.
@@ -218,14 +220,14 @@ struct Vec4F32 {
 
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
-		float32x4_t temp0 = vzip1q_s32(col0.v, col2.v);
-		float32x4_t temp1 = vzip2q_s32(col0.v, col2.v);
-		float32x4_t temp2 = vzip1q_s32(col1.v, col3.v);
-		float32x4_t temp3 = vzip2q_s32(col1.v, col3.v);
-		col0.v = vzip1q_s32(temp0, temp2);
-		col1.v = vzip2q_s32(temp0, temp2);
-		col2.v = vzip1q_s32(temp1, temp3);
-		col3.v = vzip2q_s32(temp1, temp3);
+		float32x4_t temp0 = vzip1q_f32(col0.v, col2.v);
+		float32x4_t temp1 = vzip2q_f32(col0.v, col2.v);
+		float32x4_t temp2 = vzip1q_f32(col1.v, col3.v);
+		float32x4_t temp3 = vzip2q_f32(col1.v, col3.v);
+		col0.v = vzip1q_f32(temp0, temp2);
+		col1.v = vzip2q_f32(temp0, temp2);
+		col2.v = vzip1q_f32(temp1, temp3);
+		col3.v = vzip2q_f32(temp1, temp3);
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
