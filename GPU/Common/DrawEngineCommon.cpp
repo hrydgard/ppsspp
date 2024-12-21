@@ -903,6 +903,16 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	}
 }
 
+inline void ComputeFinalProjMatrix(float *worldviewproj) {
+	float world[16];
+	float view[16];
+	float worldview[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+}
+
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
@@ -919,14 +929,8 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		return;
 	}
 
-	float world[16];
-	float view[16];
-	float worldview[16];
 	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);   // TODO: Include adjustments to the proj matrix?
+	ComputeFinalProjMatrix(worldviewproj);
 
 	// Decode.
 	int numDec = 0;
@@ -943,7 +947,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		}
 
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, prim, worldviewproj, dv.verts, indexLowerBound, indexUpperBound, dec, vertTypeID);
+		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, worldviewproj, dv.verts, indexLowerBound, indexUpperBound, dec, vertTypeID);
 		numDec += indexUpperBound - indexLowerBound + 1;
 	}
 
@@ -967,7 +971,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		tx, ty, tz, outVertCount);
 }
 
-void DrawEngineCommon::DepthRasterPretransformed(GEPrimitiveType prim, const TransformedVertex *inVerts, int count) {
+void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -985,10 +989,33 @@ void DrawEngineCommon::DepthRasterPretransformed(GEPrimitiveType prim, const Tra
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	int *tz = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2;
 
-	DepthRasterConvertTransformed(tx, ty, tz, prim, inVerts, count);
-	if (count & 15) {
+	int outVertCount = 0;
+
+	if (dec->throughmode) {
+		ConvertPredecodedThroughForDepthRaster(depthTransformed_, decoded_, dec, numDecoded);
+		DepthRasterConvertTransformed(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
+		outVertCount = vertexCount;
+	} else {
+		float worldviewproj[16];
+		ComputeFinalProjMatrix(worldviewproj);
+		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
+
+		switch (prim) {
+		case GE_PRIM_RECTANGLES:
+			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
+			break;
+		case GE_PRIM_TRIANGLES:
+			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+	}
+
+	if (prim == GE_PRIM_TRIANGLES && (outVertCount & 15) != 0) {
 		// Zero padding
-		for (int i = count; i < ((count + 16) & ~15); i++) {
+		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
 			tx[i] = 0;
 			ty[i] = 0;
 			tz[i] = 0;
@@ -996,5 +1023,5 @@ void DrawEngineCommon::DepthRasterPretransformed(GEPrimitiveType prim, const Tra
 	}
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
 		prim, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
-		tx, ty, tz, count);
+		tx, ty, tz, outVertCount);
 }

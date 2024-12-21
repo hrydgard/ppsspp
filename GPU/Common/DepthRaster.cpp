@@ -182,7 +182,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	}
 }
 
-void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
+void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
 
@@ -216,6 +216,92 @@ void DecodeAndTransformForDepthRaster(float *dest, GEPrimitiveType prim, const f
 	}
 }
 
+void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, VertexDecoder *dec, int count) {
+	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
+	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
+
+	int vertexStride = dec->GetDecVtxFmt().stride;
+	int offset = dec->GetDecVtxFmt().posoff;
+
+	Mat4F32 mat(worldviewproj);
+
+	const u8 *startPtr = (const u8 *)decodedVertexData;
+	// Decoded position format is always float3.
+	for (int i = 0; i < count; i++) {
+		const float *data = (const float *)(startPtr + i * vertexStride + offset);
+		Vec4F32::Load(data).AsVec3ByMatrix44(mat).Store(dest + i * 4);
+	}
+}
+
+void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVertexData, VertexDecoder *dec, int count) {
+	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
+	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
+
+	int vertexStride = dec->GetDecVtxFmt().stride;
+	int offset = dec->GetDecVtxFmt().posoff;
+
+	const u8 *startPtr = (const u8 *)decodedVertexData;
+	// Decoded position format is always float3.
+	for (int i = 0; i < count; i++) {
+		const float *data = (const float *)(startPtr + i * vertexStride + offset);
+		// Just pass the position straight through - this is through mode!
+		Vec4F32::Load(data).WithLane3Zeroed().Store(dest + i * 4);
+	}
+}
+
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
+	// However, hard to find a common abstraction.
+	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter());
+	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter());
+	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
+	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
+	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
+	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
+
+	const Vec4F32 offsetX = Vec4F32::Splat(gstate.getOffsetX());  // We remove the 16 scale here
+	const Vec4F32 offsetY = Vec4F32::Splat(gstate.getOffsetY());
+
+	int outCount = 0;
+	for (int i = 0; i < count; i += 2) {
+		const float *verts[2] = {
+			transformed + indexBuffer[i] * 4,
+			transformed + indexBuffer[i + 1] * 4,
+		};
+
+		// Check if any vertex is behind the 0 plane.
+		if (verts[0][3] < 0.0f || verts[1][3] < 0.0f) {
+			// Ditch this rectangle.
+			continue;
+		}
+
+		// These names are wrong .. until we transpose.
+		Vec4F32 x = Vec4F32::Load(verts[0]);
+		Vec4F32 y = Vec4F32::Load(verts[1]);
+		Vec4F32 z = Vec4F32::Zero();
+		Vec4F32 w = Vec4F32::Zero();
+		Vec4F32::Transpose(x, y, z, w);
+		// Now the names are accurate! Since we only have two vertices, the third and fourth member of each vector is zero
+		// and will not be stored (well it will be stored, but it'll be overwritten by the next vertex).
+		Vec4F32 recipW = w.Recip();
+
+		x *= recipW;
+		y *= recipW;
+		z *= recipW;
+
+		Vec4S32 screen[3];
+		screen[0] = Vec4S32FromF32((x * viewportScaleX + viewportX) - offsetX);
+		screen[1] = Vec4S32FromF32((y * viewportScaleY + viewportY) - offsetY);
+		screen[2] = Vec4S32FromF32((z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f));
+
+		screen[0].Store(tx + outCount);
+		screen[1].Store(ty + outCount);
+		screen[2].Store(tz + outCount);
+		outCount += 2;
+	}
+	return outCount;
+}
+
 int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 	GECullMode cullMode = gstate.getCullMode();
@@ -231,8 +317,6 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 
 	const Vec4F32 offsetX = Vec4F32::Splat(gstate.getOffsetX());  // We remove the 16 scale here
 	const Vec4F32 offsetY = Vec4F32::Splat(gstate.getOffsetY());
-
-	bool cullCCW = false;
 
 	int outCount = 0;
 
@@ -294,14 +378,13 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 	return outCount;
 }
 
-void DepthRasterConvertTransformed(int *tx, int *ty, int *tz, GEPrimitiveType prim, const TransformedVertex *transformed, int count) {
-	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
-
+void DepthRasterConvertTransformed(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	// TODO: This is basically a transpose, or AoS->SoA conversion. There may be fast ways.
 	for (int i = 0; i < count; i++) {
-		tx[i] = (int)transformed[i].pos[0];
-		ty[i] = (int)transformed[i].pos[1];
-		tz[i] = (u16)transformed[i].pos[2];
+		const float *pos = transformed + indexBuffer[i] * 4;
+		tx[i] = (int)pos[0];
+		ty[i] = (int)pos[1];
+		tz[i] = (u16)pos[2];
 	}
 }
 
