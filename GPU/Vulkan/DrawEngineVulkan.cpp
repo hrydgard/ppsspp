@@ -434,6 +434,13 @@ void DrawEngineVulkan::Flush() {
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
+		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
+		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
+		// should clean up one day...
+		if (useDepthRaster_) {
+			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
+		}
+
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
@@ -441,11 +448,6 @@ void DrawEngineVulkan::Flush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
-
-		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
-		if (useDepthRaster_) {
-			DepthRasterPretransformed(prim, transformed_, numDecodedVerts_);
-		}
 
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
