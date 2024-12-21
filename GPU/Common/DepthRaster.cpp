@@ -28,43 +28,17 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		return;
 	}
 
-#if PPSSPP_ARCH(SSE2)
-	__m128i valueX8 = _mm_set1_epi16(depthValue);
-	for (int y = y1; y < y2; y++) {
-		__m128i *ptr = (__m128i *)(dest + stride * y + x1);
-		int w = x2 - x1;
-		switch (compareMode) {
-		case ZCompareMode::Always:
-			if (depthValue == 0) {
-				memset(ptr, 0, w * 2);
-			} else {
-				while (w >= 8) {
-					_mm_storeu_si128(ptr, valueX8);
-					ptr++;
-					w -= 8;
-				}
-			}
-			break;
-			// TODO: Trailer
-		default:
-			// TODO
-			break;
-		}
-	}
-
-#elif PPSSPP_ARCH(ARM64_NEON)
-	uint16x8_t valueX8 = vdupq_n_u16(depthValue);
+	Vec8U16 valueX8 = Vec8U16::Splat(depthValue);
 	for (int y = y1; y < y2; y++) {
 		uint16_t *ptr = (uint16_t *)(dest + stride * y + x1);
 		int w = x2 - x1;
-
 		switch (compareMode) {
 		case ZCompareMode::Always:
 			if (depthValue == 0) {
 				memset(ptr, 0, w * 2);
 			} else {
 				while (w >= 8) {
-					vst1q_u16(ptr, valueX8);
+					valueX8.Store(ptr);
 					ptr += 8;
 					w -= 8;
 				}
@@ -76,9 +50,6 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 			break;
 		}
 	}
-#else
-	// Do nothing for now
-#endif
 }
 
 alignas(16) static const int zero123[4]  = {0, 1, 2, 3};

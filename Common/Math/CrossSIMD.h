@@ -153,6 +153,16 @@ struct Vec4U16 {
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ _mm_cmplt_epu16(v, other.v) }; }
 };
 
+struct Vec8U16 {
+	__m128i v;
+
+	static Vec8U16 Zero() { return Vec8U16{ _mm_setzero_si128() }; }
+	static Vec8U16 Splat(uint16_t value) { return Vec8U16{ _mm_set1_epi16((int16_t)value) }; }
+
+	static Vec8U16 Load(const uint16_t *mem) { return Vec8U16{ _mm_loadu_si128((__m128i *)mem) }; }
+	void Store(uint16_t *mem) { _mm_storeu_si128((__m128i *)mem, v); }
+};
+
 Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	__m128i temp = _mm_srai_epi32(v.v, 31);
 	return Vec4U16 {
@@ -341,6 +351,16 @@ Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
 	return Vec4U16{ vand_u16(a.v, vmvn_u16(inverted.v)) };
 }
+
+struct Vec8U16 {
+	uint16x8_t v;
+
+	static Vec8U16 Zero() { return Vec8U16{ vdupq_n_u16(0) }; }
+	static Vec8U16 Splat(uint16_t value) { return Vec8U16{ vdupq_n_u16(value) }; }
+
+	static Vec8U16 Load(const uint16_t *mem) { return Vec8U16{ vld1q_u16(mem) }; }
+	void Store(uint16_t *mem) { vst1q_u16(mem, v); }
+};
 
 #else
 
