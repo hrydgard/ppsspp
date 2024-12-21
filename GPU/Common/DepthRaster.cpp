@@ -184,12 +184,10 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			beta += A1,
 			gamma += A2)
 		{
-			int mask = alpha | beta | gamma;
+			int mask = (alpha | beta | gamma) >= 0;
 			// Early out if all of this quad's pixels are outside the triangle.
-			if (mask < 0) {
+			if (!mask) {
 				continue;
-			} else {
-				mask = 1;
 			}
 			// Compute barycentric-interpolated depth. Could also compute it incrementally.
 			float depth = zz[0] + beta * zz[1] + gamma * zz[2];
@@ -312,7 +310,12 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 
 		if (!cullEnabled) {
 			// If culling is off, shuffle the three vectors to produce the opposite triangle, and store them after.
-			// Or on ARM we might be better off just storing individual elements...
+
+			// HOWEVER! I realized that this is not the optimal layout, after all.
+			// We should group 4 triangles at a time and interleave them (so we first have all X of vertex 0,
+			// then all X of vertex 1, and so on). This seems solvable with another transpose, if we can easily
+			// collect four triangles at a time...
+
 			screen[0].SwapLowerElements().Store(tx + outCount);
 			screen[1].SwapLowerElements().Store(ty + outCount);
 			screen[2].SwapLowerElements().Store(tz + outCount);
