@@ -106,6 +106,11 @@ struct Vec4F32 {
 		};
 	}
 
+	Vec4F32 WithLane3Zeroed() const {
+		alignas(16) static uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		return Vec4F32{ _mm_and_ps(v, _mm_load_ps((float *)mask)) };
+	}
+
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
 			_mm_add_ps(
@@ -270,6 +275,10 @@ struct Vec4F32 {
 		return Vec4F32{
 			vminq_f32(vmaxq_f32(v, vdupq_n_f32(lower)), vdupq_n_f32(higher))
 		};
+	}
+
+	Vec4F32 WithLane3Zeroed() const {
+		return Vec4F32{ vsetq_lane_f32(0.0f, v, 3) };
 	}
 
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
