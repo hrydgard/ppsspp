@@ -23,6 +23,7 @@
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/TimeUtil.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -914,6 +915,7 @@ inline void ComputeFinalProjMatrix(float *worldviewproj) {
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
+
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -928,6 +930,8 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	if (vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 		return;
 	}
+
+	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	float worldviewproj[16];
 	ComputeFinalProjMatrix(worldviewproj);
@@ -972,6 +976,8 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
+	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
+
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -996,6 +1002,9 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		DepthRasterConvertTransformed(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
 		outVertCount = vertexCount;
 	} else {
+		if (dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
+			return;
+		}
 		float worldviewproj[16];
 		ComputeFinalProjMatrix(worldviewproj);
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);

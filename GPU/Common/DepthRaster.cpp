@@ -84,7 +84,7 @@ struct Edge {
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, ZCompareMode compareMode) {
+bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, ZCompareMode compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -114,13 +114,13 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), tileEndY);
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
-		return;
+		return false;
 	}
 
 	// TODO: Cull really small triangles here.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
 	if (triArea <= 0) {
-		return;
+		return false;
 	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
@@ -183,6 +183,7 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			}
 		}
 	}
+	return true;
 }
 
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
@@ -446,12 +447,20 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 			// We remove the subpixel information here.
 			DepthRasterRect(depth, depthStride, tx[i], ty[i], tx[i + 1], ty[i + 1], z, comp);
 		}
+		gpuStats.numDepthRasterPrims += count / 2;
 		break;
 	case GE_PRIM_TRIANGLES:
+	{
+		int culled = 0;
 		for (int i = 0; i < count; i += 3) {
-			DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], comp);
+			if (!DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], comp)) {
+				culled++;
+			}
 		}
+		gpuStats.numDepthRasterCulls += culled;
+		gpuStats.numDepthRasterPrims += count / 3;
 		break;
+	}
 	default:
 		_dbg_assert_(false);
 	}
