@@ -118,18 +118,18 @@ void DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	}
 
 	// TODO: Cull really small triangles here.
+	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
+	if (triArea <= 0) {
+		return;
+	}
+
+	float oneOverTriArea = 1.0f / (float)triArea;
 
 	Edge e01, e12, e20;
 
 	Vec4S32 w0_row = e12.init(v1x, v1y, v2x, v2y, minX, minY);
 	Vec4S32 w1_row = e20.init(v2x, v2y, v0x, v0y, minX, minY);
 	Vec4S32 w2_row = e01.init(v0x, v0y, v1x, v1y, minX, minY);
-
-	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
-	if (triArea <= 0) {
-		return;
-	}
-	float oneOverTriArea = 1.0f / (float)triArea;
 
 	// Prepare to interpolate Z
 	Vec4F32 zz0 = Vec4F32::Splat((float)v0z);
@@ -320,10 +320,6 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 	ZCompareMode comp;
 	// Ignore some useless compare modes.
 	switch (compareMode) {
-	case GE_COMP_NEVER:
-	case GE_COMP_EQUAL:
-		// These will never have a useful effect in Z-only raster.
-		return;
 	case GE_COMP_ALWAYS:
 		comp = ZCompareMode::Always;
 		break;
@@ -335,8 +331,14 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 	case GE_COMP_GREATER:
 		comp = ZCompareMode::Greater;  // Most common
 		break;
+	case GE_COMP_NEVER:
+	case GE_COMP_EQUAL:
+		// These will never have a useful effect in Z-only raster.
+		[[fallthrough]];
 	case GE_COMP_NOTEQUAL:
 		// This is highly unusual, let's just ignore it.
+		[[fallthrough]];
+	default:
 		return;
 	}
 
