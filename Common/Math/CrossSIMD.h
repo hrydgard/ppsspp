@@ -309,19 +309,20 @@ struct Vec4F32 {
 };
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
-inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ vcvtq_f32_s32(f.v) }; }
+inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ vcvtq_f32_s32(s.v) }; }
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
 	// Very suboptimal, let's optimize later.
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
-	return (mask & 0x80000000) != 0;
+	return (mask & 0x80000000) == 0;
 }
 
 struct Vec4U16 {
-	uint16x4_t v;  // we only use the lower 64 bits.
+	uint16x4_t v;  // 64 bits.
 
 	static Vec4U16 Zero() { return Vec4U16{ vdup_n_u16(0) }; }
+	static Vec4U16 Splat(uint16_t value) { return Vec4U16{ vdup_n_u16(value) }; }
 
 	static Vec4U16 Load(const uint16_t *mem) { return Vec4U16{ vld1_u16(mem) }; }
 	void Store(uint16_t *mem) { vst1_u16(mem, v); }
@@ -330,7 +331,7 @@ struct Vec4U16 {
 		return Vec4U16{ vmovn_u16(v.v) };
 	}
 	static Vec4U16 FromVec4F32(Vec4F32 v) {
-		return Vec4U16{ vmovn_u16(vcvtq_u32_f32(v.v)) };
+		return Vec4U16{ vmovn_u32(vreinterpretq_u32_s32(vcvtq_s32_f32(v.v))) };
 	}
 
 	Vec4U16 operator |(Vec4U16 other) const { return Vec4U16{ vorr_u16(v, other.v) }; }
