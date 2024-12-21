@@ -65,7 +65,7 @@ void ConvertBGRA8888ToRGB888(u8 *dst, const u32 *src, u32 numPixels) {
 }
 
 #if PPSSPP_ARCH(SSE2)
-// fp64's improved version, see #19751
+// fp64's improved SSE2 version, see #19751. SSE4 no longer required here.
 static inline void ConvertRGBA8888ToRGBA5551(__m128i *dstp, const __m128i *srcp, u32 sseChunks) {
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i maskGA = _mm_set1_epi32(0x8000F800);
@@ -76,7 +76,7 @@ static inline void ConvertRGBA8888ToRGBA5551(__m128i *dstp, const __m128i *srcp,
 		__m128i c0 = _mm_load_si128(&srcp[i + 0]);
 		__m128i c1 = _mm_load_si128(&srcp[i + 1]);
 
-		__m128i rb0 = _mm_and_si128(c0, maskRB);              // 00000000bbbbb00000000000rrrrr000
+		__m128i rb0 = _mm_and_si128(c0, maskRB);              // 00000000bbbbb00000000000rrrrr000 (each 32-bit lane)
 		__m128i rb1 = _mm_and_si128(c1, maskRB);              // 00000000bbbbb00000000000rrrrr000
 		__m128i ga0 = _mm_and_si128(c0, maskGA);              // a000000000000000ggggg00000000000
 		__m128i ga1 = _mm_and_si128(c1, maskGA);              // a000000000000000ggggg00000000000

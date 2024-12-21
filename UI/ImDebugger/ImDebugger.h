@@ -153,6 +153,7 @@ struct ImConfig {
 	int selectedMemCheck = -1;
 	uint64_t selectedTexAddr = 0;
 
+	bool realtimePixelPreview = false;
 	int breakCount = 0;
 
 	bool displayLatched = false;
@@ -170,12 +171,14 @@ enum class ImCmd {
 	SHOW_IN_CPU_DISASM,
 	SHOW_IN_GE_DISASM,
 	SHOW_IN_MEMORY_VIEWER,  // param is address, param2 is viewer index
+	SHOW_IN_PIXEL_VIEWER,  // param is address, param2 is stride, |0x80000000 if depth, param3 is w/h
 };
 
 struct ImCommand {
 	ImCmd cmd;
 	uint32_t param;
 	uint32_t param2;
+	uint32_t param3;
 };
 
 struct ImControl {

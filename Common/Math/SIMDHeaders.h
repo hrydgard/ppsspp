@@ -118,6 +118,24 @@ inline __m128i _mm_packu_epi32_SSE2(const __m128i v0) {
 	return _mm_castps_si128(_mm_shuffle_ps(temp2, temp2, _MM_SHUFFLE(3, 3, 2, 0)));
 }
 
+#ifdef __cplusplus
+
+alignas(16) static const uint32_t g_sign32[4] = { 0x00008000, 0x00008000, 0x00008000, 0x00008000 };
+alignas(16) static const uint32_t g_sign16[4] = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
+
+// Alternate solution to the above, not sure if faster or slower.
+// SSE2 replacement for half of _mm_packus_epi32 but without the saturation.
+// Not ideal! pshufb would make this faster but that's SSSE3.
+inline __m128i _mm_packu1_epi32_SSE2(const __m128i v0) {
+	// Toggle the sign bit, pack, then toggle back.
+	__m128i toggled = _mm_sub_epi32(v0, _mm_load_si128((const __m128i *)g_sign32));
+	__m128i temp = _mm_packs_epi32(toggled, toggled);
+	__m128i restored = _mm_add_epi16(temp, _mm_load_si128((const __m128i *)g_sign16));
+	return restored;
+}
+
+#endif
+
 // SSE2 replacement for the entire _mm_packus_epi32 but without the saturation.
 // Not ideal! pshufb would make this faster but that's SSSE3.
 inline __m128i _mm_packu2_epi32_SSE2(const __m128i v0, const __m128i v1) {
@@ -126,6 +144,28 @@ inline __m128i _mm_packu2_epi32_SSE2(const __m128i v0, const __m128i v1) {
 	__m128i a1 = _mm_shufflelo_epi16(v1, _MM_SHUFFLE(3, 3, 2, 0));
 	__m128 packed1 = _mm_castsi128_ps(_mm_shufflehi_epi16(a1, _MM_SHUFFLE(3, 3, 2, 0)));
 	return _mm_castps_si128(_mm_shuffle_ps(packed0, packed1, _MM_SHUFFLE(2, 0, 2, 0)));
+}
+
+// The below are not real SSE instructions in any generation, but should exist.
+
+// Return 0xFFFF where x <= y, else 0x0000.
+inline __m128i _mm_cmple_epu16(__m128i x, __m128i y) {
+	return _mm_cmpeq_epi16(_mm_subs_epu16(x, y), _mm_setzero_si128());
+}
+
+// Return 0xFFFF where x >= y, else 0x0000.
+inline __m128i _mm_cmpge_epu16(__m128i x, __m128i y) {
+	return _mm_cmple_epu16(y, x);
+}
+
+// Return 0xFFFF where x > y, else 0x0000.
+inline __m128i _mm_cmpgt_epu16(__m128i x, __m128i y) {
+	return _mm_andnot_si128(_mm_cmpeq_epi16(x, y), _mm_cmple_epu16(y, x));
+}
+
+// Return 0xFFFF where x < y, else 0x0000.
+inline __m128i _mm_cmplt_epu16(__m128i x, __m128i y) {
+	return _mm_cmpgt_epu16(y, x);
 }
 
 #endif

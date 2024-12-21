@@ -1552,4 +1552,5 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
+	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
 }

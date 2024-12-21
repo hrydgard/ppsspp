@@ -122,7 +122,7 @@ public:
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader {
 public:
-	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
+	VertexReader(const u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
 	void ReadPos(float pos[3]) const {
 		// Only DEC_FLOAT_3 is supported.
@@ -297,8 +297,8 @@ public:
 	}
 
 private:
-	u8 *base_;
-	u8 *data_;
+	const u8 *base_;
+	const u8 *data_;
 	DecVtxFormat decFmt_;
 	int vtype_;
 };

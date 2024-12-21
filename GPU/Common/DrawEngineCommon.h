@@ -27,6 +27,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DepthRaster.h"
 
 class VertexDecoder;
 
@@ -158,6 +159,11 @@ public:
 		_dbg_assert_(numDrawVerts_ == 0 && numDrawInds_ == 0);
 	}
 
+	// temporary hack
+	uint8_t *GetTempSpace() {
+		return decoded_ + 12 * 65536;
+	}
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
@@ -168,6 +174,9 @@ protected:
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
+
+	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
+	void DepthRasterPretransformed(GEPrimitiveType prim, const TransformedVertex *inVerts, int count);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -223,6 +232,11 @@ protected:
 	}
 
 	inline bool CollectedPureDraw() const {
+		// TODO: Do something faster.
+		if (useDepthRaster_) {
+			return false;
+		}
+
 		switch (seenPrims_) {
 		case 1 << GE_PRIM_TRIANGLE_STRIP:
 			return !anyCCWOrIndexed_ && numDrawInds_ == 1;
@@ -338,4 +352,10 @@ protected:
 	bool offsetOutsideEdge_;
 
 	GPUCommon *gpuCommon_;
+
+	// Software depth raster
+	bool useDepthRaster_ = false;
+
+	float *depthTransformed_ = nullptr;
+	int *depthScreenVerts_ = nullptr;
 };

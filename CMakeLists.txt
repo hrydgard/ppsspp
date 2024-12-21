@@ -1906,6 +1906,8 @@ set(GPU_SOURCES
 	GPU/Common/Draw2D.cpp
 	GPU/Common/Draw2D.h
 	GPU/Common/DepthBufferCommon.cpp
+	GPU/Common/DepthRaster.cpp
+	GPU/Common/DepthRaster.h
 	GPU/Common/TextureShaderCommon.cpp
 	GPU/Common/TextureShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp

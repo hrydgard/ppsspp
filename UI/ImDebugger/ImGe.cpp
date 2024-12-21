@@ -149,12 +149,44 @@ void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInte
 		if (ImGui::Button("Refresh")) {
 			viewer_.Snapshot();
 		}
+		if (ImGui::Button("Show cur depth")) {
+			viewer_.addr = gstate.getDepthBufRawAddress() | 0x04000000;
+			viewer_.format = GE_FORMAT_DEPTH16;
+			viewer_.stride = gstate.DepthBufStride();
+			viewer_.width = viewer_.stride;
+			viewer_.Snapshot();
+		}
+		if (ImGui::Button("Show cur color")) {
+			viewer_.addr = gstate.getFrameBufAddress();
+			viewer_.format = gstate.FrameBufFormat();
+			viewer_.stride = gstate.FrameBufStride();
+			viewer_.width = viewer_.stride;
+			viewer_.Snapshot();
+		}
+		ImGui::Checkbox("Realtime", &cfg.realtimePixelPreview);
 	}
 	ImGui::EndChild();
 
+	if (cfg.realtimePixelPreview) {
+		viewer_.Snapshot();
+	}
+
 	ImGui::SameLine();
 	if (ImGui::BeginChild("right")) {
+		ImVec2 p0 = ImGui::GetCursorScreenPos();
 		viewer_.Draw(gpuDebug, draw);
+		if (ImGui::IsItemHovered()) {
+			int x = (int)(ImGui::GetMousePos().x - p0.x);
+			int y = (int)(ImGui::GetMousePos().y - p0.y);
+			char temp[128];
+			if (viewer_.FormatValueAt(temp, sizeof(temp), x, y)) {
+				ImGui::Text("(%d, %d): %s", x, y, temp);
+			} else {
+				ImGui::Text("%d, %d: N/A", x, y);
+			}
+		} else {
+			ImGui::TextUnformatted("(no pixel hovered)");
+		}
 	}
 	ImGui::EndChild();
 	ImGui::End();
@@ -209,6 +241,12 @@ bool ImGePixelViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) con
 	{
 		u16 raw = Memory::Read_U16(pixelAddr);
 		snprintf(buf, bufSize, "%08x (raw: %04x)", RGBA5551ToRGBA8888(raw), raw);
+		break;
+	}
+	case GE_FORMAT_DEPTH16:
+	{
+		u16 raw = Memory::Read_U16(pixelAddr);
+		snprintf(buf, bufSize, "%0.4f (raw: %04x / %d)", (float)raw / 65535.0f, raw, raw);
 		break;
 	}
 	default:
@@ -356,6 +394,7 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 			readbackFmt_ = Draw::DataFormat::R8G8B8A8_UNORM;
 			break;
 		case Draw::Aspect::DEPTH_BIT:
+			// TODO: Add fallback
 			readbackFmt_ = Draw::DataFormat::D32F;
 			break;
 		case Draw::Aspect::STENCIL_BIT:
@@ -385,14 +424,15 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 				}
 			}
 
+			Draw::DataFormat fmt = rbBpp == 1 ? Draw::DataFormat::R8_UNORM : Draw::DataFormat::R32_FLOAT;
 			Draw::TextureDesc desc{ Draw::TextureType::LINEAR2D,
-				rbBpp == 1 ? Draw::DataFormat::R8_UNORM : Draw::DataFormat::R32_FLOAT,
+				fmt,
 				(int)w,
 				(int)h,
 				1,
 				1,
 				false,
-				rbBpp == 1 ? Draw::TextureSwizzle::R8_AS_ALPHA : Draw::TextureSwizzle::DEFAULT,
+				Draw::DataFormatNumChannels(fmt) == 1 ? Draw::TextureSwizzle::R8_AS_GRAYSCALE: Draw::TextureSwizzle::DEFAULT,
 				"PixelViewer temp",
 				{ texData },
 				nullptr,
@@ -432,7 +472,9 @@ bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) 
 	case Draw::DataFormat::D32F:
 	{
 		const float *read = (const float *)(data_ + offset);
-		snprintf(buf, bufSize, "%0.4f", *read);
+		float value = *read;
+		int ivalue = *read * 65535.0f;
+		snprintf(buf, bufSize, "%0.4f (raw: %04x / %d)", *read, ivalue, ivalue);
 		return true;
 	}
 	case Draw::DataFormat::S8:
@@ -1060,6 +1102,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
 
 					drawList->PopClipRect();
+
 				} else {
 					ImGui::Text("(no valid texture bound)");
 					// In software mode, we should just decode the texture here.

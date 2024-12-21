@@ -118,6 +118,25 @@ bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
 	}
 }
 
+int DataFormatNumChannels(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::D16:
+	case DataFormat::D32F:
+	case DataFormat::R8_UNORM:
+	case DataFormat::R16_UNORM:
+	case DataFormat::R16_FLOAT:
+	case DataFormat::R32_FLOAT:
+		return 1;
+	case DataFormat::R8G8B8A8_UNORM:
+	case DataFormat::R8G8B8A8_UNORM_SRGB:
+	case DataFormat::B8G8R8A8_UNORM:
+	case DataFormat::B8G8R8A8_UNORM_SRGB:
+		return 4;
+	default:
+		return 0;
+	}
+}
+
 RefCountedObject::~RefCountedObject() {
 	const int rc = refcount_.load();
 	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);

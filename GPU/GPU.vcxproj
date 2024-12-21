@@ -346,6 +346,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="Common\DepthRaster.h" />
     <ClInclude Include="Common\ReplacedTexture.h" />
     <ClInclude Include="Common\TextureReplacer.h" />
     <ClInclude Include="Common\TextureShaderCommon.h" />
@@ -468,6 +469,7 @@
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="Common\DepthBufferCommon.cpp" />
+    <ClCompile Include="Common\DepthRaster.cpp" />
     <ClCompile Include="Common\ReplacedTexture.cpp" />
     <ClCompile Include="Common\TextureReplacer.cpp" />
     <ClCompile Include="Common\TextureShaderCommon.cpp" />

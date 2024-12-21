@@ -623,6 +623,11 @@ enum GEPatchPrimType
 	GE_PATCHPRIM_UNKNOWN = 3,
 };
 
+enum GECullMode {
+	GE_CULL_CW = 0,
+	GE_CULL_CCW = 1,
+};
+
 inline GEPrimitiveType PatchPrimToPrim(GEPatchPrimType type) {
 	switch (type) {
 	case GE_PATCHPRIM_TRIANGLES: return GE_PRIM_TRIANGLES;
