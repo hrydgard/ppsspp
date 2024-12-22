@@ -111,6 +111,13 @@ struct Vec4F32 {
 		return Vec4F32{ _mm_and_ps(v, _mm_load_ps((float *)mask)) };
 	}
 
+	// Swaps the two lower elements. Useful for reversing triangles..
+	Vec4F32 SwapLowerElements() {
+		return Vec4F32{
+			_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 2, 0, 1))
+		};
+	}
+
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
 			_mm_add_ps(
@@ -210,8 +217,8 @@ struct Vec4S32 {
 	// Swaps the two lower elements, but NOT the two upper ones. Useful for reversing triangles..
 	// This is quite awkward on ARM64 :/ Maybe there's a better solution?
 	Vec4S32 SwapLowerElements() {
-		float32x2_t upper = vget_high_s32(v);
-		float32x2_t lowerSwapped = vrev64_s32(vget_low_s32(v));
+		int32x2_t upper = vget_high_s32(v);
+		int32x2_t lowerSwapped = vrev64_s32(vget_low_s32(v));
 		return Vec4S32{ vcombine_s32(lowerSwapped, upper) };
 	};
 
@@ -280,6 +287,13 @@ struct Vec4F32 {
 	Vec4F32 WithLane3Zeroed() const {
 		return Vec4F32{ vsetq_lane_f32(0.0f, v, 3) };
 	}
+
+	// Swaps the two lower elements, but NOT the two upper ones. Useful for reversing triangles..
+	// This is quite awkward on ARM64 :/ Maybe there's a better solution?
+	Vec4F32 SwapLowerElements() {
+		float32x2_t lowerSwapped = vrev64_f32(vget_low_f32(v));
+		return Vec4F32{ vcombine_f32(lowerSwapped, vget_high_f32(v)) };
+	};
 
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {

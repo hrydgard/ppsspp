@@ -1769,13 +1769,14 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
 		"Vertices: %d dec: %d drawn: %d\n"
-		"FBOs active: %d (evaluations: %d)\n"
+		"FBOs active: %d (evaluations: %d, created %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
-		"GPU cycles: %d (%0.1f per vertex)\n%s",
+		"GPU cycles: %d (%0.1f per vertex)\n"
+		"Depth raster: %0.2f ms, %d prim, %d nopix, %d small, %d backface\n%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
@@ -1791,6 +1792,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.numFramebufferEvaluations,
+		gpuStats.numFBOsCreated,
 		(int)textureCache_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
@@ -1811,6 +1813,11 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numCopiesForSelfTex,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles,
+		gpuStats.msRasterizingDepth * 1000.0,
+		gpuStats.numDepthRasterPrims,
+		gpuStats.numDepthRasterNoPixels,
+		gpuStats.numDepthRasterTooSmall,
+		gpuStats.numDepthRasterBackface,
 		debugRecording_ ? "(debug-recording)" : ""
 	);
 }

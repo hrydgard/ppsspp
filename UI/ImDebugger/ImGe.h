@@ -96,6 +96,8 @@ struct ImGeReadbackViewer : public PixelLookup {
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 
+	// TODO: This is unsafe! If you load state for example with the debugger open...
+	// We need to re-fetch this each frame from the parameters.
 	VirtualFramebuffer *vfb = nullptr;
 
 	// This specifies what to show
