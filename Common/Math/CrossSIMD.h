@@ -45,6 +45,17 @@ struct Vec4S32 {
 		};
 	}
 
+	// Reads 16 bits from both operands, produces a 32-bit result per lane.
+	// On SSE2, much faster than _mm_mullo_epi32_SSE2.
+	// On NEON though, it'll read the full 32 bits, so beware.
+	// See https://fgiesen.wordpress.com/2016/04/03/sse-mind-the-gap/.
+	Vec4S32 MulAsS16(Vec4S32 other) const {
+		// Note that we only need to mask one of the inputs, so we get zeroes - multiplying
+		// by zero is zero, so it doesn't matter what the upper halfword of each 32-bit word is
+		// in the other register.
+		return Vec4S32{ _mm_madd_epi16(v, _mm_and_si128(other.v, _mm_set1_epi32(0x0000FFFF))) };
+	}
+
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ _mm_add_epi32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ _mm_sub_epi32(v, other.v) }; }
 	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ _mm_or_si128(v, other.v) }; }
@@ -222,6 +233,9 @@ struct Vec4S32 {
 		return Vec4S32{ vcombine_s32(lowerSwapped, upper) };
 	};
 
+	// Warning: Unlike on x86, this is a full 32-bit multiplication.
+	Vec4S32 MulAsS16(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+
 	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ vaddq_s32(v, other.v) }; }
 	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ vsubq_s32(v, other.v) }; }
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
@@ -269,6 +283,7 @@ struct Vec4F32 {
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
+
 	Vec4F32 Recip() {
 		float32x4_t recip = vrecpeq_f32(v);
 		// Use a couple Newton-Raphson steps to refine the estimate.
