@@ -957,7 +957,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 
 	int *tx = depthScreenVerts_;
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	int *tz = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2;
+	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
 	// Clip and triangulate using the index buffer.
 	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
@@ -966,7 +966,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
 			tx[i] = 0;
 			ty[i] = 0;
-			tz[i] = 0;
+			tz[i] = 0.0f;
 		}
 	}
 
@@ -993,7 +993,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 
 	int *tx = depthScreenVerts_;
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	int *tz = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2;
+	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
 	int outVertCount = 0;
 
@@ -1027,7 +1027,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
 			tx[i] = 0;
 			ty[i] = 0;
-			tz[i] = 0;
+			tz[i] = 0.0f;
 		}
 	}
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),

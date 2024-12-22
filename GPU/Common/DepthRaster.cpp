@@ -84,7 +84,7 @@ struct Edge {
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, ZCompareMode compareMode) {
+bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, ZCompareMode compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -95,16 +95,12 @@ bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
 	// are slow on SSE2.
 
-	// Convert to whole pixels for now. Later subpixel precision.
 	int v0x = tx[0];
 	int v0y = ty[0];
-	int v0z = tz[0];
 	int v1x = tx[1];
 	int v1y = ty[1];
-	int v1z = tz[1];
 	int v2x = tx[2];
 	int v2y = ty[2];
-	int v2z = tz[2];
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	// We use 4x1 tiles for simplicity.
@@ -117,7 +113,7 @@ bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 		return false;
 	}
 
-	// TODO: Cull really small triangles here.
+	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
 	if (triArea <= 0) {
 		return false;
@@ -132,9 +128,9 @@ bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	Vec4S32 w2_row = e01.init(v0x, v0y, v1x, v1y, minX, minY);
 
 	// Prepare to interpolate Z
-	Vec4F32 zz0 = Vec4F32::Splat((float)v0z);
-	Vec4F32 zz1 = Vec4F32::Splat((float)(v1z - v0z) * oneOverTriArea);
-	Vec4F32 zz2 = Vec4F32::Splat((float)(v2z - v0z) * oneOverTriArea);
+	Vec4F32 zz0 = Vec4F32::Splat(tz[0]);
+	Vec4F32 zz1 = Vec4F32::Splat((tz[1] - tz[0]) * oneOverTriArea);
+	Vec4F32 zz2 = Vec4F32::Splat((tz[2] - tz[0]) * oneOverTriArea);
 
 	Vec4F32 zdeltaX = zz1 * Vec4F32FromS32(e20.oneStepX) + zz2 * Vec4F32FromS32(e01.oneStepX);
 	Vec4F32 zdeltaY = zz1 * Vec4F32FromS32(e20.oneStepY) + zz2 * Vec4F32FromS32(e01.oneStepY);
@@ -253,7 +249,7 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	}
 }
 
-int DepthRasterClipIndexedRectangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
 	// However, hard to find a common abstraction.
 	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter());
@@ -293,20 +289,21 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, int *tz, const float *tra
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32 screen[3];
+		Vec4S32 screen[2];
+		Vec4F32 depth;
 		screen[0] = Vec4S32FromF32((x * viewportScaleX + viewportX) - offsetX);
 		screen[1] = Vec4S32FromF32((y * viewportScaleY + viewportY) - offsetY);
-		screen[2] = Vec4S32FromF32((z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f));
+		depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
 		screen[1].Store(ty + outCount);
-		screen[2].Store(tz + outCount);
+		depth.Store(tz + outCount);
 		outCount += 2;
 	}
 	return outCount;
 }
 
-int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 	GECullMode cullMode = gstate.getCullMode();
 
@@ -355,14 +352,14 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32 screen[3];
+		Vec4S32 screen[2];
 		screen[0] = Vec4S32FromF32((x * viewportScaleX + viewportX) - offsetX);
 		screen[1] = Vec4S32FromF32((y * viewportScaleY + viewportY) - offsetY);
-		screen[2] = Vec4S32FromF32((z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f));
+		Vec4F32 depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
 		screen[1].Store(ty + outCount);
-		screen[2].Store(tz + outCount);
+		depth.Store(tz + outCount);
 		outCount += 3;
 
 		if (!cullEnabled) {
@@ -375,25 +372,25 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, int *tz, const float *tran
 
 			screen[0].SwapLowerElements().Store(tx + outCount);
 			screen[1].SwapLowerElements().Store(ty + outCount);
-			screen[2].SwapLowerElements().Store(tz + outCount);
+			depth.SwapLowerElements().Store(tz + outCount);
 			outCount += 3;
 		}
 	}
 	return outCount;
 }
 
-void DepthRasterConvertTransformed(int *tx, int *ty, int *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	// TODO: This is basically a transpose, or AoS->SoA conversion. There may be fast ways.
 	for (int i = 0; i < count; i++) {
 		const float *pos = transformed + indexBuffer[i] * 4;
 		tx[i] = (int)pos[0];
 		ty[i] = (int)pos[1];
-		tz[i] = (u16)pos[2];
+		tz[i] = pos[2];  // clamp?
 	}
 }
 
 // Rasterizes screen-space vertices.
-void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const int *tz, int count) {
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, int count) {
 	// Prim should now be either TRIANGLES or RECTs.
 	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
 
@@ -442,7 +439,7 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 	switch (prim) {
 	case GE_PRIM_RECTANGLES:
 		for (int i = 0; i < count; i += 2) {
-			uint16_t z = tz[i + 1];  // depth from second vertex
+			uint16_t z = (uint16_t)tz[i + 1];  // depth from second vertex
 			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
 			DepthRasterRect(depth, depthStride, tx[i], ty[i], tx[i + 1], ty[i + 1], z, comp);
