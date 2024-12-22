@@ -199,7 +199,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 			switch (compareMode) {
 			case ZCompareMode::Greater:
 				// To implement the greater/greater-than comparison, we can combine mask and max.
-				// It might be better to do the math in float space on x86 due to SSE2 deficiencies.
+				// Unfortunately there's no unsigned max on SSE2, it's synthesized by xoring 0x8000 on input and output.
 				// We use AndNot to zero out Z results, before doing Max with the buffer.
 				AndNot(shortZ, shortMaskInv).Max(bufferValues).Store(rowPtr + x);
 				break;

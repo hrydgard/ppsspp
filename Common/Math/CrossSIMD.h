@@ -172,7 +172,7 @@ struct Vec4U16 {
 	Vec4U16 operator ^(Vec4U16 other) const { return Vec4U16{ _mm_xor_si128(v, other.v) }; }
 
 	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ _mm_max_epu16_SSE2(v, other.v) }; }
-	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ _mm_max_epu16_SSE2(v, other.v) }; }
+	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ _mm_min_epu16_SSE2(v, other.v) }; }
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ _mm_cmplt_epu16(v, other.v) }; }
 };
 
