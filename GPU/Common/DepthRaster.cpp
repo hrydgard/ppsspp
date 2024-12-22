@@ -15,23 +15,41 @@ enum class ZCompareMode {
 	Always,  // Fairly common
 };
 
-void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2, short depthValue, ZCompareMode compareMode) {
+// x1/x2 etc are the scissor rect.
+void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2, int v1x, int v1y, int v2x, int v2y, short depthValue, ZCompareMode compareMode) {
 	// Swap coordinates if needed, we don't back-face-cull rects.
 	// We also ignore the UV rotation here.
-	if (x1 > x2) {
-		std::swap(x1, x2);
+	if (v1x > v2x) {
+		std::swap(v1x, v2x);
 	}
-	if (y1 > y2) {
-		std::swap(y1, y2);
+	if (v1y > v2y) {
+		std::swap(v1y, v2y);
 	}
-	if (x1 == x2 || y1 == y2) {
+
+	if (v1x < x1) {
+		v1x = x1;
+	}
+	if (v2x > x2) {
+		v2x = x2;
+	}
+	if (v1x >= v2x) {
+		return;
+	}
+
+	if (v1y < y1) {
+		v1y = y1;
+	}
+	if (v2y > y2) {
+		v2y = y2;
+	}
+	if (v1y >= v2y) {
 		return;
 	}
 
 	Vec8U16 valueX8 = Vec8U16::Splat(depthValue);
-	for (int y = y1; y < y2; y++) {
-		uint16_t *ptr = (uint16_t *)(dest + stride * y + x1);
-		int w = x2 - x1;
+	for (int y = v1y; y < v2y; y++) {
+		uint16_t *ptr = (uint16_t *)(dest + stride * y + v1x);
+		int w = v2x - v1x;
 		switch (compareMode) {
 		case ZCompareMode::Always:
 			if (depthValue == 0) {
@@ -454,7 +472,7 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 			uint16_t z = (uint16_t)tz[i + 1];  // depth from second vertex
 			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
-			DepthRasterRect(depth, depthStride, tx[i], ty[i], tx[i + 1], ty[i + 1], z, comp);
+			DepthRasterRect(depth, depthStride, x1, y1, x2, y2, tx[i], ty[i], tx[i + 1], ty[i + 1], z, comp);
 		}
 		gpuStats.numDepthRasterPrims += count / 2;
 		break;
