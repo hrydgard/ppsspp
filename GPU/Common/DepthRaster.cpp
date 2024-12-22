@@ -60,9 +60,13 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 					ptr += 8;
 					w -= 8;
 				}
+				// Non-simd trailer.
+				while (w > 0) {
+					*ptr++ = depthValue;
+					w--;
+				}
 			}
 			break;
-			// TODO: Trailer
 		default:
 			// TODO
 			break;
@@ -111,7 +115,8 @@ constexpr int MIN_TRI_AREA = 10;
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, ZCompareMode compareMode) {
+template<ZCompareMode compareMode>
+TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -190,7 +195,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 
 			Vec4U16 shortZ = Vec4U16::FromVec4F32(zs);
 
-			// TODO: Lift this switch out of the inner loop, or even out of the function with templating.
+			// This switch is on a templated constant, so should collapse away.
 			switch (compareMode) {
 			case ZCompareMode::Greater:
 				// To implement the greater/greater-than comparison, we can combine mask and max.
@@ -479,9 +484,25 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 	case GE_PRIM_TRIANGLES:
 	{
 		int stats[4]{};
-		for (int i = 0; i < count; i += 3) {
-			TriangleResult result = DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], comp);
-			stats[(int)result]++;
+		switch (comp) {
+		case ZCompareMode::Greater:
+			for (int i = 0; i < count; i += 3) {
+				TriangleResult result = DepthRasterTriangle<ZCompareMode::Greater>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				stats[(int)result]++;
+			}
+			break;
+		case ZCompareMode::Less:
+			for (int i = 0; i < count; i += 3) {
+				TriangleResult result = DepthRasterTriangle<ZCompareMode::Less>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				stats[(int)result]++;
+			}
+			break;
+		case ZCompareMode::Always:
+			for (int i = 0; i < count; i += 3) {
+				TriangleResult result = DepthRasterTriangle<ZCompareMode::Always>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				stats[(int)result]++;
+			}
+			break;
 		}
 		gpuStats.numDepthRasterBackface += stats[(int)TriangleResult::Backface];
 		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleResult::NoPixels];
