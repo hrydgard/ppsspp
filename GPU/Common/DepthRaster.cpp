@@ -81,10 +81,19 @@ struct Edge {
 	}
 };
 
+enum class TriangleResult {
+	OK,
+	NoPixels,
+	Backface,
+	TooSmall,
+};
+
+constexpr int MIN_TRI_AREA = 10;
+
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
-bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, ZCompareMode compareMode) {
+TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, ZCompareMode compareMode) {
 	int tileStartX = x1;
 	int tileEndX = x2;
 
@@ -110,13 +119,16 @@ bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), tileEndY);
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
-		return false;
+		return TriangleResult::NoPixels;
 	}
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
 	if (triArea <= 0) {
-		return false;
+		return TriangleResult::Backface;
+	}
+	if (triArea < MIN_TRI_AREA) {
+		return TriangleResult::TooSmall;
 	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
@@ -179,7 +191,7 @@ bool DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2,
 			}
 		}
 	}
-	return true;
+	return TriangleResult::OK;
 }
 
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
@@ -448,14 +460,15 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 		break;
 	case GE_PRIM_TRIANGLES:
 	{
-		int culled = 0;
+		int stats[4]{};
 		for (int i = 0; i < count; i += 3) {
-			if (!DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], comp)) {
-				culled++;
-			}
+			TriangleResult result = DepthRasterTriangle(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i], comp);
+			stats[(int)result]++;
 		}
-		gpuStats.numDepthRasterCulls += culled;
-		gpuStats.numDepthRasterPrims += count / 3;
+		gpuStats.numDepthRasterBackface += stats[(int)TriangleResult::Backface];
+		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleResult::NoPixels];
+		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleResult::TooSmall];
+		gpuStats.numDepthRasterPrims += stats[(int)TriangleResult::OK];
 		break;
 	}
 	default:
