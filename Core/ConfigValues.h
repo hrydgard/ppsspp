@@ -83,6 +83,13 @@ enum class GPUBackend {
 	VULKAN = 3,
 };
 
+enum class DepthRasterMode {
+	DEFAULT = 0,
+	LOW_QUALITY = 1,
+	OFF = 2,
+	FORCE_ON = 3,
+};
+
 enum class RestoreSettingsBits : int {
 	SETTINGS = 1,
 	CONTROLS = 2,

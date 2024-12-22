@@ -54,10 +54,16 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	indexGen.Setup(decIndex_);
 
-	useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
-	if (useDepthRaster_) {
-		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
+	case DepthRasterMode::DEFAULT:
+	case DepthRasterMode::LOW_QUALITY:
+		useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
+		break;
+	case DepthRasterMode::FORCE_ON:
+		useDepthRaster_ = true;
+		break;
+	case DepthRasterMode::OFF:
+		useDepthRaster_ = false;
 	}
 }
 
@@ -779,6 +785,10 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 void DrawEngineCommon::BeginFrame() {
 	applySkinInDecode_ = g_Config.bSoftwareSkinning;
+	if (!depthTransformed_ && useDepthRaster_) {
+		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 }
 
 void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
