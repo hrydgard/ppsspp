@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Compatibility.h"
+#include "Core/Debugger/MemBlockInfo.h"
 
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -119,7 +120,11 @@ int PowerBusMhzToHz(int mhz) {
 
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
+
 	volatileMemLocked = false;
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08400000, 0x400000, "Volatile memory (not locked)");
+	// The tags are functional, because scePower is initialized after sceKernelMemory
+
 	volatileWaitingThreads.clear();
 
 	if (GetLockedCPUSpeedMhz() > 0) {
@@ -309,6 +314,7 @@ int KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		Memory::Write_U32(0x00400000, psize);
 	}
 	volatileMemLocked = true;
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08400000, 0x400000, "Volatile memory (locked)");
 
 	return 0;
 }
@@ -348,6 +354,7 @@ int KernelVolatileMemUnlock(int type) {
 	}
 
 	volatileMemLocked = false;
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08400000, 0x400000, "Volatile memory (not locked)");
 
 	// Wake someone, always fifo.
 	bool wokeThreads = false;
