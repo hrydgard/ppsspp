@@ -315,6 +315,9 @@ void DrawEngineGLES::Flush() {
 				inputLayout, vertexBuffer, vertexBufferOffset,
 				glprim[prim], 0, vertexCount);
 		}
+		if (useDepthRaster_) {
+			DepthRasterTransform(prim, dec_, dec_->VertexType(), vertexCount);
+		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		VertexDecoder *swDec = dec_;
@@ -369,6 +372,13 @@ void DrawEngineGLES::Flush() {
 				WARN_LOG_REPORT_ONCE(manyVerts, Log::G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
 				vertexCount = vertexCountLimit;
 			}
+		}
+
+		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
+		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
+		// should clean up one day...
+		if (useDepthRaster_) {
+			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
 		}
 
 		SoftwareTransform swTransform(params);
