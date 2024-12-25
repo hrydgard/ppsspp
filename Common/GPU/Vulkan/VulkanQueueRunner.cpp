@@ -3,7 +3,6 @@
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-#include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
@@ -1327,12 +1326,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		renderPass = GetRenderPass(key);
-
-		if (IsVREnabled()) {
-			framebuf = (VkFramebuffer)BindVRFramebuffer();
-		} else {
-			framebuf = backbuffer_;
-		}
+		framebuf = backbuffer_;
 
 		// Raw, rotated backbuffer size.
 		w = vulkan_->GetBackbufferWidth();
