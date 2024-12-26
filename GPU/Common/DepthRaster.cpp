@@ -287,15 +287,12 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
 	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter());
+	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
+	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
 	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
 	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
 	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
 	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
-
-	const Vec4F32 offsetX = Vec4F32::Splat(gstate.getOffsetX());  // We remove the 16 scale here
-	const Vec4F32 offsetY = Vec4F32::Splat(gstate.getOffsetY());
 
 	int outCount = 0;
 	for (int i = 0; i < count; i += 2) {
@@ -326,8 +323,8 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 
 		Vec4S32 screen[2];
 		Vec4F32 depth;
-		screen[0] = Vec4S32FromF32((x * viewportScaleX + viewportX) - offsetX);
-		screen[1] = Vec4S32FromF32((y * viewportScaleY + viewportY) - offsetY);
+		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
+		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
 		depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
@@ -344,15 +341,12 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 
 	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
 	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter());
+	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
+	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
 	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
 	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
 	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
 	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
-
-	const Vec4F32 offsetX = Vec4F32::Splat(gstate.getOffsetX());  // We remove the 16 scale here
-	const Vec4F32 offsetY = Vec4F32::Splat(gstate.getOffsetY());
 
 	int outCount = 0;
 
@@ -388,8 +382,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		z *= recipW;
 
 		Vec4S32 screen[2];
-		screen[0] = Vec4S32FromF32((x * viewportScaleX + viewportX) - offsetX);
-		screen[1] = Vec4S32FromF32((y * viewportScaleY + viewportY) - offsetY);
+		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
+		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
 		Vec4F32 depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
