@@ -258,15 +258,15 @@ struct Vec4F32 {
 	void Store(float *dst) { vst1q_f32(dst, v); }
 	void StoreAligned(float *dst) { vst1q_f32(dst, v); }
 
-	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
+	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		int16x4_t value = vld1_s16(src);
 		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value)) };
 	}
 
-	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes
+	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
 		int8x8_t value = vld1_s8(src);
 		int16x4_t value16 = vget_low_s16(vmovl_s8(value));
-		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value)) };
+		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value16)) };
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
@@ -366,7 +366,7 @@ struct Vec4U16 {
 	void Store(uint16_t *mem) { vst1_u16(mem, v); }
 
 	static Vec4U16 FromVec4S32(Vec4S32 v) {
-		return Vec4U16{ vmovn_u16(v.v) };
+		return Vec4U16{ vmovn_u32(vreinterpretq_u32_s32(v.v)) };
 	}
 	static Vec4U16 FromVec4F32(Vec4F32 v) {
 		return Vec4U16{ vmovn_u32(vreinterpretq_u32_s32(vcvtq_s32_f32(v.v))) };
