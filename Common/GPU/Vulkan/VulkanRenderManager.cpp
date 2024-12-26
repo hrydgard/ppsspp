@@ -13,7 +13,6 @@
 
 #include "Common/LogReporting.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/VR/PPSSPPVR.h"
 
 #if 0 // def _DEBUG
 #define VLOG(...) NOTICE_LOG(Log::G3D, __VA_ARGS__)
@@ -1534,16 +1533,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (task.steps.empty() && !frameData.hasAcquired)
 		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
-	if (IsVREnabled()) {
-		int passes = GetVRPassesCount();
-		for (int i = 0; i < passes; i++) {
-			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_, i < passes - 1);
-			PostVRFrameRender();
-		}
-	} else {
-		queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
-	}
+	queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
 
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:

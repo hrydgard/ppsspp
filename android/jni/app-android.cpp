@@ -993,7 +993,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 
 	if (IsVREnabled()) {
-		EnterVR(firstStart, graphicsContext->GetAPIContext());
+		EnterVR(firstStart);
 	}
 	return true;
 }
