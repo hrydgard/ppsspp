@@ -30,7 +30,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		v1x = x1;
 	}
 	if (v2x > x2) {
-		v2x = x2;
+		v2x = x2 + 1;  // PSP scissors are inclusive
 	}
 	if (v1x >= v2x) {
 		return;
@@ -40,7 +40,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		v1y = y1;
 	}
 	if (v2y > y2) {
-		v2y = y2;
+		v2y = y2 + 1;
 	}
 	if (v1y >= v2y) {
 		return;
