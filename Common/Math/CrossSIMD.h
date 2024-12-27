@@ -8,6 +8,8 @@
 
 #if PPSSPP_ARCH(SSE2)
 
+// The point of this, as opposed to a float4 array, is to almost force the compiler
+// to keep the matrix in registers, rather than loading on every access.
 struct Mat4F32 {
 	Mat4F32(const float *matrix) {
 		col0 = _mm_loadu_ps(matrix);
@@ -15,7 +17,12 @@ struct Mat4F32 {
 		col2 = _mm_loadu_ps(matrix + 8);
 		col3 = _mm_loadu_ps(matrix + 12);
 	}
-
+	void Store(float *m) {
+		_mm_storeu_ps(m, col0);
+		_mm_storeu_ps(m + 4, col1);
+		_mm_storeu_ps(m + 8, col2);
+		_mm_storeu_ps(m + 12, col3);
+	}
 	__m128 col0;
 	__m128 col1;
 	__m128 col2;
@@ -117,9 +124,15 @@ struct Vec4F32 {
 		};
 	}
 
-	Vec4F32 WithLane3Zeroed() const {
-		alignas(16) static uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
-		return Vec4F32{ _mm_and_ps(v, _mm_load_ps((float *)mask)) };
+	Vec4F32 WithLane3Zero() const {
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		return Vec4F32{ _mm_and_ps(v, _mm_load_ps((const float *)mask)) };
+	}
+
+	Vec4F32 WithLane3One() const {
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		alignas(16) static const float onelane3[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		return Vec4F32{ _mm_or_ps(_mm_and_ps(v, _mm_load_ps((const float *)mask)), _mm_load_ps((const float *)onelane3)) };
 	}
 
 	// Swaps the two lower elements. Useful for reversing triangles..
@@ -149,6 +162,21 @@ struct Vec4F32 {
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
+
+// Make sure the W component of scale is 1.0f.
+inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
+	m.col0 = _mm_mul_ps(m.col0, scale.v);
+	m.col1 = _mm_mul_ps(m.col1, scale.v);
+	m.col2 = _mm_mul_ps(m.col2, scale.v);
+	m.col3 = _mm_mul_ps(m.col3, scale.v);
+}
+
+inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translate) {
+	m.col0 = _mm_add_ps(_mm_mul_ps(m.col0, scale.v), _mm_mul_ps(translate.v, _mm_shuffle_ps(m.col0, m.col0, _MM_SHUFFLE(3,3,3,3))));
+	m.col1 = _mm_add_ps(_mm_mul_ps(m.col1, scale.v), _mm_mul_ps(translate.v, _mm_shuffle_ps(m.col1, m.col1, _MM_SHUFFLE(3,3,3,3))));
+	m.col2 = _mm_add_ps(_mm_mul_ps(m.col2, scale.v), _mm_mul_ps(translate.v, _mm_shuffle_ps(m.col2, m.col2, _MM_SHUFFLE(3,3,3,3))));
+	m.col3 = _mm_add_ps(_mm_mul_ps(m.col3, scale.v), _mm_mul_ps(translate.v, _mm_shuffle_ps(m.col3, m.col3, _MM_SHUFFLE(3,3,3,3))));
+}
 
 struct Vec4U16 {
 	__m128i v;  // we only use the lower 64 bits.
@@ -186,14 +214,14 @@ struct Vec8U16 {
 	void Store(uint16_t *mem) { _mm_storeu_si128((__m128i *)mem, v); }
 };
 
-Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	__m128i temp = _mm_srai_epi32(v.v, 31);
 	return Vec4U16 {
 		_mm_packs_epi32(temp, temp)
 	};
 }
 
-Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
+inline Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
 	return Vec4U16{
 		_mm_andnot_si128(inverted.v, a.v)  // NOTE: with andnot, the first parameter is inverted, and then and is performed.
 	};
@@ -208,11 +236,18 @@ struct Mat4F32 {
 		col2 = vld1q_f32(matrix + 8);
 		col3 = vld1q_f32(matrix + 12);
 	}
+	void Store(float *m) {
+		vst1q_f32(m, col0);
+		vst1q_f32(m + 4, col1);
+		vst1q_f32(m + 8, col2);
+		vst1q_f32(m + 12, col3);
+	}
 	float32x4_t col0;
 	float32x4_t col1;
 	float32x4_t col2;
 	float32x4_t col3;
 };
+
 
 struct Vec4S32 {
 	int32x4_t v;
@@ -299,8 +334,12 @@ struct Vec4F32 {
 		};
 	}
 
-	Vec4F32 WithLane3Zeroed() const {
+	Vec4F32 WithLane3Zero() const {
 		return Vec4F32{ vsetq_lane_f32(0.0f, v, 3) };
+	}
+
+	Vec4F32 WithLane3One() const {
+		return Vec4F32{ vsetq_lane_f32(1.0f, v, 3) };
 	}
 
 	// Swaps the two lower elements, but NOT the two upper ones. Useful for reversing triangles..
@@ -349,6 +388,22 @@ struct Vec4F32 {
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ vcvtq_f32_s32(s.v) }; }
 
+// Make sure the W component of scale is 1.0f.
+inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
+	m.col0 = vmulq_f32(m.col0, scale.v);
+	m.col1 = vmulq_f32(m.col1, scale.v);
+	m.col2 = vmulq_f32(m.col2, scale.v);
+	m.col3 = vmulq_f32(m.col3, scale.v);
+}
+
+// Make sure the W component of scale is 1.0f, and the W component of translate should be 0.
+inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translate) {
+	m.col0 = vaddq_f32(vmulq_f32(m.col0, scale.v), vmulq_laneq_f32(translate.v, m.col0, 3));
+	m.col1 = vaddq_f32(vmulq_f32(m.col1, scale.v), vmulq_laneq_f32(translate.v, m.col1, 3));
+	m.col2 = vaddq_f32(vmulq_f32(m.col2, scale.v), vmulq_laneq_f32(translate.v, m.col2, 3));
+	m.col3 = vaddq_f32(vmulq_f32(m.col3, scale.v), vmulq_laneq_f32(translate.v, m.col3, 3));
+}
+
 inline bool AnyZeroSignBit(Vec4S32 value) {
 	// Very suboptimal, let's optimize later.
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
@@ -381,13 +436,13 @@ struct Vec4U16 {
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ vclt_u16(v, other.v) }; }
 };
 
-Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	int32x4_t sign_mask = vshrq_n_s32(v.v, 31);
 	uint16x4_t result = vreinterpret_u16_s16(vmovn_s32(sign_mask));
 	return Vec4U16{ result };
 }
 
-Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
+inline Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
 	return Vec4U16{ vand_u16(a.v, vmvn_u16(inverted.v)) };
 }
 
