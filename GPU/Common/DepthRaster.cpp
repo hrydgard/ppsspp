@@ -280,17 +280,11 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	for (int i = 0; i < count; i++) {
 		const float *data = (const float *)(startPtr + i * vertexStride + offset);
 		// Just pass the position straight through - this is through mode!
-		Vec4F32::Load(data).WithLane3Zeroed().Store(dest + i * 4);
+		Vec4F32::Load(data).WithLane3Zero().Store(dest + i * 4);
 	}
 }
 
 int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
-	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
-	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
-	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
-
 	int outCount = 0;
 	for (int i = 0; i < count; i += 2) {
 		const float *verts[2] = {
@@ -318,15 +312,9 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32 screen[2];
-		Vec4F32 depth;
-		screen[0] = Vec4S32FromF32(x + viewportX);
-		screen[1] = Vec4S32FromF32(y + viewportY);
-		depth = (z + viewportZ).Clamp(0.0f, 65535.0f);
-
-		screen[0].Store(tx + outCount);
-		screen[1].Store(ty + outCount);
-		depth.Store(tz + outCount);
+		Vec4S32FromF32(x).Store(tx + outCount);
+		Vec4S32FromF32(y).Store(ty + outCount);
+		z.Clamp(0.0f, 65535.0f).Store(tz + outCount);
 		outCount += 2;
 	}
 	return outCount;
@@ -335,12 +323,6 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
 	bool cullEnabled = gstate.isCullEnabled();
 	GECullMode cullMode = gstate.getCullMode();
-
-	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
-	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
-	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
 
 	int outCount = 0;
 
@@ -376,9 +358,9 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		z *= recipW;
 
 		Vec4S32 screen[2];
-		screen[0] = Vec4S32FromF32(x + viewportX);
-		screen[1] = Vec4S32FromF32(y + viewportY);
-		Vec4F32 depth = (z + viewportZ).Clamp(0.0f, 65535.0f);
+		screen[0] = Vec4S32FromF32(x);
+		screen[1] = Vec4S32FromF32(y);
+		Vec4F32 depth = z.Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
 		screen[1].Store(ty + outCount);
@@ -403,7 +385,6 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 }
 
 void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
-	// TODO: This is basically a transpose, or AoS->SoA conversion. There may be fast ways.
 	for (int i = 0; i < count; i++) {
 		const float *pos = transformed + indexBuffer[i] * 4;
 		tx[i] = (int)pos[0];

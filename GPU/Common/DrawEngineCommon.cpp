@@ -932,8 +932,13 @@ inline void ComputeFinalProjMatrix(float *worldviewproj) {
 		gstate.getViewportZScale(),
 		1.0f
 	};
-	const float viewportTranslate[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	const float viewportTranslate[4] = {
+		gstate.getViewportXCenter() - gstate.getOffsetX(),
+		gstate.getViewportYCenter() - gstate.getOffsetY(),
+		gstate.getViewportZCenter(),
+	};
 
+	// NOTE: Applying the translation actually works pre-divide, since W is also affected.
 	Mat4F32 m(worldviewproj);
 	TranslateAndScaleInplace(m, Vec4F32::Load(viewportScale), Vec4F32::Load(viewportTranslate));
 	m.Store(worldviewproj);
