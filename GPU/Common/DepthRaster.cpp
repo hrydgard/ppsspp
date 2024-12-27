@@ -290,9 +290,6 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
 	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
 	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
-	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
-	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
-	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
 
 	int outCount = 0;
 	for (int i = 0; i < count; i += 2) {
@@ -323,9 +320,9 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 
 		Vec4S32 screen[2];
 		Vec4F32 depth;
-		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
-		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
-		depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
+		screen[0] = Vec4S32FromF32(x + viewportX);
+		screen[1] = Vec4S32FromF32(y + viewportY);
+		depth = (z + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
 		screen[1].Store(ty + outCount);
@@ -344,9 +341,6 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
 	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
 	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
-	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
-	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
-	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
 
 	int outCount = 0;
 
@@ -382,9 +376,9 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		z *= recipW;
 
 		Vec4S32 screen[2];
-		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
-		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
-		Vec4F32 depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
+		screen[0] = Vec4S32FromF32(x + viewportX);
+		screen[1] = Vec4S32FromF32(y + viewportY);
+		Vec4F32 depth = (z + viewportZ).Clamp(0.0f, 65535.0f);
 
 		screen[0].Store(tx + outCount);
 		screen[1].Store(ty + outCount);

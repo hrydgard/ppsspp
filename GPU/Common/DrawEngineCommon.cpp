@@ -22,6 +22,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
@@ -922,6 +923,20 @@ inline void ComputeFinalProjMatrix(float *worldviewproj) {
 	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	// Heh, a bit ugly to mix two different matrix APIs here, but it works.
+
+	const float viewportScale[4] = {
+		gstate.getViewportXScale(),
+		gstate.getViewportYScale(),
+		gstate.getViewportZScale(),
+		1.0f
+	};
+	const float viewportTranslate[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	Mat4F32 m(worldviewproj);
+	TranslateAndScaleInplace(m, Vec4F32::Load(viewportScale), Vec4F32::Load(viewportTranslate));
+	m.Store(worldviewproj);
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
