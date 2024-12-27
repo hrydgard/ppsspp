@@ -821,14 +821,12 @@ namespace MIPSInt
 		{
 		case 36:  // mfic
 			if (!reported) {
-				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
 				WARN_LOG(Log::CPU,"MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
 		case 38:  // mtic
 			if (!reported) {
-				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
 				WARN_LOG(Log::CPU,"MTIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
