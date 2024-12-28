@@ -149,11 +149,11 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
-	if (triArea <= 0) {
+	if (triArea < 0) {
 		return TriangleResult::Backface;
 	}
 	if (triArea < MIN_TRI_AREA) {
-		return TriangleResult::TooSmall;
+		return TriangleResult::TooSmall;  // Or zero area.
 	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
@@ -344,6 +344,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	static const float zerovec[4] = {};
 
 	int collected = 0;
+	int planeCulled = 0;
 	const float *verts[12];  // four triangles at a time!
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
@@ -356,6 +357,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			verts[collected + 1] = v1;
 			verts[collected + 2] = v2;
 			collected += 3;
+		} else {
+			planeCulled++;
 		}
 
 		if (i >= count - 3 && collected != 12) {
@@ -433,6 +436,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			outCount += 12;
 		}
 	}
+
+	gpuStats.numDepthRasterZCulled += planeCulled;
 	return outCount;
 }
 

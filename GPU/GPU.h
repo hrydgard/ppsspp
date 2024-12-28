@@ -113,6 +113,7 @@ struct GPUStatistics {
 		numDepthRasterBackface = 0;
 		numDepthRasterNoPixels = 0;
 		numDepthRasterTooSmall = 0;
+		numDepthRasterZCulled = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
 	}
@@ -159,6 +160,7 @@ struct GPUStatistics {
 	int numDepthRasterBackface;
 	int numDepthRasterNoPixels;
 	int numDepthRasterTooSmall;
+	int numDepthRasterZCulled;
 	// Flip count. Doesn't really belong here.
 	int numFlips;
 };
