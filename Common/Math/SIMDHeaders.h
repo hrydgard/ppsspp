@@ -59,6 +59,8 @@ static inline float32x4_t vmlaq_laneq_f32(float32x4_t a, float32x4_t b, float32x
 	}
 }
 
+#define vfmaq_laneq_f32 vmlaq_laneq_f32
+
 static inline uint32x4_t vcgezq_f32(float32x4_t v) {
 	return vcgeq_f32(v, vdupq_n_f32(0.0f));
 }
@@ -117,6 +119,8 @@ inline __m128i _mm_packu_epi32_SSE2(const __m128i v0) {
 	__m128 temp2 = _mm_castsi128_ps(_mm_shufflehi_epi16(temp, _MM_SHUFFLE(3, 3, 2, 0)));
 	return _mm_castps_si128(_mm_shuffle_ps(temp2, temp2, _MM_SHUFFLE(3, 3, 2, 0)));
 }
+
+#define _mm_splat_lane_ps(v, l) _mm_shuffle_ps((v), (v), _MM_SHUFFLE(l, l, l, l))
 
 #ifdef __cplusplus
 
