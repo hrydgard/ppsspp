@@ -306,13 +306,14 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *v);
 
 	VirtualFramebuffer *DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason);
-	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
+	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason, bool *changed) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
 			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
 			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
+			*changed = false;
 			return currentRenderVfb_;
 		} else {
 			// This is so that we will be able to drive DoSetRenderFramebuffer with inputs
@@ -322,6 +323,7 @@ public:
 			VirtualFramebuffer *vfb = DoSetRenderFrameBuffer(inputs, skipDrawReason);
 			_dbg_assert_msg_(vfb, "DoSetRenderFramebuffer must return a valid framebuffer.");
 			_dbg_assert_msg_(currentRenderVfb_, "DoSetRenderFramebuffer must set a valid framebuffer.");
+			*changed = true;
 			return vfb;
 		}
 	}

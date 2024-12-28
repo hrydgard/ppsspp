@@ -1311,8 +1311,10 @@ void GPUCommon::FlushImm() {
 	gstate_c.UpdateUVScaleOffset();
 
 	VirtualFramebuffer *vfb = nullptr;
-	if (framebufferManager_)
-		vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (framebufferManager_) {
+		bool changed;
+		vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
+	}
 	if (vfb) {
 		CheckDepthUsage(vfb);
 	}

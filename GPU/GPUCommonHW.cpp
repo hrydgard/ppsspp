@@ -531,6 +531,7 @@ void GPUCommonHW::PreExecuteOp(u32 op, u32 diff) {
 }
 
 void GPUCommonHW::CopyDisplayToOutput(bool reallyDirty) {
+	drawEngineCommon_->FlushQueuedDepth();
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
 
@@ -949,9 +950,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// This also makes skipping drawing very effective.
-	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	bool changed;
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
 	if (blueToAlpha) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
+	}
+
+	if (changed) {
+		drawEngineCommon_->FlushQueuedDepth();
 	}
 
 	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
@@ -1273,7 +1279,11 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	bool changed;
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
+	if (changed) {
+		drawEngineCommon_->FlushQueuedDepth();
+	}
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1345,7 +1355,11 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
-	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	bool changed;
+	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
+	if (changed) {
+		drawEngineCommon_->FlushQueuedDepth();
+	}
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1415,6 +1429,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 }
 
 void GPUCommonHW::Execute_BlockTransferStart(u32 op, u32 diff) {
+	drawEngineCommon_->FlushQueuedDepth();
 	Flush();
 
 	PROFILE_THIS_SCOPE("block");  // don't include the flush in the profile, would be misleading.
@@ -1761,6 +1776,16 @@ void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {
 	// And for a bunch of other reasons, but either way, this is what we need to do.
 	// It's possible we could also use this as a hint for the texture cache somehow.
 	framebufferManager_->DiscardFramebufferCopy();
+}
+
+u32 GPUCommonHW::DrawSync(int mode) {
+	drawEngineCommon_->FlushQueuedDepth();
+	return GPUCommon::DrawSync(mode);
+}
+
+int GPUCommonHW::ListSync(int listid, int mode) {
+	drawEngineCommon_->FlushQueuedDepth();
+	return GPUCommon::ListSync(listid, mode);
 }
 
 size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {

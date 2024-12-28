@@ -34,7 +34,6 @@ struct DepthDraw {
 	bool cullEnabled;
 	int cullMode;
 	DepthScissor scissor;
-	bool through;
 	int vertexOffset;
 	int indexOffset;
 	int vertexCount;

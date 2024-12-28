@@ -932,7 +932,7 @@ Mat4F32 ComputeFinalProjMatrix() {
 	return m;
 }
 
-static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount) {
+bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -978,8 +978,13 @@ static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertex
 		_dbg_assert_(gstate.isDepthWriteEnabled());
 	}
 
-	draw->vertexOffset = 0;
-	draw->indexOffset = 0;
+	if (depthVertexCount_ + vertexCount >= DEPTH_INDEXBUFFER_SIZE) {
+		// Can't add more.
+		return false;
+	}
+
+	draw->vertexOffset = depthVertexCount_;
+	draw->indexOffset = depthIndexCount_;
 	draw->vertexCount = vertexCount;
 	draw->cullEnabled = gstate.isCullEnabled();
 	draw->cullMode = gstate.getCullMode();
@@ -1028,8 +1033,11 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	// Copy indices.
 	memcpy(depthIndices_ + draw.indexOffset, decIndex_, sizeof(uint16_t) * vertexCount);
 
-	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	ExecuteDepthDraw(draw);
+	// Commit
+	depthIndexCount_ += vertexCount;
+	depthVertexCount_ += numDec;
+
+	depthDraws_.push_back(draw);
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -1060,8 +1068,22 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	// Copy indices.
 	memcpy(depthIndices_ + draw.indexOffset, decIndex_, sizeof(uint16_t) * vertexCount);
 
-	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	ExecuteDepthDraw(draw);
+	// Commit
+	depthIndexCount_ += vertexCount;
+	depthVertexCount_ += numDecoded;
+
+	depthDraws_.push_back(draw);
+}
+
+void DrawEngineCommon::FlushQueuedDepth() {
+	for (const auto &draw : depthDraws_) {
+		ExecuteDepthDraw(draw);
+	}
+
+	// Reset queue
+	depthIndexCount_ = 0;
+	depthVertexCount_ = 0;
+	depthDraws_.clear();
 }
 
 void DrawEngineCommon::ExecuteDepthDraw(const DepthDraw &draw) {
@@ -1070,12 +1092,16 @@ void DrawEngineCommon::ExecuteDepthDraw(const DepthDraw &draw) {
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
 	int outVertCount = 0;
+
+	const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
+	const uint16_t *indices = depthIndices_ + draw.indexOffset;
+
 	switch (draw.prim) {
 	case GE_PRIM_RECTANGLES:
-		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_ + 4 * draw.vertexOffset, depthIndices_ + draw.indexOffset, draw);
+		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw);
 		break;
 	case GE_PRIM_TRIANGLES:
-		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_ + 4 * draw.vertexOffset, depthIndices_ + draw.indexOffset, draw);
+		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw);
 		break;
 	default:
 		_dbg_assert_(false);
