@@ -35,6 +35,8 @@ struct DepthDraw {
 	int cullMode;
 	DepthScissor scissor;
 	bool through;
+	int transformedStartIndex;
+	int numVertices;
 };
 
 // Specialized, very limited depth-only rasterizer.

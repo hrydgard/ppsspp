@@ -929,7 +929,7 @@ Mat4F32 ComputeFinalProjMatrix() {
 	return m;
 }
 
-static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim) {
+static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -975,6 +975,8 @@ static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim) {
 		_dbg_assert_(gstate.isDepthWriteEnabled());
 	}
 
+	draw->transformedStartIndex = 0;
+	draw->numVertices = vertexCount;
 	draw->cullEnabled = gstate.isCullEnabled();
 	draw->cullMode = gstate.getCullMode();
 	draw->prim = prim;
@@ -1000,7 +1002,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	ComputeFinalProjMatrix().Store(worldviewproj);
 
 	DepthDraw draw;
-	if (!CalculateDepthDraw(&draw, prim)) {
+	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
 		return;
 	}
 
@@ -1025,6 +1027,9 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		numDec += indexUpperBound - indexLowerBound + 1;
 	}
 
+	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
+	// TODO: Copy indices where? Or deindex above?
+
 	int *tx = depthScreenVerts_;
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
@@ -1041,13 +1046,8 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		return;
 	}
 
-	int *tx = depthScreenVerts_;
-	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
-
-
 	DepthDraw draw;
-	if (!CalculateDepthDraw(&draw, prim)) {
+	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
 		return;
 	}
 
@@ -1066,6 +1066,13 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
 	}
 
+	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
+	// TODO: Copy indices where? Or deindex above?
+
+	int *tx = depthScreenVerts_;
+	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
+	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
+
 	int outVertCount = 0;
 	switch (prim) {
 	case GE_PRIM_RECTANGLES:
@@ -1079,14 +1086,6 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		break;
 	}
 
-	if (prim == GE_PRIM_TRIANGLES && (outVertCount & 15) != 0) {
-		// Zero padding
-		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
-			tx[i] = 0;
-			ty[i] = 0;
-			tz[i] = 0.0f;
-		}
-	}
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
 		tx, ty, tz, outVertCount, draw);
 }
