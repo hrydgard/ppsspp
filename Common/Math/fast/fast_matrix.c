@@ -24,16 +24,6 @@ void fast_matrix_mul_4x4_sse(float *dest, const float *a, const float *b) {
 
 #elif PPSSPP_ARCH(ARM_NEON)
 
-#if PPSSPP_ARCH(ARM)
-static inline float32x4_t vfmaq_laneq_f32(float32x4_t _s, float32x4_t _a, float32x4_t _b, int lane) {
-	if (lane == 0)      return vmlaq_lane_f32(_s, _a, vget_low_f32(_b), 0);
-	else if (lane == 1) return vmlaq_lane_f32(_s, _a, vget_low_f32(_b), 1);
-	else if (lane == 2) return vmlaq_lane_f32(_s, _a, vget_high_f32(_b), 0);
-	else if (lane == 3) return vmlaq_lane_f32(_s, _a, vget_high_f32(_b), 1);
-	else return vdupq_n_f32(0.f);
-}
-#endif
-
 // From https://developer.arm.com/documentation/102467/0100/Matrix-multiplication-example
 void fast_matrix_mul_4x4_neon(float *C, const float *A, const float *B) {
 	// these are the columns A

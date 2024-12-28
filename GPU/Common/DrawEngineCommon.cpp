@@ -915,33 +915,18 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	}
 }
 
-inline void ComputeFinalProjMatrix(float *worldviewproj) {
-	float world[16];
-	float view[16];
-	float worldview[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-
-	// Heh, a bit ugly to mix two different matrix APIs here, but it works.
-
-	const float viewportScale[4] = {
-		gstate.getViewportXScale(),
-		gstate.getViewportYScale(),
-		gstate.getViewportZScale(),
-		1.0f
-	};
+Mat4F32 ComputeFinalProjMatrix() {
 	const float viewportTranslate[4] = {
 		gstate.getViewportXCenter() - gstate.getOffsetX(),
 		gstate.getViewportYCenter() - gstate.getOffsetY(),
 		gstate.getViewportZCenter(),
 	};
 
+	Mat4F32 wv = Mul4x3By4x4(Mat4x3F32(gstate.worldMatrix), Mat4F32::Load4x3(gstate.viewMatrix));
+	Mat4F32 m = Mul4x4By4x4(wv, Mat4F32(gstate.projMatrix));
 	// NOTE: Applying the translation actually works pre-divide, since W is also affected.
-	Mat4F32 m(worldviewproj);
-	TranslateAndScaleInplace(m, Vec4F32::Load(viewportScale), Vec4F32::Load(viewportTranslate));
-	m.Store(worldviewproj);
+	TranslateAndScaleInplace(m, Vec4F32::LoadF24x3_One(&gstate.viewportxscale), Vec4F32::Load(viewportTranslate));
+	return m;
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
@@ -967,7 +952,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	float worldviewproj[16];
-	ComputeFinalProjMatrix(worldviewproj);
+	ComputeFinalProjMatrix().Store(worldviewproj);
 
 	// Decode.
 	int numDec = 0;
@@ -1035,7 +1020,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 			return;
 		}
 		float worldviewproj[16];
-		ComputeFinalProjMatrix(worldviewproj);
+		ComputeFinalProjMatrix().Store(worldviewproj);
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
 
 		switch (prim) {

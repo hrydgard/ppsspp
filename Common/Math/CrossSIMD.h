@@ -11,6 +11,7 @@
 // The point of this, as opposed to a float4 array, is to almost force the compiler
 // to keep the matrix in registers, rather than loading on every access.
 struct Mat4F32 {
+	Mat4F32() {}
 	Mat4F32(const float *matrix) {
 		col0 = _mm_loadu_ps(matrix);
 		col1 = _mm_loadu_ps(matrix + 4);
@@ -23,11 +24,117 @@ struct Mat4F32 {
 		_mm_storeu_ps(m + 8, col2);
 		_mm_storeu_ps(m + 12, col3);
 	}
+
+	// Unlike the old one, this one is careful about not loading out-of-range data.
+	// The last two loads overlap.
+	static Mat4F32 Load4x3(const float *m) {
+		Mat4F32 result;
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		alignas(16) static const float onelane3[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		__m128 mask1110 = _mm_loadu_ps((const float *)mask);
+		result.col0 = _mm_and_ps(_mm_loadu_ps(m), mask1110);
+		result.col1 = _mm_and_ps(_mm_loadu_ps(m + 3), mask1110);
+		result.col2 = _mm_and_ps(_mm_loadu_ps(m + 6), mask1110);
+		__m128 lastCol = _mm_loadu_ps(m + 8);
+		result.col3 = _mm_or_ps(_mm_and_ps(_mm_shuffle_ps(lastCol, lastCol, _MM_SHUFFLE(3, 3, 2, 1)), mask1110), _mm_load_ps(onelane3));
+		return result;
+	}
+
 	__m128 col0;
 	__m128 col1;
 	__m128 col2;
 	__m128 col3;
 };
+
+// The columns are spread out between the data*. This is just intermediate storage for multiplication.
+struct Mat4x3F32 {
+	Mat4x3F32(const float *matrix) {
+		data0 = _mm_loadu_ps(matrix);
+		data1 = _mm_loadu_ps(matrix + 4);
+		data2 = _mm_loadu_ps(matrix + 8);
+	}
+
+	__m128 data0;
+	__m128 data1;
+	__m128 data2;
+};
+
+// TODO: Check if loading b by 4s and shuffling is cheaper.
+inline Mat4F32 MulMem4x4By4x4(const float *a, Mat4F32 b) {
+	Mat4F32 result;
+
+	__m128 r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[0]));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[1])));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[2])));
+	result.col0 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[3])));
+
+	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[4]));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[5])));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[6])));
+	result.col1 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[7])));
+
+	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[8]));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[9])));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[10])));
+	result.col2 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[11])));
+
+	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[12]));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[13])));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[14])));
+	result.col3 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[15])));
+
+	return result;
+}
+
+inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	__m128 r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.col0, 0));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.col0, 1)));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.col0, 2)));
+	result.col0 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_splat_lane_ps(a.col0, 3)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.col1, 0));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.col1, 1)));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.col1, 2)));
+	result.col1 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_splat_lane_ps(a.col1, 3)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.col2, 0));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.col2, 1)));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.col2, 2)));
+	result.col2 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_splat_lane_ps(a.col2, 3)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.col3, 0));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.col3, 1)));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.col3, 2)));
+	result.col3 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_splat_lane_ps(a.col3, 3)));
+
+	return result;
+}
+
+inline Mat4F32 Mul4x3By4x4(Mat4x3F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	__m128 r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.data0, 0));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.data0, 1)));
+	result.col0 = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.data0, 2)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.data0, 3));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.data1, 0)));
+	result.col1 = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.data1, 1)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.data1, 2));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.data1, 3)));
+	result.col2 = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.data2, 0)));
+
+	r_col = _mm_mul_ps(b.col0, _mm_splat_lane_ps(a.data2, 1));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_splat_lane_ps(a.data2, 2)));
+	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_splat_lane_ps(a.data2, 3)));
+
+	// The last entry has an implied 1.0f.
+	result.col3 = _mm_add_ps(r_col, b.col3);
+	return result;
+}
 
 struct Vec4S32 {
 	__m128i v;
@@ -90,6 +197,13 @@ struct Vec4F32 {
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
 	void StoreAligned (float *dst) { _mm_store_ps(dst, v); }
+	void Store3(float *dst) {
+		// TODO: There might be better ways.
+		_mm_store_pd((double *)dst, _mm_castps_pd(v));
+		_mm_store_ss(dst + 2, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)));
+	}
+
+	static Vec4F32 LoadVec2(const float *src) { return Vec4F32{ _mm_castsi128_ps(_mm_loadl_epi64((const __m128i *)src)) }; }
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
 		__m128i value = _mm_loadl_epi64((const __m128i *)src);
@@ -102,6 +216,14 @@ struct Vec4F32 {
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
+	}
+
+	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		alignas(16) static const float onelane3[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+		__m128 value = _mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8));
+		return Vec4F32{ _mm_or_ps(_mm_and_ps(value, _mm_load_ps((const float *)mask)), _mm_load_ps(onelane3)) };
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) { return Vec4F32{ _mm_cvtepi32_ps(other.v) }; }
@@ -230,6 +352,7 @@ inline Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
 #elif PPSSPP_ARCH(ARM_NEON)
 
 struct Mat4F32 {
+	Mat4F32() {}
 	Mat4F32(const float *matrix) {
 		col0 = vld1q_f32(matrix);
 		col1 = vld1q_f32(matrix + 4);
@@ -242,12 +365,86 @@ struct Mat4F32 {
 		vst1q_f32(m + 8, col2);
 		vst1q_f32(m + 12, col3);
 	}
+
+	// Unlike the old one, this one is careful about not loading out-of-range data.
+	// The last two loads overlap.
+	static Mat4F32 Load4x3(const float *m) {
+		Mat4F32 result;
+		result.col0 = vsetq_lane_f32(0.0f, vld1q_f32(m), 3);
+		result.col1 = vsetq_lane_f32(0.0f, vld1q_f32(m + 3), 3);
+		result.col2 = vsetq_lane_f32(0.0f, vld1q_f32(m + 6), 3);
+		result.col3 = vsetq_lane_f32(1.0f, vld1q_f32(m + 9), 3);  // TODO: Fix this out of bounds read
+		return result;
+	}
+
 	float32x4_t col0;
 	float32x4_t col1;
 	float32x4_t col2;
 	float32x4_t col3;
 };
 
+// The columns are spread out between the data*. This is just intermediate storage for multiplication.
+struct Mat4x3F32 {
+	Mat4x3F32(const float *matrix) {
+		data0 = vld1q_f32(matrix);
+		data1 = vld1q_f32(matrix + 4);
+		data2 = vld1q_f32(matrix + 8);
+	}
+
+	float32x4_t data0;
+	float32x4_t data1;
+	float32x4_t data2;
+};
+
+inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	float32x4_t r_col = vmulq_laneq_f32(b.col0, a.col0, 0);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.col0, 1);
+	r_col = vfmaq_laneq_f32(r_col, b.col2, a.col0, 2);
+	result.col0 = vfmaq_laneq_f32(r_col, b.col3, a.col0, 3);
+
+	r_col = vmulq_laneq_f32(b.col0, a.col1, 0);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.col1, 1);
+	r_col = vfmaq_laneq_f32(r_col, b.col2, a.col1, 2);
+	result.col1 = vfmaq_laneq_f32(r_col, b.col3, a.col1, 3);
+
+	r_col = vmulq_laneq_f32(b.col0, a.col2, 0);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.col2, 1);
+	r_col = vfmaq_laneq_f32(r_col, b.col2, a.col2, 2);
+	result.col2 = vfmaq_laneq_f32(r_col, b.col3, a.col2, 3);
+
+	r_col = vmulq_laneq_f32(b.col0, a.col3, 0);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.col3, 1);
+	r_col = vfmaq_laneq_f32(r_col, b.col2, a.col3, 2);
+	result.col3 = vfmaq_laneq_f32(r_col, b.col3, a.col3, 3);
+
+	return result;
+}
+
+inline Mat4F32 Mul4x3By4x4(Mat4x3F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	float32x4_t r_col = vmulq_laneq_f32(b.col0, a.data0, 0);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.data0, 1);
+	result.col0 = vfmaq_laneq_f32(r_col, b.col2, a.data0, 2);
+
+	r_col = vmulq_laneq_f32(b.col0, a.data0, 3);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.data1, 0);
+	result.col1 = vfmaq_laneq_f32(r_col, b.col2, a.data1, 1);
+
+	r_col = vmulq_laneq_f32(b.col0, a.data1, 2);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.data1, 3);
+	result.col2 = vfmaq_laneq_f32(r_col, b.col2, a.data2, 0);
+
+	r_col = vmulq_laneq_f32(b.col0, a.data2, 1);
+	r_col = vfmaq_laneq_f32(r_col, b.col1, a.data2, 2);
+	r_col = vfmaq_laneq_f32(r_col, b.col2, a.data2, 3);
+
+	// The last entry has an implied 1.0f.
+	result.col3 = vaddq_f32(r_col, b.col3);
+	return result;
+}
 
 struct Vec4S32 {
 	int32x4_t v;
@@ -292,6 +489,13 @@ struct Vec4F32 {
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
 	void Store(float *dst) { vst1q_f32(dst, v); }
 	void StoreAligned(float *dst) { vst1q_f32(dst, v); }
+	void Store3(float *dst) {
+		// TODO: There might be better ways. Try to avoid this when possible.
+		vst1_f32(dst, vget_low_f32(v));
+		dst[2] = vgetq_lane_f32(v, 2);
+	}
+
+	static Vec4F32 LoadVec2(const float *src) { return Vec4F32{ vcombine_f32(vld1_f32(src), vdup_n_f32(0.0f)) }; }  // TODO: Feels like there should be a better way.
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		int16x4_t value = vld1_s16(src);
@@ -302,6 +506,10 @@ struct Vec4F32 {
 		int8x8_t value = vld1_s8(src);
 		int16x4_t value16 = vget_low_s16(vmovl_s8(value));
 		return Vec4F32{ vcvtq_f32_s32(vmovl_s16(value16)) };
+	}
+
+	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
+		return Vec4F32{ vsetq_lane_f32(1.0f, vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8)), 3) };
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
