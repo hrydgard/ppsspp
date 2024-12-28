@@ -124,7 +124,7 @@ class VertexReader {
 public:
 	VertexReader(const u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
-	void ReadPos(float pos[3]) const {
+	void ReadPosAuto(float pos[3]) const {
 		// Only DEC_FLOAT_3 is supported.
 		const float *f = (const float *)(data_ + decFmt_.posoff);
 		pos[0] = f[0];
@@ -135,6 +135,21 @@ public:
 			// Integer value passed in a float. Clamped to 0, 65535.
 			pos[2] = (int)f[2] * (1.0f / 65535.0f);
 		}
+	}
+
+	void ReadPosThrough(float pos[3]) const {
+		// Only DEC_FLOAT_3 is supported.
+		const float *f = (const float *)(data_ + decFmt_.posoff);
+		pos[0] = f[0];
+		pos[1] = f[1];
+		// Integer value passed in a float. Clamped to 0, 65535.
+		pos[2] = (int)f[2] * (1.0f / 65535.0f);
+	}
+
+	void ReadPosNonThrough(float pos[3]) const {
+		// Only DEC_FLOAT_3 is supported.
+		const float *f = (const float *)(data_ + decFmt_.posoff);
+		memcpy(pos, f, 12);
 	}
 
 	void ReadPosThroughZ16(float pos[3]) const {

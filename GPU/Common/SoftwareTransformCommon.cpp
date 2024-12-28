@@ -186,7 +186,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			reader.Goto(index);
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			TransformedVertex &vert = transformed[index];
-			reader.ReadPos(vert.pos);
+			reader.ReadPosThrough(vert.pos);
 			vert.pos_w = 1.0f;
 
 			if (hasColor) {
@@ -225,7 +225,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			float pos[3];
 			Vec3f normal(0, 0, 1);
 			Vec3f worldnormal(0, 0, 1);
-			reader.ReadPos(pos);
+			reader.ReadPosNonThrough(pos);
 
 			float ruv[2] = { 0.0f, 0.0f };
 			if (reader.hasUV())
@@ -984,7 +984,7 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 				nrm[1] = 0;
 				nrm[2] = 1.0f;
 			}
-			reader.ReadPos(pos);
+			reader.ReadPosAuto(pos);
 
 			// Apply skinning transform directly
 			float weights[8];
@@ -1029,7 +1029,7 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 				sv.nrm.y = 0.0f;
 				sv.nrm.z = 1.0f;
 			}
-			reader.ReadPos((float *)&sv.pos);
+			reader.ReadPosAuto((float *)&sv.pos);
 		}
 	}
 

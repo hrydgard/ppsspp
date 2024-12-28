@@ -8,15 +8,8 @@
 #include "Common/Math/math_util.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-// We only need to support these three modes.
-enum class ZCompareMode {
-	Greater,  // Most common
-	Less,  // Less common
-	Always,  // Fairly common
-};
-
 // x1/x2 etc are the scissor rect.
-void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2, int v1x, int v1y, int v2x, int v2y, short depthValue, ZCompareMode compareMode) {
+static void DepthRasterRect(uint16_t *dest, int stride, const DepthScissor scissor, int v1x, int v1y, int v2x, int v2y, short depthValue, ZCompareMode compareMode) {
 	// Swap coordinates if needed, we don't back-face-cull rects.
 	// We also ignore the UV rotation here.
 	if (v1x > v2x) {
@@ -26,21 +19,21 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		std::swap(v1y, v2y);
 	}
 
-	if (v1x < x1) {
-		v1x = x1;
+	if (v1x < scissor.x1) {
+		v1x = scissor.x1;
 	}
-	if (v2x > x2) {
-		v2x = x2 + 1;  // PSP scissors are inclusive
+	if (v2x > scissor.x2) {
+		v2x = scissor.x2 + 1;  // PSP scissors are inclusive
 	}
 	if (v1x >= v2x) {
 		return;
 	}
 
-	if (v1y < y1) {
-		v1y = y1;
+	if (v1y < scissor.y1) {
+		v1y = scissor.y1;
 	}
-	if (v2y > y2) {
-		v2y = y2 + 1;
+	if (v2y > scissor.y2) {
+		v2y = scissor.y2 + 1;
 	}
 	if (v1y >= v2y) {
 		return;
@@ -116,12 +109,12 @@ constexpr int MIN_TRI_AREA = 10;
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
 template<ZCompareMode compareMode>
-TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz) {
-	int tileStartX = x1;
-	int tileEndX = x2;
+TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
+	const int tileStartX = scissor.x1;
+	const int tileEndX = scissor.x2;
 
-	int tileStartY = y1;
-	int tileEndY = y2;
+	const int tileStartY = scissor.y1;
+	const int tileEndY = scissor.y2;
 
 	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
 	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
@@ -149,11 +142,11 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
-	if (triArea <= 0) {
+	if (triArea < 0) {
 		return TriangleResult::Backface;
 	}
 	if (triArea < MIN_TRI_AREA) {
-		return TriangleResult::TooSmall;
+		return TriangleResult::TooSmall;  // Or zero area.
 	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
@@ -220,13 +213,14 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 }
 
 template<ZCompareMode compareMode>
-inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz) {
+inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
 	for (int i = 0; i < 4; i++) {
-		TriangleResult result = DepthRasterTriangle<compareMode>(depthBuf, stride, x1, y1, x2, y2, tx + i, ty + i, tz + i);
+		TriangleResult result = DepthRasterTriangle<compareMode>(depthBuf, stride, scissor, tx + i, ty + i, tz + i);
 		stats[(int)result]++;
 	}
 }
 
+// This will always run on the main thread. Though, might consider moving the transforms out and just storing verts instead?
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
@@ -290,12 +284,14 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	for (int i = 0; i < count; i++) {
 		const float *data = (const float *)(startPtr + i * vertexStride + offset);
 		// Just pass the position straight through - this is through mode!
-		Vec4F32::Load(data).WithLane3Zero().Store(dest + i * 4);
+		// A W of one makes projection a no-op, without branching.
+		Vec4F32::Load(data).WithLane3One().Store(dest + i * 4);
 	}
 }
 
-int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
 	int outCount = 0;
+	const int count = draw.vertexCount;
 	for (int i = 0; i < count; i += 2) {
 		const float *verts[2] = {
 			transformed + indexBuffer[i] * 4,
@@ -322,29 +318,29 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32FromF32(x).Store(tx + outCount);
-		Vec4S32FromF32(y).Store(ty + outCount);
-		z.Clamp(0.0f, 65535.0f).Store(tz + outCount);
+		Vec4S32FromF32(x).Store2(tx + outCount);
+		Vec4S32FromF32(y).Store2(ty + outCount);
+		z.Clamp(0.0f, 65535.0f).Store2(tz + outCount);
 		outCount += 2;
 	}
 	return outCount;
 }
 
-int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
-	bool cullEnabled = gstate.isCullEnabled();
-	GECullMode cullMode = gstate.getCullMode();
-
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
 	int outCount = 0;
 
 	int flipCull = 0;
-	if (cullEnabled && cullMode == GE_CULL_CW) {
+	if (draw.cullEnabled && draw.cullMode == GE_CULL_CW) {
 		flipCull = 3;
 	}
+	const bool cullEnabled = draw.cullEnabled;
 
 	static const float zerovec[4] = {};
 
 	int collected = 0;
+	int planeCulled = 0;
 	const float *verts[12];  // four triangles at a time!
+	const int count = draw.vertexCount;
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
 		const float *v0 = transformed + indexBuffer[i] * 4;
@@ -356,6 +352,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			verts[collected + 1] = v1;
 			verts[collected + 2] = v2;
 			collected += 3;
+		} else {
+			planeCulled++;
 		}
 
 		if (i >= count - 3 && collected != 12) {
@@ -390,12 +388,12 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		Vec4F32::Transpose(x1, y1, z1, w1);
 		Vec4F32::Transpose(x2, y2, z2, w2);
 
-		// Now the names are accurate! Since we only have three vertices, the fourth member of each vector is zero
-		// and will not be stored (well it will be stored, but it'll be overwritten by the next vertex).
+		// Now the names are accurate!
+
+		// Let's project all three vertices, for all four triangles.
 		Vec4F32 recipW0 = w0.Recip();
 		Vec4F32 recipW1 = w1.Recip();
 		Vec4F32 recipW2 = w2.Recip();
-
 		x0 *= recipW0;
 		y0 *= recipW0;
 		z0 = (z0 * recipW0).Clamp(0.0f, 65535.0f);
@@ -433,73 +431,23 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			outCount += 12;
 		}
 	}
+
+	gpuStats.numDepthRasterZCulled += planeCulled;
 	return outCount;
 }
 
-void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t * indexBuffer, int count) {
-	for (int i = 0; i < count; i++) {
-		const float *pos = transformed + indexBuffer[i] * 4;
-		tx[i] = (int)pos[0];
-		ty[i] = (int)pos[1];
-		tz[i] = pos[2];  // clamp?
-	}
-}
-
 // Rasterizes screen-space vertices.
-void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType prim, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz, int count) {
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, const int *ty, const float *tz, int count, const DepthDraw &draw) {
 	// Prim should now be either TRIANGLES or RECTs.
-	_dbg_assert_(prim == GE_PRIM_RECTANGLES || prim == GE_PRIM_TRIANGLES);
+	_dbg_assert_(draw.prim == GE_PRIM_RECTANGLES || draw.prim == GE_PRIM_TRIANGLES);
 
-	// Ignore draws where stencil operations are active?
-	if (gstate.isStencilTestEnabled()) {
-		// return;
-	}
-
-	GEComparison compareMode = gstate.getDepthTestFunction();
-
-	ZCompareMode comp;
-	// Ignore some useless compare modes.
-	switch (compareMode) {
-	case GE_COMP_ALWAYS:
-		comp = ZCompareMode::Always;
-		break;
-	case GE_COMP_LEQUAL:
-	case GE_COMP_LESS:
-		comp = ZCompareMode::Less;
-		break;
-	case GE_COMP_GEQUAL:
-	case GE_COMP_GREATER:
-		comp = ZCompareMode::Greater;  // Most common
-		break;
-	case GE_COMP_NEVER:
-	case GE_COMP_EQUAL:
-		// These will never have a useful effect in Z-only raster.
-		[[fallthrough]];
-	case GE_COMP_NOTEQUAL:
-		// This is highly unusual, let's just ignore it.
-		[[fallthrough]];
-	default:
-		return;
-	}
-
-	if (gstate.isModeClear()) {
-		if (!gstate.isClearModeDepthMask()) {
-			return;
-		}
-		comp = ZCompareMode::Always;
-	} else {
-		// These should have been caught earlier.
-		_dbg_assert_(gstate.isDepthTestEnabled());
-		_dbg_assert_(gstate.isDepthWriteEnabled());
-	}
-
-	switch (prim) {
+	switch (draw.prim) {
 	case GE_PRIM_RECTANGLES:
 		for (int i = 0; i < count; i += 2) {
 			uint16_t z = (uint16_t)tz[i + 1];  // depth from second vertex
 			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
-			DepthRasterRect(depth, depthStride, x1, y1, x2, y2, tx[i], ty[i], tx[i + 1], ty[i + 1], z, comp);
+			DepthRasterRect(depth, depthStride, draw.scissor, tx[i], ty[i], tx[i + 1], ty[i + 1], z, draw.compareMode);
 		}
 		gpuStats.numDepthRasterPrims += count / 2;
 		break;
@@ -508,20 +456,20 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 		int stats[4]{};
 		// Batches of 4 triangles, as output by the clip function.
 		for (int i = 0; i < count; i += 12) {
-			switch (comp) {
+			switch (draw.compareMode) {
 			case ZCompareMode::Greater:
 			{
-				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			case ZCompareMode::Less:
 			{
-				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			case ZCompareMode::Always:
 			{
-				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			}

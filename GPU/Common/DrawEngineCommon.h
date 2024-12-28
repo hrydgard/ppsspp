@@ -27,9 +27,9 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/DepthRaster.h"
 
 class VertexDecoder;
+struct DepthDraw;
 
 enum {
 	VERTEX_BUFFER_MAX = 65536,
@@ -177,6 +177,7 @@ protected:
 
 	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
+	void FlushDepthDraw(const DepthDraw &draw);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -358,4 +359,5 @@ protected:
 
 	float *depthTransformed_ = nullptr;
 	int *depthScreenVerts_ = nullptr;
+	uint16_t *depthIndices_ = nullptr;
 };

@@ -43,6 +43,7 @@ enum {
 	DEPTH_SCREENVERTS_COMPONENT_COUNT = VERTEX_BUFFER_MAX,
 	DEPTH_SCREENVERTS_COMPONENT_SIZE = DEPTH_SCREENVERTS_COMPONENT_COUNT * sizeof(int) + 384,
 	DEPTH_SCREENVERTS_SIZE = DEPTH_SCREENVERTS_COMPONENT_SIZE * 3,
+	DEPTH_INDEXBUFFER_SIZE = VERTEX_BUFFER_MAX * 3 * sizeof(uint16_t),
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
@@ -76,6 +77,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 	if (depthTransformed_) {
 		FreeMemoryPages(depthTransformed_, DEPTH_TRANSFORMED_SIZE);
 		FreeMemoryPages(depthScreenVerts_, DEPTH_SCREENVERTS_SIZE);
+		FreeMemoryPages(depthIndices_, DEPTH_INDEXBUFFER_SIZE);
 	}
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
@@ -789,6 +791,7 @@ void DrawEngineCommon::BeginFrame() {
 	if (!depthTransformed_ && useDepthRaster_) {
 		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthIndices_ = (uint16_t *)AllocateMemoryPages(DEPTH_INDEXBUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	}
 }
 
@@ -929,30 +932,85 @@ Mat4F32 ComputeFinalProjMatrix() {
 	return m;
 }
 
-void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
-	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
-		return;
-	}
-
+static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
 	case GE_PRIM_LINES:
 	case GE_PRIM_LINE_STRIP:
 	case GE_PRIM_POINTS:
-		return;
+		return false;
 	default:
 		break;
+	}
+
+	// Ignore some useless compare modes.
+	switch (gstate.getDepthTestFunction()) {
+	case GE_COMP_ALWAYS:
+		draw->compareMode = ZCompareMode::Always;
+		break;
+	case GE_COMP_LEQUAL:
+	case GE_COMP_LESS:
+		draw->compareMode = ZCompareMode::Less;
+		break;
+	case GE_COMP_GEQUAL:
+	case GE_COMP_GREATER:
+		draw->compareMode = ZCompareMode::Greater;  // Most common
+		break;
+	case GE_COMP_NEVER:
+	case GE_COMP_EQUAL:
+		// These will never have a useful effect in Z-only raster.
+		[[fallthrough]];
+	case GE_COMP_NOTEQUAL:
+		// This is highly unusual, let's just ignore it.
+		[[fallthrough]];
+	default:
+		return false;
+	}
+	if (gstate.isModeClear()) {
+		if (!gstate.isClearModeDepthMask()) {
+			return false;
+		}
+		draw->compareMode = ZCompareMode::Always;
+	} else {
+		// These should have been caught earlier.
+		_dbg_assert_(gstate.isDepthTestEnabled());
+		_dbg_assert_(gstate.isDepthWriteEnabled());
+	}
+
+	draw->transformedStartIndex = 0;
+	draw->indexOffset = 0;
+	draw->vertexCount = vertexCount;
+	draw->cullEnabled = gstate.isCullEnabled();
+	draw->cullMode = gstate.getCullMode();
+	draw->prim = prim;
+	draw->scissor.x1 = gstate.getScissorX1();
+	draw->scissor.y1 = gstate.getScissorY1();
+	draw->scissor.x2 = gstate.getScissorX2();
+	draw->scissor.y2 = gstate.getScissorY2();
+	return true;
+}
+
+void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
+	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
+		return;
 	}
 
 	if (vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
+	_dbg_assert_(prim != GE_PRIM_RECTANGLES);
 
 	float worldviewproj[16];
 	ComputeFinalProjMatrix().Store(worldviewproj);
+
+	DepthDraw draw;
+	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
+		return;
+	}
+
+	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	// Decode.
 	int numDec = 0;
@@ -973,16 +1031,11 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		numDec += indexUpperBound - indexLowerBound + 1;
 	}
 
-	int *tx = depthScreenVerts_;
-	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
+	// Copy indices.
+	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
 
-	// Clip and triangulate using the index buffer. It now automatically zero-pads.
-	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-
-	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-		GE_PRIM_TRIANGLES, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
-		tx, ty, tz, outVertCount);
+	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
+	FlushDepthDraw(draw);
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -990,31 +1043,17 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
-
-	switch (prim) {
-	case GE_PRIM_INVALID:
-	case GE_PRIM_KEEP_PREVIOUS:
-	case GE_PRIM_LINES:
-	case GE_PRIM_LINE_STRIP:
-	case GE_PRIM_POINTS:
+	DepthDraw draw;
+	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
 		return;
-	default:
-		break;
 	}
+
+	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
 
-	int *tx = depthScreenVerts_;
-	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
-
-	int outVertCount = 0;
-
 	if (dec->throughmode) {
 		ConvertPredecodedThroughForDepthRaster(depthTransformed_, decoded_, dec, numDecoded);
-		DepthRasterConvertTransformed(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-		outVertCount = vertexCount;
 	} else {
 		if (dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 			return;
@@ -1022,29 +1061,32 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		float worldviewproj[16];
 		ComputeFinalProjMatrix().Store(worldviewproj);
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
-
-		switch (prim) {
-		case GE_PRIM_RECTANGLES:
-			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-			break;
-		case GE_PRIM_TRIANGLES:
-			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-			break;
-		default:
-			_dbg_assert_(false);
-			break;
-		}
 	}
 
-	if (prim == GE_PRIM_TRIANGLES && (outVertCount & 15) != 0) {
-		// Zero padding
-		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
-			tx[i] = 0;
-			ty[i] = 0;
-			tz[i] = 0.0f;
-		}
+	// Copy indices.
+	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
+
+	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
+	FlushDepthDraw(draw);
+}
+
+void DrawEngineCommon::FlushDepthDraw(const DepthDraw &draw) {
+	int *tx = depthScreenVerts_;
+	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
+	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
+
+	int outVertCount = 0;
+	switch (draw.prim) {
+	case GE_PRIM_RECTANGLES:
+		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
+		break;
+	case GE_PRIM_TRIANGLES:
+		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
+		break;
+	default:
+		_dbg_assert_(false);
+		break;
 	}
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-		prim, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
-		tx, ty, tz, outVertCount);
+		tx, ty, tz, outVertCount, draw);
 }
