@@ -36,7 +36,8 @@ struct DepthDraw {
 	DepthScissor scissor;
 	bool through;
 	int transformedStartIndex;
-	int numVertices;
+	int indexOffset;
+	int vertexCount;
 };
 
 // Specialized, very limited depth-only rasterizer.
@@ -47,8 +48,8 @@ struct DepthDraw {
 class VertexDecoder;
 struct TransformedVertex;
 
-int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count, const DepthDraw &draw);
-int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count);
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw);
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw);
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID);
 void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, VertexDecoder *dec, int count);
 void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVertexData, VertexDecoder *dec, int count);

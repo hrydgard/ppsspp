@@ -289,8 +289,9 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	}
 }
 
-int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
 	int outCount = 0;
+	const int count = draw.vertexCount;
 	for (int i = 0; i < count; i += 2) {
 		const float *verts[2] = {
 			transformed + indexBuffer[i] * 4,
@@ -325,7 +326,7 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 	return outCount;
 }
 
-int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count, const DepthDraw &draw) {
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
 	int outCount = 0;
 
 	int flipCull = 0;
@@ -339,6 +340,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	int collected = 0;
 	int planeCulled = 0;
 	const float *verts[12];  // four triangles at a time!
+	const int count = draw.vertexCount;
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
 		const float *v0 = transformed + indexBuffer[i] * 4;

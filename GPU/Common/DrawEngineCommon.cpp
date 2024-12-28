@@ -43,6 +43,7 @@ enum {
 	DEPTH_SCREENVERTS_COMPONENT_COUNT = VERTEX_BUFFER_MAX,
 	DEPTH_SCREENVERTS_COMPONENT_SIZE = DEPTH_SCREENVERTS_COMPONENT_COUNT * sizeof(int) + 384,
 	DEPTH_SCREENVERTS_SIZE = DEPTH_SCREENVERTS_COMPONENT_SIZE * 3,
+	DEPTH_INDEXBUFFER_SIZE = VERTEX_BUFFER_MAX * 3 * sizeof(uint16_t),
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
@@ -76,6 +77,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 	if (depthTransformed_) {
 		FreeMemoryPages(depthTransformed_, DEPTH_TRANSFORMED_SIZE);
 		FreeMemoryPages(depthScreenVerts_, DEPTH_SCREENVERTS_SIZE);
+		FreeMemoryPages(depthIndices_, DEPTH_INDEXBUFFER_SIZE);
 	}
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
@@ -789,6 +791,7 @@ void DrawEngineCommon::BeginFrame() {
 	if (!depthTransformed_ && useDepthRaster_) {
 		depthTransformed_ = (float *)AllocateMemoryPages(DEPTH_TRANSFORMED_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 		depthScreenVerts_ = (int *)AllocateMemoryPages(DEPTH_SCREENVERTS_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		depthIndices_ = (uint16_t *)AllocateMemoryPages(DEPTH_INDEXBUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	}
 }
 
@@ -976,7 +979,8 @@ static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertex
 	}
 
 	draw->transformedStartIndex = 0;
-	draw->numVertices = vertexCount;
+	draw->indexOffset = 0;
+	draw->vertexCount = vertexCount;
 	draw->cullEnabled = gstate.isCullEnabled();
 	draw->cullMode = gstate.getCullMode();
 	draw->prim = prim;
@@ -1027,18 +1031,11 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		numDec += indexUpperBound - indexLowerBound + 1;
 	}
 
+	// Copy indices.
+	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
+
 	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	// TODO: Copy indices where? Or deindex above?
-
-	int *tx = depthScreenVerts_;
-	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
-
-	// Clip and triangulate using the index buffer. It now automatically zero-pads.
-	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount, draw);
-
-	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-		tx, ty, tz, outVertCount, draw);
+	FlushDepthDraw(draw);
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -1066,26 +1063,30 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
 	}
 
-	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	// TODO: Copy indices where? Or deindex above?
+	// Copy indices.
+	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
 
+	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
+	FlushDepthDraw(draw);
+}
+
+void DrawEngineCommon::FlushDepthDraw(const DepthDraw &draw) {
 	int *tx = depthScreenVerts_;
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
 	int outVertCount = 0;
-	switch (prim) {
+	switch (draw.prim) {
 	case GE_PRIM_RECTANGLES:
-		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
+		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
 		break;
 	case GE_PRIM_TRIANGLES:
-		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount, draw);
+		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
 		break;
 	default:
 		_dbg_assert_(false);
 		break;
 	}
-
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
 		tx, ty, tz, outVertCount, draw);
 }
