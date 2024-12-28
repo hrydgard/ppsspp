@@ -15,7 +15,7 @@ struct DepthScreenVertex {
 #endif
 
 // We only need to support these three modes.
-enum class ZCompareMode {
+enum class ZCompareMode : u8 {
 	Greater,  // Most common
 	Less,  // Less common
 	Always,  // Mostly used for clears
@@ -29,10 +29,12 @@ struct DepthScissor {
 };
 
 struct DepthDraw {
+	u32 depthAddr;
+	u16 depthStride;
+	u8 cullMode;
 	GEPrimitiveType prim;
 	ZCompareMode compareMode;
 	bool cullEnabled;
-	int cullMode;
 	DepthScissor scissor;
 	int vertexOffset;
 	int indexOffset;

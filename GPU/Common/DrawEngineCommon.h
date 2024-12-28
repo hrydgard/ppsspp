@@ -179,7 +179,6 @@ protected:
 
 	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
-	void ExecuteDepthDraw(const DepthDraw &draw);
 	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	static inline int IndexSize(u32 vtype) {

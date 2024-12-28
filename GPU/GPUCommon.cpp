@@ -987,8 +987,10 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
-	if (flushOnParams_)
+	if (flushOnParams_) {
+		drawEngineCommon_->FlushQueuedDepth();
 		Flush();
+	}
 
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
@@ -1380,8 +1382,9 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	}
 
 	if (!g_Config.bSoftwareSkinning) {
-		if (flushOnParams_)
+		if (flushOnParams_) {
 			Flush();
+		}
 		gstate_c.Dirty(uniformsToDirty);
 	} else {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;

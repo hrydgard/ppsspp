@@ -39,7 +39,7 @@
 
 enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex),
-	DEPTH_TRANSFORMED_SIZE = VERTEX_BUFFER_MAX * 4,
+	DEPTH_TRANSFORMED_SIZE = VERTEX_BUFFER_MAX * 4 * sizeof(float),
 	DEPTH_SCREENVERTS_COMPONENT_COUNT = VERTEX_BUFFER_MAX,
 	DEPTH_SCREENVERTS_COMPONENT_SIZE = DEPTH_SCREENVERTS_COMPONENT_COUNT * sizeof(int) + 384,
 	DEPTH_SCREENVERTS_SIZE = DEPTH_SCREENVERTS_COMPONENT_SIZE * 3,
@@ -66,6 +66,9 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 		break;
 	case DepthRasterMode::OFF:
 		useDepthRaster_ = false;
+	}
+	if (useDepthRaster_) {
+		depthDraws_.reserve(256);
 	}
 }
 
@@ -983,6 +986,8 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 		return false;
 	}
 
+	draw->depthAddr = gstate.getDepthBufRawAddress() | 0x04000000;
+	draw->depthStride = gstate.DepthBufStride();
 	draw->vertexOffset = depthVertexCount_;
 	draw->indexOffset = depthIndexCount_;
 	draw->vertexCount = vertexCount;
@@ -1015,7 +1020,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.msPrepareDepth, coreCollectDebugStats);
 
 	// Decode.
 	int numDecoded = 0;
@@ -1035,9 +1040,11 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 
 	// Commit
 	depthIndexCount_ += vertexCount;
-	depthVertexCount_ += numDec;
+	depthVertexCount_ += numDecoded;
 
 	depthDraws_.push_back(draw);
+
+	// FlushQueuedDepth();
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -1050,7 +1057,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.msPrepareDepth, coreCollectDebugStats);
 
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
 
@@ -1073,40 +1080,40 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	depthVertexCount_ += numDecoded;
 
 	depthDraws_.push_back(draw);
+
+	// FlushQueuedDepth();
 }
 
 void DrawEngineCommon::FlushQueuedDepth() {
+	TimeCollector collectStat(&gpuStats.msRasterizeDepth, coreCollectDebugStats);
+
 	for (const auto &draw : depthDraws_) {
-		ExecuteDepthDraw(draw);
+		int *tx = depthScreenVerts_;
+		int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
+		float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
+
+		int outVertCount = 0;
+
+		const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
+		const uint16_t *indices = depthIndices_ + draw.indexOffset;
+
+		switch (draw.prim) {
+		case GE_PRIM_RECTANGLES:
+			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw);
+			break;
+		case GE_PRIM_TRIANGLES:
+			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw);
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+		// TODO: Could potentially split into tasks here!
+		DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw);
 	}
 
 	// Reset queue
 	depthIndexCount_ = 0;
 	depthVertexCount_ = 0;
 	depthDraws_.clear();
-}
-
-void DrawEngineCommon::ExecuteDepthDraw(const DepthDraw &draw) {
-	int *tx = depthScreenVerts_;
-	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
-
-	int outVertCount = 0;
-
-	const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
-	const uint16_t *indices = depthIndices_ + draw.indexOffset;
-
-	switch (draw.prim) {
-	case GE_PRIM_RECTANGLES:
-		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw);
-		break;
-	case GE_PRIM_TRIANGLES:
-		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw);
-		break;
-	default:
-		_dbg_assert_(false);
-		break;
-	}
-	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
-		tx, ty, tz, outVertCount, draw);
 }

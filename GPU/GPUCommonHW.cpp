@@ -1801,7 +1801,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
 		"GPU cycles: %d (%0.1f per vertex)\n"
-		"Depth raster: %0.2f ms, %d prim, %d nopix, %d small, %d back, %d zcull\n%s",
+		"Z-rast: %0.2f/%0.2f ms, %d prim, %d nopix, %d small, %d back, %d zcull\n%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
@@ -1838,7 +1838,8 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numCopiesForSelfTex,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles,
-		gpuStats.msRasterizingDepth * 1000.0,
+		gpuStats.msPrepareDepth * 1000.0,
+		gpuStats.msRasterizeDepth * 1000.0,
 		gpuStats.numDepthRasterPrims,
 		gpuStats.numDepthRasterNoPixels,
 		gpuStats.numDepthRasterTooSmall,
