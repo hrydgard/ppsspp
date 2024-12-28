@@ -803,7 +803,7 @@ void DrawEngineCommon::DecodeVerts(VertexDecoder *dec, u8 *dest) {
 	int i = decodeVertsCounter_;
 	int stride = (int)dec->GetDecVtxFmt().stride;
 	for (; i < numDrawVerts_; i++) {
-		DeferredVerts &dv = drawVerts_[i];
+		const DeferredVerts &dv = drawVerts_[i];
 
 		int indexLowerBound = dv.indexLowerBound;
 		drawVertexOffsets_[i] = numDecodedVerts_ - indexLowerBound;
@@ -978,7 +978,7 @@ static bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertex
 		_dbg_assert_(gstate.isDepthWriteEnabled());
 	}
 
-	draw->transformedStartIndex = 0;
+	draw->vertexOffset = 0;
 	draw->indexOffset = 0;
 	draw->vertexCount = vertexCount;
 	draw->cullEnabled = gstate.isCullEnabled();
@@ -1013,26 +1013,20 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	// Decode.
-	int numDec = 0;
+	int numDecoded = 0;
 	for (int i = 0; i < numDrawVerts_; i++) {
-		DeferredVerts &dv = drawVerts_[i];
-
-		int indexLowerBound = dv.indexLowerBound;
-		drawVertexOffsets_[i] = numDec - indexLowerBound;
-
-		int indexUpperBound = dv.indexUpperBound;
-		if (indexUpperBound + 1 - indexLowerBound + numDec >= VERTEX_BUFFER_MAX) {
+		const DeferredVerts &dv = drawVerts_[i];
+		if (dv.indexUpperBound + 1 - dv.indexLowerBound + numDecoded >= VERTEX_BUFFER_MAX) {
 			// Hit our limit! Stop decoding in this draw.
 			break;
 		}
-
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		DecodeAndTransformForDepthRaster(depthTransformed_ + numDec * 4, worldviewproj, dv.verts, indexLowerBound, indexUpperBound, dec, vertTypeID);
-		numDec += indexUpperBound - indexLowerBound + 1;
+		DecodeAndTransformForDepthRaster(depthTransformed_ + (draw.vertexOffset + numDecoded) * 4, worldviewproj, dv.verts, dv.indexLowerBound, dv.indexUpperBound, dec, vertTypeID);
+		numDecoded += dv.indexUpperBound - dv.indexLowerBound + 1;
 	}
 
 	// Copy indices.
-	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
+	memcpy(depthIndices_ + draw.indexOffset, decIndex_, sizeof(uint16_t) * vertexCount);
 
 	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
 	ExecuteDepthDraw(draw);
@@ -1053,18 +1047,18 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
 
 	if (dec->throughmode) {
-		ConvertPredecodedThroughForDepthRaster(depthTransformed_, decoded_, dec, numDecoded);
+		ConvertPredecodedThroughForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, decoded_, dec, numDecoded);
 	} else {
 		if (dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 			return;
 		}
 		float worldviewproj[16];
 		ComputeFinalProjMatrix().Store(worldviewproj);
-		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
+		TransformPredecodedForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, worldviewproj, decoded_, dec, numDecoded);
 	}
 
 	// Copy indices.
-	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
+	memcpy(depthIndices_ + draw.indexOffset, decIndex_, sizeof(uint16_t) * vertexCount);
 
 	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
 	ExecuteDepthDraw(draw);
@@ -1078,10 +1072,10 @@ void DrawEngineCommon::ExecuteDepthDraw(const DepthDraw &draw) {
 	int outVertCount = 0;
 	switch (draw.prim) {
 	case GE_PRIM_RECTANGLES:
-		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
+		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_ + 4 * draw.vertexOffset, depthIndices_ + draw.indexOffset, draw);
 		break;
 	case GE_PRIM_TRIANGLES:
-		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, depthIndices_ + draw.indexOffset, draw);
+		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_ + 4 * draw.vertexOffset, depthIndices_ + draw.indexOffset, draw);
 		break;
 	default:
 		_dbg_assert_(false);

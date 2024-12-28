@@ -103,25 +103,18 @@ enum class TriangleResult {
 	TooSmall,
 };
 
-constexpr int MIN_TRI_AREA = 10;
+constexpr int MIN_TWICE_TRI_AREA = 10;
 
 // Adapted from Intel's depth rasterizer example.
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
 template<ZCompareMode compareMode>
 TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
-	const int tileStartX = scissor.x1;
-	const int tileEndX = scissor.x2;
-
-	const int tileStartY = scissor.y1;
-	const int tileEndY = scissor.y2;
-
 	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
 	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
 	// are slow on SSE2.
 
 	// NOTE: Triangles are stored in groups of 4.
-
 	int v0x = tx[0];
 	int v0y = ty[0];
 	int v1x = tx[4];
@@ -131,10 +124,10 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	// We use 4x1 tiles for simplicity.
-	int minX = std::max(std::min(std::min(v0x, v1x), v2x), tileStartX) & ~3;
-	int maxX = std::min(std::max(std::max(v0x, v1x), v2x) + 3, tileEndX) & ~3;
-	int minY = std::max(std::min(std::min(v0y, v1y), v2y), tileStartY);
-	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), tileEndY);
+	int minX = std::max(std::min(std::min(v0x, v1x), v2x), (int)scissor.x1) & ~3;
+	int maxX = std::min(std::max(std::max(v0x, v1x), v2x) + 3, (int)scissor.x2) & ~3;
+	int minY = std::max(std::min(std::min(v0y, v1y), v2y), (int)scissor.y1);
+	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), (int)scissor.y2);
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
 		return TriangleResult::NoPixels;
@@ -145,7 +138,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	if (triArea < 0) {
 		return TriangleResult::Backface;
 	}
-	if (triArea < MIN_TRI_AREA) {
+	if (triArea < MIN_TWICE_TRI_AREA) {
 		return TriangleResult::TooSmall;  // Or zero area.
 	}
 
