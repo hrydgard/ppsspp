@@ -22,6 +22,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
@@ -922,9 +923,31 @@ inline void ComputeFinalProjMatrix(float *worldviewproj) {
 	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
 	Matrix4ByMatrix4(worldview, world, view);
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	// Heh, a bit ugly to mix two different matrix APIs here, but it works.
+
+	const float viewportScale[4] = {
+		gstate.getViewportXScale(),
+		gstate.getViewportYScale(),
+		gstate.getViewportZScale(),
+		1.0f
+	};
+	const float viewportTranslate[4] = {
+		gstate.getViewportXCenter() - gstate.getOffsetX(),
+		gstate.getViewportYCenter() - gstate.getOffsetY(),
+		gstate.getViewportZCenter(),
+	};
+
+	// NOTE: Applying the translation actually works pre-divide, since W is also affected.
+	Mat4F32 m(worldviewproj);
+	TranslateAndScaleInplace(m, Vec4F32::Load(viewportScale), Vec4F32::Load(viewportTranslate));
+	m.Store(worldviewproj);
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
+	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
+		return;
+	}
 
 	switch (prim) {
 	case GE_PRIM_INVALID:
@@ -969,16 +992,8 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
-	// Clip and triangulate using the index buffer.
+	// Clip and triangulate using the index buffer. It now automatically zero-pads.
 	int outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-	if (outVertCount & 15) {
-		// Zero padding
-		for (int i = outVertCount; i < ((outVertCount + 16) & ~15); i++) {
-			tx[i] = 0;
-			ty[i] = 0;
-			tz[i] = 0.0f;
-		}
-	}
 
 	DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(gstate.getDepthBufRawAddress() | 0x04000000), gstate.DepthBufStride(),
 		GE_PRIM_TRIANGLES, gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2(), gstate.getScissorY2(),
@@ -986,6 +1001,10 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
+	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
+		return;
+	}
+
 	TimeCollector collectStat(&gpuStats.msRasterizingDepth, coreCollectDebugStats);
 
 	switch (prim) {

@@ -30,7 +30,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		v1x = x1;
 	}
 	if (v2x > x2) {
-		v2x = x2;
+		v2x = x2 + 1;  // PSP scissors are inclusive
 	}
 	if (v1x >= v2x) {
 		return;
@@ -40,7 +40,7 @@ void DepthRasterRect(uint16_t *dest, int stride, int x1, int y1, int x2, int y2,
 		v1y = y1;
 	}
 	if (v2y > y2) {
-		v2y = y2;
+		v2y = y2 + 1;
 	}
 	if (v1y >= v2y) {
 		return;
@@ -127,12 +127,14 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
 	// are slow on SSE2.
 
+	// NOTE: Triangles are stored in groups of 4.
+
 	int v0x = tx[0];
 	int v0y = ty[0];
-	int v1x = tx[1];
-	int v1y = ty[1];
-	int v2x = tx[2];
-	int v2y = ty[2];
+	int v1x = tx[4];
+	int v1y = ty[4];
+	int v2x = tx[8];
+	int v2y = ty[8];
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	// We use 4x1 tiles for simplicity.
@@ -164,8 +166,8 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 
 	// Prepare to interpolate Z
 	Vec4F32 zz0 = Vec4F32::Splat(tz[0]);
-	Vec4F32 zz1 = Vec4F32::Splat((tz[1] - tz[0]) * oneOverTriArea);
-	Vec4F32 zz2 = Vec4F32::Splat((tz[2] - tz[0]) * oneOverTriArea);
+	Vec4F32 zz1 = Vec4F32::Splat((tz[4] - tz[0]) * oneOverTriArea);
+	Vec4F32 zz2 = Vec4F32::Splat((tz[8] - tz[0]) * oneOverTriArea);
 
 	Vec4F32 zdeltaX = zz1 * Vec4F32FromS32(e20.oneStepX) + zz2 * Vec4F32FromS32(e01.oneStepX);
 	Vec4F32 zdeltaY = zz1 * Vec4F32FromS32(e20.oneStepY) + zz2 * Vec4F32FromS32(e01.oneStepY);
@@ -215,6 +217,14 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 		}
 	}
 	return TriangleResult::OK;
+}
+
+template<ZCompareMode compareMode>
+inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz) {
+	for (int i = 0; i < 4; i++) {
+		TriangleResult result = DepthRasterTriangle<compareMode>(depthBuf, stride, x1, y1, x2, y2, tx + i, ty + i, tz + i);
+		stats[(int)result]++;
+	}
 }
 
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
@@ -280,20 +290,11 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	for (int i = 0; i < count; i++) {
 		const float *data = (const float *)(startPtr + i * vertexStride + offset);
 		// Just pass the position straight through - this is through mode!
-		Vec4F32::Load(data).WithLane3Zeroed().Store(dest + i * 4);
+		Vec4F32::Load(data).WithLane3Zero().Store(dest + i * 4);
 	}
 }
 
 int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
-	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
-	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
-	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
-	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
-	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
-	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
-
 	int outCount = 0;
 	for (int i = 0; i < count; i += 2) {
 		const float *verts[2] = {
@@ -321,15 +322,9 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32 screen[2];
-		Vec4F32 depth;
-		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
-		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
-		depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
-
-		screen[0].Store(tx + outCount);
-		screen[1].Store(ty + outCount);
-		depth.Store(tz + outCount);
+		Vec4S32FromF32(x).Store(tx + outCount);
+		Vec4S32FromF32(y).Store(ty + outCount);
+		z.Clamp(0.0f, 65535.0f).Store(tz + outCount);
 		outCount += 2;
 	}
 	return outCount;
@@ -339,77 +334,109 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	bool cullEnabled = gstate.isCullEnabled();
 	GECullMode cullMode = gstate.getCullMode();
 
-	// TODO: On ARM we can do better by keeping these in lanes instead of splatting.
-	// However, hard to find a common abstraction.
-	const Vec4F32 viewportX = Vec4F32::Splat(gstate.getViewportXCenter() - gstate.getOffsetX());
-	const Vec4F32 viewportY = Vec4F32::Splat(gstate.getViewportYCenter() - gstate.getOffsetY());
-	const Vec4F32 viewportZ = Vec4F32::Splat(gstate.getViewportZCenter());
-	const Vec4F32 viewportScaleX = Vec4F32::Splat(gstate.getViewportXScale());
-	const Vec4F32 viewportScaleY = Vec4F32::Splat(gstate.getViewportYScale());
-	const Vec4F32 viewportScaleZ = Vec4F32::Splat(gstate.getViewportZScale());
-
 	int outCount = 0;
 
 	int flipCull = 0;
 	if (cullEnabled && cullMode == GE_CULL_CW) {
 		flipCull = 3;
 	}
-	for (int i = 0; i < count; i += 3) {
-		const float *verts[3] = {
-			transformed + indexBuffer[i] * 4,
-			transformed + indexBuffer[i + (1 ^ flipCull)] * 4,
-			transformed + indexBuffer[i + (2 ^ flipCull)] * 4,
-		};
 
-		// Check if any vertex is behind the 0 plane.
-		if (verts[0][3] < 0.0f || verts[1][3] < 0.0f || verts[2][3] < 0.0f) {
-			// Ditch this triangle. Later we should clip here.
+	static const float zerovec[4] = {};
+
+	int collected = 0;
+	const float *verts[12];  // four triangles at a time!
+	for (int i = 0; i < count; i += 3) {
+		// Collect valid triangles into buffer.
+		const float *v0 = transformed + indexBuffer[i] * 4;
+		const float *v1 = transformed + indexBuffer[i + (1 ^ flipCull)] * 4;
+		const float *v2 = transformed + indexBuffer[i + (2 ^ flipCull)] * 4;
+		// Don't collect triangle if any vertex is behind the 0 plane.
+		if (v0[3] > 0.0f && v1[3] > 0.0f && v2[3] > 0.0f) {
+			verts[collected] = v0;
+			verts[collected + 1] = v1;
+			verts[collected + 2] = v2;
+			collected += 3;
+		}
+
+		if (i >= count - 3 && collected != 12) {
+			// Last iteration. Zero out any remaining triangles.
+			for (int j = collected; j < 12; j++) {
+				verts[j] = zerovec;
+			}
+			collected = 12;
+		}
+
+		if (collected != 12) {
 			continue;
 		}
 
+		collected = 0;
+
 		// These names are wrong .. until we transpose.
-		Vec4F32 x = Vec4F32::Load(verts[0]);
-		Vec4F32 y = Vec4F32::Load(verts[1]);
-		Vec4F32 z = Vec4F32::Load(verts[2]);
-		Vec4F32 w = Vec4F32::Zero();
-		Vec4F32::Transpose(x, y, z, w);
+		Vec4F32 x0 = Vec4F32::Load(verts[0]);
+		Vec4F32 x1 = Vec4F32::Load(verts[1]);
+		Vec4F32 x2 = Vec4F32::Load(verts[2]);
+		Vec4F32 y0 = Vec4F32::Load(verts[3]);
+		Vec4F32 y1 = Vec4F32::Load(verts[4]);
+		Vec4F32 y2 = Vec4F32::Load(verts[5]);
+		Vec4F32 z0 = Vec4F32::Load(verts[6]);
+		Vec4F32 z1 = Vec4F32::Load(verts[7]);
+		Vec4F32 z2 = Vec4F32::Load(verts[8]);
+		Vec4F32 w0 = Vec4F32::Load(verts[9]);
+		Vec4F32 w1 = Vec4F32::Load(verts[10]);
+		Vec4F32 w2 = Vec4F32::Load(verts[11]);
+
+		Vec4F32::Transpose(x0, y0, z0, w0);
+		Vec4F32::Transpose(x1, y1, z1, w1);
+		Vec4F32::Transpose(x2, y2, z2, w2);
+
 		// Now the names are accurate! Since we only have three vertices, the fourth member of each vector is zero
 		// and will not be stored (well it will be stored, but it'll be overwritten by the next vertex).
-		Vec4F32 recipW = w.Recip();
+		Vec4F32 recipW0 = w0.Recip();
+		Vec4F32 recipW1 = w1.Recip();
+		Vec4F32 recipW2 = w2.Recip();
 
-		x *= recipW;
-		y *= recipW;
-		z *= recipW;
+		x0 *= recipW0;
+		y0 *= recipW0;
+		z0 = (z0 * recipW0).Clamp(0.0f, 65535.0f);
+		x1 *= recipW1;
+		y1 *= recipW1;
+		z1 = (z1 * recipW1).Clamp(0.0f, 65535.0f);
+		x2 *= recipW2;
+		y2 *= recipW2;
+		z2 = (z2 * recipW2).Clamp(0.0f, 65535.0f);
 
-		Vec4S32 screen[2];
-		screen[0] = Vec4S32FromF32(x * viewportScaleX + viewportX);
-		screen[1] = Vec4S32FromF32(y * viewportScaleY + viewportY);
-		Vec4F32 depth = (z * viewportScaleZ + viewportZ).Clamp(0.0f, 65535.0f);
+		Vec4S32FromF32(x0).Store(tx + outCount);
+		Vec4S32FromF32(x1).Store(tx + outCount + 4);
+		Vec4S32FromF32(x2).Store(tx + outCount + 8);
+		Vec4S32FromF32(y0).Store(ty + outCount);
+		Vec4S32FromF32(y1).Store(ty + outCount + 4);
+		Vec4S32FromF32(y2).Store(ty + outCount + 8);
+		z0.Store(tz + outCount);
+		z1.Store(tz + outCount + 4);
+		z2.Store(tz + outCount + 8);
 
-		screen[0].Store(tx + outCount);
-		screen[1].Store(ty + outCount);
-		depth.Store(tz + outCount);
-		outCount += 3;
+		outCount += 12;
 
 		if (!cullEnabled) {
-			// If culling is off, shuffle the three vectors to produce the opposite triangle, and store them after.
+			// If culling is off, store the triangles again, in the opposite order.
+			Vec4S32FromF32(x0).Store(tx + outCount);
+			Vec4S32FromF32(x2).Store(tx + outCount + 4);
+			Vec4S32FromF32(x1).Store(tx + outCount + 8);
+			Vec4S32FromF32(y0).Store(ty + outCount);
+			Vec4S32FromF32(y2).Store(ty + outCount + 4);
+			Vec4S32FromF32(y1).Store(ty + outCount + 8);
+			z0.Store(tz + outCount);
+			z2.Store(tz + outCount + 4);
+			z1.Store(tz + outCount + 8);
 
-			// HOWEVER! I realized that this is not the optimal layout, after all.
-			// We should group 4 triangles at a time and interleave them (so we first have all X of vertex 0,
-			// then all X of vertex 1, and so on). This seems solvable with another transpose, if we can easily
-			// collect four triangles at a time...
-
-			screen[0].SwapLowerElements().Store(tx + outCount);
-			screen[1].SwapLowerElements().Store(ty + outCount);
-			depth.SwapLowerElements().Store(tz + outCount);
-			outCount += 3;
+			outCount += 12;
 		}
 	}
 	return outCount;
 }
 
-void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, int count) {
-	// TODO: This is basically a transpose, or AoS->SoA conversion. There may be fast ways.
+void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t * indexBuffer, int count) {
 	for (int i = 0; i < count; i++) {
 		const float *pos = transformed + indexBuffer[i] * 4;
 		tx[i] = (int)pos[0];
@@ -461,8 +488,9 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 		}
 		comp = ZCompareMode::Always;
 	} else {
-		if (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())
-			return;
+		// These should have been caught earlier.
+		_dbg_assert_(gstate.isDepthTestEnabled());
+		_dbg_assert_(gstate.isDepthWriteEnabled());
 	}
 
 	switch (prim) {
@@ -478,25 +506,25 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 	case GE_PRIM_TRIANGLES:
 	{
 		int stats[4]{};
-		switch (comp) {
-		case ZCompareMode::Greater:
-			for (int i = 0; i < count; i += 3) {
-				TriangleResult result = DepthRasterTriangle<ZCompareMode::Greater>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
-				stats[(int)result]++;
+		// Batches of 4 triangles, as output by the clip function.
+		for (int i = 0; i < count; i += 12) {
+			switch (comp) {
+			case ZCompareMode::Greater:
+			{
+				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
 			}
-			break;
-		case ZCompareMode::Less:
-			for (int i = 0; i < count; i += 3) {
-				TriangleResult result = DepthRasterTriangle<ZCompareMode::Less>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
-				stats[(int)result]++;
+			case ZCompareMode::Less:
+			{
+				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
 			}
-			break;
-		case ZCompareMode::Always:
-			for (int i = 0; i < count; i += 3) {
-				TriangleResult result = DepthRasterTriangle<ZCompareMode::Always>(depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
-				stats[(int)result]++;
+			case ZCompareMode::Always:
+			{
+				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
 			}
-			break;
+			}
 		}
 		gpuStats.numDepthRasterBackface += stats[(int)TriangleResult::Backface];
 		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleResult::NoPixels];
