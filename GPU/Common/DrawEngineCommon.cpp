@@ -1045,7 +1045,6 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
 
-	int outVertCount = 0;
 
 	DepthDraw draw;
 	if (!CalculateDepthDraw(&draw, prim)) {
@@ -1058,8 +1057,6 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 
 	if (dec->throughmode) {
 		ConvertPredecodedThroughForDepthRaster(depthTransformed_, decoded_, dec, numDecoded);
-		DepthRasterConvertTransformed(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-		outVertCount = vertexCount;
 	} else {
 		if (dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 			return;
@@ -1067,17 +1064,19 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		float worldviewproj[16];
 		ComputeFinalProjMatrix().Store(worldviewproj);
 		TransformPredecodedForDepthRaster(depthTransformed_, worldviewproj, decoded_, dec, numDecoded);
-		switch (prim) {
-		case GE_PRIM_RECTANGLES:
-			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
-			break;
-		case GE_PRIM_TRIANGLES:
-			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount, draw);
-			break;
-		default:
-			_dbg_assert_(false);
-			break;
-		}
+	}
+
+	int outVertCount = 0;
+	switch (prim) {
+	case GE_PRIM_RECTANGLES:
+		outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount);
+		break;
+	case GE_PRIM_TRIANGLES:
+		outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, depthTransformed_, decIndex_, vertexCount, draw);
+		break;
+	default:
+		_dbg_assert_(false);
+		break;
 	}
 
 	if (prim == GE_PRIM_TRIANGLES && (outVertCount & 15) != 0) {

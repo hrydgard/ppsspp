@@ -284,7 +284,8 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	for (int i = 0; i < count; i++) {
 		const float *data = (const float *)(startPtr + i * vertexStride + offset);
 		// Just pass the position straight through - this is through mode!
-		Vec4F32::Load(data).WithLane3Zero().Store(dest + i * 4);
+		// A W of one makes projection a no-op, without branching.
+		Vec4F32::Load(data).WithLane3One().Store(dest + i * 4);
 	}
 }
 
@@ -316,9 +317,9 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 		y *= recipW;
 		z *= recipW;
 
-		Vec4S32FromF32(x).Store(tx + outCount);
-		Vec4S32FromF32(y).Store(ty + outCount);
-		z.Clamp(0.0f, 65535.0f).Store(tz + outCount);
+		Vec4S32FromF32(x).Store2(tx + outCount);
+		Vec4S32FromF32(y).Store2(ty + outCount);
+		z.Clamp(0.0f, 65535.0f).Store2(tz + outCount);
 		outCount += 2;
 	}
 	return outCount;
@@ -385,12 +386,12 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		Vec4F32::Transpose(x1, y1, z1, w1);
 		Vec4F32::Transpose(x2, y2, z2, w2);
 
-		// Now the names are accurate! Since we only have three vertices, the fourth member of each vector is zero
-		// and will not be stored (well it will be stored, but it'll be overwritten by the next vertex).
+		// Now the names are accurate!
+
+		// Let's project all three vertices, for all four triangles.
 		Vec4F32 recipW0 = w0.Recip();
 		Vec4F32 recipW1 = w1.Recip();
 		Vec4F32 recipW2 = w2.Recip();
-
 		x0 *= recipW0;
 		y0 *= recipW0;
 		z0 = (z0 * recipW0).Clamp(0.0f, 65535.0f);
@@ -431,15 +432,6 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 
 	gpuStats.numDepthRasterZCulled += planeCulled;
 	return outCount;
-}
-
-void DepthRasterConvertTransformed(int *tx, int *ty, float *tz, const float *transformed, const uint16_t * indexBuffer, int count) {
-	for (int i = 0; i < count; i++) {
-		const float *pos = transformed + indexBuffer[i] * 4;
-		tx[i] = (int)pos[0];
-		ty[i] = (int)pos[1];
-		tz[i] = pos[2];  // clamp?
-	}
 }
 
 // Rasterizes screen-space vertices.

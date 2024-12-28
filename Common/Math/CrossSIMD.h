@@ -145,6 +145,7 @@ struct Vec4S32 {
 	static Vec4S32 Load(const int *src) { return Vec4S32{ _mm_loadu_si128((const __m128i *)src) }; }
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ _mm_load_si128((const __m128i *)src) }; }
 	void Store(int *dst) { _mm_storeu_si128((__m128i *)dst, v); }
+	void Store2(int *dst) { _mm_storel_epi64((__m128i *)dst, v); }
 	void StoreAligned(int *dst) { _mm_store_si128((__m128i *)dst, v);}
 
 	// Swaps the two lower elements. Useful for reversing triangles..
@@ -196,6 +197,7 @@ struct Vec4F32 {
 	static Vec4F32 Load(const float *src) { return Vec4F32{ _mm_loadu_ps(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
+	void Store2(float *dst) { _mm_storel_epi64((__m128i *)dst, _mm_castps_si128(v)); }
 	void StoreAligned (float *dst) { _mm_store_ps(dst, v); }
 	void Store3(float *dst) {
 		// TODO: There might be better ways.
@@ -455,6 +457,7 @@ struct Vec4S32 {
 	static Vec4S32 Load(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	void Store(int *dst) { vst1q_s32(dst, v); }
+	void Store2(int *dst) { vst1_s32(dst, vget_low_s32(v)); }
 	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
 
 	// Swaps the two lower elements, but NOT the two upper ones. Useful for reversing triangles..
@@ -488,6 +491,7 @@ struct Vec4F32 {
 	static Vec4F32 Load(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
 	void Store(float *dst) { vst1q_f32(dst, v); }
+	void Store2(float *dst) { vst1_f32(dst, vget_low_f32(v)); }
 	void StoreAligned(float *dst) { vst1q_f32(dst, v); }
 	void Store3(float *dst) {
 		// TODO: There might be better ways. Try to avoid this when possible.
