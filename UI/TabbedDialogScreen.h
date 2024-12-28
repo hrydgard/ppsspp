@@ -14,11 +14,11 @@ public:
 	UI::LinearLayout *AddTab(const char *tag, std::string_view title, bool isSearch = false);
 	void CreateViews() override;
 
-
 protected:
 	// Load data and define your tabs here.
 	virtual void PreCreateViews() {}
 	virtual void CreateTabs() = 0;
+	virtual void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {}
 	virtual bool ShowSearchControls() const { return true; }
 
 	void RecreateViews() override;

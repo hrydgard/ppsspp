@@ -28,6 +28,7 @@
 
 #include "UI/MiscScreens.h"
 #include "UI/GameInfoCache.h"
+#include "UI/TabbedDialogScreen.h"
 
 enum class SavedataSortOption {
 	FILENAME,
@@ -66,10 +67,10 @@ private:
 	bool searchPending_ = false;
 };
 
-class SavedataScreen : public UIDialogScreenWithGameBackground {
+class SavedataScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.
-	SavedataScreen(const Path &gamePath);
+	SavedataScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
 	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
@@ -78,15 +79,22 @@ public:
 	const char *tag() const override { return "Savedata"; }
 
 protected:
-	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
-	UI::EventReturn OnSortClick(UI::EventParams &e);
-	UI::EventReturn OnSearch(UI::EventParams &e);
-	void CreateViews() override;
+	void CreateTabs() override;
+	void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) override;
 
-	bool gridStyle_;
+	bool ShowSearchControls() const override { return false; }
+
+private:
+	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
+	UI::EventReturn OnSearch(UI::EventParams &e);
+
+	void CreateSavedataTab(UI::ViewGroup *savedata);
+	void CreateSavestateTab(UI::ViewGroup *savestate);
+
+	bool gridStyle_ = false;
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
-	SavedataBrowser *dataBrowser_;
-	SavedataBrowser *stateBrowser_;
+	SavedataBrowser *dataBrowser_ = nullptr;
+	SavedataBrowser *stateBrowser_ = nullptr;
 	std::string searchFilter_;
 };
 
