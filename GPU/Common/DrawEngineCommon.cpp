@@ -1035,7 +1035,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
 
 	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	FlushDepthDraw(draw);
+	ExecuteDepthDraw(draw);
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -1067,10 +1067,10 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	memcpy(depthIndices_, decIndex_, sizeof(uint16_t) * vertexCount);
 
 	// FUTURE SPLIT --- The above will always run on the main thread. The below can be split across workers.
-	FlushDepthDraw(draw);
+	ExecuteDepthDraw(draw);
 }
 
-void DrawEngineCommon::FlushDepthDraw(const DepthDraw &draw) {
+void DrawEngineCommon::ExecuteDepthDraw(const DepthDraw &draw) {
 	int *tx = depthScreenVerts_;
 	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
 	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
