@@ -27,7 +27,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/DepthRaster.h"
 
 class VertexDecoder;
 
