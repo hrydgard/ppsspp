@@ -185,7 +185,7 @@ void PrintDecodedVertex(const VertexReader &vtx) {
 	}
 	// Etc..
 	float pos[3];
-	vtx.ReadPos(pos);
+	vtx.ReadPosAuto(pos);
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
@@ -1420,8 +1420,8 @@ static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader 
 			return false;
 		}
 	}
-	vtx1.ReadPos(vec1.AsArray());
-	vtx2.ReadPos(vec2.AsArray());
+	vtx1.ReadPosAuto(vec1.AsArray());
+	vtx2.ReadPosAuto(vec2.AsArray());
 	float diff = LargestAbsDiff(vec1, vec2, 3);
 	if (diff >= 1.0 / 512.0f) {
 		WARN_LOG(Log::G3D, "Pos diff %f", diff);
