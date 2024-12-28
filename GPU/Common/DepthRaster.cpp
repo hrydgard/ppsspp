@@ -219,6 +219,14 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, int x1, int y
 	return TriangleResult::OK;
 }
 
+template<ZCompareMode compareMode>
+inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, int x1, int y1, int x2, int y2, const int *tx, const int *ty, const float *tz) {
+	for (int i = 0; i < 4; i++) {
+		TriangleResult result = DepthRasterTriangle<compareMode>(depthBuf, stride, x1, y1, x2, y2, tx + i, ty + i, tz + i);
+		stats[(int)result]++;
+	}
+}
+
 void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, const void *vertexData, int indexLowerBound, int indexUpperBound, VertexDecoder *dec, u32 vertTypeID) {
 	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
 	_dbg_assert_((vertTypeID & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
@@ -500,26 +508,22 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, GEPrimitiveType pr
 		int stats[4]{};
 		// Batches of 4 triangles, as output by the clip function.
 		for (int i = 0; i < count; i += 12) {
-			for (int j = 0; j < 4; j++) {
-				TriangleResult result;
-				switch (comp) {
-				case ZCompareMode::Greater:
-				{
-					result = DepthRasterTriangle<ZCompareMode::Greater>(depth, depthStride, x1, y1, x2, y2, &tx[i + j], &ty[i + j], &tz[i + j]);
-					break;
-				}
-				case ZCompareMode::Less:
-				{
-					result = DepthRasterTriangle<ZCompareMode::Less>(depth, depthStride, x1, y1, x2, y2, &tx[i + j], &ty[i + j], &tz[i + j]);
-					break;
-				}
-				case ZCompareMode::Always:
-				{
-					result = DepthRasterTriangle<ZCompareMode::Always>(depth, depthStride, x1, y1, x2, y2, &tx[i + j], &ty[i + j], &tz[i + j]);
-					break;
-				}
-				}
-				stats[(int)result]++;
+			switch (comp) {
+			case ZCompareMode::Greater:
+			{
+				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
+			}
+			case ZCompareMode::Less:
+			{
+				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
+			}
+			case ZCompareMode::Always:
+			{
+				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, x1, y1, x2, y2, &tx[i], &ty[i], &tz[i]);
+				break;
+			}
 			}
 		}
 		gpuStats.numDepthRasterBackface += stats[(int)TriangleResult::Backface];
