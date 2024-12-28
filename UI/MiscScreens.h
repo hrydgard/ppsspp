@@ -97,9 +97,6 @@ public:
 	const char *tag() const override { return "Prompt"; }
 
 private:
-	UI::EventReturn OnYes(UI::EventParams &e);
-	UI::EventReturn OnNo(UI::EventParams &e);
-
 	std::string message_;
 	std::string yesButtonText_;
 	std::string noButtonText_;
