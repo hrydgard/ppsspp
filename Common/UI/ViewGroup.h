@@ -309,6 +309,8 @@ public:
 
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
+	LinearLayout *Container() { return tabContainer_; }
+
 private:
 	void AddTabContents(std::string_view title, View *tabContents);
 	EventReturn OnTabClick(EventParams &e);

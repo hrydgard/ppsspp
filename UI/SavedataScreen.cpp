@@ -595,9 +595,6 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-SavedataScreen::SavedataScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
-}
-
 SavedataScreen::~SavedataScreen() {
 	if (g_gameInfoCache) {
 		g_gameInfoCache->PurgeType(IdentifiedFileType::PPSSPP_SAVESTATE);
@@ -605,65 +602,73 @@ SavedataScreen::~SavedataScreen() {
 	}
 }
 
-void SavedataScreen::CreateViews() {
-	using namespace UI;
+void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+	using namespace UI;
 	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
-	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
-	gridStyle_ = false;
-	root_ = new AnchorLayout();
+	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
+	sortStrip->AddChoice(sa->T("Filename"));
+	sortStrip->AddChoice(sa->T("Size"));
+	sortStrip->AddChoice(sa->T("Date"));
+	sortStrip->SetSelection((int)sortOption_, false);
+	sortStrip->OnChoice.Add([this](UI::EventParams &e) {
+		sortOption_ = SavedataSortOption(e.a);
+		dataBrowser_->SetSortOption(sortOption_);
+		return UI::EVENT_DONE;
+	});
+	savedata->Add(sortStrip);
 
-	// Make space for buttons.
-	LinearLayout *main = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0, 0, 0, 84.0f));
-
-	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	tabs->SetTag("Savedata");
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	scroll->SetTag("SavedataBrowser");
-	dataBrowser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	dataBrowser_->SetSortOption(sortOption_);
 	if (!searchFilter_.empty())
 		dataBrowser_->SetSearchFilter(searchFilter_);
 	dataBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
-	tabs->AddTab(sa->T("Save Data"), scroll);
+}
 
-	ScrollView *scroll2 = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	scroll2->SetTag("SavedataStatesBrowser");
-	stateBrowser_ = scroll2->Add(new SavedataBrowser(savestate_dir));
-	stateBrowser_->SetSortOption(sortOption_);
-	if (!searchFilter_.empty())
-		stateBrowser_->SetSearchFilter(searchFilter_);
-	stateBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
-	tabs->AddTab(sa->T("Save States"), scroll2);
+void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+	using namespace UI;
+	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
-	main->Add(tabs);
-
-	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, 0, 0, NONE));
+	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL);
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
 	sortStrip->AddChoice(sa->T("Date"));
 	sortStrip->SetSelection((int)sortOption_, false);
-	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
+	sortStrip->OnChoice.Add([this](UI::EventParams &e) {
+		sortOption_ = SavedataSortOption(e.a);
+		stateBrowser_->SetSortOption(sortOption_);
+		return UI::EVENT_DONE;
+	});
+	savestate->Add(sortStrip);
 
-	AddStandardBack(root_);
-	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
-	}
-
-	root_->Add(main);
-	root_->Add(sortStrip);
+	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir));
+	stateBrowser_->SetSortOption(sortOption_);
+	if (!searchFilter_.empty())
+		stateBrowser_->SetSearchFilter(searchFilter_);
+	stateBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 }
 
-UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
-	sortOption_ = SavedataSortOption(e.a);
+void SavedataScreen::CreateTabs() {
+	using namespace UI;
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
-	dataBrowser_->SetSortOption(sortOption_);
-	stateBrowser_->SetSortOption(sortOption_);
+	LinearLayout *savedata = AddTab("SavedataBrowser", sa->T("Save Data"));
+	CreateSavedataTab(savedata);
 
-	return UI::EVENT_DONE;
+	LinearLayout *savestate = AddTab("SavedataStatesBrowser", sa->T("Save States"));
+	CreateSavestateTab(savestate);
+}
+
+void SavedataScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {
+	using namespace UI;
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		verticalLayout->Add(new Choice(di->T("Search"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))))
+			->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+	}
 }
 
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
