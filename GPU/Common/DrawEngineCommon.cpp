@@ -1109,14 +1109,16 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
 		const uint16_t *indices = depthIndices_ + draw.indexOffset;
 
+		DepthScissor tileScissor = draw.scissor.Tile(0, 1);
+
 		{
 			TimeCollector collectStat(&gpuStats.msCullDepth, collectStats);
 			switch (draw.prim) {
 			case GE_PRIM_RECTANGLES:
-				outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw);
+				outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
 				break;
 			case GE_PRIM_TRIANGLES:
-				outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw);
+				outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor);
 				break;
 			default:
 				_dbg_assert_(false);
@@ -1125,7 +1127,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		}
 		{
 			TimeCollector collectStat(&gpuStats.msRasterizeDepth, collectStats);
-			DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw);
+			DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor);
 		}
 	}
 
