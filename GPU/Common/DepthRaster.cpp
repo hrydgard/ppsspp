@@ -85,29 +85,29 @@ static void DepthRasterRect(uint16_t *dest, int stride, const DepthScissor sciss
 	}
 }
 
-alignas(16) static const int zero123[4]  = {0, 1, 2, 3};
+alignas(16) static const int zero123[4] = {0, 1, 2, 3};
+
+constexpr int stepXSize = 4;
+constexpr int stepYSize = 1;
 
 struct Edge {
 	// Dimensions of our pixel group
-	static const int stepXSize = 4;
-	static const int stepYSize = 1;
-
 	Vec4S32 oneStepX;
 	Vec4S32 oneStepY;
 
-	Vec4S32 init(int v0x, int v0y, int v1x, int v1y, int p0x, int p0y) {
+	Vec4S32 init(int xa, int ya, int xb, int yb, int originX, int originY) {
 		// Edge setup
-		int A = v0y - v1y;
-		int B = v1x - v0x;
-		int C = v0x * v1y - v0y * v1x;
+		int A = ya - yb;
+		int B = xb - xa;
+		int C = xa * yb - ya * xb;
 
 		// Step deltas
 		oneStepX = Vec4S32::Splat(A * stepXSize);
 		oneStepY = Vec4S32::Splat(B * stepYSize);
 
 		// x/y values for initial pixel block. Add horizontal offsets.
-		Vec4S32 x = Vec4S32::Splat(p0x) + Vec4S32::LoadAligned(zero123);
-		Vec4S32 y = Vec4S32::Splat(p0y);
+		Vec4S32 x = Vec4S32::Splat(originX) + Vec4S32::LoadAligned(zero123);
+		Vec4S32 y = Vec4S32::Splat(originY);
 
 		// Edge function values at origin
 		return Vec4S32::Splat(A) * x + Vec4S32::Splat(B) * y + Vec4S32::Splat(C);
@@ -175,7 +175,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	Vec4F32 zrow = zz0 + Vec4F32FromS32(w1_row) * zz1 + Vec4F32FromS32(w2_row) * zz2;
 
 	// Rasterize
-	for (int y = minY; y <= maxY; y += Edge::stepYSize, w0_row += e12.oneStepY, w1_row += e20.oneStepY, w2_row += e01.oneStepY, zrow += zdeltaY) {
+	for (int y = minY; y <= maxY; y += stepYSize, w0_row += e12.oneStepY, w1_row += e20.oneStepY, w2_row += e01.oneStepY, zrow += zdeltaY) {
 		// Barycentric coordinates at start of row
 		Vec4S32 w0 = w0_row;
 		Vec4S32 w1 = w1_row;
@@ -184,7 +184,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 
 		uint16_t *rowPtr = depthBuf + stride * y;
 
-		for (int x = minX; x <= maxX; x += Edge::stepXSize, w0 += e12.oneStepX, w1 += e20.oneStepX, w2 += e01.oneStepX, zs += zdeltaX) {
+		for (int x = minX; x <= maxX; x += stepXSize, w0 += e12.oneStepX, w1 += e20.oneStepX, w2 += e01.oneStepX, zs += zdeltaX) {
 			// If p is on or inside all edges for any pixels,
 			// render those pixels.
 			Vec4S32 signCalc = w0 | w1 | w2;
