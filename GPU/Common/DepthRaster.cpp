@@ -104,8 +104,9 @@ constexpr int MIN_TWICE_TRI_AREA = 10;
 template<ZCompareMode compareMode>
 TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
 	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
-	// Due to the many multiplications, we might want to do it in floating point as 32-bit integer muls
-	// are slow on SSE2.
+	// 16x16->32 multiplications are doable on SSE2, which should be all we need.
+
+	// We use 4x1 SIMD tiles for simplicity. 2x2 would be ideal but stores/loads get annoying.
 
 	// NOTE: Triangles are stored in groups of 4.
 	int x0 = tx[0];
@@ -115,12 +116,11 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	int x2 = tx[8];
 	int y2 = ty[8];
 
-	// use fixed-point only for X and Y.  Avoid work for Z and W.
-	// We use 4x1 tiles for simplicity.
 	int minX = std::max(std::min(std::min(x0, x1), x2), (int)scissor.x1) & ~3;
 	int maxX = std::min(std::max(std::max(x0, x1), x2) + 3, (int)scissor.x2) & ~3;
 	int minY = std::max(std::min(std::min(y0, y1), y2), (int)scissor.y1);
 	int maxY = std::min(std::max(std::max(y0, y1), y2), (int)scissor.y2);
+
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
 		// Most of these are now gone in the initial pass.
@@ -150,11 +150,6 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	int B01 = x1 - x0;
 	int C01 = x0 * y1 - y0 * x1;
 
-	// Prepare to interpolate Z
-	float zbase = tz[0];
-	float z_20 = (tz[4] - tz[0]) * oneOverTriArea;
-	float z_01 = (tz[8] - tz[0]) * oneOverTriArea;
-
 	// Step deltas
 	int stepX12 = A12 * stepXSize;
 	int stepY12 = B12 * stepYSize;
@@ -163,67 +158,80 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	int stepX01 = A01 * stepXSize;
 	int stepY01 = B01 * stepYSize;
 
-	// x/y values for initial pixel block. Add horizontal offsets.
-	Vec4S32 initialX = Vec4S32::Splat(minX) + Vec4S32::LoadAligned(zero123);
-	int initialY = minY;
-
-	// Convert per-triangle values to wide registers.
+	// Prepare to interpolate Z
+	float zbase = tz[0];
+	float z_20 = (tz[4] - tz[0]) * oneOverTriArea;
+	float z_01 = (tz[8] - tz[0]) * oneOverTriArea;
+	float zdx = z_20 * (float)stepX20 + z_01 * (float)stepX01;
+	float zdy = z_20 * (float)stepY20 + z_01 * (float)stepY01;
 
 	// Edge function values at origin
-	Vec4S32 w0_row = Vec4S32::Splat(A12) * initialX + Vec4S32::Splat(B12 * initialY + C12);
-	Vec4S32 w1_row = Vec4S32::Splat(A20) * initialX + Vec4S32::Splat(B20 * initialY + C20);
-	Vec4S32 w2_row = Vec4S32::Splat(A01) * initialX + Vec4S32::Splat(B01 * initialY + C01);
+	// TODO: We could SIMD the second part here.
+	for (int t = 0; t < 1; t++) {
+		// Check for bad triangle.
+		if (triArea[t] == 0) {
+			continue;
+		}
 
-	Vec4F32 zdeltaX = Vec4F32::Splat(z_20 * (float)stepX20 + z_01 * (float)stepX01);
-	Vec4F32 zdeltaY = Vec4F32::Splat(z_20 * (float)stepY20 + z_01 * (float)stepY01);
-	Vec4F32 zrow = Vec4F32::Splat(zbase) + Vec4F32FromS32(w1_row) * z_20 + Vec4F32FromS32(w2_row) * z_01;
+		// Convert per-triangle values to wide registers.
+		Vec4S32 initialX = Vec4S32::Splat(minX) + Vec4S32::LoadAligned(zero123);
+		int initialY = minY;
 
-	Vec4S32 oneStepX12 = Vec4S32::Splat(stepX12);
-	Vec4S32 oneStepY12 = Vec4S32::Splat(stepY12);
-	Vec4S32 oneStepX20 = Vec4S32::Splat(stepX20);
-	Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20);
-	Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01);
-	Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01);
-	// Rasterize
-	for (int y = minY; y <= maxY; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
-		// Barycentric coordinates at start of row
-		Vec4S32 w0 = w0_row;
-		Vec4S32 w1 = w1_row;
-		Vec4S32 w2 = w2_row;
-		Vec4F32 zs = zrow;
+		Vec4S32 w0_row = Vec4S32::Splat(A12) * initialX + Vec4S32::Splat(B12 * initialY + C12);
+		Vec4S32 w1_row = Vec4S32::Splat(A20) * initialX + Vec4S32::Splat(B20 * initialY + C20);
+		Vec4S32 w2_row = Vec4S32::Splat(A01) * initialX + Vec4S32::Splat(B01 * initialY + C01);
 
-		uint16_t *rowPtr = depthBuf + stride * y;
+		Vec4F32 zrow = Vec4F32::Splat(zbase) + Vec4F32FromS32(w1_row) * z_20 + Vec4F32FromS32(w2_row) * z_01;
+		Vec4F32 zdeltaX = Vec4F32::Splat(zdx);
+		Vec4F32 zdeltaY = Vec4F32::Splat(zdy);
 
-		for (int x = minX; x <= maxX; x += stepXSize, w0 += oneStepX12, w1 += oneStepX20, w2 += oneStepX01, zs += zdeltaX) {
-			// If p is on or inside all edges for any pixels,
-			// render those pixels.
-			Vec4S32 signCalc = w0 | w1 | w2;
-			if (!AnyZeroSignBit(signCalc)) {
-				continue;
-			}
+		Vec4S32 oneStepX12 = Vec4S32::Splat(stepX12);
+		Vec4S32 oneStepY12 = Vec4S32::Splat(stepY12);
+		Vec4S32 oneStepX20 = Vec4S32::Splat(stepX20);
+		Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20);
+		Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01);
+		Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01);
+		// Rasterize
+		for (int y = minY; y <= maxY; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
+			// Barycentric coordinates at start of row
+			Vec4S32 w0 = w0_row;
+			Vec4S32 w1 = w1_row;
+			Vec4S32 w2 = w2_row;
+			Vec4F32 zs = zrow;
 
-			Vec4U16 bufferValues = Vec4U16::Load(rowPtr + x);
-			Vec4U16 shortMaskInv = SignBits32ToMaskU16(signCalc);
-			// Now, the mask has 1111111 where we should preserve the contents of the depth buffer.
+			uint16_t *rowPtr = depthBuf + stride * y;
 
-			Vec4U16 shortZ = Vec4U16::FromVec4F32(zs);
+			for (int x = minX; x <= maxX; x += stepXSize, w0 += oneStepX12, w1 += oneStepX20, w2 += oneStepX01, zs += zdeltaX) {
+				// If p is on or inside all edges for any pixels,
+				// render those pixels.
+				Vec4S32 signCalc = w0 | w1 | w2;
+				if (!AnyZeroSignBit(signCalc)) {
+					continue;
+				}
 
-			// This switch is on a templated constant, so should collapse away.
-			switch (compareMode) {
-			case ZCompareMode::Greater:
-				// To implement the greater/greater-than comparison, we can combine mask and max.
-				// Unfortunately there's no unsigned max on SSE2, it's synthesized by xoring 0x8000 on input and output.
-				// We use AndNot to zero out Z results, before doing Max with the buffer.
-				AndNot(shortZ, shortMaskInv).Max(bufferValues).Store(rowPtr + x);
-				break;
-			case ZCompareMode::Less:  // UNTESTED
-				// This time, we OR the mask and use .Min.
-				(shortZ | shortMaskInv).Min(bufferValues).Store(rowPtr + x);
-				break;
-			case ZCompareMode::Always:  // UNTESTED
-				// This could be replaced with a vblend operation.
-				((bufferValues & shortMaskInv) | AndNot(shortZ, shortMaskInv)).Store(rowPtr + x);
-				break;
+				Vec4U16 bufferValues = Vec4U16::Load(rowPtr + x);
+				Vec4U16 shortMaskInv = SignBits32ToMaskU16(signCalc);
+				// Now, the mask has 1111111 where we should preserve the contents of the depth buffer.
+
+				Vec4U16 shortZ = Vec4U16::FromVec4F32(zs);
+
+				// This switch is on a templated constant, so should collapse away.
+				switch (compareMode) {
+				case ZCompareMode::Greater:
+					// To implement the greater/greater-than comparison, we can combine mask and max.
+					// Unfortunately there's no unsigned max on SSE2, it's synthesized by xoring 0x8000 on input and output.
+					// We use AndNot to zero out Z results, before doing Max with the buffer.
+					AndNot(shortZ, shortMaskInv).Max(bufferValues).Store(rowPtr + x);
+					break;
+				case ZCompareMode::Less:  // UNTESTED
+					// This time, we OR the mask and use .Min.
+					(shortZ | shortMaskInv).Min(bufferValues).Store(rowPtr + x);
+					break;
+				case ZCompareMode::Always:  // UNTESTED
+					// This could be replaced with a vblend operation.
+					((bufferValues & shortMaskInv) | AndNot(shortZ, shortMaskInv)).Store(rowPtr + x);
+					break;
+				}
 			}
 		}
 	}
