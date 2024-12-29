@@ -250,7 +250,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 			} else if (ParseFileInfo(line, &info)) {
 				// We can just reconstruct the URI.
 				info.fullName = Path(uri) / info.name;
-				INFO_LOG(Log::FileSystem, "%s", info.name.c_str());
+				// INFO_LOG(Log::FileSystem, "%s", info.name.c_str());
 				items.push_back(info);
 			}
 		}
