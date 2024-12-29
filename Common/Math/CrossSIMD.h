@@ -266,6 +266,10 @@ struct Vec4F32 {
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
 
+inline bool AnyZeroSignBit(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) != 0xF;
+}
+
 // Make sure the W component of scale is 1.0f.
 inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
 	m.col0 = _mm_mul_ps(m.col0, scale.v);
@@ -608,6 +612,14 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
 }
+
+inline bool AnyZeroSignBit(Vec4F32 value) {
+	int32x4_t ival = vreinterpretq_s32_f32(value.v);
+	int32x2_t prod = vand_s32(vget_low_s32(ival), vget_high_s32(ival));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return (mask & 0x80000000) == 0;
+}
+
 
 struct Vec4U16 {
 	uint16x4_t v;  // 64 bits.
