@@ -1763,7 +1763,7 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
 			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
+		} 
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -1801,7 +1801,8 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
 		"GPU cycles: %d (%0.1f per vertex)\n"
-		"Z-rast: %0.2f/%0.2f ms, %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
+		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
+		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
@@ -1839,7 +1840,10 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles,
 		gpuStats.msPrepareDepth * 1000.0,
+		gpuStats.msCullDepth * 1000.0,
 		gpuStats.msRasterizeDepth * 1000.0,
+		(gpuStats.msPrepareDepth + gpuStats.msCullDepth + gpuStats.msRasterizeDepth) * 1000.0,
+		gpuStats.msRasterTimeAvailable * 1000.0,
 		gpuStats.numDepthRasterPrims,
 		gpuStats.numDepthRasterNoPixels,
 		gpuStats.numDepthRasterTooSmall,

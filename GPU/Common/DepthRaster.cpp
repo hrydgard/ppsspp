@@ -8,6 +8,24 @@
 #include "Common/Math/math_util.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
+DepthScissor DepthScissor::Tile(int tile, int numTiles) const {
+	if (numTiles == 1) {
+		return *this;
+	}
+	// First tiling algorithm: Split into vertical slices.
+	int w = x2 - x1;
+	int tileW = (w / numTiles) & ~3;  // Round to four pixels.
+
+	// TODO: Should round x1 to four pixels as well! except the first one
+
+	DepthScissor scissor;
+	scissor.x1 = x1 + tileW * tile;
+	scissor.x2 = (tile == numTiles - 1) ? x2 : (x1 + tileW * (tile + 1));
+	scissor.y1 = y1;
+	scissor.y2 = y2;
+	return scissor;
+}
+
 // x1/x2 etc are the scissor rect.
 static void DepthRasterRect(uint16_t *dest, int stride, const DepthScissor scissor, int v1x, int v1y, int v2x, int v2y, short depthValue, ZCompareMode compareMode) {
 	// Swap coordinates if needed, we don't back-face-cull rects.
@@ -279,7 +297,7 @@ void ConvertPredecodedThroughForDepthRaster(float *dest, const void *decodedVert
 	}
 }
 
-int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
+int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw, const DepthScissor scissor) {
 	int outCount = 0;
 	const int count = draw.vertexCount;
 	for (int i = 0; i < count; i += 2) {
@@ -316,7 +334,7 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 	return outCount;
 }
 
-int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw) {
+int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *transformed, const uint16_t *indexBuffer, const DepthDraw &draw, const DepthScissor scissor) {
 	int outCount = 0;
 
 	int flipCull = 0;
@@ -333,10 +351,10 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	const float *verts[12];  // four triangles at a time!
 	const int count = draw.vertexCount;
 
-	Vec4F32 scissorX1 = Vec4F32::Splat((float)draw.scissor.x1);
-	Vec4F32 scissorY1 = Vec4F32::Splat((float)draw.scissor.y1);
-	Vec4F32 scissorX2 = Vec4F32::Splat((float)draw.scissor.x2);
-	Vec4F32 scissorY2 = Vec4F32::Splat((float)draw.scissor.y2);
+	Vec4F32 scissorX1 = Vec4F32::Splat((float)scissor.x1);
+	Vec4F32 scissorY1 = Vec4F32::Splat((float)scissor.y1);
+	Vec4F32 scissorX2 = Vec4F32::Splat((float)scissor.x2);
+	Vec4F32 scissorY2 = Vec4F32::Splat((float)scissor.y2);
 
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
@@ -407,7 +425,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		Vec4S32 maxX = Vec4S32FromF32(x0.Max(x1.Max(x2)).Min(scissorX2));
 		Vec4S32 maxY = Vec4S32FromF32(y0.Max(y1.Max(y2)).Min(scissorY2));
 
-		// If all are equal in any dimension, all four triangles are tiny nonsense and can be skipped early.
+		// If all are equal in any dimension, all four triangles are tiny nonsense (or outside the scissor) and can be skipped early.
 		Vec4S32 eqMask = minX.CompareEq(maxX) | minY.CompareEq(maxY);
 		// Otherwise we just proceed to triangle setup with all four for now. Later might want to
 		// compact the remaining triangles... Or do more checking here.
@@ -459,7 +477,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 }
 
 // Rasterizes screen-space vertices.
-void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, const int *ty, const float *tz, int count, const DepthDraw &draw) {
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, const int *ty, const float *tz, int count, const DepthDraw &draw, const DepthScissor scissor) {
 	// Prim should now be either TRIANGLES or RECTs.
 	_dbg_assert_(draw.prim == GE_PRIM_RECTANGLES || draw.prim == GE_PRIM_TRIANGLES);
 
@@ -469,7 +487,7 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			uint16_t z = (uint16_t)tz[i + 1];  // depth from second vertex
 			// TODO: Should clip coordinates to the scissor rectangle.
 			// We remove the subpixel information here.
-			DepthRasterRect(depth, depthStride, draw.scissor, tx[i], ty[i], tx[i + 1], ty[i + 1], z, draw.compareMode);
+			DepthRasterRect(depth, depthStride, scissor, tx[i], ty[i], tx[i + 1], ty[i + 1], z, draw.compareMode);
 		}
 		gpuStats.numDepthRasterPrims += count / 2;
 		break;
@@ -481,17 +499,17 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			switch (draw.compareMode) {
 			case ZCompareMode::Greater:
 			{
-				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			case ZCompareMode::Less:
 			{
-				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			case ZCompareMode::Always:
 			{
-				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, draw.scissor, &tx[i], &ty[i], &tz[i]);
+				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
 				break;
 			}
 			}
