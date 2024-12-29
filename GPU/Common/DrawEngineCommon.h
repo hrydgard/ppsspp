@@ -164,6 +164,8 @@ public:
 		return decoded_ + 12 * 65536;
 	}
 
+	void FlushQueuedDepth();
+
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
@@ -177,7 +179,7 @@ protected:
 
 	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
-	void FlushDepthDraw(const DepthDraw &draw);
+	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -360,4 +362,9 @@ protected:
 	float *depthTransformed_ = nullptr;
 	int *depthScreenVerts_ = nullptr;
 	uint16_t *depthIndices_ = nullptr;
+
+	// Queue
+	int depthVertexCount_ = 0;
+	int depthIndexCount_ = 0;
+	std::vector<DepthDraw> depthDraws_;
 };

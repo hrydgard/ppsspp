@@ -3240,6 +3240,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 }
 
 void FramebufferManagerCommon::FlushBeforeCopy() {
+	drawEngine_->FlushQueuedDepth();
 	// Flush anything not yet drawn before blitting, downloading, or uploading.
 	// This might be a stalled list, or unflushed before a block transfer, etc.
 	// Only bother if any draws are pending.
@@ -3247,7 +3248,8 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
 		// all the irrelevant state checking it'll use to decide what to do. Should
 		// do something more focused here.
-		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+		bool changed;
+		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
 		drawEngine_->Flush();
 	}
 }

@@ -42,6 +42,9 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 
+	u32 DrawSync(int mode) override;
+	int ListSync(int listid, int mode) override;
+
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
 

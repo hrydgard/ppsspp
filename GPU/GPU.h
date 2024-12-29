@@ -108,7 +108,8 @@ struct GPUStatistics {
 		numCachedReplacedTextures = 0;
 		numClutTextures = 0;
 		msProcessingDisplayLists = 0;
-		msRasterizingDepth = 0.0f;
+		msPrepareDepth = 0.0f;
+		msRasterizeDepth = 0.0f;
 		numDepthRasterPrims = 0;
 		numDepthRasterBackface = 0;
 		numDepthRasterNoPixels = 0;
@@ -153,7 +154,8 @@ struct GPUStatistics {
 	int numCachedReplacedTextures;
 	int numClutTextures;
 	double msProcessingDisplayLists;
-	double msRasterizingDepth;
+	double msPrepareDepth;
+	double msRasterizeDepth;
 	int vertexGPUCycles;
 	int otherGPUCycles;
 	int numDepthRasterPrims;
