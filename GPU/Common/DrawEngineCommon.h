@@ -367,4 +367,6 @@ protected:
 	int depthVertexCount_ = 0;
 	int depthIndexCount_ = 0;
 	std::vector<DepthDraw> depthDraws_;
+
+	double rasterTimeStart_ = 0.0;
 };
