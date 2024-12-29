@@ -59,33 +59,6 @@ struct Mat4x3F32 {
 	__m128 data2;
 };
 
-// TODO: Check if loading b by 4s and shuffling is cheaper.
-inline Mat4F32 MulMem4x4By4x4(const float *a, Mat4F32 b) {
-	Mat4F32 result;
-
-	__m128 r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[0]));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[1])));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[2])));
-	result.col0 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[3])));
-
-	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[4]));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[5])));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[6])));
-	result.col1 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[7])));
-
-	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[8]));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[9])));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[10])));
-	result.col2 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[11])));
-
-	r_col = _mm_mul_ps(b.col0, _mm_set1_ps(a[12]));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col1, _mm_set1_ps(a[13])));
-	r_col = _mm_add_ps(r_col, _mm_mul_ps(b.col2, _mm_set1_ps(a[14])));
-	result.col3 = _mm_add_ps(r_col, _mm_mul_ps(b.col3, _mm_set1_ps(a[15])));
-
-	return result;
-}
-
 inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
 	Mat4F32 result;
 
@@ -182,6 +155,10 @@ struct Vec4S32 {
 
 	// NOTE: This uses a CrossSIMD wrapper if we don't compile with SSE4 support, and is thus slow.
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ _mm_mullo_epi32_SSE2(v, other.v) }; }  // (ab3,ab2,ab1,ab0)
+
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ _mm_cmpeq_epi32(v, other.v) }; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(v, other.v) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(v, other.v) }; }
 };
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
@@ -233,6 +210,8 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ _mm_add_ps(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ _mm_sub_ps(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ _mm_mul_ps(v, other.v) }; }
+	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ _mm_min_ps(v, other.v) }; }
+	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ _mm_max_ps(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = _mm_add_ps(v, other.v); }
 	void operator -=(Vec4F32 other) { v = _mm_sub_ps(v, other.v); }
 	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
@@ -286,6 +265,10 @@ struct Vec4F32 {
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
+
+inline bool AnyZeroSignBit(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) != 0xF;
+}
 
 // Make sure the W component of scale is 1.0f.
 inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
@@ -480,6 +463,11 @@ struct Vec4S32 {
 
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
+
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ vceqq_s32(v, other.v) }; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ vcltq_s32(v, other.v) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ vcgtq_s32(v, other.v) }; }
+	Vec4S32 CompareGtZero() const { return Vec4S32{ vcgtq_s32(v, vdupq_n_s32(0)) }; }
 };
 
 struct Vec4F32 {
@@ -523,6 +511,8 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ vaddq_f32(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ vsubq_f32(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v) }; }
+	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ vminq_f32(v, other.v) }; }
+	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ vmaxq_f32(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = vaddq_f32(v, other.v); }
 	void operator -=(Vec4F32 other) { v = vsubq_f32(v, other.v); }
 	void operator *=(Vec4F32 other) { v = vmulq_f32(v, other.v); }
@@ -622,6 +612,14 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
 }
+
+inline bool AnyZeroSignBit(Vec4F32 value) {
+	int32x4_t ival = vreinterpretq_s32_f32(value.v);
+	int32x2_t prod = vand_s32(vget_low_s32(ival), vget_high_s32(ival));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return (mask & 0x80000000) == 0;
+}
+
 
 struct Vec4U16 {
 	uint16x4_t v;  // 64 bits.

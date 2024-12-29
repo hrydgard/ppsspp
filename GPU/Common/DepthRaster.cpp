@@ -99,8 +99,7 @@ struct Edge {
 enum class TriangleResult {
 	OK,
 	NoPixels,
-	Backface,
-	TooSmall,
+	SmallOrBackface,
 };
 
 constexpr int MIN_TWICE_TRI_AREA = 10;
@@ -130,16 +129,14 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), (int)scissor.y2);
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
+		// Most of these are now gone in the initial pass.
 		return TriangleResult::NoPixels;
 	}
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
-	if (triArea < 0) {
-		return TriangleResult::Backface;
-	}
 	if (triArea < MIN_TWICE_TRI_AREA) {
-		return TriangleResult::TooSmall;  // Or zero area.
+		return TriangleResult::SmallOrBackface;  // Or zero area.
 	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
@@ -332,8 +329,15 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 
 	int collected = 0;
 	int planeCulled = 0;
+	int boxCulled = 0;
 	const float *verts[12];  // four triangles at a time!
 	const int count = draw.vertexCount;
+
+	Vec4F32 scissorX1 = Vec4F32::Splat((float)draw.scissor.x1);
+	Vec4F32 scissorY1 = Vec4F32::Splat((float)draw.scissor.y1);
+	Vec4F32 scissorX2 = Vec4F32::Splat((float)draw.scissor.x2);
+	Vec4F32 scissorY2 = Vec4F32::Splat((float)draw.scissor.y2);
+
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
 		const float *v0 = transformed + indexBuffer[i] * 4;
@@ -397,6 +401,30 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		y2 *= recipW2;
 		z2 = (z2 * recipW2).Clamp(0.0f, 65535.0f);
 
+		// Check bounding box size (clamped to screen edges). Cast to integer for crude rounding (and to match the rasterizer).
+		Vec4S32 minX = Vec4S32FromF32(x0.Min(x1.Min(x2)).Max(scissorX1));
+		Vec4S32 minY = Vec4S32FromF32(y0.Min(y1.Min(y2)).Max(scissorY1));
+		Vec4S32 maxX = Vec4S32FromF32(x0.Max(x1.Max(x2)).Min(scissorX2));
+		Vec4S32 maxY = Vec4S32FromF32(y0.Max(y1.Max(y2)).Min(scissorY2));
+
+		// If all are equal in any dimension, all four triangles are tiny nonsense and can be skipped early.
+		Vec4S32 eqMask = minX.CompareEq(maxX) | minY.CompareEq(maxY);
+		// Otherwise we just proceed to triangle setup with all four for now. Later might want to
+		// compact the remaining triangles... Or do more checking here.
+		// We could also save the computed boxes for later..
+		if (!AnyZeroSignBit(eqMask)) {
+			boxCulled += 4;
+			continue;
+		}
+
+		// Floating point triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
+		// Still good for culling early and pretty cheap to compute.
+		Vec4F32 triArea = (y1 - y2) * x0 + (x2 - x1) * y0 + (x1 * y2 - x2 * y1) - Vec4F32::Splat((float)MIN_TWICE_TRI_AREA);
+		if (!AnyZeroSignBit(triArea)) {
+			gpuStats.numDepthRasterEarlySize += 4;
+			continue;
+		}
+
 		Vec4S32FromF32(x0).Store(tx + outCount);
 		Vec4S32FromF32(x1).Store(tx + outCount + 4);
 		Vec4S32FromF32(x2).Store(tx + outCount + 8);
@@ -426,6 +454,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	}
 
 	gpuStats.numDepthRasterZCulled += planeCulled;
+	gpuStats.numDepthEarlyBoxCulled += boxCulled;
 	return outCount;
 }
 
@@ -446,7 +475,7 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 		break;
 	case GE_PRIM_TRIANGLES:
 	{
-		int stats[4]{};
+		int stats[3]{};
 		// Batches of 4 triangles, as output by the clip function.
 		for (int i = 0; i < count; i += 12) {
 			switch (draw.compareMode) {
@@ -467,9 +496,8 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			}
 			}
 		}
-		gpuStats.numDepthRasterBackface += stats[(int)TriangleResult::Backface];
 		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleResult::NoPixels];
-		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleResult::TooSmall];
+		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleResult::SmallOrBackface];
 		gpuStats.numDepthRasterPrims += stats[(int)TriangleResult::OK];
 		break;
 	}
