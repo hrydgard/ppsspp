@@ -156,16 +156,12 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	float z_01 = (tz[8] - tz[0]) * oneOverTriArea;
 
 	// Step deltas
-	Vec4S32 oneStepX12 = Vec4S32::Splat(A12 * stepXSize);
-	Vec4S32 oneStepY12 = Vec4S32::Splat(B12 * stepYSize);
-
-	// Step deltas
-	Vec4S32 oneStepX20 = Vec4S32::Splat(A20 * stepXSize);
-	Vec4S32 oneStepY20 = Vec4S32::Splat(B20 * stepYSize);
-
-	// Step deltas
-	Vec4S32 oneStepX01 = Vec4S32::Splat(A01 * stepXSize);
-	Vec4S32 oneStepY01 = Vec4S32::Splat(B01 * stepYSize);
+	int stepX12 = A12 * stepXSize;
+	int stepY12 = B12 * stepYSize;
+	int stepX20 = A20 * stepXSize;
+	int stepY20 = B20 * stepYSize;
+	int stepX01 = A01 * stepXSize;
+	int stepY01 = B01 * stepYSize;
 
 	// x/y values for initial pixel block. Add horizontal offsets.
 	Vec4S32 initialX = Vec4S32::Splat(minX) + Vec4S32::LoadAligned(zero123);
@@ -178,13 +174,16 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	Vec4S32 w1_row = Vec4S32::Splat(A20) * initialX + Vec4S32::Splat(B20 * initialY + C20);
 	Vec4S32 w2_row = Vec4S32::Splat(A01) * initialX + Vec4S32::Splat(B01 * initialY + C01);
 
-	Vec4F32 z_20_v = Vec4F32::Splat(z_20);
-	Vec4F32 z_01_v = Vec4F32::Splat(z_01);
-
-	Vec4F32 zdeltaX = z_20_v * Vec4F32FromS32(oneStepX20) + z_01_v * Vec4F32FromS32(oneStepX01);
-	Vec4F32 zdeltaY = z_20_v * Vec4F32FromS32(oneStepY20) + z_01_v * Vec4F32FromS32(oneStepY01);
+	Vec4F32 zdeltaX = Vec4F32::Splat(z_20 * (float)stepX20 + z_01 * (float)stepX01);
+	Vec4F32 zdeltaY = Vec4F32::Splat(z_20 * (float)stepY20 + z_01 * (float)stepY01);
 	Vec4F32 zrow = Vec4F32::Splat(zbase) + Vec4F32FromS32(w1_row) * z_20 + Vec4F32FromS32(w2_row) * z_01;
 
+	Vec4S32 oneStepX12 = Vec4S32::Splat(stepX12);
+	Vec4S32 oneStepY12 = Vec4S32::Splat(stepY12);
+	Vec4S32 oneStepX20 = Vec4S32::Splat(stepX20);
+	Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20);
+	Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01);
+	Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01);
 	// Rasterize
 	for (int y = minY; y <= maxY; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
 		// Barycentric coordinates at start of row
