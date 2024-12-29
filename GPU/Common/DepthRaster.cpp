@@ -132,19 +132,19 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	// are slow on SSE2.
 
 	// NOTE: Triangles are stored in groups of 4.
-	int v0x = tx[0];
-	int v0y = ty[0];
-	int v1x = tx[4];
-	int v1y = ty[4];
-	int v2x = tx[8];
-	int v2y = ty[8];
+	int x0 = tx[0];
+	int y0 = ty[0];
+	int x1 = tx[4];
+	int y1 = ty[4];
+	int x2 = tx[8];
+	int y2 = ty[8];
 
 	// use fixed-point only for X and Y.  Avoid work for Z and W.
 	// We use 4x1 tiles for simplicity.
-	int minX = std::max(std::min(std::min(v0x, v1x), v2x), (int)scissor.x1) & ~3;
-	int maxX = std::min(std::max(std::max(v0x, v1x), v2x) + 3, (int)scissor.x2) & ~3;
-	int minY = std::max(std::min(std::min(v0y, v1y), v2y), (int)scissor.y1);
-	int maxY = std::min(std::max(std::max(v0y, v1y), v2y), (int)scissor.y2);
+	int minX = std::max(std::min(std::min(x0, x1), x2), (int)scissor.x1) & ~3;
+	int maxX = std::min(std::max(std::max(x0, x1), x2) + 3, (int)scissor.x2) & ~3;
+	int minY = std::max(std::min(std::min(y0, y1), y2), (int)scissor.y1);
+	int maxY = std::min(std::max(std::max(y0, y1), y2), (int)scissor.y2);
 	if (maxX == minX || maxY == minY) {
 		// No pixels, or outside screen.
 		// Most of these are now gone in the initial pass.
@@ -152,7 +152,7 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	}
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
-	int triArea = (v1y - v2y) * v0x + (v2x - v1x) * v0y + (v1x * v2y - v2x * v1y);
+	int triArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
 	if (triArea < MIN_TWICE_TRI_AREA) {
 		return TriangleResult::SmallOrBackface;  // Or zero area.
 	}
@@ -161,9 +161,9 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 
 	Edge e01, e12, e20;
 
-	Vec4S32 w0_row = e12.init(v1x, v1y, v2x, v2y, minX, minY);
-	Vec4S32 w1_row = e20.init(v2x, v2y, v0x, v0y, minX, minY);
-	Vec4S32 w2_row = e01.init(v0x, v0y, v1x, v1y, minX, minY);
+	Vec4S32 w0_row = e12.init(x1, y1, x2, y2, minX, minY);
+	Vec4S32 w1_row = e20.init(x2, y2, x0, y0, minX, minY);
+	Vec4S32 w2_row = e01.init(x0, y0, x1, y1, minX, minY);
 
 	// Prepare to interpolate Z
 	Vec4F32 zz0 = Vec4F32::Splat(tz[0]);
@@ -435,10 +435,10 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			continue;
 		}
 
-		// Floating point triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
+		// Floating point double triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
 		// Still good for culling early and pretty cheap to compute.
-		Vec4F32 triArea = (y1 - y2) * x0 + (x2 - x1) * y0 + (x1 * y2 - x2 * y1) - Vec4F32::Splat((float)MIN_TWICE_TRI_AREA);
-		if (!AnyZeroSignBit(triArea)) {
+		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)MIN_TWICE_TRI_AREA);
+		if (!AnyZeroSignBit(doubleTriArea)) {
 			gpuStats.numDepthRasterEarlySize += 4;
 			continue;
 		}
