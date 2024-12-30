@@ -131,7 +131,7 @@ struct Vec4S32 {
 	// On SSE2, much faster than _mm_mullo_epi32_SSE2.
 	// On NEON though, it'll read the full 32 bits, so beware.
 	// See https://fgiesen.wordpress.com/2016/04/03/sse-mind-the-gap/.
-	Vec4S32 MulAsS16(Vec4S32 other) const {
+	Vec4S32 Mul16(Vec4S32 other) const {
 		// Note that we only need to mask one of the inputs, so we get zeroes - multiplying
 		// by zero is zero, so it doesn't matter what the upper halfword of each 32-bit word is
 		// in the other register.
@@ -153,7 +153,11 @@ struct Vec4S32 {
 	void operator +=(Vec4S32 other) { v = _mm_add_epi32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = _mm_sub_epi32(v, other.v); }
 
-	Vec4S32 operator <<(int imm) const { return Vec4S32{ _mm_slli_epi32(v, imm) }; }
+	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ _mm_andnot_si128(inverted.v, v) }; }  // NOTE: with _mm_andnot, the first parameter is inverted, and then and is performed.
+	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
+
+	template<int imm>
+	Vec4S32 Shl() const { return Vec4S32{ _mm_slli_epi32(v, imm) }; }
 
 	// NOTE: May be slow.
 	int operator[](size_t index) const { return ((int *)&v)[index]; }
@@ -221,6 +225,7 @@ struct Vec4F32 {
 	void operator -=(Vec4F32 other) { v = _mm_sub_ps(v, other.v); }
 	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
 	void operator /=(Vec4F32 other) { v = _mm_div_ps(v, other.v); }
+	void operator &=(Vec4S32 other) { v = _mm_and_ps(v, _mm_castsi128_ps(other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
 	// NOTE: May be slow.
 	float operator[](size_t index) const { return ((float *)&v)[index]; }
@@ -262,6 +267,19 @@ struct Vec4F32 {
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
 		_MM_TRANSPOSE4_PS(col0.v, col1.v, col2.v, col3.v);
 	}
+
+	// This is here because ARM64 can do this very efficiently.
+	static void LoadTranspose(const float *src, Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		col0.v = _mm_loadu_ps(src);
+		col1.v = _mm_loadu_ps(src + 4);
+		col2.v = _mm_loadu_ps(src + 8);
+		col3.v = _mm_loadu_ps(src + 12);
+		_MM_TRANSPOSE4_PS(col0.v, col1.v, col2.v, col3.v);
+	}
+
+	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpeq_ps(v, other.v)) }; }
+	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmplt_ps(v, other.v)) }; }
+	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpgt_ps(v, other.v)) }; }
 };
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
@@ -310,6 +328,12 @@ struct Vec4U16 {
 	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ _mm_max_epu16_SSE2(v, other.v) }; }
 	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ _mm_min_epu16_SSE2(v, other.v) }; }
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ _mm_cmplt_epu16(v, other.v) }; }
+
+	inline Vec4U16 AndNot(Vec4U16 inverted) {
+		return Vec4U16{
+			_mm_andnot_si128(inverted.v, v)  // NOTE: with _mm_andnot, the first parameter is inverted, and then and is performed.
+		};
+	}
 };
 
 struct Vec8U16 {
@@ -326,12 +350,6 @@ inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	__m128i temp = _mm_srai_epi32(v.v, 31);
 	return Vec4U16 {
 		_mm_packs_epi32(temp, temp)
-	};
-}
-
-inline Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
-	return Vec4U16{
-		_mm_andnot_si128(inverted.v, a.v)  // NOTE: with andnot, the first parameter is inverted, and then and is performed.
 	};
 }
 
@@ -445,7 +463,7 @@ struct Vec4S32 {
 	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
 
 	// Warning: Unlike on x86, this is a full 32-bit multiplication.
-	Vec4S32 MulAsS16(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
 
 	Vec4S32 SignExtend16() const { return Vec4S32{ vshrq_n_s32(vshlq_n_s32(v, 16), 16) }; }
 	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output (on SSE2 at least).
@@ -462,6 +480,11 @@ struct Vec4S32 {
 	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ vorrq_s32(v, other.v) }; }
 	Vec4S32 operator &(Vec4S32 other) const { return Vec4S32{ vandq_s32(v, other.v) }; }
 	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ veorq_s32(v, other.v) }; }
+	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ vandq_s32(v, vmvnq_s32(inverted.v))}; }
+	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+
+	template<int imm>
+	Vec4S32 Shl() const { return Vec4S32{ vshlq_n_s32(v, imm) }; }
 
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
@@ -522,6 +545,7 @@ struct Vec4F32 {
 	void operator -=(Vec4F32 other) { v = vsubq_f32(v, other.v); }
 	void operator *=(Vec4F32 other) { v = vmulq_f32(v, other.v); }
 	void operator /=(Vec4F32 other) { v = vmulq_f32(v, other.Recip().v); }
+	void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
@@ -556,6 +580,10 @@ struct Vec4F32 {
 		return Vec4F32{ vsetq_lane_f32(1.0f, v, 3) };
 	}
 
+	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vceqq_f32(v, other.v)) }; }
+	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcltq_f32(v, other.v)) }; }
+	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcgtq_f32(v, other.v)) }; }
+
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
 #if PPSSPP_ARCH(ARM64_NEON)
@@ -576,6 +604,15 @@ struct Vec4F32 {
         col2.v = vcombine_f32(vget_high_f32(col01.val[0]), vget_high_f32(col23.val[0]));
         col3.v = vcombine_f32(vget_high_f32(col01.val[1]), vget_high_f32(col23.val[1]));
 #endif
+	}
+
+	static void LoadTranspose(const float *src, Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		// The optimizer hopefully gets rid of the copies below.
+		float32x4x4_t r = vld4q_f32(src);
+		col0.v = r.val[0];
+		col1.v = r.val[1];
+		col2.v = r.val[2];
+		col3.v = r.val[3];
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
@@ -649,16 +686,14 @@ struct Vec4U16 {
 	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ vmax_u16(v, other.v) }; }
 	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ vmin_u16(v, other.v) }; }
 	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ vclt_u16(v, other.v) }; }
+
+	Vec4U16 AndNot(Vec4U16 inverted) { return Vec4U16{ vand_u16(v, vmvn_u16(inverted.v)) }; }
 };
 
 inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	int32x4_t sign_mask = vshrq_n_s32(v.v, 31);
 	uint16x4_t result = vreinterpret_u16_s16(vmovn_s32(sign_mask));
 	return Vec4U16{ result };
-}
-
-inline Vec4U16 AndNot(Vec4U16 a, Vec4U16 inverted) {
-	return Vec4U16{ vand_u16(a.v, vmvn_u16(inverted.v)) };
 }
 
 struct Vec8U16 {
