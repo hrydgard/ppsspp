@@ -90,6 +90,9 @@ alignas(16) static const int zero123[4] = {0, 1, 2, 3};
 constexpr int stepXSize = 4;
 constexpr int stepYSize = 1;
 
+constexpr int stepXShift = 2;
+constexpr int stepYShift = 0;
+
 enum class TriangleStat {
 	OK,
 	NoPixels,
@@ -98,105 +101,104 @@ enum class TriangleStat {
 
 constexpr int MIN_TWICE_TRI_AREA = 10;
 
-// Adapted from Intel's depth rasterizer example.
-// Started with the scalar version, will SIMD-ify later.
-// x1/y1 etc are the scissor rect.
+// A mix of ideas from Intel's sample and ryg's rasterizer blog series.
 template<ZCompareMode compareMode>
-TriangleStat DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
-	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
+void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
+	// BEGIN triangle setup. This is done using SIMD, four triangles at a time.
 	// 16x16->32 multiplications are doable on SSE2, which should be all we need.
 
 	// We use 4x1 SIMD tiles for simplicity. 2x2 would be ideal but stores/loads get annoying.
 
 	// NOTE: Triangles are stored in groups of 4.
-	float x0 = tx[0];
-	float y0 = ty[0];
-	float x1 = tx[4];
-	float y1 = ty[4];
-	float x2 = tx[8];
-	float y2 = ty[8];
+	Vec4S32 x0 = Vec4S32::LoadAligned(tx);
+	Vec4S32 y0 = Vec4S32::LoadAligned(ty);
+	Vec4S32 x1 = Vec4S32::LoadAligned(tx + 4);
+	Vec4S32 y1 = Vec4S32::LoadAligned(ty + 4);
+	Vec4S32 x2 = Vec4S32::LoadAligned(tx + 8);
+	Vec4S32 y2 = Vec4S32::LoadAligned(ty + 8);
 
-	// Load the entire scissor rect into one SIMD register.
-	// Vec4F32 scissor = Vec4F32::LoadConvertS16(&scissor.x1);
+	Vec4S32 minX = x0.Min16(x1).Min16(x2).Max16(Vec4S32::Splat(scissor.x1)).FixupAfterMinMax();
+	Vec4S32 maxX = x0.Max16(x1).Max16(x2).Min16(Vec4S32::Splat(scissor.x2)).FixupAfterMinMax();
+	Vec4S32 minY = y0.Min16(y1).Min16(y2).Max16(Vec4S32::Splat(scissor.y1)).FixupAfterMinMax();
+	Vec4S32 maxY = y0.Max16(y1).Max16(y2).Min16(Vec4S32::Splat(scissor.y2)).FixupAfterMinMax();
 
-	int minX = (int)std::max(std::min(std::min(x0, x1), x2), (float)scissor.x1) & ~3;
-	int maxX = (int)std::min(std::max(std::max(x0, x1), x2) + 3, (float)scissor.x2) & ~3;
-	int minY = (int)std::max(std::min(std::min(y0, y1), y2), (float)scissor.y1);
-	int maxY = (int)std::min(std::max(std::max(y0, y1), y2), (float)scissor.y2);
-
-	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
-	int triArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
-
-	float oneOverTriArea = 1.0f / (float)triArea;
+	Vec4S32 triArea = (x1 - x0).MulAsS16(y2 - y0) - (x2 - x0).MulAsS16(y1 - y0);
+	// Probably not worth checking triArea here as we already did the approximatly same check previously.
 
 	// Edge setup
-	int A12 = y1 - y2;
-	int B12 = x2 - x1;
-	int C12 = x1 * y2 - y1 * x2;
+	Vec4S32 A12 = y1 - y2;
+	Vec4S32 B12 = x2 - x1;
+	Vec4S32 C12 = x1.MulAsS16(y2) - y1.MulAsS16(x2);
 
 	// Edge setup
-	int A20 = y2 - y0;
-	int B20 = x0 - x2;
-	int C20 = x2 * y0 - y2 * x0;
+	Vec4S32 A20 = y2 - y0;
+	Vec4S32 B20 = x0 - x2;
+	Vec4S32 C20 = x2.MulAsS16(y0) - y2.MulAsS16(x0);
 
 	// Edge setup
-	int A01 = y0 - y1;
-	int B01 = x1 - x0;
-	int C01 = x0 * y1 - y0 * x1;
+	Vec4S32 A01 = y0 - y1;
+	Vec4S32 B01 = x1 - x0;
+	Vec4S32 C01 = x0.MulAsS16(y1) - y0.MulAsS16(x1);
 
 	// Step deltas
-	int stepX12 = A12 * stepXSize;
-	int stepY12 = B12 * stepYSize;
-	int stepX20 = A20 * stepXSize;
-	int stepY20 = B20 * stepYSize;
-	int stepX01 = A01 * stepXSize;
-	int stepY01 = B01 * stepYSize;
+	Vec4S32 stepX12 = A12 << stepXShift;
+	Vec4S32 stepY12 = B12 << stepYShift;
+	Vec4S32 stepX20 = A20 << stepXShift;
+	Vec4S32 stepY20 = B20 << stepYShift;
+	Vec4S32 stepX01 = A01 << stepXShift;
+	Vec4S32 stepY01 = B01 << stepYShift;
 
 	// Prepare to interpolate Z
-	float zbase = tz[0];
-	float z_20 = (tz[4] - tz[0]) * oneOverTriArea;
-	float z_01 = (tz[8] - tz[0]) * oneOverTriArea;
-	float zdx = z_20 * (float)stepX20 + z_01 * (float)stepX01;
-	float zdy = z_20 * (float)stepY20 + z_01 * (float)stepY01;
+	Vec4F32 oneOverTriArea = Vec4F32FromS32(triArea).Recip();
+	Vec4F32 zbase = Vec4F32::LoadAligned(tz);
+	Vec4F32 z_20 = (Vec4F32::LoadAligned(tz + 4) - zbase) * oneOverTriArea;
+	Vec4F32 z_01 = (Vec4F32::LoadAligned(tz + 8) - zbase) * oneOverTriArea;
+	Vec4F32 zdx = z_20 * Vec4F32FromS32(stepX20) + z_01 * Vec4F32FromS32(stepX01);
+	Vec4F32 zdy = z_20 * Vec4F32FromS32(stepY20) + z_01 * Vec4F32FromS32(stepY01);
 
 	// Edge function values at origin
 	// TODO: We could SIMD the second part here.
-	for (int t = 0; t < 1; t++) {
+	// Using operator[] on the vectors actually seems to result in pretty good code.
+	for (int t = 0; t < 4; t++) {
 		// Check for bad triangle.
-		if (triArea /*[t]*/ <= 0) {
+		if (maxX[t] <= minX[t] || maxY[t] <= minY[t]) {
+			// No pixels, or outside screen.
+			// Most of these are now gone in the initial pass.
+			stats[(int)TriangleStat::NoPixels]++;
 			continue;
 		}
 
-		if (maxX == minX || maxY == minY) {
-			// No pixels, or outside screen.
-			// Most of these are now gone in the initial pass.
-			return TriangleStat::NoPixels;
+		if (triArea[t] < MIN_TWICE_TRI_AREA) {
+			stats[(int)TriangleStat::SmallOrBackface]++;  // Or zero area.
+			continue;
 		}
 
-		if (triArea < MIN_TWICE_TRI_AREA) {
-			return TriangleStat::SmallOrBackface;  // Or zero area.
-		}
+		const int minXT = minX[t] & ~3;
+		const int maxXT = maxX[t] & ~3;
+
+		const int minYT = minY[t];
+		const int maxYT = maxY[t];
 
 		// Convert per-triangle values to wide registers.
-		Vec4S32 initialX = Vec4S32::Splat(minX) + Vec4S32::LoadAligned(zero123);
-		int initialY = minY;
+		Vec4S32 initialX = Vec4S32::Splat(minXT) + Vec4S32::LoadAligned(zero123);
+		int initialY = minY[t];
 
-		Vec4S32 w0_row = Vec4S32::Splat(A12) * initialX + Vec4S32::Splat(B12 * initialY + C12);
-		Vec4S32 w1_row = Vec4S32::Splat(A20) * initialX + Vec4S32::Splat(B20 * initialY + C20);
-		Vec4S32 w2_row = Vec4S32::Splat(A01) * initialX + Vec4S32::Splat(B01 * initialY + C01);
+		Vec4S32 w0_row = Vec4S32::Splat(A12[t]).MulAsS16(initialX) + Vec4S32::Splat(B12[t] * initialY + C12[t]);
+		Vec4S32 w1_row = Vec4S32::Splat(A20[t]).MulAsS16(initialX) + Vec4S32::Splat(B20[t] * initialY + C20[t]);
+		Vec4S32 w2_row = Vec4S32::Splat(A01[t]).MulAsS16(initialX) + Vec4S32::Splat(B01[t] * initialY + C01[t]);
 
-		Vec4F32 zrow = Vec4F32::Splat(zbase) + Vec4F32FromS32(w1_row) * z_20 + Vec4F32FromS32(w2_row) * z_01;
-		Vec4F32 zdeltaX = Vec4F32::Splat(zdx);
-		Vec4F32 zdeltaY = Vec4F32::Splat(zdy);
+		Vec4F32 zrow = Vec4F32::Splat(zbase[t]) + Vec4F32FromS32(w1_row) * z_20[t] + Vec4F32FromS32(w2_row) * z_01[t];
+		Vec4F32 zdeltaX = Vec4F32::Splat(zdx[t]);
+		Vec4F32 zdeltaY = Vec4F32::Splat(zdy[t]);
 
-		Vec4S32 oneStepX12 = Vec4S32::Splat(stepX12);
-		Vec4S32 oneStepY12 = Vec4S32::Splat(stepY12);
-		Vec4S32 oneStepX20 = Vec4S32::Splat(stepX20);
-		Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20);
-		Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01);
-		Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01);
+		Vec4S32 oneStepX12 = Vec4S32::Splat(stepX12[t]);
+		Vec4S32 oneStepY12 = Vec4S32::Splat(stepY12[t]);
+		Vec4S32 oneStepX20 = Vec4S32::Splat(stepX20[t]);
+		Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20[t]);
+		Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01[t]);
+		Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01[t]);
 		// Rasterize
-		for (int y = minY; y <= maxY; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
+		for (int y = minYT; y <= maxYT; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
 			// Barycentric coordinates at start of row
 			Vec4S32 w0 = w0_row;
 			Vec4S32 w1 = w1_row;
@@ -205,10 +207,12 @@ TriangleStat DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor sc
 
 			uint16_t *rowPtr = depthBuf + stride * y;
 
-			for (int x = minX; x <= maxX; x += stepXSize, w0 += oneStepX12, w1 += oneStepX20, w2 += oneStepX01, zs += zdeltaX) {
+			for (int x = minXT; x <= maxXT; x += stepXSize, w0 += oneStepX12, w1 += oneStepX20, w2 += oneStepX01, zs += zdeltaX) {
 				// If p is on or inside all edges for any pixels,
 				// render those pixels.
 				Vec4S32 signCalc = w0 | w1 | w2;
+
+				// TODO: Check if this check is profitable. Maybe only for big triangles?
 				if (!AnyZeroSignBit(signCalc)) {
 					continue;
 				}
@@ -238,15 +242,8 @@ TriangleStat DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor sc
 				}
 			}
 		}
-	}
-	return TriangleStat::OK;
-}
 
-template<ZCompareMode compareMode>
-inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
-	for (int i = 0; i < 4; i++) {
-		TriangleStat result = DepthRasterTriangle<compareMode>(depthBuf, stride, scissor, tx + i, ty + i, tz + i);
-		stats[(int)result]++;
+		stats[(int)TriangleStat::OK]++;
 	}
 }
 
