@@ -109,29 +109,23 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	// We use 4x1 SIMD tiles for simplicity. 2x2 would be ideal but stores/loads get annoying.
 
 	// NOTE: Triangles are stored in groups of 4.
-	int x0 = tx[0];
-	int y0 = ty[0];
-	int x1 = tx[4];
-	int y1 = ty[4];
-	int x2 = tx[8];
-	int y2 = ty[8];
+	float x0 = tx[0];
+	float y0 = ty[0];
+	float x1 = tx[4];
+	float y1 = ty[4];
+	float x2 = tx[8];
+	float y2 = ty[8];
 
-	int minX = std::max(std::min(std::min(x0, x1), x2), (int)scissor.x1) & ~3;
-	int maxX = std::min(std::max(std::max(x0, x1), x2) + 3, (int)scissor.x2) & ~3;
-	int minY = std::max(std::min(std::min(y0, y1), y2), (int)scissor.y1);
-	int maxY = std::min(std::max(std::max(y0, y1), y2), (int)scissor.y2);
+	// Load the entire scissor rect into one SIMD register.
+	// Vec4F32 scissor = Vec4F32::LoadConvertS16(&scissor.x1);
 
-	if (maxX == minX || maxY == minY) {
-		// No pixels, or outside screen.
-		// Most of these are now gone in the initial pass.
-		return TriangleResult::NoPixels;
-	}
+	int minX = (int)std::max(std::min(std::min(x0, x1), x2), (float)scissor.x1) & ~3;
+	int maxX = (int)std::min(std::max(std::max(x0, x1), x2) + 3, (float)scissor.x2) & ~3;
+	int minY = (int)std::max(std::min(std::min(y0, y1), y2), (float)scissor.y1);
+	int maxY = (int)std::min(std::max(std::max(y0, y1), y2), (float)scissor.y2);
 
 	// TODO: Cull really small triangles here - we can increase the threshold a bit probably.
 	int triArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
-	if (triArea < MIN_TWICE_TRI_AREA) {
-		return TriangleResult::SmallOrBackface;  // Or zero area.
-	}
 
 	float oneOverTriArea = 1.0f / (float)triArea;
 
@@ -169,8 +163,18 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 	// TODO: We could SIMD the second part here.
 	for (int t = 0; t < 1; t++) {
 		// Check for bad triangle.
-		if (triArea[t] == 0) {
+		if (triArea /*[t]*/ <= 0) {
 			continue;
+		}
+
+		if (maxX == minX || maxY == minY) {
+			// No pixels, or outside screen.
+			// Most of these are now gone in the initial pass.
+			return TriangleResult::NoPixels;
+		}
+
+		if (triArea < MIN_TWICE_TRI_AREA) {
+			return TriangleResult::SmallOrBackface;  // Or zero area.
 		}
 
 		// Convert per-triangle values to wide registers.
