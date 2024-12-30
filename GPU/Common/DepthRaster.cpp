@@ -90,7 +90,7 @@ alignas(16) static const int zero123[4] = {0, 1, 2, 3};
 constexpr int stepXSize = 4;
 constexpr int stepYSize = 1;
 
-enum class TriangleResult {
+enum class TriangleStat {
 	OK,
 	NoPixels,
 	SmallOrBackface,
@@ -102,7 +102,7 @@ constexpr int MIN_TWICE_TRI_AREA = 10;
 // Started with the scalar version, will SIMD-ify later.
 // x1/y1 etc are the scissor rect.
 template<ZCompareMode compareMode>
-TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
+TriangleStat DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
 	// BEGIN triangle setup. This should be done SIMD, four triangles at a time.
 	// 16x16->32 multiplications are doable on SSE2, which should be all we need.
 
@@ -170,11 +170,11 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 		if (maxX == minX || maxY == minY) {
 			// No pixels, or outside screen.
 			// Most of these are now gone in the initial pass.
-			return TriangleResult::NoPixels;
+			return TriangleStat::NoPixels;
 		}
 
 		if (triArea < MIN_TWICE_TRI_AREA) {
-			return TriangleResult::SmallOrBackface;  // Or zero area.
+			return TriangleStat::SmallOrBackface;  // Or zero area.
 		}
 
 		// Convert per-triangle values to wide registers.
@@ -239,13 +239,13 @@ TriangleResult DepthRasterTriangle(uint16_t *depthBuf, int stride, DepthScissor 
 			}
 		}
 	}
-	return TriangleResult::OK;
+	return TriangleStat::OK;
 }
 
 template<ZCompareMode compareMode>
 inline void DepthRaster4Triangles(int stats[4], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
 	for (int i = 0; i < 4; i++) {
-		TriangleResult result = DepthRasterTriangle<compareMode>(depthBuf, stride, scissor, tx + i, ty + i, tz + i);
+		TriangleStat result = DepthRasterTriangle<compareMode>(depthBuf, stride, scissor, tx + i, ty + i, tz + i);
 		stats[(int)result]++;
 	}
 }
@@ -373,6 +373,11 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	const float *verts[12];  // four triangles at a time!
 	const int count = draw.vertexCount;
 
+	// Not exactly the same guardband as on the real PSP, but good enough to prevent 16-bit overflow in raster.
+	// This is slightly off-center since we are already in screen space, but whatever. We compensate a little for it in the bottom right.
+	Vec4S32 guardBandTopLeft = Vec4S32::Splat(-2048);
+	Vec4S32 guardBandBottomRight = Vec4S32::Splat(2348);
+
 	Vec4F32 scissorX1 = Vec4F32::Splat((float)scissor.x1);
 	Vec4F32 scissorY1 = Vec4F32::Splat((float)scissor.y1);
 	Vec4F32 scissorX2 = Vec4F32::Splat((float)scissor.x2);
@@ -457,6 +462,11 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			continue;
 		}
 
+		// Create a mask to kill coordinates of triangles that poke outside the guardband.
+		Vec4S32 inGuardBand =
+			(minX.CompareGt(guardBandTopLeft) & maxX.CompareLt(guardBandBottomRight)) &
+			(minY.CompareGt(guardBandTopLeft) & maxY.CompareLt(guardBandBottomRight));
+
 		// Floating point double triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
 		// Still good for culling early and pretty cheap to compute.
 		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)MIN_TWICE_TRI_AREA);
@@ -465,9 +475,10 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 			continue;
 		}
 
-		Vec4S32FromF32(x0).Store(tx + outCount);
-		Vec4S32FromF32(x1).Store(tx + outCount + 4);
-		Vec4S32FromF32(x2).Store(tx + outCount + 8);
+		// Note: If any triangle is outside the guardband, (just) its X coords get zeroed, and it'll later get rejected.
+		(Vec4S32FromF32(x0) & inGuardBand).Store(tx + outCount);
+		(Vec4S32FromF32(x1) & inGuardBand).Store(tx + outCount + 4);
+		(Vec4S32FromF32(x2) & inGuardBand).Store(tx + outCount + 8);
 		Vec4S32FromF32(y0).Store(ty + outCount);
 		Vec4S32FromF32(y1).Store(ty + outCount + 4);
 		Vec4S32FromF32(y2).Store(ty + outCount + 8);
@@ -479,9 +490,9 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 
 		if (!cullEnabled) {
 			// If culling is off, store the triangles again, in the opposite order.
-			Vec4S32FromF32(x0).Store(tx + outCount);
-			Vec4S32FromF32(x2).Store(tx + outCount + 4);
-			Vec4S32FromF32(x1).Store(tx + outCount + 8);
+			(Vec4S32FromF32(x0) & inGuardBand).Store(tx + outCount);
+			(Vec4S32FromF32(x2) & inGuardBand).Store(tx + outCount + 4);
+			(Vec4S32FromF32(x1) & inGuardBand).Store(tx + outCount + 8);
 			Vec4S32FromF32(y0).Store(ty + outCount);
 			Vec4S32FromF32(y2).Store(ty + outCount + 4);
 			Vec4S32FromF32(y1).Store(ty + outCount + 8);
@@ -536,9 +547,9 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			}
 			}
 		}
-		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleResult::NoPixels];
-		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleResult::SmallOrBackface];
-		gpuStats.numDepthRasterPrims += stats[(int)TriangleResult::OK];
+		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleStat::NoPixels];
+		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleStat::SmallOrBackface];
+		gpuStats.numDepthRasterPrims += stats[(int)TriangleStat::OK];
 		break;
 	}
 	default:
