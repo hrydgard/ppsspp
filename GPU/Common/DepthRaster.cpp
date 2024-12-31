@@ -494,7 +494,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 
 		// Floating point double triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
 		// Still good for culling early and pretty cheap to compute.
-		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)(MIN_TWICE_TRI_AREA + 2));
+		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)(MIN_TWICE_TRI_AREA));
 		if (!AnyZeroSignBit(doubleTriArea)) {
 			gpuStats.numDepthRasterEarlySize += 4;
 			continue;

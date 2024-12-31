@@ -1049,7 +1049,7 @@ CharQueue GetQueue() {
 
 bool TestCharQueue() {
 	// We use a tiny block size for testing.
-	CharQueue queue = std::move(GetQueue());
+	CharQueue queue = GetQueue();
 
 	// Add 16 chars.
 	queue.push_back("abcdefghijkl");
