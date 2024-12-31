@@ -104,7 +104,7 @@ constexpr int MIN_TWICE_TRI_AREA = 10;
 // A mix of ideas from Intel's sample and ryg's rasterizer blog series.
 template<ZCompareMode compareMode>
 void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
-	// BEGIN triangle setup. This is done using SIMD, four triangles at a time.
+	// Triangle setup. This is done using SIMD, four triangles at a time.
 	// 16x16->32 multiplications are doable on SSE2, which should be all we need.
 
 	// We use 4x1 SIMD tiles for simplicity. 2x2 would be ideal but stores/loads get annoying.
@@ -124,19 +124,16 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 	Vec4S32 maxY = y0.Max16(y1).Max16(y2).Min16(Vec4S32::Splat(scissor.y2)).FixupAfterMinMax();
 
 	Vec4S32 triArea = (x1 - x0).Mul16(y2 - y0) - (x2 - x0).Mul16(y1 - y0);
-	// Probably not worth checking triArea here as we already did the approximatly same check previously.
 
 	// Edge setup
 	Vec4S32 A12 = y1 - y2;
 	Vec4S32 B12 = x2 - x1;
 	Vec4S32 C12 = x1.Mul16(y2) - y1.Mul16(x2);
 
-	// Edge setup
 	Vec4S32 A20 = y2 - y0;
 	Vec4S32 B20 = x0 - x2;
 	Vec4S32 C20 = x2.Mul16(y0) - y2.Mul16(x0);
 
-	// Edge setup
 	Vec4S32 A01 = y0 - y1;
 	Vec4S32 B01 = x1 - x0;
 	Vec4S32 C01 = x0.Mul16(y1) - y0.Mul16(x1);
@@ -157,11 +154,10 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 	Vec4F32 zdx = z_20 * Vec4F32FromS32(stepX20) + z_01 * Vec4F32FromS32(stepX01);
 	Vec4F32 zdy = z_20 * Vec4F32FromS32(stepY20) + z_01 * Vec4F32FromS32(stepY01);
 
-	// Edge function values at origin
-	// TODO: We could SIMD the second part here.
-	// Using operator[] on the vectors actually seems to result in pretty good code.
+	// Shared setup is done, now loop per-triangle in the group of four.
 	for (int t = 0; t < 4; t++) {
 		// Check for bad triangle.
+		// Using operator[] on the vectors actually seems to result in pretty good code.
 		if (maxX[t] <= minX[t] || maxY[t] <= minY[t]) {
 			// No pixels, or outside screen.
 			// Most of these are now gone in the initial pass, but not all since we cull
@@ -181,7 +177,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 		const int minYT = minY[t];
 		const int maxYT = maxY[t];
 
-		// Convert per-triangle values to wide registers.
+		// Convert to wide registers.
 		Vec4S32 initialX = Vec4S32::Splat(minXT) + Vec4S32::LoadAligned(zero123);
 		int initialY = minY[t];
 		_dbg_assert_(A12[t] < 32767);
@@ -191,6 +187,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 		_dbg_assert_(A01[t] < 32767);
 		_dbg_assert_(A01[t] > -32767);
 
+		// TODO: The latter subexpression can be broken out of this loop, but reduces block size flexibility.
 		Vec4S32 w0_row = Vec4S32::Splat(A12[t]).Mul16(initialX) + Vec4S32::Splat(B12[t] * initialY + C12[t]);
 		Vec4S32 w1_row = Vec4S32::Splat(A20[t]).Mul16(initialX) + Vec4S32::Splat(B20[t] * initialY + C20[t]);
 		Vec4S32 w2_row = Vec4S32::Splat(A01[t]).Mul16(initialX) + Vec4S32::Splat(B01[t] * initialY + C01[t]);
@@ -239,7 +236,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 					// We use AndNot to zero out Z results, before doing Max with the buffer.
 					shortZ.AndNot(shortMaskInv).Max(bufferValues).Store(rowPtr + x);
 					break;
-				case ZCompareMode::Less:  // UNTESTED
+				case ZCompareMode::Less:
 					// This time, we OR the mask and use .Min.
 					(shortZ | shortMaskInv).Min(bufferValues).Store(rowPtr + x);
 					break;

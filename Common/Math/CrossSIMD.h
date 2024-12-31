@@ -485,6 +485,7 @@ struct Vec4S32 {
 	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ veorq_s32(v, other.v) }; }
 	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ vandq_s32(v, vmvnq_s32(inverted.v))}; }
 	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+	void operator &=(Vec4S32 other) { v = vandq_s32(v, other.v); }
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ vshlq_n_s32(v, imm) }; }
