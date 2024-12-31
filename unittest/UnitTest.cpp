@@ -56,6 +56,7 @@
 #include "Common/Buffer.h"
 #include "Common/File/Path.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/CrossSIMD.h"
 // Get some more instructions for testing
 #if PPSSPP_ARCH(SSE2)
 #include <immintrin.h>
@@ -1048,7 +1049,7 @@ CharQueue GetQueue() {
 
 bool TestCharQueue() {
 	// We use a tiny block size for testing.
-	CharQueue queue = std::move(GetQueue());
+	CharQueue queue = GetQueue();
 
 	// Add 16 chars.
 	queue.push_back("abcdefghijkl");
@@ -1124,6 +1125,21 @@ bool TestSIMD() {
 	EXPECT_EQ_INT(testdata2[2], 0x8888777766665555);
 	EXPECT_EQ_INT(testdata2[2], 0x8888777766665555);
 #endif
+
+	const int testval[2][4] = {
+		{ 0x1000, 0x2000, 0x3000, 0x7000 },
+		{ -0x1000, -0x2000, -0x3000, -0x7000 }
+	};
+
+	for (int i = 0; i < 2; i++) {
+		Vec4S32 s = Vec4S32::Load(testval[i]);
+		Vec4S32 square = s * s;
+		Vec4S32 square16 = s.Mul16(s);
+		EXPECT_EQ_INT(square[0], square16[0]);
+		EXPECT_EQ_INT(square[1], square16[1]);
+		EXPECT_EQ_INT(square[2], square16[2]);
+		EXPECT_EQ_INT(square[3], square16[3]);
+	}
 	return true;
 }
 
