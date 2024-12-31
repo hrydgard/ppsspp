@@ -87,12 +87,6 @@ static void DepthRasterRect(uint16_t *dest, int stride, const DepthScissor sciss
 
 alignas(16) static const int zero123[4] = {0, 1, 2, 3};
 
-constexpr int stepXSize = 4;
-constexpr int stepYSize = 1;
-
-constexpr int stepXShift = 2;
-constexpr int stepYShift = 0;
-
 enum class TriangleStat {
 	OK,
 	NoPixels,
@@ -102,7 +96,7 @@ enum class TriangleStat {
 constexpr int MIN_TWICE_TRI_AREA = 10;
 
 // A mix of ideas from Intel's sample and ryg's rasterizer blog series.
-template<ZCompareMode compareMode>
+template<ZCompareMode compareMode, bool lowQ>
 void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthScissor scissor, const int *tx, const int *ty, const float *tz) {
 	// Triangle setup. This is done using SIMD, four triangles at a time.
 	// 16x16->32 multiplications are doable on SSE2, which should be all we need.
@@ -116,6 +110,12 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 	Vec4S32 y1 = Vec4S32::LoadAligned(ty + 4);
 	Vec4S32 x2 = Vec4S32::LoadAligned(tx + 8);
 	Vec4S32 y2 = Vec4S32::LoadAligned(ty + 8);
+
+	if (lowQ) {
+		y0 &= Vec4S32::Splat(~1);
+		y1 &= Vec4S32::Splat(~1);
+		y2 &= Vec4S32::Splat(~1);
+	}
 
 	// FixupAfterMinMax is just 16->32 sign extension, in case the current platform (like SSE2) just has 16-bit min/max operations.
 	Vec4S32 minX = x0.Min16(x1).Min16(x2).Max16(Vec4S32::Splat(scissor.x1)).FixupAfterMinMax();
@@ -137,6 +137,12 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 	Vec4S32 A01 = y0 - y1;
 	Vec4S32 B01 = x1 - x0;
 	Vec4S32 C01 = x0.Mul16(y1) - y0.Mul16(x1);
+
+	constexpr int stepXSize = 4;
+	constexpr int stepYSize = lowQ ? 2 : 1;
+
+	constexpr int stepXShift = 2;
+	constexpr int stepYShift = lowQ ? 1 : 0;
 
 	// Step deltas
 	Vec4S32 stepX12 = A12.Shl<stepXShift>();
@@ -229,21 +235,26 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 				Vec4U16 shortZ = Vec4U16::FromVec4F32(zs);
 
 				// This switch is on a templated constant, so should collapse away.
+				Vec4U16 writeVal;
 				switch (compareMode) {
 				case ZCompareMode::Greater:
 					// To implement the greater/greater-than comparison, we can combine mask and max.
 					// Unfortunately there's no unsigned max on SSE2, it's synthesized by xoring 0x8000 on input and output.
 					// We use AndNot to zero out Z results, before doing Max with the buffer.
-					shortZ.AndNot(shortMaskInv).Max(bufferValues).Store(rowPtr + x);
+					writeVal = shortZ.AndNot(shortMaskInv).Max(bufferValues);
 					break;
 				case ZCompareMode::Less:
 					// This time, we OR the mask and use .Min.
-					(shortZ | shortMaskInv).Min(bufferValues).Store(rowPtr + x);
+					writeVal = (shortZ | shortMaskInv).Min(bufferValues);
 					break;
 				case ZCompareMode::Always:  // UNTESTED
 					// This could be replaced with a vblend operation.
-					((bufferValues & shortMaskInv) | shortZ.AndNot(shortMaskInv)).Store(rowPtr + x);
+					writeVal = ((bufferValues & shortMaskInv) | shortZ.AndNot(shortMaskInv));
 					break;
+				}
+				writeVal.Store(rowPtr + x);
+				if (lowQ) {
+					writeVal.Store(rowPtr + stride + x);
 				}
 			}
 		}
@@ -544,7 +555,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 }
 
 // Rasterizes screen-space vertices.
-void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, const int *ty, const float *tz, int count, const DepthDraw &draw, const DepthScissor scissor) {
+void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, const int *ty, const float *tz, int count, const DepthDraw &draw, const DepthScissor scissor, bool lowQ) {
 	// Prim should now be either TRIANGLES or RECTs.
 	_dbg_assert_(draw.prim == GE_PRIM_RECTANGLES || draw.prim == GE_PRIM_TRIANGLES);
 
@@ -562,21 +573,51 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 	{
 		int stats[3]{};
 		// Batches of 4 triangles, as output by the clip function.
-		for (int i = 0; i < count; i += 12) {
+		if (lowQ) {
 			switch (draw.compareMode) {
 			case ZCompareMode::Greater:
 			{
-				DepthRaster4Triangles<ZCompareMode::Greater>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Greater, true>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
 				break;
 			}
 			case ZCompareMode::Less:
 			{
-				DepthRaster4Triangles<ZCompareMode::Less>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Less, true>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
 				break;
 			}
 			case ZCompareMode::Always:
 			{
-				DepthRaster4Triangles<ZCompareMode::Always>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Always, true>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
+				break;
+			}
+			}
+		} else {
+			switch (draw.compareMode) {
+			case ZCompareMode::Greater:
+			{
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Greater, false>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
+				break;
+			}
+			case ZCompareMode::Less:
+			{
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Less, false>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
+				break;
+			}
+			case ZCompareMode::Always:
+			{
+				for (int i = 0; i < count; i += 12) {
+					DepthRaster4Triangles<ZCompareMode::Always, false>(stats, depth, depthStride, scissor, &tx[i], &ty[i], &tz[i]);
+				}
 				break;
 			}
 			}
