@@ -160,7 +160,7 @@ struct Vec4S32 {
 	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
 
 	template<int imm>
-	Vec4S32 Shl() const { return Vec4S32{ _mm_slli_epi32(v, imm) }; }
+	Vec4S32 Shl() const { return Vec4S32{ imm == 0 ? v : _mm_slli_epi32(v, imm) }; }
 
 	// NOTE: May be slow.
 	int operator[](size_t index) const { return ((int *)&v)[index]; }
