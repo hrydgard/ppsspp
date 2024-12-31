@@ -117,36 +117,37 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 	Vec4S32 x2 = Vec4S32::LoadAligned(tx + 8);
 	Vec4S32 y2 = Vec4S32::LoadAligned(ty + 8);
 
+	// FixupAfterMinMax is just 16->32 sign extension, in case the current platform (like SSE2) just has 16-bit min/max operations.
 	Vec4S32 minX = x0.Min16(x1).Min16(x2).Max16(Vec4S32::Splat(scissor.x1)).FixupAfterMinMax();
 	Vec4S32 maxX = x0.Max16(x1).Max16(x2).Min16(Vec4S32::Splat(scissor.x2)).FixupAfterMinMax();
 	Vec4S32 minY = y0.Min16(y1).Min16(y2).Max16(Vec4S32::Splat(scissor.y1)).FixupAfterMinMax();
 	Vec4S32 maxY = y0.Max16(y1).Max16(y2).Min16(Vec4S32::Splat(scissor.y2)).FixupAfterMinMax();
 
-	Vec4S32 triArea = (x1 - x0).MulAsS16(y2 - y0) - (x2 - x0).MulAsS16(y1 - y0);
+	Vec4S32 triArea = (x1 - x0).Mul16(y2 - y0) - (x2 - x0).Mul16(y1 - y0);
 	// Probably not worth checking triArea here as we already did the approximatly same check previously.
 
 	// Edge setup
 	Vec4S32 A12 = y1 - y2;
 	Vec4S32 B12 = x2 - x1;
-	Vec4S32 C12 = x1.MulAsS16(y2) - y1.MulAsS16(x2);
+	Vec4S32 C12 = x1.Mul16(y2) - y1.Mul16(x2);
 
 	// Edge setup
 	Vec4S32 A20 = y2 - y0;
 	Vec4S32 B20 = x0 - x2;
-	Vec4S32 C20 = x2.MulAsS16(y0) - y2.MulAsS16(x0);
+	Vec4S32 C20 = x2.Mul16(y0) - y2.Mul16(x0);
 
 	// Edge setup
 	Vec4S32 A01 = y0 - y1;
 	Vec4S32 B01 = x1 - x0;
-	Vec4S32 C01 = x0.MulAsS16(y1) - y0.MulAsS16(x1);
+	Vec4S32 C01 = x0.Mul16(y1) - y0.Mul16(x1);
 
 	// Step deltas
-	Vec4S32 stepX12 = A12 << stepXShift;
-	Vec4S32 stepY12 = B12 << stepYShift;
-	Vec4S32 stepX20 = A20 << stepXShift;
-	Vec4S32 stepY20 = B20 << stepYShift;
-	Vec4S32 stepX01 = A01 << stepXShift;
-	Vec4S32 stepY01 = B01 << stepYShift;
+	Vec4S32 stepX12 = A12.Shl<stepXShift>();
+	Vec4S32 stepY12 = B12.Shl<stepYShift>();
+	Vec4S32 stepX20 = A20.Shl<stepXShift>();
+	Vec4S32 stepY20 = B20.Shl<stepYShift>();
+	Vec4S32 stepX01 = A01.Shl<stepXShift>();
+	Vec4S32 stepY01 = B01.Shl<stepYShift>();
 
 	// Prepare to interpolate Z
 	Vec4F32 oneOverTriArea = Vec4F32FromS32(triArea).Recip();
@@ -163,7 +164,8 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 		// Check for bad triangle.
 		if (maxX[t] <= minX[t] || maxY[t] <= minY[t]) {
 			// No pixels, or outside screen.
-			// Most of these are now gone in the initial pass.
+			// Most of these are now gone in the initial pass, but not all since we cull
+			// in 4-groups there.
 			stats[(int)TriangleStat::NoPixels]++;
 			continue;
 		}
@@ -182,10 +184,16 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 		// Convert per-triangle values to wide registers.
 		Vec4S32 initialX = Vec4S32::Splat(minXT) + Vec4S32::LoadAligned(zero123);
 		int initialY = minY[t];
+		_dbg_assert_(A12[t] < 32767);
+		_dbg_assert_(A12[t] > -32767);
+		_dbg_assert_(A20[t] < 32767);
+		_dbg_assert_(A20[t] > -32767);
+		_dbg_assert_(A01[t] < 32767);
+		_dbg_assert_(A01[t] > -32767);
 
-		Vec4S32 w0_row = Vec4S32::Splat(A12[t]).MulAsS16(initialX) + Vec4S32::Splat(B12[t] * initialY + C12[t]);
-		Vec4S32 w1_row = Vec4S32::Splat(A20[t]).MulAsS16(initialX) + Vec4S32::Splat(B20[t] * initialY + C20[t]);
-		Vec4S32 w2_row = Vec4S32::Splat(A01[t]).MulAsS16(initialX) + Vec4S32::Splat(B01[t] * initialY + C01[t]);
+		Vec4S32 w0_row = Vec4S32::Splat(A12[t]).Mul16(initialX) + Vec4S32::Splat(B12[t] * initialY + C12[t]);
+		Vec4S32 w1_row = Vec4S32::Splat(A20[t]).Mul16(initialX) + Vec4S32::Splat(B20[t] * initialY + C20[t]);
+		Vec4S32 w2_row = Vec4S32::Splat(A01[t]).Mul16(initialX) + Vec4S32::Splat(B01[t] * initialY + C01[t]);
 
 		Vec4F32 zrow = Vec4F32::Splat(zbase[t]) + Vec4F32FromS32(w1_row) * z_20[t] + Vec4F32FromS32(w2_row) * z_01[t];
 		Vec4F32 zdeltaX = Vec4F32::Splat(zdx[t]);
@@ -229,7 +237,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 					// To implement the greater/greater-than comparison, we can combine mask and max.
 					// Unfortunately there's no unsigned max on SSE2, it's synthesized by xoring 0x8000 on input and output.
 					// We use AndNot to zero out Z results, before doing Max with the buffer.
-					AndNot(shortZ, shortMaskInv).Max(bufferValues).Store(rowPtr + x);
+					shortZ.AndNot(shortMaskInv).Max(bufferValues).Store(rowPtr + x);
 					break;
 				case ZCompareMode::Less:  // UNTESTED
 					// This time, we OR the mask and use .Min.
@@ -237,7 +245,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 					break;
 				case ZCompareMode::Always:  // UNTESTED
 					// This could be replaced with a vblend operation.
-					((bufferValues & shortMaskInv) | AndNot(shortZ, shortMaskInv)).Store(rowPtr + x);
+					((bufferValues & shortMaskInv) | shortZ.AndNot(shortMaskInv)).Store(rowPtr + x);
 					break;
 				}
 			}
@@ -362,7 +370,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	}
 	const bool cullEnabled = draw.cullEnabled;
 
-	static const float zerovec[4] = {};
+	static const float zerovec[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 
 	int collected = 0;
 	int planeCulled = 0;
@@ -371,22 +379,35 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	const int count = draw.vertexCount;
 
 	// Not exactly the same guardband as on the real PSP, but good enough to prevent 16-bit overflow in raster.
-	// This is slightly off-center since we are already in screen space, but whatever. We compensate a little for it in the bottom right.
-	Vec4S32 guardBandTopLeft = Vec4S32::Splat(-2048);
-	Vec4S32 guardBandBottomRight = Vec4S32::Splat(2348);
+	// This is slightly off-center since we are already in screen space, but whatever.
+	Vec4S32 guardBandTopLeft = Vec4S32::Splat(-4096);
+	Vec4S32 guardBandBottomRight = Vec4S32::Splat(4096);
 
 	Vec4F32 scissorX1 = Vec4F32::Splat((float)scissor.x1);
 	Vec4F32 scissorY1 = Vec4F32::Splat((float)scissor.y1);
 	Vec4F32 scissorX2 = Vec4F32::Splat((float)scissor.x2);
 	Vec4F32 scissorY2 = Vec4F32::Splat((float)scissor.y2);
 
+	// Add cheap pre-projection pre-checks for bad triangle here. Not much we can do safely other than checking W.
+	auto validVert = [](const float *v) -> bool {
+		if (v[3] <= 0.0f /* || v[2] <= 0.0f */) {
+			return false;
+		}
+		/*
+		if (v[2] >= 65535.0f * v[3]) {
+			return false;
+		}*/
+		return true;
+	};
+
 	for (int i = 0; i < count; i += 3) {
 		// Collect valid triangles into buffer.
 		const float *v0 = transformed + indexBuffer[i] * 4;
 		const float *v1 = transformed + indexBuffer[i + (1 ^ flipCull)] * 4;
 		const float *v2 = transformed + indexBuffer[i + (2 ^ flipCull)] * 4;
-		// Don't collect triangle if any vertex is behind the 0 plane.
-		if (v0[3] > 0.0f && v1[3] > 0.0f && v2[3] > 0.0f) {
+		// Don't collect triangle if any vertex is beyond the planes.
+		// TODO: Optimize this somehow.
+		if (validVert(v0) && validVert(v1) && validVert(v2)) {
 			verts[collected] = v0;
 			verts[collected + 1] = v1;
 			verts[collected + 2] = v2;
@@ -404,6 +425,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		}
 
 		if (collected != 12) {
+			// Fetch more!
 			continue;
 		}
 
@@ -435,47 +457,53 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		Vec4F32 recipW2 = w2.Recip();
 		x0 *= recipW0;
 		y0 *= recipW0;
-		z0 = (z0 * recipW0).Clamp(0.0f, 65535.0f);
+		z0 *= recipW0;
 		x1 *= recipW1;
 		y1 *= recipW1;
-		z1 = (z1 * recipW1).Clamp(0.0f, 65535.0f);
+		z1 *= recipW1;
 		x2 *= recipW2;
 		y2 *= recipW2;
-		z2 = (z2 * recipW2).Clamp(0.0f, 65535.0f);
+		z2 *= recipW2;
 
-		// Check bounding box size (clamped to screen edges). Cast to integer for crude rounding (and to match the rasterizer).
-		Vec4S32 minX = Vec4S32FromF32(x0.Min(x1.Min(x2)).Max(scissorX1));
-		Vec4S32 minY = Vec4S32FromF32(y0.Min(y1.Min(y2)).Max(scissorY1));
-		Vec4S32 maxX = Vec4S32FromF32(x0.Max(x1.Max(x2)).Min(scissorX2));
-		Vec4S32 maxY = Vec4S32FromF32(y0.Max(y1.Max(y2)).Min(scissorY2));
+		// Check bounding box size. Cast to integer for crude rounding (and to approximately match the rasterizer).
+		Vec4S32 minX = Vec4S32FromF32(x0.Min(x1.Min(x2)));
+		Vec4S32 minY = Vec4S32FromF32(y0.Min(y1.Min(y2)));
+		Vec4S32 maxX = Vec4S32FromF32(x0.Max(x1.Max(x2)));
+		Vec4S32 maxY = Vec4S32FromF32(y0.Max(y1.Max(y2)));
 
-		// If all are equal in any dimension, all four triangles are tiny nonsense (or outside the scissor) and can be skipped early.
+		// If all are equal in any dimension, all four triangles are tiny nonsense and can be skipped early.
 		Vec4S32 eqMask = minX.CompareEq(maxX) | minY.CompareEq(maxY);
-		// Otherwise we just proceed to triangle setup with all four for now. Later might want to
-		// compact the remaining triangles... Or do more checking here.
+
+		// Otherwise we just proceed to triangle setup with all four for now.
 		// We could also save the computed boxes for later..
+		// TODO: Merge into below checks? Though nice with an early out.
 		if (!AnyZeroSignBit(eqMask)) {
 			boxCulled += 4;
 			continue;
 		}
 
-		// Create a mask to kill coordinates of triangles that poke outside the guardband.
+		// Create a mask to kill coordinates of triangles that poke outside the guardband (or are just empty).
 		Vec4S32 inGuardBand =
-			(minX.CompareGt(guardBandTopLeft) & maxX.CompareLt(guardBandBottomRight)) &
-			(minY.CompareGt(guardBandTopLeft) & maxY.CompareLt(guardBandBottomRight));
+			((minX.CompareGt(guardBandTopLeft) & maxX.CompareLt(guardBandBottomRight)) &
+				(minY.CompareGt(guardBandTopLeft) & maxY.CompareLt(guardBandBottomRight))).AndNot(eqMask);
+
+		// It's enough to smash one coordinate to make future checks (like the tri area check) fail.
+		x0 &= inGuardBand;
+		x1 &= inGuardBand;
+		x2 &= inGuardBand;
 
 		// Floating point double triangle area. Can't be reused for the integer-snapped raster reliably (though may work...)
 		// Still good for culling early and pretty cheap to compute.
-		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)MIN_TWICE_TRI_AREA);
+		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)(MIN_TWICE_TRI_AREA + 2));
 		if (!AnyZeroSignBit(doubleTriArea)) {
 			gpuStats.numDepthRasterEarlySize += 4;
 			continue;
 		}
 
 		// Note: If any triangle is outside the guardband, (just) its X coords get zeroed, and it'll later get rejected.
-		(Vec4S32FromF32(x0) & inGuardBand).Store(tx + outCount);
-		(Vec4S32FromF32(x1) & inGuardBand).Store(tx + outCount + 4);
-		(Vec4S32FromF32(x2) & inGuardBand).Store(tx + outCount + 8);
+		Vec4S32FromF32(x0).Store(tx + outCount);
+		Vec4S32FromF32(x1).Store(tx + outCount + 4);
+		Vec4S32FromF32(x2).Store(tx + outCount + 8);
 		Vec4S32FromF32(y0).Store(ty + outCount);
 		Vec4S32FromF32(y1).Store(ty + outCount + 4);
 		Vec4S32FromF32(y2).Store(ty + outCount + 8);
@@ -483,10 +511,19 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		z1.Store(tz + outCount + 4);
 		z2.Store(tz + outCount + 8);
 
+#ifdef _DEBUG
+		for (int i = 0; i < 12; i++) {
+			_dbg_assert_(tx[outCount + i] < 32767);
+			_dbg_assert_(tx[outCount + i] >= -32768);
+			_dbg_assert_(tx[outCount + i] < 32767);
+			_dbg_assert_(tx[outCount + i] >= -32768);
+		}
+#endif
+
 		outCount += 12;
 
 		if (!cullEnabled) {
-			// If culling is off, store the triangles again, in the opposite order.
+			// If culling is off, store the triangles again, with the first two vertices swapped.
 			(Vec4S32FromF32(x0) & inGuardBand).Store(tx + outCount);
 			(Vec4S32FromF32(x2) & inGuardBand).Store(tx + outCount + 4);
 			(Vec4S32FromF32(x1) & inGuardBand).Store(tx + outCount + 8);
