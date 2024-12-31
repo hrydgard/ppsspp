@@ -152,6 +152,9 @@ struct Vec4S32 {
 	// TODO: andnot
 	void operator +=(Vec4S32 other) { v = _mm_add_epi32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = _mm_sub_epi32(v, other.v); }
+	void operator &=(Vec4S32 other) { v = _mm_and_si128(v, other.v); }
+	void operator |=(Vec4S32 other) { v = _mm_or_si128(v, other.v); }
+	void operator ^=(Vec4S32 other) { v = _mm_xor_si128(v, other.v); }
 
 	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ _mm_andnot_si128(inverted.v, v) }; }  // NOTE: with _mm_andnot, the first parameter is inverted, and then and is performed.
 	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
@@ -583,6 +586,8 @@ struct Vec4F32 {
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vceqq_f32(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcltq_f32(v, other.v)) }; }
 	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcgtq_f32(v, other.v)) }; }
+	Vec4S32 CompareLe(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcleq_f32(v, other.v)) }; }
+	Vec4S32 CompareGe(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcgeq_f32(v, other.v)) }; }
 
 	// One of many possible solutions. Sometimes we could also use vld4q_f32 probably..
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {

@@ -383,14 +383,14 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 	Vec4S32 guardBandTopLeft = Vec4S32::Splat(-4096);
 	Vec4S32 guardBandBottomRight = Vec4S32::Splat(4096);
 
-	Vec4F32 scissorX1 = Vec4F32::Splat((float)scissor.x1);
-	Vec4F32 scissorY1 = Vec4F32::Splat((float)scissor.y1);
-	Vec4F32 scissorX2 = Vec4F32::Splat((float)scissor.x2);
-	Vec4F32 scissorY2 = Vec4F32::Splat((float)scissor.y2);
+	Vec4S32 scissorX1 = Vec4S32::Splat((float)scissor.x1);
+	Vec4S32 scissorY1 = Vec4S32::Splat((float)scissor.y1);
+	Vec4S32 scissorX2 = Vec4S32::Splat((float)scissor.x2);
+	Vec4S32 scissorY2 = Vec4S32::Splat((float)scissor.y2);
 
 	// Add cheap pre-projection pre-checks for bad triangle here. Not much we can do safely other than checking W.
 	auto validVert = [](const float *v) -> bool {
-		if (v[3] <= 0.0f /* || v[2] <= 0.0f */) {
+		if (v[3] <= 0.0f || v[2] <= 0.0f) {
 			return false;
 		}
 		/*
@@ -486,6 +486,9 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		Vec4S32 inGuardBand =
 			((minX.CompareGt(guardBandTopLeft) & maxX.CompareLt(guardBandBottomRight)) &
 				(minY.CompareGt(guardBandTopLeft) & maxY.CompareLt(guardBandBottomRight))).AndNot(eqMask);
+
+		// Create another mask to kill off-screen triangles. Not perfectly accurate.
+		inGuardBand &= (maxX.CompareGt(scissorX1) & minX.CompareLt(scissorX2)) & (maxY.CompareGt(scissorY1) & minY.CompareLt(scissorY2));
 
 		// It's enough to smash one coordinate to make future checks (like the tri area check) fail.
 		x0 &= inGuardBand;
