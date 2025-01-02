@@ -80,20 +80,22 @@ DirectoryFileSystem::~DirectoryFileSystem() {
 
 // TODO(scoped): Merge the two below functions somehow.
 
-Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localpath) const {
-	if (localpath.empty())
+Path DirectoryFileHandle::GetLocalPath(const Path &basePath, std::string localPath) const {
+	if (localPath.empty())
 		return basePath;
 
-	if (localpath[0] == '/')
-		localpath.erase(0, 1);
+	if (localPath[0] == '/')
+		localPath.erase(0, 1);
 
 	if (fileSystemFlags_ & FileSystemFlags::STRIP_PSP) {
-		if (startsWithNoCase(localpath, "PSP/")) {
-			localpath = localpath.substr(4);
+		if (localPath == "PSP") {
+			localPath = "/";
+		} else if (startsWithNoCase(localPath, "PSP/")) {
+			localPath = localPath.substr(4);
 		}
 	}
 
-	return basePath / localpath;
+	return basePath / localPath;
 }
 
 Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
@@ -104,7 +106,9 @@ Path DirectoryFileSystem::GetLocalPath(std::string internalPath) const {
 		internalPath.erase(0, 1);
 
 	if (flags & FileSystemFlags::STRIP_PSP) {
-		if (startsWithNoCase(internalPath, "PSP/")) {
+		if (internalPath == "PSP") {
+			internalPath = "/";
+		} else if (startsWithNoCase(internalPath, "PSP/")) {
 			internalPath = internalPath.substr(4);
 		}
 	}
@@ -815,6 +819,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 		}
 	}
 #endif
+
 	if (!success) {
 		if (exists)
 			*exists = false;
@@ -866,6 +871,19 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 		localtime_r((time_t*)&file.mtime, &entry.mtime);
 
 		myVector.push_back(entry);
+	}
+
+	if (this->flags & FileSystemFlags::STRIP_PSP) {
+		if (path == "/") {
+			// Artificially add the /PSP directory to the root listing.
+			PSPFileInfo pspInfo{};
+			pspInfo.name = "PSP";
+			pspInfo.type = FILETYPE_DIRECTORY;
+			pspInfo.size = 4096;
+			pspInfo.access = 0x777;
+			pspInfo.exists = true;
+			myVector.push_back(pspInfo);
+		}
 	}
 
 	if (exists)
