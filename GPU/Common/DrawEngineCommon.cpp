@@ -69,6 +69,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	}
 	if (useDepthRaster_) {
 		depthDraws_.reserve(256);
+		depthThread_ = std::thread([this]() { DepthThreadFunc(); });
 	}
 }
 
@@ -87,6 +88,11 @@ DrawEngineCommon::~DrawEngineCommon() {
 		delete decoder;
 	});
 	ClearSplineBezierWeights();
+	if (depthThread_.joinable()) {
+		exitDepthThread_ = true;
+		depthEnqueueCond_.notify_one();
+		depthThread_.join();
+	}
 }
 
 void DrawEngineCommon::Init() {
@@ -1069,6 +1075,18 @@ void DrawEngineCommon::FlushQueuedDepth() {
 	depthVertexCount_ = 0;
 	depthDraws_.clear();
 	inDepthDrawPass_ = false;
+}
+
+void DrawEngineCommon::DepthThreadFunc() {
+	while (true) {
+		{
+			std::unique_lock<std::mutex> lock(depthEnqueueMutex_);
+			depthEnqueueCond_.wait(lock);
+			if (exitDepthThread_) {
+				break;
+			}
+		}
+	}
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {

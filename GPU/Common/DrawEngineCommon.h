@@ -18,6 +18,8 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -365,6 +367,7 @@ protected:
 
 private:
 	// Internal implementation details.
+	void DepthThreadFunc();
 
 	inline void EnqueueDepthDraw(const DepthDraw &draw);
 	inline void ProcessDepthDraw(const DepthDraw &draw);
@@ -381,5 +384,14 @@ private:
 
 	double depthRasterPassStart_ = 0.0;
 
+	std::thread depthThread_;
+	bool exitDepthThread_ = false;  // notify depthEnqueueCond_ to check this.
+
 	bool inDepthDrawPass_ = false;
+	std::mutex depthEnqueueMutex_;
+	std::condition_variable depthEnqueueCond_;
+
+	bool processingDepthDraw_ = false;
+	std::mutex depthFinishMutex_;
+	std::condition_variable depthFinishCond_;
 };
