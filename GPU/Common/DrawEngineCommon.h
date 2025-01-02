@@ -368,6 +368,7 @@ protected:
 private:
 	// Internal implementation details.
 	void DepthThreadFunc();
+	bool WaitForDepthPassFinish();
 
 	inline void EnqueueDepthDraw(const DepthDraw &draw);
 	inline void ProcessDepthDraw(const DepthDraw &draw);
@@ -391,7 +392,9 @@ private:
 	std::mutex depthEnqueueMutex_;
 	std::condition_variable depthEnqueueCond_;
 
-	bool processingDepthDraw_ = false;
+	bool finishedSubmitting_ = false;
+	bool finishedDrawing_ = false;
+	int curDraw_ = 0;
 	std::mutex depthFinishMutex_;
 	std::condition_variable depthFinishCond_;
 };

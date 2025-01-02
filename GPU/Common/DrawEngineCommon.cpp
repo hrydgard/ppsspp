@@ -23,6 +23,7 @@
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
@@ -1044,47 +1045,101 @@ void DrawEngineCommon::ProcessDepthDraw(const DepthDraw &draw) {
 }
 
 void DrawEngineCommon::EnqueueDepthDraw(const DepthDraw &draw) {
+	std::lock_guard<std::mutex> lock(depthEnqueueMutex_);
 	if (depthDraws_.empty()) {
+		_dbg_assert_(curDraw_ == 0);
 		_dbg_assert_(!inDepthDrawPass_);
-
+		depthDraws_.push_back(draw);
 		depthRasterPassStart_ = time_now_d();
 		inDepthDrawPass_ = true;
+		depthEnqueueCond_.notify_one();
+	} else {
+		depthDraws_.push_back(draw);
+		depthEnqueueCond_.notify_one();  // In case the thread caught up.
+	}
+}
+
+// Returns true if we actually waited.
+bool DrawEngineCommon::WaitForDepthPassFinish() {
+	{
+		std::lock_guard<std::mutex> lock(depthEnqueueMutex_);
+		if (!inDepthDrawPass_) {
+			_dbg_assert_(depthIndexCount_ == 0 && depthVertexCount_ == 0 && depthDraws_.empty());
+			return false;
+		}
+		// In case the depth raster thread is idle, we need to nudge it.
+		_dbg_assert_(!finishedSubmitting_);
+		finishedSubmitting_ = true;
+		depthEnqueueCond_.notify_one();
 	}
 
-	depthDraws_.push_back(draw);
+	// OK, we're in a pass. Wait for the thread to finish work.
+	std::unique_lock<std::mutex> lock(depthFinishMutex_);
+	while (!finishedDrawing_) {
+		depthFinishCond_.wait(lock);
+	}
+	return true;
 }
 
 void DrawEngineCommon::FlushQueuedDepth() {
-	if (!inDepthDrawPass_) {
-		_dbg_assert_(depthIndexCount_ == 0 && depthVertexCount_ == 0 && depthDraws_.empty());
-		return;
+	if (depthRasterPassStart_ != 0.0) {
+		gpuStats.msRasterTimeAvailable += time_now_d() - depthRasterPassStart_;
+		depthRasterPassStart_ = 0.0;
 	}
 
-	_dbg_assert_(depthRasterPassStart_ != 0.0);
-	gpuStats.msRasterTimeAvailable += time_now_d() - depthRasterPassStart_;
-	depthRasterPassStart_ = 0.0;
+	if (WaitForDepthPassFinish()) {
+		// At this point, we know that the depth thread is paused.
 
-	// TODO: here we should wait for the thread to finish.
-
-	for (const auto &draw : depthDraws_) {
-		ProcessDepthDraw(draw);
+		// Reset queue
+		depthIndexCount_ = 0;
+		depthVertexCount_ = 0;
+		depthDraws_.clear();
+		inDepthDrawPass_ = false;
+		finishedSubmitting_ = false;
+		finishedDrawing_ = false;  // not sure if it matters who resets this.
+		curDraw_ = 0;
+	} else {
+		_dbg_assert_(curDraw_ == 0);
+		_dbg_assert_(!inDepthDrawPass_);
 	}
-
-	// Reset queue
-	depthIndexCount_ = 0;
-	depthVertexCount_ = 0;
-	depthDraws_.clear();
-	inDepthDrawPass_ = false;
 }
 
 void DrawEngineCommon::DepthThreadFunc() {
+	SetCurrentThreadName("DepthRaster");
+
 	while (true) {
+		DepthDraw draw;
+		bool hasDraw = false;
+		// Wait for a draw or exit.
 		{
 			std::unique_lock<std::mutex> lock(depthEnqueueMutex_);
-			depthEnqueueCond_.wait(lock);
+			if (depthDraws_.size() == curDraw_) {
+				// We've drawn all we can. Let's check if we're finished.
+				// If we reach here, we've drawn everything we can. And if that's the last
+				// that will come in this batch, we notify.
+				if (finishedSubmitting_) {
+					// lock.unlock();  // possible optimization?
+					std::lock_guard<std::mutex> flock(depthFinishMutex_);
+					finishedDrawing_ = true;
+					depthFinishCond_.notify_one();
+				}
+
+				// OK, wait for something to do.
+				depthEnqueueCond_.wait(lock);
+			} else {
+				_dbg_assert_(curDraw_ < depthDraws_.size());
+				draw = depthDraws_[curDraw_++];
+				hasDraw = true;
+			}
 			if (exitDepthThread_) {
 				break;
 			}
+			// Then just loop around and wait for the next event.
+		}
+
+		// OK, now we *definitely* have a draw to process, and we're outside locks. Do it!
+		if (hasDraw) {
+			ProcessDepthDraw(draw);
 		}
 	}
 }
