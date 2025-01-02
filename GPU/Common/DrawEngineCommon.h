@@ -80,7 +80,7 @@ public:
 	virtual void BeginFrame();
 
 	void SetGPUCommon(GPUCommon *gpuCommon) {
-		gpuCommon = gpuCommon;
+		gpuCommon_ = gpuCommon;
 	}
 
 	virtual void DeviceLost() = 0;
@@ -210,7 +210,7 @@ protected:
 		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 		gpuStats.numVertsDecoded += numDecodedVerts_;
 
-		indexGen.Reset();
+		indexGen_.Reset();
 		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
@@ -327,7 +327,7 @@ protected:
 	bool applySkinInDecode_ = false;
 
 	// Vertex collector state
-	IndexGenerator indexGen;
+	IndexGenerator indexGen_;
 	int numDecodedVerts_ = 0;
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
@@ -340,9 +340,9 @@ protected:
 	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer = nullptr;
+	TessellationDataTransfer *tessDataTransfer_ = nullptr;
 
-	GPUCommon *gpuCommon_;
+	GPUCommon *gpuCommon_ = nullptr;
 
 	// Culling
 private:
@@ -379,5 +379,7 @@ private:
 	int depthIndexCount_ = 0;
 	std::vector<DepthDraw> depthDraws_;
 
-	double rasterTimeStart_ = 0.0;
+	double depthRasterPassStart_ = 0.0;
+
+	bool inDepthDrawPass_ = false;
 };

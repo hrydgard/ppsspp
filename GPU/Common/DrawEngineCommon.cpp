@@ -54,7 +54,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	transformedExpanded_ = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decoded_ = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	indexGen.Setup(decIndex_);
+	indexGen_.Setup(decIndex_);
 
 	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
 	case DepthRasterMode::DEFAULT:
@@ -677,7 +677,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 }
 
 void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim)) {
+	if (!indexGen_.PrimCompatible(prevPrim_, prim)) {
 		Flush();
 	}
 
@@ -697,7 +697,7 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, VertexDec
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+	if (!indexGen_.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
 	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
@@ -838,22 +838,22 @@ int DrawEngineCommon::DecodeInds() {
 		// 2. Loop through the drawcalls, translating indices as we go.
 		switch (di.indexType) {
 		case GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT:
-			indexGen.AddPrim(di.prim, di.vertexCount, indexOffset, clockwise);
+			indexGen_.AddPrim(di.prim, di.vertexCount, indexOffset, clockwise);
 			break;
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u8 *)di.inds, indexOffset, clockwise);
+			indexGen_.TranslatePrim(di.prim, di.vertexCount, (const u8 *)di.inds, indexOffset, clockwise);
 			break;
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u16_le *)di.inds, indexOffset, clockwise);
+			indexGen_.TranslatePrim(di.prim, di.vertexCount, (const u16_le *)di.inds, indexOffset, clockwise);
 			break;
 		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
-			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u32_le *)di.inds, indexOffset, clockwise);
+			indexGen_.TranslatePrim(di.prim, di.vertexCount, (const u32_le *)di.inds, indexOffset, clockwise);
 			break;
 		}
 	}
 	decodeIndsCounter_ = i;
 
-	return indexGen.VertexCount();
+	return indexGen_.VertexCount();
 }
 
 bool DrawEngineCommon::CanUseHardwareTransform(int prim) const {
@@ -1001,14 +1001,6 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 	return true;
 }
 
-void DrawEngineCommon::EnqueueDepthDraw(const DepthDraw &draw) {
-	if (depthDraws_.empty()) {
-		rasterTimeStart_ = time_now_d();
-	}
-
-	depthDraws_.push_back(draw);
-}
-
 // TODO: Possibly split this in stages, to avoid switching back and forth between clipping and drawing.
 void DrawEngineCommon::ProcessDepthDraw(const DepthDraw &draw) {
 	int *tx = depthScreenVerts_;
@@ -1045,11 +1037,28 @@ void DrawEngineCommon::ProcessDepthDraw(const DepthDraw &draw) {
 	}
 }
 
-void DrawEngineCommon::FlushQueuedDepth() {
-	if (rasterTimeStart_ != 0.0) {
-		gpuStats.msRasterTimeAvailable += time_now_d() - rasterTimeStart_;
-		rasterTimeStart_ = 0.0;
+void DrawEngineCommon::EnqueueDepthDraw(const DepthDraw &draw) {
+	if (depthDraws_.empty()) {
+		_dbg_assert_(!inDepthDrawPass_);
+
+		depthRasterPassStart_ = time_now_d();
+		inDepthDrawPass_ = true;
 	}
+
+	depthDraws_.push_back(draw);
+}
+
+void DrawEngineCommon::FlushQueuedDepth() {
+	if (!inDepthDrawPass_) {
+		_dbg_assert_(depthIndexCount_ == 0 && depthVertexCount_ == 0 && depthDraws_.empty());
+		return;
+	}
+
+	_dbg_assert_(depthRasterPassStart_ != 0.0);
+	gpuStats.msRasterTimeAvailable += time_now_d() - depthRasterPassStart_;
+	depthRasterPassStart_ = 0.0;
+
+	// TODO: here we should wait for the thread to finish.
 
 	for (const auto &draw : depthDraws_) {
 		ProcessDepthDraw(draw);
@@ -1059,6 +1068,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 	depthIndexCount_ = 0;
 	depthVertexCount_ = 0;
 	depthDraws_.clear();
+	inDepthDrawPass_ = false;
 }
 
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {

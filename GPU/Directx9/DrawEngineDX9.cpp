@@ -84,7 +84,7 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclM
 	InitDeviceObjects();
 
 	tessDataTransferDX9 = new TessellationDataTransferDX9();
-	tessDataTransfer = tessDataTransferDX9;
+	tessDataTransfer_ = tessDataTransferDX9;
 
 	device_->CreateVertexDeclaration(TransformedVertexElements, &transformedVertexDecl_);
 }
