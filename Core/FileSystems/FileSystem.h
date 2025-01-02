@@ -70,6 +70,7 @@ enum class FileSystemFlags {
 	CARD = 4,
 	FLASH = 8,
 	STRIP_PSP = 16,
+	CASE_SENSITIVE = 32,
 };
 ENUM_CLASS_BITOPS(FileSystemFlags);
 

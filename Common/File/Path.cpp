@@ -425,9 +425,12 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 	}
 }
 
-#if HOST_IS_CASE_SENSITIVE
-
 static bool FixFilenameCase(const std::string &path, std::string &filename) {
+#if _WIN32
+	// We don't support case-insensitive file systems on Windows.
+	return true;
+#else
+
 	// Are we lucky?
 	if (File::Exists(Path(path + filename)))
 		return true;
@@ -469,9 +472,14 @@ static bool FixFilenameCase(const std::string &path, std::string &filename) {
 	closedir(dirp);
 
 	return retValue;
+#endif
 }
 
 bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavior behavior) {
+#if _WIN32
+	return true;
+#else
+
 	if (realBasePath.Type() == PathType::CONTENT_URI) {
 		// Nothing to do. These are already case insensitive, I think.
 		return true;
@@ -524,6 +532,5 @@ bool FixPathCase(const Path &realBasePath, std::string &path, FixPathCaseBehavio
 	}
 
 	return true;
-}
-
 #endif
+}
