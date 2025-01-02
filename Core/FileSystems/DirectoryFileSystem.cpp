@@ -284,7 +284,9 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			DEBUG_LOG(Log::FileSystem, "Case may have been incorrect, second try opening %s (%s)", fullName.c_str(), fileName.c_str());
 
 			// And try again with the correct case this time
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+			// Should never get here.
+#elif PPSSPP_PLATFORM(WINDOWS)
 			// Unlikely to get here, heh.
 			hFile = CreateFile(fullName.ToWString().c_str(), desired, sharemode, 0, openmode, 0, 0);
 			success = hFile != INVALID_HANDLE_VALUE;
@@ -295,7 +297,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 		}
 	}
 
-#ifndef _WIN32
+#if !PPSSPP_PLATFORM(WINDOWS)
 	if (success) {
 		// Reject directories, even if we succeed in opening them.
 		// TODO: Might want to do this stat first...
