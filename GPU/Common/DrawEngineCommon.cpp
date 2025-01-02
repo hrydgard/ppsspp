@@ -1001,6 +1001,66 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 	return true;
 }
 
+void DrawEngineCommon::EnqueueDepthDraw(const DepthDraw &draw) {
+	if (depthDraws_.empty()) {
+		rasterTimeStart_ = time_now_d();
+	}
+
+	depthDraws_.push_back(draw);
+}
+
+// TODO: Possibly split this in stages, to avoid switching back and forth between clipping and drawing.
+void DrawEngineCommon::ProcessDepthDraw(const DepthDraw &draw) {
+	int *tx = depthScreenVerts_;
+	int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
+	float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
+
+	int outVertCount = 0;
+
+	const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
+	const uint16_t *indices = depthIndices_ + draw.indexOffset;
+
+	DepthScissor tileScissor = draw.scissor.Tile(0, 1);
+
+	const bool collectStats = coreCollectDebugStats;
+	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
+
+	{
+		TimeCollector collectStat(&gpuStats.msCullDepth, collectStats);
+		switch (draw.prim) {
+		case GE_PRIM_RECTANGLES:
+			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
+			break;
+		case GE_PRIM_TRIANGLES:
+			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor);
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+	}
+	{
+		TimeCollector collectStat(&gpuStats.msRasterizeDepth, collectStats);
+		DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor, lowQ);
+	}
+}
+
+void DrawEngineCommon::FlushQueuedDepth() {
+	if (rasterTimeStart_ != 0.0) {
+		gpuStats.msRasterTimeAvailable += time_now_d() - rasterTimeStart_;
+		rasterTimeStart_ = 0.0;
+	}
+
+	for (const auto &draw : depthDraws_) {
+		ProcessDepthDraw(draw);
+	}
+
+	// Reset queue
+	depthIndexCount_ = 0;
+	depthVertexCount_ = 0;
+	depthDraws_.clear();
+}
+
 void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount) {
 	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
 		return;
@@ -1042,13 +1102,7 @@ void DrawEngineCommon::DepthRasterTransform(GEPrimitiveType prim, VertexDecoder 
 	depthIndexCount_ += vertexCount;
 	depthVertexCount_ += numDecoded;
 
-	if (depthDraws_.empty()) {
-		rasterTimeStart_ = time_now_d();
-	}
-
-	depthDraws_.push_back(draw);
-
-	// FlushQueuedDepth();
+	EnqueueDepthDraw(draw);
 }
 
 void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount) {
@@ -1083,57 +1137,5 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	depthIndexCount_ += vertexCount;
 	depthVertexCount_ += numDecoded;
 
-	depthDraws_.push_back(draw);
-
-	if (depthDraws_.empty()) {
-		rasterTimeStart_ = time_now_d();
-	}
-	// FlushQueuedDepth();
-}
-
-void DrawEngineCommon::FlushQueuedDepth() {
-	if (rasterTimeStart_ != 0.0) {
-		gpuStats.msRasterTimeAvailable += time_now_d() - rasterTimeStart_;
-		rasterTimeStart_ = 0.0;
-	}
-
-	const bool collectStats = coreCollectDebugStats;
-	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
-
-	for (const auto &draw : depthDraws_) {
-		int *tx = depthScreenVerts_;
-		int *ty = depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT;
-		float *tz = (float *)(depthScreenVerts_ + DEPTH_SCREENVERTS_COMPONENT_COUNT * 2);
-
-		int outVertCount = 0;
-
-		const float *vertices = depthTransformed_ + 4 * draw.vertexOffset;
-		const uint16_t *indices = depthIndices_ + draw.indexOffset;
-
-		DepthScissor tileScissor = draw.scissor.Tile(0, 1);
-
-		{
-			TimeCollector collectStat(&gpuStats.msCullDepth, collectStats);
-			switch (draw.prim) {
-			case GE_PRIM_RECTANGLES:
-				outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
-				break;
-			case GE_PRIM_TRIANGLES:
-				outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor);
-				break;
-			default:
-				_dbg_assert_(false);
-				break;
-			}
-		}
-		{
-			TimeCollector collectStat(&gpuStats.msRasterizeDepth, collectStats);
-			DepthRasterScreenVerts((uint16_t *)Memory::GetPointerWrite(draw.depthAddr), draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor, lowQ);
-		}
-	}
-
-	// Reset queue
-	depthIndexCount_ = 0;
-	depthVertexCount_ = 0;
-	depthDraws_.clear();
+	EnqueueDepthDraw(draw);
 }

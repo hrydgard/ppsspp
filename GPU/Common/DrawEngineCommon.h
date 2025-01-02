@@ -80,7 +80,7 @@ public:
 	virtual void BeginFrame();
 
 	void SetGPUCommon(GPUCommon *gpuCommon) {
-		gpuCommon_ = gpuCommon;
+		gpuCommon = gpuCommon;
 	}
 
 	virtual void DeviceLost() = 0;
@@ -164,8 +164,6 @@ public:
 		return decoded_ + 12 * 65536;
 	}
 
-	void FlushQueuedDepth();
-
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
@@ -176,10 +174,6 @@ protected:
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
-
-	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
-	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
-	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -346,18 +340,35 @@ protected:
 	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer;
+	TessellationDataTransfer *tessDataTransfer = nullptr;
+
+	GPUCommon *gpuCommon_;
 
 	// Culling
+private:
 	Plane8 planes_;
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
 	bool offsetOutsideEdge_;
 
-	GPUCommon *gpuCommon_;
+	// Software depth raster. TODO: Extract?
+public:
+	// Public interface
+	void FlushQueuedDepth();
 
-	// Software depth raster
+protected:
+	// Interface used by the backends.
+	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
+	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
+
 	bool useDepthRaster_ = false;
+
+private:
+	// Internal implementation details.
+
+	inline void EnqueueDepthDraw(const DepthDraw &draw);
+	inline void ProcessDepthDraw(const DepthDraw &draw);
+	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	float *depthTransformed_ = nullptr;
 	int *depthScreenVerts_ = nullptr;
