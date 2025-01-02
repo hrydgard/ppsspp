@@ -1060,13 +1060,9 @@ void DrawEngineCommon::EnqueueDepthDraw(const DepthDraw &draw) {
 }
 
 // Returns true if we actually waited.
-bool DrawEngineCommon::WaitForDepthPassFinish() {
+void DrawEngineCommon::WaitForDepthPassFinish() {
 	{
 		std::lock_guard<std::mutex> lock(depthEnqueueMutex_);
-		if (!inDepthDrawPass_) {
-			_dbg_assert_(depthIndexCount_ == 0 && depthVertexCount_ == 0 && depthDraws_.empty());
-			return false;
-		}
 		// In case the depth raster thread is idle, we need to nudge it.
 		_dbg_assert_(!finishedSubmitting_);
 		finishedSubmitting_ = true;
@@ -1078,7 +1074,6 @@ bool DrawEngineCommon::WaitForDepthPassFinish() {
 	while (!finishedDrawing_) {
 		depthFinishCond_.wait(lock);
 	}
-	return true;
 }
 
 void DrawEngineCommon::FlushQueuedDepth() {
@@ -1087,7 +1082,8 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		depthRasterPassStart_ = 0.0;
 	}
 
-	if (WaitForDepthPassFinish()) {
+	if (inDepthDrawPass_) {
+		WaitForDepthPassFinish();
 		// At this point, we know that the depth thread is paused.
 
 		// Reset queue
@@ -1114,10 +1110,14 @@ void DrawEngineCommon::DepthThreadFunc() {
 		{
 			std::unique_lock<std::mutex> lock(depthEnqueueMutex_);
 			if (depthDraws_.size() == curDraw_) {
+				gpuStats.numDepthThreadCaughtUp++;
 				// We've drawn all we can. Let's check if we're finished.
 				// If we reach here, we've drawn everything we can. And if that's the last
 				// that will come in this batch, we notify.
 				if (finishedSubmitting_) {
+					gpuStats.numDepthThreadFinished++;
+					gpuStats.numDepthDraws += (int)depthDraws_.size();
+
 					// lock.unlock();  // possible optimization?
 					std::lock_guard<std::mutex> flock(depthFinishMutex_);
 					finishedDrawing_ = true;

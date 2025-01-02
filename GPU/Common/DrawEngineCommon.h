@@ -368,7 +368,7 @@ protected:
 private:
 	// Internal implementation details.
 	void DepthThreadFunc();
-	bool WaitForDepthPassFinish();
+	void WaitForDepthPassFinish();
 
 	inline void EnqueueDepthDraw(const DepthDraw &draw);
 	inline void ProcessDepthDraw(const DepthDraw &draw);

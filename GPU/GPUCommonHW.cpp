@@ -1802,7 +1802,9 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
 		"GPU cycles: %d (%0.1f per vertex)\n"
 		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
-		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
+		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n"
+		"Z-rast: %d draws, %d thread caught up, %d thread finishes\n"
+		"%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
@@ -1850,6 +1852,9 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numDepthRasterEarlySize,
 		gpuStats.numDepthRasterZCulled,
 		gpuStats.numDepthEarlyBoxCulled,
+		gpuStats.numDepthDraws,
+		gpuStats.numDepthThreadCaughtUp,
+		gpuStats.numDepthThreadFinished,
 		debugRecording_ ? "(debug-recording)" : ""
 	);
 }
