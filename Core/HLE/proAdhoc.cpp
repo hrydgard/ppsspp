@@ -1271,36 +1271,6 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 	__UpdateAdhocctlHandlers(flag, error);
 }
 
-// Matching callback is void function: typedef void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt);
-// Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game (ie. DBZ Tag Team) may need to prepare something for the next callback event to use
-// Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args) {
-	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
-	MatchingArgs argsNew = { 0 };
-	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
-	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall. FIXME: Are these buffers supposed to be taken/pre-allocated from the memory pool during sceNetAdhocMatchingInit?
-	uint8_t *dataPtr = Memory::GetPointerWriteRange(dataBufAddr, dataBufLen);
-	if (dataPtr) {
-		memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
-		if (msg->optlen > 0)
-			memcpy(dataPtr + 8, opt, msg->optlen);
-		
-		argsNew.data[1] = msg->opcode;
-		argsNew.data[2] = dataBufAddr;
-		argsNew.data[3] = msg->optlen;
-		argsNew.data[4] = dataBufAddr + 8; // OptData Addr
-	}
-	else {
-		argsNew.data[1] = PSP_ADHOC_MATCHING_EVENT_ERROR; // not sure where to put the error code for EVENT_ERROR tho
-		//argsNew.data[2] = dataBufAddr; // FIXME: Is the MAC address mandatory (ie. can't be null pointer) even for EVENT_ERROR? Where should we put this MAC data in the case we failed to allocate the memory? may be on the memory pool?
-	}
-	argsNew.data[0] = context->id;	
-	argsNew.data[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
-	
-	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
-	__UpdateMatchingHandler(argsNew);
-}
-
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	// End of List
 	if (node == NULL) return;

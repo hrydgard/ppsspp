@@ -42,6 +42,7 @@
 
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/CoreTiming.h"
@@ -567,8 +568,9 @@ static inline void FreeUser(u32 &addr) {
 u32 Net_Term() {
 	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
 	NetAdhocctl_Term();
+	NetAdhocMatching_Term();
 	NetAdhoc_Term();
-
+	
 	// TODO: Not implemented yet
 	NetApctl_Term();
 	//NetInet_Term();

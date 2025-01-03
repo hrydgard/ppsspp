@@ -69,6 +69,7 @@
 #include "sceMpeg.h"
 #include "sceNet.h"
 #include "sceNetAdhoc.h"
+#include "sceNetAdhocMatching.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
@@ -145,6 +146,7 @@ void __KernelInit()
 	__FontInit();
 	__NetInit();
 	__NetAdhocInit();
+	__NetAdhocMatchingInit();
 	__VaudioInit();
 	__CheatInit();
 	__HeapInit();
@@ -188,6 +190,7 @@ void __KernelShutdown()
 	__VideoPmpShutdown();
 	__AACShutdown();
 	__NetAdhocShutdown();
+	__NetAdhocMatchingShutdown();
 	__NetShutdown();
 	__FontShutdown();
 

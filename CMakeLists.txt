@@ -2247,6 +2247,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNet.h
 	Core/HLE/sceNetAdhoc.cpp
 	Core/HLE/sceNetAdhoc.h
+	Core/HLE/sceNetAdhocMatching.cpp
+	Core/HLE/sceNetAdhocMatching.h
 	Core/HLE/proAdhoc.h
 	Core/HLE/proAdhoc.cpp
 	Core/HLE/proAdhocServer.h

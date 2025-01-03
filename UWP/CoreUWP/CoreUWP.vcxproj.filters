@@ -459,6 +459,9 @@
     <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
@@ -1523,6 +1526,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceNetAdhoc.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceNetAdhocMatching.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceNp.h">
