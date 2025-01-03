@@ -1292,7 +1292,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		return -1;
 	}
 
-	auto &fileList = param->fileList;
+	PSPPointer<SceUtilitySavedataFileListInfo> fileList = param->fileList;
 	if (fileList->secureEntries.IsValid() && fileList->maxSecureEntries > 99) {
 		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
@@ -1389,12 +1389,17 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	}
 
 	if (GenericLogEnabled(LogLevel::LINFO, Log::sceUtility)) {
-		INFO_LOG(Log::sceUtility, "FILES: %d files listed", fileList->resultNumNormalEntries);
-		for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {
-			const SceUtilitySavedataFileListEntry &info = fileList->systemEntries[i];
-			INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
-				info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
+		INFO_LOG(Log::sceUtility, "FILES: %d files listed (+ %d system, %d secure)", fileList->resultNumNormalEntries, fileList->resultNumSystemEntries, fileList->resultNumSecureEntries);
+		if (fileList->normalEntries.IsValid()) {
+			for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {
+				const SceUtilitySavedataFileListEntry &info = fileList->normalEntries[i];
+				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
+					info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
+			}
+		} else {
+			WARN_LOG(Log::sceUtility, "Invalid normalEntries pointer");
 		}
+		// TODO: Log system and secure entries?
 	}
 
 	NotifyMemInfo(MemBlockFlags::WRITE, fileList.ptr, sizeof(SceUtilitySavedataFileListInfo), "SavedataGetFilesList");
