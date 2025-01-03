@@ -126,8 +126,8 @@ bool CheatFileParser::Parse() {
 
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
+		cheats_.push_back({ codeFormat_, lastCheatInfo_.name, pendingLines_ });
 		FlushCheatInfo();
-		cheats_.push_back({ codeFormat_, pendingLines_ });
 		pendingLines_.clear();
 	}
 	codeFormat_ = CheatCodeFormat::UNDEFINED;
@@ -810,47 +810,42 @@ void CWCheatEngine::ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper
 	if (Memory::IsValidRange(op.addr, op.sz)) {
 		InvalidateICache(op.addr, op.sz);
 		if (op.sz == 1)
-			Memory::Write_U8((u8)oper(Memory::Read_U8(op.addr), op.val), op.addr);
+			Memory::WriteUnchecked_U8((u8)oper(Memory::ReadUnchecked_U8(op.addr), op.val), op.addr);
 		else if (op.sz == 2)
-			Memory::Write_U16((u16)oper(Memory::Read_U16(op.addr), op.val),op. addr);
+			Memory::WriteUnchecked_U16((u16)oper(Memory::ReadUnchecked_U16(op.addr), op.val),op. addr);
 		else if (op.sz == 4)
-			Memory::Write_U32((u32)oper(Memory::Read_U32(op.addr), op.val), op.addr);
+			Memory::WriteUnchecked_U32((u32)oper(Memory::ReadUnchecked_U32(op.addr), op.val), op.addr);
 	}
 }
 
-bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) {
+bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) const {
 	if (Memory::IsValidRange(op.addr, op.sz)) {
-		InvalidateICache(op.addr, op.sz);
-
 		int memoryValue = 0;
 		if (op.sz == 1)
-			memoryValue = (int)Memory::Read_U8(op.addr);
+			memoryValue = (int)Memory::ReadUnchecked_U8(op.addr);
 		else if (op.sz == 2)
-			memoryValue = (int)Memory::Read_U16(op.addr);
+			memoryValue = (int)Memory::ReadUnchecked_U16(op.addr);
 		else if (op.sz == 4)
-			memoryValue = (int)Memory::Read_U32(op.addr);
+			memoryValue = (int)Memory::ReadUnchecked_U32(op.addr);
 
 		return oper(memoryValue, (int)op.val);
 	}
 	return false;
 }
 
-bool CWCheatEngine::TestIfAddr(const CheatOperation &op, bool(*oper)(int, int)) {
+bool CWCheatEngine::TestIfAddr(const CheatOperation &op, bool(*oper)(int, int)) const {
 	if (Memory::IsValidRange(op.addr, op.sz) && Memory::IsValidRange(op.ifAddrTypes.compareAddr, op.sz)) {
-		InvalidateICache(op.addr, op.sz);
-		InvalidateICache(op.addr, op.ifAddrTypes.compareAddr);
-
 		int memoryValue1 = 0;
 		int memoryValue2 = 0;
 		if (op.sz == 1) {
-			memoryValue1 = (int)Memory::Read_U8(op.addr);
-			memoryValue2 = (int)Memory::Read_U8(op.ifAddrTypes.compareAddr);
+			memoryValue1 = (int)Memory::ReadUnchecked_U8(op.addr);
+			memoryValue2 = (int)Memory::ReadUnchecked_U8(op.ifAddrTypes.compareAddr);
 		} else if (op.sz == 2) {
-			memoryValue1 = (int)Memory::Read_U16(op.addr);
-			memoryValue2 = (int)Memory::Read_U16(op.ifAddrTypes.compareAddr);
+			memoryValue1 = (int)Memory::ReadUnchecked_U16(op.addr);
+			memoryValue2 = (int)Memory::ReadUnchecked_U16(op.ifAddrTypes.compareAddr);
 		} else if (op.sz == 4) {
-			memoryValue1 = (int)Memory::Read_U32(op.addr);
-			memoryValue2 = (int)Memory::Read_U32(op.ifAddrTypes.compareAddr);
+			memoryValue1 = (int)Memory::ReadUnchecked_U32(op.addr);
+			memoryValue2 = (int)Memory::ReadUnchecked_U32(op.ifAddrTypes.compareAddr);
 		}
 
 		return oper(memoryValue1, memoryValue2);
@@ -871,11 +866,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		if (Memory::IsValidRange(op.addr, op.sz)) {
 			InvalidateICache(op.addr, op.sz);
 			if (op.sz == 1)
-				Memory::Write_U8((u8)op.val, op.addr);
+				Memory::WriteUnchecked_U8((u8)op.val, op.addr);
 			else if (op.sz == 2)
-				Memory::Write_U16((u16)op.val, op.addr);
+				Memory::WriteUnchecked_U16((u16)op.val, op.addr);
 			else if (op.sz == 4)
-				Memory::Write_U32((u32)op.val, op.addr);
+				Memory::WriteUnchecked_U32((u32)op.val, op.addr);
 		}
 		break;
 
@@ -918,11 +913,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			for (uint32_t a = 0; a < op.multiWrite.count; a++) {
 				if (Memory::IsValidAddress(addr)) {
 					if (op.sz == 1)
-						Memory::Write_U8((u8)data, addr);
+						Memory::WriteUnchecked_U8((u8)data, addr);
 					else if (op.sz == 2)
-						Memory::Write_U16((u16)data, addr);
+						Memory::WriteUnchecked_U16((u16)data, addr);
 					else if (op.sz == 4)
-						Memory::Write_U32((u32)data, addr);
+						Memory::WriteUnchecked_U32((u32)data, addr);
 				}
 				addr += op.multiWrite.step;
 				data += op.multiWrite.add;
@@ -932,7 +927,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CopyBytesFrom:
 		if (Memory::IsValidRange(op.addr, op.val) && Memory::IsValidRange(op.copyBytesFrom.destAddr, op.val)) {
-			InvalidateICache(op.addr, op.val);
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
 			Memory::Memcpy(op.copyBytesFrom.destAddr, op.addr, op.val, "CwCheat");
@@ -952,15 +946,15 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::VibrationFromMemory:
 		if (Memory::IsValidRange(op.addr, 8)) {
-			uint16_t checkLeftVibration = Memory::Read_U16(op.addr);
-			uint16_t checkRightVibration = Memory::Read_U16(op.addr + 0x2);
+			uint16_t checkLeftVibration = Memory::ReadUnchecked_U16(op.addr);
+			uint16_t checkRightVibration = Memory::ReadUnchecked_U16(op.addr + 0x2);
 			if (checkLeftVibration > 0) {
 				SetLeftVibration(checkLeftVibration);
-				SetVibrationLeftDropout(Memory::Read_U8(op.addr + 0x4));
+				SetVibrationLeftDropout(Memory::ReadUnchecked_U8(op.addr + 0x4));
 			}
 			if (checkRightVibration > 0) {
 				SetRightVibration(checkRightVibration);
-				SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
+				SetVibrationRightDropout(Memory::ReadUnchecked_U8(op.addr + 0x6));
 			}
 		}
 		break;
@@ -1009,8 +1003,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::Assert:
 		if (Memory::IsValidRange(op.addr, 4)) {
-			InvalidateICache(op.addr, 4);
-			if (Memory::Read_U32(op.addr) != op.val) {
+			if (Memory::ReadUnchecked_U32(op.addr) != op.val) {
 				i = cheat.lines.size();
 			}
 		}
@@ -1099,7 +1092,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CwCheatPointerCommands:
 		{
-			InvalidateICache(op.addr + op.pointerCommands.baseOffset, 4);
 			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
@@ -1108,12 +1100,10 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				switch (line.part1 >> 28) {
 				case 0x1: // type copy byte
 					{
-						InvalidateICache(op.addr, 4);
 						u32 srcAddr = Memory::Read_U32(op.addr) + op.pointerCommands.offset;
 						u32 dstAddr = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset) + (line.part1 & 0x0FFFFFFF);
 						if (Memory::IsValidRange(dstAddr, val) && Memory::IsValidRange(srcAddr, val)) {
 							InvalidateICache(dstAddr, val);
-							InvalidateICache(srcAddr, val);
 							Memory::Memcpy(dstAddr, srcAddr, val, "CwCheat");
 						}
 						// Don't perform any further action.
@@ -1128,7 +1118,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 						if ((line.part1 >> 28) == 0x3) {
 							walkOffset = -walkOffset;
 						}
-						InvalidateICache(base + walkOffset, 4);
 						base = Memory::Read_U32(base + walkOffset);
 						switch (line.part2 >> 28) {
 						case 0x2:
@@ -1137,7 +1126,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 							if ((line.part2 >> 28) == 0x3) {
 								walkOffset = -walkOffset;
 							}
-							InvalidateICache(base + walkOffset, 4);
 							base = Memory::Read_U32(base + walkOffset);
 							break;
 
@@ -1161,28 +1149,40 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 			switch (type) {
 			case 0: // 8 bit write
-				InvalidateICache(base + op.pointerCommands.offset, 1);
-				Memory::Write_U8((u8)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 1);
+					Memory::WriteUnchecked_U8((u8)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 1: // 16-bit write
-				InvalidateICache(base + op.pointerCommands.offset, 2);
-				Memory::Write_U16((u16)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 2);
+					Memory::WriteUnchecked_U16((u16)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 2: // 32-bit write
-				InvalidateICache(base + op.pointerCommands.offset, 4);
-				Memory::Write_U32((u32)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 4);
+					Memory::WriteUnchecked_U32((u32)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 3: // 8 bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 1);
-				Memory::Write_U8((u8)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 1);
+					Memory::WriteUnchecked_U8((u8)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case 4: // 16-bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 2);
-				Memory::Write_U16((u16)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 2);
+					Memory::WriteUnchecked_U16((u16)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case 5: // 32-bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 4);
-				Memory::Write_U32((u32)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 4);
+					Memory::WriteUnchecked_U32((u32)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case -1: // Operation already performed, nothing to do
 				break;
@@ -1200,7 +1200,7 @@ void CWCheatEngine::Run() {
 		return;
 	}
 
-	for (CheatCode cheat : cheats_) {
+	for (const CheatCode &cheat : cheats_) {
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
 			CheatOperation op = InterpretNextOp(cheat, i);

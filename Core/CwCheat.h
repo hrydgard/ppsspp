@@ -32,6 +32,7 @@ enum class CheatCodeFormat {
 
 struct CheatCode {
 	CheatCodeFormat fmt;
+	std::string name;
 	std::vector<CheatLine> lines;
 };
 
@@ -61,9 +62,9 @@ private:
 	CheatOperation InterpretNextTempAR(const CheatCode &cheat, size_t &i);
 
 	void ExecuteOp(const CheatOperation &op, const CheatCode &cheat, size_t &i);
-	void ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t));
-	bool TestIf(const CheatOperation &op, bool(*oper)(int a, int b));
-	bool TestIfAddr(const CheatOperation &op, bool(*oper)(int a, int b));
+	inline void ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t));
+	inline bool TestIf(const CheatOperation &op, bool(*oper)(int a, int b)) const;
+	inline bool TestIfAddr(const CheatOperation &op, bool(*oper)(int a, int b)) const;
 
 	std::vector<CheatCode> cheats_;
 	std::string gameID_;
