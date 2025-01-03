@@ -28,6 +28,7 @@ using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
+	_dbg_assert_(desc);
 	// Good torture test to test the shutdown-while-precompiling-shaders issue on PC where it's normally
 	// hard to catch because shaders compile so fast.
 	// sleep_ms(200);

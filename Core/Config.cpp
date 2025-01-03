@@ -140,7 +140,15 @@ const char *DefaultLangRegion() {
 }
 
 static int DefaultDepthRaster() {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	// All single cores default to off.
+	if (cpu_info.num_cores == 1) {
+		return (int)DepthRasterMode::OFF;
+	}
+
+	// ARMv7 also defaults to off.
+#if PPSSPP_PLATFORM(ARM)
+	return (int)DepthRasterMode::OFF;
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	return (int)DepthRasterMode::LOW_QUALITY;
 #else
 	return (int)DepthRasterMode::DEFAULT;
