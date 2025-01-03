@@ -5248,6 +5248,12 @@ const HLEFunction sceNetAdhocDiscover[] = {
 
 void Register_sceNetAdhoc() {
 	RegisterModule("sceNetAdhoc", ARRAY_SIZE(sceNetAdhoc), sceNetAdhoc);
+}
+
+void Register_sceNetAdhocDiscover() {
 	RegisterModule("sceNetAdhocDiscover", ARRAY_SIZE(sceNetAdhocDiscover), sceNetAdhocDiscover);
+}
+
+void Register_sceNetAdhocctl() {
 	RegisterModule("sceNetAdhocctl", ARRAY_SIZE(sceNetAdhocctl), sceNetAdhocctl);
 }

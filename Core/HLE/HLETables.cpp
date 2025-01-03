@@ -239,6 +239,8 @@ void RegisterAllModules() {
 	Register_sceNet();
 	Register_sceNetAdhoc();
 	Register_sceNetAdhocMatching();
+	Register_sceNetAdhocDiscover();
+	Register_sceNetAdhocctl();
 	Register_sceRtc();
 	Register_sceWlanDrv();
 	Register_sceMpeg();

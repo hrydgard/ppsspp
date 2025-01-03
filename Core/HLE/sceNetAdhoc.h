@@ -94,6 +94,9 @@ enum AdhocDiscoverResult : int
 class PointerWrap;
 
 void Register_sceNetAdhoc();
+void Register_sceNetAdhocDiscover();
+void Register_sceNetAdhocctl();
+
 
 u32_le __CreateHLELoop(u32_le* loopAddr, const char* sceFuncName, const char* hleFuncName, const char* tagName = NULL);
 void __NetAdhocInit();
