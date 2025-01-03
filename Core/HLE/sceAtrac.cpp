@@ -945,7 +945,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			ERROR_LOG_REPORT(Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
+			WARN_LOG_REPORT_ONCE(at3headermap, Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
 			// TODO: Should we return an error code for these values?
 		}
 	}

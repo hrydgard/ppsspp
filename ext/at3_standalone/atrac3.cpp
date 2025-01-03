@@ -577,13 +577,15 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
     GainBlock *gain2 = &snd->gain_block[1 - snd->gc_blk_switch];
 
     if (coding_mode == JOINT_STEREO && channel_num == 1) {
-        if (get_bits(gb, 2) != 3) {
-            av_log(AV_LOG_ERROR,"JS mono Sound Unit id != 3.");
+        int bits = get_bits(gb, 2);
+        if (bits != 3) {
+            av_log(AV_LOG_ERROR,"Joint Stereo mono Sound Unit id %d != 3.", bits);
             return AVERROR_INVALIDDATA;
         }
     } else {
-        if (get_bits(gb, 6) != 0x28) {
-            av_log(AV_LOG_ERROR,"Sound Unit id != 0x28.");
+        int bits = get_bits(gb, 6);
+        if (bits != 0x28) {
+            av_log(AV_LOG_ERROR, "Sound Unit id %02x != 0x28.", bits);
             return AVERROR_INVALIDDATA;
         }
     }
