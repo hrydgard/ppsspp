@@ -820,8 +820,6 @@ void CWCheatEngine::ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper
 
 bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) {
 	if (Memory::IsValidRange(op.addr, op.sz)) {
-		InvalidateICache(op.addr, op.sz);
-
 		int memoryValue = 0;
 		if (op.sz == 1)
 			memoryValue = (int)Memory::Read_U8(op.addr);
@@ -837,9 +835,6 @@ bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) {
 
 bool CWCheatEngine::TestIfAddr(const CheatOperation &op, bool(*oper)(int, int)) {
 	if (Memory::IsValidRange(op.addr, op.sz) && Memory::IsValidRange(op.ifAddrTypes.compareAddr, op.sz)) {
-		InvalidateICache(op.addr, op.sz);
-		InvalidateICache(op.addr, op.ifAddrTypes.compareAddr);
-
 		int memoryValue1 = 0;
 		int memoryValue2 = 0;
 		if (op.sz == 1) {
@@ -932,7 +927,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CopyBytesFrom:
 		if (Memory::IsValidRange(op.addr, op.val) && Memory::IsValidRange(op.copyBytesFrom.destAddr, op.val)) {
-			InvalidateICache(op.addr, op.val);
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
 			Memory::Memcpy(op.copyBytesFrom.destAddr, op.addr, op.val, "CwCheat");
@@ -1009,7 +1003,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::Assert:
 		if (Memory::IsValidRange(op.addr, 4)) {
-			InvalidateICache(op.addr, 4);
 			if (Memory::Read_U32(op.addr) != op.val) {
 				i = cheat.lines.size();
 			}
@@ -1099,7 +1092,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CwCheatPointerCommands:
 		{
-			InvalidateICache(op.addr + op.pointerCommands.baseOffset, 4);
 			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
@@ -1108,12 +1100,10 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				switch (line.part1 >> 28) {
 				case 0x1: // type copy byte
 					{
-						InvalidateICache(op.addr, 4);
 						u32 srcAddr = Memory::Read_U32(op.addr) + op.pointerCommands.offset;
 						u32 dstAddr = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset) + (line.part1 & 0x0FFFFFFF);
 						if (Memory::IsValidRange(dstAddr, val) && Memory::IsValidRange(srcAddr, val)) {
 							InvalidateICache(dstAddr, val);
-							InvalidateICache(srcAddr, val);
 							Memory::Memcpy(dstAddr, srcAddr, val, "CwCheat");
 						}
 						// Don't perform any further action.
@@ -1128,7 +1118,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 						if ((line.part1 >> 28) == 0x3) {
 							walkOffset = -walkOffset;
 						}
-						InvalidateICache(base + walkOffset, 4);
 						base = Memory::Read_U32(base + walkOffset);
 						switch (line.part2 >> 28) {
 						case 0x2:
@@ -1137,7 +1126,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 							if ((line.part2 >> 28) == 0x3) {
 								walkOffset = -walkOffset;
 							}
-							InvalidateICache(base + walkOffset, 4);
 							base = Memory::Read_U32(base + walkOffset);
 							break;
 
