@@ -126,8 +126,8 @@ bool CheatFileParser::Parse() {
 
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
+		cheats_.push_back({ codeFormat_, lastCheatInfo_.name, pendingLines_ });
 		FlushCheatInfo();
-		cheats_.push_back({ codeFormat_, pendingLines_ });
 		pendingLines_.clear();
 	}
 	codeFormat_ = CheatCodeFormat::UNDEFINED;
@@ -1161,28 +1161,40 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 			switch (type) {
 			case 0: // 8 bit write
-				InvalidateICache(base + op.pointerCommands.offset, 1);
-				Memory::Write_U8((u8)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 1);
+					Memory::WriteUnchecked_U8((u8)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 1: // 16-bit write
-				InvalidateICache(base + op.pointerCommands.offset, 2);
-				Memory::Write_U16((u16)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 2);
+					Memory::WriteUnchecked_U16((u16)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 2: // 32-bit write
-				InvalidateICache(base + op.pointerCommands.offset, 4);
-				Memory::Write_U32((u32)val, base + op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base + op.pointerCommands.offset)) {
+					InvalidateICache(base + op.pointerCommands.offset, 4);
+					Memory::WriteUnchecked_U32((u32)val, base + op.pointerCommands.offset);
+				}
 				break;
 			case 3: // 8 bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 1);
-				Memory::Write_U8((u8)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 1);
+					Memory::WriteUnchecked_U8((u8)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case 4: // 16-bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 2);
-				Memory::Write_U16((u16)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 2);
+					Memory::WriteUnchecked_U16((u16)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case 5: // 32-bit inverse write
-				InvalidateICache(base - op.pointerCommands.offset, 4);
-				Memory::Write_U32((u32)val, base - op.pointerCommands.offset);
+				if (Memory::IsValidAddress(base - op.pointerCommands.offset)) {
+					InvalidateICache(base - op.pointerCommands.offset, 4);
+					Memory::WriteUnchecked_U32((u32)val, base - op.pointerCommands.offset);
+				}
 				break;
 			case -1: // Operation already performed, nothing to do
 				break;
@@ -1200,7 +1212,7 @@ void CWCheatEngine::Run() {
 		return;
 	}
 
-	for (CheatCode cheat : cheats_) {
+	for (const CheatCode &cheat : cheats_) {
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
 			CheatOperation op = InterpretNextOp(cheat, i);

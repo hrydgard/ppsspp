@@ -32,6 +32,7 @@ enum class CheatCodeFormat {
 
 struct CheatCode {
 	CheatCodeFormat fmt;
+	std::string name;
 	std::vector<CheatLine> lines;
 };
 
