@@ -53,8 +53,8 @@ public:
 	Path CheatFilename();
 	void Run();
 	bool HasCheats();
-	void InvalidateICache(u32 addr, int size);
 private:
+	void InvalidateICache(u32 addr, int size) const;
 	u32 GetAddress(u32 value);
 
 	CheatOperation InterpretNextOp(const CheatCode &cheat, size_t &i);
