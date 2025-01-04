@@ -1743,169 +1743,163 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	SceNetAdhocMatchingHandler handler;
 	handler.entryPoint = callbackAddr;
 
-	// Library initialized
-	if (netAdhocMatchingInited) {
-		// Valid Member Limit
-		if (maxnum > 1 && maxnum <= 16) {
-			// Valid Receive Buffer size
-			if (rxbuflen >= 1) { //1024 //200 on DBZ Shin Budokai 2
-				// Valid Arguments
-				if (mode >= 1 && mode <= 3) {
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhoc matching not initialized");
+	}
 
-					// Iterate Matching Contexts
-					SceNetAdhocMatchingContext * item = contexts;
-					for (; item != NULL; item = item->next) {
-						// Port Match found
-						if (item->port == port)
-							return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
-					}
-
-					// Allocate Context Memory
-					SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
-
-					// Allocated Memory
-					if (context != NULL) {
-						// Create PDP Socket
-						SceNetEtherAddr localmac;
-						getLocalMac(&localmac);
-
-						// Clear Memory
-						memset(context, 0, sizeof(SceNetAdhocMatchingContext));
-
-						// Allocate Receive Buffer
-						context->rxbuf = (uint8_t*)malloc(rxbuflen);
-
-						// Allocated Memory
-						if (context->rxbuf != NULL) {
-							// Clear Memory
-							memset(context->rxbuf, 0, rxbuflen);
-
-							// Fill in Context Data
-							context->id = findFreeMatchingID();
-							context->mode = mode;
-							context->maxpeers = maxnum;
-							context->port = port;
-							context->rxbuflen = rxbuflen;
-							context->resendcounter = init_count;
-							context->resend_int = rexmt_int; // used as ack timeout on lost packet (ie. not receiving anything after sending)?
-							context->hello_int = hello_int; // client might set this to 0
-							if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
-							context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
-							context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
-							context->timeout += 500000; // For internet play we need higher timeout than what the game wanted
-							context->handler = handler;
-							context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
-
-							// Fill in Selfpeer
-							context->mac = localmac;
-
-							// Create locks
-							context->socketlock = new std::recursive_mutex;
-							context->eventlock = new std::recursive_mutex;
-							context->inputlock = new std::recursive_mutex;
-
-							// Multithreading Lock
-							peerlock.lock(); //contextlock.lock();
-
-							// Add Callback Handler
-							context->handler.entryPoint = callbackAddr;
-							context->matching_thid = static_cast<int>(matchingThreads.size());
-							matchingThreads.push_back(0);
-
-							// Link Context
-							//context->connected = true;
-							context->next = contexts;
-							contexts = context;
-
-							// Multithreading UnLock
-							peerlock.unlock(); //contextlock.unlock();
-
-							// Just to make sure Adhoc is already connected
-							//hleDelayResult(context->id, "give time to init/cleanup", adhocEventDelayMS * 1000);
-
-							// Return Matching ID
-							return hleLogDebug(Log::sceNet, context->id, "success");
-						}
-
-						// Free Memory
-						free(context);
-					}
-
-					// Out of Memory
-					return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NO_SPACE, "adhoc matching no space");
-				}
-
-				// InvalidERROR_NET_Arguments
-				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhoc matching invalid arg");
-			}
-
-			// Invalid Receive Buffer Size
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
-		}
-
+	if (maxnum <= 1 || maxnum > 16) {
 		// Invalid Member Limit
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_MAXNUM, "adhoc matching invalid maxnum");
 	}
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhoc matching not initialized");
+
+	if (rxbuflen < 1) {
+		// Invalid Receive Buffer Size
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
+	}
+
+	if (mode < 1 || mode > 3) {
+		// InvalidERROR_NET_Arguments
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhoc matching invalid arg");
+	}
+
+	// Iterate Matching Contexts
+	SceNetAdhocMatchingContext * item = contexts;
+	for (; item != NULL; item = item->next) {
+		// Port Match found
+		if (item->port == port)
+			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
+	}
+
+	// Allocate Context Memory
+	SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+
+	// Allocated Memory
+	if (context != NULL) {
+		// Create PDP Socket
+		SceNetEtherAddr localmac;
+		getLocalMac(&localmac);
+
+		// Clear Memory
+		memset(context, 0, sizeof(SceNetAdhocMatchingContext));
+
+		// Allocate Receive Buffer
+		context->rxbuf = (uint8_t*)malloc(rxbuflen);
+
+		// Allocated Memory
+		if (context->rxbuf != NULL) {
+			// Clear Memory
+			memset(context->rxbuf, 0, rxbuflen);
+
+			// Fill in Context Data
+			context->id = findFreeMatchingID();
+			context->mode = mode;
+			context->maxpeers = maxnum;
+			context->port = port;
+			context->rxbuflen = rxbuflen;
+			context->resendcounter = init_count;
+			context->resend_int = rexmt_int; // used as ack timeout on lost packet (ie. not receiving anything after sending)?
+			context->hello_int = hello_int; // client might set this to 0
+			if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
+			context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
+			context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
+			context->timeout += 500000; // For internet play we need higher timeout than what the game wanted
+			context->handler = handler;
+			context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
+
+			// Fill in Selfpeer
+			context->mac = localmac;
+
+			// Create locks
+			context->socketlock = new std::recursive_mutex;
+			context->eventlock = new std::recursive_mutex;
+			context->inputlock = new std::recursive_mutex;
+
+			// Multithreading Lock
+			peerlock.lock(); //contextlock.lock();
+
+			// Add Callback Handler
+			context->handler.entryPoint = callbackAddr;
+			context->matching_thid = static_cast<int>(matchingThreads.size());
+			matchingThreads.push_back(0);
+
+			// Link Context
+			//context->connected = true;
+			context->next = contexts;
+			contexts = context;
+
+			// Multithreading UnLock
+			peerlock.unlock(); //contextlock.unlock();
+
+			// Just to make sure Adhoc is already connected
+			//hleDelayResult(context->id, "give time to init/cleanup", adhocEventDelayMS * 1000);
+
+			// Return Matching ID
+			return hleLogDebug(Log::sceNet, context->id, "success");
+		}
+
+		// Free Memory
+		free(context);
+	}
+
+	// Out of Memory
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NO_SPACE, "adhoc matching no space");
 }
 
 int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
 	// Multithreading Lock
-	peerlock.lock();
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
 
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
-	if (item != NULL) {
-		//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
-		if ((optLen > 0) && Memory::IsValidAddress(optDataAddr)) {
-			// Allocate the memory and copy the content
-			free(item->hello);
-			item->hello = (uint8_t*)malloc(optLen);
-			if (item->hello != NULL) {
-				Memory::Memcpy(item->hello, optDataAddr, optLen);
-				item->hellolen = optLen;
-				item->helloAddr = optDataAddr;
-			}
-			//else return ERROR_NET_ADHOC_MATCHING_NO_SPACE; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-		}
-		//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG; // ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
-
-		// Create PDP Socket
-		int sock = sceNetAdhocPdpCreate((const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
-		item->socket = sock;
-		if (sock < 1) {
-			peerlock.unlock();
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
-		}
-
-		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
-		netAdhocMatchingValidateLoopMemory();
-		std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-		matchingThreads[item->matching_thid] = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
-		//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
-		if (matchingThreads[item->matching_thid] > 0) {
-			sceKernelStartThread(matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
-			//item->matchingThread->Start(matchingId, 0);
-		}
-
-		//Create the threads
-		if (!item->eventRunning) {
-			item->eventRunning = true;
-			item->eventThread = std::thread(matchingEventThread, matchingId);
-		}
-		if (!item->inputRunning) {
-			item->inputRunning = true;
-			item->inputThread = std::thread(matchingInputThread, matchingId);
-		}
-
-		item->running = 1;
-		netAdhocMatchingStarted++;
+	if (item == NULL) {
+		// return ERROR_NET_ADHOC_MATCHING_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
+		return 0;
 	}
-	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
 
-	// Multithreading Unlock
-	peerlock.unlock();
+	//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
+	if ((optLen > 0) && Memory::IsValidAddress(optDataAddr)) {
+		// Allocate the memory and copy the content
+		free(item->hello);
+		item->hello = (uint8_t*)malloc(optLen);
+		if (item->hello != NULL) {
+			Memory::Memcpy(item->hello, optDataAddr, optLen);
+			item->hellolen = optLen;
+			item->helloAddr = optDataAddr;
+		}
+		//else return ERROR_NET_ADHOC_MATCHING_NO_SPACE; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
+	}
+	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG; // ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
+
+	// Create PDP Socket
+	int sock = sceNetAdhocPdpCreate((const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
+	item->socket = sock;
+	if (sock < 1) {
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
+	}
+
+	// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
+	netAdhocMatchingValidateLoopMemory();
+	std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
+	matchingThreads[item->matching_thid] = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
+	//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
+	if (matchingThreads[item->matching_thid] > 0) {
+		sceKernelStartThread(matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
+		//item->matchingThread->Start(matchingId, 0);
+	}
+
+	//Create the threads
+	if (!item->eventRunning) {
+		item->eventRunning = true;
+		item->eventThread = std::thread(matchingEventThread, matchingId);
+	}
+	if (!item->inputRunning) {
+		item->inputRunning = true;
+		item->inputThread = std::thread(matchingInputThread, matchingId);
+	}
+
+	item->running = 1;
+	netAdhocMatchingStarted++;
 
 	return 0;
 }
