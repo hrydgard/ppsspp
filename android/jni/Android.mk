@@ -708,6 +708,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/proAdhoc.cpp \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
+  $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceMt19937.cpp \

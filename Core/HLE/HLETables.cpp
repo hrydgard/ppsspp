@@ -52,6 +52,7 @@
 #include "sceMp3.h"
 #include "sceNet.h"
 #include "sceNetAdhoc.h"
+#include "sceNetAdhocMatching.h"
 #include "sceNp.h"
 #include "sceMpeg.h"
 #include "sceOpenPSID.h"
@@ -237,6 +238,9 @@ void RegisterAllModules() {
 	Register_sceFont();
 	Register_sceNet();
 	Register_sceNetAdhoc();
+	Register_sceNetAdhocMatching();
+	Register_sceNetAdhocDiscover();
+	Register_sceNetAdhocctl();
 	Register_sceRtc();
 	Register_sceWlanDrv();
 	Register_sceMpeg();
