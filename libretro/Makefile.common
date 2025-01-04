@@ -671,6 +671,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Dialog/PSPNetconfDialog.cpp \
 	       $(COREDIR)/Dialog/PSPNpSigninDialog.cpp \
 	       $(COREDIR)/Dialog/PSPOskDialog.cpp \
+	       $(COREDIR)/Dialog/PSPOskConstants.cpp \
 	       $(COREDIR)/Dialog/PSPSaveDialog.cpp \
 	       $(COREDIR)/Dialog/PSPScreenshotDialog.cpp \
 	       $(COREDIR)/Dialog/SavedataParam.cpp \

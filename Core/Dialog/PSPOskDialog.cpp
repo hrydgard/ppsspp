@@ -45,102 +45,14 @@ static std::map<std::string, std::pair<std::string, int>, std::less<>> languageM
 const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
 const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
-// Japanese (Kana) diacritics
-static const wchar_t diacritics[2][103] =
-{
-	{L"かがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどはばぱばひびぴびふぶぷぶへべぺべほぼぽぼウヴカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドハバパバヒビピビフブプブヘベペベホボポボ"},
-	{L"はぱばぱひぴびぴふぷぶぷへぺべぺほぽぼぽハパバパヒピビピフプブプヘペベペホポボポ"}
-};
-
-// Korean (Hangul) consonant
-static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
-
-// Korean (Hangul) vowels, Some vowels are not used, they will be spaces
-static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
-
 // Korean (Hangul) vowel Combination key
-const uint8_t kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
-
-// Korean (Hangul) last consonant(diacritics)
-static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+static const uint8_t kor_vowelCom[21] = { 0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19 };
 
 // Korean (Hangul) last consonant Combination key
-const uint8_t kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
+static const uint8_t kor_lconsCom[33] = { 18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17 };
 
 // Korean (Hangul) last consonant Separation key
-const uint8_t kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
-
-static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
-{
-	{
-		// Latin Lowercase
-		{u"1234567890-+"},
-		{u"qwertyuiop[]"},
-		{u"asdfghjkl;@~"},
-		{u"zxcvbnm,./?\\"},
-	},
-	{
-		// Latin Uppercase
-		{u"!@#$%^&*()_+"},
-		{u"QWERTYUIOP{}"},
-		{u"ASDFGHJKL:\"`"},
-		{u"ZXCVBNM<>/?|"},
-	},
-	{
-		// Hiragana
-		{u"あかさたなはまやらわぁゃっ"},
-		{u"いきしちにひみ　り　ぃ　　"},
-		{u"うくすつぬふむゆるをぅゅ゛"},
-		{u"えけせてねへめ　れ　ぇ　゜"},
-		{u"おこそとのほもよろんぉょー"},
-		{u"・。、「」『』〜     "},
-	},
-	{
-		// Katakana
-		{u"アカサタナハマヤラワァャッ"},
-		{u"イキシチニヒミ　リ　ィ　　"},
-		{u"ウクスツヌフムユルヲゥュ゛"},
-		{u"エケセテネヘメ　レ　ェ　゜"},
-		{u"オコソトノホモヨロンォョー"},
-		{u"・。、「」『』〜     "},
-	},
-	{
-		// Korean(Hangul)
-		{u"1234567890-+"},
-		{u"ㅃㅉㄸㄲㅆ!@#$%^&"},
-		{u"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ[]"},
-		{u"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ;@~"},
-		{u"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
-	},
-	{
-		// Russian Lowercase
-		{u"1234567890-+"},
-		{u"йцукенгшщзхъ"},
-		{u"фывапролджэё"},
-		{u"ячсмитьбю/?|"},
-	},
-	{
-		// Russian Uppercase
-		{u"!@#$%^&*()_+"},
-		{u"ЙЦУКЕНГШЩЗХЪ"},
-		{u"ФЫВАПРОЛДЖЭЁ"},
-		{u"ЯЧСМИТЬБЮ/?|"},
-	},
-	{
-		// Latin Full-width Lowercase
-		{ u"１２３４５６７８９０－＋" },
-		{ u"ｑｗｅｒｔｙｕｉｏｐ［］" },
-		{ u"ａｓｄｆｇｈｊｋｌ；＠～" },
-		{ u"ｚｘｃｖｂｎｍ，．／？￥￥" },
-	},
-	{
-		// Latin Full-width Uppercase
-		{ u"！＠＃＄％＾＆＊（）＿＋" },
-		{ u"ＱＷＥＲＴＹＵＩＯＰ｛｝" },
-		{ u"ＡＳＤＦＧＨＪＫＬ：￥”‘" },
-		{ u"ＺＸＣＶＢＮＭ＜＞／？｜" },
-	},
-};
+static const uint8_t kor_lconsSpr[33] = { 2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9 };
 
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
 static const int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
@@ -365,12 +277,12 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
 	if (inputChars.size() == 0) {
-		wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+		wchar_t sw = OskKeyAt(currentKeyboard, selectedRow, selectedCol);
 
 		if (inputChars.size() < FieldMaxLength()) {
 			string += sw;
 
-			i_value[0] = GetIndex(kor_cons, sw);
+			i_value[0] = GetIndex(KorCons(), sw);
 
 			if(i_value[0] != -1 && isInput == true)
 				i_level = 1;
@@ -380,14 +292,14 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 	} else {
 		for(u32 i = 0; i < inputChars.size(); i++) {
 			if(i + 1 == inputChars.size()) {
-				wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+				wchar_t sw = OskKeyAt(currentKeyboard, selectedRow, selectedCol);
 
 				if(i_level == 0) {
 					string += inputChars[i];
 					if (inputChars.size() < FieldMaxLength()) {
 						string += sw;
 
-						i_value[0] = GetIndex(kor_cons, sw);
+						i_value[0] = GetIndex(KorCons(), sw);
 
 						if(i_value[0] != -1 && isInput == true)
 							i_level = 1;
@@ -395,7 +307,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 						isCombinated = false;
 					}
 				} else if(i_level == 1) {
-					i_value[1] = GetIndex(kor_vowel, sw);
+					i_value[1] = GetIndex(KorVowel(), sw);
 
 					if(i_value[1] == -1) {
 						string += inputChars[i];
@@ -403,7 +315,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 							string += sw;
 
 							if(isInput == true) {
-								i_value[0] = GetIndex(kor_cons, sw);
+								i_value[0] = GetIndex(KorCons(), sw);
 
 								if(i_value[0] != -1)
 									i_level = 1;
@@ -422,7 +334,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 2) {
-					int tmp = GetIndex(kor_vowel, sw);
+					int tmp = GetIndex(KorVowel(), sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
 						for(size_t j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
@@ -452,7 +364,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						int tmp2 = GetIndex(kor_lcons, sw);
+						int tmp2 = GetIndex(KorLCons(), sw);
 
 						if (tmp2 == -1) {
 							string += inputChars[i];
@@ -460,7 +372,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 								string += sw;
 
 								if (isInput == true) {
-									i_value[0] = GetIndex(kor_cons, sw);
+									i_value[0] = GetIndex(KorCons(), sw);
 
 									if(i_value[0] != -1)
 										i_level = 1;
@@ -482,7 +394,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 3) {
-					int tmp = GetIndex(kor_lcons, sw);
+					int tmp = GetIndex(KorLCons(), sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
 						for(size_t j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
@@ -505,7 +417,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 								string += sw;
 
 								if(isInput == true) {
-									i_value[0] = GetIndex(kor_cons, sw);
+									i_value[0] = GetIndex(KorCons(), sw);
 
 									if(i_value[0] != -1)
 										i_level = 1;
@@ -517,14 +429,14 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						int tmp3 = GetIndex(kor_vowel, sw);
+						int tmp3 = GetIndex(KorVowel(), sw);
 						if (tmp3 == -1) {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
 								string += sw;
 
 								if(isInput == true) {
-									i_value[0] = GetIndex(kor_cons, sw);
+									i_value[0] = GetIndex(KorCons(), sw);
 
 									if(i_value[0] != -1)
 										i_level = 1;
@@ -556,7 +468,7 @@ std::u16string PSPOskDialog::CombinationKorean(bool isInput)
 										i_level = 2;
 									}
 								} else {
-									int tmp4 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
+									int tmp4 = GetIndex(KorCons(), KorLCons()[i_value[2]]);
 
 									if (tmp4 != -1) {
 										u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
@@ -617,17 +529,17 @@ std::u16string PSPOskDialog::CombinationString(bool isInput)
 			i_level = 0;
 		}
 
-		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゛')
+		if(OskKeyAt(currentKeyboard, selectedRow, selectedCol) == L'゛')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
 				if(i + 1 == inputChars.size())
 				{
-					for(u32 j = 0; j < wcslen(diacritics[0]); j+=2)
+					for(u32 j = 0; j < wcslen(JapDiacritics(0)); j+=2)
 					{
-						if(inputChars[i] == diacritics[0][j])
+						if(inputChars[i] == JapDiacritics(0)[j])
 						{
-							string += diacritics[0][j + 1];
+							string += JapDiacritics(0)[j + 1];
 							isCombinated = true;
 							break;
 						}
@@ -644,17 +556,17 @@ std::u16string PSPOskDialog::CombinationString(bool isInput)
 				}
 			}
 		}
-		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゜')
+		else if(OskKeyAt(currentKeyboard, selectedRow, selectedCol) == L'゜')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
 				if(i + 1 == inputChars.size())
 				{
-					for(u32 j = 0; j < wcslen(diacritics[1]); j+=2)
+					for(u32 j = 0; j < wcslen(JapDiacritics(1)); j+=2)
 					{
-						if(inputChars[i] == diacritics[1][j])
+						if(inputChars[i] == JapDiacritics(1)[j])
 						{
-							string += diacritics[1][j + 1];
+							string += JapDiacritics(1)[j + 1];
 							isCombinated = true;
 							break;
 						}
@@ -680,7 +592,7 @@ std::u16string PSPOskDialog::CombinationString(bool isInput)
 
 			if (string.size() < FieldMaxLength())
 			{
-				string += oskKeys[currentKeyboard][selectedRow][selectedCol];
+				string += OskKeyAt(currentKeyboard, selectedRow, selectedCol);
 			}
 			isCombinated = true;
 		}
@@ -716,7 +628,7 @@ void PSPOskDialog::RemoveKorean()
 		else
 		{
 			i_level = 1;
-			inputChars += kor_cons[i_value[0]];
+			inputChars += KorCons()[i_value[0]];
 		}
 	}
 	else if(i_level == 3)
@@ -851,7 +763,7 @@ void PSPOskDialog::RenderKeyboard()
 	{
 		for (int col = 0; col < numKeyCols[currentKeyboard]; ++col)
 		{
-			temp[0] = oskKeys[currentKeyboard][row][col];
+			temp[0] = OskKeyAt(currentKeyboard, row, col);
 
 			ConvertUCS2ToUTF8(buffer, temp);
 

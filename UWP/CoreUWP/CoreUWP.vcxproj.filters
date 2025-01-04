@@ -1205,6 +1205,9 @@
     <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Dialog\PSPOskConstants.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1896,6 +1899,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\AtracCtx2.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Dialog\PSPOskConstants.h">
+      <Filter>Dialog</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

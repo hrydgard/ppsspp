@@ -1315,6 +1315,9 @@
     <ClCompile Include="HLE\AtracCtx2.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPOskConstants.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2108,6 +2111,9 @@
     </ClInclude>
     <ClInclude Include="HLE\AtracCtx2.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPOskConstants.h">
+      <Filter>Dialog</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
