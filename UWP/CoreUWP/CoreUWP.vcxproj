@@ -177,6 +177,9 @@
     <ClInclude Include="..\..\Core\HDRemaster.h" />
     <ClInclude Include="..\..\Core\HLE\AtracCtx.h" />
     <ClInclude Include="..\..\Core\HLE\AtracCtx2.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNetApctl.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNetInet.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNetResolver.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
     <ClInclude Include="..\..\Core\HLE\FunctionWrappers.h" />
@@ -314,6 +317,9 @@
     <ClInclude Include="..\..\Core\MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h" />
+    <ClInclude Include="..\..\Core\Net\InetCommon.h" />
+    <ClInclude Include="..\..\Core\Net\InetSocket.h" />
+    <ClInclude Include="..\..\Core\Net\NetResolver.h" />
     <ClInclude Include="..\..\Core\Opcode.h" />
     <ClInclude Include="..\..\Core\PSPLoaders.h" />
     <ClInclude Include="..\..\Core\Reporting.h" />
@@ -433,6 +439,9 @@
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
     <ClCompile Include="..\..\Core\HLE\AtracCtx.cpp" />
     <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNetApctl.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNetInet.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNetResolver.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLE.cpp" />
@@ -608,6 +617,9 @@
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompVec.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRJit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRRegCache.cpp" />
+    <ClCompile Include="..\..\Core\Net\InetCommon.cpp" />
+    <ClCompile Include="..\..\Core\Net\InetSocket.cpp" />
+    <ClCompile Include="..\..\Core\Net\NetResolver.cpp" />
     <ClCompile Include="..\..\Core\PSPLoaders.cpp" />
     <ClCompile Include="..\..\Core\Reporting.cpp" />
     <ClCompile Include="..\..\Core\Replay.cpp" />

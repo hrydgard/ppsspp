@@ -81,6 +81,8 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "sceNetInet.h"
+#include "sceNetResolver.h"
 
 #define N(s) s
 
@@ -313,6 +315,8 @@ void RegisterAllModules() {
 	Register_mp4msv();
 	Register_InterruptManagerForKernel();
 	Register_sceSircs();
+	Register_sceNetInet();
+	Register_sceNetResolver();
 	// add new modules here.
 }
 

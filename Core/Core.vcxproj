@@ -572,6 +572,9 @@
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
+    <ClCompile Include="HLE\sceNetApctl.cpp" />
+    <ClCompile Include="HLE\sceNetInet.cpp" />
+    <ClCompile Include="HLE\sceNetResolver.cpp" />
     <ClCompile Include="HLE\sceNp2.cpp" />
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
@@ -625,6 +628,9 @@
     <ClCompile Include="MIPS\x86\X64IRCompSystem.cpp" />
     <ClCompile Include="MIPS\x86\X64IRCompVec.cpp" />
     <ClCompile Include="MIPS\x86\X64IRJit.cpp" />
+    <ClCompile Include="Net\InetCommon.cpp" />
+    <ClCompile Include="Net\InetSocket.cpp" />
+    <ClCompile Include="Net\NetResolver.cpp" />
     <ClCompile Include="Replay.cpp" />
     <ClCompile Include="Compatibility.cpp" />
     <ClCompile Include="Config.cpp" />
@@ -1185,6 +1191,9 @@
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
+    <ClInclude Include="HLE\sceNetApctl.h" />
+    <ClInclude Include="HLE\sceNetInet.h" />
+    <ClInclude Include="HLE\sceNetResolver.h" />
     <ClInclude Include="HLE\sceNp2.h" />
     <ClInclude Include="HLE\sceUsbAcc.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
@@ -1211,6 +1220,9 @@
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
     <ClInclude Include="MIPS\x86\X64IRJit.h" />
+    <ClInclude Include="Net\InetCommon.h" />
+    <ClInclude Include="Net\InetSocket.h" />
+    <ClInclude Include="Net\NetResolver.h" />
     <ClInclude Include="Replay.h" />
     <ClInclude Include="Compatibility.h" />
     <ClInclude Include="Config.h" />

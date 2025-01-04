@@ -53,6 +53,7 @@
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
 
+// TODO: move this to some common set
 #ifdef _WIN32
 #undef errno
 #undef ESHUTDOWN

@@ -510,6 +510,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/IR/IRNativeCommon.cpp \
   $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
   $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
+  $(SRC)/Core/Net/InetCommon.cpp \
+  $(SRC)/Core/Net/InetSocket.cpp \
+  $(SRC)/Core/Net/NetResolver.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
@@ -709,6 +712,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
+  $(SRC)/Core/HLE/sceNetApctl.cpp \
+  $(SRC)/Core/HLE/sceNetInet.cpp \
+  $(SRC)/Core/HLE/sceNetResolver.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceMt19937.cpp \
