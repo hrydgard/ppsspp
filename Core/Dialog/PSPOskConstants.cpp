@@ -19,33 +19,33 @@
 
 #include "Core/Dialog/PSPOskConstants.h"
 
+// WARNING: The encoding of this file is WEIRD and gets destroyed if you save it in MSVC!
+
 // Japanese (Kana) diacritics
-const wchar_t diacritics[2][103] =
-{
+static const wchar_t diacritics[2][103] = {
 	{L"かがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどはばぱばひびぴびふぶぷぶへべぺべほぼぽぼウヴカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドハバパバヒビピビフブプブヘベペベホボポボ"},
 	{L"はぱばぱひぴびぴふぷぶぷへぺべぺほぽぼぽハパバパヒピビピフプブプヘペベペホポボポ"}
 };
 
 // Korean (Hangul) consonant
-const wchar_t kor_cons[20] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+static const wchar_t kor_cons[20] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
 // Korean (Hangul) vowels, Some vowels are not used, they will be spaces
-const wchar_t kor_vowel[22] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
+static const wchar_t kor_vowel[22] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
 // Korean (Hangul) vowel Combination key
-const uint8_t kor_vowelCom[21] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
+static const uint8_t kor_vowelCom[21] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
 
 // Korean (Hangul) last consonant(diacritics)
-const wchar_t kor_lcons[28] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+static const wchar_t kor_lcons[28] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
 
 // Korean (Hangul) last consonant Combination key
-const uint8_t kor_lconsCom[33] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
+static const uint8_t kor_lconsCom[33] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
 // Korean (Hangul) last consonant Separation key
-const uint8_t kor_lconsSpr[33] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
+static const uint8_t kor_lconsSpr[33] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
 
-const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
-{
+static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] = {
 	{
 		// Latin Lowercase
 		{u"1234567890-+"},
@@ -116,3 +116,10 @@ const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
 	},
 };
 
+// Accessors, since for some reason we can't declare the above extern???
+
+const wchar_t *KorCons() { return kor_cons; }
+const wchar_t *KorVowel() { return kor_vowel; }
+const wchar_t *KorLCons() { return kor_lcons; }
+const wchar_t *JapDiacritics(int index) { return diacritics[index]; }
+char16_t OskKeyAt(int keyboard, int row, int col) { return oskKeys[keyboard][row][col]; }

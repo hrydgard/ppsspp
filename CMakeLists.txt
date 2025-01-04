@@ -2115,6 +2115,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPNpSigninDialog.h
 	Core/Dialog/PSPOskDialog.cpp
 	Core/Dialog/PSPOskDialog.h
+	Core/Dialog/PSPOskConstants.cpp
+	Core/Dialog/PSPOskConstants.h
 	Core/Dialog/PSPPlaceholderDialog.cpp
 	Core/Dialog/PSPPlaceholderDialog.h
 	Core/Dialog/PSPSaveDialog.cpp

@@ -14,3 +14,9 @@ enum OskKeyboardDisplay {
 	// TODO: Something to do native?
 	OSK_KEYBOARD_COUNT
 };
+
+const wchar_t *KorCons();
+const wchar_t *KorVowel();
+const wchar_t *KorLCons();
+const wchar_t *JapDiacritics(int index);
+char16_t OskKeyAt(int keyboard, int row, int col);
