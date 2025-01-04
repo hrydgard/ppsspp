@@ -739,6 +739,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceNet.cpp \
 	       $(COREDIR)/HLE/sceNetAdhoc.cpp \
 	       $(COREDIR)/HLE/sceNetAdhocMatching.cpp \
+	       $(COREDIR)/HLE/sceNetApctl.cpp \
+	       $(COREDIR)/HLE/sceNetInet.cpp \
+	       $(COREDIR)/HLE/sceNetResolver.cpp \
 	       $(COREDIR)/HLE/proAdhocServer.cpp \
 	       $(COREDIR)/HLE/proAdhoc.cpp \
 	       $(COREDIR)/HLE/sceOpenPSID.cpp \
@@ -811,6 +814,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
+		   $(COREDIR)/Net/InetCommon.cpp \
+		   $(COREDIR)/Net/InetSocket.cpp \
+		   $(COREDIR)/Net/NetResolver.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \
 	       $(COREDIR)/Replay.cpp \
 	       $(COREDIR)/Reporting.cpp \
