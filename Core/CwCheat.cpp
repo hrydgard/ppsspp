@@ -26,6 +26,16 @@
 #include "Common/Data/Encoding/Utf8.h"
 #endif
 
+// Cache invalidation
+//
+// It should be obvious why we need to invalidate the instruction cache (effectively, in PPSSPP's case,
+// the JIT translation cache) for writes. But currently we do also need to do it for reads, in case
+// cheats check what MIPS opcode is at an address - the JIT sometimes overwrites them. Invalidating
+// the cache will restore that.
+//
+// Long term, we should get rid of the instruction overwriting hack, or we could use Memory::Read_Instruction
+// with workarounds for 8 and 16 bit reads.
+
 static int CheatEvent = -1;
 static CWCheatEngine *cheatEngine;
 static bool cheatsEnabled;
@@ -340,19 +350,19 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
 		// but still causes regular JIT invalidations which causes stutters.
 		if (gameTitle == "ULUS10014") {
-			cheatEngine->InvalidateICache(0x08865600, 72);
-			cheatEngine->InvalidateICache(0x08865690, 4);
+			currentMIPS->InvalidateICache(0x08865600, 72);
+			currentMIPS->InvalidateICache(0x08865690, 4);
 		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
-			cheatEngine->InvalidateICache(0x088655D8, 72);
-			cheatEngine->InvalidateICache(0x08865668, 4);
+			currentMIPS->InvalidateICache(0x088655D8, 72);
+			currentMIPS->InvalidateICache(0x08865668, 4);
 		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax US
-			cheatEngine->InvalidateICache(0x0886DCC0, 72);
-			cheatEngine->InvalidateICache(0x0886DC20, 4);
-			cheatEngine->InvalidateICache(0x0886DD40, 4);
+			currentMIPS->InvalidateICache(0x0886DCC0, 72);
+			currentMIPS->InvalidateICache(0x0886DC20, 4);
+			currentMIPS->InvalidateICache(0x0886DD40, 4);
 		} else if (gameTitle == "ULES00581") {  // MTX MotoTrax EU (ported from US cwcheat codes)
-			cheatEngine->InvalidateICache(0x0886E1D8, 72);
-			cheatEngine->InvalidateICache(0x0886E138, 4);
-			cheatEngine->InvalidateICache(0x0886E258, 4);
+			currentMIPS->InvalidateICache(0x0886E1D8, 72);
+			currentMIPS->InvalidateICache(0x0886E138, 4);
+			currentMIPS->InvalidateICache(0x0886E258, 4);
 		}
 	}
 
@@ -412,7 +422,7 @@ std::vector<CheatFileInfo> CWCheatEngine::FileInfo() {
 	return parser.GetFileInfo();
 }
 
-void CWCheatEngine::InvalidateICache(u32 addr, int size) {
+void CWCheatEngine::InvalidateICache(u32 addr, int size) const {
 	// Round start down and size up to the nearest word.
 	u32 aligned = addr & ~3;
 	int alignedSize = (addr + size - aligned + 3) & ~3;
@@ -820,6 +830,8 @@ void CWCheatEngine::ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper
 
 bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) const {
 	if (Memory::IsValidRange(op.addr, op.sz)) {
+		InvalidateICache(op.addr, op.sz);  // See note at top of file
+
 		int memoryValue = 0;
 		if (op.sz == 1)
 			memoryValue = (int)Memory::ReadUnchecked_U8(op.addr);
@@ -835,6 +847,9 @@ bool CWCheatEngine::TestIf(const CheatOperation &op, bool(*oper)(int, int)) cons
 
 bool CWCheatEngine::TestIfAddr(const CheatOperation &op, bool(*oper)(int, int)) const {
 	if (Memory::IsValidRange(op.addr, op.sz) && Memory::IsValidRange(op.ifAddrTypes.compareAddr, op.sz)) {
+		InvalidateICache(op.addr, op.sz);  // See note at top of file
+		InvalidateICache(op.addr, op.ifAddrTypes.compareAddr);
+
 		int memoryValue1 = 0;
 		int memoryValue2 = 0;
 		if (op.sz == 1) {
@@ -927,6 +942,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CopyBytesFrom:
 		if (Memory::IsValidRange(op.addr, op.val) && Memory::IsValidRange(op.copyBytesFrom.destAddr, op.val)) {
+			InvalidateICache(op.addr, op.val);  // See note at top of file
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
 			Memory::Memcpy(op.copyBytesFrom.destAddr, op.addr, op.val, "CwCheat");
@@ -1003,6 +1019,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::Assert:
 		if (Memory::IsValidRange(op.addr, 4)) {
+			InvalidateICache(op.addr, 4);  // See note at top of file
 			if (Memory::ReadUnchecked_U32(op.addr) != op.val) {
 				i = cheat.lines.size();
 			}
@@ -1092,6 +1109,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CwCheatPointerCommands:
 		{
+			InvalidateICache(op.addr + op.pointerCommands.baseOffset, 4);  // See note at top of file
 			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
@@ -1100,10 +1118,12 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				switch (line.part1 >> 28) {
 				case 0x1: // type copy byte
 					{
+						InvalidateICache(op.addr, 4);  // See note at top of file
 						u32 srcAddr = Memory::Read_U32(op.addr) + op.pointerCommands.offset;
 						u32 dstAddr = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset) + (line.part1 & 0x0FFFFFFF);
 						if (Memory::IsValidRange(dstAddr, val) && Memory::IsValidRange(srcAddr, val)) {
 							InvalidateICache(dstAddr, val);
+							InvalidateICache(srcAddr, val);  // See note at top of file
 							Memory::Memcpy(dstAddr, srcAddr, val, "CwCheat");
 						}
 						// Don't perform any further action.
@@ -1126,6 +1146,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 							if ((line.part2 >> 28) == 0x3) {
 								walkOffset = -walkOffset;
 							}
+							InvalidateICache(base + walkOffset, 4);  // See note at top of file
 							base = Memory::Read_U32(base + walkOffset);
 							break;
 
