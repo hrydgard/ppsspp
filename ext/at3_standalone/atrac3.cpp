@@ -755,13 +755,14 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
         databuf = buf;
     }
 
+    *nb_samples = SAMPLES_PER_FRAME;
+
     ret = decode_frame(ctx, block_align, channels, databuf, out_data);
     if (ret) {
         av_log(AV_LOG_ERROR, "Frame decoding error!");
         return ret;
     }
 
-    *nb_samples = SAMPLES_PER_FRAME;
     return block_align;
 }
 
