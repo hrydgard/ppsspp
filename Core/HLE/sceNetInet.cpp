@@ -142,7 +142,7 @@ private:
 };
 
 static bool inetSockaddrToNativeSocketAddr(sockaddr_in &dest, u32 sockAddrInternetPtr, size_t addressLength) {
-	const auto inetSockaddrIn = Memory::GetTypedPointerRange<SceNetInetSockaddrIn>(sockAddrInternetPtr, addressLength);
+	const auto inetSockaddrIn = Memory::GetTypedPointerRange<SceNetInetSockaddrIn>(sockAddrInternetPtr, (u32)addressLength);
 	if (inetSockaddrIn == nullptr || addressLength == 0) {
 		return false;
 	}
@@ -188,7 +188,7 @@ static bool writeSockAddrInToInetSockAddr(u32 destAddrPtr, u32 destAddrLenPtr, s
 static int setBlockingMode(int nativeSocketId, bool nonblocking) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	unsigned long val = nonblocking ? 1 : 0;
-	return ioctlsocket(fd, FIONBIO, &val);
+	return ioctlsocket(nativeSocketId, FIONBIO, &val);
 #else
 	// Change to Non-Blocking Mode
 	if (nonblocking) {
@@ -1102,6 +1102,13 @@ std::unordered_map<PspInetProtocol, int> SceNetInet::gInetProtocolToNativeProtoc
 	{ PSP_NET_INET_IPPROTO_RAW, IPPROTO_RAW },
 };
 
+// Windows compat workarounds (ugly! may not work!)
+#if PPSSPP_PLATFORM(WINDOWS)
+#define SO_REUSEPORT (SO_BROADCAST|SO_REUSEADDR)
+#define SO_TIMESTAMP 0
+#define MSG_DONTWAIT 0
+#endif
+
 // TODO: commented out optnames
 std::unordered_map<PspInetSocketOptionName, int> SceNetInet::gInetSocketOptnameToNativeOptname = {
 	{ INET_SO_ACCEPTCONN, SO_ACCEPTCONN },
@@ -1261,7 +1268,7 @@ int SceNetInet::TranslateInetFlagsToNativeFlags(const int messageFlags, const bo
 	if (const int missingFlags = messageFlags & ~foundFlags; missingFlags != 0) {
 		for (int i = 0; i < sizeof(int) * 8; i++) {
 			if (const int val = 1 << i; (missingFlags & val) != 0) {
-				DEBUG_LOG(SCENET, "Encountered unsupported platform flag at bit %i (actual value %04x), undefined behavior may ensue.", i, val);
+				DEBUG_LOG(Log::sceNet, "Encountered unsupported platform flag at bit %i (actual value %04x), undefined behavior may ensue.", i, val);
 			}
 		}
 	}
