@@ -54,6 +54,15 @@ static const uint8_t kor_lconsCom[33] = { 18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7
 // Korean (Hangul) last consonant Separation key
 static const uint8_t kor_lconsSpr[33] = { 2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9 };
 
+static const char * const OskKeyboardNames[] =
+{
+	"en_US",
+	"ja_JP",
+	"ko_KR",
+	"ru_RU",
+	"English Full-width",
+};
+
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
 static const int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
 	PSP_UTILITY_OSK_INPUTTYPE_LATIN_LOWERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_UPPERCASE | PSP_UTILITY_OSK_INPUTTYPE_LATIN_SYMBOL | PSP_UTILITY_OSK_INPUTTYPE_LATIN_DIGIT,
@@ -703,7 +712,7 @@ void PSPOskDialog::RenderKeyboard()
 	float title = (480.0f - (0.5f * drawLimit)) / 2.0f;
 
 	PPGeStyle descStyle = FadedStyle(PPGeAlign::BOX_CENTER, 0.5f);
-	PPGeDrawText(oskDesc.c_str(), title, 20, descStyle);
+	PPGeDrawText(oskDesc, title, 20, descStyle);
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.5f);
 
@@ -723,7 +732,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[drawIndex];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, textStyle);
+			PPGeDrawText(buffer, previewLeftSide + (i * characterWidth), 40.0f, textStyle);
 		}
 		else
 		{
@@ -741,7 +750,7 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, animStyle);
+					PPGeDrawText(buffer, previewLeftSide + (i * characterWidth), 40.0f, animStyle);
 
 					// Also draw the underline for the same reason.
 					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, textStyle);
@@ -749,7 +758,7 @@ void PSPOskDialog::RenderKeyboard()
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, textStyle);
+					PPGeDrawText(buffer, previewLeftSide + (i * characterWidth), 40.0f, textStyle);
 				}
 			}
 			else
@@ -768,10 +777,10 @@ void PSPOskDialog::RenderKeyboard()
 			ConvertUCS2ToUTF8(buffer, temp);
 
 			if (selectedRow == row && col == selectedCol) {
-				PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), selectedKeyStyle);
+				PPGeDrawText(buffer, keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), selectedKeyStyle);
 				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), keyStyle);
 			} else {
-				PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), keyStyle);
+				PPGeDrawText(buffer, keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), keyStyle);
 			}
 		}
 	}
@@ -931,7 +940,7 @@ int PSPOskDialog::Update(int animSpeed) {
 		}
 
 		// Now, let's grab the name.
-		const char *countryCode = OskKeyboardNames[lang].c_str();
+		const char *countryCode = OskKeyboardNames[lang];
 		const char *language = languageMapping[countryCode].first.c_str();
 
 		// It seems like this is a "fake" country code for extra keyboard purposes.

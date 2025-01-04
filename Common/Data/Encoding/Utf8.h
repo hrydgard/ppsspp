@@ -124,7 +124,6 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr);
 std::string ConvertUCS2ToUTF8(const std::u16string &wstr);
 
 // Dest size in units, not bytes.
-void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, std::string_view source);
 std::u16string ConvertUTF8ToUCS2(std::string_view source);
 
 // Java needs 4-byte UTF-8 to be converted to surrogate pairs, each component of which get

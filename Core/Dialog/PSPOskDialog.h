@@ -177,15 +177,6 @@ const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
 	{ OSK_KEYBOARD_LATIN_FW_LOWERCASE, OSK_KEYBOARD_LATIN_FW_UPPERCASE }
 };
 
-static const std::string OskKeyboardNames[] =
-{
-	"en_US",
-	"ja_JP",
-	"ko_KR",
-	"ru_RU",
-	"English Full-width",
-};
-
 enum class PSPOskNativeStatus {
 	IDLE,
 	DONE,
