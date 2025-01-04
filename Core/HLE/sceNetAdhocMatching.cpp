@@ -128,9 +128,11 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context) {
 	// Ping Opcode
 	uint8_t ping = PSP_ADHOC_MATCHING_PACKET_PING;
 
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Send Broadcast
 	// FIXME: Not sure whether this PING supposed to be sent only to AdhocMatching members or to everyone in Adhocctl Group, since we already pinging the AdhocServer to avoid getting kicked out of Adhocctl Group
-	peerlock.lock();
 	auto peer = friends; // Use context->peerlist if only need to send to AdhocMatching members
 	for (; peer != NULL; peer = peer->next) {
 		// Skipping soon to be removed peer
@@ -146,7 +148,6 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context) {
 		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 	}
-	peerlock.unlock();
 }
 
 /**
@@ -166,47 +167,46 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context) {
 		}
 	}
 
-	// Allocated Hello Message Buffer
-	if (hello != NULL) {
-		// Hello Opcode
-		hello[0] = PSP_ADHOC_MATCHING_PACKET_HELLO;
-
-		// Hello Data Length (have to memcpy this to avoid cpu alignment crash)
-		memcpy(hello + 1, &context->hellolen, sizeof(context->hellolen));
-
-		// FIXME: When using JPCSP + prx files the data being sent have a header of 12 bytes instead of 5 bytes: 
-		// [01(always 1? size of the next data? or combined with next byte as U16_BE opcode?) 01(matching opcode, or combined with previous byte as U16_BE opcode?) 01 E0(size of next data + hello data in big-endian/U16_BE) 00 0F 42 40(U32_BE? time?) 00 0F 42 40(U32_BE? time?)], 
-		// followed by hello data (0x1D8 bytes of opt data, based on Ys vs. Sora no Kiseki), and followed by 16 bytes of (optional?) footer [01 00 00 .. 00 00](footer doesn't exist if the size after opcode is 00 00)
-
-		// Copy Hello Data
-		if (context->hellolen > 0) memcpy(hello + 5, context->hello, context->hellolen);
-
-		std::string hellohex;
-		DataToHexString(10, 0, context->hello, context->hellolen, &hellohex);
-		DEBUG_LOG(Log::sceNet, "HELLO Dump (%d bytes):\n%s", context->hellolen, hellohex.c_str());
-
-		// Send Broadcast, so everyone know we have a room here
-		peerlock.lock();
-		SceNetAdhocctlPeerInfo* peer = friends;
-		for (; peer != NULL; peer = peer->next) {
-			// Skipping soon to be removed peer
-			if (peer->last_recv == 0)
-				continue;
-
-			u16_le port = context->port;
-			auto it = (*context->peerPort).find(peer->mac_addr);
-			if (it != (*context->peerPort).end())
-				port = it->second;
-
-			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
-			context->socketlock->unlock();
-		}
-		peerlock.unlock();
-
-		// Free Memory, not needed since it may be reused again later
-		//free(hello);
+	if (hello == NULL) {
+		// Failed to allocate the Hello Message Buffer
+		return;
 	}
+
+	// Hello Opcode
+	hello[0] = PSP_ADHOC_MATCHING_PACKET_HELLO;
+
+	// Hello Data Length (have to memcpy this to avoid cpu alignment crash)
+	memcpy(hello + 1, &context->hellolen, sizeof(context->hellolen));
+
+	// FIXME: When using JPCSP + prx files the data being sent have a header of 12 bytes instead of 5 bytes: 
+	// [01(always 1? size of the next data? or combined with next byte as U16_BE opcode?) 01(matching opcode, or combined with previous byte as U16_BE opcode?) 01 E0(size of next data + hello data in big-endian/U16_BE) 00 0F 42 40(U32_BE? time?) 00 0F 42 40(U32_BE? time?)], 
+	// followed by hello data (0x1D8 bytes of opt data, based on Ys vs. Sora no Kiseki), and followed by 16 bytes of (optional?) footer [01 00 00 .. 00 00](footer doesn't exist if the size after opcode is 00 00)
+
+	// Copy Hello Data
+	if (context->hellolen > 0) memcpy(hello + 5, context->hello, context->hellolen);
+
+	std::string hellohex;
+	DataToHexString(10, 0, context->hello, context->hellolen, &hellohex);
+	DEBUG_LOG(Log::sceNet, "HELLO Dump (%d bytes):\n%s", context->hellolen, hellohex.c_str());
+
+	// Send Broadcast, so everyone know we have a room here
+	peerlock.lock();
+	SceNetAdhocctlPeerInfo* peer = friends;
+	for (; peer != NULL; peer = peer->next) {
+		// Skipping soon to be removed peer
+		if (peer->last_recv == 0)
+			continue;
+
+		u16_le port = context->port;
+		auto it = (*context->peerPort).find(peer->mac_addr);
+		if (it != (*context->peerPort).end())
+			port = it->second;
+
+		context->socketlock->lock();
+		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
+		context->socketlock->unlock();
+	}
+	peerlock.unlock();
 }
 
 /**
