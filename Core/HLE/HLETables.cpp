@@ -239,6 +239,9 @@ void RegisterAllModules() {
 	Register_sceSasCore();
 	Register_sceFont();
 	Register_sceNet();
+	Register_sceNetResolver();
+	Register_sceNetInet();
+	Register_sceNetApctl();
 	Register_sceNetAdhoc();
 	Register_sceNetAdhocMatching();
 	Register_sceNetAdhocDiscover();
@@ -315,8 +318,6 @@ void RegisterAllModules() {
 	Register_mp4msv();
 	Register_InterruptManagerForKernel();
 	Register_sceSircs();
-	Register_sceNetInet();
-	Register_sceNetResolver();
 	// add new modules here.
 }
 
