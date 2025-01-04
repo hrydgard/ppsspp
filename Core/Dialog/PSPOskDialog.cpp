@@ -46,101 +46,27 @@ const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 
 const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
 
 // Japanese (Kana) diacritics
-static const wchar_t diacritics[2][103] =
-{
-	{L"かがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどはばぱばひびぴびふぶぷぶへべぺべほぼぽぼウヴカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドハバパバヒビピビフブプブヘベペベホボポボ"},
-	{L"はぱばぱひぴびぴふぷぶぷへぺべぺほぽぼぽハパバパヒピビピフプブプヘペベペホポボポ"}
-};
+extern const wchar_t diacritics[2][103];
 
 // Korean (Hangul) consonant
-static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+extern const wchar_t kor_cons[20];
 
 // Korean (Hangul) vowels, Some vowels are not used, they will be spaces
-static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
+extern const wchar_t kor_vowel[22];
 
 // Korean (Hangul) vowel Combination key
-const uint8_t kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
+extern const uint8_t kor_vowelCom[21];
 
 // Korean (Hangul) last consonant(diacritics)
-static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+extern const wchar_t kor_lcons[28];
 
 // Korean (Hangul) last consonant Combination key
-const uint8_t kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
+extern const uint8_t kor_lconsCom[33];
 
 // Korean (Hangul) last consonant Separation key
-const uint8_t kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
+extern const uint8_t kor_lconsSpr[33];
 
-static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] =
-{
-	{
-		// Latin Lowercase
-		{u"1234567890-+"},
-		{u"qwertyuiop[]"},
-		{u"asdfghjkl;@~"},
-		{u"zxcvbnm,./?\\"},
-	},
-	{
-		// Latin Uppercase
-		{u"!@#$%^&*()_+"},
-		{u"QWERTYUIOP{}"},
-		{u"ASDFGHJKL:\"`"},
-		{u"ZXCVBNM<>/?|"},
-	},
-	{
-		// Hiragana
-		{u"あかさたなはまやらわぁゃっ"},
-		{u"いきしちにひみ　り　ぃ　　"},
-		{u"うくすつぬふむゆるをぅゅ゛"},
-		{u"えけせてねへめ　れ　ぇ　゜"},
-		{u"おこそとのほもよろんぉょー"},
-		{u"・。、「」『』〜     "},
-	},
-	{
-		// Katakana
-		{u"アカサタナハマヤラワァャッ"},
-		{u"イキシチニヒミ　リ　ィ　　"},
-		{u"ウクスツヌフムユルヲゥュ゛"},
-		{u"エケセテネヘメ　レ　ェ　゜"},
-		{u"オコソトノホモヨロンォョー"},
-		{u"・。、「」『』〜     "},
-	},
-	{
-		// Korean(Hangul)
-		{u"1234567890-+"},
-		{u"ㅃㅉㄸㄲㅆ!@#$%^&"},
-		{u"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ[]"},
-		{u"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ;@~"},
-		{u"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
-	},
-	{
-		// Russian Lowercase
-		{u"1234567890-+"},
-		{u"йцукенгшщзхъ"},
-		{u"фывапролджэё"},
-		{u"ячсмитьбю/?|"},
-	},
-	{
-		// Russian Uppercase
-		{u"!@#$%^&*()_+"},
-		{u"ЙЦУКЕНГШЩЗХЪ"},
-		{u"ФЫВАПРОЛДЖЭЁ"},
-		{u"ЯЧСМИТЬБЮ/?|"},
-	},
-	{
-		// Latin Full-width Lowercase
-		{ u"１２３４５６７８９０－＋" },
-		{ u"ｑｗｅｒｔｙｕｉｏｐ［］" },
-		{ u"ａｓｄｆｇｈｊｋｌ；＠～" },
-		{ u"ｚｘｃｖｂｎｍ，．／？￥￥" },
-	},
-	{
-		// Latin Full-width Uppercase
-		{ u"！＠＃＄％＾＆＊（）＿＋" },
-		{ u"ＱＷＥＲＴＹＵＩＯＰ｛｝" },
-		{ u"ＡＳＤＦＧＨＪＫＬ：￥”‘" },
-		{ u"ＺＸＣＶＢＮＭ＜＞／？｜" },
-	},
-};
+extern const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14];
 
 // This isn't a complete representation of these flags, it just helps ensure we show the right keyboards.
 static const int allowedInputFlagsMap[OSK_KEYBOARD_COUNT] = {
