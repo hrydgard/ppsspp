@@ -223,68 +223,72 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
-	// Found Peer
-	if (peer != NULL && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P)) {
-		// Required Sibling Buffer
-		uint32_t siblingbuflen = 0;
+	if (peer == NULL || (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P)) {
+		// Not found
+		return;
+	}
 
-		// Parent Mode
-		if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) siblingbuflen = (u32)sizeof(SceNetEtherAddr) * (countConnectedPeers(context) - 2);
+	// Required Sibling Buffer
+	uint32_t siblingbuflen = 0;
 
-		// Sibling Count
-		int siblingcount = siblingbuflen / sizeof(SceNetEtherAddr);
+	// Parent Mode
+	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) siblingbuflen = (u32)sizeof(SceNetEtherAddr) * (countConnectedPeers(context) - 2);
 
-		// Allocate Accept Message Buffer
-		uint8_t * accept = (uint8_t *)malloc(9LL + optlen + siblingbuflen);
+	// Sibling Count
+	int siblingcount = siblingbuflen / sizeof(SceNetEtherAddr);
 
-		// Allocated Accept Message Buffer
-		if (accept != NULL) {
-			// Accept Opcode
-			accept[0] = PSP_ADHOC_MATCHING_PACKET_ACCEPT;
+	// Allocate Accept Message Buffer
+	uint8_t * accept = (uint8_t *)malloc(9LL + optlen + siblingbuflen);
 
-			// Optional Data Length
-			memcpy(accept + 1, &optlen, sizeof(optlen));
+	if (accept == NULL) {
+		// Failed to allocate the Accept Message Buffer
+		return;
+	}
 
-			// Sibling Count
-			memcpy(accept + 5, &siblingcount, sizeof(siblingcount));
+	// Accept Opcode
+	accept[0] = PSP_ADHOC_MATCHING_PACKET_ACCEPT;
 
-			// Copy Optional Data
-			if (optlen > 0) memcpy(accept + 9, opt, optlen);
+	// Optional Data Length
+	memcpy(accept + 1, &optlen, sizeof(optlen));
 
-			// Parent Mode Extra Data required
-			if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && siblingcount > 0) {
-				// Create MAC Array Pointer
-				uint8_t * siblingmacs = (uint8_t *)(accept + 9 + optlen);
+	// Sibling Count
+	memcpy(accept + 5, &siblingcount, sizeof(siblingcount));
 
-				// MAC Writing Pointer
-				int i = 0;
+	// Copy Optional Data
+	if (optlen > 0) memcpy(accept + 9, opt, optlen);
 
-				// Iterate Peer List
-				SceNetAdhocMatchingMemberInternal * item = context->peerlist;
-				for (; item != NULL; item = item->next) {
-					// Ignore Target
-					if (item == peer) continue;
+	// Parent Mode Extra Data required
+	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && siblingcount > 0) {
+		// Create MAC Array Pointer
+		uint8_t * siblingmacs = (uint8_t *)(accept + 9 + optlen);
 
-					// Copy Child MAC
-					if (item->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-						// Clone MAC the stupid memcpy way to shut up PSP CPU
-						memcpy(siblingmacs + sizeof(SceNetEtherAddr) * i++, &item->mac, sizeof(SceNetEtherAddr));
-					}
-				}
+		// MAC Writing Pointer
+		int i = 0;
+
+		// Iterate Peer List
+		SceNetAdhocMatchingMemberInternal * item = context->peerlist;
+		for (; item != NULL; item = item->next) {
+			// Ignore Target
+			if (item == peer) continue;
+
+			// Copy Child MAC
+			if (item->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+				// Clone MAC the stupid memcpy way to shut up PSP CPU
+				memcpy(siblingmacs + sizeof(SceNetEtherAddr) * i++, &item->mac, sizeof(SceNetEtherAddr));
 			}
-
-			// Send Data
-			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
-			context->socketlock->unlock();
-
-			// Free Memory
-			free(accept);
-
-			// Spawn Local Established Event
-			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, mac, 0, NULL);
 		}
 	}
+
+	// Send Data
+	context->socketlock->lock();
+	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
+	context->socketlock->unlock();
+
+	// Free Memory
+	free(accept);
+
+	// Spawn Local Established Event
+	spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, mac, 0, NULL);
 }
 
 /**
@@ -301,31 +305,35 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
-	// Valid Peer
-	if (peer != NULL && peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST) {
-		// Allocate Join Message Buffer
-		uint8_t * join = (uint8_t *)malloc(5LL + optlen);
-
-		// Allocated Join Message Buffer
-		if (join != NULL) {
-			// Join Opcode
-			join[0] = PSP_ADHOC_MATCHING_PACKET_JOIN;
-
-			// Optional Data Length
-			memcpy(join + 1, &optlen, sizeof(optlen));
-
-			// Copy Optional Data
-			if (optlen > 0) memcpy(join + 5, opt, optlen);
-
-			// Send Data
-			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
-			context->socketlock->unlock();
-
-			// Free Memory
-			free(join);
-		}
+	if (peer == NULL || peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST) {
+		// Valid peer not found
+		return;
 	}
+
+	// Allocate Join Message Buffer
+	uint8_t * join = (uint8_t *)malloc(5LL + optlen);
+
+	if (join == NULL) {
+		// Failed to allocate the Join Message Buffer
+		return;
+	}
+
+	// Join Opcode
+	join[0] = PSP_ADHOC_MATCHING_PACKET_JOIN;
+
+	// Optional Data Length
+	memcpy(join + 1, &optlen, sizeof(optlen));
+
+	// Copy Optional Data
+	if (optlen > 0) memcpy(join + 5, opt, optlen);
+
+	// Send Data
+	context->socketlock->lock();
+	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+	context->socketlock->unlock();
+
+	// Free Memory
+	free(join);
 }
 
 /**
@@ -365,19 +373,21 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
-	// Found Peer
-	if (peer != NULL) {
-		// Child Mode Fallback - Delete All
-		if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
-			// Delete Peer List
-			clearPeerList(context);
-		}
+	if (peer == NULL) {
+		// Peer not found
+		return;
+	}
 
-		// Delete Peer
-		else {
-			// Instead of removing peer immediately, We should give a little time before removing the peer and let it timed out? so it can send the BYE packet when stopping AdhocMatching after Canceling it
-			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
-		}
+	// Child Mode Fallback - Delete All
+	if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
+		// Delete Peer List
+		clearPeerList(context);
+	}
+
+	// Delete Peer
+	else {
+		// Instead of removing peer immediately, We should give a little time before removing the peer and let it timed out? so it can send the BYE packet when stopping AdhocMatching after Canceling it
+		peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 	}
 }
 
@@ -395,40 +405,44 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 
-	// Valid Peer (rest is already checked in send.c)
-	if (peer != NULL) {
-		// Don't send if it's aborted
-		//if (peer->sending == 0) return;
-
-		// Allocate Send Message Buffer
-		uint8_t * send = (uint8_t *)malloc(5LL + datalen);
-
-		// Allocated Send Message Buffer
-		if (send != NULL) {
-			// Send Opcode
-			send[0] = PSP_ADHOC_MATCHING_PACKET_BULK;
-
-			// Data Length
-			memcpy(send + 1, &datalen, sizeof(datalen));
-
-			// Copy Data
-			memcpy(send + 5, data, datalen);
-
-			// Send Data
-			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
-			context->socketlock->unlock();
-
-			// Free Memory
-			free(send);
-
-			// Remove Busy Bit from Peer
-			peer->sending = 0;
-
-			// Spawn Data Event
-			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DATA_ACK, mac, 0, NULL);
-		}
+	if (peer == NULL) {
+		// Invalid Peer
+		return;
 	}
+
+	// Don't send if it's aborted
+	//if (peer->sending == 0) return;
+
+	// Allocate Send Message Buffer
+	uint8_t * send = (uint8_t *)malloc(5LL + datalen);
+
+	if (send == NULL) {
+		// Failed to allocate the Send Message Buffer
+		return;
+	}
+
+	// Send Opcode
+	send[0] = PSP_ADHOC_MATCHING_PACKET_BULK;
+
+	// Data Length
+	memcpy(send + 1, &datalen, sizeof(datalen));
+
+	// Copy Data
+	memcpy(send + 5, data, datalen);
+
+	// Send Data
+	context->socketlock->lock();
+	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
+	context->socketlock->unlock();
+
+	// Free Memory
+	free(send);
+
+	// Remove Busy Bit from Peer
+	peer->sending = 0;
+
+	// Spawn Data Event
+	spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DATA_ACK, mac, 0, NULL);
 }
 
 /**
@@ -443,37 +457,41 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 	// Find Newborn Child
 	SceNetAdhocMatchingMemberInternal * newborn = findPeer(context, mac);
 
-	// Found Newborn Child
-	if (newborn != NULL) {
-		// Packet Buffer
-		uint8_t packet[7];
+	if (newborn == NULL) {
+		// Did not find Newborn Child
+		return;
+	}
 
-		// Set Opcode
-		packet[0] = PSP_ADHOC_MATCHING_PACKET_BIRTH;
+	// Packet Buffer
+	uint8_t packet[7];
 
-		// Set Newborn MAC
-		memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
+	// Set Opcode
+	packet[0] = PSP_ADHOC_MATCHING_PACKET_BIRTH;
 
-		// Iterate Peers
-		SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
-		for (; peer != NULL; peer = peer->next) {
-			// Skip Newborn Child
-			if (peer == newborn) continue;
+	// Set Newborn MAC
+	memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
 
-			// Send only to children
-			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-				// Send Packet
-				context->socketlock->lock();
-				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
-				context->socketlock->unlock();
+	// Iterate Peers
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
+	for (; peer != NULL; peer = peer->next) {
+		// Skip Newborn Child
+		if (peer == newborn) continue;
 
-				// Log Send Success
-				if (sent >= 0)
-					INFO_LOG(Log::sceNet, "InputLoop: Sending BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
-				else
-					WARN_LOG(Log::sceNet, "InputLoop: Failed to Send BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
-			}
+		// Send only to children
+		if (peer->state != PSP_ADHOC_MATCHING_PEER_CHILD) {
+			continue;
 		}
+
+		// Send Packet
+		context->socketlock->lock();
+		int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+		context->socketlock->unlock();
+
+		// Log Send Success
+		if (sent >= 0)
+			INFO_LOG(Log::sceNet, "InputLoop: Sending BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
+		else
+			WARN_LOG(Log::sceNet, "InputLoop: Failed to Send BIRTH [%s] to %s", mac2str(mac).c_str(), mac2str(&peer->mac).c_str());
 	}
 }
 
@@ -489,43 +507,46 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 	// Find abandoned Child
 	SceNetAdhocMatchingMemberInternal * deadkid = findPeer(context, mac);
 
-	// Found abandoned Child
-	if (deadkid != NULL) {
-		// Packet Buffer
-		uint8_t packet[7];
+	if (deadkid == NULL) {
+		// Did not find abandoned Child
+		return;
+	}
 
-		// Set abandoned Child MAC
-		memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
+	// Packet Buffer
+	uint8_t packet[7];
 
-		// Iterate Peers
-		SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
-		for (; peer != NULL; peer = peer->next) {
-			// Skip dead Child? Or May be we should also tells the disconnected Child, that they have been disconnected from the Host (in the case they were disconnected because they went to PPSSPP settings for too long)
-			if (peer == deadkid) {
+	// Set abandoned Child MAC
+	memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
+
+	// Iterate Peers
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
+	for (; peer != NULL; peer = peer->next) {
+		// Skip dead Child? Or May be we should also tells the disconnected Child, that they have been disconnected from the Host (in the case they were disconnected because they went to PPSSPP settings for too long)
+		if (peer == deadkid) {
+			// Set Opcode
+			packet[0] = PSP_ADHOC_MATCHING_PACKET_BYE;
+
+			// Send Bye Packet
+			context->socketlock->lock();
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+			context->socketlock->unlock();
+		}
+		else {
+			// Send to other children
+			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
 				// Set Opcode
-				packet[0] = PSP_ADHOC_MATCHING_PACKET_BYE;
+				packet[0] = PSP_ADHOC_MATCHING_PACKET_DEATH;
 
-				// Send Bye Packet
+				// Send Death Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
-			else
-				// Send to other children
-				if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
-					// Set Opcode
-					packet[0] = PSP_ADHOC_MATCHING_PACKET_DEATH;
-
-					// Send Death Packet
-					context->socketlock->lock();
-					sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
-					context->socketlock->unlock();
-				}
 		}
-
-		// Delete Peer
-		deletePeer(context, deadkid);
 	}
+
+	// Delete Peer
+	deletePeer(context, deadkid);
 }
 
 /**
