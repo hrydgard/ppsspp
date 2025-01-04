@@ -1936,211 +1936,205 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Initialized Library
-	if (netAdhocMatchingInited) {
-		// Valid Arguments
-		if (macAddress != NULL) {
-			SceNetEtherAddr * target = (SceNetEtherAddr *)macAddress;
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	}
 
-			// Find Matching Context for ID
-			SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
-
-			// Found Matching Context
-			if (context != NULL) {
-				// Running Context
-				if (context->running) {
-					// Search Result
-					SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)target);
-
-					// Found Peer in List
-					if (peer != NULL) {
-						// Valid Optional Data Length
-						if ((optLen == 0) || (optLen > 0 && optDataPtr != 0)) {
-							void * opt = NULL;
-							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
-							// Host Mode
-							if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-								// Already Connected
-								if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
-
-								// Not enough space
-								if (countChildren(context) == (context->maxpeers - 1)) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_EXCEED_MAXNUM, "adhocmatching exceed maxnum");
-
-								// Requesting Peer
-								if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
-									// Accept Peer in Group
-									peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
-
-									// Sending order may need to be reversed since Stack appends to the front, so the order will be switched around.
-
-									// Tell Children about new Sibling
-									sendBirthMessage(context, peer);
-
-									// Spawn Established Event
-									//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, target, 0, NULL);
-
-									// Send Accept Confirmation to Peer
-									sendAcceptMessage(context, peer, optLen, opt);
-
-									// Return Success
-									return 0;
-								}
-							}
-
-							// Client Mode
-							else if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
-								// Already connected
-								if (findParent(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
-
-								// Outgoing Request in Progress
-								if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
-
-								// Valid Offer
-								if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
-									// Switch into Join Request Mode
-									peer->state = PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST;
-
-									// Send Join Request to Peer
-									sendJoinRequest(context, peer, optLen, opt);
-
-									// Return Success
-									return 0;
-								}
-							}
-
-							// P2P Mode
-							else {
-								// Already connected
-								if (findP2P(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
-
-								// Outgoing Request in Progress
-								if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
-
-								// Join Request Mode
-								if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
-									// Switch into Join Request Mode
-									peer->state = PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST;
-
-									// Send Join Request to Peer
-									sendJoinRequest(context, peer, optLen, opt);
-
-									// Return Success
-									return 0;
-								}
-
-								// Requesting Peer
-								else if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
-									// Accept Peer in Group
-									peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
-
-									// Tell Children about new Sibling
-									//sendBirthMessage(context, peer);
-									// Send Accept Confirmation to Peer
-									sendAcceptMessage(context, peer, optLen, opt);
-
-									// Return Success
-									return 0;
-								}
-							}
-
-							// How did this happen?! It shouldn't!
-							return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_TARGET_NOT_READY, "adhocmatching target not ready");
-						}
-
-						// Invalid Optional Data Length
-						return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN, "adhocmatching invalid optlen");
-					}
-
-					// Peer not found
-					return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
-				}
-
-				// Idle Context
-				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
-			}
-
-			// Invalid Matching ID
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
-		}
-
+	if (macAddress == NULL) {
 		// Invalid Arguments
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	SceNetEtherAddr * target = (SceNetEtherAddr *)macAddress;
+
+	// Find Matching Context for ID
+	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+
+	if (context == NULL) {
+		// Invalid Matching ID
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+	}
+
+	if (!context->running) {
+		// Idle Context
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+	}
+
+	// Search Result
+	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)target);
+
+	if (peer == NULL) {
+		// Peer not found
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+	}
+
+	if ((optLen != 0) && (optLen <= 0 || optDataPtr == 0)) {
+		// Invalid Optional Data Length
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN, "adhocmatching invalid optlen");
+	}
+
+	void * opt = NULL;
+	if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
+	// Host Mode
+	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+		// Already Connected
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+
+		// Not enough space
+		if (countChildren(context) == (context->maxpeers - 1)) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_EXCEED_MAXNUM, "adhocmatching exceed maxnum");
+
+		// Requesting Peer
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
+			// Accept Peer in Group
+			peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
+
+			// Sending order may need to be reversed since Stack appends to the front, so the order will be switched around.
+
+			// Tell Children about new Sibling
+			sendBirthMessage(context, peer);
+
+			// Spawn Established Event
+			//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, target, 0, NULL);
+
+			// Send Accept Confirmation to Peer
+			sendAcceptMessage(context, peer, optLen, opt);
+
+			// Return Success
+			return 0;
+		}
+	}
+
+	// Client Mode
+	else if (context->mode == PSP_ADHOC_MATCHING_MODE_CHILD) {
+		// Already connected
+		if (findParent(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+
+		// Outgoing Request in Progress
+		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
+
+		// Valid Offer
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
+			// Switch into Join Request Mode
+			peer->state = PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST;
+
+			// Send Join Request to Peer
+			sendJoinRequest(context, peer, optLen, opt);
+
+			// Return Success
+			return 0;
+		}
+	}
+
+	// P2P Mode
+	else {
+		// Already connected
+		if (findP2P(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_ALREADY_ESTABLISHED, "adhocmatching already established");
+
+		// Outgoing Request in Progress
+		if (findOutgoingRequest(context) != NULL) return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
+
+		// Join Request Mode
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_OFFER) {
+			// Switch into Join Request Mode
+			peer->state = PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST;
+
+			// Send Join Request to Peer
+			sendJoinRequest(context, peer, optLen, opt);
+
+			// Return Success
+			return 0;
+		}
+
+		// Requesting Peer
+		else if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
+			// Accept Peer in Group
+			peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
+
+			// Tell Children about new Sibling
+			//sendBirthMessage(context, peer);
+			// Send Accept Confirmation to Peer
+			sendAcceptMessage(context, peer, optLen, opt);
+
+			// Return Success
+			return 0;
+		}
+	}
+
+	// How did this happen?! It shouldn't!
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_TARGET_NOT_READY, "adhocmatching target not ready");
 }
 
 int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress, int optLen, u32 optDataPtr) {
-	// Initialized Library
-	if (netAdhocMatchingInited) {
-		SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
-		void* opt = NULL;
-		if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	}
 
-		// Valid Arguments
-		if (target != NULL && ((optLen == 0) || (optLen > 0 && opt != NULL))) {
-			// Find Matching Context
-			SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
+	SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
+	void* opt = NULL;
+	if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 
-			// Found Matching Context
-			if (context != NULL) {
-				// Running Context
-				if (context->running) {
-					// Find Peer
-					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
-
-					// Found Peer
-					if (peer != NULL) {
-						// Valid Peer Mode
-						if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST)) ||
-							(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)) ||
-							(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && (peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)))
-						{
-							// Notify other Children of Death
-							if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1) {
-								// Send Death Message
-								sendDeathMessage(context, peer);
-							}
-
-							// Mark Peer as Canceled
-							peer->state = PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS;
-
-							// Send Cancel Event to Peer
-							sendCancelMessage(context, peer, optLen, opt);
-
-							// Delete Peer from List
-							// Can't delete here, Threads still need this data.
-							// deletePeer(context, peer);
-							// Marking peer to be timedout instead of deleting immediately
-							peer->lastping = 0;
-
-							hleEatCycles(adhocDefaultDelay);
-							// Return Success
-							return 0;
-						}
-					}
-
-					// Peer not found
-					//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
-					// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
-					return 0;
-				}
-
-				// Context not running
-				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
-			}
-
-			// Invalid Matching ID
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
-		}
-
+	if (target == NULL || ((optLen != 0) && (optLen <= 0 || opt == NULL))) {
 		// Invalid Arguments
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	// Find Matching Context
+	SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
+
+	if (context == NULL) {
+		// Invalid Matching ID
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+	}
+
+	if (!context->running) {
+		// Context not running
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+	}
+
+	// Find Peer
+	SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
+
+	if (peer == NULL) {
+		// Peer not found
+		//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+		// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
+		return 0;
+	}
+
+	// Valid Peer Mode
+	if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST)) ||
+		(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)) ||
+		(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && (peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)))
+	{
+		// Notify other Children of Death
+		if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1) {
+			// Send Death Message
+			sendDeathMessage(context, peer);
+		}
+
+		// Mark Peer as Canceled
+		peer->state = PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS;
+
+		// Send Cancel Event to Peer
+		sendCancelMessage(context, peer, optLen, opt);
+
+		// Delete Peer from List
+		// Can't delete here, Threads still need this data.
+		// deletePeer(context, peer);
+		// Marking peer to be timedout instead of deleting immediately
+		peer->lastping = 0;
+
+		hleEatCycles(adhocDefaultDelay);
+		// Return Success
+		return 0;
+	}
+
+	// Peer not found
+	//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+	// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
+	return 0;
 }
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
