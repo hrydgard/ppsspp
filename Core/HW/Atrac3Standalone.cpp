@@ -95,8 +95,17 @@ public:
 			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, inbuf, inbytes);
 		}
 		if (result < 0) {
+			// NOTE: Here, to recover from single bad packets, we update inBytesConsumed/outSamples with the regular packet size.
+			// Otherwise we might try to decode the same packet over and over.
+			// This is seen in some unofficial game mods, mainly.
+			if (inbytesConsumed) {
+				*inbytesConsumed = inbytes;
+			}
 			if (outSamples) {
-				*outSamples = 0;
+				if (*outSamples != 0) {
+					nb_samples = std::min(*outSamples, nb_samples);
+				}
+				*outSamples = nb_samples;
 			}
 			return false;
 		}
