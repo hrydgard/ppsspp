@@ -1561,48 +1561,48 @@ void netAdhocMatchingValidateLoopMemory() {
 
 int NetAdhocMatching_Stop(int matchingId) {
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
-
-	if (item != NULL) {
-		// This will cause using PdpRecv on this socket to return ERROR_NET_ADHOC_SOCKET_ALERTED (Based on Ys vs. Sora no Kiseki when tested with JPCSP + prx files). Is this used to abort inprogress socket activity?
-		NetAdhoc_SetSocketAlert(item->socket, ADHOC_F_ALERTRECV);
-
-		item->inputRunning = false;
-		if (item->inputThread.joinable()) {
-			item->inputThread.join();
-		}
-
-		item->eventRunning = false;
-		if (item->eventThread.joinable()) {
-			item->eventThread.join();
-		}
-
-		// Stop fake PSP Thread.
-		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
-		if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
-			__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
-			__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
-		}
-		matchingThreads[item->matching_thid] = 0;
-
-		// Make sure nobody locking/using the socket
-		item->socketlock->lock();
-		// Delete the socket
-		NetAdhocPdp_Delete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
-		item->socketlock->unlock();
-
-		// Multithreading Lock
-		peerlock.lock();
-
-		// Remove your own MAC, or All members, or don't remove at all or we should do this on MatchingDelete ?
-		clearPeerList(item); //deleteAllMembers(item);
-
-		item->running = 0;
-		netAdhocMatchingStarted--;
-
-		// Multithreading Unlock
-		peerlock.unlock();
-
+	if (item == NULL) {
+		return 0;
 	}
+
+	// This will cause using PdpRecv on this socket to return ERROR_NET_ADHOC_SOCKET_ALERTED (Based on Ys vs. Sora no Kiseki when tested with JPCSP + prx files). Is this used to abort inprogress socket activity?
+	NetAdhoc_SetSocketAlert(item->socket, ADHOC_F_ALERTRECV);
+
+	item->inputRunning = false;
+	if (item->inputThread.joinable()) {
+		item->inputThread.join();
+	}
+
+	item->eventRunning = false;
+	if (item->eventThread.joinable()) {
+		item->eventThread.join();
+	}
+
+	// Stop fake PSP Thread.
+	// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
+	if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
+		__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
+		__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
+	}
+	matchingThreads[item->matching_thid] = 0;
+
+	// Make sure nobody locking/using the socket
+	item->socketlock->lock();
+	// Delete the socket
+	NetAdhocPdp_Delete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
+	item->socketlock->unlock();
+
+	// Multithreading Lock
+	peerlock.lock();
+
+	// Remove your own MAC, or All members, or don't remove at all or we should do this on MatchingDelete ?
+	clearPeerList(item); //deleteAllMembers(item);
+
+	item->running = 0;
+	netAdhocMatchingStarted--;
+
+	// Multithreading Unlock
+	peerlock.unlock();
 
 	return 0;
 }
@@ -1614,11 +1614,11 @@ int sceNetAdhocMatchingStop(int matchingId) {
 }
 
 int NetAdhocMatching_Delete(int matchingId) {
+	// Multithreading Lock
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Previous Context Reference
 	SceNetAdhocMatchingContext* prev = NULL;
-
-	// Multithreading Lock
-	peerlock.lock(); //contextlock.lock();
 
 	// Context Pointer
 	SceNetAdhocMatchingContext* item = contexts;
@@ -1671,9 +1671,6 @@ int NetAdhocMatching_Delete(int matchingId) {
 		// Set Previous Reference
 		prev = item;
 	}
-
-	// Multithreading Unlock
-	peerlock.unlock(); //contextlock.unlock();
 
 	return 0;
 }
