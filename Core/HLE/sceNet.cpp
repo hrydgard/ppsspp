@@ -150,9 +150,8 @@ static bool __PlatformNetInit() {
 		// TODO: log
 		return false;
 	}
-#else
-	return true;
 #endif
+	return true;
 }
 
 static bool __PlatformNetShutdown() {
