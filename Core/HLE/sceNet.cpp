@@ -304,11 +304,13 @@ void __NetDoState(PointerWrap &p) {
 		return;
 
 	auto cur_netInited = netInited;
-	// auto cur_netInetInited = netInetInited;
+	auto cur_netInetInited = SceNetInet::Inited();
 	auto cur_netApctlInited = netApctlInited;
 
+	auto netInetInited = cur_netInetInited;
+
 	Do(p, netInited);
-	// Do(p, netInetInited);
+	Do(p, netInetInited);
 	Do(p, netApctlInited);
 	Do(p, apctlHandlers);
 	Do(p, netMallocStat);
@@ -353,7 +355,7 @@ void __NetDoState(PointerWrap &p) {
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;
-		// netInetInited = cur_netInetInited;
+		netInetInited = SceNetInet::Inited();
 		netInited = cur_netInited;
 
 		// Discard leftover events
@@ -1450,6 +1452,9 @@ const HLEFunction sceNetIfhandle[] = {
 
 void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
+}
+
+void Register_sceNetApctl() {
 	RegisterModule("sceNetApctl", ARRAY_SIZE(sceNetApctl), sceNetApctl);
 }
 

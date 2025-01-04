@@ -243,7 +243,7 @@ private:
 };
 
 extern bool netInited;
-// extern bool netInetInited;
+extern bool netInetInited;
 extern bool netApctlInited;
 extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
@@ -252,6 +252,7 @@ template <typename I> std::string num2hex(I w, size_t hex_len = sizeof(I) << 1);
 std::string error2str(u32 errorcode);
 
 void Register_sceNet();
+void Register_sceNetApctl();
 void Register_sceWlanDrv();
 void Register_sceNetUpnp();
 void Register_sceNetIfhandle();

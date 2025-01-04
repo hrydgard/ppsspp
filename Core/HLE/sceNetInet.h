@@ -146,6 +146,10 @@ public:
         return gInstance;
     }
 
+	static bool Inited() {
+		return gInstance.get() != nullptr;
+	}
+
     // TODO: document that errno should be set to EAFNOSUPPORT when this returns false
     static bool TranslateInetAddressFamilyToNative(int &destAddressFamily, int srcAddressFamily);
     static inline bool TranslateInetSocketLevelToNative(int &destSocketLevel, int srcSocketLevel);
