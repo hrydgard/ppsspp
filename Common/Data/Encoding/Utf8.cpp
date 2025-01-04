@@ -492,15 +492,10 @@ static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, std::st
 	return destw - orig;
 }
 
-void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &source) {
-	ConvertUTF8ToUCS2Internal(dest, destSize, source);
-}
-
 std::u16string ConvertUTF8ToUCS2(std::string_view source) {
 	std::u16string dst;
-	// utf-8 won't be less bytes than there are characters.
-	dst.resize(source.size(), 0);
-	size_t realLen = ConvertUTF8ToUCS2Internal(&dst[0], source.size(), source);
+	dst.resize(source.size() + 1, 0);  // multiple UTF-8 chars will be one UCS2 char. But we need to leave space for a terminating null.
+	size_t realLen = ConvertUTF8ToUCS2Internal(&dst[0], dst.size(), source);
 	dst.resize(realLen);
 	return dst;
 }
