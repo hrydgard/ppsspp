@@ -2452,71 +2452,66 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Initialized Library
-	if (netAdhocMatchingInited) {
-		// Valid Arguments
-		if (mac != NULL) {
-			// Find Matching Context
-			SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "not initialized");
+	}
 
-			// Found Context
-			if (context != NULL) {
-				// Running Context
-				if (context->running) {
-					// Invalid Data Length
-					if (dataLen <= 0 || dataAddr == 0)
-						// Invalid Data Length
-						return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "invalid datalen");
-
-					void* data = NULL;
-					if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointerWriteUnchecked(dataAddr);
-
-					// Lock the peer
-					std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
-
-					// Find Target Peer
-					SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
-
-					// Found Peer
-					if (peer != NULL) {
-						// Valid Peer Connection State
-						if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P) {
-							// Send in Progress
-							if (peer->sending)
-								return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
-
-							// Mark Peer as Sending
-							peer->sending = 1;
-
-							// Send Data to Peer
-							sendBulkDataPacket(context, &peer->mac, dataLen, data);
-
-							// Return Success
-							return 0;
-						}
-
-						// Not connected / accepted
-						return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
-					}
-
-					// Peer not found
-					return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "unknown target");
-				}
-
-				// Context not running
-				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "not running");
-			}
-
-			// Invalid Matching ID
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "invalid id");
-		}
-
+	if (mac == NULL) {
 		// Invalid Arguments
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "invalid arg");
 	}
 
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "not initialized");
+	// Find Matching Context
+	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+
+	if (context == NULL) {
+		// Invalid Matching ID
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "invalid id");
+	}
+
+	if (!context->running) {
+		// Context not running
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "not running");
+	}
+
+	// Invalid Data Length
+	if (dataLen <= 0 || dataAddr == 0) {
+		// Invalid Data Length
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_DATALEN, "invalid datalen");
+	}
+
+	void* data = NULL;
+	if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointerWriteUnchecked(dataAddr);
+
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
+	// Find Target Peer
+	SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)mac);
+
+	if (peer == NULL) {
+		// Peer not found
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "unknown target");
+	}
+
+	if (peer->state != PSP_ADHOC_MATCHING_PEER_PARENT && peer->state != PSP_ADHOC_MATCHING_PEER_CHILD && peer->state != PSP_ADHOC_MATCHING_PEER_P2P) {
+		// Not connected / accepted
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_ESTABLISHED, "not established");
+	}
+
+	// Send in Progress
+	if (peer->sending)
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_DATA_BUSY, "data busy");
+
+	// Mark Peer as Sending
+	peer->sending = 1;
+
+	// Send Data to Peer
+	sendBulkDataPacket(context, &peer->mac, dataLen, data);
+
+	// Return Success
+	return 0;
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
@@ -2524,53 +2519,48 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Initialized Library
-	if (netAdhocMatchingInited) {
-		// Valid Arguments
-		if (mac != NULL) {
-			// Find Matching Context
-			SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	}
 
-			// Found Context
-			if (context != NULL) {
-				// Running Context
-				if (context->running) {
-					// Find Target Peer
-					SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)mac);
-
-					// Found Peer
-					if (peer != NULL) {
-						// Peer is sending
-						if (peer->sending) {
-							// Set Peer as Bulk Idle
-							peer->sending = 0;
-
-							// Stop Bulk Data Sending (if in progress)
-							abortBulkTransfer(context, peer);
-						}
-
-						// Return Success
-						return 0;
-					}
-
-					// Peer not found
-					return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
-				}
-
-				// Context not running
-				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
-			}
-
-			// Invalid Matching ID
-			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
-		}
-
+	if (mac == NULL) {
 		// Invalid Arguments
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	// Find Matching Context
+	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
+
+	if (context == NULL) {
+		// Invalid Matching ID
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ID, "adhocmatching invalid id");
+	}
+
+	if (!context->running) {
+		// Context not running
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_RUNNING, "adhocmatching not running");
+	}
+
+	// Find Target Peer
+	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)mac);
+
+	if (peer == NULL) {
+		// Peer not found
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
+	}
+
+	// Peer is sending
+	if (peer->sending) {
+		// Set Peer as Bulk Idle
+		peer->sending = 0;
+
+		// Stop Bulk Data Sending (if in progress)
+		abortBulkTransfer(context, peer);
+	}
+
+	// Return Success
+	return 0;
 }
 
 // Get the maximum memory usage by the matching library
@@ -2588,32 +2578,29 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 	if (!g_Config.bEnableWlan)
 		return -1;
 
-	// Initialized Library
-	if (netAdhocMatchingInited) {
-		SceNetMallocStat * poolstat = NULL;
-		if (Memory::IsValidAddress(poolstatPtr)) poolstat = (SceNetMallocStat *)Memory::GetPointer(poolstatPtr);
+	if (!netAdhocMatchingInited) {
+		// Uninitialized Library
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	}
 
-		// Valid Argument
-		if (poolstat != NULL) {
-			// Fill Poolstat with Fake Data
-			poolstat->pool = fakePoolSize;
-			poolstat->maximum = fakePoolSize / 2; // Max usage faked to halt the pool
-			poolstat->free = fakePoolSize - poolstat->maximum;
+	SceNetMallocStat * poolstat = NULL;
+	if (Memory::IsValidAddress(poolstatPtr)) poolstat = (SceNetMallocStat *)Memory::GetPointer(poolstatPtr);
 
-			// Return Success
-			return 0;
-		}
-
+	if (poolstat == NULL) {
 		// Invalid Argument
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Uninitialized Library
-	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
+	// Fill Poolstat with Fake Data
+	poolstat->pool = fakePoolSize;
+	poolstat->maximum = fakePoolSize / 2; // Max usage faked to halt the pool
+	poolstat->free = fakePoolSize - poolstat->maximum;
+
+	// Return Success
+	return 0;
 }
 
-void __NetMatchingCallbacks() //(int matchingId)
-{
+void __NetMatchingCallbacks() { //(int matchingId)
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	hleSkipDeadbeef();
 	// Note: Super Pocket Tennis / Thrillville Off the Rails seems to have a very short timeout (ie. ~5ms) while waiting for the event to arrived on the callback handler, but Lord of Arcana may not work well with 5ms (~3m or ~10ms seems to be good)
