@@ -135,7 +135,10 @@ enum PspInetMessageFlag {
 };
 
 enum InetErrorCode {
+	INET_EAGAIN = 0x0B,
+	INET_ETIMEDOUT = 0x74,
     INET_EINPROGRESS = 119,
+	INET_EISCONN = 0x7F,
 };
 
 class SceNetInet {

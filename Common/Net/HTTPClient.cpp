@@ -383,7 +383,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 	return 0;
 }
 
-int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string *statusLine) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
@@ -420,6 +420,9 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		ERROR_LOG(Log::HTTP, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
+
+	if (statusLine)
+		*statusLine = line;
 
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
@@ -553,7 +556,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled.");
+		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled (=%d).", cancelled_);
 		return -1;
 	}
 
