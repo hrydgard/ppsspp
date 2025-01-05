@@ -53,7 +53,7 @@ std::map<int, NpAuthHandler> npAuthHandlers;
 
 
 // Tickets data are in big-endian based on captured packets
-int writeTicketParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
+static int writeTicketParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
 	if (buffer == nullptr) return 0;
 
 	u16_be sz = (data == nullptr)? static_cast<u16_be>(0): size;
@@ -65,7 +65,7 @@ int writeTicketParam(u8* buffer, const u16_be type, const char* data = nullptr, 
 	return sz + 4;
 }
 
-int writeTicketStringParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
+static int writeTicketStringParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
 	if (buffer == nullptr) return 0;
 
 	u16_be sz = (data == nullptr) ? static_cast<u16_be>(0) : size;
@@ -78,7 +78,7 @@ int writeTicketStringParam(u8* buffer, const u16_be type, const char* data = nul
 	return sz + 4;
 }
 
-int writeTicketU32Param(u8* buffer, const u16_be type, const u32_be data) {
+static int writeTicketU32Param(u8* buffer, const u16_be type, const u32_be data) {
 	if (buffer == nullptr) return 0;
 	
 	u16_be sz = 4;
@@ -89,7 +89,7 @@ int writeTicketU32Param(u8* buffer, const u16_be type, const u32_be data) {
 	return sz + 4;
 }
 
-int writeTicketU64Param(u8* buffer, const u16_be type, const u64_be data) {
+static int writeTicketU64Param(u8* buffer, const u16_be type, const u64_be data) {
 	if (buffer == nullptr) return 0;
 
 	u16_be sz = 8;
@@ -100,7 +100,7 @@ int writeTicketU64Param(u8* buffer, const u16_be type, const u64_be data) {
 	return sz + 4;
 }
 
-void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
+static void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
 	std::lock_guard<std::recursive_mutex> npAuthGuard(npAuthEvtMtx);
 	npAuthEvents.push_back({ { id, result, argAddr } });
 }
