@@ -610,6 +610,10 @@ const HLEFunction sceNpService[] = {
 	{0X4E851B10, &WrapI_IUUUUUU<sceNpRosterGetFriendListEntry>,	"sceNpRosterGetFriendListEntry",		'i', "ixxxxxx"},
 	{0X5F5E32AF, &WrapI_I<sceNpRosterAbort>,					"sceNpRosterAbort",						'i', "i"      },
 	{0X66C64821, &WrapI_I<sceNpRosterDeleteRequest>,			"sceNpRosterDeleteRequest",				'i', "i"      },
+	{0X506C318D, nullptr,                                       "sceNpService_506C318D",                'i', "" },
+	{0X58251346, nullptr,                                       "sceNpService_58251346",                'i', "" },
+	{0X788F2B5E, nullptr,                                       "sceNpService_788F2B5E",                'i', "" },
+	{0XA01443AA, nullptr,                                       "sceNpService_A01443AA",                'i', "" },
 };
 
 void Register_sceNpService()
