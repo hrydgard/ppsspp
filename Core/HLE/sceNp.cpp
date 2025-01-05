@@ -72,8 +72,11 @@ static int writeTicketStringParam(u8* buffer, const u16_be type, const char* dat
 	memcpy(buffer, &type, 2);
 	memcpy(buffer + 2, &sz, 2);
 	if (sz > 0) {
-		memset(buffer + 4, 0, sz);
-		truncate_cpy((char*)buffer + 4, sz, data);
+		// Yes, we want to use strncpy. Do not change to truncate_cpy.
+		if (data)
+			strncpy((char *)buffer + 4, data, sz);
+		else
+			memset(buffer + 4, 0, sz);
 	}
 	return sz + 4;
 }
@@ -159,7 +162,7 @@ static int sceNpGetOnlineId(u32 idPtr)
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	id.FillWithZero();
-	truncate_cpy(id->data, sizeof(id->data), npOnlineId.c_str());
+	strncpy(id->data, npOnlineId.c_str(), sizeof(id->data));
 	id.NotifyWrite("NpGetOnlineId");
 
 	INFO_LOG(Log::sceNet, "%s - Online ID: %s", __FUNCTION__, id->data);
@@ -169,7 +172,8 @@ static int sceNpGetOnlineId(u32 idPtr)
 
 int NpGetNpId(SceNpId* npid)
 {
-	truncate_cpy(npid->handle.data, sizeof(npid->handle.data), npOnlineId.c_str());
+	// Callers make sure that the rest of npid is zero filled, which takes care of the terminator.
+	strncpy(npid->handle.data, npOnlineId.c_str(), sizeof(npid->handle.data));
 	return 0;
 }
 
@@ -246,7 +250,7 @@ static int sceNpGetUserProfile(u32 profilePtr)
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	profile.FillWithZero();
-	truncate_cpy(profile->userId.handle.data, sizeof(profile->userId.handle.data), npOnlineId.c_str());
+	strncpy(profile->userId.handle.data, npOnlineId.c_str(), sizeof(profile->userId.handle.data));
 	truncate_cpy(profile->icon.data, sizeof(profile->icon.data), npAvatarUrl.c_str());
 
 	INFO_LOG(Log::sceNet, "%s - Online ID: %s", __FUNCTION__, profile->userId.handle.data);
@@ -409,7 +413,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_DATE, now);
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_DATE, now + 10 * 60 * 1000); // now + 10 minutes, expired time?
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_LONG, 0x592e71c546e86859); // seems to be consistent, 8-bytes password hash may be? or related to entitlement? or console id?
-	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npOnlineId.c_str(), 16); // username
+	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npOnlineId.c_str(), 16); // username (cut to 16 chars exactly)
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npCountryCode, 4); // SceNpCountryCode ? ie. "fr" + 00 02
 	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npRegionCode, 4); // 2-char code? related to country/lang code? ie. "c9" + 00 00
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npServiceId.c_str(), 24);
