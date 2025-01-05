@@ -215,9 +215,6 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		DepthUB ub{};
 
-		// Setting this to 0.95f eliminates flickering lights with delayed readback in Syphon Filter.
-		// That's pretty ugly though! But we'll need to do that if we're gonna enable delayed readback in those games.
-		const float fudgeFactor = 1.0f;
 		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 		ub.u_depthFactor[0] = depthScale.Offset();
 		ub.u_depthFactor[1] = depthScale.Scale();
@@ -232,9 +229,9 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		// Fullscreen triangle coordinates.
 		static const float positions[6] = {
-			0.0, 0.0,
-			1.0, 0.0,
-			0.0, 1.0,
+			0.0f, 0.0f,
+			1.0f, 0.0f,
+			0.0f, 1.0f,
 		};
 		draw_->DrawUP(positions, 3);
 

@@ -2080,7 +2080,7 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	}
 }
 
-void TextureCacheCommon::ApplyTexture() {
+void TextureCacheCommon::ApplyTexture(bool doBind) {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
@@ -2161,7 +2161,9 @@ void TextureCacheCommon::ApplyTexture() {
 		gstate_c.SetTextureIsBGRA(false);
 	} else {
 		entry->lastFrame = gpuStats.numFlips;
-		BindTexture(entry);
+		if (doBind) {
+			BindTexture(entry);
+		}
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
