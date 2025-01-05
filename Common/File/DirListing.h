@@ -33,6 +33,7 @@ enum {
 	GETFILES_GET_NAVIGATION_ENTRIES = 2,  // If you don't set this, "." and ".." will be skipped.
 };
 
+// Note: extensionFilter is ignored for directories, so you can recurse.
 bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *extensionFilter = nullptr, int flags = 0, std::string_view prefix = std::string_view());
 std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *extensionFilter, std::string_view prefix);
 
