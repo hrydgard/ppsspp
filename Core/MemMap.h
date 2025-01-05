@@ -499,6 +499,10 @@ struct PSPPointer
 		return Memory::IsValidRange(ptr, (u32)sizeof(T));
 	}
 
+	void FillWithZero() {
+		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
+	}
+
 	T *PtrOrNull() {
 		if (IsValid())
 			return (T *)*this;

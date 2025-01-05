@@ -158,7 +158,7 @@ static int sceNpGetOnlineId(u32 idPtr)
 	if (!id.IsValid())
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	memset((SceNpOnlineId *)id, 0, sizeof(SceNpOnlineId));
+	id.FillWithZero();
 	truncate_cpy(id->data, sizeof(id->data), npOnlineId.c_str());
 	id.NotifyWrite("NpGetOnlineId");
 
@@ -182,7 +182,7 @@ static int sceNpGetNpId(u32 idPtr)
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
 	SceNpId dummyNpId{};
-	memset((SceNpId *)id, 0, sizeof(SceNpId));
+	id.FillWithZero();
 	int retval = NpGetNpId(id);
 	if (retval < 0)
 		return hleLogError(Log::sceNet, retval);
@@ -205,9 +205,9 @@ static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
 	if (!countryCode.IsValid() || !regionCode.IsValid())
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	memset((SceNpCountryCode *)countryCode, 0, sizeof(SceNpCountryCode));
+	countryCode.FillWithZero();
 	memcpy(countryCode->data, npCountryCode, sizeof(countryCode->data));
-	memset((SceNpCountryCode *)regionCode, 0, sizeof(SceNpCountryCode));
+	regionCode.FillWithZero();
 	memcpy(regionCode->data, npRegionCode, sizeof(regionCode->data));
 
 	INFO_LOG(Log::sceNet, "%s - Country Code: %s", __FUNCTION__, countryCode->data);
@@ -245,7 +245,7 @@ static int sceNpGetUserProfile(u32 profilePtr)
 	if (!Memory::IsValidAddress(profilePtr))
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	memset((SceNpUserInformation *)profile, 0, sizeof(SceNpUserInformation));
+	profile.FillWithZero();
 	truncate_cpy(profile->userId.handle.data, sizeof(profile->userId.handle.data), npOnlineId.c_str());
 	truncate_cpy(profile->icon.data, sizeof(profile->icon.data), npAvatarUrl.c_str());
 
