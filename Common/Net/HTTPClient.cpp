@@ -556,7 +556,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled.");
+		ERROR_LOG(Log::HTTP, "Failed connecting to server or cancelled (=%d).", cancelled_);
 		return -1;
 	}
 

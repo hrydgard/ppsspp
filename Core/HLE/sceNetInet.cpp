@@ -640,6 +640,9 @@ static u32 sceNetInetInetAddr(const char *hostname) {
 		sceNetInet->SetLastErrorToMatchPlatform();
 		return inAddr.s_addr;
 	}
+
+	// TODO: Should this return ret or inAddr.sAddr? Conflicting info between the two PRs!
+
 	return hleLogSuccessI(Log::sceNet, ret);
 }
 
