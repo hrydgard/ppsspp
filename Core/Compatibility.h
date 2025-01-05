@@ -105,7 +105,6 @@ struct CompatFlags {
 	bool Fontltn12Hack;
 	bool LoadCLUTFromCurrentFrameOnly;
 	bool ForceUMDReadSpeed;
-	bool AllowDelayedReadbacks;
 	bool KernelGetSystemTimeLowEatMoreCycles;
 	bool TacticsOgreEliminateDebugReadback;
 	bool FramebufferAllowLargeVerticalOffset;

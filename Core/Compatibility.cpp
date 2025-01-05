@@ -142,7 +142,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "Fontltn12Hack", &flags_.Fontltn12Hack);
 	CheckSetting(iniFile, gameID, "LoadCLUTFromCurrentFrameOnly", &flags_.LoadCLUTFromCurrentFrameOnly);
 	CheckSetting(iniFile, gameID, "ForceUMDReadSpeed", &flags_.ForceUMDReadSpeed);
-	CheckSetting(iniFile, gameID, "AllowDelayedReadbacks", &flags_.AllowDelayedReadbacks);
 	CheckSetting(iniFile, gameID, "KernelGetSystemTimeLowEatMoreCycles", &flags_.KernelGetSystemTimeLowEatMoreCycles);
 	CheckSetting(iniFile, gameID, "TacticsOgreEliminateDebugReadback", &flags_.TacticsOgreEliminateDebugReadback);
 	CheckSetting(iniFile, gameID, "FramebufferAllowLargeVerticalOffset", &flags_.FramebufferAllowLargeVerticalOffset);

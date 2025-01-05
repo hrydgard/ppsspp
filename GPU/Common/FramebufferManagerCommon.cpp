@@ -1064,7 +1064,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
-	// Download depth buffer for Syphon Filter lens flares
+	// Download depth buffer if compat flag set (previously used for Syphon Filter lens flares, now used for nothing)
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || GetSkipGPUReadbackMode() != SkipGPUReadbackMode::NO_SKIP) {
 		return false;
 	}
@@ -1074,6 +1074,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFrame
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (prevVfb) {
 		if (ShouldDownloadFramebufferColor(prevVfb) && !prevVfb->memoryUpdated) {
+			// NOTE: This path is ONLY for the Dangan Ronpa hack, see ShouldDownloadFramebufferColor
 			ReadFramebufferToMemory(prevVfb, 0, 0, prevVfb->width, prevVfb->height, RASTER_COLOR, Draw::ReadbackMode::OLD_DATA_OK);
 			prevVfb->usageFlags = (prevVfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		} else {
@@ -2192,11 +2193,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, Log::FrameBuf, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
-			Draw::ReadbackMode readbackMode = Draw::ReadbackMode::BLOCK;
-			if (PSP_CoreParameter().compat.flags().AllowDelayedReadbacks) {
-				readbackMode = Draw::ReadbackMode::OLD_DATA_OK;
-			}
-			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel, readbackMode);
+			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel, Draw::ReadbackMode::BLOCK);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
@@ -2743,11 +2740,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				if (tooTall) {
 					WARN_LOG_ONCE(btdheight, Log::G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 				}
-				Draw::ReadbackMode readbackMode = Draw::ReadbackMode::BLOCK;
-				if (PSP_CoreParameter().compat.flags().AllowDelayedReadbacks) {
-					readbackMode = Draw::ReadbackMode::OLD_DATA_OK;
-				}
-				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, readbackMode);
+				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 				srcRect.vfb->usageFlags = (srcRect.vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
