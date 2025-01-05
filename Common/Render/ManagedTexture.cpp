@@ -78,7 +78,9 @@ ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 		return ImageFileType::ZIM;
 	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
 		return ImageFileType::PNG;
-	} else if (!memcmp(data, "\xff\xd8\xff\xe0", 4) || !memcmp(data, "\xff\xd8\xff\xe1", 4)) {
+	} else if (!memcmp(data, "\xff\xd8\xff", 3)) {
+		// Only checking 3 bytes, the fourth bytes can be one of many sections that can be in
+		// any order, see https://en.wikipedia.org/wiki/JPEG#Syntax_and_structure
 		return ImageFileType::JPEG;
 	} else {
 		return ImageFileType::UNKNOWN;
