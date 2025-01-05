@@ -349,7 +349,7 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void ApplyTexture();
+	void ApplyTexture(bool doBind = true);
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
