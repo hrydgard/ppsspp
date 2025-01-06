@@ -1272,9 +1272,12 @@ u32 sceNetAdhocInit() {
 	return hleLogWarning(Log::sceNet, ERROR_NET_ADHOC_ALREADY_INITIALIZED, "already initialized");
 }
 
-static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
+int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, currentMIPS->pc);
-	
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
 	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
 	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
@@ -2529,7 +2532,7 @@ u32 NetAdhocctl_Disconnect() {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-static u32 sceNetAdhocctlDisconnect() {
+int sceNetAdhocctlDisconnect() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
 	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
@@ -5049,11 +5052,11 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 }
 
 const HLEFunction sceNetAdhocctl[] = {
-	{0XE26F226E, &WrapU_IIU<sceNetAdhocctlInit>,                       "sceNetAdhocctlInit",                     'x', "iix"      },
+	{0XE26F226E, &WrapI_IIU<sceNetAdhocctlInit>,                       "sceNetAdhocctlInit",                     'x', "iix"      },
 	{0X9D689E13, &WrapI_V<sceNetAdhocctlTerm>,                         "sceNetAdhocctlTerm",                     'i', ""         },
 	{0X20B317A0, &WrapU_UU<sceNetAdhocctlAddHandler>,                  "sceNetAdhocctlAddHandler",               'x', "xx"       },
 	{0X6402490B, &WrapU_U<sceNetAdhocctlDelHandler>,                   "sceNetAdhocctlDelHandler",               'x', "x"        },
-	{0X34401D65, &WrapU_V<sceNetAdhocctlDisconnect>,                   "sceNetAdhocctlDisconnect",               'x', ""         },
+	{0X34401D65, &WrapI_V<sceNetAdhocctlDisconnect>,                   "sceNetAdhocctlDisconnect",               'x', ""         },
 	{0X0AD043ED, &WrapI_C<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "s"        },
 	{0X08FFF7A0, &WrapI_V<sceNetAdhocctlScan>,                         "sceNetAdhocctlScan",                     'i', ""         },
 	{0X75ECD386, &WrapI_U<sceNetAdhocctlGetState>,                     "sceNetAdhocctlGetState",                 'i', "x"        },

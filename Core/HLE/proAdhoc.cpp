@@ -88,7 +88,8 @@
 
 uint16_t portOffset;
 uint32_t minSocketTimeoutUS;
-uint32_t fakePoolSize                 = 0;
+uint32_t fakePoolSize = 0;
+SceNetMallocStat netAdhocPoolStat = {};
 SceNetAdhocMatchingContext * contexts = NULL;
 char* dummyPeekBuf64k                 = NULL;
 int dummyPeekBuf64kSize               = 65536;
@@ -1482,8 +1483,8 @@ int friendFinder(){
 						SceNetAdhocctlConnectBSSIDPacketS2C* packet = (SceNetAdhocctlConnectBSSIDPacketS2C*)rx;
 
 						INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac).c_str());
-						// Update User BSSID
-						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
+						// Update Group BSSID
+						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
 
 						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
 						// Notify Event Handlers
@@ -1902,8 +1903,20 @@ bool isPrivateIP(uint32_t ip) {
 	return false;
 }
 
+bool isAPIPA(uint32_t ip) {
+	return (((uint8_t*)&ip)[0] == 169 && ((uint8_t*)&ip)[1] == 254);
+}
+
 bool isLoopbackIP(uint32_t ip) {
 	return ((uint8_t*)&ip)[0] == 0x7f;
+}
+
+bool isMulticastIP(uint32_t ip) {
+	return ((ip & 0xF0) == 0xE0);
+}
+
+bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask) {
+	return (ip == (ip | (~subnetmask)));
 }
 
 void getLocalMac(SceNetEtherAddr * addr){
@@ -1959,14 +1972,18 @@ int getSockMaxSize(int udpsock) {
 }
 
 int getSockBufferSize(int sock, int opt) { // opt = SO_RCVBUF/SO_SNDBUF
-	int n = PSP_ADHOC_PDP_MFS; // 16384;
+	int n = PSP_ADHOC_PDP_MFS*2; // 16384; // The value might be twice of the value being set using setsockopt
 	socklen_t m = sizeof(n);
-	getsockopt(sock, SOL_SOCKET, opt, (char *)&n, &m); // in linux the value is twice of the value being set using setsockopt
-	return (n/2);
+	getsockopt(sock, SOL_SOCKET, opt, (char *)&n, &m);
+	return (n);
 }
 
 int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBUF
-	int n = size; // 8192; //16384
+	int n = size; // 8192;
+	switch (opt) {
+		case SO_RCVBUF: n = std::max(size, 128); break; // FIXME: The minimum (doubled) value for SO_RCVBUF is 256 ? (2048+MTU+padding on newer OS? TCP_SKB_MIN_TRUESIZE)
+		case SO_SNDBUF: n = std::max(size, 1024); break; // FIXME: The minimum (doubled) value for SO_SNDBUF is 2048 ? (twice the minimum of SO_RCVBUF on newer OS? TCP_SKB_MIN_TRUESIZE * 2)
+	}
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
