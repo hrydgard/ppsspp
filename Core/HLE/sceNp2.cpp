@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// This is pretty much a stub implementation. Doesn't actually do anything, just tries to return values
-// to keep games happy anyway.
-
 #include <mutex>
 #include <deque>
 #include <StringUtils.h>
@@ -27,7 +24,6 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNp2.h"
-
 
 bool npMatching2Inited = false;
 SceNpAuthMemoryStat npMatching2MemStat = {};

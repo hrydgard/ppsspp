@@ -497,7 +497,9 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength, const char
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
 
-	NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+	if (tag) {
+		NotifyMemInfo(MemBlockFlags::WRITE, _Address, _iLength, tag, strlen(tag));
+	}
 }
 
 } // namespace
