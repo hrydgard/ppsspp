@@ -295,7 +295,7 @@ static int sceNetInetGetsockopt(int socket, int inetSocketLevel, int inetOptname
 	}
 
 	if (nativeOptname != inetOptname) {
-		DEBUG_LOG(Log::sceNet, "sceNetInetSetsockopt: Translated optname %04x into %04x", inetOptname, nativeOptname);
+		DEBUG_LOG(Log::sceNet, "sceNetInetGetsockopt: Translated optname %04x into %04x", inetOptname, nativeOptname);
 	}
 
 	socklen_t *optlen = reinterpret_cast<socklen_t *>(Memory::GetPointerWrite(optlenPtr));
@@ -1189,11 +1189,22 @@ bool SceNetInet::TranslateInetAddressFamilyToNative(int &destAddressFamily, int 
 }
 
 bool SceNetInet::TranslateInetSocketLevelToNative(int &destSocketLevel, int srcSocketLevel) {
-	if (srcSocketLevel != PSP_NET_INET_SOL_SOCKET) {
+	switch (srcSocketLevel) {
+	case PSP_NET_INET_IPPROTO_IP:
+		destSocketLevel = IPPROTO_IP;
+		return true;
+	case PSP_NET_INET_IPPROTO_TCP:
+		destSocketLevel = IPPROTO_TCP;
+		return true;
+	case PSP_NET_INET_IPPROTO_UDP:
+		destSocketLevel = IPPROTO_UDP;
+		return true;
+	case PSP_NET_INET_SOL_SOCKET:
+		destSocketLevel = SOL_SOCKET;
+		return true;
+	default:
 		return false;
 	}
-	destSocketLevel = SOL_SOCKET;
-	return true;
 }
 
 bool SceNetInet::TranslateInetSocketTypeToNative(int &destSocketType, bool &destNonBlocking, int srcSocketType) {
