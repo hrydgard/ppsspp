@@ -216,7 +216,7 @@ void __NetApctlInit() {
 
 static void __ResetInitNetLib() {
 	netInited = false;
-	// netInetInited = false;
+	SceNetInet::Shutdown();
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	memset(&parameter, 0, sizeof(parameter));
@@ -313,8 +313,10 @@ void __NetDoState(PointerWrap &p) {
 		return;
 
 	auto cur_netInited = netInited;
-	auto cur_netInetInited = netInetInited;
+	auto cur_netInetInited = SceNetInet::Inited();
 	auto cur_netApctlInited = netApctlInited;
+
+	bool netInetInited = cur_netInetInited;
 
 	Do(p, netInited);
 	Do(p, netInetInited);
@@ -368,13 +370,12 @@ void __NetDoState(PointerWrap &p) {
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		netApctlInited = cur_netApctlInited;
-		netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
 
 		// Discard leftover events
 		apctlEvents.clear();
 		// Discard created resolvers for now (since i'm not sure whether the information in the struct is sufficient or not, and we don't support multi-threading yet anyway)
-		netResolvers.clear();
+		SceNetResolver::Shutdown();
 	}
 }
 
