@@ -618,10 +618,12 @@ const HLEFunction sceNpService[] = {
 	{0X4E851B10, &WrapI_IUUUUUU<sceNpRosterGetFriendListEntry>,	"sceNpRosterGetFriendListEntry",		'i', "ixxxxxx"},
 	{0X5F5E32AF, &WrapI_I<sceNpRosterAbort>,					"sceNpRosterAbort",						'i', "i"      },
 	{0X66C64821, &WrapI_I<sceNpRosterDeleteRequest>,			"sceNpRosterDeleteRequest",				'i', "i"      },
-	{0X506C318D, nullptr,                                       "sceNpService_506C318D",                'i', "" },
-	{0X58251346, nullptr,                                       "sceNpService_58251346",                'i', "" },
-	{0X788F2B5E, nullptr,                                       "sceNpService_788F2B5E",                'i', "" },
-	{0XA01443AA, nullptr,                                       "sceNpService_A01443AA",                'i', "" },
+	{0X506C318D, nullptr,                                       "sceNpRosterGetBlockListEntry",         'i', "" },
+	{0X58251346, nullptr,                                       "sceNpRosterGetFriendListEntryCount",   'i', "" },
+	{0X788F2B5E, nullptr,                                       "sceNpRosterAddFriendListEntry",        'i', "" },
+	{0XA01443AA, nullptr,                                       "sceNpRosterGetBlockListEntryCount",    'i', "" },
+	{0X250488F9, nullptr,                                       "sceNpServiceGetMemoryStat",            'i', "" },
+	{0X4B4E4E71, nullptr,                                       "sceNpLookupAbortTransaction ",         'i', "" },
 };
 
 void Register_sceNpService()
@@ -629,7 +631,7 @@ void Register_sceNpService()
 	RegisterModule("sceNpService", ARRAY_SIZE(sceNpService), sceNpService);
 }
 
-// TODO: Moves NpCommerce2-related stuff to sceNpCommerce2.cpp
+// TODO: Move NpCommerce2-related stuff to sceNpCommerce2.cpp?
 const HLEFunction sceNpCommerce2[] = {
 	{0X005B5F20, nullptr,                            "sceNpCommerce2GetProductInfoStart",				'?', ""   },
 	{0X0E9956E3, nullptr,                            "sceNpCommerce2Init",								'?', ""   },

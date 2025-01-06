@@ -887,7 +887,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "socom.cc", CfgFlag::PER_GAME),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 10000, CfgFlag::PER_GAME),
-	ConfigSetting("PrimaryDNSServer", &g_Config.primaryDNSServer, "135.148.144.253", CfgFlag::PER_GAME),
+	ConfigSetting("PrimaryDNSServer", &g_Config.primaryDNSServer, "67.222.156.250", CfgFlag::PER_GAME),
 	ConfigSetting("SecondaryDNSServer", &g_Config.secondaryDNSServer, "0.0.0.0", CfgFlag::PER_GAME),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 0, CfgFlag::PER_GAME),
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, CfgFlag::PER_GAME),
