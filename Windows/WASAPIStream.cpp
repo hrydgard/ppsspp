@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+#include <initguid.h>
 #include "WindowsAudio.h"
 #include "WASAPIStream.h"
 #include "Common/Log.h"
@@ -18,14 +19,16 @@
 #include <AudioPolicy.h>
 #include "Functiondiscoverykeys_devpkey.h"
 
-// Includes some code from https://msdn.microsoft.com/en-us/library/dd370810%28VS.85%29.aspx?f=255&MSPPError=-2147217396
+// Includes some code from https://learn.microsoft.com/en-us/windows/win32/coreaudio/device-events
 
+#ifdef _MSC_VER
 #pragma comment(lib, "ole32.lib")
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
+#endif
 
 // Adapted from a MSDN sample.
 

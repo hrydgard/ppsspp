@@ -82,18 +82,10 @@ static u64 __RtcGetCurrentTick()
 	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
 
-#if defined(__MINGW32__)
+#if defined(__MINGW32__) && !defined(_UCRT)
 errno_t _get_timezone(long *seconds)
 {
-  time_t now = time(NULL);
-
-  struct tm *gm = gmtime(&now);
-  time_t gmt = mktime(gm);
-
-  struct tm *loc = localtime(&now);
-  time_t local = mktime(loc);
-
-  *seconds = local - gmt;
+  *seconds = _timezone;
   return 0;
 }
 #endif

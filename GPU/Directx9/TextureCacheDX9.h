@@ -76,4 +76,4 @@ private:
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 };
 
-D3DFORMAT getClutDestFormat(GEPaletteFormat format);
+static D3DFORMAT getClutDestFormat(GEPaletteFormat format);

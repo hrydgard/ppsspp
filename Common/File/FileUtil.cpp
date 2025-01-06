@@ -29,13 +29,6 @@
 
 #include "android/jni/app-android.h"
 
-#ifdef __MINGW32__
-#include <unistd.h>
-#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
-#define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
-#endif
-#endif
-
 #include <cstring>
 #include <ctime>
 #include <memory>

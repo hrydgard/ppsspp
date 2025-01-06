@@ -730,7 +730,7 @@ static std::string GetDefaultLangRegion() {
 	wchar_t lcLangName[256] = {};
 
 	// LOCALE_SNAME is only available in WinVista+
-	if (0 != GetLocaleInfo(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcLangName, ARRAY_SIZE(lcLangName))) {
+	if (0 != GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcLangName, ARRAY_SIZE(lcLangName))) {
 		std::string result = ConvertWStringToUTF8(lcLangName);
 		std::replace(result.begin(), result.end(), '-', '_');
 		return result;

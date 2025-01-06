@@ -190,8 +190,15 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 		ERROR_LOG(Log::ME, "Failed to allocate a codec context");
 		return;
 	}
-	codecCtx_->channels = channels_;
-	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+	if (channels_ == 2)
+		codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+	else
+		codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_MONO;
+#else
+		codecCtx_->channels = channels_;
+		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+#endif
 	codecCtx_->sample_rate = sample_rate_;
 	codecOpen_ = false;
 #endif  // USE_FFMPEG
@@ -229,8 +236,15 @@ void FFmpegAudioDecoder::SetChannels(int channels) {
 		ERROR_LOG(Log::ME, "Codec already open, cannot change channels");
 	} else {
 		channels_ = channels;
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+		if (channels_ == 2)
+			codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+		else
+			codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_MONO;
+#else
 		codecCtx_->channels = channels_;
 		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+#endif
 	}
 #endif
 }
@@ -309,10 +323,27 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
 		_dbg_assert_(outputChannels == 2);
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+		AVChannelLayout wanted_channel_layout = AV_CHANNEL_LAYOUT_STEREO; // we want stereo output layout
+		const AVChannelLayout& dec_channel_layout = frame_->ch_layout; // decoded channel layout
+#else
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
 		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
+#endif
 
 		if (!swrCtx_) {
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+			swr_alloc_set_opts2(
+				&swrCtx_,
+				&wanted_channel_layout,
+				AV_SAMPLE_FMT_S16,
+				codecCtx_->sample_rate,
+				&dec_channel_layout,
+				codecCtx_->sample_fmt,
+				codecCtx_->sample_rate,
+				0,
+				NULL);
+#else
 			swrCtx_ = swr_alloc_set_opts(
 				swrCtx_,
 				wanted_channel_layout,
@@ -323,6 +354,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 				codecCtx_->sample_rate,
 				0,
 				NULL);
+#endif
 
 			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
 				ERROR_LOG(Log::ME, "swr_init: Failed to initialize the resampling context");
@@ -350,7 +382,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	return true;
 #else
 	// Zero bytes output. No need to memset.
-	*outbytes = 0;
+	*outSamples = 0;
 	return true;
 #endif  // USE_FFMPEG
 }

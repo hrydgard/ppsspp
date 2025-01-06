@@ -112,7 +112,7 @@ void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 }
 
-D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
+static D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return D3DFMT_A4R4G4B4;

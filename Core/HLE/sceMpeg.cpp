@@ -1052,7 +1052,10 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			sws_freeContext(img_convert_ctx);
 
 			// update timestamp
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+			int64_t bestPts = mediaengine->m_pFrame->best_effort_timestamp;
+			int64_t ptsDuration = mediaengine->m_pFrame->duration;
+#elif LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
 			int64_t bestPts = mediaengine->m_pFrame->best_effort_timestamp;
 			int64_t ptsDuration = mediaengine->m_pFrame->pkt_duration;
 #else

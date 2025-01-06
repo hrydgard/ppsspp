@@ -62,16 +62,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 	__cpuid((int *)regs, cpuid_leaf);
 }
 
-#ifdef __MINGW32__
-static uint64_t do_xgetbv(unsigned int index) {
-	unsigned int eax, edx;
-	// This is xgetbv directly, so we can avoid compilers warning we need runtime checks.
-	asm(".byte 0x0f, 0x01, 0xd0" : "=a"(eax), "=d"(edx) : "c"(index));
-	return ((uint64_t)edx << 32) | eax;
-}
-#else
 #define do_xgetbv _xgetbv
-#endif
 
 #else  // _WIN32
 

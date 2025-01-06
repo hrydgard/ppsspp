@@ -22,6 +22,9 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
+#ifdef __MINGW32__
+#include <mswsock.h>
+#endif
 
 int inetLastErrno = 0; // TODO: since errno can only be read once, we should keep track the value to be used on sceNetInetGetErrno
 
@@ -1005,7 +1008,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		// Note: Many existing implementations of CMSG_FIRSTHDR never look at msg_controllen and just return the value of cmsg_control.
 		if (pspMsghdr->msg_controllen >= sizeof(InetCmsghdr)) {
 			// TODO: Creates our own CMSG_* macros (32-bit version of it, similar to the one on PSP) to avoid alignment/size issue that can lead to memory corruption/out of bound issue.
-			for (WSACMSGHDR* cmsgptr = CMSG_FIRSTHDR(&hdr); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&hdr, cmsgptr)) {
+			for (WSACMSGHDR* cmsgptr = WSA_CMSG_FIRSTHDR(&hdr); cmsgptr != NULL; cmsgptr = WSA_CMSG_NXTHDR(&hdr, cmsgptr)) {
 				cmsgptr->cmsg_type = convertCMsgTypePSP2Host(cmsgptr->cmsg_type, cmsgptr->cmsg_level);
 				cmsgptr->cmsg_level = convertSockoptLevelPSP2Host(cmsgptr->cmsg_level);
 			}
