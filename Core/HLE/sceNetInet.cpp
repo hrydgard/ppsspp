@@ -296,7 +296,7 @@ static int sceNetInetGetsockopt(int socket, int inetSocketLevel, int inetOptname
 	}
 
 	if (nativeOptname != inetOptname) {
-		DEBUG_LOG(Log::sceNet, "sceNetInetSetsockopt: Translated optname %04x into %04x", inetOptname, nativeOptname);
+		DEBUG_LOG(Log::sceNet, "sceNetInetGetsockopt: Translated optname %04x into %04x", inetOptname, nativeOptname);
 	}
 
 	socklen_t *optlen = reinterpret_cast<socklen_t *>(Memory::GetPointerWrite(optlenPtr));
@@ -349,6 +349,32 @@ static int sceNetInetSetsockopt(int socket, int inetSocketLevel, int inetOptname
 	}
 
 	const auto nativeSocketId = inetSocket->GetNativeSocketId();
+
+	// Add some exceptions from ANR2ME's implementation
+	if (inetSocketLevel == PSP_NET_INET_SOL_SOCKET) {
+		switch (inetOptname) {
+		case INET_SO_NONBLOCK:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring nonblocking sockopt");
+		case INET_SO_REUSEADDR:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring reuseaddr");
+		case INET_SO_REUSEPORT:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring reuseport");
+		case 0x1022:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring nosigpipe?");
+		case INET_SO_RCVBUF:
+		case INET_SO_SNDBUF:
+			// It seems UNO game will try to set socket buffer size with a very large size and ended getting error (-1), so we should also limit the buffer size to replicate PSP behavior
+			// TODO: For SOCK_STREAM max buffer size is 8 Mb on BSD, while max SOCK_DGRAM is 65535 minus the IP & UDP Header size
+			if (Memory::Read_U32(optvalPtr) > 8 * 1024 * 1024) {
+				sceNetInet->SetLastError(ENOBUFS); // FIXME: return ENOBUFS for SOCK_STREAM, and EINVAL for SOCK_DGRAM
+				return hleLogError(Log::sceNet, -1, "buffer size too large?");
+			}
+			break;
+		default:
+			// keep going
+			break;
+		}
+	}
 
 	int nativeSocketLevel;
 	if (!SceNetInet::TranslateInetSocketLevelToNative(nativeSocketLevel, inetSocketLevel)) {
@@ -429,11 +455,14 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 	DEBUG_LOG(Log::sceNet, "[%i] sceNetInetConnect: Connecting to %s on %i", nativeSocketId, ip2str(convertedSockaddr.sin_addr, false).c_str(), ntohs(convertedSockaddr.sin_port));
 
 	// Attempt to connect using translated sockaddr
+	changeBlockingMode(nativeSocketId, 0);
 	int ret = connect(nativeSocketId, reinterpret_cast<sockaddr*>(&convertedSockaddr), sizeof(convertedSockaddr));
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+		changeBlockingMode(nativeSocketId, 1);
 		return hleLogError(Log::sceNet, ret, "[%i] %s: Error connecting %i: %s", nativeSocketId, __func__, error, strerror(error));
 	}
+	changeBlockingMode(nativeSocketId, 1);
 	return hleLogSuccessI(Log::sceNet, ret);
 }
 
@@ -564,7 +593,7 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 }
 
 static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exceptFdsPtr, u32 timeoutPtr) {
-	WARN_LOG_ONCE(sceNetInetSelect, Log::sceNet, "UNTESTED sceNetInetSelect(%i, %08x, %08x, %08x, %08x)", maxfd, readFdsPtr, writeFdsPtr, exceptFdsPtr, timeoutPtr);
+	DEBUG_LOG(Log::sceNet, "sceNetInetSelect(%i, %08x, %08x, %08x, %08x)", maxfd, readFdsPtr, writeFdsPtr, exceptFdsPtr, timeoutPtr);
 	const auto sceNetInet = SceNetInet::Get();
 	if (!sceNetInet) {
 		return hleLogError(Log::sceNet, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
@@ -599,7 +628,7 @@ static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exce
 		ERROR_LOG(Log::sceNet, "%s: Received error from select() %i: %s", __func__, error, strerror(error));
 	}
 
-	INFO_LOG(Log::sceNet, "%s: select() returned %i", __func__, ret);
+	DEBUG_LOG(Log::sceNet, "%s: select() returned %i", __func__, ret);
 	return hleDelayResult(ret, "TODO: unhack", 500);
 }
 
@@ -1134,8 +1163,8 @@ std::unordered_map<PspInetSocketOptionName, int> SceNetInet::gInetSocketOptnameT
 	{ INET_SO_RCVTIMEO, SO_RCVTIMEO },
 	{ INET_SO_ERROR, SO_ERROR },
 	{ INET_SO_TYPE, SO_TYPE },
-	// { INET_SO_OVERFLOWED, INET_SO_OVERFLOWED },
-	{ INET_SO_NONBLOCK, INET_SO_NONBLOCK },
+	// { INET_SO_OVERFLOWED, INET_SO_OVERFLOWED },  // or is this nonblock? SO_NBIO
+	{ INET_SO_DEBUG, SO_DEBUG }
 };
 
 std::unordered_map<PspInetMessageFlag, int> SceNetInet::gInetMessageFlagToNativeMessageFlag = {
@@ -1190,11 +1219,22 @@ bool SceNetInet::TranslateInetAddressFamilyToNative(int &destAddressFamily, int 
 }
 
 bool SceNetInet::TranslateInetSocketLevelToNative(int &destSocketLevel, int srcSocketLevel) {
-	if (srcSocketLevel != PSP_NET_INET_SOL_SOCKET) {
+	switch (srcSocketLevel) {
+	case PSP_NET_INET_IPPROTO_IP:
+		destSocketLevel = IPPROTO_IP;
+		return true;
+	case PSP_NET_INET_IPPROTO_TCP:
+		destSocketLevel = IPPROTO_TCP;
+		return true;
+	case PSP_NET_INET_IPPROTO_UDP:
+		destSocketLevel = IPPROTO_UDP;
+		return true;
+	case PSP_NET_INET_SOL_SOCKET:
+		destSocketLevel = SOL_SOCKET;
+		return true;
+	default:
 		return false;
 	}
-	destSocketLevel = SOL_SOCKET;
-	return true;
 }
 
 bool SceNetInet::TranslateInetSocketTypeToNative(int &destSocketType, bool &destNonBlocking, int srcSocketType) {

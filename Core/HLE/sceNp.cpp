@@ -39,8 +39,9 @@ int npParentalControl = PARENTAL_CONTROL_ENABLED;
 int npUserAge = 24; // faking user Age to 24 yo
 int npChatRestriction = 0; // default/initial value on Patapon 3 is 1 (restricted boolean?)
 SceNpMyLanguages npMyLangList = { 1033, 2057, 1036 };
-char npCountryCode[3] = "fr"; // dummy data taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
-char npRegionCode[3] = "c9"; // not sure what "c9" meant, since it was close to country code data, might be region-related data?
+// Fields are 4-sized, so the data needs to be too.
+char npCountryCode[4] = "fr"; // dummy data taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket. France?
+char npRegionCode[4] = "c9"; // not sure what "c9" meant, since it was close to country code data, might be region-related data?
 std::string npOnlineId = "DummyOnlineId"; // SceNpOnlineId struct?
 std::string npServiceId = ""; // UNO game uses EP2006-NPEH00020_00
 std::string npAvatarUrl = "http://DummyAvatarUrl"; // SceNpAvatarUrl struct?

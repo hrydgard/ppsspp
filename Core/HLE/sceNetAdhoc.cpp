@@ -2751,12 +2751,11 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
 }
 
-int NetAdhocctl_Create(const char* groupName) {
-	const SceNetAdhocctlGroupName* groupNameStruct = (const SceNetAdhocctlGroupName*)groupName;
+int NetAdhocctl_Create(const char *groupName) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		// Valid Argument
-		if (validNetworkName(groupNameStruct)) {
+		if (validNetworkName(groupName)) {
 			// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 			if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
 				// TODO: Need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
@@ -2771,12 +2770,11 @@ int NetAdhocctl_Create(const char* groupName) {
 				isAdhocctlNeedLogin = true;
 
 				// Set Network Name
-				if (groupNameStruct != NULL) 
-					parameter.group_name = *groupNameStruct;
-
-				// Reset Network Name
-				else 
+				if (groupName) {
+					truncate_cpy((char *)parameter.group_name.data, sizeof(parameter.group_name.data), groupName);
+				} else {
 					memset(&parameter.group_name, 0, sizeof(parameter.group_name));
+				}
 
 				// Set HUD Connection Status
 				//setConnectionStatus(1);
@@ -2841,7 +2839,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 int sceNetAdhocctlConnect(const char* groupName) {
 	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 	if (groupName)
-		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
+		strncpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;

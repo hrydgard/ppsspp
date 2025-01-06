@@ -2356,23 +2356,23 @@ bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {
 	return false;
 }
 
-bool validNetworkName(const SceNetAdhocctlGroupName * group_name) {
+bool validNetworkName(const char *data) {
 	// Result
 	bool valid = true;
 
 	// Name given
-	if (group_name != NULL) {
+	if (data != NULL) {
 		// Iterate Name Characters
 		for (int i = 0; i < ADHOCCTL_GROUPNAME_LEN && valid; i++) {
 			// End of Name
-			if (group_name->data[i] == 0) break;
+			if (data[i] == 0) break;
 
 			// Not a digit
-			if (group_name->data[i] < '0' || group_name->data[i] > '9') {
+			if (data[i] < '0' || data[i] > '9') {
 				// Not 'A' to 'Z'
-				if (group_name->data[i] < 'A' || group_name->data[i] > 'Z') {
+				if (data[i] < 'A' || data[i] > 'Z') {
 					// Not 'a' to 'z'
-					if (group_name->data[i] < 'a' || group_name->data[i] > 'z') {
+					if (data[i] < 'a' || data[i] > 'z') {
 						// Invalid Name
 						valid = false;
 					}
