@@ -39,6 +39,7 @@
 
 #include <iostream>
 #include <shared_mutex>
+#include <algorithm>
 
 #include "Core/HLE/sceNp.h"
 #include "Core/Reporting.h"
