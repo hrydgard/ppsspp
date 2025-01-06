@@ -1406,7 +1406,7 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 				}*/
 				db_productid unkproduct;
 				strncpy(unkproduct.id, productid, sizeof(unkproduct.id));
-				strncpy(unkproduct.name, productid, sizeof(productid));
+				strncpy(unkproduct.name, productid, sizeof(unkproduct.name));
 				productids.push_back(unkproduct); //productids[productids.size()] = unkproduct;
 				// Log Addition
 				INFO_LOG(Log::sceNet, "AdhocServer: Added Unknown Product ID %s to Database", productid);
