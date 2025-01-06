@@ -250,5 +250,8 @@ struct NpMatching2Args {
 
 #pragma pack(pop)
 
+extern std::recursive_mutex npMatching2EvtMtx;
+extern std::deque<NpMatching2Args> npMatching2Events;
+extern std::map<int, NpMatching2Handler> npMatching2Handlers;
 
 void Register_sceNpMatching2();

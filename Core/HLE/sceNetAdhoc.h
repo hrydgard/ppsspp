@@ -113,7 +113,8 @@ int sceNetAdhocctlConnect(const char* groupName);
 int sceNetAdhocctlJoin(u32 scanInfoAddr);
 int sceNetAdhocctlScan();
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr);
-
+int sceNetAdhocctlDisconnect();
+int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr);
 
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();
