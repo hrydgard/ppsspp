@@ -349,6 +349,32 @@ static int sceNetInetSetsockopt(int socket, int inetSocketLevel, int inetOptname
 
 	const auto nativeSocketId = inetSocket->GetNativeSocketId();
 
+	// Add some exceptions from ANR2ME's implementation
+	if (inetSocketLevel == PSP_NET_INET_SOL_SOCKET) {
+		switch (inetOptname) {
+		case INET_SO_NONBLOCK:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring nonblocking sockopt");
+		case INET_SO_REUSEADDR:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring reuseaddr");
+		case INET_SO_REUSEPORT:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring reuseport");
+		case 0x1022:
+			return hleLogSuccessInfoI(Log::sceNet, 0, "Ignoring nosigpipe?");
+		case INET_SO_RCVBUF:
+		case INET_SO_SNDBUF:
+			// It seems UNO game will try to set socket buffer size with a very large size and ended getting error (-1), so we should also limit the buffer size to replicate PSP behavior
+			// TODO: For SOCK_STREAM max buffer size is 8 Mb on BSD, while max SOCK_DGRAM is 65535 minus the IP & UDP Header size
+			if (Memory::Read_U32(optvalPtr) > 8 * 1024 * 1024) {
+				sceNetInet->SetLastError(ENOBUFS); // FIXME: return ENOBUFS for SOCK_STREAM, and EINVAL for SOCK_DGRAM
+				return hleLogError(Log::sceNet, -1, "buffer size too large?");
+			}
+			break;
+		default:
+			// keep going
+			break;
+		}
+	}
+
 	int nativeSocketLevel;
 	if (!SceNetInet::TranslateInetSocketLevelToNative(nativeSocketLevel, inetSocketLevel)) {
 		sceNetInet->SetLastError(EINVAL);
@@ -428,11 +454,14 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 	DEBUG_LOG(Log::sceNet, "[%i] sceNetInetConnect: Connecting to %s on %i", nativeSocketId, ip2str(convertedSockaddr.sin_addr, false).c_str(), ntohs(convertedSockaddr.sin_port));
 
 	// Attempt to connect using translated sockaddr
+	changeBlockingMode(nativeSocketId, 0);
 	int ret = connect(nativeSocketId, reinterpret_cast<sockaddr*>(&convertedSockaddr), sizeof(convertedSockaddr));
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+		changeBlockingMode(nativeSocketId, 1);
 		return hleLogError(Log::sceNet, ret, "[%i] %s: Error connecting %i: %s", nativeSocketId, __func__, error, strerror(error));
 	}
+	changeBlockingMode(nativeSocketId, 1);
 	return hleLogSuccessI(Log::sceNet, ret);
 }
 

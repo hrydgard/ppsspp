@@ -114,7 +114,8 @@ enum PspInetSocketOptionName {
     INET_SO_RCVTIMEO     = 0x1006, // receive timeout
     INET_SO_ERROR        = 0x1007, // get error status and clear
     INET_SO_TYPE         = 0x1008, // get socket type
-    INET_SO_OVERFLOWED   = 0x1009, // datagrams: return packets dropped
+	INET_SO_OVERFLOWED   = 0x1009, // datagrams: return packets dropped
+	INET_SO_NONBLOCK     = 0x1009, // non blocking I/O?
 };
 
 enum PspInetLimit {
