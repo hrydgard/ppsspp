@@ -112,6 +112,10 @@ static int sceNpInit()
 {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
 	npOnlineId = g_Config.sNickName;
+	// Truncate the nickname to 16 chars exactly - longer names are not support.
+	if (npOnlineId.size() > 16) {
+		npOnlineId.resize(16);
+	}
 
 	return 0;
 }
@@ -413,7 +417,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_DATE, now);
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_DATE, now + 10 * 60 * 1000); // now + 10 minutes, expired time?
 	ofs += writeTicketU64Param(buf + ofs, PARAM_TYPE_LONG, 0x592e71c546e86859); // seems to be consistent, 8-bytes password hash may be? or related to entitlement? or console id?
-	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npOnlineId.c_str(), 16); // username (cut to 16 chars exactly)
+	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npOnlineId.c_str(), 32); // username (pre-cut to 16 chars)
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npCountryCode, 4); // SceNpCountryCode ? ie. "fr" + 00 02
 	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npRegionCode, 4); // 2-char code? related to country/lang code? ie. "c9" + 00 00
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npServiceId.c_str(), 24);
