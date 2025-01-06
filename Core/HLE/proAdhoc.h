@@ -1469,7 +1469,7 @@ bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
  * @param group_name To-be-checked Network Name
  * @return 1 if valid or... 0
  */
-bool validNetworkName(const SceNetAdhocctlGroupName * groupname);
+bool validNetworkName(const char *data);
 
 // Convert Matching Event Code to String
 const char* getMatchingEventStr(int code);

@@ -592,7 +592,7 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 }
 
 static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exceptFdsPtr, u32 timeoutPtr) {
-	WARN_LOG_ONCE(sceNetInetSelect, Log::sceNet, "UNTESTED sceNetInetSelect(%i, %08x, %08x, %08x, %08x)", maxfd, readFdsPtr, writeFdsPtr, exceptFdsPtr, timeoutPtr);
+	DEBUG_LOG(Log::sceNet, "sceNetInetSelect(%i, %08x, %08x, %08x, %08x)", maxfd, readFdsPtr, writeFdsPtr, exceptFdsPtr, timeoutPtr);
 	const auto sceNetInet = SceNetInet::Get();
 	if (!sceNetInet) {
 		return hleLogError(Log::sceNet, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
@@ -627,7 +627,7 @@ static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exce
 		ERROR_LOG(Log::sceNet, "%s: Received error from select() %i: %s", __func__, error, strerror(error));
 	}
 
-	INFO_LOG(Log::sceNet, "%s: select() returned %i", __func__, ret);
+	DEBUG_LOG(Log::sceNet, "%s: select() returned %i", __func__, ret);
 	return hleDelayResult(ret, "TODO: unhack", 500);
 }
 
