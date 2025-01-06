@@ -20,6 +20,7 @@
 #include <numeric>
 #include <mutex>
 #include <algorithm>
+#include <cctype> // for std::tolower
 
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
