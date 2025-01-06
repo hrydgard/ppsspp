@@ -1133,8 +1133,8 @@ std::unordered_map<PspInetSocketOptionName, int> SceNetInet::gInetSocketOptnameT
 	{ INET_SO_RCVTIMEO, SO_RCVTIMEO },
 	{ INET_SO_ERROR, SO_ERROR },
 	{ INET_SO_TYPE, SO_TYPE },
-	// { INET_SO_OVERFLOWED, INET_SO_OVERFLOWED },
-	{ INET_SO_NONBLOCK, INET_SO_NONBLOCK },
+	// { INET_SO_OVERFLOWED, INET_SO_OVERFLOWED },  // or is this nonblock? SO_NBIO
+	{ INET_SO_DEBUG, SO_DEBUG }
 };
 
 std::unordered_map<PspInetMessageFlag, int> SceNetInet::gInetMessageFlagToNativeMessageFlag = {
