@@ -177,6 +177,7 @@
     <ClInclude Include="..\..\Core\HDRemaster.h" />
     <ClInclude Include="..\..\Core\HLE\AtracCtx.h" />
     <ClInclude Include="..\..\Core\HLE\AtracCtx2.h" />
+    <ClInclude Include="..\..\Core\HLE\NetInetConstants.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetApctl.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetInet.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetResolver.h" />
@@ -438,6 +439,7 @@
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
     <ClCompile Include="..\..\Core\HLE\AtracCtx.cpp" />
     <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp" />
+    <ClCompile Include="..\..\Core\HLE\NetInetConstants.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetApctl.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetInet.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetResolver.cpp" />

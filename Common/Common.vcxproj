@@ -551,6 +551,7 @@
     <ClInclude Include="Net\HTTPRequest.h" />
     <ClInclude Include="Net\Resolve.h" />
     <ClInclude Include="Net\Sinks.h" />
+    <ClInclude Include="Net\SocketCompat.h" />
     <ClInclude Include="Net\URL.h" />
     <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />

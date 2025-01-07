@@ -53,10 +53,10 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUtility.h"
 
-#include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetApctl.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNp2.h"
 

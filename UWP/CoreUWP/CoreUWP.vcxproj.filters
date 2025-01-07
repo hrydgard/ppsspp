@@ -1229,6 +1229,9 @@
     <ClCompile Include="..\..\Core\Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\NetInetConstants.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1941,6 +1944,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\Net\NetResolver.h">
       <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\NetInetConstants.h">
+      <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

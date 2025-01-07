@@ -1339,6 +1339,9 @@
     <ClCompile Include="Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\NetInetConstants.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2153,6 +2156,9 @@
     </ClInclude>
     <ClInclude Include="Net\NetResolver.h">
       <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\NetInetConstants.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

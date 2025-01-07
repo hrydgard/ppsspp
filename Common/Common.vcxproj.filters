@@ -679,6 +679,9 @@
     <ClInclude Include="Math\SIMDHeaders.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="Net\SocketCompat.h">
+      <Filter>Net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
