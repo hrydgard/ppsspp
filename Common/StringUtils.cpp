@@ -105,6 +105,46 @@ int countChar(std::string_view haystack, char needle) {
 	return count;
 }
 
+std::string SanitizeString(std::string_view input, StringRestriction restriction, int minLength, int maxLength) {
+	if (restriction == StringRestriction::None) {
+		return std::string(input);
+	}
+	// First, remove any chars not in A-Za-z0-9_-. This will effectively get rid of any Unicode char, emojis etc too.
+	std::string sanitized;
+	for (auto c : input) {
+		switch (restriction) {
+		case StringRestriction::None:
+			sanitized.push_back(c);
+			break;
+		case StringRestriction::AlphaNumDashUnderscore:
+			if ((c >= 'A' && c <= 'Z') ||
+				(c >= 'a' && c <= 'z') ||
+				(c >= '0' && c <= '9') || c == '-' || c == '_') {
+				// Allowed chars.
+				sanitized.push_back(c);
+			}
+			break;
+		}
+	}
+
+	if (minLength >= 0) {
+		if (sanitized.size() < minLength) {
+			// Just reject it by returning an empty string, as we can't really
+			// conjure up new characters here.
+			return std::string();
+		}
+	}
+
+	if (maxLength >= 0) {
+		// TODO: Cut at whole UTF-8 chars!
+		if (sanitized.size() > maxLength) {
+			sanitized.resize(maxLength);
+		}
+	}
+
+	return sanitized;
+}
+
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args)
 {
 	int writtenCount = vsnprintf(out, outsize, format, args);

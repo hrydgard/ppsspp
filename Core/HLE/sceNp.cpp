@@ -20,7 +20,10 @@
 
 #include <mutex>
 #include <deque>
-#include <StringUtils.h>
+
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -51,7 +54,6 @@ SceNpCommunicationId npTitleId;
 std::recursive_mutex npAuthEvtMtx;
 std::deque<NpAuthArgs> npAuthEvents;
 std::map<int, NpAuthHandler> npAuthHandlers;
-
 
 // Tickets data are in big-endian based on captured packets
 static int writeTicketParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
@@ -112,11 +114,15 @@ static void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
 static int sceNpInit()
 {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
-	npOnlineId = g_Config.sNickName;
-	// Truncate the nickname to 16 chars exactly - longer names are not support.
-	if (npOnlineId.size() > 16) {
-		npOnlineId.resize(16);
+
+	// We'll sanitize an extra time here, just to be safe from ini modifications.
+	if (g_Config.sInfrastructureUsername == SanitizeString(g_Config.sInfrastructureUsername, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
+		npOnlineId = g_Config.sInfrastructureUsername;
+	} else {
+		npOnlineId.clear();
 	}
+
+	// NOTE: Checking validity and returning -1 here doesn't seem to work. Instead, we will fail to generate a ticket.
 
 	return 0;
 }
@@ -401,6 +407,14 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 
 	if (!Memory::IsValidAddress(bufferAddr))
 		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+
+	// We have validated, and this will be empty if the ID is bad.
+	if (npOnlineId.empty()) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		// Temporary message.
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("To play in Infrastructure Mode, you must enter a username"), 5.0f);
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_UNKNOWN, "Missing npOnlineId");
+	}
 
 	int result = length;
 	Memory::Memset(bufferAddr, 0, length, "NpAuthGetTicket");

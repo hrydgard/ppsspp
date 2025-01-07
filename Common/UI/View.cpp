@@ -1344,7 +1344,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			if (strlen(buf) + text_.size() < maxLen_) {
+			if (strlen(buf) + text_.size() <= maxLen_) {
 				undo_ = text_;
 				InsertAtCaret(buf);
 				textChanged = true;

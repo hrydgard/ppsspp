@@ -8,6 +8,9 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ScrollView.h"
 
+// from StringUtils
+enum class StringRestriction;
+
 namespace UI {
 
 static const float NO_DEFAULT_FLOAT = -1000000.0f;
@@ -371,6 +374,11 @@ public:
 
 	Event OnChange;
 
+	void SetRestriction(StringRestriction restriction, int minLength) {
+		restriction_ = restriction;
+		minLen_ = minLength;
+	}
+
 protected:
 	std::string ValueText() const override;
 
@@ -383,7 +391,9 @@ private:
 	std::string placeHolder_;
 	std::string defaultText_;
 	int maxLen_;
+	int minLen_ = 0;
 	bool restoreFocus_ = false;
+	StringRestriction restriction_;
 };
 
 class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {

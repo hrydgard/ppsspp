@@ -519,7 +519,7 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 }
 
 PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, std::string_view title, std::string_view placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token) {
+	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token), restriction_(StringRestriction::None) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
@@ -529,7 +529,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [=](const std::string &enteredValue, int) {
-			*value_ = StripSpaces(enteredValue);
+			*value_ = SanitizeString(StripSpaces(enteredValue), restriction_, minLen_, maxLen_);
 			EventParams params{};
 			OnChange.Trigger(params);
 		});
@@ -553,6 +553,7 @@ std::string PopupTextInputChoice::ValueText() const {
 }
 
 EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
+	*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
 	e.v = this;
 	OnChange.Trigger(e);
 

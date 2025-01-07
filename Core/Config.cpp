@@ -111,7 +111,7 @@ GPUBackend GPUBackendFromString(std::string_view backend) {
 	return GPUBackend::OPENGL;
 }
 
-const char *DefaultLangRegion() {
+std::string DefaultLangRegion() {
 	// Unfortunate default.  There's no need to use bFirstRun, since this is only a default.
 	static std::string defaultLangRegion = "en_US";
 	std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
@@ -136,7 +136,7 @@ const char *DefaultLangRegion() {
 		}
 	}
 
-	return defaultLangRegion.c_str();
+	return defaultLangRegion;
 }
 
 static int DefaultDepthRaster() {
@@ -602,6 +602,20 @@ static std::string FastForwardModeToString(int v) {
 	return "CONTINUOUS";
 }
 
+static std::string DefaultInfrastructureUsername() {
+	// If the user has already picked a Nickname that satisfies the rules and is not "PPSSPP",
+	// let's use that.
+	// NOTE: This type of dependency means that network settings must be AFTER system settings in sections[].
+	if (g_Config.sNickName != "PPSSPP" &&
+		!g_Config.sNickName.empty() &&
+		g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
+		return g_Config.sNickName;
+	}
+
+	// Otherwise let's leave it empty, which will result in login failure and a warning.
+	return std::string();
+}
+
 static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboardVR", &g_Config.bEnableCardboardVR, false, CfgFlag::PER_GAME),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, CfgFlag::PER_GAME),
@@ -893,6 +907,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("ForcedFirstConnect", &g_Config.bForcedFirstConnect, false, CfgFlag::PER_GAME),
 	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, CfgFlag::PER_GAME),
 	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, CfgFlag::PER_GAME),
+	ConfigSetting("InfrastructureUsername", &g_Config.sInfrastructureUsername, &DefaultInfrastructureUsername, CfgFlag::PER_GAME),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, CfgFlag::PER_GAME),
 	ConfigSetting("ChatButtonPosition", &g_Config.iChatButtonPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
@@ -993,8 +1008,8 @@ static const ConfigSectionSettings sections[] = {
 	{"Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
 	{"Sound", soundSettings, ARRAY_SIZE(soundSettings)},
 	{"Control", controlSettings, ARRAY_SIZE(controlSettings)},
-	{"Network", networkSettings, ARRAY_SIZE(networkSettings)},
 	{"SystemParam", systemParamSettings, ARRAY_SIZE(systemParamSettings)},
+	{"Network", networkSettings, ARRAY_SIZE(networkSettings)},
 	{"Debugger", debuggerSettings, ARRAY_SIZE(debuggerSettings)},
 	{"JIT", jitSettings, ARRAY_SIZE(jitSettings)},
 	{"Upgrade", upgradeSettings, ARRAY_SIZE(upgradeSettings)},

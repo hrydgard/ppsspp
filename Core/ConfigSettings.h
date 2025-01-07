@@ -57,7 +57,7 @@ struct ConfigSetting {
 	typedef uint32_t(*Uint32DefaultCallback)();
 	typedef uint64_t(*Uint64DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
-	typedef const char *(*StringDefaultCallback)();
+	typedef std::string (*StringDefaultCallback)();
 	typedef ConfigTouchPos(*TouchPosDefaultCallback)();
 	typedef const char *(*PathDefaultCallback)();
 	typedef ConfigCustomButton(*CustomButtonDefaultCallback)();
