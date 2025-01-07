@@ -71,6 +71,11 @@ inline bool equalsNoCase(std::string_view str, std::string_view key) {
 
 bool containsNoCase(std::string_view haystack, std::string_view needle);
 
+// Sigh
+#ifdef None
+#undef None
+#endif
+
 enum class StringRestriction {
 	None,
 	AlphaNumDashUnderscore,  // Used for infrastructure usernames
