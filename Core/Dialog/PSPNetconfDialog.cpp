@@ -248,6 +248,10 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		UpdateFade(animSpeed);
 		StartDraw();
 
+		// This disables the notice that we don't support the internet below.
+		// Keeping the code in case we need it for something later.
+		hideNotice = true;
+
 		if (!hideNotice) {
 			auto err = GetI18NCategory(I18NCat::ERRORS);
 			const float WRAP_WIDTH = 254.0f;
