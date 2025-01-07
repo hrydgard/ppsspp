@@ -273,7 +273,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	const char *hostThreadName = GetCurrentThreadName();
 	if ((hostThreadName && strcmp(hostThreadName, "EmuThread") != 0) || !hleCurrentThreadName) {
 		// Use the host thread name.
-		threadName = hostThreadName;
+		threadName = hostThreadName ? hostThreadName : "unknown";
 	} else {
 		// Use the PSP HLE thread name.
 		threadName = hleCurrentThreadName;

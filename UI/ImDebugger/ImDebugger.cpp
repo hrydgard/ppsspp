@@ -476,12 +476,12 @@ static void DrawKernelObjects(ImConfig &cfg) {
 }
 
 static const char *MemCheckConditionToString(MemCheckCondition cond) {
-	switch (cond) {
-	case MEMCHECK_READ: return "Read";
-	case MEMCHECK_WRITE: return "Write";
-	case MEMCHECK_READWRITE: return "Read/Write";
-	case MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE: return "Write Change";
-	case MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE: return "Read/Write Change";
+	switch ((int)cond) {
+	case (int)MEMCHECK_READ: return "Read";
+	case (int)MEMCHECK_WRITE: return "Write";
+	case (int)MEMCHECK_READWRITE: return "Read/Write";
+	case (int)(MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE): return "Write Change";
+	case (int)(MEMCHECK_READWRITE | MEMCHECK_WRITE_ONCHANGE): return "Read/Write Change";
 	default:
 		return "(bad!)";
 	}

@@ -54,7 +54,7 @@ static const uint8_t kor_lconsCom[33] = { 18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7
 // Korean (Hangul) last consonant Separation key
 static const uint8_t kor_lconsSpr[33] = { 2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9 };
 
-static const char * const OskKeyboardNames[] =
+static const std::string_view OskKeyboardNames[] =
 {
 	"en_US",
 	"ja_JP",
@@ -940,11 +940,11 @@ int PSPOskDialog::Update(int animSpeed) {
 		}
 
 		// Now, let's grab the name.
-		const char *countryCode = OskKeyboardNames[lang];
-		const char *language = languageMapping[countryCode].first.c_str();
+		std::string_view countryCode = OskKeyboardNames[lang];
+		const char *language = languageMapping[std::string(countryCode)].first.c_str();
 
 		// It seems like this is a "fake" country code for extra keyboard purposes.
-		if (!strcmp(countryCode, "English Full-width"))
+		if (countryCode == "English Full-width")
 			language = "English Full-width";
 
 		return language;

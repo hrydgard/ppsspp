@@ -117,7 +117,7 @@ void SetCurrentThreadNameThroughException(const char *threadName);
 
 const char *GetCurrentThreadName() {
 #ifdef TLS_SUPPORTED
-	return curThreadName;
+	return "N/A"; //curThreadName;
 #else
 	return "";
 #endif
@@ -140,7 +140,7 @@ void SetCurrentThreadName(const char *threadName) {
 	ConvertUTF8ToWString(buffer, ARRAY_SIZE(buffer), threadName);
 	SetThreadDescription(GetCurrentThread(), buffer);
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
-	pthread_setname_np(pthread_self(), threadName);
+	// pthread_setname_np(pthread_self(), threadName);
 #elif defined(__APPLE__)
 	pthread_setname_np(threadName);
 #elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)
@@ -151,7 +151,7 @@ void SetCurrentThreadName(const char *threadName) {
 
 	// Set the locally known threadname using a thread local variable.
 #ifdef TLS_SUPPORTED
-	curThreadName = threadName;
+	// curThreadName = threadName;
 #endif
 }
 

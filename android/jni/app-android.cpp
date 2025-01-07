@@ -685,7 +685,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
 	jint jAndroidVersion, jstring jboard) {
-	SetCurrentThreadName("androidInit");
+	// SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
 	ProcessFrameCommands(env);
