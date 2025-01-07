@@ -186,3 +186,17 @@ int sceNetApctlConnect(int connIndex);
 int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout);
 int sceNetApctlTerm();
 int sceNetApctlDisconnect();
+
+enum class SocketState {
+	Unused,
+	TCP,
+	UDP,
+};
+
+// Internal socket state tracking
+struct InetSocket {
+	SOCKET sock;  // native socket
+	SocketState state;
+};
+
+extern InetSocket g_inetSockets[256];

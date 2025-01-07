@@ -27,12 +27,21 @@ int inetLastSocket = -1; // A workaround to keep the most recent socket id for s
 
 bool netInetInited = false;
 
+extern InetSocket g_inetSockets[256];
+
 void __NetInetShutdown() {
 	if (!netInetInited) {
 		return;
 	}
 
 	netInetInited = false;
+
+	for (auto &sock : g_inetSockets) {
+		if (sock.state != SocketState::Unused) {
+			closesocket(sock.sock);
+		}
+		sock.state = SocketState::Unused;
+	}
 	// TODO: Shut down any open sockets here.
 }
 
