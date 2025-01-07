@@ -189,14 +189,17 @@ int sceNetApctlDisconnect();
 
 enum class SocketState {
 	Unused,
-	TCP,
-	UDP,
+	Used,
 };
 
 // Internal socket state tracking
 struct InetSocket {
 	SOCKET sock;  // native socket
 	SocketState state;
+	// NOTE: These are the PSP types for now
+	int domain;
+	int type;
+	int protocol;
 };
 
 extern InetSocket g_inetSockets[256];

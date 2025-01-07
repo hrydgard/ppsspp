@@ -30,7 +30,7 @@ bool netInetInited = false;
 // We use this array from 1 and forward. It's probably not a good idea to return 0 as a socket.
 extern InetSocket g_inetSockets[256];
 
-static int AllocFreeSocket() {
+static int AllocInetSocket() {
 	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
 		if (g_inetSockets[i].state == SocketState::Unused) {
 			return i;
@@ -42,11 +42,23 @@ static int AllocFreeSocket() {
 }
 
 static bool GetInetSocket(int sock, InetSocket **inetSocket) {
-	if (sock < 1 || sock >= 256 || g_inetSockets[sock].state == SocketState::Unused) {
+	if (sock < 1 || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+		*inetSocket = nullptr;
 		return false;
 	}
 	*inetSocket = &g_inetSockets[sock];
 	return true;
+}
+
+static bool GetInetSocketFromHostSocket(int hostSock, InetSocket **inetSocket) {
+	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
+		if (g_inetSockets[i].state == SocketState::Used && g_inetSockets[i].sock == hostSock) {
+			*inetSocket = &g_inetSockets[i];
+			return true;
+		}
+	}
+	*inetSocket = nullptr;
+	return false;
 }
 
 void __NetInetShutdown() {
@@ -165,7 +177,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
 
-	int retval = getpeername(socket, (sockaddr*)&saddr, (socklen_t*)&len);
+	int retval = getpeername(inetSock->sock, (sockaddr*)&saddr, (socklen_t*)&len);
 	DEBUG_LOG(Log::sceNet, "Getpeername: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
 	if (retval < 0) {
@@ -197,7 +209,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
-	int retval = getsockname(socket, (sockaddr*)&saddr, (socklen_t*)&len);
+	int retval = getsockname(inetSock->sock, (sockaddr*)&saddr, (socklen_t*)&len);
 	DEBUG_LOG(Log::sceNet, "Getsockname: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
 	if (retval < 0) {
@@ -368,7 +380,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recv(socket, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
+	int retval = recv(inetSock->sock, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
@@ -389,7 +401,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetSend(%i, %08x, %i, %08x) at %08x", socket, bufPtr, bufLen, flags, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!GetInetSocket(inetSock->sock, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -399,7 +411,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = send(socket, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
+	int retval = send(inetSock->sock, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
@@ -416,26 +428,41 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 static int sceNetInetSocket(int domain, int type, int protocol) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetSocket(%i, %i, %i) at %08x", domain, type, protocol, currentMIPS->pc);
 	DEBUG_LOG(Log::sceNet, "Socket: Domain = %s, Type = %s, Protocol = %s", inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
-	int retval = socket(convertSocketDomainPSP2Host(domain), convertSocketTypePSP2Host(type), convertSocketProtoPSP2Host(protocol));
-	if (retval < 0) {
+
+	int hostDomain = convertSocketDomainPSP2Host(domain);
+	int hostType = convertSocketTypePSP2Host(type);
+	int hostProtocol = convertSocketProtoPSP2Host(protocol);
+
+	SOCKET sock = ::socket(hostDomain, hostType, hostProtocol);
+	if (sock < 0) {
 		inetLastErrno = socket_errno;
-		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
+		return hleLogError(Log::sceNet, sock, "errno = %d", inetLastErrno);
 	}
 
-	//InetSocket* sock = new InetSocket(domain, type, protocol);
-	//retval = pspSockets.Create(sock);
+	// Register the socket.
+
+	int socket = AllocInetSocket();
+	if (socket < 0) {
+		// Alloc already logged. Let's bail.
+		return hleLogError(Log::sceNet, ERROR_NET_INTERNAL);
+	}
+	InetSocket *inetSock = &g_inetSockets[socket];
+	inetSock->sock = socket;
+	inetSock->domain = domain;
+	inetSock->type = type;
+	inetSock->protocol = protocol;
 
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-	setSockNoSIGPIPE(retval, 1);
+	setSockNoSIGPIPE(sock, 1);
 	// TODO: We should always use non-blocking mode and simulate blocking mode
-	changeBlockingMode(retval, 1);
+	changeBlockingMode(sock, 1);
 	// Enable Port Re-use, required for multiple-instance
-	setSockReuseAddrPort(retval);
+	setSockReuseAddrPort(sock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
-	setUDPConnReset(retval, false);
+	setUDPConnReset(sock, false);
 
-	inetLastSocket = retval;
-	return hleLogSuccessI(Log::sceNet, retval);
+	inetLastSocket = sock;
+	return hleLogSuccessI(Log::sceNet, sock);
 }
 
 static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
@@ -489,9 +516,9 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	if (level == PSP_NET_INET_SOL_SOCKET && optval && (optname == PSP_NET_INET_SO_RCVTIMEO || optname == PSP_NET_INET_SO_SNDTIMEO)) {
 		tval.tv_sec = *optval / 1000000; // seconds
 		tval.tv_usec = (*optval % 1000000); // microseconds
-		retval = setsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)&tval, sizeof(tval));
+		retval = setsockopt(inetSock->sock, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)&tval, sizeof(tval));
 	} else {
-		retval = setsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
+		retval = setsockopt(inetSock->sock, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
 	}
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
@@ -550,13 +577,13 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	// PSP timeout are a single 32bit value (micro seconds)
 	if (level == PSP_NET_INET_SOL_SOCKET && optval && (optname == PSP_NET_INET_SO_RCVTIMEO || optname == PSP_NET_INET_SO_SNDTIMEO)) {
 		socklen_t tvlen = sizeof(tval);
-		retval = getsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)&tval, &tvlen);
+		retval = getsockopt(inetSock->sock, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)&tval, &tvlen);
 		if (retval != SOCKET_ERROR) {
 			u64_le val = (tval.tv_sec * 1000000LL) + tval.tv_usec;
 			memcpy(optval, &val, std::min(static_cast<socklen_t>(sizeof(val)), std::min(static_cast<socklen_t>(sizeof(*optval)), *optlen)));
 		}
 	} else {
-		retval = getsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
+		retval = getsockopt(inetSock->sock, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
 	}
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
@@ -596,14 +623,14 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
 	//saddr.in.sin_port = htons(ntohs(saddr.in.sin_port) + portOffset);
 	DEBUG_LOG(Log::sceNet, "Bind: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
-	changeBlockingMode(socket, 0);
-	int retval = bind(socket, (struct sockaddr*)&saddr, len);
+	changeBlockingMode(inetSock->sock, 0);
+	int retval = bind(inetSock->sock, (struct sockaddr*)&saddr, len);
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
-		changeBlockingMode(socket, 1);
+		changeBlockingMode(inetSock->sock, 1);
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
-	changeBlockingMode(socket, 1);
+	changeBlockingMode(inetSock->sock, 1);
 	// Update binded port number if it was 0 (any port)
 	memcpy(name->sa_data, saddr.addr.sa_data, sizeof(name->sa_data));
 	// Enable Port-forwarding
@@ -639,24 +666,24 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	DEBUG_LOG(Log::sceNet, "Connect: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 
 	// Workaround to avoid blocking for indefinitely
-	setSockTimeout(socket, SO_SNDTIMEO, 5000000);
-	setSockTimeout(socket, SO_RCVTIMEO, 5000000);
-	changeBlockingMode(socket, 0); // Use blocking mode as temporary fix for UNO, since we don't simulate blocking-mode yet
-	int retval = connect(socket, (struct sockaddr*)&saddr.addr, dstlen);
+	setSockTimeout(inetSock->sock, SO_SNDTIMEO, 5000000);
+	setSockTimeout(inetSock->sock, SO_RCVTIMEO, 5000000);
+	changeBlockingMode(inetSock->sock, 0); // Use blocking mode as temporary fix for UNO, since we don't simulate blocking-mode yet
+	int retval = connect(inetSock->sock, (struct sockaddr*)&saddr.addr, dstlen);
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		if (connectInProgress(inetLastErrno))
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
 			hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
-		changeBlockingMode(socket, 1);
+		changeBlockingMode(inetSock->sock, 1);
 		// TODO: Since we're temporarily forcing blocking-mode we'll need to change errno from ETIMEDOUT to EAGAIN
 		/*if (inetLastErrno == ETIMEDOUT)
 			inetLastErrno = EAGAIN;
 		*/
 		return hleLogDebug(Log::sceNet, retval);
 	}
-	changeBlockingMode(socket, 1);
+	changeBlockingMode(inetSock->sock, 1);
 
 	return hleLogSuccessI(Log::sceNet, retval);
 }
@@ -669,7 +696,7 @@ static int sceNetInetListen(int socket, int backlog) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	int retval = listen(socket, (backlog == PSP_NET_INET_SOMAXCONN ? SOMAXCONN : backlog));
+	int retval = listen(inetSock->sock, (backlog == PSP_NET_INET_SOMAXCONN ? SOMAXCONN : backlog));
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
@@ -691,7 +718,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	SockAddrIN4 saddr{};
 	if (srclen)
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
-	int retval = accept(socket, (struct sockaddr*)&saddr.addr, srclen);
+	int retval = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
@@ -727,7 +754,7 @@ static int sceNetInetShutdown(int socket, int how) {
 	case PSP_NET_INET_SHUT_RDWR: hostHow = SHUT_RDWR; break;
 	}
 
-	int retVal = shutdown(socket, hostHow);  // no translation
+	int retVal = shutdown(inetSock->sock, hostHow);  // no translation
 	return hleLogSuccessI(Log::sceNet, retVal);
 }
 
@@ -740,7 +767,8 @@ static int sceNetInetSocketAbort(int socket) {
 	}
 
 	// FIXME: either using shutdown/close or select? probably using select if blocking mode is being simulated with non-blocking
-	return hleLogSuccessI(Log::sceNet, shutdown(socket, SHUT_RDWR));
+	int retVal = shutdown(inetSock->sock, SHUT_RDWR);
+	return hleLogSuccessI(Log::sceNet, retVal);
 }
 
 static int sceNetInetClose(int socket) {
@@ -751,7 +779,8 @@ static int sceNetInetClose(int socket) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	return hleLogSuccessI(Log::sceNet, closesocket(socket));
+	int retVal = closesocket(socket);
+	return hleLogSuccessI(Log::sceNet, retVal);
 }
 
 static int sceNetInetCloseWithRST(int socket) {
@@ -766,8 +795,9 @@ static int sceNetInetCloseWithRST(int socket) {
 	struct linger sl {};
 	sl.l_onoff = 1;		// non-zero value enables linger option in kernel 
 	sl.l_linger = 0;	// timeout interval in seconds 
-	setsockopt(socket, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
-	return hleLogSuccessI(Log::sceNet, closesocket(socket));
+	setsockopt(inetSock->sock, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
+	int retVal = closesocket(inetSock->sock);
+	return hleLogSuccessI(Log::sceNet, retVal);
 }
 
 static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
@@ -785,7 +815,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recvfrom(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
+	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
@@ -854,7 +884,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 				continue;
 
 			saddr.in.sin_addr.s_addr = peer->ip_addr;
-			retval = sendto(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
+			retval = sendto(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 			if (retval < 0) {
 				DEBUG_LOG(Log::sceNet, "SendTo(BC): Socket error %d", socket_errno);
 			} else {
@@ -880,7 +910,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 			saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
 			DEBUG_LOG(Log::sceNet, "SendTo(BC): Address Replacement = %s", ip2str(saddr.in.sin_addr).c_str());
 		}*/
-		retval = sendto(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
+		retval = sendto(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 	}
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
@@ -1024,11 +1054,11 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 
 			saddr.in.sin_addr.s_addr = peer->ip_addr;
 #if defined(_WIN32)
-			int result = WSASendMsg(socket, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
+			int result = WSASendMsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
 			if (static_cast<int>(sent) > retval)
 				retval = sent;
 #else
-			size_t result = sendmsg(socket, &hdr, flgs | MSG_NOSIGNAL);
+			size_t result = sendmsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL);
 			if (static_cast<int>(result) > retval)
 				retval = result;
 #endif
@@ -1059,11 +1089,11 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 			DEBUG_LOG(Log::sceNet, "SendMsg(BC): Address Replacement = %s", ip2str(saddr.in.sin_addr).c_str());
 		}*/
 #if defined(_WIN32)
-		int result = WSASendMsg(socket, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
+		int result = WSASendMsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
 		if (result != SOCKET_ERROR)
 			retval = sent;
 #else
-		retval = sendmsg(socket, &hdr, flgs | MSG_NOSIGNAL);
+		retval = sendmsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL);
 #endif
 	}
 	free(chdr);
@@ -1080,7 +1110,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		iov[0].iov_base = buf;
 		iov[0].iov_len = buflen;
 
-		retval = sendmsg(socket, &msg, flags);
+		retval = sendmsg(inetSock->sock, &msg, flags);
 		free(buf);
 	*/
 	if (retval < 0) {
@@ -1131,6 +1161,7 @@ static int sceNetInetRecvmsg(int socket, u32 msghdrPtr, int flags) {
 	}
 	memset(iov, 0, pspMsghdr->msg_iovlen * iovecsize);
 	memset(&hdr, 0, sizeof(hdr));
+
 	// TODO: Do similar to the already working sceNetInetSendmsg but in reverse
 	//if (pspMsghdr->msg_name != 0) { ... }
 
