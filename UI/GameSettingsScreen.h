@@ -89,7 +89,6 @@ private:
 	UI::EventReturn OnChangeQuickChat2(UI::EventParams &e);
 	UI::EventReturn OnChangeQuickChat3(UI::EventParams &e);
 	UI::EventReturn OnChangeQuickChat4(UI::EventParams &e);
-	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);

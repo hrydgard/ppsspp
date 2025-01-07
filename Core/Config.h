@@ -443,8 +443,9 @@ public:
 	bool bDiscardRegsOnJRRA;
 
 	// SystemParam
-	std::string sNickName;
+	std::string sNickName;  // AdHoc and system nickname
 	std::string sMACAddress;
+
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -459,6 +460,7 @@ public:
 	std::string proAdhocServer;
 	std::string primaryDNSServer;
 	std::string secondaryDNSServer;
+	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias; // TODO: mPostShaderSetting
 	bool bEnableAdhocServer;

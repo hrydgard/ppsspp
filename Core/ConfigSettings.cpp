@@ -36,7 +36,7 @@ bool ConfigSetting::Get(const Section *section) const {
 	case TYPE_FLOAT:
 		return section->Get(iniKey_, ptr_.f, cb_.f ? cb_.f() : default_.f);
 	case TYPE_STRING:
-		return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s() : default_.s);
+		return section->Get(iniKey_, ptr_.s, cb_.s ? cb_.s().c_str() : default_.s);
 	case TYPE_TOUCH_POS:
 	{
 		ConfigTouchPos defaultTouchPos = cb_.touchPos ? cb_.touchPos() : default_.touchPos;
