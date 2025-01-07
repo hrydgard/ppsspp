@@ -200,6 +200,10 @@ struct InetSocket {
 	int domain;
 	int type;
 	int protocol;
+	// These are the host types for convenience.
+	int hostDomain;
+	int hostType;
+	int hostProtocol;
 };
 
 extern InetSocket g_inetSockets[256];

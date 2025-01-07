@@ -472,6 +472,9 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	inetSock->domain = domain;
 	inetSock->type = type;
 	inetSock->protocol = protocol;
+	inetSock->hostDomain = hostDomain;
+	inetSock->hostType = hostType;
+	inetSock->hostProtocol = hostProtocol;
 
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
 	setSockNoSIGPIPE(hostSock, 1);
@@ -495,7 +498,6 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	u32_le* optval = (u32_le*)Memory::GetPointer(optvalPtr);
 	DEBUG_LOG(Log::sceNet, "SockOpt: Level = %s, OptName = %s, OptValue = %d", inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str(), *optval);
 	timeval tval{};
-	// InetSocket* sock = pspSockets.Get<InetSocket>(socket, error);
 	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-bloking mode (ie. simulated blocking mode)
 	if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_NBIO) {
 		//memcpy(&sock->nonblocking, (int*)optval, std::min(sizeof(sock->nonblocking), optlen));
@@ -558,7 +560,6 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	socklen_t* optlen = (socklen_t*)Memory::GetPointer(optlenPtr);
 	DEBUG_LOG(Log::sceNet, "SockOpt: Level = %s, OptName = %s", inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str());
 	timeval tval{};
-	// InetSocket* sock = pspSockets.Get<InetSocket>(socket, error);
 	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-bloking mode (ie. simulated blocking mode)
 	if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_NBIO) {
 		//*optlen = std::min(sizeof(sock->nonblocking), *optlen);
@@ -653,19 +654,16 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	// Update binded port number if it was 0 (any port)
 	memcpy(name->sa_data, saddr.addr.sa_data, sizeof(name->sa_data));
 	// Enable Port-forwarding
-	// TODO: Check the socket type/protocol for SOCK_STREAM/SOCK_DGRAM or IPPROTO_TCP/IPPROTO_UDP instead of forwarding both protocol
-	// InetSocket* sock = pspSockets.Get<InetSocket>(socket, error);
-	// UPnP_Add((sock->type == SOCK_STREAM)? IP_PROTOCOL_TCP: IP_PROTOCOL_UDP, port, port);	
+
+	// Check the socket type/protocol for SOCK_STREAM/SOCK_DGRAM or IPPROTO_TCP/IPPROTO_UDP instead of forwarding both protocols like in ANR2ME's original change.
 	unsigned short port = ntohs(saddr.in.sin_port);
-	UPnP_Add(IP_PROTOCOL_UDP, port, port);
-	UPnP_Add(IP_PROTOCOL_TCP, port, port);
+	UPnP_Add((inetSock->type == PSP_NET_INET_SOCK_STREAM) ? IP_PROTOCOL_TCP : IP_PROTOCOL_UDP, port, port);
 
 	// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending DGRAM from incorrect port issue on Android
 	/*saddr.in.sin_addr.s_addr = g_adhocServerIP.in.sin_addr.s_addr;
 	saddr.in.sin_port = 0;
 	sendto(socket, dummyPeekBuf64k, 0, MSG_NOSIGNAL, (struct sockaddr*)&saddr, sizeof(saddr));
 	*/
-
 	return hleLogSuccessI(Log::sceNet, retval);
 }
 
