@@ -28,6 +28,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceNetApctl.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
 #include "Common/Data/Encoding/Utf8.h"
 

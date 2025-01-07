@@ -811,6 +811,7 @@ add_library(Common STATIC
 	Common/Net/Resolve.h
 	Common/Net/Sinks.cpp
 	Common/Net/Sinks.h
+	Common/Net/SocketCompat.h
 	Common/Net/URL.cpp
 	Common/Net/URL.h
 	Common/Net/WebsocketServer.cpp
@@ -2175,6 +2176,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/AtracCtx.h
 	Core/HLE/AtracCtx2.cpp
 	Core/HLE/AtracCtx2.h
+	Core/HLE/NetInetConstants.cpp
+	Core/HLE/NetInetConstants.h
 	Core/HLE/sceAtrac.cpp
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp

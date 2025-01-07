@@ -690,6 +690,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
+		   $(COREDIR)/HLE/NetInetConstants.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceSircs.cpp \
