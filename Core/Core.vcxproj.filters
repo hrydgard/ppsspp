@@ -1339,9 +1339,6 @@
     <ClCompile Include="Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="Net\InetSocket.cpp">
-      <Filter>Net</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2155,9 +2152,6 @@
       <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="Net\NetResolver.h">
-      <Filter>Net</Filter>
-    </ClInclude>
-    <ClInclude Include="Net\InetSocket.h">
       <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>

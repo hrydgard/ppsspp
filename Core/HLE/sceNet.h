@@ -34,10 +34,6 @@
 // On-Demand Nonblocking Flag
 // #define INET_MSG_DONTWAIT	0x80
 
-// Event Flags
-#define INET_POLLRDNORM		0x0040
-#define INET_POLLWRNORM		0x0004
-
 // TODO: Determine how many handlers we can actually have
 const size_t MAX_APCTL_HANDLERS = 32;
 
@@ -267,5 +263,4 @@ int NetApctl_GetState();
 
 int sceNetApctlConnect(int connIndex);
 int sceNetInetPoll(void *fds, u32 nfds, int timeout);
-int sceNetInetTerm();
 int sceNetApctlTerm();

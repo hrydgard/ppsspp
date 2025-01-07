@@ -1226,9 +1226,6 @@
     <ClCompile Include="..\..\Core\Net\InetCommon.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\Net\InetSocket.cpp">
-      <Filter>Net</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
@@ -1940,9 +1937,6 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Net\InetCommon.h">
-      <Filter>Net</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\Net\InetSocket.h">
       <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Net\NetResolver.h">
