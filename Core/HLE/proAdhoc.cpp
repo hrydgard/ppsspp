@@ -1318,7 +1318,7 @@ int GetChatMessageCount() {
 }
 
 // TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
-int friendFinder(){
+int friendFinder() {
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	// Receive Buffer

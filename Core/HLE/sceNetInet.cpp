@@ -23,12 +23,11 @@
 #include "Core/Instance.h"
 
 int inetLastErrno = 0; // TODO: since errno can only be read once, we should keep track the value to be used on sceNetInetGetErrno
-int inetLastSocket = -1; // A workaround to keep the most recent socket id for sceNetInetSelect, until we have a socket class wrapper
 
 bool netInetInited = false;
 
 // We use this array from 1 and forward. It's probably not a good idea to return 0 as a socket.
-extern InetSocket g_inetSockets[256];
+InetSocket g_inetSockets[256];
 
 static int AllocInetSocket() {
 	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
@@ -50,15 +49,31 @@ static bool GetInetSocket(int sock, InetSocket **inetSocket) {
 	return true;
 }
 
-static bool GetInetSocketFromHostSocket(int hostSock, InetSocket **inetSocket) {
+// Simplified mappers, only really useful in select/poll
+static int GetInetSocketFromHostSocket(SOCKET hostSock) {
 	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
 		if (g_inetSockets[i].state == SocketState::Used && g_inetSockets[i].sock == hostSock) {
-			*inetSocket = &g_inetSockets[i];
-			return true;
+			return i;
 		}
 	}
-	*inetSocket = nullptr;
-	return false;
+	if (hostSock == 0) {
+		// Map 0 to 0, special case.
+		return 0;
+	}
+	_dbg_assert_(false);
+	return -1;
+}
+
+static SOCKET GetHostSocketFromInetSocket(int sock) {
+	if (sock < 1 || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+		_dbg_assert_(false);
+		return -1;
+	}
+	if (sock == 0) {
+		// Map 0 to 0, special case.
+		return 0;
+	}
+	return g_inetSockets[sock].sock;
 }
 
 void __NetInetShutdown() {
@@ -226,58 +241,61 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
 int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetSelect(%i, %08x, %08x, %08x, %08x) at %08x", nfds, readfdsPtr, writefdsPtr, exceptfdsPtr, timeoutPtr, currentMIPS->pc);
-	int retval = -1;
-	SceNetInetFdSet* readfds = (SceNetInetFdSet*)Memory::GetCharPointer(readfdsPtr);
-	SceNetInetFdSet* writefds = (SceNetInetFdSet*)Memory::GetCharPointer(writefdsPtr);
-	SceNetInetFdSet* exceptfds = (SceNetInetFdSet*)Memory::GetCharPointer(exceptfdsPtr);
-	SceNetInetTimeval* timeout = (SceNetInetTimeval*)Memory::GetCharPointer(timeoutPtr);
-	// TODO: Use poll instead of select since Windows' FD_SETSIZE is only 64 while PSP is 256, and select can only work for fd value less than FD_SETSIZE on some system
-	fd_set rdfds{}, wrfds{}, exfds{};
+
+	SceNetInetFdSet	*readfds = readfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(readfdsPtr) : nullptr;
+	SceNetInetFdSet	*writefds = writefdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(writefdsPtr) : nullptr;
+	SceNetInetFdSet	*exceptfds = exceptfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(exceptfdsPtr) : nullptr;
+	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWrite(timeoutPtr) : nullptr;
+
+	// First, translate the specified fd_sets to host sockets.
+
+	fd_set rdfds, wrfds, exfds;
 	FD_ZERO(&rdfds); FD_ZERO(&wrfds); FD_ZERO(&exfds);
-	int maxfd = nfds; // (nfds > PSP_NET_INET_FD_SETSIZE) ? nfds : PSP_NET_INET_FD_SETSIZE;
+
+	if (nfds > 256) {
+		ERROR_LOG(Log::sceNet, "Bad nfds value: %d", nfds);
+		nfds = 256;
+	}
+
 	int rdcnt = 0, wrcnt = 0, excnt = 0;
-	for (int i = maxfd - 1; i >= 0 /*&& i >= maxfd - 64*/; i--) {
-		bool windows_workaround = false;
-#if PPSSPP_PLATFORM(WINDOWS)
-		//windows_workaround = (i == nfds - 1);
-#endif
-		if (readfds != NULL && (NetInetFD_ISSET(i, readfds) || windows_workaround)) {
+
+	// Save the mapping during setup.
+	SOCKET hostSockets[256]{};
+
+	for (int i = 0; i < nfds; i++) {
+		if (readfds && (NetInetFD_ISSET(i, readfds))) {
+			SOCKET sock = GetHostSocketFromInetSocket(i);
+			hostSockets[i] = sock;
 			VERBOSE_LOG(Log::sceNet, "Input Read FD #%i", i);
 			if (rdcnt < FD_SETSIZE) {
-				FD_SET(i, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
+				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
 				rdcnt++;
 			}
 		}
-		if (writefds != NULL && (NetInetFD_ISSET(i, writefds) || windows_workaround)) {
+		if (writefds && (NetInetFD_ISSET(i, writefds))) {
+			SOCKET sock = GetHostSocketFromInetSocket(i);
+			hostSockets[i] = sock;
 			VERBOSE_LOG(Log::sceNet, "Input Write FD #%i", i);
 			if (wrcnt < FD_SETSIZE) {
-				FD_SET(i, &wrfds);
+				FD_SET(sock, &wrfds);
 				wrcnt++;
 			}
 		}
-		if (exceptfds != NULL && (NetInetFD_ISSET(i, exceptfds) || windows_workaround)) {
+		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
+			SOCKET sock = GetHostSocketFromInetSocket(i);
+			hostSockets[i] = sock;
 			VERBOSE_LOG(Log::sceNet, "Input Except FD #%i", i);
 			if (excnt < FD_SETSIZE) {
-				FD_SET(i, &exfds);
+				FD_SET(sock, &exfds);
 				excnt++;
 			}
 		}
 	}
-	// Workaround for games that set ndfs to 64 instead of socket id + 1
-	if (inetLastSocket >= 0) {
-		if (readfds != NULL && rdcnt == 0) {
-			FD_SET(inetLastSocket, &rdfds);
-			rdcnt++;
-		}
-		if (writefds != NULL && wrcnt == 0) {
-			FD_SET(inetLastSocket, &wrfds);
-			wrcnt++;
-		}
-		if (exceptfds != NULL && excnt == 0) {
-			FD_SET(inetLastSocket, &exfds);
-			excnt++;
-		}
-	}
+
+	// Unlikely to hit these.
+	_dbg_assert_(rdcnt < FD_SETSIZE);
+	_dbg_assert_(wrcnt < FD_SETSIZE);
+	_dbg_assert_(excnt < FD_SETSIZE);
 
 	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
 	if (timeout != NULL) {
@@ -286,26 +304,23 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	}
 	VERBOSE_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
 	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
-	retval = select(nfds, (readfds == NULL) ? NULL : &rdfds, (writefds == NULL) ? NULL : &wrfds, (exceptfds == NULL) ? NULL : &exfds, /*(timeout == NULL) ? NULL :*/ &tmout);
-	if (readfds != NULL && inetLastSocket < maxfd) NetInetFD_ZERO(readfds); // Clear it only when not needing a workaround
-	if (writefds != NULL && inetLastSocket < maxfd) NetInetFD_ZERO(writefds); // Clear it only when not needing a workaround
-	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
-	for (int i = maxfd - 1; i >= 0 /*&& i >= maxfd - 64*/; i--) {
-		if (readfds != NULL && FD_ISSET(i, &rdfds))
-			NetInetFD_SET(i, readfds);
-		if (writefds != NULL && FD_ISSET(i, &wrfds))
-			NetInetFD_SET(i, writefds);
-		if (exceptfds != NULL && FD_ISSET(i, &exfds))
-			NetInetFD_SET(i, exceptfds);
+	int retval = select(nfds, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
+	if (retval < 0) {
+		ERROR_LOG(Log::sceNet, "selected returned an error, TODO");
 	}
-	// Workaround for games that set ndfs to 64 instead of socket id + 1
-	if (inetLastSocket >= 0) {
-		if (readfds != NULL && rdcnt == 1 && FD_ISSET(inetLastSocket, &rdfds))
-			NetInetFD_SET(inetLastSocket, readfds);
-		if (writefds != NULL && wrcnt == 1 && FD_ISSET(inetLastSocket, &wrfds))
-			NetInetFD_SET(inetLastSocket, writefds);
-		if (exceptfds != NULL && excnt == 1 && FD_ISSET(inetLastSocket, &exfds))
-			NetInetFD_SET(inetLastSocket, exceptfds);
+	if (readfds != NULL) NetInetFD_ZERO(readfds);
+	if (writefds != NULL) NetInetFD_ZERO(writefds);
+	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
+	for (int i = 0; i < nfds; i++) {
+		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
+			NetInetFD_SET(i, readfds);
+		}
+		if (writefds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &wrfds)) {
+			NetInetFD_SET(i, writefds);
+		}
+		if (exceptfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &exfds)) {
+			NetInetFD_SET(i, exceptfds);
+		}
 	}
 
 	if (retval < 0) {
@@ -335,12 +350,16 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 			inetLastErrno = EINVAL;
 			return hleLogError(Log::sceNet, -1, "invalid socket id");
 		}
-		if (fdarray[i].fd > maxfd) maxfd = fdarray[i].fd;
-		FD_SET(fdarray[i].fd, &readfds);
-		FD_SET(fdarray[i].fd, &writefds);
-		FD_SET(fdarray[i].fd, &exceptfds);
+		if (fdarray[i].fd > maxfd) {
+			maxfd = fdarray[i].fd;
+		}
+		SOCKET hostSocket = GetHostSocketFromInetSocket(fdarray[i].fd);
+		FD_SET(hostSocket, &readfds);
+		FD_SET(hostSocket, &writefds);
+		FD_SET(hostSocket, &exceptfds);
 		fdarray[i].revents = 0;
 	}
+
 	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
 	if (timeout >= 0) {
 		tmout.tv_sec = timeout / 1000000; // seconds
@@ -355,12 +374,13 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 
 	retval = 0;
 	for (int i = 0; i < (s32)nfds; i++) {
-		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(fdarray[i].fd, &readfds))
+		SOCKET hostSocket = GetHostSocketFromInetSocket(fdarray[i].fd);
+		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(hostSocket, &readfds))
 			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN); //POLLIN_SET
-		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(fdarray[i].fd, &writefds))
+		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(hostSocket, &writefds))
 			fdarray[i].revents |= (INET_POLLWRNORM | INET_POLLOUT); //POLLOUT_SET
 		fdarray[i].revents &= fdarray[i].events;
-		if (FD_ISSET(fdarray[i].fd, &exceptfds))
+		if (FD_ISSET(hostSocket, &exceptfds))
 			fdarray[i].revents |= (INET_POLLRDBAND | INET_POLLPRI | INET_POLLERR); //POLLEX_SET; // Can be raised on revents regardless of events bitmask?
 		if (fdarray[i].revents)
 			retval++;
@@ -401,7 +421,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetSend(%i, %08x, %i, %08x) at %08x", socket, bufPtr, bufLen, flags, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(inetSock->sock, &inetSock)) {
+	if (!GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -433,10 +453,10 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	int hostType = convertSocketTypePSP2Host(type);
 	int hostProtocol = convertSocketProtoPSP2Host(protocol);
 
-	SOCKET sock = ::socket(hostDomain, hostType, hostProtocol);
-	if (sock < 0) {
+	SOCKET hostSock = ::socket(hostDomain, hostType, hostProtocol);
+	if (hostSock < 0) {
 		inetLastErrno = socket_errno;
-		return hleLogError(Log::sceNet, sock, "errno = %d", inetLastErrno);
+		return hleLogError(Log::sceNet, hostSock, "errno = %d", inetLastErrno);
 	}
 
 	// Register the socket.
@@ -447,22 +467,21 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 		return hleLogError(Log::sceNet, ERROR_NET_INTERNAL);
 	}
 	InetSocket *inetSock = &g_inetSockets[socket];
-	inetSock->sock = socket;
+	inetSock->state = SocketState::Used;
+	inetSock->sock = hostSock;
 	inetSock->domain = domain;
 	inetSock->type = type;
 	inetSock->protocol = protocol;
 
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-	setSockNoSIGPIPE(sock, 1);
+	setSockNoSIGPIPE(hostSock, 1);
 	// TODO: We should always use non-blocking mode and simulate blocking mode
-	changeBlockingMode(sock, 1);
+	changeBlockingMode(hostSock, 1);
 	// Enable Port Re-use, required for multiple-instance
-	setSockReuseAddrPort(sock);
+	setSockReuseAddrPort(hostSock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
-	setUDPConnReset(sock, false);
-
-	inetLastSocket = sock;
-	return hleLogSuccessI(Log::sceNet, sock);
+	setUDPConnReset(hostSock, false);
+	return hleLogSuccessI(Log::sceNet, socket);
 }
 
 static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
