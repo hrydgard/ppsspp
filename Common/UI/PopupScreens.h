@@ -374,8 +374,9 @@ public:
 
 	Event OnChange;
 
-	void SetRestriction(StringRestriction restriction) {
+	void SetRestriction(StringRestriction restriction, int minLength) {
 		restriction_ = restriction;
+		minLen_ = minLength;
 	}
 
 protected:
@@ -390,6 +391,7 @@ private:
 	std::string placeHolder_;
 	std::string defaultText_;
 	int maxLen_;
+	int minLen_ = 0;
 	bool restoreFocus_ = false;
 	StringRestriction restriction_;
 };

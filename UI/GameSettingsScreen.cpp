@@ -945,7 +945,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		networkingSettings->Add(new NoticeView(NoticeLevel::WARN, n->T("To play in Infrastructure Mode, you must enter a username"), ""));
 	}
 	PopupTextInputChoice *usernameChoice = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureUsername, n->T("Username"), "", 16, screenManager()));
-	usernameChoice->SetRestriction(StringRestriction::AlphaNumDashUnderscore);
+	usernameChoice->SetRestriction(StringRestriction::AlphaNumDashUnderscore, 3);
 	usernameChoice->OnChange.Add([this](UI::EventParams &e) {
 		RecreateViews();
 		return UI::EVENT_DONE;
@@ -1316,7 +1316,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
 		// Copy to infrastructure name if valid and not already set.
 		if (g_Config.sInfrastructureUsername.empty()) {
-			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 16)) {
+			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
 				g_Config.sInfrastructureUsername = g_Config.sNickName;
 			}
 		}

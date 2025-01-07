@@ -608,7 +608,7 @@ static std::string DefaultInfrastructureUsername() {
 	// NOTE: This type of dependency means that network settings must be AFTER system settings in sections[].
 	if (g_Config.sNickName != "PPSSPP" &&
 		!g_Config.sNickName.empty() &&
-		g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 16)) {
+		g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
 		return g_Config.sNickName;
 	}
 

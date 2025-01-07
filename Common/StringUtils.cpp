@@ -105,7 +105,7 @@ int countChar(std::string_view haystack, char needle) {
 	return count;
 }
 
-std::string SanitizeString(std::string_view input, StringRestriction restriction, int maxLength) {
+std::string SanitizeString(std::string_view input, StringRestriction restriction, int minLength, int maxLength) {
 	if (restriction == StringRestriction::None) {
 		return std::string(input);
 	}
@@ -124,6 +124,14 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 				sanitized.push_back(c);
 			}
 			break;
+		}
+	}
+
+	if (minLength >= 0) {
+		if (sanitized.size() < minLength) {
+			// Just reject it by returning an empty string, as we can't really
+			// conjure up new characters here.
+			return std::string();
 		}
 	}
 
