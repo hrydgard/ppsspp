@@ -560,8 +560,5 @@ int NetApctl_GetState();
 
 int sceNetApctlConnect(int connIndex);
 int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout);
-int sceNetInetTerm();
 int sceNetApctlTerm();
 int sceNetApctlDisconnect();
-
-void Register_sceNetInet();

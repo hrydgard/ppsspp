@@ -1207,7 +1207,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		tmout.tv_sec = timeout->tv_sec;
 		tmout.tv_usec = timeout->tv_usec;
 	}
-	VERBOSE_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, tmout.tv_sec, tmout.tv_usec);
+	VERBOSE_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
 	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
 	retval = select(nfds, (readfds == NULL) ? NULL : &rdfds, (writefds == NULL) ? NULL : &wrfds, (exceptfds == NULL) ? NULL : &exfds, /*(timeout == NULL) ? NULL :*/ &tmout);
 	if (readfds != NULL && inetLastSocket < maxfd) NetInetFD_ZERO(readfds); // Clear it only when not needing a workaround
@@ -1287,7 +1287,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 			fdarray[i].revents |= (INET_POLLRDBAND | INET_POLLPRI | INET_POLLERR); //POLLEX_SET; // Can be raised on revents regardless of events bitmask?
 		if (fdarray[i].revents)
 			retval++;
-		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x, availToRecv: %d", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents, getAvailToRecv(fdarray[i].fd));
+		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x, availToRecv: %d", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents, (int)getAvailToRecv(fdarray[i].fd));
 	}
 	//hleEatMicro(1000);
 	return hleLogSuccessI(Log::sceNet, hleDelayResult(retval, "workaround until blocking-socket", 1000)); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
@@ -1435,7 +1435,7 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends), 
 	//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
 	/*else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_BROADCAST) {
-		//*optlen = std::min(sizeof(sock->so_broadcast), *optlen);
+		// *optlen = std::min(sizeof(sock->so_broadcast), *optlen);
 		//memcpy((int*)optval, &sock->so_broadcast, *optlen);
 		//if (sock->so_broadcast && *optlen>0) *optval = 0x80; // on true, returning 0x80 when retrieved using getsockopt?
 		return hleLogSuccessI(Log::sceNet, 0);
