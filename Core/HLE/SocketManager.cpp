@@ -3,36 +3,38 @@
 
 #include <mutex>
 
-// We use this array from 1 and forward. It's probably not a good idea to return 0 as a socket.
-InetSocket g_inetSockets[256];
+SocketManager g_socketManager;
 static std::mutex g_socketMutex;  // TODO: Remove once the adhoc thread is gone
 
-int AllocInetSocket() {
+InetSocket *SocketManager::AllocSocket(int *index) {
 	std::lock_guard<std::mutex> guard(g_socketMutex);
-	for (int i = MIN_VALID_INET_SOCKET; i < ARRAY_SIZE(g_inetSockets); i++) {
-		if (g_inetSockets[i].state == SocketState::Unused) {
-			return i;
+	for (int i = MIN_VALID_INET_SOCKET; i < ARRAY_SIZE(inetSockets_); i++) {
+		if (inetSockets_[i].state == SocketState::Unused) {
+			*index = i;
+			return inetSockets_ + i;
 		}
 	}
 	_dbg_assert_(false);
+
 	ERROR_LOG(Log::sceNet, "Ran out of socket handles! This is BAD.");
+	*index = 0;
 	return 0;
 }
 
-bool GetInetSocket(int sock, InetSocket **inetSocket) {
+bool SocketManager::GetInetSocket(int sock, InetSocket **inetSocket) {
 	std::lock_guard<std::mutex> guard(g_socketMutex);
-	if (sock < MIN_VALID_INET_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+	if (sock < MIN_VALID_INET_SOCKET || sock >= ARRAY_SIZE(inetSockets_) || inetSockets_[sock].state == SocketState::Unused) {
 		*inetSocket = nullptr;
 		return false;
 	}
-	*inetSocket = &g_inetSockets[sock];
+	*inetSocket = inetSockets_ + sock;
 	return true;
 }
 
 // Simplified mappers, only really useful in select/poll
-SOCKET GetHostSocketFromInetSocket(int sock) {
+SOCKET SocketManager::GetHostSocketFromInetSocket(int sock) {
 	std::lock_guard<std::mutex> guard(g_socketMutex);
-	if (sock < MIN_VALID_INET_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+	if (sock < MIN_VALID_INET_SOCKET || sock >= ARRAY_SIZE(inetSockets_) || inetSockets_[sock].state == SocketState::Unused) {
 		_dbg_assert_(false);
 		return -1;
 	}
@@ -40,11 +42,11 @@ SOCKET GetHostSocketFromInetSocket(int sock) {
 		// Map 0 to 0, special case.
 		return 0;
 	}
-	return g_inetSockets[sock].sock;
+	return inetSockets_[sock].sock;
 }
 
-void CloseAllSockets() {
-	for (auto &sock : g_inetSockets) {
+void SocketManager::CloseAll() {
+	for (auto &sock : inetSockets_) {
 		if (sock.state != SocketState::Unused) {
 			closesocket(sock.sock);
 		}

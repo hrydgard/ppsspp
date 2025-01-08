@@ -280,6 +280,7 @@ SceNetAdhocctlPeerInfo* findFriendByIP(uint32_t ip) {
 	return peer;
 }
 
+// fd is a host socket
 int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeoutUS) {
 	fd_set readfds, writefds;
 	timeval tval;

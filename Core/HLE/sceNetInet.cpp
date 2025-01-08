@@ -33,7 +33,7 @@ void __NetInetShutdown() {
 	}
 
 	netInetInited = false;
-	CloseAllSockets();
+	g_socketManager.CloseAll();
 }
 
 static int sceNetInetInit() {
@@ -123,7 +123,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	}
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -157,7 +157,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	}
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -205,9 +205,9 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
-	for (int i = MIN_VALID_INET_SOCKET; i < nfds; i++) {
+	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
-			SOCKET sock = GetHostSocketFromInetSocket(i);
+			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
 			if (rdcnt < FD_SETSIZE) {
@@ -216,7 +216,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			}
 		}
 		if (writefds && (NetInetFD_ISSET(i, writefds))) {
-			SOCKET sock = GetHostSocketFromInetSocket(i);
+			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
 			if (wrcnt < FD_SETSIZE) {
@@ -225,7 +225,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			}
 		}
 		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
-			SOCKET sock = GetHostSocketFromInetSocket(i);
+			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
 			if (excnt < FD_SETSIZE) {
@@ -254,7 +254,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	if (readfds != NULL) NetInetFD_ZERO(readfds);
 	if (writefds != NULL) NetInetFD_ZERO(writefds);
 	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
-	for (int i = MIN_VALID_INET_SOCKET; i < nfds; i++) {
+	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
 			NetInetFD_SET(i, readfds);
 		}
@@ -296,7 +296,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 		if (fdarray[i].fd > maxfd) {
 			maxfd = fdarray[i].fd;
 		}
-		SOCKET hostSocket = GetHostSocketFromInetSocket(fdarray[i].fd);
+		SOCKET hostSocket = g_socketManager.GetHostSocketFromInetSocket(fdarray[i].fd);
 		FD_SET(hostSocket, &readfds);
 		FD_SET(hostSocket, &writefds);
 		FD_SET(hostSocket, &exceptfds);
@@ -317,7 +317,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 
 	retval = 0;
 	for (int i = 0; i < (s32)nfds; i++) {
-		SOCKET hostSocket = GetHostSocketFromInetSocket(fdarray[i].fd);
+		SOCKET hostSocket = g_socketManager.GetHostSocketFromInetSocket(fdarray[i].fd);
 		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(hostSocket, &readfds))
 			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN); //POLLIN_SET
 		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(hostSocket, &writefds))
@@ -337,7 +337,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetRecv(%i, %08x, %i, %08x) at %08x", socket, bufPtr, bufLen, flags, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -364,7 +364,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetSend(%i, %08x, %i, %08x) at %08x", socket, bufPtr, bufLen, flags, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -404,20 +404,19 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 
 	// Register the socket.
 
-	int socket = AllocInetSocket();
+	int socket;
+
+	InetSocket *inetSock = g_socketManager.AllocSocket(&socket);
 	if (socket < 0) {
 		// Alloc already logged. Let's bail.
 		return hleLogError(Log::sceNet, ERROR_NET_INTERNAL);
 	}
-	InetSocket *inetSock = &g_inetSockets[socket];
+
 	inetSock->state = SocketState::UsedNetInet;
 	inetSock->sock = hostSock;
 	inetSock->domain = domain;
 	inetSock->type = type;
 	inetSock->protocol = protocol;
-	inetSock->hostDomain = hostDomain;
-	inetSock->hostType = hostType;
-	inetSock->hostProtocol = hostProtocol;
 
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
 	setSockNoSIGPIPE(hostSock, 1);
@@ -427,6 +426,7 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	setSockReuseAddrPort(hostSock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
 	setUDPConnReset(hostSock, false);
+
 	return hleLogSuccessI(Log::sceNet, socket);
 }
 
@@ -434,7 +434,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i, %i, %08x, %i) at %08x", __FUNCTION__, socket, level, optname, optvalPtr, optlen, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -495,7 +495,7 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i, %i, %08x, %08x) at %08x", __FUNCTION__, socket, level, optname, optvalPtr, optlenPtr, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -560,7 +560,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %i) at %08x", __FUNCTION__, socket, namePtr, namelen, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -614,7 +614,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %i) at %08x", __FUNCTION__, socket, sockAddrPtr, sockAddrLen, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -652,7 +652,7 @@ static int sceNetInetListen(int socket, int backlog) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i) at %08x", __FUNCTION__, socket, backlog, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -669,7 +669,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, addrPtr, addrLenPtr, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -702,7 +702,7 @@ static int sceNetInetShutdown(int socket, int how) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i) at %08x", __FUNCTION__, socket, how, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -722,7 +722,7 @@ static int sceNetInetSocketAbort(int socket) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i)", __FUNCTION__, socket);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -735,7 +735,7 @@ static int sceNetInetClose(int socket) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i) at %08x", __FUNCTION__, socket, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -754,7 +754,7 @@ static int sceNetInetCloseWithRST(int socket) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i) at %08x", __FUNCTION__, socket, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -777,7 +777,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 	DEBUG_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %i, %08x, %08x, %08x) at %08x", __FUNCTION__, socket, bufferPtr, len, flags, fromPtr, fromlenPtr, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -825,7 +825,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 	DEBUG_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %i, %08x, %08x, %d) at %08x", __FUNCTION__, socket, bufferPtr, len, flags, toPtr, tolen, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -909,7 +909,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	}
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
@@ -1103,7 +1103,7 @@ static int sceNetInetRecvmsg(int socket, u32 msghdrPtr, int flags) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, currentMIPS->pc);
 
 	InetSocket *inetSock;
-	if (!GetInetSocket(socket, &inetSock)) {
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 

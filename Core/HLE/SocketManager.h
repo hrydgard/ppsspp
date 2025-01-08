@@ -13,22 +13,32 @@ enum class SocketState {
 struct InetSocket {
 	SOCKET sock;  // native socket
 	SocketState state;
-	// NOTE: These are the PSP types for now
+	// NOTE: These are the PSP types. Can be converted to the host types if needed.
 	int domain;
 	int type;
 	int protocol;
-	// These are the host types for convenience.
-	int hostDomain;
-	int hostType;
-	int hostProtocol;
 };
 
-#define MIN_VALID_INET_SOCKET 61
-#define VALID_INET_SOCKET_COUNT 256
+class SocketManager {
+public:
+	enum {
+		VALID_INET_SOCKET_COUNT = 256,
+		MIN_VALID_INET_SOCKET = 61,
+	};
 
-extern InetSocket g_inetSockets[VALID_INET_SOCKET_COUNT];
+	InetSocket *AllocSocket(int *index);
+	bool GetInetSocket(int sock, InetSocket **inetSocket);
+	SOCKET GetHostSocketFromInetSocket(int sock);
+	void CloseAll();
 
-int AllocInetSocket();
-bool GetInetSocket(int sock, InetSocket **inetSocket);
-SOCKET GetHostSocketFromInetSocket(int sock);
-void CloseAllSockets();
+	// For debugger
+	const InetSocket *Sockets() {
+		return inetSockets_;
+	}
+
+private:
+	// We use this array from MIN_VALID_INET_SOCKET and forward. It's probably not a good idea to return 0 as a socket.
+	InetSocket inetSockets_[VALID_INET_SOCKET_COUNT];
+};
+
+extern SocketManager g_socketManager;
