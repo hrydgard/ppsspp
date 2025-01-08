@@ -17,6 +17,7 @@ struct InetSocket {
 	int domain;
 	int type;
 	int protocol;
+	bool nonblocking;
 };
 
 // Only use this for sockets whose ID are exposed to the game.

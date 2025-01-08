@@ -422,9 +422,11 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	u32_le* optval = (u32_le*)Memory::GetPointer(optvalPtr);
 	DEBUG_LOG(Log::sceNet, "SockOpt: Level = %s, OptName = %s, OptValue = %d", inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str(), *optval);
 	timeval tval{};
-	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-bloking mode (ie. simulated blocking mode)
+	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-blocking mode (ie. simulated blocking mode)
 	if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_NBIO) {
-		//memcpy(&sock->nonblocking, (int*)optval, std::min(sizeof(sock->nonblocking), optlen));
+		int nonblocking;
+		memcpy(&nonblocking, (int*)optval, sizeof(int));
+		inetSock->nonblocking = nonblocking;
 		return hleLogSuccessI(Log::sceNet, 0);
 	}
 	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),

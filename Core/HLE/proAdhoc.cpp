@@ -93,7 +93,9 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
+// NOTE: This does not need to be managed by the socket manager - not exposed to the game.
 std::atomic<int> metasocket((int)INVALID_SOCKET);
+
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;

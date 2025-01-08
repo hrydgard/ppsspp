@@ -31,6 +31,7 @@ InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domai
 			inetSock->domain = domain;
 			inetSock->type = type;
 			inetSock->protocol = protocol;
+			inetSock->nonblocking = false;
 			return inetSock;
 		}
 	}
