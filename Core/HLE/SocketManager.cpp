@@ -42,6 +42,17 @@ InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domai
 	return nullptr;
 }
 
+bool SocketManager::Close(InetSocket *inetSocket) {
+	_dbg_assert_(inetSocket->state != SocketState::Unused);
+	if (closesocket(inetSocket->sock) != 0) {
+		ERROR_LOG(Log::sceNet, "closesocket(%d) failed", inetSocket->sock);
+		return false;
+	}
+	inetSocket->state = SocketState::Unused;
+	inetSocket->sock = 0;
+	return true;
+}
+
 bool SocketManager::GetInetSocket(int sock, InetSocket **inetSocket) {
 	std::lock_guard<std::mutex> guard(g_socketMutex);
 	if (sock < MIN_VALID_INET_SOCKET || sock >= ARRAY_SIZE(inetSockets_) || inetSockets_[sock].state == SocketState::Unused) {

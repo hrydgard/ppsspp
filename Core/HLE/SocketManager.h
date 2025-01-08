@@ -19,6 +19,8 @@ struct InetSocket {
 	int protocol;
 };
 
+// Only use this for sockets whose ID are exposed to the game.
+// Don't really need to bother with the others, as the game doesn't know about them.
 class SocketManager {
 public:
 	enum {
@@ -29,6 +31,7 @@ public:
 	InetSocket *CreateSocket(int *index, SocketState state, int domain, int type, int protocol);
 	bool GetInetSocket(int sock, InetSocket **inetSocket);
 	SOCKET GetHostSocketFromInetSocket(int sock);
+	bool Close(InetSocket *inetSocket);
 	void CloseAll();
 
 	// For debugger

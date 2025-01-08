@@ -720,14 +720,9 @@ static int sceNetInetClose(int socket) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	int retVal = closesocket(inetSock->sock);
-	if (retVal == 0) {
-		inetSock->sock = 0;
-		inetSock->state = SocketState::Unused;
-	} else {
-		ERROR_LOG(Log::sceNet, "closesocket(%d) failed (socket=%d)", inetSock->sock, socket);
-	}
-	return hleLogSuccessI(Log::sceNet, retVal);
+	g_socketManager.Close(inetSock);
+
+	return hleLogSuccessI(Log::sceNet, 0);
 }
 
 // TODO: How is this different than just sceNetInetClose?
@@ -744,14 +739,8 @@ static int sceNetInetCloseWithRST(int socket) {
 	sl.l_onoff = 1;		// non-zero value enables linger option in kernel
 	sl.l_linger = 0;	// timeout interval in seconds
 	setsockopt(inetSock->sock, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
-	int retVal = closesocket(inetSock->sock);
-	if (retVal == 0) {
-		inetSock->sock = 0;
-		inetSock->state = SocketState::Unused;
-	} else {
-		ERROR_LOG(Log::sceNet, "closesocket(%d) failed (socket=%d)", inetSock->sock, socket);
-	}
-	return hleLogSuccessI(Log::sceNet, retVal);
+	g_socketManager.Close(inetSock);
+	return hleLogSuccessI(Log::sceNet, 0);
 }
 
 static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
