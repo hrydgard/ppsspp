@@ -87,3 +87,13 @@ void SocketManager::CloseAll() {
 		sock.sock = 0;
 	}
 }
+
+const char *SocketStateToString(SocketState state) {
+	switch (state) {
+	case SocketState::Unused: return "unused";
+	case SocketState::UsedNetInet: return "netInet";
+	case SocketState::UsedProAdhoc: return "proAdhoc";
+	default:
+		return "N/A";
+	}
+}

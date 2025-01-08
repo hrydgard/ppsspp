@@ -9,6 +9,8 @@ enum class SocketState {
 	UsedProAdhoc,
 };
 
+const char *SocketStateToString(SocketState state);
+
 // Internal socket state tracking
 struct InetSocket {
 	SOCKET sock;  // native socket
