@@ -204,6 +204,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 
 	int rdcnt = 0, wrcnt = 0, excnt = 0;
 
+	int maxHostSocket = 0;
+
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
@@ -212,6 +214,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
+			if (sock > maxHostSocket)
+				maxHostSocket = sock;
 			DEBUG_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
 			if (rdcnt < FD_SETSIZE) {
 				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
@@ -224,6 +228,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
+			if (sock > maxHostSocket)
+				maxHostSocket = sock;
 			DEBUG_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
 			if (wrcnt < FD_SETSIZE) {
 				FD_SET(sock, &wrfds);
@@ -236,6 +242,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
+			if (sock > maxHostSocket)
+				maxHostSocket = sock;
 			DEBUG_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
 			if (excnt < FD_SETSIZE) {
 				FD_SET(sock, &exfds);
@@ -256,10 +264,10 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		tmout.tv_sec = timeout->tv_sec;
 		tmout.tv_usec = timeout->tv_usec;
 	}
-	DEBUG_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
+	DEBUG_LOG(Log::sceNet, "Select(host: %d): Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", maxHostSocket + 1, rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
 	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
 	// Note: select can overwrite tmout.
-	int retval = select(nfds, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
+	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
 	if (retval < 0) {
 		ERROR_LOG(Log::sceNet, "select returned an error, TODO");
 	}

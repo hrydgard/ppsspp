@@ -4,7 +4,7 @@
 
 // Keep track of who's using a socket.
 enum class SocketState {
-	Unused,
+	Unused = 0,
 	UsedNetInet,
 	UsedProAdhoc,
 };
@@ -28,7 +28,7 @@ class SocketManager {
 public:
 	enum {
 		VALID_INET_SOCKET_COUNT = 256,
-		MIN_VALID_INET_SOCKET = 61,
+		MIN_VALID_INET_SOCKET = 1,
 	};
 
 	InetSocket *CreateSocket(int *index, int *returned_errno, SocketState state, int domain, int type, int protocol);
