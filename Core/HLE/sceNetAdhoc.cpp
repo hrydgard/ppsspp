@@ -359,7 +359,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			// Don't send anything yet if connection to Adhoc Server is still in progress
 			if (!isAdhocctlNeedLogin && IsSocketReady((int)metasocket, false, true) > 0) {
 				ret = send((int)metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
-				sockerr = errno;
+				sockerr = socket_errno;
 				// Successfully Sent or Connection has been closed or Connection failure occurred
 				if (ret >= 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
 					// Prevent from sending again
@@ -487,7 +487,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 
 	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
 	ret = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-	sockerr = errno;
+	sockerr = socket_errno;
 
 	// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
 	// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
@@ -611,7 +611,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		target.sin_port = htons(peer->port + peer->portOffset);
 
 		int ret = sendto(pdpsocket.id, (const char*)req.buffer, targetPeers.length, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
-		int sockerr = errno;
+		int sockerr = socket_errno;
 
 		if (ret >= 0) {
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u](B): Sent %u bytes to %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
@@ -656,7 +656,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 
 	// Send Data
 	int ret = send(ptpsocket.id, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
-	int sockerr = errno;
+	int sockerr = socket_errno;
 
 	// Success
 	if (ret > 0) {
@@ -708,7 +708,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 	}
 
 	int ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
-	int sockerr = errno;
+	int sockerr = socket_errno;
 
 	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 	if (ret > 0) {
@@ -773,7 +773,7 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 	if (ret > 0) {
 		// Accept Connection
 		ret = accept(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
-		sockerr = errno;
+		sockerr = socket_errno;
 	}
 
 	// Accepted New Connection
@@ -823,7 +823,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
 		ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-		sockerr = errno;
+		sockerr = socket_errno;
 		if (sockerr != 0)
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 		else
@@ -853,7 +853,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
 		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
 		if (ret == SOCKET_ERROR) {
-			int err = errno;
+			int err = socket_errno;
 			VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: getpeername(%i) error %i, sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, err, sockerr);
 			sockerr = err;
 		}
@@ -876,7 +876,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		if (/*sockerr == ECONNREFUSED ||*/ static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->internalLastAttempt) > 16666) {
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr, ptpsocket.state, sock->attemptCount);
 			if (RecreatePtpSocket(req.id) < 0) {
-				WARN_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, errno);
+				WARN_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: RecreatePtpSocket error %i", req.id, ptpsocket.lport, socket_errno);
 			}
 			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
 			sock->internalLastAttempt = CoreTiming::GetGlobalTimeUsScaled();
@@ -1485,7 +1485,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 
 					// Port not available (exclusively in use?)
 					if (iResult == SOCKET_ERROR) {
-						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
+						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
 						auto n = GetI18NCategory(I18NCat::NETWORKING);
 						g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
 						
@@ -1612,7 +1612,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 									// Send Data. UDP are guaranteed to be sent as a whole or nothing(failed if len > SO_MAX_MSG_SIZE), and never be partially sent/recv
 									int sent = sendto(pdpsocket.id, (const char *)data, len, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
-									int error = errno;
+									int error = socket_errno;
 
 									if (sent == SOCKET_ERROR) {
 										// Simulate blocking behaviour with non-blocking socket
@@ -1713,7 +1713,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 										target.sin_port = htons(dport + peer.portOffset);
 
 										int sent = sendto(pdpsocket.id, (const char*)data, len, MSG_NOSIGNAL, (struct sockaddr*)&target, sizeof(target));
-										int error = errno;
+										int error = socket_errno;
 										if (sent == SOCKET_ERROR) {
 											DEBUG_LOG(Log::sceNet, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](BC) [size=%i]", error, id, getLocalPort(pdpsocket.id), ntohs(target.sin_port), len);
 										}
@@ -1847,7 +1847,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					sinlen = sizeof(sin);
 					memset(&sin, 0, sinlen);
 					received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-					error = errno;
+					error = socket_errno;
 					// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
 					// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
 					//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
@@ -1900,7 +1900,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				memset(&sin, 0, sinlen);
 				// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
 				received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-				error = errno;
+				error = socket_errno;
 
 				// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
 				if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
@@ -2476,7 +2476,7 @@ u32 NetAdhocctl_Disconnect() {
 
 			// Send Disconnect Request Packet
 			iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
-			error = errno;
+			error = socket_errno;
 
 			// Sending may get socket error 10053 if the AdhocServer is already shutted down
 			if (iResult == SOCKET_ERROR) {
@@ -3307,7 +3307,7 @@ int RecreatePtpSocket(int ptpId) {
 
 	// Bound Socket to local Port
 	if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		ERROR_LOG(Log::sceNet, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, errno, ntohs(addr.sin_port));
+		ERROR_LOG(Log::sceNet, "RecreatePtpSocket(%i) - Socket error (%i) when binding port %u", ptpId, socket_errno, ntohs(addr.sin_port));
 	}
 	else {
 		// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
@@ -3325,7 +3325,7 @@ int RecreatePtpSocket(int ptpId) {
 			sock->data.ptp.lport = newlport;
 		}
 		else {
-			WARN_LOG(Log::sceNet, "RecreatePtpSocket(%i): getsockname error %i", ptpId, errno);
+			WARN_LOG(Log::sceNet, "RecreatePtpSocket(%i): getsockname error %i", ptpId, socket_errno);
 		}
 	}
 
@@ -3495,7 +3495,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						}
 					}
 					else {
-						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
+						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
 						auto n = GetI18NCategory(I18NCat::NETWORKING);
 						g_OSD.Show(OSDType::MESSAGE_ERROR,
 							std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
@@ -3691,7 +3691,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					if (newsocket > 0) {
 						// Accept Connection
 						newsocket = accept(ptpsocket.id, (struct sockaddr*)&peeraddr, &peeraddrlen);
-						error = errno;
+						error = socket_errno;
 					}
 
 					if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK))) {
@@ -3781,7 +3781,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					int connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 
 					// Grab Error Code
-					int errorcode = errno;
+					int errorcode = socket_errno;
 
 					if (connectresult == SOCKET_ERROR) {
 						if (errorcode == EAGAIN || errorcode == EWOULDBLOCK || errorcode == EALREADY || errorcode == EISCONN)
@@ -4096,7 +4096,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 					}
 
 					if (iResult == SOCKET_ERROR) {
-						int error = errno;
+						int error = socket_errno;
 						ERROR_LOG(Log::sceNet, "sceNetAdhocPtpListen[%i]: Socket Error (%i)", sport, error);
 					}
 
@@ -4168,7 +4168,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					
 					// Send Data
 					int sent = send(ptpsocket.id, data, *len, MSG_NOSIGNAL);
-					int error = errno;
+					int error = socket_errno;
 					
 					// Free Network Lock
 					// _freeNetworkLock();
@@ -4273,7 +4273,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 					// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 					received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
-					error = errno;
+					error = socket_errno;
 
 					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						if (flag == 0) {
@@ -4349,7 +4349,7 @@ int FlushPtpSocket(int socketId) {
 	// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
 	//changeBlockingMode(socket->id, nonblock);
 	int ret = send(socketId, nullptr, 0, MSG_NOSIGNAL);
-	if (ret == SOCKET_ERROR) ret = errno;
+	if (ret == SOCKET_ERROR) ret = socket_errno;
 	//changeBlockingMode(socket->id, 1);
 
 	// Restore/Enable Nagle Algo

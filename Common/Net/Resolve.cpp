@@ -7,29 +7,10 @@
 #include <string>
 #include <vector>
 
-
-#ifdef _WIN32
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
-#ifndef AI_ADDRCONFIG
-#define AI_ADDRCONFIG 0x0400
-#endif
-#undef min
-#undef max
-#else
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <ifaddrs.h>
-#include <unistd.h>
-#endif
-
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Net/SocketCompat.h"
 
 #ifndef HTTPS_NOT_AVAILABLE
 #include "ext/naett/naett.h"
@@ -157,7 +138,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 				}
 			}*/
 		}
-		
+
 		freeifaddrs(ifAddrStruct);
 		return true;
 	}
@@ -170,13 +151,13 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) {
-		ERROR_LOG(Log::sceNet, "GetIPList failed to create socket (result = %i, errno = %i)", sd, errno);
+		ERROR_LOG(Log::sceNet, "GetIPList failed to create socket (result = %i, errno = %i)", sd, socket_errno);
 		return false;
 	}
 
 	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifc);
 	if (r != 0) {
-		ERROR_LOG(Log::sceNet, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, errno);
+		ERROR_LOG(Log::sceNet, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, socket_errno);
 		return false;
 	}
 
@@ -192,7 +173,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 		r = ioctl(sd, SIOCGIFADDR, item);
 		if (r != 0)
 		{
-			ERROR_LOG(Log::sceNet, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, errno);
+			ERROR_LOG(Log::sceNet, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, socket_errno);
 		}
 
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
@@ -221,7 +202,7 @@ bool GetIPList(std::vector<std::string> &IP4s) {
 	// Get local host name
 	char szHostName[256] = "";
 	if (::gethostname(szHostName, sizeof(szHostName))) {
-		// Error handling 
+		// Error handling
 	}
 
 	int status;
@@ -322,4 +303,4 @@ int inet_pton(int af, const char* src, void* dst)
 	return 1;
 }
 
-}
+}  // namespace net

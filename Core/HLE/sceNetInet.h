@@ -7,8 +7,6 @@
 #include "Common/Net/SocketCompat.h"
 
 #include <memory>
-#include <shared_mutex>
-#include <unordered_map>
 
 // Using constants instead of numbers for readability reason, since PSP_THREAD_ATTR_KERNEL/USER is located in sceKernelThread.cpp instead of sceKernelThread.h
 #ifndef PSP_THREAD_ATTR_KERNEL

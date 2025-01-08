@@ -1,22 +1,8 @@
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
-#include "Common/CommonWindows.h"
-#include <WS2tcpip.h>
-#endif
-
-#if __linux__ || __APPLE__ || defined(__OpenBSD__)
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <netinet/tcp.h>
-#include <fcntl.h>
-#endif
-
 #include <string>
-#include "Common/Log.h"
-#include "Common/StringUtils.h"
 #include "Common/Net/SocketCompat.h"
+#include "Common/StringUtils.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/HLE.h"

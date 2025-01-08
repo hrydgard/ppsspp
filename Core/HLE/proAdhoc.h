@@ -17,22 +17,7 @@
 
 #pragma once
 
-// Net stuff
-#if defined(_WIN32)
-#include "Common/CommonWindows.h"
-
-#include <WS2tcpip.h>
-#else
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <errno.h>
-#endif
+#include "Common/Net/SocketCompat.h"
 
 #ifdef _MSC_VER
 #define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
@@ -46,7 +31,6 @@
 #include <climits>
 
 #include "Common/Net/Resolve.h"
-#include "Common/Net/SocketCompat.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelThread.h"

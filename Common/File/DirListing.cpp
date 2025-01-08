@@ -12,7 +12,6 @@
 #include <strings.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <errno.h>
 #endif
 
 #include <cstring>
