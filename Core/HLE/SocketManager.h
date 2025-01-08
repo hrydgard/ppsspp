@@ -23,7 +23,7 @@ struct InetSocket {
 	int hostProtocol;
 };
 
-#define MIN_VALID_INET_SOCKET 20
+#define MIN_VALID_INET_SOCKET 61
 #define VALID_INET_SOCKET_COUNT 256
 
 extern InetSocket g_inetSockets[VALID_INET_SOCKET_COUNT];

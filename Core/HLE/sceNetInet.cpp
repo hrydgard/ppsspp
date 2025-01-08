@@ -209,7 +209,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
 			SOCKET sock = GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Read FD #%i", i);
+			DEBUG_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
 			if (rdcnt < FD_SETSIZE) {
 				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
 				rdcnt++;
@@ -218,7 +218,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (writefds && (NetInetFD_ISSET(i, writefds))) {
 			SOCKET sock = GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Write FD #%i", i);
+			DEBUG_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
 			if (wrcnt < FD_SETSIZE) {
 				FD_SET(sock, &wrfds);
 				wrcnt++;
@@ -227,7 +227,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
 			SOCKET sock = GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Except FD #%i", i);
+			DEBUG_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
 			if (excnt < FD_SETSIZE) {
 				FD_SET(sock, &exfds);
 				excnt++;
@@ -245,7 +245,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		tmout.tv_sec = timeout->tv_sec;
 		tmout.tv_usec = timeout->tv_usec;
 	}
-	VERBOSE_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
+	DEBUG_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
 	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
 	int retval = select(nfds, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
 	if (retval < 0) {
@@ -446,7 +446,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		//memcpy(&sock->nonblocking, (int*)optval, std::min(sizeof(sock->nonblocking), optlen));
 		return hleLogSuccessI(Log::sceNet, 0);
 	}
-	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends), 
+	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),
 	//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
 	/*else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_BROADCAST) {
 		//memcpy(&sock->so_broadcast, (int*)optval, std::min(sizeof(sock->so_broadcast), optlen));
@@ -506,11 +506,11 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-bloking mode (ie. simulated blocking mode)
 	if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_NBIO) {
 		//*optlen = std::min(sizeof(sock->nonblocking), *optlen);
-		//memcpy((int*)optval, &sock->nonblocking, *optlen); 
+		//memcpy((int*)optval, &sock->nonblocking, *optlen);
 		//if (sock->nonblocking && *optlen>0) *optval = 0x80; // on true, returning 0x80 when retrieved using getsockopt?
 		return hleLogSuccessI(Log::sceNet, 0);
 	}
-	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends), 
+	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),
 	//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
 	/*else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_BROADCAST) {
 		// *optlen = std::min(sizeof(sock->so_broadcast), *optlen);
@@ -760,8 +760,8 @@ static int sceNetInetCloseWithRST(int socket) {
 
 	// Based on http://deepix.github.io/2016/10/21/tcprst.html
 	struct linger sl {};
-	sl.l_onoff = 1;		// non-zero value enables linger option in kernel 
-	sl.l_linger = 0;	// timeout interval in seconds 
+	sl.l_onoff = 1;		// non-zero value enables linger option in kernel
+	sl.l_linger = 0;	// timeout interval in seconds
 	setsockopt(inetSock->sock, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 	int retVal = closesocket(inetSock->sock);
 	if (retVal == 0) {
