@@ -1,31 +1,14 @@
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+
 #include "Common/Net/HTTPClient.h"
 
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 
-#ifndef _WIN32
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <unistd.h>
-#define closesocket close
-#else
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <io.h>
-#endif
-
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-
+#include "Common/Net/SocketCompat.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
 
@@ -137,17 +120,10 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			// Start trying to connect (async with timeout.)
 			errno = 0;
 			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
-#if PPSSPP_PLATFORM(WINDOWS)
-				int errorCode = WSAGetLastError();
+				int errorCode = socket_errno;
 				std::string errorString = GetStringErrorMsg(errorCode);
-				bool unreachable = errorCode == WSAENETUNREACH;
-				bool inProgress = errorCode == WSAEINPROGRESS || errorCode == WSAEWOULDBLOCK;
-#else
-				int errorCode = errno;
-				std::string errorString = strerror(errno);
 				bool unreachable = errorCode == ENETUNREACH;
 				bool inProgress = errorCode == EINPROGRESS || errorCode == EWOULDBLOCK;
-#endif
 				if (!inProgress) {
 					char addrStr[128]{};
 					FormatAddr(addrStr, sizeof(addrStr), possible);

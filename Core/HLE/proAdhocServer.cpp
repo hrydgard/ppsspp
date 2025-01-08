@@ -28,33 +28,8 @@
 #include <cstring>
 #include <signal.h>
 
-#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
-#include <netdb.h>
-#include <switch.h>
-// Missing include, *shrugs*
-extern "C" struct hostent *gethostbyname(const char *name);
-#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
-
 #include <sys/types.h>
-// Net stuff
-#if defined(_WIN32)
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#endif
-
-#include <fcntl.h>
-#include <errno.h>
-//#include <sqlite3.h>
-
-#ifndef MSG_NOSIGNAL
-// Default value to 0x00 (do nothing) in systems where it's not supported.
-#define MSG_NOSIGNAL 0x00
-#endif
-
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/System/OSD.h"
@@ -860,7 +835,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 
 					// Send Data
 					int iResult = (int)send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-					if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send peer] (Socket error %d)", errno);
+					if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send peer] (Socket error %d)", socket_errno);
 
 					// Set Player Name
 					packet.name = peer->resolver.name;
@@ -873,7 +848,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 
 					// Send Data
 					iResult = (int)send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-					if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send user] (Socket error %d)", errno);
+					if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send user] (Socket error %d)", socket_errno);
 
 					// Set BSSID
 					if(peer->group_next == NULL) bssid.mac = peer->resolver.mac;
@@ -895,7 +870,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 
 				// Send Network BSSID to User
 				int iResult = (int)send(user->stream, (const char*)&bssid, sizeof(bssid), MSG_NOSIGNAL);
-				if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send user bssid] (Socket error %d)", errno);
+				if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send user bssid] (Socket error %d)", socket_errno);
 
 				// Notify User
 				char safegamestr[10];
@@ -987,7 +962,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 
 			// Send Data
 			int iResult = (int)send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: disconnect_user[send peer] (Socket error %d)", errno);
+			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: disconnect_user[send peer] (Socket error %d)", socket_errno);
 
 			// Move Pointer
 			peer = peer->group_next;
@@ -1086,13 +1061,13 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 
 			// Send Group Packet
 			int iResult = (int)send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: send_scan_result[send user] (Socket error %d)", errno);
+			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: send_scan_result[send user] (Socket error %d)", socket_errno);
 		}
 
 		// Notify Player of End of Scan
 		uint8_t opcode = OPCODE_SCAN_COMPLETE;
 		int iResult = (int)send(user->stream, (const char*)&opcode, 1, MSG_NOSIGNAL);
-		if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: send_scan_result[send peer complete] (Socket error %d)", errno);
+		if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: send_scan_result[send peer complete] (Socket error %d)", socket_errno);
 
 		// Notify User
 		char safegamestr[10];
@@ -1151,7 +1126,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 
 				// Send Data
 				int iResult = (int)send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-				if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: spread_message[send user chat] (Socket error %d)", errno);
+				if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: spread_message[send user chat] (Socket error %d)", socket_errno);
 			}
 		}
 
@@ -1193,7 +1168,7 @@ void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 
 			// Send Data
 			int iResult = (int)send(peer->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: spread_message[send peer chat] (Socket error %d)", errno);
+			if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: spread_message[send peer chat] (Socket error %d)", socket_errno);
 
 			// Move Pointer
 			peer = peer->group_next;
@@ -1856,17 +1831,17 @@ int create_listen_socket(uint16_t port)
 
 		// Notify User
 		else {
-			ERROR_LOG(Log::sceNet, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
+			ERROR_LOG(Log::sceNet, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, socket_errno);
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port));
 		}
 
 		// Close Socket
 		closesocket(fd);
+	} else {
+		// Notify User
+		ERROR_LOG(Log::sceNet, "AdhocServer: Socket returned %i (Socket error %d)", fd, socket_errno);
 	}
-
-	// Notify User
-	else ERROR_LOG(Log::sceNet, "AdhocServer: Socket returned %i (Socket error %d)", fd, errno);
 
 	// Return Error
 	return -1;
@@ -1942,7 +1917,7 @@ int server_loop(int server)
 			int recvresult = (int)recv(user->stream, (char*)user->rx + user->rxpos, sizeof(user->rx) - user->rxpos, MSG_NOSIGNAL);
 
 			// Connection Closed or Timed Out
-			if(recvresult == 0 || (recvresult == -1 && errno != EAGAIN && errno != EWOULDBLOCK) || get_user_state(user) == USER_STATE_TIMED_OUT)
+			if(recvresult == 0 || (recvresult == -1 && socket_errno != EAGAIN && socket_errno != EWOULDBLOCK) || get_user_state(user) == USER_STATE_TIMED_OUT)
 			{
 				// Logout User
 				logout_user(user);

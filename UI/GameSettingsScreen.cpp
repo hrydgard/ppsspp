@@ -1313,7 +1313,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
+	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()))->OnChange.Add([](UI::EventParams &e) {
 		// Copy to infrastructure name if valid and not already set.
 		if (g_Config.sInfrastructureUsername.empty()) {
 			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {

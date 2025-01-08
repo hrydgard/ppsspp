@@ -1,29 +1,11 @@
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
-
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <io.h>
-
-#else
-
-#include <sys/socket.h>       /*  socket definitions        */
-#include <sys/types.h>        /*  socket types              */
-#include <sys/wait.h>         /*  for waitpid()             */
-#include <netinet/in.h>       /*  struct sockaddr_in        */
-#include <arpa/inet.h>        /*  inet (3) funtions         */
-#include <unistd.h>           /*  misc. UNIX functions      */
-
-#endif
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdarg>
 
+#include "Common/Net/SocketCompat.h"
 #include "Common/Net/Sinks.h"
 
 #include "Common/Log.h"
@@ -192,14 +174,9 @@ bool InputSink::Block() {
 
 void InputSink::AccountFill(int bytes) {
 	if (bytes < 0) {
-#if PPSSPP_PLATFORM(WINDOWS)
-		int err = WSAGetLastError();
-		if (err == WSAEWOULDBLOCK)
+		int err = socket_errno;
+		if (err == EWOULDBLOCK || err == EAGAIN)
 			return;
-#else
-		if (errno == EWOULDBLOCK || errno == EAGAIN)
-			return;
-#endif
 		ERROR_LOG(Log::IO, "Error reading from socket");
 		return;
 	}
@@ -349,7 +326,7 @@ bool OutputSink::Flush(bool allowBlock) {
 
 		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
 #if !PPSSPP_PLATFORM(WINDOWS)
-		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		if (bytes == -1 && (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK))
 			bytes = 0;
 #endif
 		AccountDrain(bytes);
@@ -381,7 +358,7 @@ void OutputSink::Drain() {
 
 		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
 #if !PPSSPP_PLATFORM(WINDOWS)
-		if (bytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		if (bytes == -1 && (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK))
 			bytes = 0;
 #endif
 		AccountDrain(bytes);
@@ -398,15 +375,10 @@ void OutputSink::AccountPush(size_t bytes) {
 
 void OutputSink::AccountDrain(int bytes) {
 	if (bytes < 0) {
-#if PPSSPP_PLATFORM(WINDOWS)
-		int err = WSAGetLastError();
-		if (err == WSAEWOULDBLOCK)
+		int err = socket_errno;
+		if (err == EWOULDBLOCK || err == EAGAIN)
 			return;
-#else
-		if (errno == EWOULDBLOCK || errno == EAGAIN)
-			return;
-#endif
-		ERROR_LOG(Log::IO, "Error writing to socket");
+		ERROR_LOG(Log::IO, "Error writing to socket: %d", err);
 		return;
 	}
 

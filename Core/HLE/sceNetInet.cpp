@@ -1,4 +1,6 @@
+#include <algorithm>
 #include "Common/StringUtils.h"
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -19,11 +21,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
-
-#ifndef MSG_NOSIGNAL
-// Default value to 0x00 (do nothing) in systems where it's not supported.
-#define MSG_NOSIGNAL 0x00
-#endif
 
 int inetLastErrno = 0; // TODO: since errno can only be read once, we should keep track the value to be used on sceNetInetGetErrno
 int inetLastSocket = -1; // A workaround to keep the most recent socket id for sceNetInetSelect, until we have a socket class wrapper
@@ -55,7 +52,7 @@ static int sceNetInetTerm() {
 
 static int sceNetInetGetErrno() {
 	if (inetLastErrno == 0)
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 	int error = convertInetErrnoHost2PSP(inetLastErrno);
 	inetLastErrno = 0;
 	return hleLogSuccessI(Log::sceNet, error, " at %08x", currentMIPS->pc);
@@ -63,7 +60,7 @@ static int sceNetInetGetErrno() {
 
 static int sceNetInetGetPspError() {
 	if (inetLastErrno == 0)
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 	int error = convertInetErrno2PSPError(convertInetErrnoHost2PSP(inetLastErrno));
 	inetLastErrno = 0;
 	return hleLogSuccessX(Log::sceNet, error, " at %08x", currentMIPS->pc);
@@ -136,7 +133,7 @@ static int sceNetInetGetpeername(int sock, u32 namePtr, u32 namelenPtr) {
 	DEBUG_LOG(Log::sceNet, "Getpeername: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	} else {
 		memcpy(name->sa_data, saddr.addr.sa_data, len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
@@ -163,7 +160,7 @@ static int sceNetInetGetsockname(int sock, u32 namePtr, u32 namelenPtr) {
 	DEBUG_LOG(Log::sceNet, "Getsockname: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	} else {
 		memcpy(name->sa_data, saddr.addr.sa_data, len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
@@ -259,7 +256,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	}
 
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == 0)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else if (inetLastErrno < 0)
@@ -326,7 +323,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	int retval = recv(socket, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -353,7 +350,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	int retval = send(socket, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -369,7 +366,7 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	DEBUG_LOG(Log::sceNet, "Socket: Domain = %s, Type = %s, Protocol = %s", inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 	int retval = socket(convertSocketDomainPSP2Host(domain), convertSocketTypePSP2Host(type), convertSocketProtoPSP2Host(protocol));
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
 
@@ -439,7 +436,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		retval = setsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
 	}
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
 	return hleLogSuccessI(Log::sceNet, retval);
@@ -498,7 +495,7 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 		retval = getsockopt(socket, convertSockoptLevelPSP2Host(level), convertSockoptNamePSP2Host(optname, level), (char*)optval, optlen);
 	}
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
 	DEBUG_LOG(Log::sceNet, "SockOpt: OptValue = %d", *optval);
@@ -532,7 +529,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	changeBlockingMode(socket, 0);
 	int retval = bind(socket, (struct sockaddr*)&saddr, len);
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		changeBlockingMode(socket, 1);
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
@@ -571,7 +568,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	changeBlockingMode(socket, 0); // Use blocking mode as temporary fix for UNO, since we don't simulate blocking-mode yet
 	int retval = connect(socket, (struct sockaddr*)&saddr.addr, dstlen);
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (connectInProgress(inetLastErrno))
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -593,7 +590,7 @@ static int sceNetInetListen(int socket, int backlog) {
 
 	int retval = listen(socket, (backlog == PSP_NET_INET_SOMAXCONN ? SOMAXCONN : backlog));
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	}
 
@@ -609,7 +606,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
 	int retval = accept(socket, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -671,7 +668,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	int retval = recvfrom(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -734,7 +731,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 			saddr.in.sin_addr.s_addr = peer->ip_addr;
 			retval = sendto(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 			if (retval < 0) {
-				DEBUG_LOG(Log::sceNet, "SendTo(BC): Socket error %d", errno);
+				DEBUG_LOG(Log::sceNet, "SendTo(BC): Socket error %d", socket_errno);
 			} else {
 				DEBUG_LOG(Log::sceNet, "SendTo(BC): Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 			}
@@ -761,7 +758,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 		retval = sendto(socket, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 	}
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else
@@ -907,7 +904,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 			if (retval != SOCKET_ERROR) {
 				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 			} else {
-				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Socket error %d", errno);
+				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Socket error %d", socket_errno);
 			}
 		}
 		// Free Peer Lock
@@ -956,7 +953,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		free(buf);
 	*/
 	if (retval < 0) {
-		inetLastErrno = errno;
+		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
 			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
 		else

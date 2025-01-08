@@ -2,19 +2,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/select.h>
-#include <unistd.h>
-#else
-#include <io.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#endif
 
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/Sinks.h"

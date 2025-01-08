@@ -1,19 +1,8 @@
 #include "ppsspp_config.h"
-#ifdef _WIN32
-#include <winsock2.h>
-#undef min
-#undef max
-#else
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
+
 #include <algorithm>
 #include <cstring>
-
-#ifndef MSG_NOSIGNAL
-// Default value to 0x00 (do nothing) in systems where it's not supported.
-#define MSG_NOSIGNAL 0x00
-#endif
+#include "Common/Net/SocketCompat.h"
 
 #if _MSC_VER
 #pragma warning(disable:4267)
@@ -98,11 +87,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
-#if PPSSPP_PLATFORM(WINDOWS)
-			if (WSAGetLastError() != WSAEWOULDBLOCK) {
-#else
-			if (errno != EWOULDBLOCK) {
-#endif
+			if (socket_errno != EWOULDBLOCK) {
 				ERROR_LOG(Log::IO, "Error reading from buffer: %i", retval);
 				return false;
 			}

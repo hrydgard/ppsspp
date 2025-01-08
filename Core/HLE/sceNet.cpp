@@ -15,21 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if __linux__ || __APPLE__ || defined(__OpenBSD__)
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#elif _WIN32
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
-#endif
-
-#include <iostream>
-#include <shared_mutex>
-
-// TODO: fixme move Core/Net to Common/Net
+#include <mutex>
+#include <string>
+#include <algorithm>
 #include "Common/Net/Resolve.h"
+#include "Common/Net/SocketCompat.h"
 #include "Core/Net/InetCommon.h"
 #include "Common/Data/Text/Parsers.h"
 

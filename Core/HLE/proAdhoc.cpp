@@ -23,37 +23,11 @@
 
 #include "ppsspp_config.h"
 
-#if defined(_WIN32)
-#include <WinSock2.h>
-#include "Common/CommonWindows.h"
-#endif
-
-#if !defined(_WIN32)
-#include <unistd.h>
-#include <netinet/tcp.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#if !PPSSPP_PLATFORM(SWITCH)
-#include <ifaddrs.h>
-#endif // !PPSSPP_PLATFORM(SWITCH)
-#endif
-
-#ifndef MSG_NOSIGNAL
-// Default value to 0x00 (do nothing) in systems where it's not supported.
-#define MSG_NOSIGNAL 0x00
-#endif
-
-#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
-#undef __BSD_VISIBLE
-#define __BSD_VISIBLE 1
-#include <switch.h>
-#define TCP_MAXSEG 2
-#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
-
 #include <algorithm>
 #include <mutex>
 #include <cstring>
+
+#include "Common/Net/SocketCompat.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
@@ -339,7 +313,7 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 	// Note: select will flags an unconnected TCP socket (ie. a freshly created socket without connecting first, or when connect failed with ECONNREFUSED on linux) as writeable/readable, thus can't be used to tell whether the connection has established or not.
 	int ret = select(fd + 1, readfd? &readfds: nullptr, writefd? &writefds: nullptr, nullptr, &tval);
 	if (errorcode != nullptr)
-		*errorcode = (ret < 0? errno: 0);
+		*errorcode = (ret < 0 ? socket_errno : 0);
 
 	return ret;
 }
@@ -1425,7 +1399,7 @@ int friendFinder(){
 				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
 				if (IsSocketReady((int)metasocket, false, true) > 0) {
 					int iResult = (int)send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
-					int error = errno;
+					int error = socket_errno;
 					// KHBBS seems to be getting error 10053 often
 					if (iResult == SOCKET_ERROR) {
 						ERROR_LOG(Log::sceNet, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", error);
@@ -2011,7 +1985,7 @@ int getSockError(int sock) {
 	int result = 0;
 	socklen_t result_len = sizeof(result);
 	if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&result, &result_len) < 0) {
-		result = errno;
+		result = socket_errno;
 	}
 	return result;
 }
@@ -2224,7 +2198,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int cnt = 0;
 	DEBUG_LOG(Log::sceNet, "InitNetwork: Connecting to AdhocServer");
 	iResult = connect((int)metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
-	errorcode = errno;
+	errorcode = socket_errno;
 
 	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
