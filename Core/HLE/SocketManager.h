@@ -32,6 +32,9 @@ public:
 	};
 
 	InetSocket *CreateSocket(int *index, int *returned_errno, SocketState state, int domain, int type, int protocol);
+	// for accept()
+	InetSocket *AdoptSocket(int *index, SOCKET hostSocket, const InetSocket *derive);
+
 	bool GetInetSocket(int sock, InetSocket **inetSocket);
 	SOCKET GetHostSocketFromInetSocket(int sock);
 	bool Close(InetSocket *inetSocket);

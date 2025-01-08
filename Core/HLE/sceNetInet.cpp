@@ -691,14 +691,23 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	SockAddrIN4 saddr{};
 	if (srclen)
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
-	int retval = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, srclen);
-	if (retval < 0) {
+
+	int newHostSocket = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, srclen);
+	if (newHostSocket < 0) {
 		inetLastErrno = socket_errno;
 		if (inetLastErrno == EAGAIN)
-			hleLogDebug(Log::sceNet, retval, "errno = %d", inetLastErrno);
+			hleLogDebug(Log::sceNet, newHostSocket, "errno = %d", inetLastErrno);
 		else
-			hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
-		return retval;
+			hleLogError(Log::sceNet, newHostSocket, "errno = %d", inetLastErrno);
+		return -1;
+	}
+
+	int newSocketId;
+	InetSocket *newInetSocket = g_socketManager.AdoptSocket(&newSocketId, newHostSocket, inetSock);
+	if (!newInetSocket) {
+		// Ran out of space. Shouldn't really happen.
+		inetLastErrno = ENOMEM;
+		return -1;
 	}
 
 	if (src) {
@@ -708,7 +717,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	}
 	DEBUG_LOG(Log::sceNet, "Accept: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 
-	return hleLogSuccessI(Log::sceNet, retval);
+	return hleLogSuccessI(Log::sceNet, newSocketId);
 }
 
 static int sceNetInetShutdown(int socket, int how) {
