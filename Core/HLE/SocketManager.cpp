@@ -46,6 +46,29 @@ InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketS
 	return nullptr;
 }
 
+InetSocket *SocketManager::AdoptSocket(int *index, SOCKET hostSocket, const InetSocket *derive) {
+	std::lock_guard<std::mutex> guard(g_socketMutex);
+
+	for (int i = MIN_VALID_INET_SOCKET; i < ARRAY_SIZE(inetSockets_); i++) {
+		if (inetSockets_[i].state == SocketState::Unused) {
+			*index = i;
+
+			InetSocket *inetSock = inetSockets_ + i;
+			inetSock->sock = hostSocket;
+			inetSock->state = derive->state;
+			inetSock->domain = derive->domain;
+			inetSock->type = derive->type;
+			inetSock->protocol = derive->protocol;
+			inetSock->nonblocking = derive->nonblocking;  // should we inherit blocking state?
+			return inetSock;
+		}
+	}
+
+	// No space? Return nullptr and let the caller handle it. Shouldn't ever happen.
+	*index = 0;
+	return nullptr;
+}
+
 bool SocketManager::Close(InetSocket *inetSocket) {
 	_dbg_assert_(inetSocket->state != SocketState::Unused);
 	if (closesocket(inetSocket->sock) != 0) {
