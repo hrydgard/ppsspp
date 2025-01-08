@@ -489,7 +489,7 @@ static void DrawNp(ImConfig &cfg) {
 
 	SceNpId id{};
 	NpGetNpId(&id);
-	ImGui::Text("User Handle: %s", id.handle);
+	ImGui::Text("User Handle: %s", id.handle.data);
 	ImGui::End();
 }
 

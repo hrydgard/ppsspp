@@ -210,6 +210,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
+			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
 			if (rdcnt < FD_SETSIZE) {
@@ -221,6 +222,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		}
 		if (writefds && (NetInetFD_ISSET(i, writefds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
+			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
 			if (wrcnt < FD_SETSIZE) {
@@ -232,6 +234,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		}
 		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
+			_dbg_assert_(sock != 0);
 			hostSockets[i] = sock;
 			DEBUG_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
 			if (excnt < FD_SETSIZE) {
@@ -255,9 +258,10 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	}
 	DEBUG_LOG(Log::sceNet, "Select: Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
 	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
+	// Note: select can overwrite tmout.
 	int retval = select(nfds, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
 	if (retval < 0) {
-		ERROR_LOG(Log::sceNet, "selected returned an error, TODO");
+		ERROR_LOG(Log::sceNet, "select returned an error, TODO");
 	}
 
 	// Convert the results back to PSP fd_sets.
@@ -270,13 +274,17 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		NetInetFD_ZERO(exceptfds);
 
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
+		if (hostSockets[i] == 0) {
+			continue;
+		}
+		if (readfds && FD_ISSET(hostSockets[i], &rdfds)) {
+
 			NetInetFD_SET(i, readfds);
 		}
-		if (writefds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &wrfds)) {
+		if (writefds && FD_ISSET(hostSockets[i], &wrfds)) {
 			NetInetFD_SET(i, writefds);
 		}
-		if (exceptfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &exfds)) {
+		if (exceptfds && FD_ISSET(hostSockets[i], &exfds)) {
 			NetInetFD_SET(i, exceptfds);
 		}
 	}
