@@ -31,7 +31,7 @@ public:
 		MIN_VALID_INET_SOCKET = 61,
 	};
 
-	InetSocket *CreateSocket(int *index, SocketState state, int domain, int type, int protocol);
+	InetSocket *CreateSocket(int *index, int *returned_errno, SocketState state, int domain, int type, int protocol);
 	bool GetInetSocket(int sock, InetSocket **inetSocket);
 	SOCKET GetHostSocketFromInetSocket(int sock);
 	bool Close(InetSocket *inetSocket);

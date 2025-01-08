@@ -8,7 +8,7 @@
 SocketManager g_socketManager;
 static std::mutex g_socketMutex;  // TODO: Remove once the adhoc thread is gone
 
-InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domain, int type, int protocol) {
+InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketState state, int domain, int type, int protocol) {
 	_dbg_assert_(state != SocketState::Unused);
 
 	int hostDomain = convertSocketDomainPSP2Host(domain);
@@ -17,6 +17,7 @@ InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domai
 
 	SOCKET hostSock = ::socket(hostDomain, hostType, hostProtocol);
 	if (hostSock < 0) {
+		*returned_errno = socket_errno;
 		return nullptr;
 	}
 
@@ -32,6 +33,7 @@ InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domai
 			inetSock->type = type;
 			inetSock->protocol = protocol;
 			inetSock->nonblocking = false;
+			*returned_errno = 0;
 			return inetSock;
 		}
 	}
@@ -40,6 +42,7 @@ InetSocket *SocketManager::CreateSocket(int *index, SocketState state, int domai
 	ERROR_LOG(Log::sceNet, "Ran out of socket handles! This is BAD.");
 	closesocket(hostSock);
 	*index = 0;
+	*returned_errno = ENOMEM; // or something..
 	return nullptr;
 }
 

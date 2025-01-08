@@ -393,9 +393,8 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	DEBUG_LOG(Log::sceNet, "Socket: Domain = %s, Type = %s, Protocol = %s", inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
 	int socket;
-	InetSocket *inetSock = g_socketManager.CreateSocket(&socket, SocketState::UsedNetInet, domain, type, protocol);
+	InetSocket *inetSock = g_socketManager.CreateSocket(&socket, &inetLastErrno, SocketState::UsedNetInet, domain, type, protocol);
 	if (!inetSock) {
-		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, -1, "errno = %d", inetLastErrno);
 	}
 
