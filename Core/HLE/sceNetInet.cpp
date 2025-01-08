@@ -392,40 +392,21 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetSocket(%i, %i, %i) at %08x", domain, type, protocol, currentMIPS->pc);
 	DEBUG_LOG(Log::sceNet, "Socket: Domain = %s, Type = %s, Protocol = %s", inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
-	int hostDomain = convertSocketDomainPSP2Host(domain);
-	int hostType = convertSocketTypePSP2Host(type);
-	int hostProtocol = convertSocketProtoPSP2Host(protocol);
-
-	SOCKET hostSock = ::socket(hostDomain, hostType, hostProtocol);
-	if (hostSock < 0) {
-		inetLastErrno = socket_errno;
-		return hleLogError(Log::sceNet, hostSock, "errno = %d", inetLastErrno);
-	}
-
-	// Register the socket.
-
 	int socket;
-
-	InetSocket *inetSock = g_socketManager.AllocSocket(&socket);
-	if (socket < 0) {
-		// Alloc already logged. Let's bail.
-		return hleLogError(Log::sceNet, ERROR_NET_INTERNAL);
+	InetSocket *inetSock = g_socketManager.CreateSocket(&socket, SocketState::UsedNetInet, domain, type, protocol);
+	if (!inetSock) {
+		inetLastErrno = socket_errno;
+		return hleLogError(Log::sceNet, -1, "errno = %d", inetLastErrno);
 	}
-
-	inetSock->state = SocketState::UsedNetInet;
-	inetSock->sock = hostSock;
-	inetSock->domain = domain;
-	inetSock->type = type;
-	inetSock->protocol = protocol;
 
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-	setSockNoSIGPIPE(hostSock, 1);
+	setSockNoSIGPIPE(inetSock->sock, 1);
 	// TODO: We should always use non-blocking mode and simulate blocking mode
-	changeBlockingMode(hostSock, 1);
+	changeBlockingMode(inetSock->sock, 1);
 	// Enable Port Re-use, required for multiple-instance
-	setSockReuseAddrPort(hostSock);
+	setSockReuseAddrPort(inetSock->sock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
-	setUDPConnReset(hostSock, false);
+	setUDPConnReset(inetSock->sock, false);
 
 	return hleLogSuccessI(Log::sceNet, socket);
 }
