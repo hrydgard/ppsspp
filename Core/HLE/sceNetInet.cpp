@@ -22,6 +22,8 @@
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
 
+#define MIN_VALID_SOCKET 20
+
 int inetLastErrno = 0; // TODO: since errno can only be read once, we should keep track the value to be used on sceNetInetGetErrno
 
 bool netInetInited = false;
@@ -30,7 +32,7 @@ bool netInetInited = false;
 InetSocket g_inetSockets[256];
 
 static int AllocInetSocket() {
-	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
+	for (int i = MIN_VALID_SOCKET; i < ARRAY_SIZE(g_inetSockets); i++) {
 		if (g_inetSockets[i].state == SocketState::Unused) {
 			return i;
 		}
@@ -41,7 +43,7 @@ static int AllocInetSocket() {
 }
 
 static bool GetInetSocket(int sock, InetSocket **inetSocket) {
-	if (sock < 1 || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+	if (sock < MIN_VALID_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
 		*inetSocket = nullptr;
 		return false;
 	}
@@ -50,22 +52,8 @@ static bool GetInetSocket(int sock, InetSocket **inetSocket) {
 }
 
 // Simplified mappers, only really useful in select/poll
-static int GetInetSocketFromHostSocket(SOCKET hostSock) {
-	for (int i = 1; i < ARRAY_SIZE(g_inetSockets); i++) {
-		if (g_inetSockets[i].state == SocketState::Used && g_inetSockets[i].sock == hostSock) {
-			return i;
-		}
-	}
-	if (hostSock == 0) {
-		// Map 0 to 0, special case.
-		return 0;
-	}
-	_dbg_assert_(false);
-	return -1;
-}
-
 static SOCKET GetHostSocketFromInetSocket(int sock) {
-	if (sock < 1 || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
+	if (sock < MIN_VALID_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
 		_dbg_assert_(false);
 		return -1;
 	}
@@ -262,7 +250,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
-	for (int i = 0; i < nfds; i++) {
+	for (int i = MIN_VALID_SOCKET; i < nfds; i++) {
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
 			SOCKET sock = GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
@@ -311,7 +299,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	if (readfds != NULL) NetInetFD_ZERO(readfds);
 	if (writefds != NULL) NetInetFD_ZERO(writefds);
 	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
-	for (int i = 0; i < nfds; i++) {
+	for (int i = MIN_VALID_SOCKET; i < nfds; i++) {
 		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
 			NetInetFD_SET(i, readfds);
 		}
