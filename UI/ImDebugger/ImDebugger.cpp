@@ -19,6 +19,9 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/SocketManager.h"
+#include "Core/HLE/NetInetConstants.h"
+#include "Core/HLE/sceNp.h"
 #include "Common/System/Request.h"
 
 #include "Core/HLE/sceAtrac.h"
@@ -468,6 +471,69 @@ static void DrawKernelObjects(ImConfig &cfg) {
 			obj->GetQuickInfo(qi, sizeof(qi));
 			ImGui::TextUnformatted(qi);
 			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+static void DrawNp(ImConfig &cfg) {
+	if (!ImGui::Begin("NP", &cfg.npOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Signed in: %d", npSigninState);
+	ImGui::Text("Title ID: %s", npTitleId.data);
+
+	SceNpId id{};
+	NpGetNpId(&id);
+	ImGui::Text("User Handle: %s", id.handle.data);
+	ImGui::End();
+}
+
+static void DrawSockets(ImConfig &cfg) {
+	if (!ImGui::Begin("Sockets", &cfg.socketsOpen)) {
+		ImGui::End();
+		return;
+	}
+	if (ImGui::BeginTable("sock", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Host", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Non-blocking", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Created by", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Domain", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Protocol", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < SocketManager::VALID_INET_SOCKET_COUNT; i++) {
+			InetSocket *inetSocket;
+			if (!g_socketManager.GetInetSocket(i, &inetSocket)) {
+				continue;
+			}
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", i);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", (int)inetSocket->sock);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(inetSocket->nonblocking ? "Non-blocking" : "Blocking");
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(SocketStateToString(inetSocket->state));
+			ImGui::TableNextColumn();
+			std::string str = inetSocketDomain2str(inetSocket->domain);
+			ImGui::TextUnformatted(str.c_str());
+			ImGui::TableNextColumn();
+			str = inetSocketType2str(inetSocket->type);
+			ImGui::TextUnformatted(str.c_str());
+			ImGui::TableNextColumn();
+			str = inetSocketProto2str(inetSocket->protocol);
+			ImGui::TextUnformatted(str.c_str());
+			ImGui::TableNextColumn();
 		}
 
 		ImGui::EndTable();
@@ -1070,6 +1136,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Network")) {
+			ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
+			ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
+			ImGui::EndMenu();
+		}
 		if (ImGui::BeginMenu("Tools")) {
 			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
@@ -1186,6 +1257,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (cfg_.memViewOpen[i]) {
 			mem_[i].Draw(mipsDebug, cfg_, control, i);
 		}
+	}
+
+	if (cfg_.socketsOpen) {
+		DrawSockets(cfg_);
+	}
+
+	if (cfg_.npOpen) {
+		DrawNp(cfg_);
 	}
 
 	// Process UI commands
@@ -1543,6 +1622,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("geDebuggerOpen", &geDebuggerOpen, false);
 	sync.Sync("geStateOpen", &geStateOpen, false);
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
+	sync.Sync("socketsOpen", &socketsOpen, false);
+	sync.Sync("npOpen", &npOpen, false);
 	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];

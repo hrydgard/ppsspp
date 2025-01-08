@@ -11,6 +11,7 @@
 #include "Common/System/Request.h"
 
 #include "Core/Core.h"
+#include "Core/HLE/SocketManager.h"
 
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -140,6 +141,8 @@ struct ImConfig {
 	bool schedulerOpen;
 	bool watchOpen;
 	bool pixelViewerOpen;
+	bool npOpen;
+	bool socketsOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings

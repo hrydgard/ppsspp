@@ -1232,6 +1232,9 @@
     <ClCompile Include="..\..\Core\HLE\NetInetConstants.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\SocketManager.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1946,6 +1949,9 @@
       <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\NetInetConstants.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\SocketManager.h">
       <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>

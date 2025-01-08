@@ -182,6 +182,7 @@
     <ClInclude Include="..\..\Core\HLE\sceNetInet.h" />
     <ClInclude Include="..\..\Core\HLE\sceNetResolver.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h" />
+    <ClInclude Include="..\..\Core\HLE\SocketManager.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
     <ClInclude Include="..\..\Core\HLE\FunctionWrappers.h" />
     <ClInclude Include="..\..\Core\HLE\HLE.h" />
@@ -444,6 +445,7 @@
     <ClCompile Include="..\..\Core\HLE\sceNetInet.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetResolver.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp" />
+    <ClCompile Include="..\..\Core\HLE\SocketManager.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLE.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLEHelperThread.cpp" />

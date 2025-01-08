@@ -49,7 +49,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Instance.h"
@@ -94,7 +93,9 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
+// NOTE: This does not need to be managed by the socket manager - not exposed to the game.
 std::atomic<int> metasocket((int)INVALID_SOCKET);
+
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
@@ -281,6 +282,7 @@ SceNetAdhocctlPeerInfo* findFriendByIP(uint32_t ip) {
 	return peer;
 }
 
+// fd is a host socket
 int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeoutUS) {
 	fd_set readfds, writefds;
 	timeval tval;
@@ -1318,7 +1320,7 @@ int GetChatMessageCount() {
 }
 
 // TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
-int friendFinder(){
+int friendFinder() {
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	// Receive Buffer

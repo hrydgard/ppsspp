@@ -31,6 +31,9 @@
 #define IS_SIGNED     1 << 1
 #define ROUND_TO_ZERO 1 << 2
 
+// Unclear why we suddenly need this.
+#undef VMIN
+
 namespace ArmGen
 {
 enum ARMReg
