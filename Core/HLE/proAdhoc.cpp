@@ -49,7 +49,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Instance.h"

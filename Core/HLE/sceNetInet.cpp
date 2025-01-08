@@ -6,6 +6,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 
+#include "Core/HLE/SocketManager.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNet.h"
@@ -22,47 +23,9 @@
 #include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
 
-#define MIN_VALID_SOCKET 20
-
 int inetLastErrno = 0; // TODO: since errno can only be read once, we should keep track the value to be used on sceNetInetGetErrno
 
 bool netInetInited = false;
-
-// We use this array from 1 and forward. It's probably not a good idea to return 0 as a socket.
-InetSocket g_inetSockets[256];
-
-static int AllocInetSocket() {
-	for (int i = MIN_VALID_SOCKET; i < ARRAY_SIZE(g_inetSockets); i++) {
-		if (g_inetSockets[i].state == SocketState::Unused) {
-			return i;
-		}
-	}
-	_dbg_assert_(false);
-	ERROR_LOG(Log::sceNet, "Ran out of socket handles! This is BAD.");
-	return 0;
-}
-
-static bool GetInetSocket(int sock, InetSocket **inetSocket) {
-	if (sock < MIN_VALID_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
-		*inetSocket = nullptr;
-		return false;
-	}
-	*inetSocket = &g_inetSockets[sock];
-	return true;
-}
-
-// Simplified mappers, only really useful in select/poll
-static SOCKET GetHostSocketFromInetSocket(int sock) {
-	if (sock < MIN_VALID_SOCKET || sock >= ARRAY_SIZE(g_inetSockets) || g_inetSockets[sock].state == SocketState::Unused) {
-		_dbg_assert_(false);
-		return -1;
-	}
-	if (sock == 0) {
-		// Map 0 to 0, special case.
-		return 0;
-	}
-	return g_inetSockets[sock].sock;
-}
 
 void __NetInetShutdown() {
 	if (!netInetInited) {
@@ -70,15 +33,7 @@ void __NetInetShutdown() {
 	}
 
 	netInetInited = false;
-
-	for (auto &sock : g_inetSockets) {
-		if (sock.state != SocketState::Unused) {
-			closesocket(sock.sock);
-		}
-		sock.state = SocketState::Unused;
-	}
-
-	// TODO: Shut down any open sockets here.
+	CloseAllSockets();
 }
 
 static int sceNetInetInit() {
@@ -250,7 +205,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
-	for (int i = MIN_VALID_SOCKET; i < nfds; i++) {
+	for (int i = MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && (NetInetFD_ISSET(i, readfds))) {
 			SOCKET sock = GetHostSocketFromInetSocket(i);
 			hostSockets[i] = sock;
@@ -299,7 +254,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	if (readfds != NULL) NetInetFD_ZERO(readfds);
 	if (writefds != NULL) NetInetFD_ZERO(writefds);
 	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
-	for (int i = MIN_VALID_SOCKET; i < nfds; i++) {
+	for (int i = MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
 			NetInetFD_SET(i, readfds);
 		}
@@ -455,7 +410,7 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 		return hleLogError(Log::sceNet, ERROR_NET_INTERNAL);
 	}
 	InetSocket *inetSock = &g_inetSockets[socket];
-	inetSock->state = SocketState::Used;
+	inetSock->state = SocketState::UsedNetInet;
 	inetSock->sock = hostSock;
 	inetSock->domain = domain;
 	inetSock->type = type;

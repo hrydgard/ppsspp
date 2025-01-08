@@ -2178,6 +2178,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/AtracCtx2.h
 	Core/HLE/NetInetConstants.cpp
 	Core/HLE/NetInetConstants.h
+	Core/HLE/SocketManager.cpp
+	Core/HLE/SocketManager.h
 	Core/HLE/sceAtrac.cpp
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp

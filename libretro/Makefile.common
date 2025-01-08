@@ -691,6 +691,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
 		   $(COREDIR)/HLE/NetInetConstants.cpp \
+		   $(COREDIR)/HLE/SocketManager.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceSircs.cpp \
