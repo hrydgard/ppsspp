@@ -4,10 +4,7 @@
 
 #include "Core/HLE/HLE.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
-#include "Common/CommonWindows.h"
-#include <winsock.h>
-#endif
+#include "Common/Net/SocketCompat.h"
 
 #include <memory>
 #include <shared_mutex>
@@ -106,6 +103,7 @@ typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in
 } PACK SceNetInetPollfd;
 
 // TCP & UDP Socket Union (Internal use only)
+/*
 typedef struct InetSocket {
 	s32_le id; // posix socket id
 	s32_le domain; // AF_INET/PF_INET/etc
@@ -115,6 +113,7 @@ typedef struct InetSocket {
 	s32_le so_broadcast; // broadcast flag (ie. SO_BROADCAST) to keep track of the broadcast flag, since we're using fake broadcast
 	s32_le tcp_state; // to keep track TCP connection state
 } PACK InetSocket;
+*/
 
 #ifdef _MSC_VER
 #pragma pack(pop)

@@ -38,17 +38,18 @@ SceNpAuthMemoryStat npAuthMemStat = {};
 PSPTimeval npSigninTimestamp{};
 
 // TODO: These should probably be grouped in a struct, since they're used to generate an auth ticket
-int npParentalControl = PARENTAL_CONTROL_ENABLED;
-int npUserAge = 24; // faking user Age to 24 yo
-int npChatRestriction = 0; // default/initial value on Patapon 3 is 1 (restricted boolean?)
-SceNpMyLanguages npMyLangList = { 1033, 2057, 1036 };
+constexpr int npParentalControl = PARENTAL_CONTROL_ENABLED;
+constexpr int npUserAge = 24; // faking user Age to 24 yo
+constexpr int npChatRestriction = 0; // default/initial value on Patapon 3 is 1 (restricted boolean?)
+static const SceNpMyLanguages npMyLangList = { 1033, 2057, 1036 };  // Languages the user is assumed to know. No known games make use of this.
 // Fields are 4-sized, so the data needs to be too.
-char npCountryCode[4] = "fr"; // dummy data taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket. France?
-char npRegionCode[4] = "c9"; // not sure what "c9" meant, since it was close to country code data, might be region-related data?
+static const char npCountryCode[4] = "us"; // dummy data taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket. Mainly affects what EULA is downloaded.
+static const char npRegionCode[4] = "c9"; // not sure what "c9" meant, since it was close to country code data, might be region-related data?
 std::string npOnlineId = "DummyOnlineId"; // SceNpOnlineId struct?
 std::string npServiceId = ""; // UNO game uses EP2006-NPEH00020_00
 std::string npAvatarUrl = "http://DummyAvatarUrl"; // SceNpAvatarUrl struct?
 
+// Game-specific ID, I guess we can use this to auto-choose DNS?
 SceNpCommunicationId npTitleId;
 
 std::recursive_mutex npAuthEvtMtx;

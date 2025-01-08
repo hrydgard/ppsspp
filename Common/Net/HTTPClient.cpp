@@ -429,7 +429,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		int sz = readbuf->TakeLineCRLF(&line);
 		if (!sz || sz < 0)
 			break;
-		INFO_LOG(Log::HTTP, "Header line: %s", line.c_str());
+		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
 		responseHeaders.push_back(line);
 	}
 

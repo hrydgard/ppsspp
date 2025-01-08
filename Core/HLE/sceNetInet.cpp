@@ -1000,6 +1000,9 @@ static int sceNetInetRecvmsg(int socket, u32 msghdrPtr, int flags) {
 	// TODO: Do similar to the already working sceNetInetSendmsg but in reverse
 	//if (pspMsghdr->msg_name != 0) { ... }
 
+	//UNFINISHED
+	free(iov);
+
 	return hleLogError(Log::sceNet, retval); // returns number of bytes received?
 }
 
