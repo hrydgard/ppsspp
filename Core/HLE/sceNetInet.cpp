@@ -193,7 +193,9 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// First, translate the specified fd_sets to host sockets.
 
 	fd_set rdfds, wrfds, exfds;
-	FD_ZERO(&rdfds); FD_ZERO(&wrfds); FD_ZERO(&exfds);
+	FD_ZERO(&rdfds);
+	FD_ZERO(&wrfds);
+	FD_ZERO(&exfds);
 
 	if (nfds > 256) {
 		ERROR_LOG(Log::sceNet, "Bad nfds value: %d", nfds);
@@ -213,6 +215,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			if (rdcnt < FD_SETSIZE) {
 				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
 				rdcnt++;
+			} else {
+				ERROR_LOG(Log::sceNet, "Hit set size (rd)");
 			}
 		}
 		if (writefds && (NetInetFD_ISSET(i, writefds))) {
@@ -222,6 +226,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			if (wrcnt < FD_SETSIZE) {
 				FD_SET(sock, &wrfds);
 				wrcnt++;
+			} else {
+				ERROR_LOG(Log::sceNet, "Hit set size (wr)");
 			}
 		}
 		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
@@ -231,6 +237,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			if (excnt < FD_SETSIZE) {
 				FD_SET(sock, &exfds);
 				excnt++;
+			} else {
+				ERROR_LOG(Log::sceNet, "Hit set size (exc)");
 			}
 		}
 	}
@@ -241,7 +249,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	_dbg_assert_(excnt < FD_SETSIZE);
 
 	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
-	if (timeout != NULL) {
+	if (timeout) {
 		tmout.tv_sec = timeout->tv_sec;
 		tmout.tv_usec = timeout->tv_usec;
 	}
@@ -251,9 +259,16 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	if (retval < 0) {
 		ERROR_LOG(Log::sceNet, "selected returned an error, TODO");
 	}
-	if (readfds != NULL) NetInetFD_ZERO(readfds);
-	if (writefds != NULL) NetInetFD_ZERO(writefds);
-	if (exceptfds != NULL) NetInetFD_ZERO(exceptfds);
+
+	// Convert the results back to PSP fd_sets.
+
+	if (readfds)
+		NetInetFD_ZERO(readfds);
+	if (writefds)
+		NetInetFD_ZERO(writefds);
+	if (exceptfds)
+		NetInetFD_ZERO(exceptfds);
+
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
 		if (readfds && hostSockets[i] != 0 && FD_ISSET(hostSockets[i], &rdfds)) {
 			NetInetFD_SET(i, readfds);
