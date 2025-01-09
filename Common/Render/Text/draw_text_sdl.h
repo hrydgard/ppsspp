@@ -5,11 +5,14 @@
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
+#if defined(USE_SDL2_TTF)
+
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_ttf.h"
+
 #if defined(USE_SDL2_TTF_FONTCONFIG)
 #include <fontconfig/fontconfig.h>
 #endif
-
-struct TTF_Font;
 
 class TextDrawerSDL : public TextDrawer {
 public:
@@ -42,3 +45,5 @@ private:
 	FcConfig *config;
 #endif
 };
+
+#endif
