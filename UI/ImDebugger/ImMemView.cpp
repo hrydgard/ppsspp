@@ -1,6 +1,7 @@
 #include <cctype>
 #include <cmath>
 #include <iomanip>
+#include <cstdio>
 #include <sstream>
 
 #include "ext/imgui/imgui.h"
@@ -9,6 +10,7 @@
 
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -837,4 +839,63 @@ void ImMemView::setHighlightType(MemBlockFlags flags) {
 		highlightFlags_ = flags;
 		updateStatusBarText();
 	}
+}
+
+void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
+	ImGui::SetNextWindowSize(ImVec2(200, 300), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin(Title(), &cfg.memDumpOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::Button("User RAM (0x08800000)")) {
+		address_ = 0x08800000;
+		size_ = 0x01800000;  // 24MB
+	}
+
+	ImGui::InputScalar("Starting address", ImGuiDataType_U32, &address_, NULL, NULL, "%08X");
+	ImGui::InputScalar("Size", ImGuiDataType_U32, &size_, NULL, NULL, "%08X");
+
+	ImGui::InputText("Filename", filename_, ARRAY_SIZE(filename_));
+
+	const char* modes[] = { "Raw", "Disassembly" };
+	int modeIndex = static_cast<int>(mode_);
+	if (ImGui::Combo("Memory Dump Mode", &modeIndex, modes, IM_ARRAYSIZE(modes))) {
+		// Update the current mode if the user selects a new one
+		mode_ = static_cast<MemDumpMode>(modeIndex);
+	}
+
+	if (ImGui::Button(mode_ == MemDumpMode::Raw ? "Dump to file" : "Disassemble to file")) {
+		uint32_t validSize = Memory::ValidSize(address_, size_);
+		if (validSize != size_) {
+			errorMsg_ = "Address range out of bounds";
+			if (Memory::IsValidAddress(address_)) {
+				size_ = validSize;
+			}
+		} else if (strlen(filename_) == 0) {
+			errorMsg_ = "Please specify a valid filename";
+		} else {
+			FILE *file = File::OpenCFile(Path(filename_), "wb");
+			if (!file) {
+				errorMsg_ = "Couldn't open file for writing";
+			} else {
+				if (mode_ == MemDumpMode::Raw) {
+					const uint8_t *ptr = Memory::GetPointer(address_);
+					fwrite(ptr, 1, size_, file);
+				} else {
+					std::string disassembly = DisassembleRange(address_, size_, true, debug);
+					fprintf(file, "%s", disassembly.c_str());
+				}
+				errorMsg_.clear();
+				fclose(file);
+			}
+		}
+	}
+
+	if (!errorMsg_.empty()) {
+		ImGui::TextUnformatted(errorMsg_.data(), errorMsg_.data() + errorMsg_.size());
+	}
+
+	ImGui::End();
 }

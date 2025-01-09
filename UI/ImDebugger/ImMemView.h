@@ -118,3 +118,33 @@ private:
 
 	std::string statusMessage_;
 };
+
+enum class MemDumpMode {
+	Raw = 0,
+	Disassembly = 1,
+};
+
+class ImMemDumpWindow {
+public:
+	ImMemDumpWindow() {
+		filename_[0] = 0;
+		address_ = 0x08800000;
+		size_ = 0x01800000;
+	}
+	static const char *Title() {
+		return "Memory Dumper";
+	}
+	void Draw(ImConfig &cfg, MIPSDebugInterface *debug);
+	void SetRange(uint32_t addr, uint32_t size, MemDumpMode mode) {
+		address_ = addr;
+		size_ = size;
+		mode_ = mode;
+	}
+
+private:
+	uint32_t address_;
+	uint32_t size_;
+	MemDumpMode mode_ = MemDumpMode::Raw;
+	char filename_[1024];
+	std::string errorMsg_;
+};

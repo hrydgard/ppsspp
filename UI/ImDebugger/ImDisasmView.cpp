@@ -53,33 +53,7 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char* dest, bool abbreviate
 	if (!PSP_IsInited())
 		return false;
 
-	if (displaySymbols_) {
-		const std::string addressSymbol = g_symbolMap->GetLabelString(address);
-		if (!addressSymbol.empty()) {
-			for (int k = 0; addressSymbol[k] != 0; k++) {
-				// abbreviate long names
-				if (abbreviateLabels && k == 16 && addressSymbol[k + 1] != 0) {
-					*dest++ = '+';
-					break;
-				}
-				*dest++ = addressSymbol[k];
-			}
-			*dest++ = ':';
-			*dest = 0;
-			return true;
-		} else {
-			sprintf(dest, "    %08X", address);
-			return false;
-		}
-	} else {
-		if (showData) {
-			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
-			sprintf(dest, "%08X %08X", address, encoding);
-		} else {
-			sprintf(dest, "%08X", address);
-		}
-		return false;
-	}
+	return GetDisasmAddressText(address, dest, abbreviateLabels, showData, displaySymbols_);
 }
 
 void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
@@ -830,9 +804,9 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 				statusBarText_ = "WARNING: unable to find function symbol here";
 			}
 		}
+		u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 		if (ImGui::MenuItem("Add function")) {
 			char statusBarTextBuff[256];
-			u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 			if (prevBegin != -1) {
 				if (prevBegin == curAddress_) {
 					snprintf(statusBarTextBuff, 256, "WARNING: There's already a function entry point at this adress");
@@ -861,8 +835,9 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 				mapReloaded_ = true;
 			}
 		}
-		if (ImGui::MenuItem("Disassemble to file")) {
-			disassembleToFile();
+		if (prevBegin != -1) {
+			u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
+			ShowInMemoryDumperMenuItem(prevBegin, prevSize, MemDumpMode::Disassembly, control);
 		}
 		ImGui::EndPopup();
 	}
