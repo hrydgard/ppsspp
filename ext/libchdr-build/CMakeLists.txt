@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.2.0)
+cmake_minimum_required (VERSION 3.10.0)
 project (chdr)
 
 set(LZMA_DIR ../libchdr/deps/lzma-22.01/src)
