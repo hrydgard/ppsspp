@@ -497,6 +497,9 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		UI::EnableFocusMovement(false);
 	RecreateViews();
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
+
+	// Make sure we re-enable keyboard mode if it was disabled by the dialog, and if needed.
+	lastImguiEnabled_ = false;
 }
 
 static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
@@ -1658,6 +1661,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 }
 
 void EmuScreen::runImDebugger() {
+	if (!lastImguiEnabled_ && g_Config.bShowImDebugger) {
+		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+		INFO_LOG(Log::System, "activating keyboard");
+	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
+		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+		INFO_LOG(Log::System, "deactivating keyboard");
+	}
+	lastImguiEnabled_ = g_Config.bShowImDebugger;
 	if (g_Config.bShowImDebugger) {
 		Draw::DrawContext *draw = screenManager()->getDrawContext();
 		if (!imguiInited_) {

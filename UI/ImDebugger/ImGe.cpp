@@ -262,7 +262,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 		texture_ = nullptr;
 	}
 	if (!Memory::IsValid4AlignedAddress(addr) || width == 0 || height == 0 || stride > 1024 || stride == 0) {
-		INFO_LOG(Log::GeDebugger, "PixelViewer: Bad texture params");
+		// TODO: Show a warning triangle or something.
 		return;
 	}
 
@@ -400,6 +400,8 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 		case Draw::Aspect::STENCIL_BIT:
 			readbackFmt_ = Draw::DataFormat::S8;
 			rbBpp = 1;
+			break;
+		default:
 			break;
 		}
 

@@ -142,6 +142,8 @@ private:
 	bool keyShiftRight_ = false;
 	bool keyAltLeft_ = false;
 	bool keyAltRight_ = false;
+
+	bool lastImguiEnabled_ = false;
 };
 
 bool MustRunBehind();
