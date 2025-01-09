@@ -319,7 +319,6 @@
     <ClInclude Include="..\..\Core\MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h" />
-    <ClInclude Include="..\..\Core\Net\InetCommon.h" />
     <ClInclude Include="..\..\Core\Net\NetResolver.h" />
     <ClInclude Include="..\..\Core\Opcode.h" />
     <ClInclude Include="..\..\Core\PSPLoaders.h" />
@@ -620,7 +619,6 @@
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompVec.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRJit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRRegCache.cpp" />
-    <ClCompile Include="..\..\Core\Net\InetCommon.cpp" />
     <ClCompile Include="..\..\Core\Net\NetResolver.cpp" />
     <ClCompile Include="..\..\Core\PSPLoaders.cpp" />
     <ClCompile Include="..\..\Core\Reporting.cpp" />

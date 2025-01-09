@@ -22,9 +22,7 @@
 #include <fcntl.h>
 #endif
 
-// TODO: fixme move Core/Net to Common/Net
 #include "Common/Net/Resolve.h"
-#include "Core/Net/InetCommon.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"

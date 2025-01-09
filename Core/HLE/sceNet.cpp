@@ -20,7 +20,6 @@
 #include <algorithm>
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
-#include "Core/Net/InetCommon.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"

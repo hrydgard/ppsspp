@@ -111,6 +111,31 @@ void DNSResolveFree(addrinfo *res)
 		freeaddrinfo(res);
 }
 
+bool GetDefaultOutboundSockaddr(sockaddr_in& destSockaddrIn, socklen_t& destSocklen) {
+	auto fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd < 0) {
+		ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to open socket (%s)", strerror(socket_errno));
+		return false;
+	}
+	sockaddr_in connectingTo;
+	memset(&connectingTo, 0, sizeof(connectingTo));
+	connectingTo.sin_family = AF_INET;
+	connectingTo.sin_port = htons(53);
+	connectingTo.sin_addr.s_addr = 0x08080808;
+	if (connect(fd, (sockaddr*)&connectingTo, sizeof(connectingTo)) < 0) {
+		ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to connect to Google (%s)", strerror(socket_errno));
+		closesocket(fd);
+		return false;
+	}
+	if (getsockname(fd, (sockaddr*)&destSockaddrIn, &destSocklen) < 0) {
+		ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to execute getsockname (%s)", strerror(socket_errno));
+		closesocket(fd);
+		return false;
+	}
+	closesocket(fd);
+	return true;
+}
+
 bool GetIPList(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
 // getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24

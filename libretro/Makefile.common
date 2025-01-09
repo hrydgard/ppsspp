@@ -816,8 +816,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
-		   $(COREDIR)/Net/InetCommon.cpp \
-		   $(COREDIR)/Net/NetResolver.cpp \
+               $(COREDIR)/Net/NetResolver.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \
 	       $(COREDIR)/Replay.cpp \
 	       $(COREDIR)/Reporting.cpp \

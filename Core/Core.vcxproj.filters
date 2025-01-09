@@ -1333,9 +1333,6 @@
     <ClCompile Include="HLE\sceNetResolver.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="Net\InetCommon.cpp">
-      <Filter>Net</Filter>
-    </ClCompile>
     <ClCompile Include="Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
@@ -2153,9 +2150,6 @@
     </ClInclude>
     <ClInclude Include="HLE\sceNetResolver.h">
       <Filter>HLE\Libraries</Filter>
-    </ClInclude>
-    <ClInclude Include="Net\InetCommon.h">
-      <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="Net\NetResolver.h">
       <Filter>Net</Filter>
