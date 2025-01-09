@@ -1274,9 +1274,6 @@ u32 sceNetAdhocInit() {
 
 int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
-		return -1;
-	}
 
 	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
 	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
