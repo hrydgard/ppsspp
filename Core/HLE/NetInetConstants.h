@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 enum {
 	// net common errors
@@ -474,6 +475,4 @@ int convertSockoptNameHost2PSP(int optname, int level);
 std::string inetSockoptName2str(int optname, int level);
 int convertInetErrnoHost2PSP(int error);
 int convertInetErrno2PSPError(int error);
-
-
-
+std::string convertNetError2str(uint32_t errorCode);
