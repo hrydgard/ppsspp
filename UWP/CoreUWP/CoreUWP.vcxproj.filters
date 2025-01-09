@@ -1223,12 +1223,6 @@
     <ClCompile Include="..\..\Core\HLE\sceNetResolver.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\Net\InetCommon.cpp">
-      <Filter>Net</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Core\Net\NetResolver.cpp">
-      <Filter>Net</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\NetInetConstants.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
@@ -1941,12 +1935,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceNetResolver.h">
       <Filter>HLE</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\Net\InetCommon.h">
-      <Filter>Net</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\Net\NetResolver.h">
-      <Filter>Net</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\NetInetConstants.h">
       <Filter>HLE</Filter>

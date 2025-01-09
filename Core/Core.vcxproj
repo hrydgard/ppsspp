@@ -630,8 +630,6 @@
     <ClCompile Include="MIPS\x86\X64IRCompSystem.cpp" />
     <ClCompile Include="MIPS\x86\X64IRCompVec.cpp" />
     <ClCompile Include="MIPS\x86\X64IRJit.cpp" />
-    <ClCompile Include="Net\InetCommon.cpp" />
-    <ClCompile Include="Net\NetResolver.cpp" />
     <ClCompile Include="Replay.cpp" />
     <ClCompile Include="Compatibility.cpp" />
     <ClCompile Include="Config.cpp" />
@@ -1223,8 +1221,6 @@
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
     <ClInclude Include="MIPS\x86\X64IRJit.h" />
-    <ClInclude Include="Net\InetCommon.h" />
-    <ClInclude Include="Net\NetResolver.h" />
     <ClInclude Include="Replay.h" />
     <ClInclude Include="Compatibility.h" />
     <ClInclude Include="Config.h" />

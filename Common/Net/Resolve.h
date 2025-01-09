@@ -22,4 +22,5 @@ void DNSResolveFree(addrinfo *res);
 bool GetIPList(std::vector<std::string>& IP4s);
 
 int inet_pton(int af, const char* src, void* dst);
+
 }  // namespace net

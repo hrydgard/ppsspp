@@ -115,9 +115,6 @@ extern SceNetApctlInfoInternal netApctlInfo;
 extern std::string defaultNetConfigName;
 extern std::string defaultNetSSID;
 
-template <typename I> std::string num2hex(I w, size_t hex_len = sizeof(I) << 1);
-std::string error2str(u32 errorcode);
-
 void Register_sceNet();
 void Register_sceNetApctl();
 void Register_sceWlanDrv();

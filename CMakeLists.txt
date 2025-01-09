@@ -2389,10 +2389,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSAsm.h
 	Core/MIPS/MIPSTracer.cpp
 	Core/MIPS/MIPSTracer.h
-	Core/Net/InetCommon.cpp
-	Core/Net/InetCommon.h
-	Core/Net/NetResolver.cpp
-	Core/Net/NetResolver.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp

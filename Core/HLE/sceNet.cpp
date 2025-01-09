@@ -20,7 +20,6 @@
 #include <algorithm>
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
-#include "Core/Net/InetCommon.h"
 #include "Common/Data/Text/Parsers.h"
 
 #include "Common/Serialize/Serializer.h"
@@ -368,101 +367,6 @@ void __NetDoState(PointerWrap &p) {
 	}
 }
 
-template <typename I> std::string num2hex(I w, size_t hex_len) {
-	static const char* digits = "0123456789ABCDEF";
-	std::string rc(hex_len, '0');
-	for (size_t i = 0, j = (hex_len - 1) * 4; i < hex_len; ++i, j -= 4)
-		rc[i] = digits[(w >> j) & 0x0f];
-	return rc;
-}
-
-std::string error2str(u32 errorCode) {
-	std::string str = "";
-	if (((errorCode >> 31) & 1) != 0)
-		str += "ERROR ";
-	if (((errorCode >> 30) & 1) != 0)
-		str += "CRITICAL ";
-	switch ((errorCode >> 16) & 0xfff) {
-	case 0x41:
-		str += "NET ";
-		break;
-	default:
-		str += "UNK"+num2hex(u16((errorCode >> 16) & 0xfff), 3)+" ";
-	}
-	switch ((errorCode >> 8) & 0xff) {
-	case 0x00:
-		str += "COMMON ";
-		break;
-	case 0x01:
-		str += "CORE ";
-		break;
-	case 0x02:
-		str += "INET ";
-		break;
-	case 0x03:
-		str += "POECLIENT ";
-		break;
-	case 0x04:
-		str += "RESOLVER ";
-		break;
-	case 0x05:
-		str += "DHCP ";
-		break;
-	case 0x06:
-		str += "ADHOC_AUTH ";
-		break;
-	case 0x07:
-		str += "ADHOC ";
-		break;
-	case 0x08:
-		str += "ADHOC_MATCHING ";
-		break;
-	case 0x09:
-		str += "NETCNF ";
-		break;
-	case 0x0a:
-		str += "APCTL ";
-		break;
-	case 0x0b:
-		str += "ADHOCCTL ";
-		break;
-	case 0x0c:
-		str += "UNKNOWN1 ";
-		break;
-	case 0x0d:
-		str += "WLAN ";
-		break;
-	case 0x0e:
-		str += "EAPOL ";
-		break;
-	case 0x0f:
-		str += "8021x ";
-		break;
-	case 0x10:
-		str += "WPA ";
-		break;
-	case 0x11:
-		str += "UNKNOWN2 ";
-		break;
-	case 0x12:
-		str += "TRANSFER ";
-		break;
-	case 0x13:
-		str += "ADHOC_DISCOVER ";
-		break;
-	case 0x14:
-		str += "ADHOC_DIALOG ";
-		break;
-	case 0x15:
-		str += "WISPR ";
-		break;
-	default:
-		str += "UNKNOWN"+num2hex(u8((errorCode >> 8) & 0xff))+" ";
-	}
-	str += num2hex(u8(errorCode & 0xff));
-	return str;
-}
-
 void __NetApctlCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> apctlGuard(apctlEvtMtx);
@@ -472,58 +376,17 @@ void __NetApctlCallbacks()
 	int delayus = 10000;
 
 	// We are temporarily borrowing APctl thread for NpAuth callbacks for testing to simulate authentication
-	if (!npAuthEvents.empty())
-	{
-		auto& args = npAuthEvents.front();
-		auto& id = args.data[0];
-		auto& result = args.data[1];
-		auto& argAddr = args.data[2];
-		npAuthEvents.pop_front();
-
+	if (NpAuthProcessEvents()) {
 		delayus = (adhocEventDelay + adhocExtraDelay);
-
-		int handlerID = id - 1;
-		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
-			if (it->first == handlerID) {
-				DEBUG_LOG(Log::sceNet, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
-				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
-				hleEnqueueCall(it->second.entryPoint, 3, args.data);
-			}
-		}
 	}
 
 	// Temporarily borrowing APctl thread for NpMatching2 callbacks for testing purpose
-	if (!npMatching2Events.empty())
-	{
-		auto& args = npMatching2Events.front();
-		auto& event = args.data[0];
-		auto& stat = args.data[1];
-		auto& serverIdPtr = args.data[2];
-		auto& inStructPtr = args.data[3];
-		auto& newStat = args.data[5];
-		npMatching2Events.pop_front();
-
+	if (NpMatching2ProcessEvents()) {
 		delayus = (adhocEventDelay + adhocExtraDelay);
-
-		//int handlerID = id - 1;
-		for (std::map<int, NpMatching2Handler>::iterator it = npMatching2Handlers.begin(); it != npMatching2Handlers.end(); ++it) {
-			//if (it->first == handlerID) 
-			{
-				DEBUG_LOG(Log::sceNet, "NpMatching2Callback [HandlerID=%i][EventID=%04x][State=%04x][ArgsPtr=%08x]", it->first, event, stat, it->second.argument);
-				hleEnqueueCall(it->second.entryPoint, 7, args.data);
-			}
-		}
-		// Per npMatching2 function callback
-		u32* inStruct = (u32*)Memory::GetPointer(inStructPtr);
-		if (Memory::IsValidAddress(inStruct[0])) {
-			DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointer(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
-			hleEnqueueCall(inStruct[0], 7, args.data);
-		}
 	}
 
 	// How AP works probably like this: Game use sceNetApctl function -> sceNetApctl let the hardware know and do their's thing and have a new State -> Let the game know the resulting State through Event on their handler
-	if (!apctlEvents.empty())
-	{
+	if (!apctlEvents.empty()) {
 		auto& args = apctlEvents.front();
 		auto& oldState = args.data[0];
 		auto& newState = args.data[1];
