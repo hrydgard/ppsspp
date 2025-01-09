@@ -472,58 +472,17 @@ void __NetApctlCallbacks()
 	int delayus = 10000;
 
 	// We are temporarily borrowing APctl thread for NpAuth callbacks for testing to simulate authentication
-	if (!npAuthEvents.empty())
-	{
-		auto& args = npAuthEvents.front();
-		auto& id = args.data[0];
-		auto& result = args.data[1];
-		auto& argAddr = args.data[2];
-		npAuthEvents.pop_front();
-
+	if (NpAuthProcessEvents()) {
 		delayus = (adhocEventDelay + adhocExtraDelay);
-
-		int handlerID = id - 1;
-		for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
-			if (it->first == handlerID) {
-				DEBUG_LOG(Log::sceNet, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
-				// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
-				hleEnqueueCall(it->second.entryPoint, 3, args.data);
-			}
-		}
 	}
 
 	// Temporarily borrowing APctl thread for NpMatching2 callbacks for testing purpose
-	if (!npMatching2Events.empty())
-	{
-		auto& args = npMatching2Events.front();
-		auto& event = args.data[0];
-		auto& stat = args.data[1];
-		auto& serverIdPtr = args.data[2];
-		auto& inStructPtr = args.data[3];
-		auto& newStat = args.data[5];
-		npMatching2Events.pop_front();
-
+	if (NpMatching2ProcessEvents()) {
 		delayus = (adhocEventDelay + adhocExtraDelay);
-
-		//int handlerID = id - 1;
-		for (std::map<int, NpMatching2Handler>::iterator it = npMatching2Handlers.begin(); it != npMatching2Handlers.end(); ++it) {
-			//if (it->first == handlerID) 
-			{
-				DEBUG_LOG(Log::sceNet, "NpMatching2Callback [HandlerID=%i][EventID=%04x][State=%04x][ArgsPtr=%08x]", it->first, event, stat, it->second.argument);
-				hleEnqueueCall(it->second.entryPoint, 7, args.data);
-			}
-		}
-		// Per npMatching2 function callback
-		u32* inStruct = (u32*)Memory::GetPointer(inStructPtr);
-		if (Memory::IsValidAddress(inStruct[0])) {
-			DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointer(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
-			hleEnqueueCall(inStruct[0], 7, args.data);
-		}
 	}
 
 	// How AP works probably like this: Game use sceNetApctl function -> sceNetApctl let the hardware know and do their's thing and have a new State -> Let the game know the resulting State through Event on their handler
-	if (!apctlEvents.empty())
-	{
+	if (!apctlEvents.empty()) {
 		auto& args = apctlEvents.front();
 		auto& oldState = args.data[0];
 		auto& newState = args.data[1];

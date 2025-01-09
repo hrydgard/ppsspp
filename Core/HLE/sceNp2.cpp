@@ -48,6 +48,37 @@ void notifyNpMatching2Handlers(NpMatching2Args &args, u32 ctxId, u32 serverId, u
 	npMatching2Events.push_back(args);
 }
 
+bool NpMatching2ProcessEvents() {
+	if (npMatching2Events.empty()) {
+		return false;
+	}
+
+	auto& args = npMatching2Events.front();
+	auto& event = args.data[0];
+	auto& stat = args.data[1];
+	auto& serverIdPtr = args.data[2];
+	auto& inStructPtr = args.data[3];
+	auto& newStat = args.data[5];
+	npMatching2Events.pop_front();
+
+	//int handlerID = id - 1;
+	for (std::map<int, NpMatching2Handler>::iterator it = npMatching2Handlers.begin(); it != npMatching2Handlers.end(); ++it) {
+		//if (it->first == handlerID)
+		{
+			DEBUG_LOG(Log::sceNet, "NpMatching2Callback [HandlerID=%i][EventID=%04x][State=%04x][ArgsPtr=%08x]", it->first, event, stat, it->second.argument);
+			hleEnqueueCall(it->second.entryPoint, 7, args.data);
+		}
+	}
+
+	// Per npMatching2 function callback
+	u32* inStruct = (u32*)Memory::GetPointer(inStructPtr);
+	if (Memory::IsValidAddress(inStruct[0])) {
+		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointer(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
+		hleEnqueueCall(inStruct[0], 7, args.data);
+	}
+	return true;
+}
+
 static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityMask, int threadStackSize)
 {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, currentMIPS->pc);

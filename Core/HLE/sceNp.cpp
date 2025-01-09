@@ -112,6 +112,28 @@ static void notifyNpAuthHandlers(u32 id, u32 result, u32 argAddr) {
 	npAuthEvents.push_back({ { id, result, argAddr } });
 }
 
+bool NpAuthProcessEvents() {
+	if (npAuthEvents.empty()) {
+		return false;
+	}
+
+	auto& args = npAuthEvents.front();
+	auto& id = args.data[0];
+	auto& result = args.data[1];
+	auto& argAddr = args.data[2];
+	npAuthEvents.pop_front();
+
+	int handlerID = id - 1;
+	for (std::map<int, NpAuthHandler>::iterator it = npAuthHandlers.begin(); it != npAuthHandlers.end(); ++it) {
+		if (it->first == handlerID) {
+			DEBUG_LOG(Log::sceNet, "NpAuthCallback [HandlerID=%i][RequestID=%d][Result=%d][ArgsPtr=%08x]", it->first, id, result, it->second.argument);
+			// TODO: Update result / args.data[1] with the actual ticket length (or error code?)
+			hleEnqueueCall(it->second.entryPoint, 3, args.data);
+		}
+	}
+	return true;
+}
+
 static int sceNpInit()
 {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
