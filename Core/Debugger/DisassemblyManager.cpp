@@ -1092,3 +1092,87 @@ bool DisassemblyComment::disassemble(u32 address, DisassemblyLineInfo &dest, boo
 	dest.totalSize = size;
 	return true;
 }
+
+bool GetDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData, bool displaySymbols) {
+	if (displaySymbols) {
+		const std::string addressSymbol = g_symbolMap->GetLabelString(address);
+		if (!addressSymbol.empty()) {
+			for (int k = 0; addressSymbol[k] != 0; k++) {
+				// abbreviate long names
+				if (abbreviateLabels && k == 16 && addressSymbol[k+1] != 0) {
+					*dest++ = '+';
+					break;
+				}
+				*dest++ = addressSymbol[k];
+			}
+			*dest++ = ':';
+			*dest = 0;
+			return true;
+		} else {
+			sprintf(dest,"    %08X",address);
+			return false;
+		}
+	} else {
+		if (showData) {
+			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
+			sprintf(dest, "%08X %08X", address, encoding);
+		} else {
+			sprintf(dest, "%08X", address);
+		}
+		return false;
+	}
+}
+
+// Utilify function from the old debugger.
+std::string DisassembleRange(u32 start, u32 size, bool displaySymbols, MIPSDebugInterface *debugger) {
+	auto memLock = Memory::Lock();
+	std::string result;
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (u32 i = 0; i < size; i += debugger->getInstructionSize(0)) {
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger, start + i);
+
+		if (info.isBranch && g_symbolMap->GetLabelString(info.branchTarget).empty()) {
+			if (branchAddresses.find(info.branchTarget) == branchAddresses.end()) {
+				branchAddresses.insert(info.branchTarget);
+			}
+		}
+	}
+
+	u32 disAddress = start;
+	bool previousLabel = true;
+	DisassemblyLineInfo line;
+	while (disAddress < start + size) {
+		char addressText[64], buffer[512];
+
+		g_disassemblyManager.getLine(disAddress, displaySymbols, line, debugger);
+		bool isLabel = GetDisasmAddressText(disAddress, addressText, false, line.type == DISTYPE_OPCODE, displaySymbols);
+
+		if (isLabel) {
+			if (!previousLabel)
+				result += "\r\n";
+			sprintf(buffer, "%s\r\n\r\n", addressText);
+			result += buffer;
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end()) {
+			if (!previousLabel)
+				result += "\r\n";
+			sprintf(buffer, "pos_%08X:\r\n\r\n", disAddress);
+			result += buffer;
+		}
+
+		if (line.info.isBranch && !line.info.isBranchToRegister
+			&& g_symbolMap->GetLabelString(line.info.branchTarget).empty()
+			&& branchAddresses.find(line.info.branchTarget) != branchAddresses.end()) {
+			sprintf(buffer, "pos_%08X", line.info.branchTarget);
+			line.params = line.params.substr(0, line.params.find("0x")) + buffer;
+		}
+
+		sprintf(buffer, "\t%s\t%s\r\n", line.name.c_str(), line.params.c_str());
+		result += buffer;
+		previousLabel = isLabel;
+		disAddress += line.totalSize;
+	}
+
+	return result;
+}

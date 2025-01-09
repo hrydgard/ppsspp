@@ -58,7 +58,7 @@ void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 
 void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control) {
 	if (ImGui::MenuItem(mode == MemDumpMode::Raw ? "Dump bytes to file..." : "Disassemble to file...")) {
-		control.command = { ImCmd::SHOW_IN_MEMORY_DUMPER, addr, size };
+		control.command = { ImCmd::SHOW_IN_MEMORY_DUMPER, addr, size, (u32)mode};
 	}
 }
 
@@ -1261,7 +1261,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.memDumpOpen) {
-		memDumpWindow_.Draw(cfg_);
+		memDumpWindow_.Draw(cfg_, mipsDebug);
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -1302,7 +1302,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	case ImCmd::SHOW_IN_MEMORY_DUMPER:
 	{
 		cfg_.memDumpOpen = true;
-		memDumpWindow_.SetRange(control.command.param, control.command.param2);
+		memDumpWindow_.SetRange(control.command.param, control.command.param2, (MemDumpMode)control.command.param3);
 		ImGui::SetWindowFocus(memDumpWindow_.Title());
 		break;
 	}

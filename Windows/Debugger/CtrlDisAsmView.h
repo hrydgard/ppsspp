@@ -70,12 +70,10 @@ class CtrlDisAsmView
 	};
 
 	void assembleOpcode(u32 address, const std::string &defaultText);
-	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
 	void search(bool continueSearch);
 	void followBranch();
 	void calculatePixelPositions();
-	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData);
 	void updateStatusBarText();
 	void drawBranchLine(HDC hdc, std::map<u32, int> &addressPositions, const BranchLine &line);
 	void CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode);
