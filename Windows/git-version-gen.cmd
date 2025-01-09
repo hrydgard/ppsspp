@@ -24,10 +24,12 @@ rem // If git is not installed, "unknown" is the version.
 
 setlocal ENABLEDELAYEDEXPANSION
 
-set GIT_VERSION_FILE=%~p0..\git-version.cpp
-set GIT_VERSION_TEMP=%~p0..\git-version-%1%RANDOM%.tmp
-set WIN_VERSION_FILE=%~p0.\win-version.h
-set WIN_VERSION_TEMP=%~p0.\win-version-%1%RANDOM%.tmp
+pushd "%~dp0"
+
+set GIT_VERSION_FILE=%~dp0..\git-version.cpp
+set GIT_VERSION_TEMP=%~dp0..\git-version-%1%RANDOM%.tmp
+set WIN_VERSION_FILE=%~dp0.\win-version.h
+set WIN_VERSION_TEMP=%~dp0.\win-version-%1%RANDOM%.tmp
 set GIT_MISSING=0
 
 if not defined GIT (
@@ -124,9 +126,9 @@ if "%GIT_MISSING%" == "1" (
 
 	echo // This is a generated file, by git-version-gen.cmd. > "%WIN_VERSION_TEMP%"
 	echo. >> "%WIN_VERSION_TEMP%"
-	echo // ERROR: Unable to determine version - git not on path. > "%WIN_VERSION_TEMP%"
-	echo #define PPSSPP_WIN_VERSION_STRING "unknown" > "%WIN_VERSION_TEMP%"
-	echo #define PPSSPP_WIN_VERSION_COMMA 0,0,0,0 > "%WIN_VERSION_TEMP%"
+	echo // ERROR: Unable to determine version - git not on path. >> "%WIN_VERSION_TEMP%"
+	echo #define PPSSPP_WIN_VERSION_STRING "unknown" >> "%WIN_VERSION_TEMP%"
+	echo #define PPSSPP_WIN_VERSION_COMMA 0,0,0,0 >> "%WIN_VERSION_TEMP%"
 
 	move /y "%WIN_VERSION_TEMP%" "%WIN_VERSION_FILE%" > NUL
 	goto done
@@ -170,3 +172,4 @@ if errorlevel 1 (
 )
 
 :done
+popd
