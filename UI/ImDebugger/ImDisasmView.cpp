@@ -830,9 +830,9 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 				statusBarText_ = "WARNING: unable to find function symbol here";
 			}
 		}
+		u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 		if (ImGui::MenuItem("Add function")) {
 			char statusBarTextBuff[256];
-			u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 			if (prevBegin != -1) {
 				if (prevBegin == curAddress_) {
 					snprintf(statusBarTextBuff, 256, "WARNING: There's already a function entry point at this adress");
@@ -861,8 +861,9 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 				mapReloaded_ = true;
 			}
 		}
-		if (ImGui::MenuItem("Disassemble to file")) {
-			disassembleToFile();
+		if (prevBegin != -1) {
+			u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
+			ShowInMemoryDumperMenuItem(prevBegin, prevSize, MemDumpMode::Disassembly, control);
 		}
 		ImGui::EndPopup();
 	}

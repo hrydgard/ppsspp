@@ -56,6 +56,12 @@ void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	}
 }
 
+void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control) {
+	if (ImGui::MenuItem(mode == MemDumpMode::Raw ? "Dump bytes to file..." : "Disassemble to file...")) {
+		control.command = { ImCmd::SHOW_IN_MEMORY_DUMPER, addr, size };
+	}
+}
+
 void ShowInWindowMenuItems(uint32_t addr, ImControl &control) {
 	// Enable when we implement the memory viewer
 	ShowInMemoryViewerMenuItem(addr, control);
@@ -1112,6 +1118,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				snprintf(title, sizeof(title), "Memory %d", i + 1);
 				ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
 			}
+			ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("HLE")) {
@@ -1253,6 +1260,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		pixelViewer_.Draw(cfg_, control, gpuDebug, draw);
 	}
 
+	if (cfg_.memDumpOpen) {
+		memDumpWindow_.Draw(cfg_);
+	}
+
 	for (int i = 0; i < 4; i++) {
 		if (cfg_.memViewOpen[i]) {
 			mem_[i].Draw(mipsDebug, cfg_, control, i);
@@ -1286,6 +1297,13 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		mem_[index].GotoAddr(control.command.param);
 		cfg_.memViewOpen[index] = true;
 		ImGui::SetWindowFocus(ImMemWindow::Title(index));
+		break;
+	}
+	case ImCmd::SHOW_IN_MEMORY_DUMPER:
+	{
+		cfg_.memDumpOpen = true;
+		memDumpWindow_.SetRange(control.command.param, control.command.param2);
+		ImGui::SetWindowFocus(memDumpWindow_.Title());
 		break;
 	}
 	case ImCmd::TRIGGER_FIND_POPUP:
