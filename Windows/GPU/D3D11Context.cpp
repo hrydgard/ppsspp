@@ -1,6 +1,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/CommonWindows.h"
+#include <dxgi1_5.h>
 #include <d3d11.h>
 #include <WinError.h>
 
@@ -157,35 +158,46 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
 	IDXGIFactory1 *dxgiFactory = nullptr;
 	IDXGIDevice *dxgiDevice = nullptr;
-	IDXGIAdapter *adapter = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
 	if (SUCCEEDED(hr)) {
+		IDXGIAdapter *adapter = nullptr;
 		hr = dxgiDevice->GetAdapter(&adapter);
 		if (SUCCEEDED(hr)) {
 			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
-			DXGI_ADAPTER_DESC desc;
-			adapter->GetDesc(&desc);
 			adapter->Release();
 		}
 		dxgiDevice->Release();
 	}
 
-	// DirectX 11.0 systems
-	DXGI_SWAP_CHAIN_DESC sd;
-	ZeroMemory(&sd, sizeof(sd));
-	sd.BufferCount = 1;
-	sd.BufferDesc.Width = width;
-	sd.BufferDesc.Height = height;
-	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.OutputWindow = hWnd_;
-	sd.SampleDesc.Count = 1;
-	sd.SampleDesc.Quality = 0;
-	sd.Windowed = TRUE;
+	// Create the swap chain. Modern features (flip model, tearing) require Windows 10 (DXGI 1.5) or newer.
+	swapChainDesc_.BufferCount = 1;
+	swapChainDesc_.BufferDesc.Width = width;
+	swapChainDesc_.BufferDesc.Height = height;
+	swapChainDesc_.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc_.BufferDesc.RefreshRate.Numerator = 60;
+	swapChainDesc_.BufferDesc.RefreshRate.Denominator = 1;
+	swapChainDesc_.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc_.OutputWindow = hWnd_;
+	swapChainDesc_.SampleDesc.Count = 1;
+	swapChainDesc_.SampleDesc.Quality = 0;
+	swapChainDesc_.Windowed = TRUE;
+	swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
-	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
+	IDXGIFactory5 *dxgiFactory5 = nullptr;
+	hr = dxgiFactory->QueryInterface(__uuidof(IDXGIFactory5), (void**)&dxgiFactory5);
+	if (SUCCEEDED(hr)) {
+		swapChainDesc_.BufferCount = 2;
+		swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+
+		BOOL allowTearing = FALSE;
+		hr = dxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
+		if (SUCCEEDED(hr) && allowTearing) {
+			swapChainDesc_.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+		}
+		dxgiFactory5->Release();
+	}
+
+	hr = dxgiFactory->CreateSwapChain(device_, &swapChainDesc_, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 	dxgiFactory->Release();
 
@@ -229,7 +241,7 @@ void D3D11Context::Resize() {
 	int width;
 	int height;
 	W32Util::GetWindowRes(hWnd_, &width, &height);
-	swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, swapChainDesc_.Flags);
 	GotBackbuffer();
 }
 
