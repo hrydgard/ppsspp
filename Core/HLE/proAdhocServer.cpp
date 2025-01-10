@@ -1833,7 +1833,7 @@ int create_listen_socket(uint16_t port)
 		else {
 			ERROR_LOG(Log::sceNet, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, socket_errno);
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port));
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port), "portbindfail");
 		}
 
 		// Close Socket
