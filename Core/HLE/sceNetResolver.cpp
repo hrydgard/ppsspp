@@ -90,23 +90,37 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
     SockAddrIN4 addr{};
     addr.in.sin_addr.s_addr = INADDR_NONE;
 
-    // Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
-    resolver->SetIsRunning(true);
-
     // Resolve any aliases
     if (g_Config.mHostToAlias.find(hostname) != g_Config.mHostToAlias.end()) {
         const std::string& alias = g_Config.mHostToAlias[hostname];
         INFO_LOG(Log::sceNet, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
         hostname = alias;
-    }
+	}
 
-	/*
-	// Try the new resolver, that hits the configured primary and secondary DNSs.
-	uint32_t raw_ip = net::RawDNSLookupIPV4(g_Config.primaryDNSServer.c_str(), hostname.c_str());
+	// Check if hostname is already an IPv4 address, if so we do not need further lookup. This usually happens
+	// after the mHostToAlias lookup, which effectively is hardcoded DNS.
+	uint32_t resolvedAddr;
+	if (inet_pton(AF_INET, hostname.c_str(), &resolvedAddr)) {
+		INFO_LOG(Log::sceNet, "Not looking up %s, already an IP address.");
+		Memory::Write_U32(resolvedAddr, inAddrPtr);
+		return 0;
+	}
 
-	Memory::Write_U32(raw_ip, inAddrPtr);
-	*/
-    // Attempt to execute a DNS resolution
+	// Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
+	resolver->SetIsRunning(true);
+
+	// Now use the configured primary DNS server to do a lookup.
+	// TODO: Pick a DNS server per-game according to a table downloaded from ppsspp.org.
+	if (net::DirectDNSLookupIPV4(g_Config.primaryDNSServer.c_str(), hostname.c_str(), &resolvedAddr)) {
+		INFO_LOG(Log::sceNet, "Direct lookup of %s succeeded: %08x", hostname.c_str(), resolvedAddr);
+		resolver->SetIsRunning(false);
+		Memory::Write_U32(resolvedAddr, inAddrPtr);
+		return 0;
+	}
+
+	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.primaryDNSServer.c_str());
+
+	// Attempt to execute a DNS resolution
     if (!net::DNSResolve(hostname, "", &resolved, err)) {
         // TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "DNS Error Resolving %s (%s)\n", hostname.c_str(),
