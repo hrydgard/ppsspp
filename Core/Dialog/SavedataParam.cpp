@@ -1396,8 +1396,8 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					info.name, info.st_mode, FmtPspTime(info.st_ctime).c_str(), FmtPspTime(info.st_atime).c_str(), FmtPspTime(info.st_mtime).c_str());
 			}
-		} else {
-			WARN_LOG(Log::sceUtility, "Invalid normalEntries pointer");
+		} else if (fileList->resultNumNormalEntries > 0) {
+			WARN_LOG(Log::sceUtility, "Invalid normalEntries pointer (%d entries)", fileList->resultNumNormalEntries);
 		}
 		// TODO: Log system and secure entries?
 	}

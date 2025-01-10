@@ -303,4 +303,7 @@ int inet_pton(int af, const char* src, void* dst)
 	return 1;
 }
 
+// Structs for implementing DNS are available here:
+// Based on https://web.archive.org/web/20201204080751/https://www.binarytides.com/dns-query-code-in-c-with-winsock/
+
 }  // namespace net
