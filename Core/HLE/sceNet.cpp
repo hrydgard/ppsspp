@@ -871,9 +871,6 @@ int sceNetApctlTerm() {
 static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED %s(%i, %08x) at %08x", __FUNCTION__, code, pInfoAddr, currentMIPS->pc);
 
-	if (!netApctlInited)
-		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
-
 	switch (code) {
 	case PSP_NET_APCTL_INFO_PROFILE_NAME:
 		if (!Memory::IsValidRange(pInfoAddr, APCTL_PROFILENAME_MAXLEN))

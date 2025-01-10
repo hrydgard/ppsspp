@@ -595,7 +595,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 		// Get Local IP Address
 		sockaddr_in sockAddr{};
 		getLocalIp(&sockAddr);
-		DEBUG_LOG(Log::sceNet, "Bind: Address Replacement = %s => %s", ip2str(saddr.in.sin_addr).c_str(), ip2str(sockAddr.sin_addr).c_str());
+		WARN_LOG(Log::sceNet, "Bind: Address Replacement = %s => %s", ip2str(saddr.in.sin_addr).c_str(), ip2str(sockAddr.sin_addr).c_str());
 		saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
 	}
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
