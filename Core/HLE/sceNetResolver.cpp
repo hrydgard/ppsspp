@@ -100,6 +100,12 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
         hostname = alias;
     }
 
+	/*
+	// Try the new resolver, that hits the configured primary and secondary DNSs.
+	uint32_t raw_ip = net::RawDNSLookupIPV4(g_Config.primaryDNSServer.c_str(), hostname.c_str());
+
+	Memory::Write_U32(raw_ip, inAddrPtr);
+	*/
     // Attempt to execute a DNS resolution
     if (!net::DNSResolve(hostname, "", &resolved, err)) {
         // TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
