@@ -45,39 +45,37 @@ struct SceNetInetTimeval {
 	u32_le tv_usec;        // and microseconds 
 };
 
-#ifdef _MSC_VER
-#pragma pack(push,1)
-#endif
+// No need to pragma/attribute(pack) the below structs, they are following C rules.
 
 // FdSet
-typedef struct SceNetInetFdSet {
+struct SceNetInetFdSet {
 	u32_le	fds_bits[(PSP_NET_INET_FD_SETSIZE + (PSP_NET_INET_NFDBITS - 1)) / PSP_NET_INET_NFDBITS]; // Default: 8 = ((PSP_NET_INET_FD_SETSIZE(256) + (PSP_NET_INET_NFDBITS-1)) / PSP_NET_INET_NFDBITS(32)) elements of 32-bit array to represents 256(FD_SETSIZE) bits of fd's bitmap
-} PACK SceNetInetFdSet;
+};
 
 // Sockaddr
-typedef struct SceNetInetSockaddr {
+struct SceNetInetSockaddr {
 	uint8_t sa_len; // length of this struct or sa_data only?
 	uint8_t sa_family;
 	uint8_t sa_data[14]; // up to 14 bytes of data?
-} PACK SceNetInetSockaddr;
+};
 
 // Sockaddr_in
-typedef struct SceNetInetSockaddrIn {
+struct SceNetInetSockaddrIn {
 	uint8_t sin_len; // length of this struct?
 	uint8_t sin_family;
 	u16_le sin_port; //uint16_t
 	u32_le sin_addr; //uint32_t
 	uint8_t sin_zero[8]; // zero-filled padding?
-} PACK SceNetInetSockaddrIn;
+};
 
 // Similar to iovec struct on 32-bit platform from BSD's uio.h/_iovec.h
-typedef struct SceNetIovec {
+struct SceNetIovec {
 	u32_le iov_base;	// Base address (pointer/void* of buffer)
 	u32_le iov_len;		// Length
-} PACK SceNetIovec;
+};
 
 // Similar to msghdr struct on 32-bit platform from BSD's socket.h
-typedef struct InetMsghdr {
+struct InetMsghdr {
 	u32_le msg_name;					// optional address (pointer/void* to sockaddr_in/SceNetInetSockaddrIn/SceNetInetSockaddr struct?)
 	u32_le msg_namelen;					// size of optional address 
 	u32_le msg_iov;						// pointer to iovec/SceNetIovec (ie. struct iovec*/PSPPointer<SceNetIovec>), scatter/gather array (buffers are concatenated before sent?)
@@ -85,20 +83,20 @@ typedef struct InetMsghdr {
 	u32_le msg_control;					// pointer (ie. void*/PSPPointer<InetCmsghdr>) to ancillary data (multiple of cmsghdr/InetCmsghdr struct?), see below 
 	u32_le msg_controllen;				// ancillary data buffer len, includes padding between each cmsghdr/InetCmsghdr struct?
 	s32_le msg_flags;					// flags on received message (ignored on sendmsg?)
-} PACK InetMsgHdr;
+};
 
 // Structure used for manipulating linger option
-typedef struct SceNetInetLinger {
+struct SceNetInetLinger {
 	s32_le	l_onoff;		// option on/off 
 	s32_le	l_linger;		// linger time in seconds 
-} PACK SceNetInetLinger;
+};
 
 // Polling Event Field
-typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
+struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
 	s32_le fd;
 	s16_le events;  // requested events
 	s16_le revents; // returned events
-} PACK SceNetInetPollfd;
+};
 
 // TCP & UDP Socket Union (Internal use only)
 /*
@@ -113,57 +111,6 @@ typedef struct InetSocket {
 } PACK InetSocket;
 */
 
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif
-
-// ----------------- DNS Header -----------------------------
-// Based on https://web.archive.org/web/20201204080751/https://www.binarytides.com/dns-query-code-in-c-with-winsock/
-typedef struct
-{
-	unsigned short id;		   // identification number
-	unsigned char rd : 1;      // recursion desired
-	unsigned char tc : 1;      // truncated message
-	unsigned char aa : 1;      // authoritive answer
-	unsigned char opcode : 4;  // purpose of message
-	unsigned char qr : 1;      // query/response flag
-	unsigned char rcode : 4;   // response code
-	unsigned char cd : 1;      // checking disabled
-	unsigned char ad : 1;      // authenticated data
-	unsigned char z : 1;       // its z! reserved
-	unsigned char ra : 1;      // recursion available
-	unsigned short q_count;    // number of question entries
-	unsigned short ans_count;  // number of answer entries
-	unsigned short auth_count; // number of authority entries
-	unsigned short add_count;  // number of resource entries
-} DNS_HEADER;
-
-typedef struct
-{
-	unsigned short qtype;
-	unsigned short qclass;
-} QUESTION;
-
-typedef struct
-{
-	unsigned short type;
-	unsigned short _class;
-	unsigned int ttl;
-	unsigned short data_len;
-} R_DATA;
-
-typedef struct
-{
-	unsigned char* name;
-	R_DATA* resource;
-	unsigned char* rdata;
-} RES_RECORD;
-
-typedef struct
-{
-	unsigned char* name;
-	QUESTION* ques;
-} QUERY;
 // ---------------------------------------------------------
 
 class PointerWrap;

@@ -229,7 +229,7 @@ enum {
 #define	ERROR_INET_EINTR			4	// Interrupted system call 
 #define ERROR_INET_EBADF			9	//0x09  // Or was it 0x80010009 (SCE_ERROR_ERRNO_EBADF/SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_DESCRIPTOR) ?
 #define ERROR_INET_EAGAIN			11	//0x0B  // Or was it 0x8001000B (SCE_ERROR_ERRNO_EAGAIN) ?
-#define ERROR_INET_EWOULDBLOCK		EAGAIN // Operation would block
+#define ERROR_INET_EWOULDBLOCK		ERROR_INET_EAGAIN // Operation would block
 #define	ERROR_INET_EACCES			13	// Permission denied 
 #define	ERROR_INET_EFAULT			14	// Bad address 
 #define	ERROR_INET_EINVAL			22	// Invalid argument 
