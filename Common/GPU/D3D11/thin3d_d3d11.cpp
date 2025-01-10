@@ -410,6 +410,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	if (SUCCEEDED(hr)) {
 		caps_.setMaxFrameLatencySupported = true;
 		dxgiDevice1->SetMaximumFrameLatency(maxInflightFrames);
+		dxgiDevice1->Release();
 	}
 }
 
