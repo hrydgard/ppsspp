@@ -96,8 +96,8 @@ typedef struct SceNetInetLinger {
 // Polling Event Field
 typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
 	s32_le fd;
-	s16_le events;
-	s16_le revents;
+	s16_le events;  // requested events
+	s16_le revents; // returned events
 } PACK SceNetInetPollfd;
 
 // TCP & UDP Socket Union (Internal use only)
