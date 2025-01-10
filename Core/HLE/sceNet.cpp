@@ -1324,27 +1324,27 @@ static int sceNetApctl_lib2_C20A144C(int connIndex, u32 ps3MacAddressPtr) {
 }
 
 static int sceNetUpnpInit(int unknown1,int unknown2) {
-	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, Log::sceNet, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);
+	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, Log::sceNet, "UNIMPL sceNetUpnpInit %d,%d",unknown1,unknown2);
 	return 0;
 }
 
 static int sceNetUpnpStart() {
-	ERROR_LOG(Log::sceNet, "UNIMPLsceNetUpnpStart");
+	ERROR_LOG(Log::sceNet, "UNIMPL sceNetUpnpStart");
 	return 0;
 }
 
 static int sceNetUpnpStop() {
-	ERROR_LOG(Log::sceNet, "UNIMPLsceNetUpnpStop");
+	ERROR_LOG(Log::sceNet, "UNIMPL sceNetUpnpStop");
 	return 0;
 }
 
 static int sceNetUpnpTerm() {
-	ERROR_LOG(Log::sceNet, "UNIMPLsceNetUpnpTerm");
+	ERROR_LOG(Log::sceNet, "UNIMPL sceNetUpnpTerm");
 	return 0;
 }
 
 static int sceNetUpnpGetNatInfo() {
-	ERROR_LOG(Log::sceNet, "UNIMPLsceNetUpnpGetNatInfo");
+	ERROR_LOG(Log::sceNet, "UNIMPL sceNetUpnpGetNatInfo");
 	return 0;
 }
 
