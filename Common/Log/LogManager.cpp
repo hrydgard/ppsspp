@@ -130,11 +130,7 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 
 	for (size_t i = 0; i < ARRAY_SIZE(log_); i++) {
 		log_[i].enabled = true;
-#if defined(_DEBUG)
-		log_[i].level = LogLevel::LDEBUG;
-#else
 		log_[i].level = LogLevel::LINFO;
-#endif
 	}
 }
 
