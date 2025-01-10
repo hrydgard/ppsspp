@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "CommonFuncs.h"
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
@@ -84,8 +85,8 @@ void GenericLog(LogLevel level, Log type, const char *file, int line, const char
 		;
 bool GenericLogEnabled(LogLevel level, Log type);
 
-// Exception for Windows - enable more log levels in release mode than on other platforms.
-#if defined(_DEBUG) || defined(_WIN32)
+// We only disable DEBUG and VERBOSE on Android/iOS now.
+#if defined(_DEBUG) || (!PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS))
 
 // Needs to be an int (and not use the enum) because it's used by the preprocessor!
 #define MAX_LOGLEVEL DEBUG_LEVEL
