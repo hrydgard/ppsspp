@@ -311,7 +311,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
 	int retval = -1;
-	int maxfd = 0;
+	int maxHostFd = 0;
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointer(fdsPtr); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
 
 	if (nfds > FD_SETSIZE)
@@ -324,10 +324,11 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 			inetLastErrno = EINVAL;
 			return hleLogError(Log::sceNet, -1, "invalid socket id");
 		}
-		if (fdarray[i].fd > maxfd) {
-			maxfd = fdarray[i].fd;
-		}
 		SOCKET hostSocket = g_socketManager.GetHostSocketFromInetSocket(fdarray[i].fd);
+		if (hostSocket > maxHostFd) {
+			maxHostFd = hostSocket;
+		}
+		_dbg_assert_(hostSocket != 0);
 		FD_SET(hostSocket, &readfds);
 		FD_SET(hostSocket, &writefds);
 		FD_SET(hostSocket, &exceptfds);
@@ -340,7 +341,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 		tmout.tv_usec = (timeout % 1000000); // microseconds
 	}
 	// TODO: Simulate blocking behaviour when timeout is non-zero to prevent PPSSPP from freezing
-	retval = select(maxfd + 1, &readfds, &writefds, &exceptfds, /*(timeout<0)? NULL:*/&tmout);
+	retval = select(maxHostFd + 1, &readfds, &writefds, &exceptfds, /*(timeout<0)? NULL:*/&tmout);
 	if (retval < 0) {
 		inetLastErrno = EINTR;
 		return hleLogError(Log::sceNet, hleDelayResult(retval, "workaround until blocking-socket", 500)); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
