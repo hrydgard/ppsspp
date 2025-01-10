@@ -772,11 +772,11 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "No buffer"))
-         g_Config.iInflightFrames = 0;
-      else if (!strcmp(var.value, "Up to 1"))
          g_Config.iInflightFrames = 1;
-      else if (!strcmp(var.value, "Up to 2"))
+      else if (!strcmp(var.value, "Up to 1"))
          g_Config.iInflightFrames = 2;
+      else if (!strcmp(var.value, "Up to 2"))
+         g_Config.iInflightFrames = 3;
    }
 
    var.key = "ppsspp_skip_buffer_effects";
