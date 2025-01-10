@@ -101,7 +101,7 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
 	// after the mHostToAlias lookup, which effectively is hardcoded DNS.
 	uint32_t resolvedAddr;
 	if (inet_pton(AF_INET, hostname.c_str(), &resolvedAddr)) {
-		INFO_LOG(Log::sceNet, "Not looking up %s, already an IP address.");
+		INFO_LOG(Log::sceNet, "Not looking up '%s', already an IP address.", hostname.c_str());
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
 		return 0;
 	}
@@ -112,7 +112,7 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
 	// Now use the configured primary DNS server to do a lookup.
 	// TODO: Pick a DNS server per-game according to a table downloaded from ppsspp.org.
 	if (net::DirectDNSLookupIPV4(g_Config.primaryDNSServer.c_str(), hostname.c_str(), &resolvedAddr)) {
-		INFO_LOG(Log::sceNet, "Direct lookup of %s succeeded: %08x", hostname.c_str(), resolvedAddr);
+		INFO_LOG(Log::sceNet, "Direct lookup of '%s' succeeded: %08x", hostname.c_str(), resolvedAddr);
 		resolver->SetIsRunning(false);
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
 		return 0;

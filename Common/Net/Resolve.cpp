@@ -389,7 +389,7 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 		DEBUG_LOG(Log::sceNet, "  Type: %d", type);
 		DEBUG_LOG(Log::sceNet, "  Class: %d", clazz);
 		DEBUG_LOG(Log::sceNet, "  TTL: %u", ttl);
-		DEBUG_LOG(Log::sceNet, "  Data length: %n", data_len);
+		DEBUG_LOG(Log::sceNet, "  Data length: %d", (int)data_len);
 
 		if (type == DNS_QUERY_TYPE_A && data_len == 4) {
 			// IPv4 address
