@@ -1379,6 +1379,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 			// Valid MAC supplied. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 			if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && isLocalMAC(saddr)) {
 				// Create Internet UDP Socket
+				// Socket is remapped through adhocSockets
 				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if (usocket != INVALID_SOCKET) {
@@ -3257,6 +3258,7 @@ int RecreatePtpSocket(int ptpId) {
 	closesocket(sock->data.ptp.id);
 
 	// Create a new socket
+	// Socket is remapped through adhocSockets
 	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	// Valid Socket produced
@@ -3375,7 +3377,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
-				// Create Infrastructure Socket
+				// Create Infrastructure Socket (?)
+				// Socket is remapped through adhocSockets
 				int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 				// Valid Socket produced
@@ -3977,7 +3980,8 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
 			{
-				// Create Infrastructure Socket
+				// Create Infrastructure Socket (?)
+				// Socket is remapped through adhocSockets
 				int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 				// Valid Socket produced

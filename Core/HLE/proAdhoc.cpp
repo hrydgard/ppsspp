@@ -1813,6 +1813,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	}
 
 #else // Alternative way
+	// Socket doesn't "leak" to the game.
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock != SOCKET_ERROR) {
 		const char* kGoogleDnsIp = "8.8.8.8"; // Needs to be an IP string so it can be resolved as fast as possible to IP, doesn't need to be reachable

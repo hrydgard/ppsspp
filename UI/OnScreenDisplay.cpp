@@ -77,7 +77,6 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 	if (!details.empty()) {
 		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, details, &width2, &height2, align);
 		*width = std::max(*width, width2);
-		*height += 5.0f + height2;
 	}
 
 	float iconW = 0.0f;
@@ -100,7 +99,8 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 	iconW += 5.0f;
 
 	*width += iconW + 12.0f;
-	*height = std::max(*height, iconH + 5.0f);
+	*height1 = std::max(*height1, iconH + 2.0f);
+	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
 }
 
 // Align only matters here for the ASCII-only flag.
@@ -156,14 +156,17 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	bounds.x += iconW + 5.0f;
 	bounds.w -= iconW + 5.0f;
 
-	dc.DrawTextShadowRect(text, bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
+	Bounds primaryBounds = bounds;
+	primaryBounds.h = height1;
+
+	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_VCENTER);
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
 		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 		dc.FillRect(backgroundDark, bottomTextBounds);
 		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(details, bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
+		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 }

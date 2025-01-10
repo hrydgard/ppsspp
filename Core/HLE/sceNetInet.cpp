@@ -321,6 +321,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 	for (int i = 0; i < (s32)nfds; i++) {
 		if (fdarray[i].fd < 0) {
+			// In Unix, this is OK and means it the fd should be ignored, except fdarray[i].revents should be zeroed.
 			inetLastErrno = EINVAL;
 			return hleLogError(Log::sceNet, -1, "invalid socket id");
 		}
