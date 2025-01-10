@@ -326,12 +326,11 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       },
       "480x272"
    },
-#if 0 // see issue #16786
    {
       "ppsspp_mulitsample_level",
-      "MSAA Antialiasing (Vulkan Only)",
+      "MSAA Antialiasing",
       NULL,
-      NULL,
+      "Vulkan only. Core restart required.",
       NULL,
       "video",
       {
@@ -343,7 +342,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       },
       "Disabled"
    },
-#endif
    {
       "ppsspp_cropto16x9",
       "Crop to 16x9",

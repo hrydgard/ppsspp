@@ -1,11 +1,3 @@
-// Debugging notes
-// The crash happens when we try to call vkGetPhysicalDeviceProperties2KHR which seems to be null.
-//
-// Apparently we don't manage to specify the extensions we want. Still something reports that this one
-// is present?
-// Failed to load : vkGetPhysicalDeviceProperties2KHR
-// Failed to load : vkGetPhysicalDeviceFeatures2KHR
-
 #include <cstring>
 #include <cassert>
 #include <vector>
@@ -80,41 +72,79 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance_libretro(const VkInstance
 }
 
 static void add_name_unique(std::vector<const char *> &list, const char *value) {
-	for (const char *name : list)
-		if (!strcmp(value, name))
-			return;
+   for (const char *name : list) {
+      if (!strcmp(value, name))
+         return;
+   }
 
-	list.push_back(value);
+   list.push_back(value);
 }
+
 static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
-	VkDeviceCreateInfo info = *pCreateInfo;
-	std::vector<const char *> EnabledLayerNames(info.ppEnabledLayerNames, info.ppEnabledLayerNames + info.enabledLayerCount);
-	std::vector<const char *> EnabledExtensionNames(info.ppEnabledExtensionNames, info.ppEnabledExtensionNames + info.enabledExtensionCount);
-	VkPhysicalDeviceFeatures EnabledFeatures = *info.pEnabledFeatures;
+   VkDeviceCreateInfo newInfo = *pCreateInfo;
 
-	for (unsigned i = 0; i < vk_init_info.num_required_device_layers; i++)
-		add_name_unique(EnabledLayerNames, vk_init_info.required_device_layers[i]);
+   // Add our custom layers
+   std::vector<const char *> enabledLayerNames(pCreateInfo->ppEnabledLayerNames, pCreateInfo->ppEnabledLayerNames + pCreateInfo->enabledLayerCount);
 
-	for (unsigned i = 0; i < vk_init_info.num_required_device_extensions; i++)
-		add_name_unique(EnabledExtensionNames, vk_init_info.required_device_extensions[i]);
+   for (uint32_t i = 0; i < vk_init_info.num_required_device_layers; i++) {
+      add_name_unique(enabledLayerNames, vk_init_info.required_device_layers[i]);
+   }
 
-	for (unsigned i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
-		if (((VkBool32 *)vk_init_info.required_features)[i])
-			((VkBool32 *)&EnabledFeatures)[i] = VK_TRUE;
-	}
+   newInfo.enabledLayerCount = (uint32_t)enabledLayerNames.size();
+   newInfo.ppEnabledLayerNames = newInfo.enabledLayerCount ? enabledLayerNames.data() : nullptr;
 
-	for (auto extension_name : EnabledExtensionNames) {
-		if (!strcmp(extension_name, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME))
-			DEDICATED_ALLOCATION = true;
-	}
+   // Add our custom extensions
+   std::vector<const char *> enabledExtensionNames(pCreateInfo->ppEnabledExtensionNames, pCreateInfo->ppEnabledExtensionNames + pCreateInfo->enabledExtensionCount);
 
-	info.enabledLayerCount = (uint32_t)EnabledLayerNames.size();
-	info.ppEnabledLayerNames = info.enabledLayerCount ? EnabledLayerNames.data() : nullptr;
-	info.enabledExtensionCount = (uint32_t)EnabledExtensionNames.size();
-	info.ppEnabledExtensionNames = info.enabledExtensionCount ? EnabledExtensionNames.data() : nullptr;
-	info.pEnabledFeatures = &EnabledFeatures;
+   for (uint32_t i = 0; i < vk_init_info.num_required_device_extensions; i++) {
+      add_name_unique(enabledExtensionNames, vk_init_info.required_device_extensions[i]);
+   }
 
-	return vkCreateDevice_org(physicalDevice, &info, pAllocator, pDevice);
+   for (const char *extensionName : enabledExtensionNames) {
+      if (!strcmp(extensionName, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME))
+         DEDICATED_ALLOCATION = true;
+   }
+
+   newInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
+   newInfo.ppEnabledExtensionNames = newInfo.enabledExtensionCount ? enabledExtensionNames.data() : nullptr;
+
+   // Then check for VkPhysicalDeviceFeatures2 chaining or pEnabledFeatures to enable required features. Note that when both
+   // structs are present Features2 takes precedence. vkCreateDevice parameters don't give us a simple way to detect
+   // VK_KHR_get_physical_device_properties2 usage so we'll always try both paths.
+   std::unordered_map<VkPhysicalDeviceFeatures *, VkPhysicalDeviceFeatures> originalFeaturePointers;
+   VkPhysicalDeviceFeatures placeholderEnabledFeatures{};
+
+   for (const VkBaseOutStructure *next = (const VkBaseOutStructure *)pCreateInfo->pNext; next != nullptr;) {
+      if (next->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2) {
+         VkPhysicalDeviceFeatures *enabledFeatures = &((VkPhysicalDeviceFeatures2 *)next)->features;
+         originalFeaturePointers.try_emplace(enabledFeatures, *enabledFeatures);
+      }
+
+      next = (const VkBaseOutStructure *)next->pNext;
+   }
+
+   if (newInfo.pEnabledFeatures) {
+      placeholderEnabledFeatures = *newInfo.pEnabledFeatures;
+   }
+
+   newInfo.pEnabledFeatures = &placeholderEnabledFeatures;
+   originalFeaturePointers.try_emplace((VkPhysicalDeviceFeatures *)newInfo.pEnabledFeatures, *newInfo.pEnabledFeatures);
+
+   for (const auto& pair : originalFeaturePointers) {
+      for (uint32_t i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
+         if (((VkBool32 *)vk_init_info.required_features)[i])
+            ((VkBool32 *)pair.first)[i] = VK_TRUE;
+      }
+   }
+
+   VkResult res = vkCreateDevice_org(physicalDevice, &newInfo, pAllocator, pDevice);
+
+   // The above code potentially modifies application memory. Restore it to avoid unexpected side effects.
+   for (const auto& pair : originalFeaturePointers) {
+      *pair.first = pair.second;
+   }
+
+   return res;
 }
 
 static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance instance, const void *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {

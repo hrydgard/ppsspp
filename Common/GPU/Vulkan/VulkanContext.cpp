@@ -174,13 +174,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
-	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
-	// we get null pointers when running libretro. Quite strange.
-#if !defined(__LIBRETRO__)
 	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
-#endif
 
 	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
