@@ -602,16 +602,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_vertex_cache",
-      "Vertex Cache",
-      NULL,
-      "Faster, but may cause temporary flicker.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
       "ppsspp_texture_scaling_type",
       "Texture Upscale Type",
       NULL,
