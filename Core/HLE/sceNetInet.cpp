@@ -133,6 +133,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	// TODO: Should've created convertSockaddrPSP2Host (and Host2PSP too) function as it's being used pretty often, thus fixing a bug on it will be tedious when scattered all over the places
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
+	name->sa_len = len;
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
 
 	int retval = getpeername(inetSock->sock, (sockaddr*)&saddr, (socklen_t*)&len);
@@ -142,8 +143,8 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	} else {
-		memcpy(name->sa_data, saddr.addr.sa_data, len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
-		name->sa_len = len;
+		// FIXME: We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
+		memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
 		name->sa_family = saddr.addr.sa_family;
 	}
 	return 0;
