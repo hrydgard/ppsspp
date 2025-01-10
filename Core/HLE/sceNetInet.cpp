@@ -167,7 +167,9 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	SockAddrIN4 saddr{};
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
+	name->sa_len = len;
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
+	
 	int retval = getsockname(inetSock->sock, (sockaddr*)&saddr, (socklen_t*)&len);
 	DEBUG_LOG(Log::sceNet, "Getsockname: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
@@ -175,8 +177,8 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
 	} else {
-		memcpy(name->sa_data, saddr.addr.sa_data, len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
-		name->sa_len = len;
+		// FIXME: We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
+		memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
 		name->sa_family = saddr.addr.sa_family;
 	}
 	return 0;
