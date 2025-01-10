@@ -425,6 +425,12 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetSocket(%i, %i, %i) at %08x", domain, type, protocol, currentMIPS->pc);
 	DEBUG_LOG(Log::sceNet, "Socket: Domain = %s, Type = %s, Protocol = %s", inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
+	// Reject certain types of socket.
+	if (type == PSP_NET_INET_SOCK_RAW && (protocol == PSP_NET_INET_IPPROTO_ICMP || protocol == PSP_NET_INET_IPPROTO_ICMPV6)) {
+		inetLastErrno = EAFNOSUPPORT;
+		return hleLogWarning(Log::sceNet, -1, "sceNetInetSocket: Rejecting ICMP socket");
+	}
+
 	int socket;
 	InetSocket *inetSock = g_socketManager.CreateSocket(&socket, &inetLastErrno, SocketState::UsedNetInet, domain, type, protocol);
 	if (!inetSock) {
