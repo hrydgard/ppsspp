@@ -18,6 +18,7 @@
 
 #include <cfloat>
 #include <D3Dcommon.h>
+#include <dxgi1_5.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <D3Dcompiler.h>
@@ -215,6 +216,7 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
 	IDXGISwapChain *swapChain_;
+	bool swapChainTearingSupported_ = false;
 
 	ID3D11Texture2D *bbRenderTargetTex_ = nullptr; // NOT OWNED
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
@@ -367,6 +369,15 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		caps_.supportsD3D9 = false;
 	}
 
+	if (swapChain_) {
+		DXGI_SWAP_CHAIN_DESC swapChainDesc;
+		swapChain_->GetDesc(&swapChainDesc);
+
+		if (swapChainDesc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) {
+			swapChainTearingSupported_ = true;
+		}
+	}
+
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
 	D3D11_TEXTURE2D_DESC packDesc{};
@@ -478,14 +489,17 @@ void D3D11DrawContext::EndFrame() {
 void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
 	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
 
-	int interval = vblanks;
-	if (presentMode != PresentMode::FIFO) {
-		interval = 0;
-	}
 	// Safety for libretro
 	if (swapChain_) {
-		swapChain_->Present(interval, 0);
+		uint32_t interval = vblanks;
+		uint32_t flags = 0;
+		if (presentMode != PresentMode::FIFO) {
+			interval = 0;
+			flags |= swapChainTearingSupported_ ? DXGI_PRESENT_ALLOW_TEARING : 0; // Assume "vsync off" also means "allow tearing"
+		}
+		swapChain_->Present(interval, flags);
 	}
+
 	curRenderTargetView_ = nullptr;
 	curDepthStencilView_ = nullptr;
 	frameCount_++;
