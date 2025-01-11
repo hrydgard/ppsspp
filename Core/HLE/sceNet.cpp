@@ -740,17 +740,15 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	}
 }
 
-
 // Write static data since we don't actually manage any memory for sceNet* yet.
 static int sceNetGetMallocStat(u32 statPtr) {
-	VERBOSE_LOG(Log::sceNet, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);
 	auto stat = PSPPointer<SceNetMallocStat>::Create(statPtr);
 	if (!stat.IsValid())
 		return hleLogError(Log::sceNet, 0, "invalid address");
 
 	*stat = netMallocStat;
 	stat.NotifyWrite("sceNetGetMallocStat");
-	return 0;
+	return hleLogSuccessVerboseI(Log::sceNet, 0);
 }
 
 void NetApctl_InitDefaultInfo() {
@@ -800,9 +798,9 @@ void NetApctl_InitInfo(int confId) {
 }
 
 static int sceNetApctlInit(int stackSize, int initPriority) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i)", __FUNCTION__, stackSize, initPriority);
-	if (netApctlInited)
-		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
+	if (netApctlInited) {
+		return hleLogError(Log::sceNet, ERROR_NET_APCTL_ALREADY_INITIALIZED);
+	}
 
 	apctlEvents.clear();
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
@@ -835,7 +833,7 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 
 	netApctlInited = true;
 
-	return 0;
+	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 int NetApctl_Term() {
@@ -861,15 +859,13 @@ int NetApctl_Term() {
 }
 
 int sceNetApctlTerm() {
-	WARN_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
 	int retval = NetApctl_Term();
-
 	hleEatMicro(adhocDefaultDelay);
-	return retval;
+	return hleLogSuccessInfoI(Log::sceNet, retval);
 }
 
 static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
-	DEBUG_LOG(Log::sceNet, "UNTESTED %s(%i, %08x) at %08x", __FUNCTION__, code, pInfoAddr, currentMIPS->pc);
+	DEBUG_LOG(Log::sceNet, "sceNetApctlGetInfo(%i, %08x) at %08x", code, pInfoAddr, currentMIPS->pc);
 
 	switch (code) {
 	case PSP_NET_APCTL_INFO_PROFILE_NAME:
@@ -1062,7 +1058,7 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 }
 
 int sceNetApctlConnect(int confId) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i)", __FUNCTION__, confId);
+	WARN_LOG(Log::sceNet, "sceNetApctlConnect(%i)", confId);
 	if (!g_Config.bEnableWlan)
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
 
