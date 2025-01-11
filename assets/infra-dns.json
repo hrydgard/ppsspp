@@ -2,6 +2,10 @@
 	"comment": "This file contains our built-in DNS used by the Auto mode in Infrastructure. In addition to being shipped, it'll also be hosted on ppsspp.org. Key names below are not important.",
 	"default": {
 		"dns": "67.222.156.251",
+		"revival_credits": {
+			"group": "PS Rewired",
+			"url": "https://psrewired.com/"
+		}
 	},
 	"games": [
 		{
@@ -9,6 +13,11 @@
 			"comment": {
 				"en_US": "Works, but not on Windows",
 			},
+			"revival_credits": {
+				"group": "MOHH Revival",
+				"url": "https://mohh-revival.pages.dev/"
+			},
+			"credit": "AG ",
 			"dns": "86.223.243.173",
 			"domains": {
 				"pspmoh07.ea.com": "86.223.243.173",
@@ -40,6 +49,10 @@
 			"comment": {
 				"en_US": "Great",
 			},
+			"revival_credits": {
+				"group": "The AG Racing Foundation",
+				"url": "https://agracingfoundation.org/"
+			},
 			"dns": "145.239.30.230",
 			"score": 5,
 			"known_working_ids": [
@@ -57,17 +70,21 @@
 			"comment": {
 				"en_US": "Works",
 			},
+			"revival_credits": {
+				"group": "The AG Racing Foundation",
+				"url": "https://agracingfoundation.org/"
+			},
 			"dns": "145.239.30.230",
 			"score": 5,
 			"known_working_ids": [
 				"UCES01250",
+				"UCUS98743",
+				"UCJS10104",
 			],
 			"not_working_ids": [],
 			"other_ids": [
 				"UCAS40266",
-				"UCUS98743",
 				"UCKS45124",
-				"UCJS10104",
 				"NPJG00047"
 			],
 		}
