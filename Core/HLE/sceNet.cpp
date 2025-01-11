@@ -134,13 +134,23 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 	argsAddr = ArgsAddr;
 }
 
-bool LoadDNSForGameID(std::string_view jsonStr, std::string_view gameID, InfraDNSConfig *dns) {
+bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 	using namespace json;
-	json::JsonReader reader(jsonStr.data(), jsonStr.length());
-	if (!reader.ok() || !reader.root()) {
-		ERROR_LOG(Log::IO, "Error parsing JSON from store");
+
+	// TODO: Load from cache instead of zip (if possible), and sometimes update it.
+	size_t jsonSize;
+	std::unique_ptr<uint8_t[]> data(g_VFS.ReadFile("infra-dns.json", &jsonSize));
+	if (!data) {
 		return false;
 	}
+
+	std::string_view jsonStr = std::string_view((const char *)data.get(), jsonSize);
+	json::JsonReader reader(jsonStr.data(), jsonStr.length());
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		return false;
+	}
+
 	const JsonGet root = reader.root();
 	const JsonGet def = root.getDict("default");
 
@@ -210,7 +220,6 @@ bool LoadDNSForGameID(std::string_view jsonStr, std::string_view gameID, InfraDN
 		}
 
 		// TODO: Check for not working platforms
-
 		break;
 	}
 
@@ -637,6 +646,7 @@ u32 Net_Term() {
 	FreeUser(netThread2Addr);
 	netInited = false;
 
+	g_infraDNSConfig = {};
 	return 0;
 }
 
@@ -704,12 +714,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	if (g_Config.bInfrastructureAutoDNS) {
 		// Load the automatic DNS config.
 		std::string discID = g_paramSFO.GetDiscID();
-		size_t jsonSize;
-		uint8_t *data = g_VFS.ReadFile("infra-dns.json", &jsonSize);
-		if (data && g_Config.bInfrastructureAutoDNS) {
-			std::string_view json = std::string_view((const char *)data, jsonSize);
-			LoadDNSForGameID(json, discID, &g_infraDNSConfig);
-		}
+		LoadDNSForGameID(discID, &g_infraDNSConfig);
 	}
 
 	netInited = true;

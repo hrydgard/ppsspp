@@ -42,6 +42,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
+#include "Core/HLE/sceNet.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -415,8 +416,8 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
-	UI::Choice *displayEditor_ = rightColumnItems->Add(new Choice(gr->T("Display layout & effects")));
-	displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+
+	rightColumnItems->Add(new Choice(gr->T("Display layout & effects")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 		return UI::EVENT_DONE;
 	});
