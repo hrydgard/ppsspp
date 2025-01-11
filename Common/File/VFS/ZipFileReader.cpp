@@ -290,8 +290,11 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 void ZipFileReader::Rewind(VFSOpenFile *vfsOpenFile) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
 	_assert_(file);
+	// Unless the zip file is compressed, can't seek directly, so we re-open.
+	// This version of libzip doesn't even have zip_file_is_seekable(), should probably upgrade.
+	zip_fclose(file->zf);
+	file->zf = zip_fopen_index(zip_file_, file->reference->zi, 0);
 	_dbg_assert_(file->zf != nullptr);
-	zip_fseek(file->zf, 0, SEEK_SET);
 }
 
 size_t ZipFileReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) {
