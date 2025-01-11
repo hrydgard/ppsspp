@@ -59,17 +59,15 @@
 #endif
 
 static int sceNetResolverInit() {
-    ERROR_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
     g_Config.mHostToAlias["socomftb2.psp.online.scea.com"] = "67.222.156.250";
     g_Config.mHostToAlias["socompsp-prod.muis.pdonline.scea.com"] = "67.222.156.250";
     SceNetResolver::Init();
-    return 0;
+    return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 static int sceNetResolverTerm() {
-    ERROR_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
     SceNetResolver::Shutdown();
-    return 0;
+	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 // Note: timeouts are in seconds
@@ -151,7 +149,7 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
 static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
     for (int attempt = 0; attempt < retry; ++attempt) {
         if (const int status = NetResolver_StartNtoA(resolverId, hostnamePtr, inAddrPtr, timeout, retry); status >= 0) {
-            return status;
+            return hleLogSuccessInfoI(Log::sceNet, status);
         }
     }
     return -1;
@@ -195,8 +193,6 @@ static int sceNetResolverStartAtoNAsync(int resolverId, u32 inAddr, u32 hostname
 }
 
 static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen) {
-    WARN_LOG(Log::sceNet, "UNTESTED %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, resolverIdPtr,
-             Memory::Read_U32(resolverIdPtr), bufferPtr, bufferLen, currentMIPS->pc);
     if (!Memory::IsValidRange(resolverIdPtr, 4))
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
 
@@ -210,7 +206,7 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
     const auto resolver = sceNetResolver->CreateNetResolver(bufferPtr, bufferLen);
 
     Memory::Write_U32(resolver->GetId(), resolverIdPtr);
-    return 0;
+    return hleLogSuccessInfoI(Log::sceNet, 0, "ID: %d", Memory::Read_U32(resolverIdPtr));
 }
 
 static int sceNetResolverStop(u32 resolverId) {
@@ -222,7 +218,6 @@ static int sceNetResolverStop(u32 resolverId) {
 
     const auto resolver = sceNetResolver->GetNetResolver(resolverId);
 
-    WARN_LOG(Log::sceNet, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
     if (resolver == nullptr)
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
 
@@ -230,12 +225,10 @@ static int sceNetResolverStop(u32 resolverId) {
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
 
     resolver->SetIsRunning(false);
-    return 0;
+    return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
-    WARN_LOG(Log::sceNet, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
-
     auto sceNetResolver = SceNetResolver::Get();
     if (!sceNetResolver)
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
@@ -244,7 +237,7 @@ static int sceNetResolverDelete(u32 resolverId) {
     if (!sceNetResolver->DeleteNetResolver(resolverId))
         return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
 
-    return 0;
+	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 const HLEFunction sceNetResolver[] = {
