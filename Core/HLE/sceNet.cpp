@@ -740,7 +740,6 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	}
 }
 
-
 // Write static data since we don't actually manage any memory for sceNet* yet.
 static int sceNetGetMallocStat(u32 statPtr) {
 	VERBOSE_LOG(Log::sceNet, "UNTESTED sceNetGetMallocStat(%x) at %08x", statPtr, currentMIPS->pc);

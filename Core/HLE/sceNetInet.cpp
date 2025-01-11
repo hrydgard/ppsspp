@@ -37,17 +37,16 @@ void __NetInetShutdown() {
 }
 
 static int sceNetInetInit() {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetInetInit()");
 	if (netInetInited)
-		return ERROR_NET_INET_ALREADY_INITIALIZED;
+		return hleLogError(Log::sceNet, ERROR_NET_INET_ALREADY_INITIALIZED);
 	netInetInited = true;
-	return 0;
+	return hleLogSuccessI(Log::sceNet, 0);
 }
 
 static int sceNetInetTerm() {
 	WARN_LOG(Log::sceNet, "UNIMPL sceNetInetTerm()");
 	__NetInetShutdown();
-	return 0;
+	return hleLogSuccessI(Log::sceNet, 0);
 }
 
 static int sceNetInetGetErrno() {
@@ -55,7 +54,7 @@ static int sceNetInetGetErrno() {
 		inetLastErrno = socket_errno;
 	int error = convertInetErrnoHost2PSP(inetLastErrno);
 	inetLastErrno = 0;
-	return hleLogSuccessI(Log::sceNet, error, " at %08x", currentMIPS->pc);
+	return hleLogSuccessI(Log::sceNet, error, "at %08x", currentMIPS->pc);
 }
 
 static int sceNetInetGetPspError() {
@@ -63,11 +62,10 @@ static int sceNetInetGetPspError() {
 		inetLastErrno = socket_errno;
 	int error = convertInetErrno2PSPError(convertInetErrnoHost2PSP(inetLastErrno));
 	inetLastErrno = 0;
-	return hleLogSuccessX(Log::sceNet, error, " at %08x", currentMIPS->pc);
+	return hleLogSuccessX(Log::sceNet, error, "at %08x", currentMIPS->pc);
 }
 
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetInetPton(%i, %s, %08x)", af, safe_string(hostname), inAddrPtr);
 	if (!Memory::IsValidAddress(inAddrPtr)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
@@ -77,7 +75,6 @@ static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
 }
 
 static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetInetAton(%s, %08x)", safe_string(hostname), inAddrPtr);
 	if (!Memory::IsValidAddress(inAddrPtr)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
@@ -105,9 +102,9 @@ static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsi
 }
 
 static u32_le sceNetInetInetAddr(const char *hostname) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetInetAddr(%s)", safe_string(hostname));
-	if (hostname == nullptr || hostname[0] == '\0')
+	if (hostname == nullptr || hostname[0] == '\0') {
 		return hleLogError(Log::sceNet, INADDR_NONE, "invalid arg");
+	}
 
 	u32 retval = INADDR_NONE; // inet_addr(hostname); // deprecated?
 	inet_pton(AF_INET, hostname, &retval); // Alternative to the deprecated inet_addr
@@ -116,7 +113,6 @@ static u32_le sceNetInetInetAddr(const char *hostname) {
 }
 
 static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %08x)", __FUNCTION__, socket, namePtr, namelenPtr);
 	if (!Memory::IsValidAddress(namePtr) || !Memory::IsValidAddress(namelenPtr)) {
 		inetLastErrno = EFAULT;
 		return hleLogError(Log::sceNet, -1, "invalid arg");
@@ -142,16 +138,15 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
-	} else {
-		// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
-		memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
-		name->sa_family = saddr.addr.sa_family;
 	}
-	return 0;
+
+	// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
+	memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
+	name->sa_family = saddr.addr.sa_family;
+	return hleLogSuccessI(Log::sceNet, 0, "peername: %.*s family: %d", name->sa_len, name->sa_data, name->sa_family);
 }
 
 static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x, %08x)", __FUNCTION__, socket, namePtr, namelenPtr);
 	if (!Memory::IsValidAddress(namePtr) || !Memory::IsValidAddress(namelenPtr)) {
 		inetLastErrno = EFAULT;
 		return hleLogError(Log::sceNet, -1, "invalid arg");
@@ -176,12 +171,12 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	if (retval < 0) {
 		inetLastErrno = socket_errno;
 		return hleLogError(Log::sceNet, retval, "errno = %d", inetLastErrno);
-	} else {
-		// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
-		memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
-		name->sa_family = saddr.addr.sa_family;
 	}
-	return 0;
+
+	// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
+	memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
+	name->sa_family = saddr.addr.sa_family;
+	return hleLogSuccessI(Log::sceNet, 0, "sockname: %.*s family: %d", name->sa_len, name->sa_data, name->sa_family);
 }
 
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
