@@ -200,7 +200,14 @@ bool LoadDNSForGameID(std::string_view jsonStr, std::string_view gameID, InfraDN
 		std::string name = game.getStringOr("name", "");
 		dns->dns = game.getStringOr("dns", dns->dns.c_str());
 
-		// const JsonGet domains = game.getDict("domains");
+		if (game.hasChild("domains", JSON_OBJECT)) {
+			const JsonGet domains = game.getDict("domains");
+			for (auto iter : domains.value_) {
+				std::string domain = std::string(iter->key);
+				std::string ipAddr = std::string(iter->value.toString());
+				dns->fixedDNS[domain] = ipAddr;
+			}
+		}
 
 		// TODO: Check for not working platforms
 
@@ -305,15 +312,6 @@ void __NetCallbackInit() {
 }
 
 void __NetInit() {
-	// Load the DNS config.
-	std::string discID = g_paramSFO.GetDiscID();
-	size_t jsonSize;
-	uint8_t *data = g_VFS.ReadFile("infra-dns.json", &jsonSize);
-	if (data && g_Config.bInfrastructureAutoDNS) {
-		std::string_view json = std::string_view((const char *)data, jsonSize);
-		LoadDNSForGameID(json, discID, &g_infraDNSConfig);
-	}
-
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
 	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
@@ -702,6 +700,17 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
+
+	if (g_Config.bInfrastructureAutoDNS) {
+		// Load the automatic DNS config.
+		std::string discID = g_paramSFO.GetDiscID();
+		size_t jsonSize;
+		uint8_t *data = g_VFS.ReadFile("infra-dns.json", &jsonSize);
+		if (data && g_Config.bInfrastructureAutoDNS) {
+			std::string_view json = std::string_view((const char *)data, jsonSize);
+			LoadDNSForGameID(json, discID, &g_infraDNSConfig);
+		}
+	}
 
 	netInited = true;
 	return hleLogSuccessI(Log::sceNet, 0);
