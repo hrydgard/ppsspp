@@ -1,0 +1,60 @@
+{
+	"comment": "This file contains our built-in DNS used by the Auto mode in Infrastructure. In addition to being shipped, it'll also be hosted on ppsspp.org. Key names below are not important.",
+	"default": {
+		"dns": "67.222.156.251",
+	},
+	"Medal of Honor: Heroes": {
+		"comment": {
+			"en_US": "Works, but not on Windows",
+		},
+		"dns": "142.24.13.25",
+		"score": 5,
+		"known_working_ids": [
+			"ULES00557"
+		],
+		"not_working_ids": [],
+		"other_ids": [
+			"ULUS10141",
+			"ULJM05213",
+			"ULUS-10141",
+			"NPJH50306"
+		],
+		"not_working_platforms": [
+			"Windows"
+		],
+	},
+	"Wipeout Pulse": {
+		"comment": {
+			"en_US": "Great",
+		},
+		"dns": "145.239.30.230",
+		"score": 5,
+		"known_working_ids": [
+			"UCES00465",
+			"UCUS98712"
+		],
+		"not_working_ids": [],
+		"other_ids": [
+			"UCKS45078"
+		],
+		"not_working_platforms": [],
+	},
+	"Motorstorm: Artic Edge": {
+		"comment": {
+			"en_US": "Works",
+		},
+		"dns": "145.239.30.230",
+		"score": 5,
+		"known_working_ids": [
+			"UCES01250",
+		],
+		"not_working_ids": [],
+		"other_ids": [
+			"UCAS40266",
+			"UCUS98743",
+			"UCKS45124",
+			"UCJS10104",
+			"NPJG00047"
+		],
+	}
+}

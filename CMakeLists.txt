@@ -2743,6 +2743,7 @@ set(NativeAssets
 	assets/Roboto-Condensed.ttf
 	assets/7z.png
 	assets/compat.ini
+	assets/infra-dns.json
 	assets/gamecontrollerdb.txt
 	assets/langregion.ini
 	assets/ppge_atlas.zim
