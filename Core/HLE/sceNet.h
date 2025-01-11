@@ -121,7 +121,6 @@ void Register_sceWlanDrv();
 void Register_sceNetUpnp();
 void Register_sceNetIfhandle();
 
-
 void __NetInit();
 void __NetShutdown();
 void __NetDoState(PointerWrap &p);
@@ -129,5 +128,22 @@ void __NetDoState(PointerWrap &p);
 int NetApctl_GetState();
 
 int sceNetApctlConnect(int connIndex);
-int sceNetInetPoll(void *fds, u32 nfds, int timeout);
 int sceNetApctlTerm();
+
+enum class InfraGameState {
+	Unknown,
+	Working,
+	NotWorking,
+};
+
+// Loaded an interpreted for a specific game from the JSON - doesn't represent the entire JSON.
+struct InfraDNSConfig {
+	std::string gameName;
+	std::string dns;
+	InfraGameState state;
+	std::map<std::string, std::string> fixedDNS;
+	int score;
+	std::string comment;
+};
+
+extern InfraDNSConfig g_infraDNSConfig;

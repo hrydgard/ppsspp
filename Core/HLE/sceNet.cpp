@@ -21,10 +21,12 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -87,6 +89,9 @@ int actionAfterApctlMipsCall;
 std::recursive_mutex apctlEvtMtx;
 std::deque<ApctlArgs> apctlEvents;
 
+// Loaded auto-config
+InfraDNSConfig g_infraDNSConfig;
+
 u32 Net_Term();
 int NetApctl_Term();
 void NetApctl_InitDefaultInfo();
@@ -127,6 +132,82 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 	event = Event;
 	error = Error;
 	argsAddr = ArgsAddr;
+}
+
+bool LoadDNSForGameID(std::string_view jsonStr, std::string_view gameID, InfraDNSConfig *dns) {
+	using namespace json;
+	json::JsonReader reader(jsonStr.data(), jsonStr.length());
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing JSON from store");
+		return false;
+	}
+	const JsonGet root = reader.root();
+	const JsonGet def = root.getDict("default");
+
+	// Load the default DNS.
+	dns->dns = def.getStringOr("dns", "");;
+
+	const JsonNode *games = root.getArray("games");
+	for (const JsonNode *iter : games->value) {
+		JsonGet game = iter->value;
+		// Goddamn I have to change the json reader we're using. So ugly.
+		const JsonNode *workingIdsNode = game.getArray("known_working_ids");
+		const JsonNode *otherIdsNode = game.getArray("other_ids");
+		const JsonNode *notWorkingIdsNode = game.getArray("not_working_ids");
+		if (!workingIdsNode) {
+			// We ignore this game.
+			continue;
+		}
+
+		bool found = false;
+
+		std::vector<std::string> ids;
+		JsonGet(workingIdsNode->value).getStringVector(&ids);
+		for (auto &id : ids) {
+			if (id == gameID) {
+				found = true;
+				dns->state = InfraGameState::Working;
+				break;
+			}
+		}
+		if (!found && notWorkingIdsNode) {
+			// Check the non working array
+			JsonGet(notWorkingIdsNode->value).getStringVector(&ids);
+			for (auto &id : ids) {
+				if (id == gameID) {
+					found = true;
+					dns->state = InfraGameState::NotWorking;
+					break;
+				}
+			}
+		}
+		if (!found && otherIdsNode) {
+			// Check the "other" array, not sure what we do with these.
+			JsonGet(otherIdsNode->value).getStringVector(&ids);
+			for (auto &id : ids) {
+				if (id == gameID) {
+					found = true;
+					dns->state = InfraGameState::Unknown;
+					break;
+				}
+			}
+		}
+
+		if (!found) {
+			continue;
+		}
+
+		std::string name = game.getStringOr("name", "");
+		dns->dns = game.getStringOr("dns", dns->dns.c_str());
+
+		// const JsonGet domains = game.getDict("domains");
+
+		// TODO: Check for not working platforms
+
+		break;
+	}
+
+	return true;
 }
 
 void InitLocalhostIP() {
@@ -224,6 +305,15 @@ void __NetCallbackInit() {
 }
 
 void __NetInit() {
+	// Load the DNS config.
+	std::string discID = g_paramSFO.GetDiscID();
+	size_t jsonSize;
+	uint8_t *data = g_VFS.ReadFile("infra-dns.json", &jsonSize);
+	if (data && g_Config.bInfrastructureAutoDNS) {
+		std::string_view json = std::string_view((const char *)data, jsonSize);
+		LoadDNSForGameID(json, discID, &g_infraDNSConfig);
+	}
+
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
 	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;

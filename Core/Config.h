@@ -461,6 +461,7 @@ public:
 	std::string proAdhocServer;
 	std::string sInfrastructureDNSServer;
 	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
+	bool bInfrastructureAutoDNS;
 
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
