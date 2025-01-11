@@ -785,10 +785,10 @@ void NetApctl_InitInfo(int confId) {
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
 	// We should probably use public DNS Server instead of localhost IP since most people don't have DNS Server running on localhost (ie. Untold Legends The Warrior's Code is trying to lookup dns using the primary dns), but accessing public DNS Server from localhost may result to ENETUNREACH error if the gateway can't access the public server (ie. using SO_DONTROUTE)
 	//if (strcmp(ipstr, "127.0.0.1") == 0)
-		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.primaryDNSServer.c_str()); // Private Servers may need to use custom DNS Server
+		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.sInfrastructureDNSServer.c_str()); // Private Servers may need to use custom DNS Server
 	//else
 	//	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
-	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), g_Config.secondaryDNSServer.c_str()); // Fireteam Bravo 2 seems to try to use secondary DNS too if it's not 0.0.0.0
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "0.0.0.0"); // Fireteam Bravo 2 seems to try to use secondary DNS too if it's not 0.0.0.0
 	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "255.255.255.0");
 }
 

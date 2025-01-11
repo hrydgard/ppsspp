@@ -322,19 +322,24 @@ struct DNSHeader {
 };
 
 // Function to convert a domain name to DNS query format
+// http://www.tcpipguide.com/free/t_DNSNameNotationandMessageCompressionTechnique.htm
 static void encode_domain_name(const char *domain, unsigned char *encoded) {
 	const char *pos = domain;
 	unsigned char *ptr = encoded;
 
 	while (*pos) {
 		const char *start = pos;
-		while (*pos && *pos != '.') pos++;
+		while (*pos && *pos != '.') {
+			pos++;
+		}
 
-		*ptr++ = (unsigned char)(pos - start);
+		*ptr++ = (unsigned char)(pos - start);  // length field
 		memcpy(ptr, start, pos - start);
 		ptr += pos - start;
 
-		if (*pos == '.') pos++;
+		if (*pos == '.') {
+			pos++;
+		}
 	}
 	*ptr = 0; // End of domain name
 }
@@ -418,20 +423,20 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 		return false;
 	}
 
-	int sockfd;
+	SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	// Create UDP socket
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	if (sockfd < 0) {
 		ERROR_LOG(Log::sceNet, "Socket creation for direct DNS failed");
 		return 1;
 	}
 
-	struct sockaddr_in server_addr {};
+	struct sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(DNS_PORT);
 
 	if (net::inet_pton(AF_INET, dns_server_ip, &server_addr.sin_addr) <= 0) {
 		ERROR_LOG(Log::sceNet,"Invalid DNS server IP address %s", dns_server_ip);
-		close(sockfd);
+		closesocket(sockfd);
 		return 1;
 	}
 
@@ -451,7 +456,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 
 	// Send DNS query
 	size_t query_len = sizeof(DNSHeader) + (qinfo - buffer) + 4;
-	if (sendto(sockfd, (const char *)buffer, query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to send DNS query");
 		closesocket(sockfd);
 		return 1;

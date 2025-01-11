@@ -951,8 +951,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		return UI::EVENT_DONE;
 	});
 
-	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.primaryDNSServer, n->T("Primary DNS server"), "", 32, screenManager()));
-	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.secondaryDNSServer, n->T("Secondary DNS server"), "", 32, screenManager()));
+	networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sInfrastructureDNSServer, n->T("DNS server"), "", 32, screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
