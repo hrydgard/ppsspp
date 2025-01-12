@@ -787,6 +787,9 @@ std::string inetSockoptName2str(int optname, int level) {
 }
 
 int convertInetErrnoHost2PSP(int error) {
+	if (error == 0) {
+		return 0;
+	}
 	switch (error) {
 	case EINTR:
 		return ERROR_INET_EINTR;
@@ -868,8 +871,52 @@ int convertInetErrnoHost2PSP(int error) {
 #endif
 	}
 	if (error != 0)
-		return hleLogError(Log::sceNet, error, "Unknown Error Number (%d)", error);
+		return hleLogError(Log::sceNet, error, "Unknown Host Error Number (%d)", error);
 	return error;
+}
+
+const char *convertInetErrno2str(int error) {
+	switch (error) {
+	case 0: return "(0=no error)";
+	case ERROR_INET_EINTR: return "EINTR";
+	case ERROR_INET_EBADF: return "EBADF";
+	case ERROR_INET_EACCES: return "EACCES";
+	case ERROR_INET_EFAULT: return "EFAULT";
+	case ERROR_INET_EINVAL: return "EINVAL";
+	case ERROR_INET_ENOSPC: return "ENOSPC";
+	case ERROR_INET_EPIPE: return "EPIPE";
+	case ERROR_INET_ENOMSG: return "ENOMSG";
+	case ERROR_INET_ENOLINK: return "ENOLINK";
+	case ERROR_INET_EPROTO: return "EPROTO";
+	case ERROR_INET_EBADMSG: return "EBADMSG";
+	case ERROR_INET_EOPNOTSUPP: return "EOPNOTSUPP";
+	case ERROR_INET_EPFNOSUPPORT: return "EPFNOSUPPORT";
+	case ERROR_INET_ECONNRESET: return "ECONNRESET";
+	case ERROR_INET_ENOBUFS: return "ENOBUFS";
+	case ERROR_INET_EAFNOSUPPORT: return "EAFNOSUPPORT";
+	case ERROR_INET_EPROTOTYPE: return "EPROTOTYPE";
+	case ERROR_INET_ENOTSOCK: return "ENOTSOCK";
+	case ERROR_INET_ENOPROTOOPT: return "ENOPROTOOPT";
+	case ERROR_INET_ESHUTDOWN: return "ESHUTDOWN";
+	case ERROR_INET_ECONNREFUSED: return "ECONNREFUSED";
+	case ERROR_INET_EADDRINUSE: return "EADDRINUSE";
+	case ERROR_INET_ECONNABORTED: return "ECONNABORTED";
+	case ERROR_INET_ENETUNREACH: return "ENETUNREACH";
+	case ERROR_INET_ENETDOWN: return "ENETDOWN";
+	case ERROR_INET_ETIMEDOUT: return "ETIMEDOUT";
+	case ERROR_INET_EHOSTDOWN: return "EHOSTDOWN";
+	case ERROR_INET_EHOSTUNREACH: return "EHOSTUNREACH";
+	case ERROR_INET_EALREADY: return "EALREADY";
+	case ERROR_INET_EMSGSIZE: return "EMSGSIZE";
+	case ERROR_INET_EPROTONOSUPPORT: return "EPROTONOSUPPORT";
+	case ERROR_INET_ESOCKTNOSUPPORT: return "ESOCKTNOSUPPORT";
+	case ERROR_INET_EADDRNOTAVAIL: return "EADDRNOTAVAIL";
+	case ERROR_INET_ENETRESET: return "ENETRESET";
+	case ERROR_INET_EISCONN: return "EISCONN";
+	case ERROR_INET_ENOTCONN: return "ENOTCONN";
+	case ERROR_INET_EAGAIN: return "EAGAIN";
+	default: return "(unknown!)";
+	}
 }
 
 // FIXME: Some of this might be wrong

@@ -330,7 +330,7 @@ static void encode_domain_name(const char *domain, unsigned char *encoded) {
 		const char *start = pos;
 		while (*pos && *pos != '.') pos++;
 
-		*ptr++ = pos - start;
+		*ptr++ = (unsigned char)(pos - start);
 		memcpy(ptr, start, pos - start);
 		ptr += pos - start;
 

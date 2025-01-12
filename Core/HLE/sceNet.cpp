@@ -281,11 +281,6 @@ static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 erro
 	apctlEvents.push_back({ oldState, newState, flag, error });
 }
 
-// Make sure MIPS calls have been fully executed before the next notifyApctlHandlers
-void notifyApctlHandlers(int oldState, int newState, int flag, int error) {
-	__UpdateApctlHandlers(oldState, newState, flag, error);
-}
-
 void netValidateLoopMemory() {
 	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
 	if (!apctlThreadHackAddr || (apctlThreadHackAddr && strcmp("apctlThreadHack", kernelMemory.GetBlockTag(apctlThreadHackAddr)) != 0)) {
