@@ -2248,7 +2248,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
 		getsockname((int)metasocket, &LocalIP, &addrLen);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Network initialized"), 1.0, "networkinit");
 		return 0;
 	} else {
 		return SOCKET_ERROR;

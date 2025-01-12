@@ -21,12 +21,12 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/File/VFS/VFS.h"
-
+#include "Common/System/OSD.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
-#include "Common/System/OSD.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -40,18 +40,15 @@
 #include "Core/Util/PortManager.h"
 #include "Core/CoreTiming.h"
 #include "Core/Instance.h"
-
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUtility.h"
-
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNp2.h"
-
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
@@ -618,7 +615,8 @@ static inline void FreeUser(u32 &addr) {
 }
 
 u32 Net_Term() {
-	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
+	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not have called
+	// them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
 	NetAdhocctl_Term();
 	NetAdhocMatching_Term();
 	NetAdhoc_Term();
@@ -653,6 +651,9 @@ u32 Net_Term() {
 }
 
 static u32 sceNetTerm() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Network shutdown"), 2.0, "networkinit");
+
 	WARN_LOG(Log::sceNet, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
@@ -673,8 +674,11 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// TODO: Create Network Threads using given priority & stack
 	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
 	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
-	if (netInited)
-		Net_Term(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
+	if (netInited) {
+		// This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports.
+		// Maybe we shouldn't save/load "Inited" vars on SaveState?
+		Net_Term();
+	}
 
 	if (poolSize == 0) {
 		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
@@ -756,6 +760,9 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	}
 
 	netInited = true;
+
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Network initialized"), 2.0, "networkinit");
 	return hleLogSuccessI(Log::sceNet, 0);
 }
 
