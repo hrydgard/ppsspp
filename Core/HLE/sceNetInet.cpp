@@ -50,16 +50,12 @@ static int sceNetInetTerm() {
 }
 
 static int sceNetInetGetErrno() {
-	if (inetLastErrno == 0)
-		inetLastErrno = socket_errno;
 	int error = convertInetErrnoHost2PSP(inetLastErrno);
 	// We should not reset inetLastErrno to 0 here. This breaks MOHH.
 	return hleLogSuccessInfoI(Log::sceNet, error, "at %08x", currentMIPS->pc);
 }
 
 static int sceNetInetGetPspError() {
-	if (inetLastErrno == 0)
-		inetLastErrno = socket_errno;
 	int error = convertInetErrno2PSPError(convertInetErrnoHost2PSP(inetLastErrno));
 	// We should not reset inetLastErrno to 0 here.
 	return hleLogSuccessInfoI(Log::sceNet, error, "at %08x", currentMIPS->pc);
