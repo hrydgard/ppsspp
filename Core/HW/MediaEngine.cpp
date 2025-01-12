@@ -38,6 +38,10 @@ extern "C" {
 #include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 59
+	// private libavformat api (see demux.h in ffmpeg src tree)
+	void avpriv_stream_set_need_parsing(AVStream *st, enum AVStreamParseType type);
+#endif
 }
 #endif // USE_FFMPEG
 
@@ -419,6 +423,9 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 			stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 			stream->codecpar->codec_id = AV_CODEC_ID_H264;
+#endif
+#if LIBAVFORMAT_VERSION_MAJOR >= 59
+			avpriv_stream_set_need_parsing(stream, AVSTREAM_PARSE_FULL);
 #else
 			stream->request_probe = 0;
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
