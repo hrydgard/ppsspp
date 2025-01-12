@@ -137,6 +137,17 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	return true;
 }
 
+bool GetModifTimeT(const Path &filename, time_t *return_time) {
+	FileInfo info;
+	if (GetFileInfo(filename, &info)) {
+		*return_time = info.mtime;
+		return true;
+	} else {
+		*return_time = 0;
+		return false;
+	}
+}
+
 bool GetModifTime(const Path &filename, tm & return_time) {
 	memset(&return_time, 0, sizeof(return_time));
 	FileInfo info;
