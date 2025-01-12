@@ -140,6 +140,7 @@ enum class InfraGameState {
 struct InfraDNSConfig {
 	std::string gameName;
 	std::string dns;
+	std::string dyn_dns;
 	InfraGameState state;
 	std::map<std::string, std::string> fixedDNS;
 	int score;

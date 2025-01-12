@@ -26,6 +26,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/System/OSD.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -208,8 +209,9 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 		}
 
 		std::string name = game.getStringOr("name", "");
+		std::string dyn_dns = game.getStringOr("dyn_dns", dns->dns.c_str());
 		dns->dns = game.getStringOr("dns", dns->dns.c_str());
-
+		dns->dyn_dns = game.getStringOr("dyn_dns", "");
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
 			for (auto iter : domains.value_) {
@@ -712,9 +714,45 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
 
 	if (g_Config.bInfrastructureAutoDNS) {
-		// Load the automatic DNS config.
+		// Load the automatic DNS config for this game - or the defaults.
 		std::string discID = g_paramSFO.GetDiscID();
 		LoadDNSForGameID(discID, &g_infraDNSConfig);
+
+		// If dyn_dns is non-empty, try to use it to replace the specified DNS.
+		// If fails, we just use the dns. TODO: Do this in the background somehow...
+		const auto &dns = g_infraDNSConfig.dns;
+		const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
+		if (!dyn_dns.empty()) {
+			// Try to look it up in system DNS
+			INFO_LOG(Log::sceNet, "DynDNS requested, trying to resolve '%s'...", dyn_dns.c_str());
+			addrinfo *resolved = nullptr;
+			std::string err;
+			if (!net::DNSResolve(dyn_dns, "", &resolved, err)) {
+				ERROR_LOG(Log::sceNet, "Error resolving, falling back to '%s'", dns.c_str());
+			} else if (resolved) {
+				bool found = false;
+				for (auto ptr = resolved; ptr && !found; ptr = ptr->ai_next) {
+					switch (ptr->ai_family) {
+					case AF_INET:
+					{
+						char ipstr[256];
+						if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
+							INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
+							if (g_infraDNSConfig.dns != ipstr) {
+								WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
+								g_infraDNSConfig.dns = ipstr;
+							} else {
+								INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
+							}
+							found = true;
+						}
+						break;
+					}
+					}
+				}
+				net::DNSResolveFree(resolved);
+			}
+		}
 	}
 
 	netInited = true;
