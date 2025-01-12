@@ -578,7 +578,7 @@ static int sceHttpCreateRequest(int connectionID, int method, const char *path, 
 	return hleLogSuccessI(Log::sceNet, retid);
 }
 
-// FIXME: port type is probably u16
+// FIXME: port type is probably u16 (but passed in a single register anyway, so type doesn't matter)
 static int sceHttpCreateConnection(int templateID, const char *hostString, const char *scheme, u32 port, int enableKeepalive) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceHttpCreateConnection(%d, %s, %s, %d, %d)", templateID, safe_string(hostString), safe_string(scheme), port, enableKeepalive);
 	std::lock_guard<std::mutex> guard(httpLock);
@@ -587,6 +587,8 @@ static int sceHttpCreateConnection(int templateID, const char *hostString, const
 
 	if (httpObjects[templateID - 1LL]->className() != name_HTTPTemplate)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_ID, "invalid id");
+
+	// TODO: Look up hostString in DNS here.
 
 	httpObjects.emplace_back(std::make_shared<HTTPConnection>(templateID, hostString ? hostString : "", scheme ? scheme : "", port, enableKeepalive));
 	int retid = (int)httpObjects.size();
@@ -742,7 +744,7 @@ static int sceHttpCreateRequestWithURL(int connectionID, int method, const char 
 	if (!baseURL.Valid())
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_URL, "invalid url");
 
-	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, url? url:"", contentLength));
+	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, url ? url : "", contentLength));
 	int retid = (int)httpObjects.size();
 	return hleLogSuccessI(Log::sceNet, retid);
 }
@@ -756,9 +758,11 @@ static int sceHttpCreateConnectionWithURL(int templateID, const char *url, int e
 	if (httpObjects[templateID - 1LL]->className() != name_HTTPTemplate)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_ID, "invalid id");
 
-	Url baseURL(url? url: "");
+	Url baseURL(url ? url: "");
 	if (!baseURL.Valid())
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_URL, "invalid url");
+
+	// TODO: Here we should look up baseURL.Host() in DNS.
 
 	httpObjects.emplace_back(std::make_shared<HTTPConnection>(templateID, baseURL.Host().c_str(), baseURL.Protocol().c_str(), baseURL.Port(), enableKeepalive));
 	int retid = (int)httpObjects.size();
