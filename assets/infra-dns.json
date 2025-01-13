@@ -1,0 +1,135 @@
+{
+	"comment": "This file contains our built-in DNS used by the Auto mode in Infrastructure. In addition to being shipped, it'll also be hosted on ppsspp.org. Game names below are not important.",
+	"default": {
+		"dns": "67.222.156.251",
+		"revival_credits": {
+			"group": "PS Rewired",
+			"url": "https://psrewired.com/"
+		}
+	},
+	"games": [
+		{
+			"name": "Medal of Honor: Heroes",
+			"comment": {
+				"en_US": "Works, but not on Windows",
+			},
+			"revival_credits": {
+				"group": "MOHH Revival",
+				"url": "https://mohh-revival.pages.dev/"
+			},
+			"dns": "86.223.243.173",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmoh07.ea.com": "86.223.243.173",
+				"tos.ea.com": "86.223.243.173"
+			},
+			"score": 5,
+			"known_working_ids": [
+				"ULES00557",
+				"ULES00558",
+				"ULES00559",
+				"ULES00560",
+				"ULES00561",
+				"ULES00562"
+			],
+			"not_working_ids": [],
+			"other_ids": [
+				"ULUS10141",
+				"ULJM05213",
+				"ULUS10141",
+				"NPJH50306"
+			],
+		},
+		{
+			"name": "Medal of Honor 2",
+			"comment": {
+				"en_US": "Only the menu works!"
+			},
+			"revival_credits": {
+				"group": "MOHH Revival",
+				"url": "https://mohh-revival.pages.dev/"
+			},
+			"dns": "86.223.243.173",
+			"dyn_dns": "ablondel.ddns.net",
+			"domains": {
+				"pspmoh08.ea.com": "86.223.243.173",
+				"tos.ea.com": "86.223.243.173"
+			},
+			"score": 1,
+			"known_working_ids": [
+				"ULUS10310",
+				"ULES00955",
+				"ULES00956",
+				"ULES00988"
+			],
+			"not_working_ids": [
+				"ULJM05301",
+			]
+		},
+		{
+			"name": "Wipeout Pure",
+			"comment": {
+				"en_US": "Web browser only, no multiplayer"
+			},
+			"revival_credits": {
+				"group": "The AG Racing Foundation",
+				"url": "https://agracingfoundation.org/"
+			},
+			"dns": "145.239.30.230",
+			"domains": {
+				"hub.psnexus.net": "145.239.30.230",
+			},
+			"other_ids": [
+				"UCUS98612",
+				"UCJS10007",
+				"UCES00001",
+				"UCKS45008",
+				"NPJG00059"
+			]
+		},
+		{
+			"name": "Wipeout Pulse",
+			"comment": {
+				"en_US": "Great",
+			},
+			"revival_credits": {
+				"group": "The AG Racing Foundation",
+				"url": "https://agracingfoundation.org/"
+			},
+			"dns": "145.239.30.230",
+			"score": 5,
+			"known_working_ids": [
+				"UCES00465",
+				"UCUS98712"
+			],
+			"not_working_ids": [],
+			"other_ids": [
+				"UCKS45078"
+			],
+			"not_working_platforms": [],
+		},
+		{
+			"name": "Motorstorm: Artic Edge",
+			"comment": {
+				"en_US": "Works",
+			},
+			"revival_credits": {
+				"group": "The AG Racing Foundation",
+				"url": "https://agracingfoundation.org/"
+			},
+			"dns": "145.239.30.230",
+			"score": 5,
+			"known_working_ids": [
+				"UCES01250",
+				"UCUS98743",
+				"UCJS10104"
+			],
+			"not_working_ids": [],
+			"other_ids": [
+				"UCAS40266",
+				"UCKS45124",
+				"NPJG00047"
+			],
+		}
+	]
+}

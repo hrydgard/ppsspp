@@ -1480,6 +1480,7 @@
     <ClInclude Include="MIPS\x86\X64IRRegCache.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\assets\infra-dns.json" />
     <None Include="..\ext\cityhash\COPYING" />
     <None Include="..\ext\cityhash\README" />
     <None Include="..\ext\gason\LICENSE" />

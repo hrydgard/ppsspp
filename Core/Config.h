@@ -457,13 +457,14 @@ public:
 	bool bSavedataUpgrade;
 
 	// Networking
-	std::string proAdhocServer;
-	std::string primaryDNSServer;
-	std::string secondaryDNSServer;
-	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
-	bool bEnableWlan;
-	std::map<std::string, std::string> mHostToAlias; // TODO: mPostShaderSetting
 	bool bEnableAdhocServer;
+	std::string proAdhocServer;
+	std::string sInfrastructureDNSServer;
+	std::string sInfrastructureUsername;  // Username used for Infrastructure play. Different restrictions.
+	bool bInfrastructureAutoDNS;
+
+	bool bEnableWlan;
+	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
 	bool bForcedFirstConnect;
@@ -472,7 +473,7 @@ public:
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;
-	//for chat position , moveable buttons is better than this 
+
 	int iChatButtonPosition;
 	int iChatScreenPosition;
 

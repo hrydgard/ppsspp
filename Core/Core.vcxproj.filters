@@ -2166,6 +2166,7 @@
     <None Include="..\ext\libzip\Android.mk">
       <Filter>Ext\libzip</Filter>
     </None>
+    <None Include="..\assets\infra-dns.json" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\sha1\CMakeLists.txt">

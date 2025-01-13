@@ -88,15 +88,26 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
     SockAddrIN4 addr{};
     addr.in.sin_addr.s_addr = INADDR_NONE;
 
-    // Resolve any aliases
-    if (g_Config.mHostToAlias.find(hostname) != g_Config.mHostToAlias.end()) {
-        const std::string& alias = g_Config.mHostToAlias[hostname];
+    // Resolve any aliases. First check the ini file, then check the hardcoded DNS config.
+	auto aliasIter = g_Config.mHostToAlias.find(hostname);
+    if (aliasIter != g_Config.mHostToAlias.end()) {
+        const std::string& alias = aliasIter->second;
         INFO_LOG(Log::sceNet, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
         hostname = alias;
 	}
 
+	if (g_Config.bInfrastructureAutoDNS) {
+		// Also look up into the preconfigured fixed DNS JSON.
+		auto fixedDNSIter = g_infraDNSConfig.fixedDNS.find(hostname);
+		if (fixedDNSIter != g_infraDNSConfig.fixedDNS.end()) {
+			const std::string& domainIP = fixedDNSIter->second;
+			INFO_LOG(Log::sceNet, "%s - Resolved IP %s from fixed DNS lookup with '%s'", __FUNCTION__, domainIP.c_str(), hostname.c_str());
+			hostname = domainIP;
+		}
+	}
+
 	// Check if hostname is already an IPv4 address, if so we do not need further lookup. This usually happens
-	// after the mHostToAlias lookup, which effectively is hardcoded DNS.
+	// after the mHostToAlias or fixedDNSIter lookups, which effectively both are hardcoded DNS.
 	uint32_t resolvedAddr;
 	if (inet_pton(AF_INET, hostname.c_str(), &resolvedAddr)) {
 		INFO_LOG(Log::sceNet, "Not looking up '%s', already an IP address.", hostname.c_str());
@@ -108,15 +119,16 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
 	resolver->SetIsRunning(true);
 
 	// Now use the configured primary DNS server to do a lookup.
-	// TODO: Pick a DNS server per-game according to a table downloaded from ppsspp.org.
-	if (net::DirectDNSLookupIPV4(g_Config.primaryDNSServer.c_str(), hostname.c_str(), &resolvedAddr)) {
-		INFO_LOG(Log::sceNet, "Direct lookup of '%s' succeeded: %08x", hostname.c_str(), resolvedAddr);
+	// If auto DNS, use the server from that config.
+	const std::string &dnsServer = (g_Config.bInfrastructureAutoDNS && !g_infraDNSConfig.dns.empty()) ? g_infraDNSConfig.dns : g_Config.sInfrastructureDNSServer;
+	if (net::DirectDNSLookupIPV4(dnsServer.c_str(), hostname.c_str(), &resolvedAddr)) {
+		INFO_LOG(Log::sceNet, "Direct lookup of '%s' from '%s' succeeded: %08x", hostname.c_str(), dnsServer.c_str(), resolvedAddr);
 		resolver->SetIsRunning(false);
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
 		return 0;
 	}
 
-	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.primaryDNSServer.c_str());
+	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
 
 	// Attempt to execute a DNS resolution
     if (!net::DNSResolve(hostname, "", &resolved, err)) {

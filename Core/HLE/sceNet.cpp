@@ -21,10 +21,13 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/File/VFS/VFS.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -87,6 +90,9 @@ int actionAfterApctlMipsCall;
 std::recursive_mutex apctlEvtMtx;
 std::deque<ApctlArgs> apctlEvents;
 
+// Loaded auto-config
+InfraDNSConfig g_infraDNSConfig;
+
 u32 Net_Term();
 int NetApctl_Term();
 void NetApctl_InitDefaultInfo();
@@ -127,6 +133,99 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 	event = Event;
 	error = Error;
 	argsAddr = ArgsAddr;
+}
+
+bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
+	using namespace json;
+
+	// TODO: Load from cache instead of zip (if possible), and sometimes update it.
+	size_t jsonSize;
+	std::unique_ptr<uint8_t[]> data(g_VFS.ReadFile("infra-dns.json", &jsonSize));
+	if (!data) {
+		return false;
+	}
+
+	std::string_view jsonStr = std::string_view((const char *)data.get(), jsonSize);
+	json::JsonReader reader(jsonStr.data(), jsonStr.length());
+	if (!reader.ok() || !reader.root()) {
+		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		return false;
+	}
+
+	const JsonGet root = reader.root();
+	const JsonGet def = root.getDict("default");
+
+	// Load the default DNS.
+	dns->dns = def.getStringOr("dns", "");;
+
+	const JsonNode *games = root.getArray("games");
+	for (const JsonNode *iter : games->value) {
+		JsonGet game = iter->value;
+		// Goddamn I have to change the json reader we're using. So ugly.
+		const JsonNode *workingIdsNode = game.getArray("known_working_ids");
+		const JsonNode *otherIdsNode = game.getArray("other_ids");
+		const JsonNode *notWorkingIdsNode = game.getArray("not_working_ids");
+		if (!workingIdsNode) {
+			// We ignore this game.
+			continue;
+		}
+
+		bool found = false;
+
+		std::vector<std::string> ids;
+		JsonGet(workingIdsNode->value).getStringVector(&ids);
+		for (auto &id : ids) {
+			if (id == gameID) {
+				found = true;
+				dns->state = InfraGameState::Working;
+				break;
+			}
+		}
+		if (!found && notWorkingIdsNode) {
+			// Check the non working array
+			JsonGet(notWorkingIdsNode->value).getStringVector(&ids);
+			for (auto &id : ids) {
+				if (id == gameID) {
+					found = true;
+					dns->state = InfraGameState::NotWorking;
+					break;
+				}
+			}
+		}
+		if (!found && otherIdsNode) {
+			// Check the "other" array, not sure what we do with these.
+			JsonGet(otherIdsNode->value).getStringVector(&ids);
+			for (auto &id : ids) {
+				if (id == gameID) {
+					found = true;
+					dns->state = InfraGameState::Unknown;
+					break;
+				}
+			}
+		}
+
+		if (!found) {
+			continue;
+		}
+
+		std::string name = game.getStringOr("name", "");
+		std::string dyn_dns = game.getStringOr("dyn_dns", dns->dns.c_str());
+		dns->dns = game.getStringOr("dns", dns->dns.c_str());
+		dns->dyn_dns = game.getStringOr("dyn_dns", "");
+		if (game.hasChild("domains", JSON_OBJECT)) {
+			const JsonGet domains = game.getDict("domains");
+			for (auto iter : domains.value_) {
+				std::string domain = std::string(iter->key);
+				std::string ipAddr = std::string(iter->value.toString());
+				dns->fixedDNS[domain] = ipAddr;
+			}
+		}
+
+		// TODO: Check for not working platforms
+		break;
+	}
+
+	return true;
 }
 
 void InitLocalhostIP() {
@@ -549,6 +648,7 @@ u32 Net_Term() {
 	FreeUser(netThread2Addr);
 	netInited = false;
 
+	g_infraDNSConfig = {};
 	return 0;
 }
 
@@ -612,6 +712,48 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
+
+	if (g_Config.bInfrastructureAutoDNS) {
+		// Load the automatic DNS config for this game - or the defaults.
+		std::string discID = g_paramSFO.GetDiscID();
+		LoadDNSForGameID(discID, &g_infraDNSConfig);
+
+		// If dyn_dns is non-empty, try to use it to replace the specified DNS.
+		// If fails, we just use the dns. TODO: Do this in the background somehow...
+		const auto &dns = g_infraDNSConfig.dns;
+		const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
+		if (!dyn_dns.empty()) {
+			// Try to look it up in system DNS
+			INFO_LOG(Log::sceNet, "DynDNS requested, trying to resolve '%s'...", dyn_dns.c_str());
+			addrinfo *resolved = nullptr;
+			std::string err;
+			if (!net::DNSResolve(dyn_dns, "", &resolved, err)) {
+				ERROR_LOG(Log::sceNet, "Error resolving, falling back to '%s'", dns.c_str());
+			} else if (resolved) {
+				bool found = false;
+				for (auto ptr = resolved; ptr && !found; ptr = ptr->ai_next) {
+					switch (ptr->ai_family) {
+					case AF_INET:
+					{
+						char ipstr[256];
+						if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
+							INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
+							if (g_infraDNSConfig.dns != ipstr) {
+								WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
+								g_infraDNSConfig.dns = ipstr;
+							} else {
+								INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
+							}
+							found = true;
+						}
+						break;
+					}
+					}
+				}
+				net::DNSResolveFree(resolved);
+			}
+		}
+	}
 
 	netInited = true;
 	return hleLogSuccessI(Log::sceNet, 0);
@@ -785,10 +927,10 @@ void NetApctl_InitInfo(int confId) {
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
 	// We should probably use public DNS Server instead of localhost IP since most people don't have DNS Server running on localhost (ie. Untold Legends The Warrior's Code is trying to lookup dns using the primary dns), but accessing public DNS Server from localhost may result to ENETUNREACH error if the gateway can't access the public server (ie. using SO_DONTROUTE)
 	//if (strcmp(ipstr, "127.0.0.1") == 0)
-		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.primaryDNSServer.c_str()); // Private Servers may need to use custom DNS Server
+		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.sInfrastructureDNSServer.c_str()); // Private Servers may need to use custom DNS Server
 	//else
 	//	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
-	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), g_Config.secondaryDNSServer.c_str()); // Fireteam Bravo 2 seems to try to use secondary DNS too if it's not 0.0.0.0
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "0.0.0.0"); // Fireteam Bravo 2 seems to try to use secondary DNS too if it's not 0.0.0.0
 	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "255.255.255.0");
 }
 
