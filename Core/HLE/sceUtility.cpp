@@ -745,7 +745,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 
 	// TODO: Replace the temporary netApctlInfo with netConfInfo, since some of netApctlInfo contents supposed to be taken from netConfInfo during ApctlInit, while sceUtilityGetNetParam can be used before Apctl Initialized
 	char name[APCTL_PROFILENAME_MAXLEN];
-	truncate_cpy(name, sizeof(name), (defaultNetConfigName + std::to_string(id == 0 ? netParamLatestId:id)).c_str());
+	truncate_cpy(name, sizeof(name), defaultNetConfigName + std::to_string(id == 0 ? netParamLatestId:id));
 	char dummyWEPKey[6] = "XXXXX"; // WEP 64-bit = 10 hex digits key or 5-digit ASCII equivalent
 	char dummyUserPass[256] = "PPSSPP"; // FIXME: Username / Password max length = 255 chars?
 	char dummyWPAKey[64] = "XXXXXXXX"; // FIXME: WPA 256-bit = 64 hex digits key or 8 to 63-chars ASCII passphrases?
@@ -811,7 +811,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 		break;
 	case PSP_NETPARAM_MANUAL_DNS:
 		// 0 is auto.
-		// 1 is manual.
+		// 1 is manual. We always use manual.
 		if (!Memory::IsValidRange(dataAddr, 4))
 			return hleLogError(Log::sceNet, -1, "invalid arg");
 		Memory::WriteUnchecked_U32(1, dataAddr);  // manual
