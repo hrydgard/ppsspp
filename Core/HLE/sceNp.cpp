@@ -285,7 +285,7 @@ static int sceNpGetUserProfile(u32 profilePtr)
 
 	profile.FillWithZero();
 	strncpy(profile->userId.handle.data, npOnlineId.c_str(), sizeof(profile->userId.handle.data));
-	truncate_cpy(profile->icon.data, sizeof(profile->icon.data), npAvatarUrl.c_str());
+	truncate_cpy(profile->icon.data, sizeof(profile->icon.data), npAvatarUrl);
 
 	INFO_LOG(Log::sceNet, "%s - Online ID: %s", __FUNCTION__, profile->userId.handle.data);
 	std::string datahex;
