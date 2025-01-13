@@ -49,6 +49,7 @@
 #include "Windows/W32Util/DarkMode.h"
 
 #include "Core/HLE/sceUmd.h"
+#include "Core/HLE/sceNet.h"
 #include "Core/SaveState.h"
 #include "Core/Core.h"
 #include "Core/RetroAchievements.h"
@@ -83,6 +84,11 @@ namespace MainWindow {
 			if (!g_Config.bAchievementsSaveStateInHardcoreMode) {
 				saveStateEnableBool = false;
 			}
+		}
+
+		if (!NetworkAllowSaveState()) {
+			loadStateEnableBool = false;
+			saveStateEnableBool = false;
 		}
 
 		const UINT menuEnable = menuEnableBool ? MF_ENABLED : MF_GRAYED;
@@ -491,7 +497,9 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
+			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
+			}
 			break;
 
 		case ID_EMULATION_STOP:
@@ -527,8 +535,9 @@ namespace MainWindow {
 				System_PostUIMessage(UIMessage::SHOW_CHAT_SCREEN);
 			}
 			break;
+
 		case ID_FILE_LOADSTATEFILE:
-			if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Load(Path(fn), -1, SaveStateActionFinished);
@@ -536,7 +545,7 @@ namespace MainWindow {
 			}
 			break;
 		case ID_FILE_SAVESTATEFILE:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Save(Path(fn), -1, SaveStateActionFinished);
@@ -546,7 +555,7 @@ namespace MainWindow {
 
 		case ID_FILE_SAVESTATE_NEXT_SLOT:
 		{
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SaveState::NextSlot();
 				System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 			}
@@ -555,7 +564,7 @@ namespace MainWindow {
 
 		case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
 		{
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				// We let F3 (search next) in the imdebugger take priority, if active.
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT) && !g_Config.bShowImDebugger) {
 					SaveState::NextSlot();
@@ -570,13 +579,13 @@ namespace MainWindow {
 		case ID_FILE_SAVESTATE_SLOT_3:
 		case ID_FILE_SAVESTATE_SLOT_4:
 		case ID_FILE_SAVESTATE_SLOT_5:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_1;
 			}
 			break;
 
 		case ID_FILE_QUICKLOADSTATE:
-			if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
@@ -584,7 +593,7 @@ namespace MainWindow {
 
 		case ID_FILE_QUICKLOADSTATE_HC:
 		{
-			if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
@@ -594,7 +603,7 @@ namespace MainWindow {
 		}
 		case ID_FILE_QUICKSAVESTATE:
 		{
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
@@ -603,7 +612,7 @@ namespace MainWindow {
 
 		case ID_FILE_QUICKSAVESTATE_HC:
 		{
-			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
 				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
