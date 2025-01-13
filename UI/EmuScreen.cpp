@@ -67,6 +67,7 @@ using namespace std::placeholders;
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
@@ -1841,7 +1842,7 @@ void EmuScreen::resized() {
 }
 
 bool MustRunBehind() {
-	return __NetAdhocConnected();
+	return netInited || __NetAdhocConnected();
 }
 
 bool ShouldRunBehind() {

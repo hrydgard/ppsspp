@@ -266,6 +266,9 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
+	bool mustRunBehind = MustRunBehind();
+	playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
+
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
@@ -448,23 +451,29 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
 
-	if (!MustRunBehind()) {
-		playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
-		playButton_->OnClick.Add([=](UI::EventParams &e) {
-			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
-			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
-			return UI::EVENT_DONE;
-		});
-		middleColumn->Add(new Spacer(20.0));
-		Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
-		infoButton->OnClick.Add([=](UI::EventParams &e) {
-			screenManager()->push(new GameScreen(gamePath_, true));
-			return UI::EVENT_DONE;
-		});
-	} else {
+	middleColumn->SetSpacing(20.0f);
+	playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
+	playButton_->OnClick.Add([=](UI::EventParams &e) {
+		g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+		playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+		return UI::EVENT_DONE;
+	});
+
+	bool mustRunBehind = MustRunBehind();
+	playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
+
+	if (mustRunBehind) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		rightColumnHolder->Add(new TextView(nw->T("Network connected")));
 	}
+
+	Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
+	infoButton->OnClick.Add([=](UI::EventParams &e) {
+		screenManager()->push(new GameScreen(gamePath_, true));
+		return UI::EVENT_DONE;
+	});
+
+	// What's this for?
 	rightColumnHolder->Add(new Spacer(10.0f));
 }
 
@@ -591,6 +600,5 @@ UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 	screenManager()->push(
 		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
-
 	return UI::EVENT_DONE;
 }
