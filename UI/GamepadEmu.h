@@ -71,7 +71,6 @@ class BoolButton : public MultiTouchButton {
 public:
 	BoolButton(bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), value_(value) {
-
 	}
 	bool Touch(const TouchInput &input) override;
 	bool IsDown() override { return *value_; }

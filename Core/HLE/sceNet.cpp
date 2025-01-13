@@ -95,6 +95,34 @@ int NetApctl_Term();
 void NetApctl_InitDefaultInfo();
 void NetApctl_InitInfo(int confId);
 
+bool NetworkWarnUserIfOnlineAndCantSavestate() {
+	if (netInited && !g_Config.bAllowSavestateWhileConnected) {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Save states are not available when online"), 3.0f, "saveonline");
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool NetworkWarnUserIfOnlineAndCantSpeed() {
+	if (netInited) {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Speed controls are not available when online"), 3.0f, "speedonline");
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool NetworkAllowSpeedControl() {
+	return !netInited;
+}
+
+bool NetworkAllowSaveState() {
+	return !netInited || g_Config.bAllowSavestateWhileConnected;
+}
+
 void AfterApctlMipsCall::DoState(PointerWrap & p) {
 	auto s = p.Section("AfterApctlMipsCall", 1, 1);
 	if (!s)

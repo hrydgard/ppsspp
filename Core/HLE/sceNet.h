@@ -130,6 +130,13 @@ int NetApctl_GetState();
 int sceNetApctlConnect(int connIndex);
 int sceNetApctlTerm();
 
+// These return false if allowed to be consistent with the similar function for achievements.
+bool NetworkWarnUserIfOnlineAndCantSavestate();
+bool NetworkWarnUserIfOnlineAndCantSpeed();
+
+bool NetworkAllowSaveState();
+bool NetworkAllowSpeedControl();
+
 enum class InfraGameState {
 	Unknown,
 	Working,

@@ -64,4 +64,5 @@ private:
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 
 	UI::Button *playButton_ = nullptr;
+	bool lastNetInited_ = false;
 };
