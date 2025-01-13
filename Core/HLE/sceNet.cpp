@@ -943,7 +943,7 @@ void NetApctl_InitInfo(int confId) {
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
 
 	// We use the configured DNS server, whether manually or auto configured.
-	// Games often use this to perform their own DNS lookups through tcp/ip, so we need to pass in the configured server.
+	// Games (for example, Wipeout Pulse) often use this to perform their own DNS lookups through UDP, so we need to pass in the configured server.
 	// The reason we need autoconfig is that private Servers may need to use custom DNS Server - and most games are now
 	// best played on private servers (only a few official ones remain, if any).
 	if (g_Config.bInfrastructureAutoDNS) {
