@@ -46,11 +46,16 @@ public:
 	}
 
 	void Create() {
+		// Register font with CoreText
+		// We only need to do this once.
+		static dispatch_once_t onceToken;
+		dispatch_once(&onceToken, ^{
+			NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:@"Roboto-Condensed" withExtension:@"ttf" subdirectory:@"assets"];
+			CTFontManagerRegisterFontsForURL((CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
+		});
 		// Create an attributed string with string and font information
 		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
 		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
-		NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:@"Roboto-Condensed" withExtension:@"ttf" subdirectory:@"assets"];
-		CTFontManagerRegisterFontsForURL((CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
 		CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
 		// CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
