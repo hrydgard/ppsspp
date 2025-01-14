@@ -50,6 +50,7 @@ public:
 			(__bridge id)font, kCTFontAttributeName,
 			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
 			nil];
+		CFRelease(font);
 	}
 	void Destroy() {
 		//CFRelease(font);
