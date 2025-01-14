@@ -65,12 +65,9 @@ public:
 		CFRelease(font);
 	}
 	void Destroy() {
-		//CFRelease(font);
-		font = {};
 	}
 
 	NSDictionary* attributes = nil;
-	CTFontRef font = nil;
 	std::string fname;
 	int height;
 	int bold;
