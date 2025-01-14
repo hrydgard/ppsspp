@@ -48,20 +48,17 @@ struct pspUtilityDialogCommon
 	s32_le reserved[4];     /** Set to 0 */
 };
 
-
-class PSPDialog
-{
+class PSPDialog {
 public:
-	PSPDialog(UtilityDialogType type);
-	virtual ~PSPDialog();
+	PSPDialog(UtilityDialogType type) : dialogType_(type) {}
+	virtual ~PSPDialog() {}
 
 	virtual int Update(int animSpeed) = 0;
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
-	enum DialogStatus
-	{
+	enum DialogStatus {
 		SCE_UTILITY_STATUS_NONE       = 0,
 		SCE_UTILITY_STATUS_INITIALIZE = 1,
 		SCE_UTILITY_STATUS_RUNNING    = 2,
@@ -70,8 +67,7 @@ public:
 		SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN = 5,
 	};
 
-	enum DialogStockButton
-	{
+	enum DialogStockButton {
 		DS_BUTTON_NONE   = 0x00,
 		DS_BUTTON_OK     = 0x01,
 		DS_BUTTON_CANCEL = 0x02,
@@ -98,6 +94,7 @@ protected:
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
 	// The caption override is assumed to have a size of 64 bytes.
 	void DisplayButtons(int flags, std::string_view caption = "");
+	void DisplayMessage2(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
@@ -129,8 +126,14 @@ protected:
 
 	ImageID okButtonImg;
 	ImageID cancelButtonImg;
-	int okButtonFlag;
-	int cancelButtonFlag;
+	int okButtonFlag = 0;
+	int cancelButtonFlag = 0;
+
+	// DisplayMessage2 variables
+	int yesnoChoice = 0;
+	float scrollPos_ = 0.0f;
+	int framesUpHeld_ = 0;
+	int framesDownHeld_ = 0;
 
 private:
 	DialogStatus status = SCE_UTILITY_STATUS_NONE;

@@ -20,7 +20,6 @@
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMapHelpers.h"
 
-
 struct SceUtilityNpSigninParam {
 	pspUtilityDialogCommon common;
 	// Initially all zero? Or is there a possibility for one of these unknown to be a buffer to a packet data if it wasn't null?
@@ -30,11 +29,9 @@ struct SceUtilityNpSigninParam {
 	int unknown3;
 };
 
-
-class PSPNpSigninDialog: public PSPDialog {
+class PSPNpSigninDialog : public PSPDialog {
 public:
-	PSPNpSigninDialog(UtilityDialogType type);
-	~PSPNpSigninDialog();
+	PSPNpSigninDialog(UtilityDialogType type) : PSPDialog(type) {}
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;
@@ -48,7 +45,6 @@ protected:
 	}
 
 private:
-	void DisplayMessage(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
 	void DrawIndicator();
 	void DrawLogo();
@@ -56,11 +52,6 @@ private:
 	SceUtilityNpSigninParam request = {};
 	u32 requestAddr = 0;
 	//int npSigninResult = -1;
-
-	int yesnoChoice = 0;
-	float scrollPos_ = 0.0f;
-	int framesUpHeld_ = 0;
-	int framesDownHeld_ = 0;
 
 	u64 startTime = 0;
 	int step = 0;

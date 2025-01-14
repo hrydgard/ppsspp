@@ -78,8 +78,7 @@ private:
 	void FormatErrorCode(uint32_t code);
 	void DisplayMessage(const std::string &text, bool hasYesNo = false, bool hasOK = false);
 
-	enum Flags
-	{
+	enum Flags {
 		DS_MSG          = 0x1,
 		DS_ERRORMSG     = 0x2,
 		DS_YESNO        = 0x4,
@@ -98,9 +97,5 @@ private:
 	int messageDialogAddr = 0;
 
 	char msgText[512];
-	int yesnoChoice = 0;
-	float scrollPos_ = 0.0f;
-	int framesUpHeld_ = 0;
-	int framesDownHeld_ = 0;
 };
 
