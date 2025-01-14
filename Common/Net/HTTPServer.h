@@ -85,7 +85,7 @@ public:
 	// May run for (significantly) longer than timeout, but won't wait longer than that
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
-	bool Listen(int port, net::DNSType type = net::DNSType::ANY);
+	bool Listen(int port, const char *reason, net::DNSType type = net::DNSType::ANY);
 	void Stop();
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
@@ -101,8 +101,8 @@ public:
 	}
 
 private:
-	bool Listen6(int port, bool ipv6_only);
-	bool Listen4(int port);
+	bool Listen6(int port, bool ipv6_only, const char *reason);
+	bool Listen4(int port, const char *reason);
 
 	void HandleConnection(int conn_fd);
 

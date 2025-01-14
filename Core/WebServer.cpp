@@ -413,9 +413,9 @@ static void ExecuteWebServer() {
 	http->SetFallbackHandler(&HandleFallback);
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 
-	if (!http->Listen(g_Config.iRemoteISOPort)) {
-		if (!http->Listen(0)) {
-			ERROR_LOG(Log::FileSystem, "Unable to listen on any port");
+	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
+		if (!http->Listen(0, "debugger-webserver")) {
+			ERROR_LOG(Log::FileSystem, "Unable to listen on any port (debugger - webserver)");
 			UpdateStatus(ServerStatus::FINISHED);
 			return;
 		}
@@ -454,7 +454,8 @@ bool StartWebServer(WebServerFlags flags) {
 
 	case ServerStatus::FINISHED:
 		serverThread.join();
-		// Intentional fallthrough.
+		[[fallthrough]]; // Intentional fallthrough.
+
 	case ServerStatus::STOPPED:
 		serverStatus = ServerStatus::STARTING;
 		serverFlags = (int)flags;

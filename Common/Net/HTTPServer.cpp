@@ -158,18 +158,18 @@ void Server::SetFallbackHandler(UrlHandlerFunc handler) {
 	fallback_ = handler;
 }
 
-bool Server::Listen(int port, net::DNSType type) {
+bool Server::Listen(int port, const char *reason, net::DNSType type) {
 	bool success = false;
 	if (type == net::DNSType::ANY || type == net::DNSType::IPV6) {
-		success = Listen6(port, type == net::DNSType::IPV6);
+		success = Listen6(port, type == net::DNSType::IPV6, reason);
 	}
 	if (!success && (type == net::DNSType::ANY || type == net::DNSType::IPV4)) {
-		success = Listen4(port);
+		success = Listen4(port, reason);
 	}
 	return success;
 }
 
-bool Server::Listen4(int port) {
+bool Server::Listen4(int port, const char *reason) {
 	listener_ = socket(AF_INET, SOCK_STREAM, 0);
 	if (listener_ < 0)
 		return false;
@@ -190,7 +190,7 @@ bool Server::Listen4(int port) {
 #else
 		int err = errno;
 #endif
-		ERROR_LOG(Log::IO, "Failed to bind to port %d, error=%d - Bailing (ipv4)", port, err);
+		ERROR_LOG(Log::IO, "%s: Failed to bind to port %d, error=%d - Bailing (ipv4)", reason, port, err);
 		closesocket(listener_);
 		return false;
 	}
@@ -208,13 +208,13 @@ bool Server::Listen4(int port) {
 		port = ntohs(server_addr.sin_port);
 	}
 
-	INFO_LOG(Log::IO, "HTTP server started on port %d", port);
+	INFO_LOG(Log::IO, "HTTP server started on port %d: %s", port, reason);
 	port_ = port;
 
 	return true;
 }
 
-bool Server::Listen6(int port, bool ipv6_only) {
+bool Server::Listen6(int port, bool ipv6_only, const char *reason) {
 #if !PPSSPP_PLATFORM(SWITCH)
 	listener_ = socket(AF_INET6, SOCK_STREAM, 0);
 	if (listener_ < 0)
@@ -240,7 +240,7 @@ bool Server::Listen6(int port, bool ipv6_only) {
 #else
 		int err = errno;
 #endif
-		ERROR_LOG(Log::IO, "Failed to bind to port %d, error=%d - Bailing (ipv6)", port, err);
+		ERROR_LOG(Log::IO, "%s: Failed to bind to port %d, error=%d - Bailing (ipv6)", reason, port, err);
 		closesocket(listener_);
 		return false;
 	}
@@ -258,7 +258,7 @@ bool Server::Listen6(int port, bool ipv6_only) {
 		port = ntohs(server_addr.sin6_port);
 	}
 
-	INFO_LOG(Log::IO, "HTTP server started on port %d", port);
+	INFO_LOG(Log::IO, "HTTP server started on port %d: %s", port, reason);
 	port_ = port;
 
 	return true;
@@ -299,7 +299,7 @@ bool Server::RunSlice(double timeout) {
 }
 
 bool Server::Run(int port) {
-	if (!Listen(port)) {
+	if (!Listen(port, "websocket")) {
 		return false;
 	}
 
