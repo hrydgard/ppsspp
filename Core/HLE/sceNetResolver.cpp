@@ -127,13 +127,12 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
 		return 0;
 	}
-
 	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
 
 	// Attempt to execute a DNS resolution
     if (!net::DNSResolve(hostname, "", &resolved, err)) {
         // TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
-        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "DNS Error Resolving %s (%s)\n", hostname.c_str(),
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "OS DNS Error Resolving %s (%s)\n", hostname.c_str(),
                            err.c_str());
     }
 
