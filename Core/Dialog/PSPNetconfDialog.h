@@ -34,11 +34,9 @@ struct SceUtilityNetconfParam {
 	int netWifiSpot;			// Flag to allow WIFI connections
 };
 
-
-class PSPNetconfDialog: public PSPDialog {
+class PSPNetconfDialog : public PSPDialog {
 public:
-	PSPNetconfDialog(UtilityDialogType type);
-	~PSPNetconfDialog();
+	PSPNetconfDialog(UtilityDialogType type) : PSPDialog(type) {}
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;
@@ -52,7 +50,6 @@ protected:
 	}
 
 private:
-	void DisplayMessage(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
 	void DrawIndicator();
 
@@ -60,11 +57,6 @@ private:
 	u32 requestAddr = 0;
 	int connResult = -1;
 	bool hideNotice = false;
-
-	int yesnoChoice = 0;
-	float scrollPos_ = 0.0f;
-	int framesUpHeld_ = 0;
-	int framesDownHeld_ = 0;
 
 	u32 scanInfosAddr = 0;
 	int scanStep = 0;

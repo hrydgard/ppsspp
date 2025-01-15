@@ -163,6 +163,8 @@ void AfterApctlMipsCall::SetData(int HandlerID, int OldState, int NewState, int 
 bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 	using namespace json;
 
+	*dns = {};
+
 	// TODO: Load from cache instead of zip (if possible), and sometimes update it.
 	size_t jsonSize;
 	std::unique_ptr<uint8_t[]> data(g_VFS.ReadFile("infra-dns.json", &jsonSize));
@@ -181,7 +183,16 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 	const JsonGet def = root.getDict("default");
 
 	// Load the default DNS.
-	dns->dns = def.getStringOr("dns", "");;
+	if (def) {
+		dns->dns = def.getStringOr("dns", "");
+		if (def.hasChild("revival_credits", JSON_OBJECT)) {
+			const JsonGet revived = def.getDict("revival_credits");
+			if (revived) {
+				dns->revivalTeam = revived.getStringOr("group", "");
+				dns->revivalTeamURL = revived.getStringOr("url", "");
+			}
+		}
+	}
 
 	const JsonNode *games = root.getArray("games");
 	for (const JsonNode *iter : games->value) {
@@ -242,6 +253,14 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 				std::string domain = std::string(iter->key);
 				std::string ipAddr = std::string(iter->value.toString());
 				dns->fixedDNS[domain] = ipAddr;
+			}
+		}
+
+		if (game.hasChild("revival_credits", JSON_OBJECT)) {
+			const JsonGet revived = game.getDict("revival_credits");
+			if (revived) {
+				dns->revivalTeam = revived.getStringOr("group", "");
+				dns->revivalTeamURL = revived.getStringOr("url", "");
 			}
 		}
 

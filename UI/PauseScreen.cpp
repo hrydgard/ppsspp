@@ -43,6 +43,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetInet.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -276,9 +277,10 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
-	if (netInited != lastNetInited_) {
+	if (netInited != lastNetInited_ || netInetInited != lastNetInetInited_) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
+		lastNetInetInited_ = netInetInited;
 		lastNetInited_ = netInited;
 	}
 
@@ -384,6 +386,19 @@ void GamePauseScreen::CreateViews() {
 
 	if (netInited) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
+
+		if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
+			leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
+			leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
+			if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+				leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
+					if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+						System_LaunchUrl(LaunchUrlType::BROWSER_URL, g_infraDNSConfig.revivalTeamURL.c_str());
+					}
+					return UI::EVENT_DONE;
+				});
+			}
+		}
 	}
 
 	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;

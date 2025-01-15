@@ -152,6 +152,9 @@ struct InfraDNSConfig {
 	std::map<std::string, std::string> fixedDNS;
 	int score;
 	std::string comment;
+
+	std::string revivalTeam;
+	std::string revivalTeamURL;
 };
 
 extern InfraDNSConfig g_infraDNSConfig;
