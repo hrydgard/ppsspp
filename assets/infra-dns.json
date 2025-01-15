@@ -11,7 +11,7 @@
 		{
 			"name": "Medal of Honor: Heroes",
 			"comment": {
-				"en_US": "Works, but not on Windows",
+				"en_US": "Works"
 			},
 			"revival_credits": {
 				"group": "MOHH Revival",
@@ -38,7 +38,7 @@
 				"ULJM05213",
 				"ULUS10141",
 				"NPJH50306"
-			],
+			]
 		},
 		{
 			"name": "Medal of Honor 2",
@@ -63,7 +63,7 @@
 				"ULES00988"
 			],
 			"not_working_ids": [
-				"ULJM05301",
+				"ULJM05301"
 			]
 		},
 		{
@@ -77,7 +77,7 @@
 			},
 			"dns": "145.239.30.230",
 			"domains": {
-				"hub.psnexus.net": "145.239.30.230",
+				"hub.psnexus.net": "145.239.30.230"
 			},
 			"other_ids": [
 				"UCUS98612",
@@ -90,7 +90,7 @@
 		{
 			"name": "Wipeout Pulse",
 			"comment": {
-				"en_US": "Great",
+				"en_US": "Great"
 			},
 			"revival_credits": {
 				"group": "The AG Racing Foundation",
@@ -106,12 +106,12 @@
 			"other_ids": [
 				"UCKS45078"
 			],
-			"not_working_platforms": [],
+			"not_working_platforms": []
 		},
 		{
 			"name": "Motorstorm: Artic Edge",
 			"comment": {
-				"en_US": "Works",
+				"en_US": "Works"
 			},
 			"revival_credits": {
 				"group": "The AG Racing Foundation",
@@ -129,7 +129,7 @@
 				"UCAS40266",
 				"UCKS45124",
 				"NPJG00047"
-			],
+			]
 		},
 		{
 			"name": "Ratchet & Clank - Size Matters",
