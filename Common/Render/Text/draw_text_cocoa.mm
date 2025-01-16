@@ -32,7 +32,12 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
-#define APPLE_FONT "Helvetica"
+#define APPLE_FONT "Roboto-Condensed"
+
+// for future OpenEmu support
+#ifndef PPSSPP_FONT_BUNDLE
+#define PPSSPP_FONT_BUNDLE [NSBundle mainBundle]
+#endif
 
 class TextDrawerFontContext {
 public:
@@ -41,11 +46,18 @@ public:
 	}
 
 	void Create() {
+		// Register font with CoreText
+		// We only need to do this once.
+		static dispatch_once_t onceToken;
+		dispatch_once(&onceToken, ^{
+			NSURL *fontURL = [PPSSPP_FONT_BUNDLE URLForResource:@"Roboto-Condensed" withExtension:@"ttf" subdirectory:@"assets"];
+			CTFontManagerRegisterFontsForURL((CFURLRef)fontURL, kCTFontManagerScopeProcess, NULL);
+		});
 		// Create an attributed string with string and font information
 		CGFloat fontSize = ceilf((height / dpiScale) * 1.25f);
 		INFO_LOG(Log::G3D, "Creating cocoa typeface '%s' size %d (effective size %0.1f)", APPLE_FONT, height, fontSize);
-		// CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
-		CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
+		CTFontRef font = CTFontCreateWithName(CFSTR(APPLE_FONT), fontSize, nil);
+		// CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, nil);
 		attributes = [NSDictionary dictionaryWithObjectsAndKeys:
 			(__bridge id)font, kCTFontAttributeName,
 			kCFBooleanTrue, kCTForegroundColorFromContextAttributeName,  // Lets us specify the color later.
@@ -53,12 +65,9 @@ public:
 		CFRelease(font);
 	}
 	void Destroy() {
-		//CFRelease(font);
-		font = {};
 	}
 
 	NSDictionary* attributes = nil;
-	CTFontRef font = nil;
 	std::string fname;
 	int height;
 	int bold;
