@@ -106,7 +106,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (vkEnumerateInstanceVersion) {
 		vkEnumerateInstanceVersion(&vulkanInstanceApiVersion_);
 		vulkanInstanceApiVersion_ &= 0xFFFFF000;  // Remove patch version.
-		vulkanInstanceApiVersion_ = std::min(VK_API_VERSION_1_3, vulkanInstanceApiVersion_);
+		vulkanInstanceApiVersion_ = std::min(VK_API_VERSION_1_4, vulkanInstanceApiVersion_);
 		std::string versionString = FormatAPIVersion(vulkanInstanceApiVersion_);
 		INFO_LOG(Log::G3D, "Detected Vulkan API version: %s", versionString.c_str());
 	}
