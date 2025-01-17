@@ -37,6 +37,11 @@
 extern "C" struct hostent *gethostbyname(const char *name);
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
+#if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
+// Missing toolchain define
+#define INADDR_NONE 0xFFFFFFFF
+#endif
+
 // TODO: move this to some common set
 #if PPSSPP_PLATFORM(WINDOWS)
 #undef ESHUTDOWN

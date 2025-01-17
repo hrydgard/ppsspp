@@ -563,7 +563,7 @@ int convertSockoptNamePSP2Host(int optname, int level) {
 #endif
 		}
 	}
-	return hleLogError(Log::sceNet, optname, "Unknown PSP's SockOpt Name (Level = %08x)", level);
+	return hleLogError(Log::sceNet, optname, "Unknown or unsupported PSP's SockOpt Name (Level = %08x)", level);
 }
 
 int convertSockoptNameHost2PSP(int optname, int level) {

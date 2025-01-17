@@ -116,9 +116,10 @@ enum {
 #define PSP_NET_INET_SO_RCVTIMEO	0x1006		// receive timeout 
 #define	PSP_NET_INET_SO_ERROR		0x1007		// get error status and clear 
 #define	PSP_NET_INET_SO_TYPE		0x1008		// get socket type 
-#define PSP_NET_INET_SO_NBIO		0x1009		// SO_NONBLOCK ? // set to non-blocking I/O mode (on true, returning 0x80 when retrieved using getsockopt?)
+#define PSP_NET_INET_SO_NBIO		0x1009		// SO_NONBLOCK ? // set to non-blocking I/O mode (on true, returning 0x80 when retrieved using getsockopt?). Unclear if correct.
 #define PSP_NET_INET_SO_BIO			0x100a		// set to blocking I/O mode (not using the optval just like SO_NBIO?)
 //#define PSP_NET_INET_SO_NONBLOCK	0x100b		// set to blocking or non-blocking I/O mode (using the optval)
+#define PSP_NET_INET_SO_NOSIGPIPE   0x1022      // WARNING: SPECULATION
 
 // User-settable options (used with setsockopt)
 #define	PSP_NET_INET_TCP_NODELAY	0x01		// don't delay send to coalesce packets 
