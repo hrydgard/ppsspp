@@ -21,13 +21,16 @@
 
 #if !PPSSPP_PLATFORM(UWP)
 
+#ifndef __MINGW32__
 struct XINPUT_CAPABILITIES_EX {
 	XINPUT_CAPABILITIES Capabilities;
-	WORD vendorId;
-	WORD productId;
-	WORD revisionId;
-	DWORD a4; //unknown
+	WORD VendorId;
+	WORD ProductId;
+	WORD VersionNumber;
+	WORD  unk1;
+	DWORD unk2;
 };
+#endif
 
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
@@ -189,7 +192,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 #if !PPSSPP_PLATFORM(UWP)
 		XINPUT_CAPABILITIES_EX caps{};
 		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
-			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.vendorId, caps.productId));
+			KeyMap::NotifyPadConnected(DEVICE_ID_XINPUT_0 + pad, StringFromFormat("Xbox 360 Pad: %d/%d", caps.VendorId, caps.ProductId));
 		} else {
 #else
 		{

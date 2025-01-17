@@ -75,7 +75,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 endif()
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
-if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
+if(MINGW AND NOT USE_SYSTEM_FFMPEG)
 	set(USE_SYSTEM_FFMPEG ON)
 endif()
 
@@ -427,6 +427,12 @@ if(NOT MSVC)
 		endif()
 	endif()
 
+	include(CheckSymbolExists)
+	check_symbol_exists(_UCRT "windows.h" UCRT)
+	if (UCRT)
+		link_libraries("$<$<CONFIG:Debug>:ucrtbased>")
+	endif()
+
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -D_NDEBUG")
@@ -437,10 +443,10 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
 
 	# Enable checking printf-like format strings (also works for logging functions)
-	add_definitions(-Wformat)
+	add_compile_options(-Wformat)
 
 	# Disable some warnings
-	add_definitions(-Wno-multichar)
+	add_compile_options(-Wno-multichar)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_compile_options(-fno-strict-aliasing)
@@ -448,13 +454,13 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
 	endif()
 
-	add_definitions(-fno-math-errno)
+	add_compile_options(-fno-math-errno)
 
 	if(X86 OR X86_64)
 		# enable sse2 code generation
-		add_definitions(-msse2)
+		add_compile_options(-msse2)
 		if(NOT X86_64 AND NOT CLANG)
-			add_definitions(-mfpmath=sse)
+			add_compile_options(-mfpmath=sse)
 			# add_definitions(-mstackrealign)
 		 endif()
 	endif()
@@ -472,7 +478,7 @@ if(NOT MSVC)
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
 		if(NOT ${CMAKE_C_COMPILER_ID} STREQUAL "Intel" AND NOT ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-			add_definitions(-Wno-psabi)
+			add_compile_options(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=700)
 		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1 -D_BSD_SOURCE -D_DEFAULT_SOURCE)
@@ -483,7 +489,7 @@ if(NOT MSVC)
 			add_definitions(-D_NETBSD_SOURCE)
 		endif()
 	elseif(ANDROID)
-		add_definitions(-fsigned-char)
+		add_compile_options(-fsigned-char)
 	endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
@@ -502,8 +508,8 @@ if(WIN32)
 endif()
 
 if(NOT ANDROID)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
 
 # This sets up the MSVC project dirs according to the physical project dirs
@@ -522,12 +528,6 @@ macro(setup_target_project TargetName ProjectDir)
 endmacro()
 
 add_subdirectory(ext)
-
-if(WIN32)
-	include_directories(dx9sdk/Include)
-	include_directories(dx9sdk/Include/DX11)
-endif()
-
 
 set(CommonJIT
 	Core/MIPS/JitCommon/JitCommon.cpp
@@ -1193,6 +1193,7 @@ else()
 		ext/libzip/zip_err_str.c
 	)
 	if(WIN32)
+		target_compile_options(libzip PRIVATE $<$<C_COMPILER_ID:Clang>:-Wno-incompatible-function-pointer-types> $<$<C_COMPILER_ID:GNU>:-Wno-incompatible-pointer-types>)
 		target_sources(libzip PRIVATE
 			ext/libzip/zip_source_file_win32.c
 			ext/libzip/zip_source_file_win32_named.c
@@ -1421,11 +1422,6 @@ elseif(USING_QT_UI)
 elseif(WIN32)
 	# Don't care about SDL.
 	set(TargetBin PPSSPPWindows)
-	if(X86_64)
-		link_directories(dx9sdk/Lib/x64)
-	else()
-		link_directories(dx9sdk/Lib/x86)
-	endif()
 elseif(LIBRETRO)
 else()
 	if(GOLD)
@@ -1503,14 +1499,7 @@ else()
 endif()
 
 if(WIN32)
-	if(MINGW)
-		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
-		# required when using the dx9sdk include paths
-		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
-	else()
-		target_link_libraries(Common dxguid)
-	endif()
-	target_link_libraries(Common winmm d3d9 dsound)
+	target_link_libraries(Common winmm d3d9 dsound dxguid Version)
 endif()
 
 if(NOT LIBRETRO)
@@ -2480,14 +2469,11 @@ target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 
 
 # Winsock
 if(WIN32)
-	target_link_libraries(${CoreLibName} ws2_32 winhttp)
+	target_link_libraries(${CoreLibName} ws2_32)
 endif()
 
 if(NOT HTTPS_NOT_AVAILABLE)
 	target_link_libraries(${CoreLibName} naett)
-	if(WIN32)
-		target_link_libraries(${CoreLibName} winhttp)
-	endif()
 endif()
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
@@ -2590,6 +2576,9 @@ if(USE_MINIUPNPC)
 			if (MSVC)
 				# Suppress noise warnings
 				target_compile_definitions(miniupnpc PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+			endif()
+			if (WIN32)
+				target_link_libraries(miniupnpc ws2_32)
 			endif()
 		endif()
 	endif()
@@ -2813,6 +2802,12 @@ if(UNITTEST)
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
+	if(WIN32)
+		target_sources(PPSSPPUnitTest PRIVATE
+			Windows/CaptureDevice.cpp
+			Windows/CaptureDevice.h
+		)
+	endif()
 	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(PPSSPPUnitTest unittest)
 	add_test(arm64_emitter PPSSPPUnitTest Arm64Emitter)
@@ -2891,10 +2886,9 @@ if(TargetBin)
 		endif()
 	elseif(WIN32)
 		add_executable(${TargetBin} WIN32 ${NativeAppSource})
-		if(MSVC)
-			set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
-		else()
-			set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "-Wl,-subsystem,windows")
+		if(NOT MSVC)
+			target_compile_options(${TargetBin} PRIVATE $<$<CXX_COMPILER_ID:Clang>:-Wno-c++11-narrowing>)
+			target_link_libraries(${TargetBin} Version Dwmapi)
 		endif()
 		set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TargetBin})
 	else()

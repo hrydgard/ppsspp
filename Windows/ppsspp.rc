@@ -126,11 +126,11 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
-            VALUE "CompanyName", "Henrik Rydgård"
+            VALUE "CompanyName", "Henrik Rydg\xE5rd"
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", PPSSPP_WIN_VERSION_STRING
             VALUE "InternalName", "PPSSPPEmu"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2021 by Henrik Rydgård"
+            VALUE "LegalCopyright", "Copyright \xA9 2006-2021 by Henrik Rydg\xE5rd"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
@@ -284,7 +284,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,243,140,50,14
     ICON            IDI_PPSSPP,IDC_STATIC,10,9,21,20
     LTEXT           "PPSSPP",IDC_VERSION,40,8,127,9
-    LTEXT           "Copyright (c) by Henrik Rydgård  the PPSSPP project 2012-",IDC_STATIC,40,33,253,8
+    LTEXT           "Copyright \xA9 by Henrik Rydg\xE5rd  the PPSSPP project 2012-",IDC_STATIC,40,33,253,8
     LTEXT           "All trademarks are property of their respective owners.\nThe emulator is for educational and development purposes only and it may not be used to play games you do not legally own.",IDC_STATIC,40,102,253,24
     LTEXT           "PSP emulator and debugger",IDC_STATIC,40,19,253,8
     LTEXT           "CISO decompression code by BOOSTER",IDC_STATIC,48,73,240,8
@@ -578,7 +578,7 @@ BEGIN
         MENUITEM "Take Screenshot",                         ID_DEBUG_TAKESCREENSHOT
         MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
         MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
-        MENUITEM "Restart Graphics",                        ID_DEBUG_RESTARTGRAPHICS,
+        MENUITEM "Restart Graphics",                        ID_DEBUG_RESTARTGRAPHICS
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
@@ -848,9 +848,9 @@ BEGIN
     END
     POPUP "getaboptions"
     BEGIN
-        MENUITEM "Show in &Left Pane"          ID_GEDBG_SHOWONLEFT
-        MENUITEM "Show in &Right Pane"         ID_GEDBG_SHOWONRIGHT
-        MENUITEM "Show in &Top Right Pane"     ID_GEDBG_SHOWONTOPRIGHT
+        MENUITEM "Show in &Left Pane",          ID_GEDBG_SHOWONLEFT
+        MENUITEM "Show in &Right Pane",         ID_GEDBG_SHOWONRIGHT
+        MENUITEM "Show in &Top Right Pane",     ID_GEDBG_SHOWONTOPRIGHT
     END
     POPUP "cpuwatchlist"
     BEGIN

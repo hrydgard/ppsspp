@@ -132,6 +132,8 @@ debian/ppsspp/
 
 # CMake stuff
 CMakeFiles
+CMakeUserPresets.json
+compile_commands.json
 
 # Clangd 
 .cache/

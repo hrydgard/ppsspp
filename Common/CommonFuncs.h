@@ -76,11 +76,13 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define strncasecmp _strnicmp
 #endif
 
+#ifndef __MINGW32__
 #define unlink _unlink
 #define __rotl _rotl
 #define __rotl64 _rotl64
 #define __rotr _rotr
 #define __rotr64 _rotr64
+#endif
 
 // 64 bit offsets for windows
 #ifndef __MINGW32__

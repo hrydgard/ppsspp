@@ -2,13 +2,7 @@
 #include <MMReg.h>
 #include <process.h>
 
-#ifdef __MINGW32__
-#define __null
-#endif
 #include <dsound.h>
-#ifdef __MINGW32__
-#undef __null
-#endif
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"

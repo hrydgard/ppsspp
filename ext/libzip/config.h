@@ -35,6 +35,10 @@
 #define HAVE_LOCALTIME_R
 #define HAVE_MKSTEMP 1
 #endif
+#ifdef __MINGW32__
+#define HAVE_FSEEKO
+#define HAVE_FTELLO
+#endif
 #define HAVE_SNPRINTF
 #define HAVE_STRDUP
 #if !defined(__MINGW32__) && defined(_WIN32)

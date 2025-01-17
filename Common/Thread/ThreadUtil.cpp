@@ -4,10 +4,6 @@
 
 #include "Common/CommonWindows.h"
 
-#ifdef __MINGW32__
-#include <excpt.h>
-#endif
-
 #define TLS_SUPPORTED
 
 #elif defined(__ANDROID__)
@@ -197,19 +193,11 @@ void SetCurrentThreadNameThroughException(const char *threadName) {
 	info.dwThreadID = -1; //dwThreadID;
 	info.dwFlags = 0;
 
-#ifdef __MINGW32__
-	__try1 (ehandler)
-#else
 	__try
-#endif
 	{
 		RaiseException(MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info);
 	}
-#ifdef __MINGW32__
-	__except1
-#else
 	__except(EXCEPTION_CONTINUE_EXECUTION)
-#endif
 	{}
 #endif
 }

@@ -31,6 +31,7 @@
 #include "Common/Log/LogManager.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
+#include <io.h>
 #include "Common/Log/ConsoleListener.h"
 #endif
 

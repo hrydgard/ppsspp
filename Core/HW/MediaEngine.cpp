@@ -703,7 +703,10 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 						m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 				}
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+				int64_t bestPts = m_pFrame->best_effort_timestamp;
+				int64_t ptsDuration = m_pFrame->duration;
+#elif LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
 				int64_t bestPts = m_pFrame->best_effort_timestamp;
 				int64_t ptsDuration = m_pFrame->pkt_duration;
 #else

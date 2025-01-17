@@ -22,11 +22,6 @@
 #include <d3d11_1.h>
 #include <D3Dcompiler.h>
 
-#ifdef __MINGW32__
-#undef __uuidof
-#define __uuidof(type) IID_##type
-#endif
-
 namespace Draw {
 
 static constexpr int MAX_BOUND_TEXTURES = 8;

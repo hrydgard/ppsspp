@@ -82,4 +82,4 @@ private:
 	enum { INVALID_TEX = -1 };
 };
 
-Draw::DataFormat getClutDestFormat(GEPaletteFormat format);
+static Draw::DataFormat getClutDestFormat(GEPaletteFormat format);

@@ -18,11 +18,6 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/D3D11/D3D11Loader.h"
 
-#ifdef __MINGW32__
-#undef __uuidof
-#define __uuidof(type) IID_##type
-#endif
-
 #ifndef DXGI_ERROR_NOT_FOUND
 #define _FACDXGI    0x87a
 #define MAKE_DXGI_HRESULT(code) MAKE_HRESULT(1, _FACDXGI, code)
@@ -261,7 +256,7 @@ void D3D11Context::Shutdown() {
 		d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
 	}
 	if (d3dDebug_) {
-		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_FLAGS(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL));
 		d3dDebug_->Release();
 		d3dDebug_ = nullptr;
 	}

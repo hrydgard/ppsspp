@@ -62,7 +62,7 @@ void TextureCacheGLES::Clear(bool delete_them) {
 	TextureCacheCommon::Clear(delete_them);
 }
 
-Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
+static Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
