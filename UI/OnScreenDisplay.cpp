@@ -99,7 +99,7 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 	iconW += 5.0f;
 
 	*width += iconW + 12.0f;
-	*height1 = std::max(*height1, iconH + 2.0f);
+	// *height1 = std::max(*height1, iconH + 2.0f);   // this didn't look very good
 	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
 }
 
