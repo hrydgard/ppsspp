@@ -45,16 +45,23 @@
 #include "Core/HLE/sceNetResolver.h"
 
 #include <iostream>
-#include <shared_mutex>
+#include <mutex>
 
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNp.h"
 #include "Core/Reporting.h"
 #include "Core/Instance.h"
 
+struct NetResolver {
+	int id = 0;
+	bool isRunning = false;
+	u32 bufferAddr = 0;
+	u32 bufferLen = 0;
+};
+
 static int g_currentNetResolverId = 1;
-static std::unordered_map<u32, std::shared_ptr<NetResolver>> g_netResolvers;
-static std::shared_mutex g_netResolversLock;
+static std::unordered_map<u32, NetResolver> g_netResolvers;
+static std::mutex g_netResolversLock;  // Do we really need this?
 
 // NOTE: It starts as true, needed for Outrun 2006.
 static bool g_netResolverInitialized = true;
@@ -82,6 +89,7 @@ static int sceNetResolverTerm() {
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	std::unique_lock lock(g_netResolversLock);
+
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
@@ -120,7 +128,7 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 	}
 
 	// Flag resolver as in-progress - not relevant for sync functions but potentially relevant for async
-	iter->second->SetIsRunning(true);
+	iter->second.isRunning = true;
 
 	// Now use the configured primary DNS server to do a lookup.
 	// If auto DNS, use the server from that config.
@@ -129,10 +137,11 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 		char temp[32];
 		inet_ntop(AF_INET, &resolvedAddr, temp, sizeof(temp));
 		INFO_LOG(Log::sceNet, "Direct lookup of '%s' from '%s' succeeded: %s (%08x)", hostname.c_str(), dnsServer.c_str(), temp, resolvedAddr);
-		iter->second->SetIsRunning(false);
+		iter->second.isRunning = false;
 		Memory::Write_U32(resolvedAddr, inAddrPtr);
 		return 0;
 	}
+
 	WARN_LOG(Log::sceNet, "Direct DNS lookup of '%s' at DNS server '%s' failed. Trying OS DNS...", hostname.c_str(), g_Config.sInfrastructureDNSServer.c_str());
 
 	// Attempt to execute a DNS resolution
@@ -159,7 +168,7 @@ static int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr,
 	}
 
 	// Flag resolver as complete
-	iter->second->SetIsRunning(false);
+	iter->second.isRunning = false;
 	return 0;
 }
 
@@ -229,11 +238,12 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	// TODO: Implement ERROR_NET_RESOLVER_ID_MAX (possibly 32?)
 	std::unique_lock lock(g_netResolversLock);
 	int currentNetResolverId = g_currentNetResolverId++;
-	g_netResolvers[currentNetResolverId] = std::make_shared<NetResolver>(
+	g_netResolvers[currentNetResolverId] = NetResolver{
 		currentNetResolverId, // id
+		false,
 		bufferPtr, // bufferPtr
-		bufferLen // bufferLen
-	);
+		(u32)bufferLen // bufferLen
+	};
 
 	Memory::Write_U32(currentNetResolverId, resolverIdPtr);
 	return hleLogSuccessInfoI(Log::sceNet, 0, "ID: %d", Memory::Read_U32(resolverIdPtr));
@@ -248,13 +258,15 @@ static int sceNetResolverStop(u32 resolverId) {
 
 	const auto resolverIter = g_netResolvers.find(resolverId);
 
-	if (resolverIter == g_netResolvers.end())
+	if (resolverIter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
 
-	if (resolverIter->second->GetIsRunning())
+	if (resolverIter->second.isRunning) {
 		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
+	}
 
-	resolverIter->second->SetIsRunning(false);
+	resolverIter->second.isRunning = false;
 	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 

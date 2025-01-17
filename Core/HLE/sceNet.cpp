@@ -62,8 +62,6 @@ u32 netThread2Addr = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
-static std::map<int, NetResolver> netResolvers;
-
 static std::map<int, ApctlHandler> apctlHandlers;
 
 std::string defaultNetConfigName = "NetConf";
