@@ -201,7 +201,7 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 		const JsonNode *workingIdsNode = game.getArray("known_working_ids");
 		const JsonNode *otherIdsNode = game.getArray("other_ids");
 		const JsonNode *notWorkingIdsNode = game.getArray("not_working_ids");
-		if (!workingIdsNode) {
+		if (!workingIdsNode && !otherIdsNode && !notWorkingIdsNode) {
 			// We ignore this game.
 			continue;
 		}
@@ -209,12 +209,14 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 		bool found = false;
 
 		std::vector<std::string> ids;
-		JsonGet(workingIdsNode->value).getStringVector(&ids);
-		for (auto &id : ids) {
-			if (id == gameID) {
-				found = true;
-				dns->state = InfraGameState::Working;
-				break;
+		if (workingIdsNode) {
+			JsonGet(workingIdsNode->value).getStringVector(&ids);
+			for (auto &id : ids) {
+				if (id == gameID) {
+					found = true;
+					dns->state = InfraGameState::Working;
+					break;
+				}
 			}
 		}
 		if (!found && notWorkingIdsNode) {
@@ -229,7 +231,7 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 			}
 		}
 		if (!found && otherIdsNode) {
-			// Check the "other" array, not sure what we do with these.
+			// Check the "other" array, we're gonna try this, but less confidently :P
 			JsonGet(otherIdsNode->value).getStringVector(&ids);
 			for (auto &id : ids) {
 				if (id == gameID) {
@@ -994,10 +996,10 @@ void NetApctl_InitInfo(int confId) {
 	// The reason we need autoconfig is that private Servers may need to use custom DNS Server - and most games are now
 	// best played on private servers (only a few official ones remain, if any).
 	if (g_Config.bInfrastructureAutoDNS) {
-		INFO_LOG(Log::sceNet, "Responding to game query with AutoDNS address");
+		INFO_LOG(Log::sceNet, "Responding to game query with AutoDNS address: %s", g_infraDNSConfig.dns.c_str());
 		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_infraDNSConfig.dns);
 	} else {
-		INFO_LOG(Log::sceNet, "Responding to game query with manual DNS address");
+		INFO_LOG(Log::sceNet, "Responding to game query with manual DNS address: %s", g_Config.sInfrastructureDNSServer.c_str());
 		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.sInfrastructureDNSServer);
 	}
 
