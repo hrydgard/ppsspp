@@ -493,6 +493,11 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 				return hleLogError(Log::sceNet, -1, "buffer size too large?");
 			}
 			break;
+
+		case PSP_NET_INET_SO_ONESBCAST:
+			// Seen in Outrun 2006 (account registration), assuming that the flag mapping is correct, we can't support this. So we warn-log and pretend success.
+			return hleLogWarning(Log::sceNet, 0, "PSP_NET_INET_SO_ONESBCAST unsupported, ignoring");
+
 		default:
 			break;
 		}

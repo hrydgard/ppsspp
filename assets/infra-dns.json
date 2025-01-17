@@ -138,6 +138,19 @@
 				"UCES00420",
 				"UCUS98633"
 			]
+		},
+		{
+			"name": "Outrun 2006 - Coast 2 Coast",
+			"not_working_ids": [
+				"ULES00262",
+				"ULUS10064",
+				"ULKS46087"
+			],
+			"dns": "45.7.228.197",
+			"score": 1,
+			"revival_credits": {
+				"group": "OutRun2006Tweaks"
+			}
 		}
 	]
 }
