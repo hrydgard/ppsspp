@@ -230,6 +230,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
 	ConfigSetting("DebugOverlay", &g_Config.iDebugOverlay, 0, CfgFlag::DONT_SAVE),
+	ConfigSetting("DefaultTab", &g_Config.iDefaultTab, 0, CfgFlag::DEFAULT),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, CfgFlag::PER_GAME),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false, CfgFlag::DEFAULT),

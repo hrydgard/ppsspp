@@ -256,6 +256,7 @@ public:
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 	bool bUberShaderVertex;
 	bool bUberShaderFragment;
+	int iDefaultTab;
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
