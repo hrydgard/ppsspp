@@ -419,6 +419,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_PAUSE, "Pause"},
+	{VIRTKEY_PAUSE_NO_MENU, "Pause (no menu)"},
+
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
 	{VIRTKEY_SPEED_CUSTOM2, "Alt speed 2"},
