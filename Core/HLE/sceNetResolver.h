@@ -79,25 +79,6 @@ enum {
     ERROR_NET_RESOLVER_INTERNAL				= 0x80410417,
 };
 
-class SceNetResolver {
-public:
-    static void Init();
-    static void Shutdown();
-    static std::shared_ptr<SceNetResolver> Get();
-
-    std::shared_ptr<NetResolver> GetNetResolver(u32 resolverId);
-    std::shared_ptr<NetResolver> CreateNetResolver(u32 bufferPtr, u32 bufferLen);
-    bool TerminateNetResolver(u32 resolverId);
-    bool DeleteNetResolver(u32 resolverId);
-    void ClearNetResolvers();
-
-private:
-    static std::shared_ptr<SceNetResolver> gInstance;
-    static std::shared_mutex gLock;
-
-    int mCurrentNetResolverId = 1;
-    std::unordered_map<u32, std::shared_ptr<NetResolver>> mNetResolvers;
-    std::shared_mutex mNetResolversLock;
-};
+void __NetResolverShutdown();
 
 void Register_sceNetResolver();

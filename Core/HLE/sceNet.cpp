@@ -52,11 +52,6 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
-#if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
-// Missing toolchain define
-#define INADDR_NONE 0xFFFFFFFF
-#endif
-
 bool netInited;
 
 u32 netDropRate = 0;
@@ -407,7 +402,7 @@ void __NetShutdown() {
 	// Network Cleanup
 	Net_Term();
 
-	SceNetResolver::Shutdown();
+	__NetResolverShutdown();
 	__NetInetShutdown();
 	__NetApctlShutdown();
 	__ResetInitNetLib();
@@ -502,7 +497,7 @@ void __NetDoState(PointerWrap &p) {
 		// Discard leftover events
 		apctlEvents.clear();
 		// Discard created resolvers for now (since i'm not sure whether the information in the struct is sufficient or not, and we don't support multi-threading yet anyway)
-		SceNetResolver::Shutdown();
+		__NetResolverShutdown();
 	}
 }
 
