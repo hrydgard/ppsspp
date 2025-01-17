@@ -459,10 +459,10 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	timeval tval{};
 	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-blocking mode (ie. simulated blocking mode)
 	if (level == PSP_NET_INET_SOL_SOCKET) {
-		if (optname == PSP_NET_INET_SO_NBIO) {
+		switch (optname) {
+		case PSP_NET_INET_SO_NBIO:
 			inetSock->nonblocking = optval;
 			return hleLogSuccessI(Log::sceNet, 0);
-		}
 		// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),
 		//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
 		/*else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_BROADCAST) {
@@ -470,27 +470,31 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 			return hleLogSuccessI(Log::sceNet, 0);
 		}*/
 		// TODO: Ignoring SO_REUSEADDR flag to prevent disrupting multiple-instance feature
-		else if (optname == PSP_NET_INET_SO_REUSEADDR) {
+		case PSP_NET_INET_SO_REUSEADDR:
 			//memcpy(&sock->reuseaddr, (int*)optval, std::min(sizeof(sock->reuseaddr), optlen));
 			return hleLogSuccessI(Log::sceNet, 0);
-		}
+
 		// TODO: Ignoring SO_REUSEPORT flag to prevent disrupting multiple-instance feature (not sure if PSP has SO_REUSEPORT or not tho, defined as 15 on Android)
-		else if (optname == PSP_NET_INET_SO_REUSEPORT) { // 15
+		case PSP_NET_INET_SO_REUSEPORT: // 15
 			//memcpy(&sock->reuseport, (int*)optval, std::min(sizeof(sock->reuseport), optlen));
 			return hleLogSuccessI(Log::sceNet, 0);
-		}
+
 		// TODO: Ignoring SO_NOSIGPIPE flag to prevent crashing PPSSPP (not sure if PSP has NOSIGPIPE or not tho, defined as 0x1022 on Darwin)
-		else if (optname == 0x1022) { // PSP_NET_INET_SO_NOSIGPIPE ?
+		case PSP_NET_INET_SO_NOSIGPIPE: // WARNING: Not sure about this one. But we definitely don't want signals, so we ignore it.
 			//memcpy(&sock->nosigpipe, (int*)optval, std::min(sizeof(sock->nosigpipe), optlen));
-			return hleLogSuccessI(Log::sceNet, 0);
-		}
+			return hleLogWarning(Log::sceNet, 0, "NOSIGPIPE should never be modified (should always be off)");
+
 		// It seems UNO game will try to set socket buffer size with a very large size and ended getting error (-1), so we should also limit the buffer size to replicate PSP behavior
-		else if (optname == PSP_NET_INET_SO_RCVBUF || optname == PSP_NET_INET_SO_SNDBUF) { // PSP_NET_INET_SO_NOSIGPIPE ?
+		case PSP_NET_INET_SO_RCVBUF:
+		case PSP_NET_INET_SO_SNDBUF: // PSP_NET_INET_SO_NOSIGPIPE ?
 			// TODO: For SOCK_STREAM max buffer size is 8 Mb on BSD, while max SOCK_DGRAM is 65535 minus the IP & UDP Header size
 			if (optval > 8 * 1024 * 1024) {
 				UpdateErrnoFromHost(ENOBUFS, __FUNCTION__); // FIXME: return ENOBUFS for SOCK_STREAM, and EINVAL for SOCK_DGRAM
 				return hleLogError(Log::sceNet, -1, "buffer size too large?");
 			}
+			break;
+		default:
+			break;
 		}
 	}
 
