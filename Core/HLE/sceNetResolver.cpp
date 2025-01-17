@@ -229,10 +229,7 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
 		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
-	if (!g_netResolverInitialized) {
-		// Possibly don't check this? Or auto-initialized? Outrun seems to assume it's not needed.
-		return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped");
-	}
+	// Outrun calls this without init.
 
 	// TODO: Consider using SceUidManager instead of this 1-indexed id
 	// TODO: Implement ERROR_NET_RESOLVER_ID_MAX (possibly 32?)
