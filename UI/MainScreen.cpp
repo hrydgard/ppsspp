@@ -1198,7 +1198,7 @@ void MainScreen::CreateViews() {
 		}
 
 		if (g_Config.HasRecentIsos()) {
-			tabHolder_->SetCurrentTab(0, true);
+			tabHolder_->SetCurrentTab(std::clamp(g_Config.iDefaultTab, 0, g_Config.bRemoteTab ? 3 : 2), true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);	
 		}
@@ -1728,6 +1728,7 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
@@ -1735,6 +1736,8 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
+	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
+	PopupMultiChoice *beziersChoice = items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
 	items->Add(new ItemHeader(sy->T("Grid icon size")))->SetPopupStyle(true);
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
