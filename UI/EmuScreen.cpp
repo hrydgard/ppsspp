@@ -742,8 +742,20 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 
+	case VIRTKEY_PAUSE_NO_MENU:
+		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
+			// We re-use debug break/resume to implement pause/resume without a menu.
+			if (coreState == CORE_STEPPING_CPU) {
+				Core_Resume();
+			} else {
+				Core_Break("user-pause");
+			}
+		}
+		break;
+
 	case VIRTKEY_FRAME_ADVANCE:
 		// Can't do this reliably in an async fashion, so we just set a variable.
+		// Is this used by anyone? There's no good way to resume, other than PAUSE_NO_MENU or the debugger.
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
 			doFrameAdvance_.store(true);
 		}
