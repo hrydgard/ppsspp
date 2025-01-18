@@ -181,53 +181,53 @@
     <OutDir>..\</OutDir>
     <TargetName>PPSSPPDebug</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>PPSSPPDebug64</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <TargetName>PPSSPPDebugARM64</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM64);$(WindowsSdk_LibraryPath_ARM64);</LibraryPath>
     <OutDir>..\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <TargetName>PPSSPPDebugARM</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM);$(WindowsSdk_LibraryPath_ARM);</LibraryPath>
     <OutDir>..\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>PPSSPPWindows64</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <TargetName>PPSSPPWindowsARM64</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM64);$(WindowsSdk_LibraryPath_ARM64);</LibraryPath>
     <OutDir>..\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <TargetName>PPSSPPWindowsARM</TargetName>
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM);$(WindowsSdk_LibraryPath_ARM);</LibraryPath>
     <OutDir>..\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <EmbedManifest>false</EmbedManifest>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -237,7 +237,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -276,7 +276,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -312,7 +312,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -347,7 +347,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/arm/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/arm/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -388,7 +388,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -438,7 +438,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -481,7 +481,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -522,7 +522,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/arm/include;../dx9sdk/Include/DX11;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/arm/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -1456,7 +1456,6 @@
     <ClInclude Include="GPU\WindowsGraphicsContext.h" />
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="MainWindowMenu.h" />
-    <ClInclude Include="mingw_defines.h" />
     <ClInclude Include="RawInput.h" />
     <ClInclude Include="TouchInputHandler.h" />
     <ClInclude Include="GPU\WindowsVulkanContext.h" />

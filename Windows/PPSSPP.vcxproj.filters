@@ -550,9 +550,6 @@
     <ClInclude Include="..\libretro\retro_inline.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
-    <ClInclude Include="mingw_defines.h">
-      <Filter>Other Platforms</Filter>
-    </ClInclude>
     <ClInclude Include="..\ios\iCade\iCadeState.h">
       <Filter>Other Platforms\iOS\iCade</Filter>
     </ClInclude>

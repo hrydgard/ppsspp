@@ -380,11 +380,9 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	ifneq (,$(findstring x64,$(TargetArchMoniker)))
 		override TARGET_ARCH = x86_64
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX64/$(TargetArchMoniker)
-      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x64
 	else
 		override TARGET_ARCH = x86
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX86/$(TargetArchMoniker)
-      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x86
 	endif
 
 	PATH := $(shell IFS=$$'\n'; cygpath "$(VCCompilerToolsBinDir)"):$(PATH)
@@ -400,24 +398,18 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib d3dx9.lib Iphlpapi.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib d3d9.lib Iphlpapi.lib
 
 # Windows
 else ifneq (,$(findstring win,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.dll
 	CFLAGS += -D_UNICODE -DUNICODE
 	CXXFLAGS += -fpermissive -Wno-multichar -D_UNICODE -DUNICODE -DARMIPS_USE_STD_FILESYSTEM
-	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32 -ld3d9 -ld3dx9
+	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32 -ld3d9
 	GL_LIB := -lopengl32
 	PLATFORM_EXT = win32
    FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
    FFMPEGLDFLAGS += -lavformat -lavcodec -lavutil -lswresample -lswscale
-   INCFLAGS += -include $(CORE_DIR)/Windows/mingw_defines.h
-   ifneq (,$(findstring 64,$(TARGET_ARCH)))
-		LDFLAGS += -L$(CORE_DIR)/dx9sdk/Lib/x64
-	else
-		LDFLAGS += -L$(CORE_DIR)/dx9sdk/Lib/x86
-	endif
    fpic = -fPIC
 	CC = gcc
 	CXX = g++

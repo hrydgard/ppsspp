@@ -16,10 +16,6 @@
 #include <D3Dcompiler.h>
 #include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
-#ifndef D3DXERR_INVALIDDATA
-#define D3DXERR_INVALIDDATA 0x88760b59
-#endif
-
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/D3D9/D3D9StateCache.h"

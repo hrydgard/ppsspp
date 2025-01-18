@@ -7,8 +7,6 @@
 #include <string>
 #include <d3d9.h>
 
-struct ID3DXConstantTable;
-
 HRESULT CompileShaderToByteCodeD3D9(const char *code, const char *target, std::string *errorMessage, LPD3DBLOB *pShaderCode);
 
 bool CompilePixelShaderD3D9(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, std::string *errorMessage);
