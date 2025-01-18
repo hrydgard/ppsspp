@@ -380,11 +380,9 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	ifneq (,$(findstring x64,$(TargetArchMoniker)))
 		override TARGET_ARCH = x86_64
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX64/$(TargetArchMoniker)
-      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x64
 	else
 		override TARGET_ARCH = x86
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX86/$(TargetArchMoniker)
-      LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x86
 	endif
 
 	PATH := $(shell IFS=$$'\n'; cygpath "$(VCCompilerToolsBinDir)"):$(PATH)
@@ -412,12 +410,6 @@ else ifneq (,$(findstring win,$(platform)))
 	PLATFORM_EXT = win32
    FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
    FFMPEGLDFLAGS += -lavformat -lavcodec -lavutil -lswresample -lswscale
-   INCFLAGS += -include $(CORE_DIR)/Windows/mingw_defines.h
-   ifneq (,$(findstring 64,$(TARGET_ARCH)))
-		LDFLAGS += -L$(CORE_DIR)/dx9sdk/Lib/x64
-	else
-		LDFLAGS += -L$(CORE_DIR)/dx9sdk/Lib/x86
-	endif
    fpic = -fPIC
 	CC = gcc
 	CXX = g++

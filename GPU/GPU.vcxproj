@@ -130,41 +130,41 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM64);$(WindowsSdk_LibraryPath_ARM64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM);$(WindowsSdk_LibraryPath_ARM);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM64);$(WindowsSdk_LibraryPath_ARM64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_ARM);$(WindowsSdk_LibraryPath_ARM);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -183,7 +183,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -204,7 +204,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -224,7 +224,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -248,7 +248,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -272,7 +272,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -298,7 +298,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -324,7 +324,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
