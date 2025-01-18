@@ -13,8 +13,6 @@
 
 using namespace Microsoft::WRL;
 
-struct ID3DXConstantTable;
-
 HRESULT CompileShaderToByteCodeD3D9(const char *code, const char *target, std::string *errorMessage, ID3DBlob **ppShaderCode) {
 	ComPtr<ID3DBlob> pErrorMsg;
 
