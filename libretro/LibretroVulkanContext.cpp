@@ -83,7 +83,7 @@ static const VkApplicationInfo *GetApplicationInfo(void) {
 	app_info.applicationVersion = Version(PPSSPP_GIT_VERSION).ToInteger();
 	app_info.pEngineName = "PPSSPP";
 	app_info.engineVersion = 2;
-	app_info.apiVersion = VK_API_VERSION_1_3;
+	app_info.apiVersion = VK_API_VERSION_1_0;
 	return &app_info;
 }
 
