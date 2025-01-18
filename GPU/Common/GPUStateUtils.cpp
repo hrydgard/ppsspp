@@ -651,6 +651,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
 		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
 		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
+		//
+		// TODO: We could also add detection here for if the viewport is set up for 2D graphics,
+		// so we can force point filtering for 2D graphics.
+		//
+		// Some setups for that (found in Outrun, for example):
+		//
+		// viewportScaleX/Y: 2048
+		// viewportOffsetX/Y: 2048
+		// offset: 2048-240,  2048-136
+		//
+		// Another one (Wipeout Pulse title screen):
+		//
+		// viewportScaleX/Y: 240, -136  (must be combined with a specific projection matrix)
+		// 2048,2048
+		//
+		// If we see these setups, we can force software transform, and then perform pixel-mapping checking
+		// similar to the various setups in SoftwareTransformCommon.
+		//
+		// We can also detect this pixel mapped setup in a universal way, by transforming the coordinates
+		// (0,0) and (480,272) through the current projection matrix + viewport transform,
+		// and then checking if they come out the same (or very close to it) on the other end.
 
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
