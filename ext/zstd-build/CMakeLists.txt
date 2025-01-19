@@ -1,8 +1,7 @@
-cmake_minimum_required (VERSION 3.2.0)
+cmake_minimum_required (VERSION 3.10.0)
 project (libzstd_static)
 
 set(SRC_DIR ../zstd/lib)
-message(${SRC_DIR})
 
 set(ALL_SOURCE_FILES
 	${SRC_DIR}/common/debug.c

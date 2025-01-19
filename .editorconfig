@@ -26,9 +26,6 @@ charset = utf-8-bom
 # This file may need to force a BOM so compilers treat as utf-8.
 charset = utf-8-bom
 
-[Windows/{aboutbox.rc,version.rc}]
-charset = utf-8
-
 [ext/at3_standalone/**.{cpp,h}]
 indent_style = space
 indent_size = 4

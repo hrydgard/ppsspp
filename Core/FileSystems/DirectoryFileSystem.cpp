@@ -17,13 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#ifdef __MINGW32__
-#include <unistd.h>
-#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
-#define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
-#endif
-#endif
-
 #include <algorithm>
 #include <ctime>
 #include <limits>
@@ -741,7 +734,7 @@ static void tmFromFiletime(tm &dest, const FILETIME &src) {
 	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
 
 	time_t t = (time_t) (from_1970_us / 1000000UL);
-	localtime_r(&t, &dest);
+	localtime_s(&dest, &t);
 }
 #endif
 
