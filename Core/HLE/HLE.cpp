@@ -531,6 +531,7 @@ void HLEReturnFromMipsCall() {
 	if ((stackData->nextOff & 0x0000000F) != 0 || !Memory::IsValidAddress(sp + stackData->nextOff)) {
 		ERROR_LOG(Log::HLE, "Corrupt stack on HLE mips call return: %08x", stackData->nextOff);
 		Core_UpdateState(CORE_RUNTIME_ERROR);
+		hleNoLogVoid();
 		return;
 	}
 
@@ -547,6 +548,7 @@ void HLEReturnFromMipsCall() {
 		if (finalMarker->nextOff != 0xFFFFFFFF) {
 			ERROR_LOG(Log::HLE, "Corrupt stack on HLE mips call return action: %08x", finalMarker->nextOff);
 			Core_UpdateState(CORE_RUNTIME_ERROR);
+			hleNoLogVoid();
 			return;
 		}
 
@@ -583,6 +585,7 @@ void HLEReturnFromMipsCall() {
 		}
 
 		VERBOSE_LOG(Log::HLE, "Finished HLE mips calls, v0=%08x, sp=%08x", currentMIPS->r[MIPS_REG_V0], sp);
+		hleNoLogVoid();
 		return;
 	}
 
@@ -594,6 +597,7 @@ void HLEReturnFromMipsCall() {
 		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
 	}
 	DEBUG_LOG(Log::HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
+	hleNoLogVoid();
 }
 
 const static u32 deadbeefRegs[12] = {0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF};
@@ -708,7 +712,11 @@ static void updateSyscallStats(int modulenum, int funcnum, double total)
 static void CallSyscallWithFlags(const HLEFunction *info) {
 	_dbg_assert_(g_stackSize == 0);
 
-	g_stack[g_stackSize++] = info;
+	const int stackSize = g_stackSize;
+	if (stackSize == 0) {
+		g_stack[0] = info;
+		g_stackSize = 1;
+	}
 	g_syscallPC = currentMIPS->pc;
 
 	const u32 flags = info->flags;
@@ -742,7 +750,11 @@ static void CallSyscallWithFlags(const HLEFunction *info) {
 static void CallSyscallWithoutFlags(const HLEFunction *info) {
 	_dbg_assert_(g_stackSize == 0);
 
-	g_stack[g_stackSize++] = info;
+	const int stackSize = g_stackSize;
+	if (stackSize == 0) {
+		g_stack[0] = info;
+		g_stackSize = 1;
+	}
 	g_syscallPC = currentMIPS->pc;
 
 	info->func();
@@ -849,8 +861,12 @@ void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
 	}
 	const HLEFunction *func = GetFuncByName(mod, funcName);
 	_dbg_assert_(func != nullptr);
-	// Push to the stack.
-	g_stack[g_stackSize++] = func;
+	// Push to the stack. Be careful (due to the nasty adhoc thread..)
+	int stackSize = g_stackSize;
+	if (stackSize >= 0 && stackSize < ARRAY_SIZE(g_stack)) {
+		g_stack[stackSize] = func;
+		g_stackSize = stackSize + 1;
+	}
 }
 
 // TODO: Also add support for argument names.
@@ -956,9 +972,10 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 }
 
 void hleLeave() {
-	_dbg_assert_(g_stackSize > 0);
-	if (g_stackSize > 0) {
-		g_stackSize--;		
+	int stackSize = g_stackSize;
+	_dbg_assert_(stackSize > 0);
+	if (stackSize > 0) {
+		g_stackSize = stackSize - 1;
 	}  // else warn?
 }
 
@@ -967,20 +984,21 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *funcName = "?";
 	u32 funcFlags = 0;
 
-	if (!g_stackSize) {
+	const int stackSize = g_stackSize;
+	if (!stackSize) {
 		ERROR_LOG(Log::HLE, "HLE function stack mismatch!");
 		return;
 	}
 
 	const HLEFunction *hleFunc = g_stack[g_stackSize - 1];
 
-	if (g_stackSize) {
+	if (stackSize) {
 		_dbg_assert_(hleFunc->argmask != nullptr);
 
 		// NOTE: For second stack level, we can't get arguments (unless we somehow get them from the host stack!)
 		// Need to do something smart in hleCall.
 		
-		if (g_stackSize == 1) {
+		if (stackSize == 1) {
 			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
 		} else {
 			truncate_cpy(formatted_args, "...N/A...");

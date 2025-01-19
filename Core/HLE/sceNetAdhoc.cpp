@@ -205,7 +205,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 						if (it != gameModePeerPorts.end())
 							port = it->second;
 							
-						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+						int sent = hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
 							gma.dataSent = 1;
 							DEBUG_LOG(Log::sceNet, "GameMode: Master data Sent %d bytes to Area #%d [%s]", masterGameModeArea.size, gma.id, mac2str(&gma.mac).c_str());
@@ -234,7 +234,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 								if (it != gameModePeerPorts.end())
 									port = it->second;
 
-								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+								hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 							}
 						}
 					}
@@ -1279,7 +1279,7 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited)
-		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED);
 
 	auto product = PSPPointer<SceNetAdhocctlAdhocId>::Create(productAddr);
 	if (product.IsValid()) {
@@ -1308,12 +1308,12 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !networkInited) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
-		return WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init");
+		return hleLogSuccessOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
 	}
 	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	hleEatMicro(us);
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int NetAdhocctl_GetState() {
@@ -1323,11 +1323,11 @@ int NetAdhocctl_GetState() {
 int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	// Library uninitialized
 	if (!netAdhocctlInited)
-		return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 
 	// Invalid Arguments
 	if (!Memory::IsValidAddress(ptrToStatus))
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_INVALID_ARG);
 
 	int state = NetAdhocctl_GetState();
 	// Output Adhocctl State
@@ -2534,9 +2534,7 @@ int sceNetAdhocctlDisconnect() {
 	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	int ret = NetAdhocctl_Disconnect();
-	INFO_LOG(Log::sceNet, "%08x=sceNetAdhocctlDisconnect() at %08x [group=%s]", ret, currentMIPS->pc, grpName);
-
-	return ret;
+	return hleLogSuccessI(Log::sceNet, ret, "group=%s", grpName);
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
@@ -4627,7 +4625,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 	}
 
 	hleEatMicro(100);
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetAdhocGameModeDeleteReplica(int id) {
@@ -4653,7 +4651,7 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 		//gameModeSocket = (int)INVALID_SOCKET;
 	}
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
@@ -4751,12 +4749,14 @@ void __NetTriggerCallbacks()
 			adhocctlEvents.pop_front();
 			// Since we don't have beforeAction, simulate it using ScheduleEvent
 			ScheduleAdhocctlState(flags, newState, delayus, "adhocctl callback state");
+			hleNoLogVoid();
 			return;
 		}
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
 	hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
+	hleNoLogVoid();
 }
 
 const HLEFunction sceNetAdhoc[] = {

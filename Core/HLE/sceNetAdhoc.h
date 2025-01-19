@@ -106,7 +106,8 @@ void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 
 bool __NetAdhocConnected();
 
-// I have to call this from netdialog
+// Called from netdialog
+// NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
 int sceNetAdhocctlCreate(const char * groupName);
 int sceNetAdhocctlConnect(const char* groupName);
@@ -142,8 +143,10 @@ extern u32 matchingThreadHackAddr;
 extern u32_le matchingThreadCode[3];
 
 // Exposing those for the matching routines
+// NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
 int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 int sceNetAdhocPdpCreate(const char* mac, int port, int bufferSize, u32 flag);
+
 int NetAdhoc_SetSocketAlert(int id, s32_le flag);
 int NetAdhocPdp_Delete(int id, int unknown);

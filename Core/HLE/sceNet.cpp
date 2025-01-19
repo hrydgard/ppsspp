@@ -1036,7 +1036,8 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 		prodCode->type = 1; // VT_UTF8 since we're using DiscID instead of product id
 		memcpy(prodCode->data, discID.c_str(), std::min(ADHOCCTL_ADHOCID_LEN, (int)discID.size()));
 	}
-	sceNetAdhocctlInit(stackSize, initPriority, apctlProdCodeAddr);
+
+	hleCall(sceNetAdhocctl, int, sceNetAdhocctlInit, stackSize, initPriority, apctlProdCodeAddr);
 
 	netApctlInited = true;
 
@@ -1287,7 +1288,7 @@ int sceNetApctlDisconnect() {
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
 	// Note: Since we're borrowing AdhocServer for Grouping purpose, we should disconnect too
-	sceNetAdhocctlDisconnect();
+	hleCall(sceNetAdhocctl, int, sceNetAdhocctlDisconnect);
 
 	// Discards any pending events so we can disconnect immediately
 	apctlEvents.clear();

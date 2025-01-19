@@ -145,7 +145,7 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context) {
 			port = it->second;
 
 		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
+		hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac_addr, port, &ping, (u32)sizeof(ping), 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 	}
 }
@@ -203,7 +203,7 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context) {
 			port = it->second;
 
 		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
+		hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac_addr, port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 	}
 	peerlock.unlock();
@@ -281,7 +281,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 	// Send Data
 	context->socketlock->lock();
-	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
+	hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)mac, (*context->peerPort)[*mac], accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
 	context->socketlock->unlock();
 
 	// Free Memory
@@ -329,7 +329,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 
 	// Send Data
 	context->socketlock->lock();
-	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+	hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)mac, (*context->peerPort)[*mac], join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 	context->socketlock->unlock();
 
 	// Free Memory
@@ -363,7 +363,7 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 
 		// Send Data
 		context->socketlock->lock();
-		sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
+		hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)mac, (*context->peerPort)[*mac], cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 
 		// Free Memory
@@ -432,7 +432,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 
 	// Send Data
 	context->socketlock->lock();
-	sceNetAdhocPdpSend(context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
+	hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)mac, (*context->peerPort)[*mac], send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
 	context->socketlock->unlock();
 
 	// Free Memory
@@ -484,7 +484,7 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 		// Send Packet
 		context->socketlock->lock();
-		int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+		int sent = hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, (u32)sizeof(packet), 0, ADHOC_F_NONBLOCK);
 		context->socketlock->unlock();
 
 		// Log Send Success
@@ -528,7 +528,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 			// Send Bye Packet
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+			hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, (u32)sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 		}
 		else {
@@ -539,7 +539,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 
 				// Send Death Packet
 				context->socketlock->lock();
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
+				hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], packet, (u32)sizeof(packet), 0, ADHOC_F_NONBLOCK);
 				context->socketlock->unlock();
 			}
 		}
@@ -567,7 +567,7 @@ void sendByePacket(SceNetAdhocMatchingContext * context) {
 
 			// Send Bye Packet
 			context->socketlock->lock();
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
+			hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, context->socket, (const char*)&peer->mac, (*context->peerPort)[peer->mac], &opcode, (u32)sizeof(opcode), 0, ADHOC_F_NONBLOCK);
 			context->socketlock->unlock();
 		}
 	}
@@ -1136,6 +1136,7 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 
 
 /**
+* TODO: This really should be a callback or event!
 * Matching Event Dispatcher Thread
 * @param args sizeof(SceNetAdhocMatchingContext *)
 * @param argp SceNetAdhocMatchingContext *
@@ -1854,7 +1855,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 
 	if (item == NULL) {
 		// return ERROR_NET_ADHOC_MATCHING_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-		return 0;
+		return hleLogDebug(Log::sceNet, 0);
 	}
 
 	//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
@@ -1872,7 +1873,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	//else return ERROR_NET_ADHOC_MATCHING_INVALID_ARG; // ERROR_NET_ADHOC_MATCHING_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
 
 	// Create PDP Socket
-	int sock = sceNetAdhocPdpCreate((const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
+	int sock = hleCall(sceNetAdhoc, int, sceNetAdhocPdpCreate, (const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
 	item->socket = sock;
 	if (sock < 1) {
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_PORT_IN_USE, "adhoc matching port in use");
@@ -1881,10 +1882,10 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
 	netAdhocMatchingValidateLoopMemory();
 	std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-	matchingThreads[item->matching_thid] = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
+	matchingThreads[item->matching_thid] = hleCall(ThreadManForUser, int, sceKernelCreateThread, thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
 	//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
 	if (matchingThreads[item->matching_thid] > 0) {
-		sceKernelStartThread(matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
+		hleCall(ThreadManForUser, int, sceKernelStartThread, matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
 		//item->matchingThread->Start(matchingId, 0);
 	}
 
@@ -1901,7 +1902,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	item->running = 1;
 	netAdhocMatchingStarted++;
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 #define KERNEL_PARTITION_ID  1
@@ -2004,7 +2005,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 			sendAcceptMessage(context, peer, optLen, opt);
 
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 	}
 
@@ -2025,7 +2026,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 			sendJoinRequest(context, peer, optLen, opt);
 
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 	}
 
@@ -2046,7 +2047,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 			sendJoinRequest(context, peer, optLen, opt);
 
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 
 		// Requesting Peer
@@ -2060,7 +2061,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 			sendAcceptMessage(context, peer, optLen, opt);
 
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 	}
 
@@ -2103,7 +2104,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 		// Peer not found
 		//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
 		// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
-		return 0;
+		return hleLogDebug(Log::sceNet, 0);
 	}
 
 	// Valid Peer Mode
@@ -2131,13 +2132,13 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 		hleEatCycles(adhocDefaultDelay);
 		// Return Success
-		return 0;
+		return hleLogDebug(Log::sceNet, 0);
 	}
 
 	// Peer not found
 	//return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET, "adhocmatching unknown target");
 	// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
@@ -2157,7 +2158,6 @@ int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2187,11 +2187,10 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 	// Multithreading Unlock
 	peerlock.unlock();
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr) {
-	VERBOSE_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x) at %08x", matchingId, optLenAddr, optDataAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2259,7 +2258,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 	}
 
 	// Return Success
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
@@ -2453,7 +2452,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	}
 
 	// Return Success
-	return hleDelayResult(0, "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
+	return hleDelayResult(hleLogDebug(Log::sceNet, 0), "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
 }
 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
@@ -2522,7 +2521,7 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 	sendBulkDataPacket(context, &peer->mac, dataLen, data);
 
 	// Return Success
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
@@ -2572,12 +2571,11 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	}
 
 	// Return Success
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
-	ERROR_LOG(Log::sceNet, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc() at %08x", currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2587,7 +2585,6 @@ static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
-	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x) at %08x", poolstatPtr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2611,7 +2608,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 	poolstat->free = fakePoolSize - poolstat->maximum;
 
 	// Return Success
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 void __NetMatchingCallbacks() { //(int matchingId)
@@ -2650,6 +2647,8 @@ void __NetMatchingCallbacks() { //(int matchingId)
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
 	hleCall(ThreadManForUser, int, sceKernelDelayThread, delayus);
+
+	hleNoLogVoid();
 }
 
 
