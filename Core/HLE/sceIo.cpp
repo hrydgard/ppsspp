@@ -2189,8 +2189,9 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 
 	// TODO: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
-	if (!__KernelIsDispatchEnabled())
-		sceKernelResumeDispatchThread(1);
+	if (!__KernelIsDispatchEnabled()) {
+		hleCall(ThreadManForUser, u32, sceKernelResumeDispatchThread, 1);
+	}
 
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);

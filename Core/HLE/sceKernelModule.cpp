@@ -2409,7 +2409,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 				INFO_LOG(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
 				INFO_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): no stop func", exitCode, argSize, argp);
-			sceKernelExitDeleteThread(exitCode);
+			hleCall(ThreadManForKernel, int, sceKernelExitDeleteThread, exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<PSPModule>(moduleID);
 		} else {
@@ -2417,7 +2417,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 				ERROR_LOG_REPORT(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
 				ERROR_LOG_REPORT(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): bad stop func address", exitCode, argSize, argp);
-			sceKernelExitDeleteThread(exitCode);
+			hleCall(ThreadManForKernel, int, sceKernelExitDeleteThread, exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<PSPModule>(moduleID);
 		}
@@ -2428,7 +2428,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 			ERROR_LOG_REPORT(Log::sceModule, "UNIMPL sceKernelSelfStopUnloadModule(%08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp);
 	}
 
-	return 0;
+	return hleNoLog(0);
 }
 
 static u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
@@ -2452,12 +2452,13 @@ void __KernelReturnFromModuleFunc()
 
 	// Reschedule immediately (to leave the thread) and delete it and its stack.
 	__KernelReSchedule("returned from module");
-	sceKernelDeleteThread(leftThreadID);
+	hleCall(ThreadManForKernel, int, sceKernelDeleteThread, leftThreadID);
 
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(leftModuleID, error);
 	if (!module) {
 		ERROR_LOG_REPORT(Log::sceModule, "Returned from deleted module start/stop func");
+		hleNoLogVoid();
 		return;
 	}
 
@@ -2472,7 +2473,7 @@ void __KernelReturnFromModuleFunc()
 		{
 			if (module->nm.status == MODULE_STATUS_UNLOADING) {
 				// TODO: Maybe should maintain the exitCode?
-				sceKernelTerminateDeleteThread(it->threadID);
+				hleCall(ThreadManForKernel, int, sceKernelTerminateDeleteThread, it->threadID);
 			} else {
 				if (it->statusPtr != 0)
 					Memory::Write_U32(exitStatus, it->statusPtr);
@@ -2487,6 +2488,7 @@ void __KernelReturnFromModuleFunc()
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(leftModuleID);
 	}
+	hleNoLogVoid();
 }
 
 struct GetModuleIdByAddressArg

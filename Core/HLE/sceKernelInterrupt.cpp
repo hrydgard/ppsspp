@@ -91,7 +91,7 @@ static int sceKernelCpuSuspendIntr()
 		returnValue = 0;
 	}
 	hleEatCycles(15);
-	return returnValue;
+	return hleNoLog(returnValue);
 }
 
 static void sceKernelCpuResumeIntr(u32 enable)
@@ -108,6 +108,7 @@ static void sceKernelCpuResumeIntr(u32 enable)
 		__DisableInterrupts();
 	}
 	hleEatCycles(15);
+	hleNoLogVoid();
 }
 
 static int sceKernelIsCpuIntrEnable() {
@@ -123,6 +124,7 @@ static int sceKernelIsCpuIntrSuspended(int flag)
 
 static void sceKernelCpuResumeIntrWithSync(u32 enable)
 {
+	// Just a forward, don't bother with hleCall.
 	sceKernelCpuResumeIntr(enable);
 }
 
