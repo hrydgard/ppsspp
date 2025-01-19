@@ -197,7 +197,7 @@ int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 	u32 error;
 	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
 	if (!alarm) {
-		return hleLogError(Log::sceKernel, error, "invalid alarm", uid, infoPtr);
+		return hleLogError(Log::sceKernel, error, "invalid alarm");
 	}
 
 	if (!Memory::IsValidAddress(infoPtr))

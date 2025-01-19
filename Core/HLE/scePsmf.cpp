@@ -975,7 +975,7 @@ static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 	}
 	int version = Memory::Read_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
 	if (version < 0) {
-		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "bad version %08x", psmfAddr, version);
+		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "bad version at %08x: %d", psmfAddr + PSMF_STREAM_VERSION_OFFSET, version);
 	}
 	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
 	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
@@ -1997,7 +1997,7 @@ static int __PsmfPlayerFinish(u32 psmfPlayer) {
 		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS);
 	}
 	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
-		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "unexpected status %d", psmfPlayer, psmfplayer->status);
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "unexpected status %d", psmfplayer->status);
 	}
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;

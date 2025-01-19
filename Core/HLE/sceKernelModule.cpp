@@ -2054,7 +2054,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 
 	s64 size = (s64)info.size;
 	if (!size) {
-		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_OBJECT, "File is size 0", filename);
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_OBJECT, "File is size 0");
 	}
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
@@ -2549,7 +2549,7 @@ u32 sceKernelFindModuleByName(const char *name)
 			}
 		}
 	}
-	return hleLogWarning(Log::sceModule, 0, "Module Not Found", name);
+	return hleLogWarning(Log::sceModule, 0, "Module Not Found");
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)

@@ -96,14 +96,14 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address", dst, src, size);
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
-		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size", dst, src, size);
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy", dst, src, size);
+		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 
 	return hleLogDebug(Log::HLE, __DmacMemcpy(dst, src, size));

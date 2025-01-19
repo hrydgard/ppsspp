@@ -171,18 +171,21 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 template <typename T>
 [[nodiscard]]
-T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
+#ifdef __GNUC__
+__attribute__((format(printf, 8, 9)))
+#endif
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reasonFmt, ...) {
 	if ((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
 	}
 
 	char formatted_reason[4096] = {0};
-	if (reason != nullptr) {
+	if (reasonFmt != nullptr) {
 		va_list args;
-		va_start(args, reason);
+		va_start(args, reasonFmt);
 		formatted_reason[0] = ':';
 		formatted_reason[1] = ' ';
-		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
+		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reasonFmt, args);
 		formatted_reason[sizeof(formatted_reason) - 1] = '\0';
 		va_end(args);
 	}
@@ -194,7 +197,7 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 	} else if (std::is_signed<T>::value) {
 		fmtRes = (s64)res;
 	}
-	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, reason, formatted_reason);
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, reasonFmt, formatted_reason);
 	return res;
 }
 

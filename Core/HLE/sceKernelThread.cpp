@@ -2936,15 +2936,16 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr) {
 
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 {
-	if (size < 512)
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "xxx", "stack size too small");
+	if (size < 512) {
+		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "stack size too small");
+	}
 
 	PSPThread *thread = __GetCurrentThread();
 	if (!thread)
-		return hleReportError(Log::sceKernel, -1, "xxx", "not on a thread?");
+		return hleReportError(Log::sceKernel, -1, "not on a thread?");
 
 	if (!thread->PushExtendedStack(size))
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "xxx", "could not allocate new stack");
+		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "could not allocate new stack");
 
 	// The stack has been changed now, so it's do or die time.
 

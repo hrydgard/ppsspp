@@ -76,7 +76,7 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (!heap)
-		return hleLogError(Log::sceKernel, error, "sceKernelAllocHeapMemory(%d): invalid heapId", heapId);
+		return hleLogError(Log::sceKernel, error, "invalid heapId");
 
 	// There's 8 bytes at the end of every block, reserved.
 	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
@@ -88,7 +88,7 @@ static int sceKernelDeleteHeap(int heapId) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (!heap)
-		return hleLogError(Log::sceKernel, error, "sceKernelDeleteHeap(%d): invalid heapId", heapId);
+		return hleLogError(Log::sceKernel, error, "invalid heapId");
 
 	// Not using heap->partitionId here for backwards compatibility with old save states.
 	BlockAllocator *allocator = BlockAllocatorFromAddr(heap->address);
@@ -124,22 +124,21 @@ static int sceKernelFreeHeapMemory(int heapId, u32 block) {
 	u32 error;
 	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (!heap)
-		return hleLogError(Log::sceKernel, error, "sceKernelFreeHeapMemory(%d): invalid heapId", heapId);
+		return hleLogError(Log::sceKernel, error, "invalid heapId");
 	if (block == 0) {
-		return hleLogSuccessInfoI(Log::sceKernel, 0, "sceKernelFreeHeapMemory(%d): heapId,0: block", heapId);
+		return hleLogSuccessInfoI(Log::sceKernel, 0, "heapId,0: block");
 	}
 	if (!heap->alloc.FreeExact(block)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid pointer %08x", block);
 	}
-	return hleLogSuccessInfoI(Log::sceKernel, 0, "sceKernelFreeHeapMemory(%d): heapId, block", heapId, block);
-
+	return hleLogSuccessInfoI(Log::sceKernel, 0, "heapId, block");
 }
 
 static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 paramsPtr) {
 	u32 error;
 	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (!heap)
-		return hleLogError(Log::sceKernel, error, "sceKernelFreeHeapMemory(%d): invalid heapId", heapId);
+		return hleLogError(Log::sceKernel, error, "invalid heapId");
 	u32 grain = 4;
 	// 0 is ignored.
 	if (paramsPtr != 0) {
