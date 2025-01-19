@@ -736,7 +736,8 @@ static void CallSyscallWithFlags(const HLEFunction *info) {
 		info->func();
 	}
 
-	// Now, g_stackSize should be back to 0.
+	// Now, g_stackSize should be back to 0. Enable this for "pedantic mode", will find a lot of problems.
+	// Check g_stack[0] in the debugger.
 	// _dbg_assert_(g_stackSize == 0);
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
@@ -759,7 +760,8 @@ static void CallSyscallWithoutFlags(const HLEFunction *info) {
 
 	info->func();
 
-	// Now, g_stackSize should be back to 0.
+	// Now, g_stackSize should be back to 0. Enable this for "pedantic mode", will find a lot of problems.
+	// Check g_stack[0] in the debugger.
 	// _dbg_assert_(g_stackSize == 0);
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)

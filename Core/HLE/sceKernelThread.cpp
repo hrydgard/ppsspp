@@ -2415,11 +2415,9 @@ u32 __KernelGetCurThreadStackStart() {
 	return 0;
 }
 
-SceUID sceKernelGetThreadId()
-{
-	VERBOSE_LOG(Log::sceKernel, "%i = sceKernelGetThreadId()", currentThread);
+SceUID sceKernelGetThreadId() {
 	hleEatCycles(180);
-	return currentThread;
+	return hleLogVerbose(Log::sceKernel, currentThread);
 }
 
 int sceKernelGetThreadCurrentPriority() {
