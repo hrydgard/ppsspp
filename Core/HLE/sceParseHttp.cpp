@@ -157,25 +157,23 @@ static int sceParseHttpStatusLine(u32 headerAddr, u32 headerLength, u32 httpVers
 		}
 	}
 	catch (const std::runtime_error& ex) {
-		hleLogError(Log::sceNet, -1, "Runtime error: %s", ex.what());
+		return hleLogError(Log::sceNet, -1, "Runtime error: %s", ex.what());
 	}
 	catch (const std::exception& ex) {
-		hleLogError(Log::sceNet, -1, "Error occurred: %s", ex.what()); // SCE_HTTP_ERROR_PARSE_HTTP_INVALID_VALUE
+		return hleLogError(Log::sceNet, -1, "Error occurred: %s", ex.what()); // SCE_HTTP_ERROR_PARSE_HTTP_INVALID_VALUE
 	}
 	catch (...) {
-		hleLogError(Log::sceNet, -1, "Unknown error");
+		return hleLogError(Log::sceNet, -1, "Unknown error");
 	}
 
-	return 0;
+	return hleLogSuccessI(Log::sceNet, 0);
 }
 
-const HLEFunction sceParseHttp [] = 
-{
+const HLEFunction sceParseHttp[] = {
 	{0X8077A433, &WrapI_UUUUUUU<sceParseHttpStatusLine>,      "sceParseHttpStatusLine",     'i', "xxxxxxx"},
 	{0XAD7BFDEF, &WrapI_UICUU<sceParseHttpResponseHeader>,    "sceParseHttpResponseHeader", 'i', "xisxx"  },
 };
 
-void Register_sceParseHttp()
-{
+void Register_sceParseHttp() {
 	RegisterModule("sceParseHttp", ARRAY_SIZE(sceParseHttp), sceParseHttp);
 }

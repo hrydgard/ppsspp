@@ -2163,8 +2163,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			}
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		} else {
-			hleLogError(Log::Loader, error, "failed to load");
-			return hleDelayResult(error, "module loaded", 500);
+			return hleDelayResult(hleLogError(Log::Loader, error, "failed to load"), "module loaded", 500);
 		}
 	}
 

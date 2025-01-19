@@ -1996,8 +1996,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
  	WARN_LOG_REPORT_ONCE(sceNetAdhocSetSocketAlert, Log::sceNet, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
 	int retval = NetAdhoc_SetSocketAlert(id, flag);
-	hleDelayResult(retval, "set socket alert delay", 1000);
-	return hleLogDebug(Log::sceNet, retval, "");
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval, ""), "set socket alert delay", 1000);
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
@@ -3482,12 +3481,14 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
 								// Workaround to give some time to get connected before returning from PtpOpen over high latency
-								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1)
-									hleDelayResult(i + 1, "delayed ptpopen", rexmt_int);
+								INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
 
 								// Return PTP Socket id
-								INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
-								return i + 1;
+								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1) {
+									return hleDelayResult(i + 1, "delayed ptpopen", rexmt_int);
+								} else {
+									return i + 1;
+								}
 							}
 
 							// Free Memory

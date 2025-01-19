@@ -775,7 +775,7 @@ static u32 sceDisplayIsVblank() {
 	return hleLogSuccessI(Log::sceDisplay, DisplayIsVblank());
 }
 
-static void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
+void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
 	const s64 ticksIntoFrame = CoreTiming::GetTicks() - DisplayFrameStartTicks();
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 

@@ -25,6 +25,10 @@
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
+#ifdef _MSC_VER
+#pragma warning (error: 4834)  // discarding return value of function with 'nodiscard' attribute
+#endif
+
 class PointerWrap;
 class PSPAction;
 typedef void (* HLEFunc)();

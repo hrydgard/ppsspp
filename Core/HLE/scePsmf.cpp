@@ -1962,41 +1962,40 @@ static u32 scePsmfPlayerSelectVideo(u32 psmfPlayer)
 	return 0;
 }
 
-static u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int videoStreamNum)
+static u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int videoStreamNum) 
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): invalid psmf player", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS);
 	}
 	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
-		ERROR_LOG(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): not playing", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
+		return hleLogError(Log::ME, ERROR_PSMFPLAYER_INVALID_STATUS, "not playing");
 	}
 	if (psmfplayer->totalVideoStreams < 2) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): unable to change stream", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_STREAM;
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STREAM, "unable to change stream");
 	}
 	if (videoStreamNum < 0 || videoStreamNum >= psmfplayer->totalVideoStreams) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): bad stream num param", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_CONFIG;
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_CONFIG, "bad stream num param");
 	}
 	if (videoCodec != 0x0E && videoCodec != 0x00) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): invalid codec", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_STREAM;
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STREAM, "invalid codec");
 	}
 	if (psmfplayer->totalVideoStreams < 2 || !psmfplayer->mediaengine->setVideoStream(videoStreamNum)) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): unable to change stream", psmfPlayer, videoCodec, videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_STREAM;
+		return hleReportError(Log::ME, ERROR_PSMFPLAYER_INVALID_STREAM, "unable to change stream");
 	}
 
 	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i)", psmfPlayer, videoCodec, videoStreamNum);
+	bool delay = false;
 	if (psmfplayer->videoStreamNum != videoStreamNum) {
-		hleDelayResult(0, "psmf select video", 100);
+		delay = true;
 	}
 	psmfplayer->videoCodec = videoCodec;
 	psmfplayer->videoStreamNum = videoStreamNum;
-	return 0;
+	if (delay) {
+		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "psmf select video", 100);
+	} else {
+		return hleLogSuccessI(Log::ME, 0);
+	}
 }
 
 // WARNING: This function appears to be buggy in most libraries.
@@ -2029,12 +2028,17 @@ static u32 scePsmfPlayerSelectSpecificAudio(u32 psmfPlayer, int audioCodec, int 
 	}
 
 	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectSpecificAudio(%08x, %i, %i)", psmfPlayer, audioCodec, audioStreamNum);
+	bool delay = false;
 	if (psmfplayer->audioStreamNum != audioStreamNum) {
-		hleDelayResult(0, "psmf select audio", 100);
+		delay = true;
 	}
 	psmfplayer->audioCodec = audioCodec;
 	psmfplayer->audioStreamNum = audioStreamNum;
-	return 0;
+	if (delay) {
+		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "psmf select audio", 100);
+	} else {
+		return hleLogSuccessI(Log::ME, 0);
+	}
 }
 
 static u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
