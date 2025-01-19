@@ -2033,8 +2033,7 @@ int __KernelGPUReplay() {
 	return result == GPURecord::ReplayResult::Break ? 1 : 0;
 }
 
-int sceKernelLoadExec(const char *filename, u32 paramPtr)
-{
+int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	std::string exec_filename = filename;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
 
@@ -2050,27 +2049,24 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	}
 
 	if (!info.exists) {
-		ERROR_LOG(Log::Loader, "sceKernelLoadExec(%s, ...): File does not exist", filename);
-		return SCE_KERNEL_ERROR_NOFILE;
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_NOFILE, "File does not exist");
 	}
 
 	s64 size = (s64)info.size;
 	if (!size) {
-		ERROR_LOG(Log::Loader, "sceKernelLoadExec(%s, ...): File is size 0", filename);
-		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_OBJECT, "File is size 0", filename);
 	}
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
 	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
-		ERROR_LOG(Log::sceModule, "sceKernelLoadExec failed: %s", error_string.c_str());
 		Core_UpdateState(CORE_RUNTIME_ERROR);
-		return -1;
+		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
 	if (gpu) {
 		gpu->Reinitialize();
 	}
-	return 0;
+	return hleLogDebug(Log::sceModule, 0);
 }
 
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
@@ -2547,11 +2543,9 @@ u32 sceKernelFindModuleByName(const char *name)
 		if (strcmp(name, module->nm.name) == 0) {
 			if (!module->isFake) {
 				INFO_LOG(Log::sceModule, "%d = sceKernelFindModuleByName(%s)", module->modulePtr.ptr, name);
-				return module->modulePtr.ptr;
-			}
-			else {
-				WARN_LOG(Log::sceModule, "0 = sceKernelFindModuleByName(%s): Module Fake", name);
-				return hleDelayResult(0, "Module Fake", 1000 * 1000);
+				return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
+			} else {
+				return hleDelayResult(hleLogWarning(Log::sceModule, 0, "Module Fake"), "Module Fake", 1000 * 1000);
 			}
 		}
 	}
@@ -2619,7 +2613,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
 	ERROR_LOG_REPORT(Log::sceModule, "UNIMPL 0=sceKernelLoadModuleDNAS()");
-	return 0;
+	return hleNoLog(0);
 }
 
 // Pretty sure this is a badly brute-forced function name...
@@ -2643,12 +2637,10 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
 		// This checks for the SFO magic number.
 		if (magic == 0x46535000) {
-			ERROR_LOG(Log::Loader, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return error;
+			return hleLogError(Log::Loader, error, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
 		}
 
-		if ((int)error >= 0)
-		{
+		if ((int)error >= 0) {
 			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
 			// Let's just act as if it worked.
 			NOTICE_LOG(Log::Loader, "Module is blacklisted or undecryptable - we lie about success");
@@ -2669,7 +2661,7 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		INFO_LOG(Log::sceModule,"%i=sceKernelLoadModuleBufferUsbWlan(%x,%08x,flag=%08x,(...))", module->GetUID(), size,bufPtr, flags);
 	}
 
-	return module->GetUID();
+	return hleNoLog(module->GetUID());
 }
 
 static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)

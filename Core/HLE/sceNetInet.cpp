@@ -772,7 +772,6 @@ static int sceNetInetClose(int socket) {
 	}
 
 	g_socketManager.Close(inetSock);
-
 	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 

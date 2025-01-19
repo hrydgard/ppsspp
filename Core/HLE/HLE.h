@@ -216,12 +216,13 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 	return res;
 }
 
-// This will become important later.
+// These will become important later.
 template <typename T>
 [[nodiscard]]
-T hleNoLog(T t) {
+inline T hleNoLog(T t) {
 	return t;
 }
+inline void hleNoLogVoid() {}
 
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
