@@ -422,9 +422,8 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 
 // 0 : wait for completion. 1:check and return
 int sceGeListSync(u32 displayListID, u32 mode) {
-	DEBUG_LOG(Log::sceGe, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
 	hleEatCycles(220);  // Fudged without measuring, copying sceGeContinue.
-	return gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode);
+	return hleLogDebug(Log::sceGe, gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode));
 }
 
 static u32 sceGeDrawSync(u32 mode) {
@@ -433,12 +432,10 @@ static u32 sceGeDrawSync(u32 mode) {
 		hleEatCycles(500000); //HACK(?) : Potential fix for Crash Tag Team Racing and a few Gundam games
 	else if (!PSP_CoreParameter().compat.flags().DrawSyncInstant)
 		hleEatCycles(1240);
-	DEBUG_LOG(Log::sceGe, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
-	return gpu->DrawSync(mode);
+	return hleLogDebug(Log::sceGe, gpu->DrawSync(mode));
 }
 
 static int sceGeContinue() {
-	DEBUG_LOG(Log::sceGe, "sceGeContinue()");
 	bool runList;
 	int ret = gpu->Continue(&runList);
 	if (runList) {
@@ -450,13 +447,12 @@ static int sceGeContinue() {
 	}
 	hleEatCycles(220);
 	hleReSchedule("ge continue");
-	return ret;
+	return hleLogDebug(Log::sceGe, ret);
 }
 
 static int sceGeBreak(u32 mode, u32 unknownPtr) {
 	if (mode > 1) {
-		WARN_LOG(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): invalid mode", mode, unknownPtr);
-		return SCE_KERNEL_ERROR_INVALID_MODE;
+		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
 	}
 	// Not sure what this is supposed to be for...
 	if ((int)unknownPtr < 0 || (int)(unknownPtr + 16) < 0) {
