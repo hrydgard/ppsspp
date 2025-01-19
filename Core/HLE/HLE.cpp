@@ -130,6 +130,7 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 
 void HLEInit() {
 	RegisterAllModules();
+	g_stackSize = 0;
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 	idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
@@ -169,7 +170,6 @@ void HLEDoState(PointerWrap &p) {
 
 void HLEShutdown() {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
-	g_stackSize = 0;
 	moduleDB.clear();
 	enqueuedMipsCalls.clear();
 	for (auto p : mipsCallActions) {

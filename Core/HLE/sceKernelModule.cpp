@@ -2218,6 +2218,7 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
 		_dbg_assert_(threadID > 0);
+		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
@@ -2314,6 +2315,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	{
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
 		_dbg_assert_(threadID > 0);
+		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argSize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
@@ -2397,6 +2399,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		if (Memory::IsValidAddress(stopFunc)) {
 			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
 			_dbg_assert_(threadID > 0);
+			// TOOD: Check the return value and bail?
 			__KernelStartThreadValidate(threadID, argSize, argp);
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
