@@ -486,18 +486,16 @@ static u32 sceUtilityLoadAvModule(u32 module)
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 	
-	INFO_LOG(Log::sceUtility, "0=sceUtilityLoadAvModule(%i)", module);
 	if (module == 0)
 		JpegNotifyLoadStatus(1);
-	return hleDelayResult(0, "utility av module loaded", 25000);
+	return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module)
 {
-	INFO_LOG(Log::sceUtility,"0=sceUtilityUnloadAvModule(%i)", module);
 	if (module == 0)
 		JpegNotifyLoadStatus(-1);
-	return hleDelayResult(0, "utility av module unloaded", 800);
+	return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility av module unloaded", 800);
 }
 
 static const ModuleLoadInfo *__UtilityModuleInfo(int module) {

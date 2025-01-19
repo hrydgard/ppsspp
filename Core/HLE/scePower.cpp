@@ -274,26 +274,23 @@ static int scePowerUnregisterCallback(int slotId) {
 }
 
 static int sceKernelPowerLock(int lockType) {
-	DEBUG_LOG(Log::HLE, "0=sceKernelPowerLock(%i)", lockType);
 	if (lockType == 0) {
-		return 0;
+		return hleLogDebug(Log::HLE, 0);
 	} else {
-		return SCE_KERNEL_ERROR_INVALID_MODE;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_MODE);
 	}
 }
 
 static int sceKernelPowerUnlock(int lockType) {
-	DEBUG_LOG(Log::HLE, "0=sceKernelPowerUnlock(%i)", lockType);
 	if (lockType == 0) {
-		return 0;
+		return hleLogDebug(Log::HLE, 0);
 	} else {
-		return SCE_KERNEL_ERROR_INVALID_MODE;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_MODE);
 	}
 }
 
 static int sceKernelPowerTick(int flag) {
-	DEBUG_LOG(Log::HLE, "UNIMPL 0=sceKernelPowerTick(%i)", flag);
-	return 0;
+	return hleLogDebug(Log::HLE, 0, "UNIMPL");
 }
 
 int KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
@@ -487,7 +484,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	}
 	if (GetLockedCPUSpeedMhz() <= 0)
 		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
-	return 0;
+	return hleNoLog(0);
 }
 
 static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
@@ -556,16 +553,12 @@ static float scePowerGetBusClockFrequencyFloat() {
 }
 
 static int scePowerTick() {
-	DEBUG_LOG(Log::sceMisc, "scePowerTick()");
 	// Don't think we need to do anything.
-	return 0;
+	return hleLogDebug(Log::sceMisc, 0);
 }
 
-
 static u32 IsPSPNonFat() {
-	DEBUG_LOG(Log::sceMisc, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
-
-	return g_Config.iPSPModel;  
+	return hleLogDebug(Log::sceMisc, g_Config.iPSPModel);
 }
 
 static const HLEFunction scePower[] = {
