@@ -707,7 +707,7 @@ int sceKernelDeleteFpl(SceUID uid)
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
-		return hleLogDebug(Log::sceKernel, error, "invalid fpl", uid);
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 
 	bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);

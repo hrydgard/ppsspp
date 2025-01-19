@@ -147,20 +147,17 @@ static int sceNpInit()
 
 	// NOTE: Checking validity and returning -1 here doesn't seem to work. Instead, we will fail to generate a ticket.
 
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpTerm()
 {
 	// No parameters
-	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpGetContentRatingFlag(u32 parentalControlAddr, u32 userAgeAddr)
 {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%08x, %08x)", __FUNCTION__, parentalControlAddr, userAgeAddr);
-
 	if (!Memory::IsValidAddress(parentalControlAddr) || !Memory::IsValidAddress(userAgeAddr))
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
@@ -170,21 +167,17 @@ static int sceNpGetContentRatingFlag(u32 parentalControlAddr, u32 userAgeAddr)
 	Memory::Write_U32(npParentalControl, parentalControlAddr);
 	Memory::Write_U32(npUserAge, userAgeAddr);
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0, "UNTESTED");
 }
 
 static int sceNpGetChatRestrictionFlag(u32 flagAddr)
 {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%08x)", __FUNCTION__, flagAddr);
-
 	if (!Memory::IsValidAddress(flagAddr))
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	INFO_LOG(Log::sceNet, "%s - Chat Restriction: %d", __FUNCTION__, npChatRestriction);
-
 	Memory::Write_U32(npChatRestriction, flagAddr);
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0, "Chat restriction: %d", npChatRestriction);
 }
 
 static int sceNpGetOnlineId(u32 idPtr)
@@ -199,22 +192,18 @@ static int sceNpGetOnlineId(u32 idPtr)
 	strncpy(id->data, npOnlineId.c_str(), sizeof(id->data));
 	id.NotifyWrite("NpGetOnlineId");
 
-	INFO_LOG(Log::sceNet, "%s - Online ID: %s", __FUNCTION__, id->data);
-
-	return 0;
+	return hleLogWarning(Log::sceNet, 0, "Online ID: %s", id->data);
 }
 
 int NpGetNpId(SceNpId* npid)
 {
 	// Callers make sure that the rest of npid is zero filled, which takes care of the terminator.
 	strncpy(npid->handle.data, npOnlineId.c_str(), sizeof(npid->handle.data));
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNpGetNpId(u32 idPtr)
 {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%08x)", __FUNCTION__, idPtr);
-
 	auto id = PSPPointer<SceNpId>::Create(idPtr);
 	if (!id.IsValid())
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
@@ -225,13 +214,11 @@ static int sceNpGetNpId(u32 idPtr)
 	if (retval < 0)
 		return hleLogError(Log::sceNet, retval);
 
-	INFO_LOG(Log::sceNet, "%s - Online ID: %s", __FUNCTION__, id->handle.data);
 	std::string datahex;
 	DataToHexString(id->opt, sizeof(id->opt), &datahex);
-	INFO_LOG(Log::sceNet, "%s - Options?: %s", __FUNCTION__, datahex.c_str());
 	id.NotifyWrite("NpGetNpId");
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0, "Online ID: %s  Options: %s", id->handle.data, datahex.c_str());
 }
 
 static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
@@ -254,7 +241,7 @@ static int sceNpGetAccountRegion(u32 countryCodePtr, u32 regionCodePtr)
 	countryCode.NotifyWrite("NpGetAccountRegion");
 	regionCode.NotifyWrite("NpGetAccountRegion");
 
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceNpGetMyLanguages(u32 langListPtr)
@@ -272,7 +259,7 @@ static int sceNpGetMyLanguages(u32 langListPtr)
 	*langList = npMyLangList;
 	langList.NotifyWrite("NpGetMyLanguages");
 
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceNpGetUserProfile(u32 profilePtr)
@@ -295,7 +282,7 @@ static int sceNpGetUserProfile(u32 profilePtr)
 
 	profile.NotifyWrite("NpGetUserProfile");
 
-	return 0;
+	return hleNoLog(0);
 }
 
 const HLEFunction sceNp[] = {
@@ -318,21 +305,19 @@ void Register_sceNp()
 static int sceNpAuthTerm()
 {
 	// No parameters
-	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
 	npAuthInited = false;
-	return 0;
+	return hleLogWarning(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpAuthInit(u32 poolSize, u32 stackSize, u32 threadPrio) 
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %d, %d)", __FUNCTION__, poolSize, stackSize, threadPrio);
 	npAuthMemStat.npMemSize = poolSize - 0x20;
 	npAuthMemStat.npMaxMemSize = 0x4050; // Dummy maximum foot print
 	npAuthMemStat.npFreeMemSize = npAuthMemStat.npMemSize;
 	npAuthEvents.clear();
 
 	npAuthInited = true;
-	return 0;
+	return hleLogWarning(Log::sceNet, 0);
 }
 
 int sceNpAuthGetMemoryStat(u32 memStatAddr)
@@ -346,7 +331,7 @@ int sceNpAuthGetMemoryStat(u32 memStatAddr)
 	*memStat = npAuthMemStat;
 	memStat.NotifyWrite("NpAuthGetMemoryStat");
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0);
 }
 
 /* 
@@ -363,8 +348,6 @@ return value >= 0 and <0 seems to be stored at a different location by the game 
 */
 int sceNpAuthCreateStartRequest(u32 paramAddr)
 {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%08x) at %08x", __FUNCTION__, paramAddr, currentMIPS->pc);
-
 	if (!Memory::IsValidAddress(paramAddr))
 		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
 
@@ -418,18 +401,16 @@ int sceNpAuthCreateStartRequest(u32 paramAddr)
 	}
 
 	//hleDelayResult(0, "give time", 500000);
-	return retval;
+	return hleLogWarning(Log::sceNet, retval);
 }
 
 // Used within callback of sceNpAuthCreateStartRequest (arg1 = callback's args[0], arg2 = output structPtr?, arg3 = callback's args[1])
 // Is this using request id for Arg1 or cbId?
 // JPCSP is using length = 248 for dummy ticket
-int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, requestId, bufferAddr, length, currentMIPS->pc);
-
-	if (!Memory::IsValidAddress(bufferAddr))
+int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
+	if (!Memory::IsValidAddress(bufferAddr)) {
 		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+	}
 
 	// We have validated, and this will be empty if the ID is bad.
 	if (npOnlineId.empty()) {
@@ -480,30 +461,28 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length)
 
 	result = ticket.header.size + sizeof(ticket.header); // dummy ticket is 248 bytes
 
-	return result;
+	return hleLogWarning(Log::sceNet, result);
 }
 
 // Used within callback of sceNpAuthCreateStartRequest (arg1 = structPtr?, arg2 = callback's args[1], arg3 = DLCcode? ie. "EP9000-UCES01421_00-DLL001", arg4 = Patapon 3 always set to 0?)
 // Patapon 3 will loop (for each DLC?) through an array of 4+4 bytes, ID addr (pchar) + result (int). Each loop calls this function using the same ticket addr but use different ID addr (arg3) and store the return value in result field (default/initial = -1)
 int sceNpAuthGetEntitlementById(u32 ticketBufferAddr, u32 ticketLength, u32 entitlementIdAddr, u32 arg4)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %d, %08x, %d)", __FUNCTION__, ticketBufferAddr, ticketLength, entitlementIdAddr, arg4);
-	INFO_LOG(Log::sceNet, "%s - Entitlement ID: %s", __FUNCTION__, Memory::GetCharPointer(entitlementIdAddr));
-
+	const char *entitlementID = Memory::GetCharPointer(entitlementIdAddr);
 	// Do we return the entitlement through function result? or update the ticket content? or replace the arg3 data with SceNpEntitlement struct?
-	return 1; // dummy value assuming it's a boolean/flag, since we don't know how to return the entitlement result yet
+	// dummy value 1 assuming it's a boolean/flag, since we don't know how to return the entitlement result yet
+	return hleLogWarning(Log::sceNet, 1, "Entitlement ID: %s", entitlementID ? entitlementID : "N/A");
 }
 
 int sceNpAuthAbortRequest(int requestId)
 {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i)", __FUNCTION__, requestId);
 	// TODO: Disconnect HTTPS connection & cancel the callback event
 	std::lock_guard<std::recursive_mutex> npAuthGuard(npAuthEvtMtx);
 	for (auto it = npAuthEvents.begin(); it != npAuthEvents.end(); ) {
 		(it->data[0] == requestId) ? it = npAuthEvents.erase(it) : ++it;
 	}
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0);
 }
 
 int sceNpAuthDestroyRequest(int requestId)
@@ -520,16 +499,15 @@ int sceNpAuthDestroyRequest(int requestId)
 	}
 
 	// Patapon 3 is checking for error code 0x80550402
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 bufferPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %0d, %d, %08x) at %08x", __FUNCTION__, ticketBufPtr, ticketLen, paramNum, bufferPtr, currentMIPS->pc);
 	const u32 PARAM_BUFFER_MAX_SIZE = 256;
 	Memory::Memset(bufferPtr, 0, PARAM_BUFFER_MAX_SIZE); // JPCSP: This clear is always done, even when an error is returned
 	if (paramNum < 0 || paramNum >= NUMBER_PARAMETERS) {
-		return SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT;
+		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT);
 	}
 
 	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointer(ticketBufPtr);
@@ -548,7 +526,7 @@ int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 b
 			break;
 	}
 
-	return 0;
+	return hleLogWarning(Log::sceNet, 0);
 }
 
 const HLEFunction sceNpAuth[] = {
@@ -572,40 +550,32 @@ void Register_sceNpAuth()
 static int sceNpServiceTerm()
 {
 	// No parameters
-	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpServiceInit(u32 poolSize, u32 stackSize, u32 threadPrio) 
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %08x, %08x)", __FUNCTION__, poolSize, stackSize, threadPrio);
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 // FIXME: On Patapon 3 the Arg is pointing to a String, but based on RPCS3 the Arg is an Id integer ?
-static int sceNpLookupCreateTransactionCtx(u32 lookupTitleCtxIdAddr)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x)", __FUNCTION__, lookupTitleCtxIdAddr);
-	INFO_LOG(Log::sceNet, "%s - Title ID: %s", __FUNCTION__, Memory::GetCharPointer(lookupTitleCtxIdAddr));
-	// Patapon 3 will only Destroy if returned Id > 0. Is 0 a valid id?
-	return 1; // returning dummy transaction id
+static int sceNpLookupCreateTransactionCtx(u32 lookupTitleCtxIdAddr) {
+	const char *titleID = Memory::GetCharPointer(lookupTitleCtxIdAddr);
+	// Patapon 3 will only Destroy if returned Id > 0. Is 0 a valid id? Probably not.
+	return hleLogWarning(Log::sceNet, 1, "UNIMPL - title ID: %s", titleID ? titleID : "N/A"); // returning dummy transaction id
 }
 
 // transId: id returned from sceNpLookupCreateTransactionCtx
-static int sceNpLookupDestroyTransactionCtx(s32 transId)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d)", __FUNCTION__, transId);
-	return 0;
+static int sceNpLookupDestroyTransactionCtx(s32 transId) {
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 // transId: id returned from sceNpLookupCreateTransactionCtx
 // Patapon 3 always set Arg5 to 0
 // Addr args have something to do with GameUpdate?
 // FIXME: maxSize and contentLength are u64 based on https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/Cell/Modules/sceNp.cpp ? But on Patapon 3 optionAddr will be deadbeef if maxSize is u64 ?
-static int sceNpLookupTitleSmallStorage(s32 transId, u32 dataAddr, u32 maxSize, u32 contentLengthAddr, u32 optionAddr)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %d, %08x[%d], %08x) at %08x", __FUNCTION__, transId, dataAddr, maxSize, contentLengthAddr, (Memory::IsValidAddress(contentLengthAddr)? Memory::Read_U32(contentLengthAddr): 0), optionAddr, currentMIPS->pc);
-	return 0;
+static int sceNpLookupTitleSmallStorage(s32 transId, u32 dataAddr, u32 maxSize, u32 contentLengthAddr, u32 optionAddr) {
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 // On Resistance Retribution:
@@ -615,10 +585,9 @@ static int sceNpLookupTitleSmallStorage(s32 transId, u32 dataAddr, u32 maxSize, 
 //			32-bit pointer? Seems to be pointing to dummy ticket data generated by sceNpAuthGetTicket
 //			32-bit value (248) dummy ticket length from NpAuth Ticket?
 //			There could be more data in the struct? (at least 48-bytes?)
-static int sceNpRosterCreateRequest(u32 unknownAddr)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x) at %08x", __FUNCTION__, unknownAddr, currentMIPS->pc);
-	return 1; // returning dummy roster id
+static int sceNpRosterCreateRequest(u32 unknownAddr) {
+	// returning dummy roster id
+	return hleLogError(Log::sceNet, 1, "UNIMPL");
 }
 
 // On Resistance Retribution: 
@@ -628,22 +597,16 @@ static int sceNpRosterCreateRequest(u32 unknownAddr)
 //		unknown4Addr pointing to 32-bit value set to 0 (output number of entries?), 
 //		unknown5Addr pointing to zeroed buffer?,
 //		unknown6 set to 0
-static int sceNpRosterGetFriendListEntry(s32 rosterId, u32 unknown1, u32 unknown2, u32 unknown3Addr, u32 unknown4Addr, u32 unknown5Addr, u32 unknown6)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %08x, %08x, %08x, %08x) at %08x", __FUNCTION__, rosterId, unknown1, unknown2, unknown3Addr, unknown4Addr, unknown5Addr, unknown6, currentMIPS->pc);
-	return 0;
+static int sceNpRosterGetFriendListEntry(s32 rosterId, u32 unknown1, u32 unknown2, u32 unknown3Addr, u32 unknown4Addr, u32 unknown5Addr, u32 unknown6) {
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
-static int sceNpRosterAbort(s32 rosterId)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, rosterId, currentMIPS->pc);
-	return 0;
+static int sceNpRosterAbort(s32 rosterId) {
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
-static int sceNpRosterDeleteRequest(s32 rosterId)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, rosterId, currentMIPS->pc);
-	return 0;
+static int sceNpRosterDeleteRequest(s32 rosterId) {
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 const HLEFunction sceNpService[] = {
