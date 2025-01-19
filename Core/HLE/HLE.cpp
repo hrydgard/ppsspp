@@ -40,8 +40,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 
-enum
-{
+enum {
 	// Do nothing after the syscall.
 	HLE_AFTER_NOTHING           = 0x00,
 	// Reschedule immediately after the syscall.
@@ -113,7 +112,7 @@ static std::vector<HLEMipsCallInfo> enqueuedMipsCalls;
 // Does need to be saved, referenced by the stack and owned.
 static std::vector<PSPAction *> mipsCallActions;
 
-void hleDelayResultFinish(u64 userdata, int cycleslate) {
+static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
 	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_HLEDELAY, error);
@@ -183,7 +182,7 @@ int GetNumRegisteredModules() {
 	return (int)moduleDB.size();
 }
 
-void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable) {
+void RegisterModule(std::string_view name, int numFunctions, const HLEFunction *funcTable) {
 	HLEModule module = {name, numFunctions, funcTable};
 	moduleDB.push_back(module);
 }
@@ -192,44 +191,59 @@ const HLEModule *GetModuleByIndex(int index) {
 	return &moduleDB[index];
 }
 
-int GetModuleIndex(const char *moduleName) {
+// TODO: Do something faster.
+const HLEModule *GetModuleByName(std::string_view name) {
+	for (auto &module : moduleDB) {
+		if (name == module.name) {
+			return &module;
+		}
+	}
+	return nullptr;
+}
+
+// TODO: Do something faster.
+const HLEFunction *GetFuncByName(const HLEModule *module, std::string_view name) {
+	for (int i = 0; i < module->numFunctions; i++) {
+		auto &func = module->funcTable[i];
+		if (func.name == name) {
+			return &func;
+		}
+	}
+	return nullptr;
+}
+
+int GetModuleIndex(std::string_view moduleName) {
 	for (size_t i = 0; i < moduleDB.size(); i++)
-		if (strcmp(moduleName, moduleDB[i].name) == 0)
+		if (moduleDB[i].name == moduleName)
 			return (int)i;
 	return -1;
 }
 
-int GetFuncIndex(int moduleIndex, u32 nib)
-{
+int GetFuncIndex(int moduleIndex, u32 nib) {
 	const HLEModule &module = moduleDB[moduleIndex];
-	for (int i = 0; i < module.numFunctions; i++)
-	{
+	for (int i = 0; i < module.numFunctions; i++) {
 		if (module.funcTable[i].ID == nib)
 			return i;
 	}
 	return -1;
 }
 
-u32 GetNibByName(const char *moduleName, const char *function)
-{
+u32 GetNibByName(std::string_view moduleName, std::string_view function) {
 	int moduleIndex = GetModuleIndex(moduleName);
 	if (moduleIndex == -1)
 		return -1;
 
 	const HLEModule &module = moduleDB[moduleIndex];
-	for (int i = 0; i < module.numFunctions; i++)
-	{
-		if (!strcmp(module.funcTable[i].name, function))
+	for (int i = 0; i < module.numFunctions; i++) {
+		if (function == module.funcTable[i].name)
 			return module.funcTable[i].ID;
 	}
 	return -1;
 }
 
-const HLEFunction *GetFunc(const char *moduleName, u32 nib)
-{
+const HLEFunction *GetFunc(std::string_view moduleName, u32 nib) {
 	int moduleIndex = GetModuleIndex(moduleName);
-	if (moduleIndex != -1)
-	{
+	if (moduleIndex != -1) {
 		int idx = GetFuncIndex(moduleIndex, nib);
 		if (idx != -1)
 			return &(moduleDB[moduleIndex].funcTable[idx]);
@@ -237,22 +251,21 @@ const HLEFunction *GetFunc(const char *moduleName, u32 nib)
 	return 0;
 }
 
-const char *GetFuncName(const char *moduleName, u32 nib)
-{
-	_dbg_assert_msg_(moduleName != nullptr, "Invalid module name.");
+const char *GetFuncName(std::string_view moduleName, u32 nib) {
+	_dbg_assert_msg_(!moduleName.empty(), "Invalid module name.");
 
-	const HLEFunction *func = GetFunc(moduleName,nib);
+	const HLEFunction *func = GetFunc(moduleName, nib);
 	if (func)
 		return func->name;
 
-	static char temp[256];
+	static char temp[64];
 	snprintf(temp, sizeof(temp), "[UNK: 0x%08x]", nib);
 	return temp;
 }
 
-u32 GetSyscallOp(const char *moduleName, u32 nib) {
+u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 	// Special case to hook up bad imports.
-	if (moduleName == NULL) {
+	if (moduleName.empty()) {
 		return (0x03FFFFCC);	// invalid syscall
 	}
 
@@ -262,20 +275,18 @@ u32 GetSyscallOp(const char *moduleName, u32 nib) {
 		if (funcindex != -1) {
 			return (0x0000000c | (modindex<<18) | (funcindex<<6));
 		} else {
-			INFO_LOG(Log::HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
+			INFO_LOG(Log::HLE, "Syscall (%.*s, %08x) unknown", (int)moduleName.size(), moduleName.data(), nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
-	}
-	else
-	{
-		ERROR_LOG(Log::HLE, "Unknown module %s!", moduleName);
-		return (0x03FFFFCC);	// invalid syscall
+	} else {
+		ERROR_LOG(Log::HLE, "Unknown module %.*s!", (int)moduleName.size(), moduleName.data());
+		return 0x03FFFFCC;	// invalid syscall
 	}
 }
 
-bool FuncImportIsSyscall(const char *module, u32 nib)
+bool FuncImportIsSyscall(std::string_view module, u32 nib)
 {
-	return GetFunc(module, nib) != NULL;
+	return GetFunc(module, nib) != nullptr;
 }
 
 void WriteFuncStub(u32 stubAddr, u32 symAddr)
@@ -291,14 +302,14 @@ void WriteFuncMissingStub(u32 stubAddr, u32 nid)
 {
 	// Write a trap so we notice this func if it's called before resolving.
 	Memory::Write_U32(MIPS_MAKE_JR_RA(), stubAddr); // jr ra
-	Memory::Write_U32(GetSyscallOp(NULL, nid), stubAddr + 4);
+	Memory::Write_U32(GetSyscallOp("", nid), stubAddr + 4);
 }
 
-bool WriteSyscall(const char *moduleName, u32 nib, u32 address)
+bool WriteSyscall(std::string_view moduleName, u32 nib, u32 address)
 {
 	if (nib == 0)
 	{
-		WARN_LOG_REPORT(Log::HLE, "Wrote patched out nid=0 syscall (%s)", moduleName);
+		WARN_LOG_REPORT(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
 		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); //patched out?
 		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
@@ -312,7 +323,7 @@ bool WriteSyscall(const char *moduleName, u32 nib, u32 address)
 	}
 	else
 	{
-		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %s/%08x", moduleName, nib);
+		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
 		return false;
 	}
 }
@@ -753,7 +764,8 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
-		ERROR_LOG(Log::HLE, "Unknown syscall: Module: %s (module: %d func: %d)", modulenum > (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name, modulenum, funcnum);
+		std::string_view modName = modulenum > (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
+		ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
@@ -934,12 +946,12 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 void hleLeave() {
 	_dbg_assert_(g_stackSize > 0);
 	if (g_stackSize > 0) {
-		g_stackSize--;
+		g_stackSize--;		
 	}  // else warn?
 }
 
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
-	char formatted_args[4096];
+	char formatted_args[2048];
 	const char *funcName = "?";
 	u32 funcFlags = 0;
 
@@ -952,7 +964,15 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 	if (g_stackSize) {
 		_dbg_assert_(hleFunc->argmask != nullptr);
-		hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
+
+		// NOTE: For second stack level, we can't get arguments (unless we somehow get them from the host stack!)
+		// Need to do something smart in hleCall.
+		
+		if (g_stackSize == 1) {
+			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
+		} else {
+			truncate_cpy(formatted_args, "...N/A...");
+		}
 
 		// This acts as an override (for error returns which are usually hex.)
 		if (retmask == '\0')

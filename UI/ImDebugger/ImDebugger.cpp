@@ -977,11 +977,12 @@ void DrawHLEModules(ImConfig &config) {
 	}
 
 	std::sort(modules.begin(), modules.end(), [](const HLEModule* a, const HLEModule* b) {
-		return std::strcmp(a->name, b->name) < 0;
+		return a->name < b->name;
 	});
-
+	std::string label;
 	for (auto mod : modules) {
-		if (ImGui::TreeNode(mod->name)) {
+		label = mod->name;
+		if (ImGui::TreeNode(label.c_str())) {
 			for (int j = 0; j < mod->numFunctions; j++) {
 				auto &func = mod->funcTable[j];
 				ImGui::Text("%s(%s)", func.name, func.argmask);

@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <type_traits>
+#include <string_view>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -76,7 +77,7 @@ struct HLEFunction {
 };
 
 struct HLEModule {
-	const char *name;
+	std::string_view name;
 	int numFunctions;
 	const HLEFunction *funcTable;
 };
@@ -96,13 +97,13 @@ struct Syscall {
 #define RETURN64(n) {u64 RETURN64_tmp = n; currentMIPS->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; currentMIPS->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
 #define RETURNF(fl) currentMIPS->f[0] = fl
 
-const char *GetFuncName(const char *module, u32 nib);
+const char *GetFuncName(std::string_view module, u32 nib);
 const char *GetFuncName(int module, int func);
-const HLEFunction *GetFunc(const char *module, u32 nib);
+const HLEFunction *GetFunc(std::string_view module, u32 nib);
 int GetFuncIndex(int moduleIndex, u32 nib);
-int GetModuleIndex(const char *modulename);
+int GetModuleIndex(std::string_view modulename);
 
-void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable);
+void RegisterModule(std::string_view name, int numFunctions, const HLEFunction *funcTable);
 int GetNumRegisteredModules();
 const HLEModule *GetModuleByIndex(int index);
 
@@ -157,10 +158,10 @@ inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 void HLEInit();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
-u32 GetNibByName(const char *module, const char *function);
-u32 GetSyscallOp(const char *module, u32 nib);
-bool FuncImportIsSyscall(const char *module, u32 nib);
-bool WriteSyscall(const char *module, u32 nib, u32 address);
+u32 GetNibByName(std::string_view module, std::string_view function);
+u32 GetSyscallOp(std::string_view module, u32 nib);
+bool FuncImportIsSyscall(std::string_view module, u32 nib);
+bool WriteSyscall(std::string_view module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
