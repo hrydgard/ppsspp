@@ -695,12 +695,11 @@ static u32 sceNetTerm() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Network shutdown"), 2.0, "networkinit");
 
-	WARN_LOG(Log::sceNet, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
 	hleEatMicro(adhocDefaultDelay);
-	return retval;
+	return hleLogWarning(Log::sceNet, retval, "at %08x", currentMIPS->pc);
 }
 
 /*
