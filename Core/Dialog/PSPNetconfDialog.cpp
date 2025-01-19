@@ -23,6 +23,7 @@
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
@@ -176,7 +177,8 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
-					connResult = sceNetApctlConnect(1);
+					// connResult = sceNetApctlConnect(1);
+					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
 				}
 			}
 		}

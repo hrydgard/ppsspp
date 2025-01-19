@@ -408,9 +408,9 @@ static bool hleExecuteDebugBreak(const HLEFunction *func) {
 	return true;
 }
 
+// Should be used *outside* hleLogError for example. Not the other way around.
 u32 hleDelayResult(u32 result, const char *reason, int usec) {
-	_dbg_assert_(g_stackSize > 0);
-	_dbg_assert_(g_stackSize == 1);
+	_dbg_assert_(g_stackSize == 0);
 
 	if (!__KernelIsDispatchEnabled()) {
 		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stackSize ? g_stack[0]->name : "?");
@@ -425,16 +425,16 @@ u32 hleDelayResult(u32 result, const char *reason, int usec) {
 }
 
 u64 hleDelayResult(u64 result, const char *reason, int usec) {
-	_dbg_assert_(g_stackSize > 0);
-	_dbg_assert_(g_stackSize == 1);
-
+	// Note: hleDelayResult is called at the outer level, *outside* logging.
+	// So, we read from the entry that was just popped. This is OK.
+	_dbg_assert_(g_stackSize == 0);
 	if (!__KernelIsDispatchEnabled()) {
-		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stackSize ? g_stack[0]->name : "?");
+		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stack[0]->name);
 	} else {
 		// TODO: Defer this, so you can call this multiple times, in case of syscalls calling syscalls? Although, return values are tricky.
 		SceUID thread = __KernelGetCurThread();
 		if (KernelIsThreadWaiting(thread))
-			ERROR_LOG(Log::HLE, "%s: Delaying a thread that's already waiting", g_stackSize ? g_stack[0]->name : "?");
+			ERROR_LOG(Log::HLE, "%s: Delaying a thread that's already waiting", g_stack[0]->name);
 		u64 param = (result & 0xFFFFFFFF00000000) | thread;
 		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
 		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32)result, 0, false, reason);
@@ -839,6 +839,16 @@ void CallSyscall(MIPSOpcode op) {
 		hleFlipTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
 	}
+}
+
+void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
+	const HLEModule *mod = GetModuleByName(module);
+	if (!mod) {
+		return;
+	}
+	const HLEFunction *func = GetFuncByName(mod, funcName);
+	// Push to the stack.
+	g_stack[g_stackSize++] = func;
 }
 
 // TODO: Also add support for argument names.

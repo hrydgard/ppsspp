@@ -2263,7 +2263,7 @@ int sceNetAdhocctlScan() {
 			// TODO: Valhalla Knights 2 need handler notification, but need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
 			hleEatMicro(500);
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
@@ -2281,7 +2281,7 @@ int sceNetAdhocctlScan() {
 
 			if (friendFinderRunning) {
 				AdhocctlRequest req = { OPCODE_SCAN, {0} };
-				return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
+				return hleLogSuccessOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, us, "adhocctl scan"));
 			}
 			else {
 				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
@@ -2291,7 +2291,7 @@ int sceNetAdhocctlScan() {
 			// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
 			hleEatMicro(us);
 			// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlScan switching to a different thread for at least 100ms after returning success and before executing the next line?
-			return hleDelayResult(0, "scan delay", adhocEventPollDelay);
+			return hleDelayResult(hleLogDebug(Log::sceNet, 0), "scan delay", adhocEventPollDelay);
 		}
 		
 		// FIXME: Returning BUSY when previous adhocctl handler's callback is not fully executed yet, But returning success and notifying handler's callback with error (ie. ALREADY_CONNECTED) when previous adhocctl handler's callback is fully executed? Is there a case where error = BUSY sent through handler's callback?
@@ -5033,7 +5033,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 			peerlock.unlock();
 
 			// Return Success
-			return hleLogDebug(Log::sceNet, hleDelayResult(0, "delay 100 ~ 1000us", 100), "success"); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
+			return hleDelayResult(hleLogDebug(Log::sceNet, 0, "success"), "delay 100 ~ 1000us", 100); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
 		}
 
 		// Invalid Arguments

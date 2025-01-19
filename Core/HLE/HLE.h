@@ -247,6 +247,18 @@ inline void hleNoLogVoid() {
 	hleLeave();
 }
 
+// TODO: See if we can search the tables with constexpr tricks!
+void hlePushFuncDesc(std::string_view module, std::string_view funcName);
+
+// Calls a syscall from another syscall, managing the logging stack.
+template<class R, class F, typename... Args>
+inline R hleCallImpl(std::string_view module, std::string_view funcName, F func, Args... args) {
+	hlePushFuncDesc(module, funcName);
+	return func(args...);
+}
+
+#define hleCall(module, retType, funcName, ...) hleCallImpl<retType>(#module, #funcName, funcName, __VA_ARGS__)
+
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
 #define HLE_LOG_LDEBUG LNOTICE

@@ -1026,15 +1026,15 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	if (!params.IsValid() || !errorCode.IsValid()) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontNewLib(%08x, %08x): invalid addresses", paramPtr, errorCodePtr);
 		// The PSP would crash in this situation, not a real error code.
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogError(Log::sceFont, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
 	}
+
 	if (!Memory::IsValidAddress(params->allocFuncAddr) || !Memory::IsValidAddress(params->freeFuncAddr)) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontNewLib(%08x, %08x): missing alloc func", paramPtr, errorCodePtr);
 		*errorCode = ERROR_FONT_INVALID_PARAMETER;
-		return 0;
+		return hleLogError(Log::sceFont, 0);
 	}
 
-	INFO_LOG(Log::sceFont, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 	*errorCode = 0;
 
 	FontLib *newLib = new FontLib(params, errorCodePtr);
@@ -1042,7 +1042,7 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	// The game should never see this value, the return value is replaced
 	// by the action. Except if we disable the alloc, in this case we return
 	// the handle correctly here.
-	return hleDelayResult(newLib->handle(), "new fontlib", 30000);
+	return hleDelayResult(hleLogSuccessInfoI(Log::sceFont, newLib->handle()), "new fontlib", 30000);
 }
 
 static int sceFontDoneLib(u32 fontLibHandle) {
@@ -1066,11 +1066,11 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
 		*errorCode = ERROR_FONT_INVALID_LIBID;
-		return hleLogDebug(Log::sceFont, 0, "invalid font lib");
+		return hleLogWarning(Log::sceFont, 0, "invalid font lib");
 	}
 	if (index >= internalFonts.size()) {
 		*errorCode = ERROR_FONT_INVALID_PARAMETER;
-		return hleLogDebug(Log::sceFont, 0, "invalid font index");
+		return hleLogWarning(Log::sceFont, 0, "invalid font index");
 	}
 
 	FontOpenMode openMode = mode != 1 ? FONT_OPEN_INTERNAL_STINGY : FONT_OPEN_INTERNAL_FULL;
@@ -1121,7 +1121,7 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 		return hleLogSuccessX(Log::sceFont, font->Handle());
 	}
 	delete f;
-	return 0;
+	return hleNoLog(0);
 }
 
 // Open a user font in a file into a FontLib

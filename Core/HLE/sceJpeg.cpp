@@ -598,7 +598,7 @@ static int sceJpegInitMJpeg() {
 	// If it was -1, it's from an old save state, avoid double init error but assume inited.
 	if (mjpegInited == 0)
 		mjpegInited = 1;
-	return hleLogSuccessI(Log::ME, hleDelayResult(0, "mjpeg init", 130));
+	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mjpeg init", 130);
 }
 
 static int sceJpegFinishMJpeg() {
@@ -609,7 +609,7 @@ static int sceJpegFinishMJpeg() {
 
 	// Even from an old save state, if we see this we leave compat mode.
 	mjpegInited = 0;
-	return hleLogSuccessI(Log::ME, hleDelayResult(0, "mjpeg finish", 120));
+	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mjpeg finish", 120);
 }
 
 static int sceJpegMJpegCscWithColorOption() {

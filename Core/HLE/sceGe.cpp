@@ -490,15 +490,17 @@ static u32 sceGeSetCallback(u32 structAddr) {
 
 	int subIntrBase = __GeSubIntrBase(cbID);
 
+	// TODO: Maybe don't ignore return values of the hleCalls?
+
 	if (ge_callback_data[cbID].finish_func != 0) {
-		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH,
+		hleCall(InterruptManager, u32, sceKernelRegisterSubIntrHandler, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH,
 				ge_callback_data[cbID].finish_func, ge_callback_data[cbID].finish_arg);
-		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
+		hleCall(InterruptManager, u32, sceKernelEnableSubIntr, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
 	}
 	if (ge_callback_data[cbID].signal_func != 0) {
-		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL,
+		hleCall(InterruptManager, u32, sceKernelRegisterSubIntrHandler, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL,
 				ge_callback_data[cbID].signal_func, ge_callback_data[cbID].signal_arg);
-		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
+		hleCall(InterruptManager, u32, sceKernelEnableSubIntr, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
 	return hleLogSuccessI(Log::sceGe, cbID);
@@ -515,8 +517,9 @@ static int sceGeUnsetCallback(u32 cbID) {
 	if (ge_used_callbacks[cbID]) {
 		int subIntrBase = __GeSubIntrBase(cbID);
 
-		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
-		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
+		// TODO: Maybe don't ignore return values?
+		hleCall(InterruptManager, u32, sceKernelReleaseSubIntrHandler, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
+		hleCall(InterruptManager, u32, sceKernelReleaseSubIntrHandler, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	} else {
 		WARN_LOG(Log::sceGe, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
 	}

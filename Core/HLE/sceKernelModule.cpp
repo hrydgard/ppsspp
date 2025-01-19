@@ -2096,7 +2096,6 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			}
 
 			// TODO: It would be more ideal to allocate memory for this module.
-
 			return hleLogSuccessInfoI(Log::Loader, module->GetUID(), "created fake module");
 		}
 	}

@@ -318,7 +318,7 @@ static int sceMp3InitResource() {
 		return hleLogSuccessI(Log::ME, 0);
 	}
 	resourceInited = true;
-	return hleLogSuccessI(Log::ME, hleDelayResult(0, "mp3 resource init", 200));
+	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mp3 resource init", 200);
 }
 
 static int sceMp3TermResource() {
@@ -333,7 +333,7 @@ static int sceMp3TermResource() {
 	mp3Map.clear();
 
 	resourceInited = false;
-	return hleLogSuccessI(Log::ME, hleDelayResult(0, "mp3 resource term", 100));
+	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mp3 resource term", 100);
 }
 
 static int __CalculateMp3Channels(int bitval) {
@@ -717,7 +717,7 @@ static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
 	// Indicate that we've run low level init by setting version to 1.
 	ctx->Version = 1;
 
-	return hleLogSuccessInfoI(Log::ME, hleDelayResult(0, "mp3 low level", 600));
+	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "mp3 low level", 600);
 }
 
 static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {

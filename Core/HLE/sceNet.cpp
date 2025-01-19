@@ -847,7 +847,7 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
-	return hleLogSuccessI(Log::sceNet, hleDelayResult(0, "get ether mac", 200));
+	return hleDelayResult(hleLogSuccessI(Log::sceNet, 0), "get ether mac", 200);
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {

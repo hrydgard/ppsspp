@@ -279,16 +279,16 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 			  numSamplesAddr, numSamples,
 			  finishFlagAddr, finish,
 			  remainAddr, remains);
-	if (!ret) {
+	if (ret == 0) {
 		// decode data successfully, delay thread
-		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
+		return hleDelayResult(hleNoLog(ret), "atrac decode data", atracDecodeDelay);
 	}
-	return ret;
+	return hleNoLog(ret);
 }
 
 static u32 sceAtracEndEntry() {
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAtracEndEntry()");
-	return 0;
+	return hleNoLog(0);
 }
 
 // Obtains information about what needs to be in the buffer to seek (or "reset")
@@ -571,11 +571,13 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "reset play pos", 3000);
 }
 
+// Allowed to log like a HLE function, only called at the end of some.
 static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, bool needReturnAtracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
 	if (!atrac)
 		return hleLogError(Log::ME, ATRAC_ERROR_BAD_ATRACID, "invalid atrac ID");
+	// SetData logs like a hle function.
 	int ret = atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
 	// not sure the real delay time
 	return hleDelayResult(ret, "atrac set data", 100);
@@ -714,9 +716,8 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 
 	// This seems to deinit things.  Mostly, it cause a reschedule on next deinit (but -1, -1 does not.)
 	if (at3Count == 0 && at3plusCount == 0) {
-		INFO_LOG(Log::ME, "sceAtracReinit(%d, %d): deinit", at3Count, at3plusCount);
 		atracInited = false;
-		return hleDelayResult(0, "atrac reinit", 200);
+		return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0, "deinit"), "atrac reinit", 200);
 	}
 
 	// First, ATRAC3+.  These IDs seem to cost double (probably memory.)
@@ -982,7 +983,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	*outWritten = bytesWritten;
 
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, bytesWritten, "AtracLowLevelDecode");
-	return hleLogDebug(Log::ME, hleDelayResult(0, "low level atrac decode data", atracDecodeDelay));
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "low level atrac decode data", atracDecodeDelay);
 }
 
 static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize) {
