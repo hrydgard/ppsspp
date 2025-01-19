@@ -476,7 +476,7 @@ void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction)
 void hleFlushCalls() {
 	u32 &sp = currentMIPS->r[MIPS_REG_SP];
 	PSPPointer<HLEMipsCallStack> stackData;
-	_dbg_assert_(g_stackSize > 0);
+	_dbg_assert_(g_stackSize == 0);
 	VERBOSE_LOG(Log::HLE, "Flushing %d HLE mips calls from %s, sp=%08x", (int)enqueuedMipsCalls.size(), g_stackSize ? g_stack[0]->name : "?", sp);
 
 	// First, we'll add a marker for the final return.
@@ -843,10 +843,12 @@ void CallSyscall(MIPSOpcode op) {
 
 void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
 	const HLEModule *mod = GetModuleByName(module);
+	_dbg_assert_(mod != nullptr);
 	if (!mod) {
 		return;
 	}
 	const HLEFunction *func = GetFuncByName(mod, funcName);
+	_dbg_assert_(func != nullptr);
 	// Push to the stack.
 	g_stack[g_stackSize++] = func;
 }

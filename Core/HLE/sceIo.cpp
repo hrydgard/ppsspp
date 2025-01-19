@@ -2599,7 +2599,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			// Everything OK.
 			f->npdrm = true;
 			f->pgdInfo->data_offset += f->pgd_offset;
-			return 0;
+			return hleLogDebug(Log::sceIo, 0);
 		}
 		break;
 	}
@@ -2764,11 +2764,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			// Position is in sectors, don't forget.
 			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE);
 			}
 			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2782,12 +2782,12 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 				ERROR_LOG(Log::sceIo, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
 			}
-			return result;
+			return hleLogSuccessOrError(Log::sceIo, result);
 		}
 		break;
 	}
 
-	return 0;
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)

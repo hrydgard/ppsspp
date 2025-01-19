@@ -480,7 +480,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 		else if ((newPll == 266 && oldPll == 333) || (newPll == 333 && oldPll == 266))
 			usec = 16600;
 
-		return hleDelayResult(0, "scepower set clockFrequency", usec);
+		return hleDelayResult(hleNoLog(0), "scepower set clockFrequency", usec);
 	}
 	if (GetLockedCPUSpeedMhz() <= 0)
 		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));

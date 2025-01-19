@@ -1544,8 +1544,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		// Would have crashed before, TODO test behavior.
-		ERROR_LOG_REPORT(Log::ME, "sceMpegRingbufferPut(%08x, %i, %i): invalid ringbuffer address", ringbufferAddr, numPackets, available);
-		return -1;
+		return hleLogError(Log::ME, -1, "invalid ringbuffer address");
 	}
 
 	numPackets = std::min(numPackets, available);
@@ -1553,14 +1552,12 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 	// Seems still need to check actual available, Patapon 3 for example.
 	numPackets = std::min(numPackets, ringbuffer->packets - ringbuffer->packetsAvail);
 	if (numPackets <= 0) {
-		DEBUG_LOG(Log::ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
-		return 0;
+		return hleLogDebug(Log::ME, 0, "no packets to enqueue");
 	}
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	if (!ctx) {
-		WARN_LOG(Log::ME, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer->mpeg);
-		return -1;
+		return hleLogWarning(Log::ME, -1, "bad mpeg handle %08x", ringbuffer->mpeg);
 	}
 	ringbufferPutPacketsAdded = 0;
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
@@ -1588,29 +1585,26 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 	} else {
 		ERROR_LOG_REPORT(Log::ME, "sceMpegRingbufferPut: callback_addr zero");
 	}
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		WARN_LOG(Log::ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, streamId, auAddr, attrAddr);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad mpeg handle");
 	}
 
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		// Would have crashed before, TODO test behavior.
-		ERROR_LOG_REPORT(Log::ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamId, auAddr, attrAddr);
-		return -1;
+		return hleLogError(Log::ME, -1, "invalid ringbuffer address");
 	}
 	
 	if (PSP_CoreParameter().compat.flags().MpegAvcWarmUp) {
 		if (ctx->mpegwarmUp == 0) {
-			DEBUG_LOG(Log::ME, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): warming up", mpeg, streamId, auAddr, attrAddr);
 			ctx->mpegwarmUp++;
-			return ERROR_MPEG_NO_DATA;
+			return hleLogDebug(Log::ME, ERROR_MPEG_NO_DATA, "warming up (%d)", ctx->mpegwarmUp);
 		}
 	}
 
@@ -1627,8 +1621,7 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	auto streamInfo = ctx->streamMap.find(streamId);
 	if (streamInfo == ctx->streamMap.end())	{
-		WARN_LOG_REPORT(Log::ME, "sceMpegGetAvcAu: invalid video stream %08x", streamId);
-		return -1;
+		return hleLogWarning(Log::ME, -1, "invalid video stream %08x", streamId);
 	}
 
 	if (streamInfo->second.needsReset) {

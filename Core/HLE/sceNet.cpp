@@ -635,11 +635,15 @@ void __NetApctlCallbacks()
 		}
 		// Similar to Adhocctl, new State might need to be set after delayed, right before executing the mipscall (ie. simulated beforeAction)
 		ScheduleApctlState(event, newState, delayus, "apctl callback state");
+		hleNoLogVoid();
 		return;
 	}
 
 	// Must be delayed long enough whenever there is a pending callback to make sure previous callback & it's afterAction are fully executed
-	sceKernelDelayThread(delayus);
+
+	hleCall(ThreadManForUser, int, sceKernelDelayThread, delayus);
+
+	hleNoLogVoid();
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -1270,7 +1274,7 @@ int sceNetApctlConnect(int confId) {
 	// Is this confId is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	netApctlInfoId = confId;
 	// Note: We're borrowing AdhocServer for Grouping purpose, so we can simulate Broadcast over the internet just like Adhoc's pro-online implementation
-	int ret = sceNetAdhocctlConnect("INFRA");
+	int ret = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, "INFRA");
 
 	if (netApctlState == PSP_NET_APCTL_STATE_DISCONNECTED)
 		__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_JOINING, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
@@ -1481,12 +1485,14 @@ static int sceNetApctlDelInternalHandler(u32 handlerID) {
 static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 3rd kind of handler
+	// Simple forward, don't need to use hleCall
 	return sceNetApctlAddHandler(handlerPtr, handlerArg);
 }
 
 static int sceNetApctl_6F5D2981(u32 handlerID) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 3rd kind of handler
+	// Simple forward, don't need to use hleCall
 	return sceNetApctlDelHandler(handlerID);
 }
 
@@ -1496,6 +1502,7 @@ static int sceNetApctl_lib2_69745F0A(int handlerId) {
 
 static int sceNetApctl_lib2_4C19731F(int code, u32 pInfoAddr) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+	// Simple forward, don't need to use hleCall
 	return sceNetApctlGetInfo(code, pInfoAddr);
 }
 
@@ -1515,6 +1522,7 @@ static int sceNetApctlGetBSSDescEntry(int entryId, int infoId, u32 resultAddr) {
 
 static int sceNetApctl_lib2_C20A144C(int connIndex, u32 ps3MacAddressPtr) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x)", __FUNCTION__, connIndex, ps3MacAddressPtr);
+	// Simple forward, don't need to use hleCall
 	return sceNetApctlConnect(connIndex);
 }
 

@@ -1349,11 +1349,11 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), port, bufferSize, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN");
 	}
 
 	if (!netInited)
-		return 0x800201CA; //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
+		return hleLogError(Log::sceNet, 0x800201CA); //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
@@ -1517,7 +1517,7 @@ static int sceNetAdhocctlGetParameter(u32 paramAddr) {
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetParameter(%08x) [Ch=%i][Group=%s][BSSID=%s][name=%s]", paramAddr, parameter.channel, grpName, mac2str(&parameter.bssid.mac_addr).c_str(), parameter.nickname.data);
 	if (!g_Config.bEnableWlan) {
-		return ERROR_NET_ADHOCCTL_DISCONNECTED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_DISCONNECTED);
 	}
 
 	// Library initialized
@@ -1552,7 +1552,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac).c_str(), port, data, len, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
 	uint16_t dport = (uint16_t)port;
@@ -1776,7 +1776,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 	}
  
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	SceNetEtherAddr *saddr = (SceNetEtherAddr *)addr;
@@ -2252,7 +2252,7 @@ static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 int sceNetAdhocctlScan() {
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlScan() at %08x", currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Library initialized
@@ -2310,7 +2310,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return 0;
+		return hleLogWarning(Log::sceNet, 0, "WLAN off");
 	}
 
 	// Library initialized
@@ -2684,7 +2684,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	VERBOSE_LOG(Log::sceNet, "sceNetAdhocctlGetPeerInfo(%s, %i, %08x) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), size, peerInfoAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	SceNetEtherAddr * maddr = (SceNetEtherAddr *)mac;
@@ -2825,7 +2825,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlCreate(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
@@ -2839,7 +2839,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 		strncpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
@@ -3348,7 +3348,7 @@ int RecreatePtpSocket(int ptpId) {
 static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen(%s, %d, %s, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport, mac2str((SceNetEtherAddr*)dstmac).c_str(),dport,bufsize, rexmt_int, rexmt_cnt, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 	SceNetEtherAddr* saddr = (SceNetEtherAddr*)srcmac;
 	SceNetEtherAddr* daddr = (SceNetEtherAddr*)dstmac;
@@ -3655,7 +3655,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Library is initialized
@@ -3868,7 +3868,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpConnect(%i, %i, %i) at %08x", id, timeout, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	return NetAdhocPtp_Connect(id, timeout, flag);
@@ -3926,7 +3926,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 static int sceNetAdhocPtpClose(int id, int unknown) {
 	INFO_LOG(Log::sceNet,"sceNetAdhocPtpClose(%d,%d) at %08x",id,unknown,currentMIPS->pc);
 	/*if (!g_Config.bEnableWlan) {
-		return 0;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}*/
 	
 	return NetAdhocPtp_Close(id, unknown);
@@ -3947,7 +3947,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport,bufsize,rexmt_int,rexmt_cnt,backlog,flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
@@ -4712,13 +4712,13 @@ void __NetTriggerCallbacks()
 				newState = ADHOCCTL_STATE_DISCONNECTED;
 				delayus = adhocDefaultDelay; // Tekken 5 expects AdhocctlDisconnect to be done within ~17ms (a frame?)
 				break;
-			case ADHOCCTL_EVENT_GAME: 
+			case ADHOCCTL_EVENT_GAME:
 			{
 				newState = ADHOCCTL_STATE_GAMEMODE;
 				delayus = adhocEventDelay;
 				// TODO: Use blocking PTP connection to sync the timing just like official prx did (which is done before notifying user-defined Adhocctl Handlers)
 				// Workaround: Extra delay to prevent Joining player to progress faster than the Creator on Pocket Pool, but unbalanced delays could cause an issue on Shaun White Snowboarding :(
-				if (adhocConnectionType == ADHOC_JOIN) 
+				if (adhocConnectionType == ADHOC_JOIN)
 					delayus += adhocExtraDelay * 3;
 				// Shows player list
 				INFO_LOG(Log::sceNet, "GameMode - All players have joined:");
@@ -4756,7 +4756,7 @@ void __NetTriggerCallbacks()
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	sceKernelDelayThread(adhocDefaultDelay);
+	hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
 }
 
 const HLEFunction sceNetAdhoc[] = {
@@ -4841,7 +4841,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetPeerList([%08x]=%i, %08x) at %08x", sizeAddr, /*buflen ? *buflen : -1*/Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Initialized Library

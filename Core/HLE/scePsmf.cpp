@@ -1154,8 +1154,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	INFO_LOG(Log::ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc);
-	return hleDelayResult(0, "player create", delayUs);	
+	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc), "player create", delayUs);
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {

@@ -1737,7 +1737,7 @@ int sceNetAdhocMatchingTerm() {
 static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int hello_int, int keepalive_int, int init_count, int rexmt_int, u32 callbackAddr) {
 	WARN_LOG(Log::sceNet, "sceNetAdhocMatchingCreate(mode=%i, maxnum=%i, port=%i, rxbuflen=%i, hello=%i, keepalive=%i, initcount=%i, rexmt=%i, callbackAddr=%08x) at %08x", mode, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, callbackAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	SceNetAdhocMatchingHandler handler;
@@ -1910,8 +1910,9 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 // This should be similar with sceNetAdhocMatchingStart2 but using USER_PARTITION_ID (2) for PartitionId params
 static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	int retval = NetAdhocMatching_Start(matchingId, evthPri, USER_PARTITION_ID, evthStack, inthPri, USER_PARTITION_ID, inthStack, optLen, optDataAddr);
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
@@ -1922,8 +1923,9 @@ static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, 
 // With params for Partition ID for the event & input handler stack
 static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart2(%i, %i, %i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	int retval = NetAdhocMatching_Start(matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr);
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
@@ -1933,8 +1935,9 @@ static int sceNetAdhocMatchingStart2(int matchingId, int evthPri, int evthPartit
 
 static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
@@ -2139,24 +2142,29 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str(), optLen, optDataPtr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 	return NetAdhocMatching_CancelTargetWithOpt(matchingId, macAddress, optLen, optDataPtr);
 }
 
 int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)macAddress).c_str());
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 	return NetAdhocMatching_CancelTargetWithOpt(matchingId, macAddress, 0, 0);
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
-	if (!Memory::IsValidAddress(optLenAddr)) return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
+	if (!Memory::IsValidAddress(optLenAddr)) {
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_MATCHING_INVALID_ARG);
+	}
 
 	s32_le *optlen = PSPPointer<s32_le>::Create(optLenAddr);
 
@@ -2184,8 +2192,9 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 
 int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr) {
 	VERBOSE_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x) at %08x", matchingId, optLenAddr, optDataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited)
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
@@ -2255,8 +2264,9 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 
 static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetMembers(%i, [%08x]=%i, %08x) at %08x", matchingId, sizeAddr, Memory::Read_U32(sizeAddr), buf, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited)
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED, "adhocmatching not initialized");
@@ -2449,8 +2459,9 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingSendData(%i, %s, %i, %08x) at %08x", matchingId, mac2str((SceNetEtherAddr*)mac).c_str(), dataLen, dataAddr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
@@ -2516,8 +2527,9 @@ int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u3
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac2str((SceNetEtherAddr*)mac).c_str());
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
@@ -2566,8 +2578,9 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 	ERROR_LOG(Log::sceNet, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc() at %08x", currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	// Lazy way out - hardcoded return value
 	return hleLogDebug(Log::sceNet, fakePoolSize / 2, "faked value");
@@ -2575,8 +2588,9 @@ static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetPoolStat(%08x) at %08x", poolstatPtr, currentMIPS->pc);
-	if (!g_Config.bEnableWlan)
-		return -1;
+	if (!g_Config.bEnableWlan) {
+		return hleLogError(Log::sceNet, -1, "WLAN off");
+	}
 
 	if (!netAdhocMatchingInited) {
 		// Uninitialized Library
@@ -2635,7 +2649,7 @@ void __NetMatchingCallbacks() { //(int matchingId)
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
-	sceKernelDelayThreadCB(delayus);
+	hleCall(ThreadManForUser, int, sceKernelDelayThread, delayus);
 }
 
 

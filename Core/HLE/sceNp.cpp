@@ -195,11 +195,10 @@ static int sceNpGetOnlineId(u32 idPtr)
 	return hleLogWarning(Log::sceNet, 0, "Online ID: %s", id->data);
 }
 
-int NpGetNpId(SceNpId* npid)
-{
+int NpGetNpId(SceNpId* npid) {
 	// Callers make sure that the rest of npid is zero filled, which takes care of the terminator.
 	strncpy(npid->handle.data, npOnlineId.c_str(), sizeof(npid->handle.data));
-	return hleLogDebug(Log::sceNet, 0);
+	return 0;
 }
 
 static int sceNpGetNpId(u32 idPtr)
