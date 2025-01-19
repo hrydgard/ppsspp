@@ -692,7 +692,7 @@ std::string ChoiceWithValueDisplay::ValueText() const {
 }
 
 FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, std::string_view text, BrowseFileType fileType, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), fileType_(fileType), token_(token) {
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
 	OnClick.Add([=](UI::EventParams &) {
 		System_BrowseForFile(token, text_, fileType, [=](const std::string &returnValue, int) {
 			if (*value_ != returnValue) {

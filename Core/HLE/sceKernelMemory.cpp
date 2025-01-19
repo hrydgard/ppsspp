@@ -1042,7 +1042,8 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 }
 
 int sceKernelFreePartitionMemory(SceUID id) {
-	return hleLogSuccessOrError(Log::sceKernel, kernelObjects.Destroy<PartitionMemoryBlock>(id));
+	DEBUG_LOG(Log::sceKernel,"sceKernelFreePartitionMemory(%d)",id);
+	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
 u32 sceKernelGetBlockHeadAddr(SceUID id) {

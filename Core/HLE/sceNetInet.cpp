@@ -35,7 +35,7 @@ int g_inetLastErrno = 0;
 static int UpdateErrnoFromHost(int hostErrno, const char *func) {
 	int newErrno = convertInetErrnoHost2PSP(hostErrno);
 	if (g_inetLastErrno == 0 && newErrno == 0) {
-		WARN_LOG(Log::sceNet, "BAD: errno set to 0 in %s. Functions should not clear errno.", convertInetErrno2str(g_inetLastErrno), func);
+		WARN_LOG(Log::sceNet, "BAD: errno set to 0 in %s. Functions should not clear errno.", func);
 	} else if (g_inetLastErrno != 0 && newErrno == 0) {
 		ERROR_LOG(Log::sceNet, "BAD: errno cleared (previously %s) in %s. Functions should not clear errno.", convertInetErrno2str(g_inetLastErrno), func);
 		g_inetLastErrno = 0;
@@ -914,7 +914,6 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 // Similar to POSIX's sendmsg or Winsock2's WSASendMsg? Are their packets compatible one another?
 // Games using this: The Warrior's Code
 static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
-	DEBUG_LOG(Log::sceNet, "sceNetInetSendmsg(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, currentMIPS->pc);
 	// Note: sendmsg is concatenating iovec buffers before sending it, and send/sendto is just a wrapper for sendmsg according to https://stackoverflow.com/questions/4258834/how-sendmsg-works
 	int retval = -1;
 	if (!Memory::IsValidAddress(msghdrPtr)) {

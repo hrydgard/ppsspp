@@ -430,8 +430,6 @@ public:
 
 private:
 	std::string *value_;
-	BrowseFileType fileType_;
-	RequesterToken token_;
 };
 
 class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
