@@ -826,8 +826,7 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x, couldn't find msgpipe", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB(id=%i, addr=%08x, size=%i, mode=%i, result=%08x, timeout=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
@@ -844,8 +843,7 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelTrySendMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x, couldn't find msgpipe", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelTrySendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);

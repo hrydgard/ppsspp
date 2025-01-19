@@ -47,7 +47,7 @@ int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
-u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
+u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);
 
 void Register_ModuleMgrForUser();

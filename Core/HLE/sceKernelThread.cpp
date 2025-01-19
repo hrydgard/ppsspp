@@ -3633,9 +3633,8 @@ int sceKernelRegisterExitCallback(SceUID cbId)
 		return 0;
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelRegisterExitCallback(%i)", cbId);
 	registeredExitCbId = cbId;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int LoadExecForUser_362A956B()
@@ -3644,33 +3643,28 @@ int LoadExecForUser_362A956B()
 	u32 error;
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(registeredExitCbId, error);
 	if (!cb) {
-		WARN_LOG(Log::sceKernel, "LoadExecForUser_362A956B() : registeredExitCbId not found 0x%x", registeredExitCbId);
-		return SCE_KERNEL_ERROR_UNKNOWN_CBID;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_CBID, "registeredExitCbId not found 0x%x", registeredExitCbId);
 	}
 	int cbArg = cb->nc.commonArgument;
 	if (!Memory::IsValidAddress(cbArg)) {
-		WARN_LOG(Log::sceKernel, "LoadExecForUser_362A956B() : invalid address for cbArg (0x%08X)", cbArg);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address for cbArg (0x%08X)", cbArg);
 	}
 	u32 unknown1 = Memory::Read_U32(cbArg - 8);
 	if (unknown1 >= 4) {
-		WARN_LOG(Log::sceKernel, "LoadExecForUser_362A956B() : invalid value unknown1 (0x%08X)", unknown1);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid value unknown1 (0x%08X)", unknown1);
 	}
 	u32 parameterArea = Memory::Read_U32(cbArg - 4);
 	if (!Memory::IsValidAddress(parameterArea)) {
-		WARN_LOG(Log::sceKernel, "LoadExecForUser_362A956B() : invalid address for parameterArea on userMemory  (0x%08X)", parameterArea);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address for parameterArea on userMemory  (0x%08X)", parameterArea);
 	}
 	
 	u32 size = Memory::Read_U32(parameterArea);
 	if (size < 12) {
-		WARN_LOG(Log::sceKernel, "LoadExecForUser_362A956B() : invalid parameterArea size %d", size);
-		return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_SIZE, "invalid parameterArea size %d", size);
 	}
 	Memory::Write_U32(0, parameterArea + 4);
 	Memory::Write_U32(-1, parameterArea + 8);
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static const SceUID SCE_TE_THREADID_ALL_USER = 0xFFFFFFF0;
