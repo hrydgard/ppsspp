@@ -655,17 +655,27 @@ inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translat
 }
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	// Shortcut on arm64
+	return vmaxvq_s32(value.v) >= 0;
+#else
 	// Very suboptimal, let's optimize later.
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
+#endif
 }
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	int32x4_t ival = vreinterpretq_s32_f32(value.v);
+#if PPSSPP_ARCH(ARM64_NEON)
+	// Shortcut on arm64
+	return vmaxvq_s32(value.v) >= 0;
+#else
 	int32x2_t prod = vand_s32(vget_low_s32(ival), vget_high_s32(ival));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
+#endif
 }
 
 
