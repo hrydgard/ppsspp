@@ -113,15 +113,13 @@ static void sceKernelCpuResumeIntr(u32 enable)
 static int sceKernelIsCpuIntrEnable()
 {
 	u32 retVal = __InterruptsEnabled(); 
-	DEBUG_LOG(Log::sceIntc, "%i=sceKernelIsCpuIntrEnable()", retVal);
-	return retVal;
+	return hleLogDebug(Log::sceIntc, retVal);
 }
 
 static int sceKernelIsCpuIntrSuspended(int flag)
 {
 	int retVal = flag == 0 ? 1 : 0;
-	DEBUG_LOG(Log::sceIntc, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
-	return retVal;
+	return hleLogDebug(Log::sceIntc, retVal);
 }
 
 static void sceKernelCpuResumeIntrWithSync(u32 enable)
@@ -132,8 +130,7 @@ static void sceKernelCpuResumeIntrWithSync(u32 enable)
 bool IntrHandler::run(PendingInterrupt& pend)
 {
 	SubIntrHandler *handler = get(pend.subintr);
-	if (handler == NULL)
-	{
+	if (!handler) {
 		WARN_LOG(Log::sceIntc, "Ignoring interrupt, already been released.");
 		return false;
 	}
@@ -496,79 +493,65 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid interrupt", intrNumber, subIntrNumber, handler, handlerArg);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid subinterrupt", intrNumber, subIntrNumber, handler, handlerArg);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
 	u32 error;
 	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, handler, handlerArg, error);
 	if (subIntrHandler) {
 		if (handler == 0) {
-			WARN_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+			return hleLogWarning(Log::sceIntc, error, "ignored NULL handler");
 		} else {
-			DEBUG_LOG(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
+			return hleLogDebug(Log::sceIntc, error);
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
+		return hleReportError(Log::sceIntc, error, "duplicate handler");
 	} else {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
+		return hleReportError(Log::sceIntc, error);
 	}
 	return error;
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
 	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
-	if (error != SCE_KERNEL_ERROR_OK) {
-		ERROR_LOG(Log::sceIntc, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber, error);
-	}
-	return error;
+	return hleLogSuccessOrError(Log::sceIntc, error);
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
 
-	DEBUG_LOG(Log::sceIntc, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	u32 error;
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
-		// Enableing a handler before registering it works fine.
+		// Enabling a handler before registering it works fine.
 		__RegisterSubIntrHandler(intrNumber, subIntrNumber, 0, 0, error);
 	}
 
 	intrHandlers[intrNumber]->enable(subIntrNumber);
-	return 0;
+	return hleLogDebug(Log::sceIntc, 0);
 }
 
 static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid interrupt");
 	}
 	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
-		ERROR_LOG_REPORT(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
-		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, "invalid subinterrupt");
 	}
-
-	DEBUG_LOG(Log::sceIntc, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 
 	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
 		// Disabling when not registered is not an error.
@@ -576,7 +559,7 @@ static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	}
 
 	intrHandlers[intrNumber]->disable(subIntrNumber);
-	return 0;
+	return hleLogDebug(Log::sceIntc, 0);
 }
 
 
@@ -605,10 +588,8 @@ static int QueryIntrHandlerInfo()
 	return 0;
 }
 
-static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
-{
+static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
 	u8 c = fillc & 0xff;
-	DEBUG_LOG(Log::sceIntc, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	bool skip = false;
 	if (n != 0) {
 		if (Memory::IsVRAMAddress(addr)) {
@@ -619,13 +600,10 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addr, n, "KernelMemset");
-	return addr;
+	return hleLogDebug(Log::sceIntc, addr);
 }
 
-static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-
+static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {
 	// Some games copy from executable code.  We need to flush emuhack ops.
 	if (size != 0)
 		currentMIPS->InvalidateICache(src, size);
@@ -636,16 +614,14 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	// Technically should crash if these are invalid and size > 0...
-	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
-	{
+	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))  {
 		u8 *dstp = Memory::GetPointerWriteUnchecked(dst);
 		const u8 *srcp = Memory::GetPointerUnchecked(src);
 
 		// If it's non-overlapping, just do it in one go.
-		if (dst + size < src || src + size < dst)
+		if (dst + size < src || src + size < dst) {
 			memcpy(dstp, srcp, size);
-		else
-		{
+		} else {
 			// Try to handle overlapped copies with similar properties to hardware, just in case.
 			// Not that anyone ought to rely on it.
 			for (u32 size64 = size / 8; size64 > 0; --size64)
@@ -663,7 +639,7 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 		NotifyMemInfoCopy(dst, src, size, "KernelMemcpy/");
 	}
 
-	return dst;
+	return hleLogDebug(Log::sceKernel, dst);
 }
 
 const HLEFunction Kernel_Library[] =

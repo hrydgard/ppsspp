@@ -453,18 +453,14 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(Log::HLE, "sceAudioInputBlocking(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
-		return -1;
+		return hleLogError(Log::HLE, -1, "invalid address");
 	}
-
-	INFO_LOG(Log::HLE, "sceAudioInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
-	return __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT);
+	return hleLogSuccessInfoI(Log::HLE, __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT));
 }
 
 static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
-		ERROR_LOG(Log::HLE, "sceAudioInput(%d, %d, %08x): invalid addresses", maxSamples, sampleRate, bufAddr);
-		return -1;
+		return hleLogError(Log::HLE, -1, "invalid address");
 	}
 
 	ERROR_LOG(Log::HLE, "UNTEST sceAudioInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);

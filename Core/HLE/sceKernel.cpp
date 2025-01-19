@@ -376,8 +376,7 @@ u32 sceKernelGetGPI()
 {
 	// Always returns 0 on production systems.
 	// On developer systems, there are 8 switches that control the lower 8 bits of the return value.
-	DEBUG_LOG(Log::sceKernel, "%d=sceKernelGetGPI()", g_GPIBits);
-	return g_GPIBits;
+	return hleLogDebug(Log::sceKernel, g_GPIBits);
 }
 
 // #define LOG_CACHE
@@ -407,10 +406,9 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 }
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
-	DEBUG_LOG(Log::CPU, "sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
 	if (size != 0)
 		currentMIPS->InvalidateICache(addr, size);
-	return 0;
+	return hleLogDebug(Log::CPU, 0);
 }
 
 int sceKernelDcacheWritebackAll()
@@ -692,16 +690,14 @@ static u32 sceKernelReferThreadProfiler() {
 	// This seems to simply has no parameter:
 	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17
 	// In testing it just returns null in around 140-150 cycles.  See issue #17623.
-	DEBUG_LOG(Log::sceKernel, "0=sceKernelReferThreadProfiler()");
 	hleEatCycles(140);
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelReferGlobalProfiler() {
-	DEBUG_LOG(Log::sceKernel, "0=sceKernelReferGlobalProfiler()");
 	// See sceKernelReferThreadProfiler(), similar.
 	hleEatCycles(140);
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 const HLEFunction ThreadManForUser[] =
