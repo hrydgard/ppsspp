@@ -73,51 +73,40 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		// Some games seem to do this frequently.
-		DEBUG_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		ERROR_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address (dst or src)");
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
-		ERROR_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
 		WARN_LOG_REPORT_ONCE(overlapDmacMemcpy, Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
-	} else {
-		DEBUG_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	}
 
-	return __DmacMemcpy(dst, src, size);
+	return hleLogDebug(Log::HLE, __DmacMemcpy(dst, src, size));
 }
 
 static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
-		ERROR_LOG(Log::HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src)) {
-		ERROR_LOG(Log::HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address", dst, src, size);
 	}
 	if (dst + size >= 0x80000000 || src + size >= 0x80000000 || size >= 0x80000000) {
-		ERROR_LOG(Log::HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): illegal size", dst, src, size);
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size", dst, src, size);
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		DEBUG_LOG(Log::HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): busy", dst, src, size);
-		return SCE_KERNEL_ERROR_BUSY;
-	} else {
-		DEBUG_LOG(Log::HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy", dst, src, size);
 	}
 
-	return __DmacMemcpy(dst, src, size);
+	return hleLogDebug(Log::HLE, __DmacMemcpy(dst, src, size));
 }
 
 const HLEFunction sceDmac[] = {

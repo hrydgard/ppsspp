@@ -615,8 +615,7 @@ static u32 sceGeGetCmd(int cmd) {
 }
 
 static int sceGeGetStack(int index, u32 stackPtr) {
-	WARN_LOG_REPORT(Log::sceGe, "sceGeGetStack(%i, %08x)", index, stackPtr);
-	return gpu->GetStack(index, stackPtr);
+	return hleReportWarning(Log::sceGe, gpu->GetStack(index, stackPtr));
 }
 
 static u32 sceGeEdramSetAddrTranslation(u32 new_size) {

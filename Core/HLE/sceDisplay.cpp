@@ -1039,8 +1039,7 @@ static int sceDisplayGetAccumulatedHcount() {
 
 static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	VERBOSE_LOG(Log::sceDisplay,"%f=sceDisplayGetFramePerSec()", framePerSec);
-	return framePerSec;	// (9MHz * 1)/(525 * 286)
+	return hleLogVerbose(Log::sceDisplay, framePerSec);	// (9MHz * 1)/(525 * 286)
 }
 
 static u32 sceDisplayIsForeground() {
