@@ -2033,8 +2033,7 @@ int __KernelGPUReplay() {
 	return result == GPURecord::ReplayResult::Break ? 1 : 0;
 }
 
-int sceKernelLoadExec(const char *filename, u32 paramPtr)
-{
+int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	std::string exec_filename = filename;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
 
@@ -2050,27 +2049,24 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	}
 
 	if (!info.exists) {
-		ERROR_LOG(Log::Loader, "sceKernelLoadExec(%s, ...): File does not exist", filename);
-		return SCE_KERNEL_ERROR_NOFILE;
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_NOFILE, "File does not exist");
 	}
 
 	s64 size = (s64)info.size;
 	if (!size) {
-		ERROR_LOG(Log::Loader, "sceKernelLoadExec(%s, ...): File is size 0", filename);
-		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_OBJECT, "File is size 0", filename);
 	}
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
 	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
-		ERROR_LOG(Log::sceModule, "sceKernelLoadExec failed: %s", error_string.c_str());
 		Core_UpdateState(CORE_RUNTIME_ERROR);
-		return -1;
+		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
 	if (gpu) {
 		gpu->Reinitialize();
 	}
-	return 0;
+	return hleLogDebug(Log::sceModule, 0);
 }
 
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
@@ -2147,10 +2143,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 
 	if (!module) {
 		if (magic == 0x46535000) {
-			ERROR_LOG(Log::Loader, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
 			// TODO: What's actually going on here?
-			error = -1;
-			return hleDelayResult(error, "module loaded", 500);
+			return hleDelayResult(hleLogError(Log::Loader, error, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic), "module loaded", 500);
 		}
 
 		PSPFileInfo info = pspFileSystem.GetFileInfo(name);
@@ -2163,8 +2157,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			}
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		} else {
-			hleLogError(Log::Loader, error, "failed to load");
-			return hleDelayResult(error, "module loaded", 500);
+			return hleDelayResult(hleLogError(Log::Loader, error, "failed to load"), "module loaded", 500);
 		}
 	}
 
@@ -2177,17 +2170,16 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	}
 
 	// TODO: This is not the right timing and probably not the right wait type, just an approximation.
-	return hleDelayResult(module->GetUID(), "module loaded", 500);
+	return hleDelayResult(hleNoLog(module->GetUID()), "module loaded", 500);
 }
 
 static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 {
-	DEBUG_LOG(Log::Loader, "sceKernelLoadModuleNpDrm(%s, %08x)", name, flags);
-
-	return sceKernelLoadModule(name, flags, optionAddr);
+	// TODO: Handle recursive syscall properly
+	return hleLogSuccessOrError(Log::Loader, sceKernelLoadModule(name, flags, optionAddr));
 }
 
-int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
+int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
 	if (needsWait) {
 		*needsWait = false;
 	}
@@ -2225,6 +2217,7 @@ int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValue
 		// TODO: Why do we skip smoption->attribute here?
 
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
+		_dbg_assert_(threadID > 0);
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
@@ -2232,46 +2225,32 @@ int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValue
 			*needsWait = true;
 		}
 	} else if (entryAddr == 0 || entryAddr == (u32)-1) {
-		INFO_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): no entry address", moduleId, argsize, argAddr, returnValueAddr);
+		INFO_LOG(Log::sceModule, "__KernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): no entry address", moduleId, argsize, argAddr, returnValueAddr);
 		module->nm.status = MODULE_STATUS_STARTED;
 	} else {
-		ERROR_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): invalid entry address", moduleId, argsize, argAddr, returnValueAddr);
+		ERROR_LOG(Log::sceModule, "__KernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): invalid entry address", moduleId, argsize, argAddr, returnValueAddr);
 		return -1;
 	}
-
 	return moduleId;
 }
 
-static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
-{
+static u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr) {
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module) {
-		INFO_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): error %08x", moduleId, argsize, argAddr, returnValueAddr, optionAddr, error);
-		RETURN(error);
-		return;
+		return hleLogWarning(Log::sceModule, error, "error %08x", error);
 	} else if (module->isFake) {
-		INFO_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
-		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
-		RETURN(moduleId);
-		return;
+		return hleLogSuccessInfoI(Log::sceModule, moduleId, "Faked (undecryptable module)");
 	} else if (module->nm.status == MODULE_STATUS_STARTED) {
-		ERROR_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x) : already started",
-		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
 		// But I also get crashes...
-		RETURN(SCE_KERNEL_ERROR_ERROR);
-		return;
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ERROR);
 	} else {
-		INFO_LOG(Log::sceModule, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
-		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-
 		bool needsWait;
 		auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
-		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, smoption.PtrOrNull(), &needsWait);
-
+		int ret = __KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, smoption.PtrOrNull(), &needsWait);
 		if (needsWait) {
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
 
@@ -2279,8 +2258,7 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
-
-		RETURN(ret);
+		return hleLogSuccessInfoI(Log::sceModule, ret);
 	}
 }
 
@@ -2296,21 +2274,16 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module)
 	{
-		ERROR_LOG(Log::sceModule, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): invalid module id", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
-		return error;
+		return hleLogError(Log::sceModule, error, "invalid module id");
 	}
 
-	if (module->isFake)
-	{
-		INFO_LOG(Log::sceModule, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x) - faking", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+	if (module->isFake) {
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
-		return 0;
+		return hleLogSuccessInfoI(Log::sceModule, 0, "faking");
 	}
-	if (module->nm.status != MODULE_STATUS_STARTED)
-	{
-		ERROR_LOG(Log::sceModule, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): already stopped", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
-		return SCE_KERNEL_ERROR_ALREADY_STOPPED;
+	if (module->nm.status != MODULE_STATUS_STARTED) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ALREADY_STOPPED, "already stopped");
 	}
 
 	u32 stopFunc = module->nm.module_stop_func;
@@ -2340,6 +2313,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	if (Memory::IsValidAddress(stopFunc))
 	{
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
+		_dbg_assert_(threadID > 0);
 		__KernelStartThreadValidate(threadID, argSize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
@@ -2350,32 +2324,29 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	}
 	else if (stopFunc == 0)
 	{
-		INFO_LOG(Log::sceModule, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): no stop func, skipping", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		module->nm.status = MODULE_STATUS_STOPPED;
+		return hleLogSuccessInfoI(Log::sceModule, 0, "no stop func, skipping");
 	}
 	else
 	{
-		ERROR_LOG_REPORT(Log::sceModule, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		module->nm.status = MODULE_STATUS_STOPPED;
+		return hleLogError(Log::sceModule, 0, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 	}
-
-	return 0;
+	return hleLogDebug(Log::sceModule, 0);
 }
 
-static u32 sceKernelUnloadModule(u32 moduleId)
-{
-	INFO_LOG(Log::sceModule,"sceKernelUnloadModule(%i)", moduleId);
+static u32 sceKernelUnloadModule(u32 moduleId) {
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module)
-		return hleDelayResult(error, "module unloaded", 150);
+		return hleDelayResult(hleLogError(Log::sceModule, error), "module unloaded", 150);
 
 	module->Cleanup();
 	kernelObjects.Destroy<PSPModule>(moduleId);
-	return hleDelayResult(moduleId, "module unloaded", 500);
+	return hleDelayResult(hleLogDebug(Log::sceModule, moduleId), "module unloaded", 500);
 }
 
-u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
+u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
 	if (loadedModules.size() > 1) {
 		if (WithStatus) {
 			ERROR_LOG_REPORT(Log::sceModule, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
@@ -2425,6 +2396,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 
 		if (Memory::IsValidAddress(stopFunc)) {
 			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
+			_dbg_assert_(threadID > 0);
 			__KernelStartThreadValidate(threadID, argSize, argp);
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
@@ -2460,12 +2432,12 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 }
 
 static u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
-	// Used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
-	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, 0, 0, false);
+	// Used in Tom Clancy's Splinter Cell Essentials, Ghost in the Shell Stand Alone Complex
+	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, 0, 0, false);
 }
 
 static u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
-	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
+	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
 }
 
 void __KernelReturnFromModuleFunc()
@@ -2539,11 +2511,11 @@ static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
 	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
-	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE)
-		ERROR_LOG(Log::sceModule, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr);
-	else
-		DEBUG_LOG(Log::sceModule, "%x=sceKernelGetModuleIdByAddress(%08x)", state.result, moduleAddr);
-	return state.result;
+	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE) {
+		return hleLogError(Log::sceModule, state.result, "module not found at address");
+	} else {
+		return hleLogSuccessOrError(Log::sceModule, state.result, "%08x", state.result);
+	}
 }
 
 static u32 sceKernelGetModuleId()
@@ -2556,8 +2528,7 @@ u32 sceKernelFindModuleByUID(u32 uid)
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
 	if (!module || module->isFake) {
-		ERROR_LOG(Log::sceModule, "0 = sceKernelFindModuleByUID(%d): Module Not Found or Fake", uid);
-		return 0;
+		return hleLogError(Log::sceModule, 0, "Module Not Found or Fake");
 	}
 	return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
 }
@@ -2572,16 +2543,13 @@ u32 sceKernelFindModuleByName(const char *name)
 		if (strcmp(name, module->nm.name) == 0) {
 			if (!module->isFake) {
 				INFO_LOG(Log::sceModule, "%d = sceKernelFindModuleByName(%s)", module->modulePtr.ptr, name);
-				return module->modulePtr.ptr;
-			}
-			else {
-				WARN_LOG(Log::sceModule, "0 = sceKernelFindModuleByName(%s): Module Fake", name);
-				return hleDelayResult(0, "Module Fake", 1000 * 1000);
+				return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
+			} else {
+				return hleDelayResult(hleLogWarning(Log::sceModule, 0, "Module Fake"), "Module Fake", 1000 * 1000);
 			}
 		}
 	}
-	WARN_LOG(Log::sceModule, "0 = sceKernelFindModuleByName(%s): Module Not Found", name);
-	return 0;
+	return hleLogWarning(Log::sceModule, 0, "Module Not Found", name);
 }
 
 static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
@@ -2589,8 +2557,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u32 error;
 	u32 handle = __IoGetFileHandleFromId(id, error);
 	if (handle == (u32)-1) {
-		ERROR_LOG(Log::sceModule,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
-		return error;
+		return hleLogError(Log::sceModule, error, "couldn't open file");
 	}
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported flags: %08x", flags);
@@ -2615,8 +2582,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
 		// This checks for the SFO magic number.
 		if (magic == 0x46535000) {
-			ERROR_LOG(Log::Loader, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return error;
+			return hleLogError(Log::Loader, error, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
 		}
 
 		if ((int)error >= 0)
@@ -2629,7 +2595,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		else
 		{
 			NOTICE_LOG(Log::Loader, "Module %d failed to load: %08x", id, error);
-			return error;
+			return hleLogError(Log::Loader, error);
 		}
 	}
 
@@ -2641,13 +2607,13 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		INFO_LOG(Log::sceModule,"%i=sceKernelLoadModuleByID(%d,flag=%08x,(...))", module->GetUID(), id, flags);
 	}
 
-	return module->GetUID();
+	return hleNoLog(module->GetUID());
 }
 
 static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
 	ERROR_LOG_REPORT(Log::sceModule, "UNIMPL 0=sceKernelLoadModuleDNAS()");
-	return 0;
+	return hleNoLog(0);
 }
 
 // Pretty sure this is a badly brute-forced function name...
@@ -2671,12 +2637,10 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
 		// This checks for the SFO magic number.
 		if (magic == 0x46535000) {
-			ERROR_LOG(Log::Loader, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return error;
+			return hleLogError(Log::Loader, error, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
 		}
 
-		if ((int)error >= 0)
-		{
+		if ((int)error >= 0) {
 			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
 			// Let's just act as if it worked.
 			NOTICE_LOG(Log::Loader, "Module is blacklisted or undecryptable - we lie about success");
@@ -2697,7 +2661,7 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		INFO_LOG(Log::sceModule,"%i=sceKernelLoadModuleBufferUsbWlan(%x,%08x,flag=%08x,(...))", module->GetUID(), size,bufPtr, flags);
 	}
 
-	return module->GetUID();
+	return hleNoLog(module->GetUID());
 }
 
 static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
@@ -2705,11 +2669,11 @@ static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 	DEBUG_LOG(Log::sceModule, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
-	if (!module)
+	if (!module) {
 		return error;
+	}
 	if (!Memory::IsValidAddress(infoAddr)) {
-		ERROR_LOG(Log::sceModule, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
-		return -1;
+		return hleLogError(Log::sceModule, -1, "bad infoAddr");
 	}
 
 	auto info = PSPPointer<ModuleInfo>::Create(infoAddr);
@@ -2733,7 +2697,7 @@ static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 		memcpy(info->name, module->nm.name, 28);
 	}
 
-	return 0;
+	return hleNoLog(0);
 }
 
 static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
@@ -2757,7 +2721,7 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 
 	Memory::Write_U32(idCount, idCountAddr);
 	
-	return 0;
+	return hleNoLog(0);
 }
 
 //fix for tiger x dragon
@@ -2765,11 +2729,10 @@ static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u3
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
-const HLEFunction ModuleMgrForUser[] = 
-{
+const HLEFunction ModuleMgrForUser[] = {
 	{0X977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx"    },
 	{0XB7F46618, &WrapU_UUU<sceKernelLoadModuleByID>,                   "sceKernelLoadModuleByID",                 'x', "xxx"    },
-	{0X50F0C1EC, &WrapV_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0XD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx"    },
 	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x"      },
@@ -2788,9 +2751,8 @@ const HLEFunction ModuleMgrForUser[] =
 };
 
 
-const HLEFunction ModuleMgrForKernel[] =
-{
-	{0x50F0C1EC, &WrapV_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+const HLEFunction ModuleMgrForKernel[] = {
+	{0x50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
 	{0xCC1D3699, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelStopUnloadSelfModule",           'x', "xxx",   HLE_KERNEL_SYSCALL }, // used in Dissidia final fantasy chinese patch
@@ -2800,13 +2762,10 @@ const HLEFunction ModuleMgrForKernel[] =
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
 };
 
-void Register_ModuleMgrForUser()
-{
+void Register_ModuleMgrForUser() {
 	RegisterModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
 }
 
-void Register_ModuleMgrForKernel()
-{
+void Register_ModuleMgrForKernel() {
 	RegisterModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
-
-};
+}

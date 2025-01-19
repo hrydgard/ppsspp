@@ -1625,37 +1625,33 @@ static u32 sceIoClose(int id) {
 }
 
 static u32 sceIoRemove(const char *filename) {
-	DEBUG_LOG(Log::sceIo, "sceIoRemove(%s)", filename);
-
-	// TODO: This timing isn't necessarily accurate, low end for now.
-	if(!pspFileSystem.GetFileInfo(filename).exists)
-		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file removed", 100);
+	if (!pspFileSystem.GetFileInfo(filename).exists) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file removed", 100);
+	}
 
 	pspFileSystem.RemoveFile(filename);
-	return hleDelayResult(0, "file removed", 100);
+	// TODO: This timing isn't necessarily accurate, low end for now.
+	return hleDelayResult(hleLogDebug(Log::sceIo, 0), "file removed", 100);
 }
 
 static u32 sceIoMkdir(const char *dirname, int mode) {
-	DEBUG_LOG(Log::sceIo, "sceIoMkdir(%s, %i)", dirname, mode);
 	// TODO: Improve timing.
 	if (pspFileSystem.MkDir(dirname))
-		return hleDelayResult(0, "mkdir", 1000);
+		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "mkdir", 1000);
 	else
-		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "mkdir", 1000);
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS), "mkdir", 1000);
 }
 
 static u32 sceIoRmdir(const char *dirname) {
-	DEBUG_LOG(Log::sceIo, "sceIoRmdir(%s)", dirname);
 	// TODO: Improve timing.
 	if (pspFileSystem.RmDir(dirname))
-		return hleDelayResult(0, "rmdir", 1000);
+		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "rmdir", 1000);
 	else
-		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "rmdir", 1000);
+		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "rmdir", 1000);
 }
 
 static u32 sceIoSync(const char *devicename, int flag) {
-	DEBUG_LOG(Log::sceIo, "UNIMPL sceIoSync(%s, %i)", devicename, flag);
-	return 0;
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 struct DeviceSize {
@@ -1679,7 +1675,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(0x10, outPtr + 4);  // Always return game disc (if present)
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F20002:  
@@ -1688,7 +1684,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(0x10, outPtr);  // Assume first sector
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F20003:
@@ -1697,7 +1693,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32((u32) (info.size) - 1, outPtr);
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F100A3:  
@@ -1705,7 +1701,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			return hleDelayResult(0, "dev seek", 100);
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F100A4:  
@@ -1713,7 +1709,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A5:  
@@ -1722,7 +1718,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(1, outPtr); // Status (unitary index of the requested read, greater or equal to 1)
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A7:
@@ -1732,7 +1728,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// Place the calling thread in wait state
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A8:
@@ -1743,7 +1739,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// 0x20 - UMD data cache thread is running
 			return 0; // Return finished
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A9:
@@ -1753,7 +1749,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// Wake up the thread waiting for the UMD data cache handling.
 			return 0;
 		} else {
-			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	// TODO: What do these do?  Seem to require a u32 in, no output.
@@ -1781,7 +1777,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				}
 				return 0;
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02015804:
@@ -1809,7 +1805,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02015805:	
@@ -1833,7 +1829,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02025806:	
@@ -1844,7 +1840,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_U32(MemoryStick_State(), outPtr);
 				return 0;
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02425818:  
@@ -1873,7 +1869,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 				return 0;
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02425824:
@@ -1885,8 +1881,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::WriteUnchecked_U32(0, outPtr);
 				return 0;
 			} else {
-				ERROR_LOG(Log::sceIo, "Failed 0x02425824 fat");
-				return -1;
+				return hleLogError(Log::sceIo, -1, "Failed 0x02425824 fat");
 			}
 			break;
 		}
@@ -1919,10 +1914,10 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					}
 					return 0;
 				} else {
-					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
 			} else {
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 			}
 			break;
 		case 0x02415822:
@@ -1943,7 +1938,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					DEBUG_LOG(Log::sceIo, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
 					return 0;
 				} else {
-					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
 			}
 			break;
@@ -1966,7 +1961,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			} else if (!Memory::IsValidAddress(outPtr)) {
 				// Technically, only checks for NULL, crashes for many bad addresses.
 				ERROR_LOG(Log::sceIo, "sceIoDevctl: fatms0: 0x02425823 command, no output address");
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 			} else {
 				// Does not care about outLen, even if it's 0.
 				// Note: writes 1 when inserted, 0 when not inserted.
@@ -1983,8 +1978,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_U32(0, outPtr);
 				return 0;
 			} else {
-				ERROR_LOG(Log::sceIo, "Failed 0x02425824 fat");
-				return -1;
+				return hleLogError(Log::sceIo, -1, "Failed 0x02425824 fat");
 			}
 			break;
 		case 0x02425818:  
@@ -2011,14 +2005,13 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				}
 				return 0;
 			} else {
-				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		}
 	}
 
-	if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:"))
-	{
+	if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:")) {
 		// Emulator special tricks!
 		
 		enum {
@@ -2109,9 +2102,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return 0;
 		}
 
-		ERROR_LOG(Log::sceIo, "sceIoDevCtl: UNKNOWN PARAMETERS");
-
-		return 0;
+		return hleLogError(Log::sceIo, 0, "UNKNOWN PARAMETERS");
 	}
 
 	//089c6d1c weird branch
@@ -2119,26 +2110,24 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	089c6bdc ]: HLE: sceKernelCreateCallback(name= MemoryStick Detection ,entry= 089c7484 ) (z_un_089c6bc4)
 	089c6c40 ]: HLE: sceKernelCreateCallback(name= MemoryStick Assignment ,entry= 089c7534 ) (z_un_089c6bc4)
 	*/
+	// Keeping this report intact
 	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
-	return SCE_KERNEL_ERROR_UNSUP;
+	return hleNoLog(SCE_KERNEL_ERROR_UNSUP);
 }
 
 static u32 sceIoRename(const char *from, const char *to) {
-	DEBUG_LOG(Log::sceIo, "sceIoRename(%s, %s)", from, to);
-
 	// TODO: Timing isn't terribly accurate.
 	if (!pspFileSystem.GetFileInfo(from).exists)
-		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
+		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file renamed", 1000);
 
 	int result = pspFileSystem.RenameFile(from, to);
 	if (result < 0)
 		WARN_LOG(Log::sceIo, "Could not move %s to %s", from, to);
-	return hleDelayResult(result, "file renamed", 1000);
+	return hleDelayResult(hleLogDebug(Log::sceIo, result), "file renamed", 1000);
 }
 
 static u32 sceIoChdir(const char *dirname) {
-	DEBUG_LOG(Log::sceIo, "sceIoChdir(%s)", dirname);
-	return pspFileSystem.ChDir(dirname);
+	return hleLogDebug(Log::sceIo, pspFileSystem.ChDir(dirname));
 }
 
 static int sceIoChangeAsyncPriority(int id, int priority) {
@@ -2187,21 +2176,15 @@ static int sceIoCloseAsync(int id) {
 	return hleLogSuccessI(Log::sceIo, 0);
 }
 
-static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
-{
-	DEBUG_LOG(Log::sceIo, "sceIoSetAsyncCallback(%d, %i, %08x)", id, clbckId, clbckArg);
-
+static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f)
-	{
+	if (f) {
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
-		return 0;
-	}
-	else
-	{
-		return error;
+		return hleLogDebug(Log::sceIo, 0);
+	} else {
+		return hleLogError(Log::sceIo, error);
 	}
 }
 
@@ -2347,7 +2330,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 
 		hleCheckCurrentCallbacks();
@@ -2515,9 +2498,8 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
 
 		if (dir->index == (int) dir->listing.size()) {
-			DEBUG_LOG(Log::sceIo, "sceIoDread( %d %08x ) - end", id, dirent_addr);
 			entry->d_name[0] = '\0';
-			return 0;
+			return hleLogDebug(Log::sceIo, 0, "end");
 		}
 
 		PSPFileInfo &info = dir->listing[dir->index];
@@ -2563,8 +2545,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		}
 		return 1;
 	} else {
-		DEBUG_LOG(Log::sceIo, "sceIoDread - invalid listing %i, error %08x", id, error);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_BADF, "invalid listing");
 	}
 }
 
@@ -2577,12 +2558,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
-		ERROR_LOG(Log::sceIo, "%08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
-		return error;
+		return hleLogError(Log::sceIo, error, "bad file");
 	}
+
 	if (f->asyncBusy()) {
-		ERROR_LOG(Log::sceIo, "%08x=sceIoIoctl id: %08x, cmd %08x, async busy", error, id, cmd);
-		return SCE_KERNEL_ERROR_ASYNC_BUSY;
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 	}
 
 	// TODO: Move this into each command, probably?
@@ -2607,7 +2587,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			memcpy(keybuf, Memory::GetPointerUnchecked(indataPtr), 16);
 			key_ptr = keybuf;
 		}else{
-			key_ptr = NULL;
+			key_ptr = nullptr;
 		}
 
 		DEBUG_LOG(Log::sceIo, "Decrypting PGD DRM files");
@@ -2618,13 +2598,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			f->npdrm = false;
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
-				ERROR_LOG(Log::sceIo, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
 				// File is PGD file, but key mismatch
-				return ERROR_PGD_INVALID_HEADER;
+				return hleLogError(Log::sceIo, ERROR_PGD_INVALID_HEADER, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
 			} else {
-				INFO_LOG(Log::sceIo, "%s is not an encrypted PGD file as was expected. Proceeding.", f->fullpath.c_str());
 				// File is not encrypted.
-				return 0;
+				return hleLogSuccessInfoI(Log::sceIo, 0, "%s is not an encrypted PGD file as was expected. Proceeding.", f->fullpath.c_str());
 			}
 		} else {
 			// Everything OK.

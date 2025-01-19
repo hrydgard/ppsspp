@@ -678,9 +678,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
 	if (address == (u32)-1) {
-		DEBUG_LOG(Log::sceKernel, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
-			name, mpid, attr, blockSize, numBlocks);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
+		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "FAILED - out of ram");
 	}
 
 	FPL *fpl = new FPL;
@@ -700,10 +698,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	fpl->address = address;
 	fpl->alignedSize = alignedSize;
 
-	DEBUG_LOG(Log::sceKernel, "%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i)", 
-		id, name, mpid, attr, blockSize, numBlocks);
-
-	return id;
+	return hleLogDebug(Log::sceKernel, id);
 }
 
 int sceKernelDeleteFpl(SceUID uid)
@@ -711,25 +706,19 @@ int sceKernelDeleteFpl(SceUID uid)
 	hleEatCycles(600);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
-	if (fpl)
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteFpl(%i)", uid);
-
-		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
-		if (wokeThreads)
-			hleReSchedule("fpl deleted");
-
-		BlockAllocator *alloc = BlockAllocatorFromAddr(fpl->address);
-		_assert_msg_(alloc != nullptr, "Should always have a valid allocator/address");
-		if (alloc)
-			alloc->Free(fpl->address);
-		return kernelObjects.Destroy<FPL>(uid);
+	if (!fpl) {
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl", uid);
 	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteFpl(%i): invalid fpl", uid);
-		return error;
-	}
+
+	bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
+	if (wokeThreads)
+		hleReSchedule("fpl deleted");
+
+	BlockAllocator *alloc = BlockAllocatorFromAddr(fpl->address);
+	_assert_msg_(alloc != nullptr, "Should always have a valid allocator/address");
+	if (alloc)
+		alloc->Free(fpl->address);
+	return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<FPL>(uid));
 }
 
 void __KernelFplTimeout(u64 userdata, int cyclesLate)
@@ -764,8 +753,6 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFpl(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
-
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
@@ -781,12 +768,11 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 			__KernelWaitCurThread(WAITTYPE_FPL, uid, 0, timeoutPtr, false, "fpl waited");
 		}
 
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFpl(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
-		return error;
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -817,8 +803,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB(%i, %08x, %08x): invalid fpl", uid, blockPtrAddr, timeoutPtr);
-		return error;
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -842,8 +827,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr)
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelTryAllocateFpl(%i, %08x): invalid fpl", uid, blockPtrAddr);
-		return error;
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -891,8 +875,7 @@ retry:
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelFreeFpl(%i, %08x): invalid fpl", uid, blockPtr);
-		return error;
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -916,8 +899,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelFpl(%i, %08x): invalid fpl", uid, numWaitThreadsPtr);
-		return error;
+		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 }
 
@@ -1020,15 +1002,13 @@ public:
 static u32 sceKernelMaxFreeMemSize()
 {
 	u32 retVal = userMemory.GetLargestFreeBlockSize();
-	DEBUG_LOG(Log::sceKernel, "%08x (dec %i)=sceKernelMaxFreeMemSize()", retVal, retVal);
-	return retVal;
+	return hleLogDebug(Log::sceKernel, retVal);
 }
 
 static u32 sceKernelTotalFreeMemSize()
 {
 	u32 retVal = userMemory.GetTotalFreeBytes();
-	DEBUG_LOG(Log::sceKernel, "%08x (dec %i)=sceKernelTotalFreeMemSize()", retVal, retVal);
-	return retVal;
+	return hleLogDebug(Log::sceKernel, retVal);
 }
 
 int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr) {
@@ -1054,44 +1034,31 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(allocator, name, size, (MemblockType)type, addr);
 	if (!block->IsValid()) {
 		delete block;
-		ERROR_LOG(Log::sceKernel, "sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x): allocation failed", partition, name, type, size, addr);
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
 	SceUID uid = kernelObjects.Create(block);
 
-	DEBUG_LOG(Log::sceKernel,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
-		uid, partition, name, type, size, addr);
-
-	return uid;
+	return hleLogDebug(Log::sceKernel, uid);
 }
 
-int sceKernelFreePartitionMemory(SceUID id)
-{
+int sceKernelFreePartitionMemory(SceUID id) {
 	DEBUG_LOG(Log::sceKernel,"sceKernelFreePartitionMemory(%d)",id);
-
 	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
-u32 sceKernelGetBlockHeadAddr(SceUID id)
-{
+u32 sceKernelGetBlockHeadAddr(SceUID id) {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
-	if (block)
-	{
-		DEBUG_LOG(Log::sceKernel,"%08x = sceKernelGetBlockHeadAddr(%i)", block->address, id);
-		return block->address;
-	}
-	else
-	{
-		ERROR_LOG(Log::sceKernel,"sceKernelGetBlockHeadAddr failed(%i)", id);
-		return 0;
+	if (block) {
+		return hleLogDebug(Log::sceKernel, block->address, "addr: %08x", block->address);
+	} else {
+		// TODO: return value?
+		return hleLogError(Log::sceKernel, 0, "sceKernelGetBlockHeadAddr failed(%i)", id);
 	}
 }
 
-
-static int sceKernelPrintf(const char *formatString)
-{
-	if (formatString == NULL)
+static int sceKernelPrintf(const char *formatString) {
+	if (!formatString)
 		return -1;
 
 	bool supported = true;
@@ -1209,10 +1176,9 @@ static int sceKernelPrintf(const char *formatString)
 		result.resize(result.size() - 1);
 
 	if (supported)
-		INFO_LOG(Log::Printf, "sceKernelPrintf: %s", result.c_str());
+		return hleLogSuccessInfoI(Log::Printf, 0, "\"%s\"", result.c_str());
 	else
-		ERROR_LOG(Log::Printf, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
-	return 0;
+		return hleLogError(Log::Printf, 0, "UNIMPL fmt (%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 }
 
 static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
@@ -1243,10 +1209,9 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
@@ -1255,10 +1220,9 @@ static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion370(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
@@ -1269,10 +1233,9 @@ static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
@@ -1285,10 +1248,9 @@ static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion395(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
@@ -1299,10 +1261,9 @@ static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
@@ -1313,10 +1274,9 @@ static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
@@ -1326,10 +1286,9 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
@@ -1338,10 +1297,9 @@ static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion507(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
@@ -1352,10 +1310,9 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
@@ -1364,10 +1321,9 @@ static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
 		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion606(%08x)", sdkVersion);
 	sdkVersion_ = sdkVersion;
 	flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int sceKernelGetCompiledSdkVersion() {
@@ -1377,10 +1333,9 @@ int sceKernelGetCompiledSdkVersion() {
 }
 
 static int sceKernelSetCompilerVersion(int version) {
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetCompilerVersion(%08x)", version);
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 KernelObject *__KernelMemoryFPLObject()

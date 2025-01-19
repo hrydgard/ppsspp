@@ -695,12 +695,11 @@ static u32 sceNetTerm() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Network shutdown"), 2.0, "networkinit");
 
-	WARN_LOG(Log::sceNet, "sceNetTerm() at %08x", currentMIPS->pc);
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
 	hleEatMicro(adhocDefaultDelay);
-	return retval;
+	return hleLogWarning(Log::sceNet, retval, "at %08x", currentMIPS->pc);
 }
 
 /*
@@ -820,16 +819,12 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 // Free(delete) thread info / data. 
 // Normal usage: sceKernelDeleteThread followed by sceNetFreeThreadInfo with the same threadID as argument
 static int sceNetFreeThreadinfo(SceUID thid) {
-	ERROR_LOG(Log::sceNet, "UNIMPL sceNetFreeThreadinfo(%i)", thid);
-
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 // Abort a thread.
 static int sceNetThreadAbort(SceUID thid) {
-	ERROR_LOG(Log::sceNet, "UNIMPL sceNetThreadAbort(%i)", thid);
-
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static u32 sceWlanGetEtherAddr(u32 addrAddr) {
@@ -885,6 +880,8 @@ static void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 
 		VERBOSE_LOG(Log::sceNet, "sceNetEtherNtostr - [%s]", buffer);
 	}
+
+	hleNoLogVoid();
 }
 
 static int hex_to_digit(int c) {
@@ -933,6 +930,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}
+	hleNoLogVoid();
 }
 
 // Write static data since we don't actually manage any memory for sceNet* yet.

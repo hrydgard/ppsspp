@@ -775,7 +775,7 @@ static u32 sceDisplayIsVblank() {
 	return hleLogSuccessI(Log::sceDisplay, DisplayIsVblank());
 }
 
-static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
 	const s64 ticksIntoFrame = CoreTiming::GetTicks() - DisplayFrameStartTicks();
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 
@@ -787,12 +787,6 @@ static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks
 
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
-
-	return hleLogSuccessVerboseI(Log::sceDisplay, 0, "waiting for %d vblanks", vblanks);
-}
-
-void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks) {
-	DisplayWaitForVblanks(reason, vblanks, callbacks);
 }
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
@@ -811,9 +805,9 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	width = displayWidth;
 	height = displayHeight;
 
-	hleLogSuccessI(Log::sceDisplay, 0);
 	// On success, this implicitly waits for a vblank start.
-	return DisplayWaitForVblanks("display mode", 1);
+	__DisplayWaitForVblanks("display mode", 1);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) {
@@ -951,17 +945,19 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
-static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
-	return DisplayWaitForVblanks(reason, vblanks, true);
+static void __DisplayWaitForVblanksCB(const char *reason, int vblanks) {
+	__DisplayWaitForVblanks(reason, vblanks, true);
 }
 
 static u32 sceDisplayWaitVblankStart() {
-	return DisplayWaitForVblanks("vblank start waited", 1);
+	__DisplayWaitForVblanks("vblank start waited", 1);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayWaitVblank() {
 	if (!DisplayIsVblank()) {
-		return DisplayWaitForVblanks("vblank waited", 1);
+		__DisplayWaitForVblanks("vblank waited", 1);
+		return hleLogSuccessI(Log::sceDisplay, 0);
 	} else {
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
@@ -978,12 +974,14 @@ static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (__IsInInterrupt())
 		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
-	return DisplayWaitForVblanks("vblank start multi waited", vblanks);
+	__DisplayWaitForVblanks("vblank start multi waited", vblanks);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayWaitVblankCB() {
 	if (!DisplayIsVblank()) {
-		return DisplayWaitForVblanksCB("vblank waited", 1);
+		__DisplayWaitForVblanksCB("vblank waited", 1);
+		return hleLogSuccessI(Log::sceDisplay, 0);
 	} else {
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
@@ -992,7 +990,8 @@ static u32 sceDisplayWaitVblankCB() {
 }
 
 static u32 sceDisplayWaitVblankStartCB() {
-	return DisplayWaitForVblanksCB("vblank start waited", 1);
+	__DisplayWaitForVblanksCB("vblank start waited", 1);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
@@ -1004,7 +1003,8 @@ static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (__IsInInterrupt())
 		return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
-	return DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
+	__DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
+	return hleLogSuccessI(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayGetVcount() {
@@ -1039,8 +1039,7 @@ static int sceDisplayGetAccumulatedHcount() {
 
 static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	VERBOSE_LOG(Log::sceDisplay,"%f=sceDisplayGetFramePerSec()", framePerSec);
-	return framePerSec;	// (9MHz * 1)/(525 * 286)
+	return hleLogVerbose(Log::sceDisplay, framePerSec);	// (9MHz * 1)/(525 * 286)
 }
 
 static u32 sceDisplayIsForeground() {

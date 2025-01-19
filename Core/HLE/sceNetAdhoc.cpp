@@ -1996,8 +1996,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
  	WARN_LOG_REPORT_ONCE(sceNetAdhocSetSocketAlert, Log::sceNet, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
 	int retval = NetAdhoc_SetSocketAlert(id, flag);
-	hleDelayResult(retval, "set socket alert delay", 1000);
-	return hleLogDebug(Log::sceNet, retval, "");
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval, ""), "set socket alert delay", 1000);
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
@@ -3482,12 +3481,14 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
 								// Workaround to give some time to get connected before returning from PtpOpen over high latency
-								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1)
-									hleDelayResult(i + 1, "delayed ptpopen", rexmt_int);
+								INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
 
 								// Return PTP Socket id
-								INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
-								return i + 1;
+								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1) {
+									return hleDelayResult(hleLogDebug(Log::sceNet, i + 1), "delayed ptpopen", rexmt_int);
+								} else {
+									return hleLogDebug(Log::sceNet, i + 1);
+								}
 							}
 
 							// Free Memory
@@ -3613,10 +3614,8 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Switch to non-blocking for futher usage
 					changeBlockingMode(newsocket, 1);
 
-					INFO_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i->%i(%i):%u]: Established (%s:%u) - state: %d", ptpId, i + 1, newsocket, internal->data.ptp.lport, ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
-
 					// Return Socket
-					return i + 1;
+					return hleLogSuccessI(Log::sceNet, i + 1, "Established (%s:%u) - state: %d", ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
 				}
 
 				// Free Memory
@@ -3628,8 +3627,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 	// Close Socket
 	closesocket(newsocket);
 
-	ERROR_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i]: Failed (Socket Closed)", ptpId);
-	return -1;
+	return hleLogError(Log::sceNet, -1, "sceNetAdhocPtpAccept[%i]: Failed (Socket Closed)", ptpId);
 }
 
 /**
@@ -3798,9 +3796,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 						// Set Connected State
 						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
 
-						INFO_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
-						// Success
-						return 0;
+						return hleLogDebug(Log::sceNet, 0, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 					}
 
 					// Error handling
@@ -3829,8 +3825,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 								// Simulate blocking behaviour with non-blocking socket
 								u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
 								if (sendTargetPeers.find(threadSocketId) != sendTargetPeers.end()) {
-									DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Socket(%d) is Busy!", id, ptpsocket.lport, ptpsocket.id);
-									return hleLogError(Log::sceNet, ERROR_NET_ADHOC_BUSY, "busy?");
+									return hleLogError(Log::sceNet, ERROR_NET_ADHOC_BUSY, "Socket %d is busy!", ptpsocket.id);
 								}
 
 								AdhocSendTargets dest = { 0, {}, false };
@@ -4082,8 +4077,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									changeBlockingMode(tcpsocket, 1);
 
 									// Return PTP Socket id
-									INFO_LOG(Log::sceNet, "sceNetAdhocPtpListen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
-									return i + 1;
+									return hleLogDebug(Log::sceNet, i + 1, "sceNetAdhocPtpListen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
 								}
 
 								// Free Memory

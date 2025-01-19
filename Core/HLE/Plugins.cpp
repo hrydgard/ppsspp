@@ -190,7 +190,7 @@ bool Load() {
 			continue;
 		}
 
-		int ret = KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
+		int ret = __KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
 			ERROR_LOG(Log::System, "Unable to start plugin %s: %08x", filename.c_str(), ret);
 		} else {

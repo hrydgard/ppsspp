@@ -145,7 +145,7 @@ void __KernelAlarmDoState(PointerWrap &p)
 
 KernelObject *__KernelAlarmObject() {
 	// Default object to load from state.
-	return new PSPAlarm;
+	return new PSPAlarm();
 }
 
 void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro) {
@@ -169,10 +169,8 @@ static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 	return uid;
 }
 
-SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm((u64) micro, handlerPtr, commonPtr);
+SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr) {
+	return hleLogDebug(Log::sceKernel, __KernelSetAlarm((u64) micro, handlerPtr, commonPtr));
 }
 
 SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
@@ -184,33 +182,26 @@ SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 	else
 		return -1;
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelSetSysClockAlarm(%lld, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(micro, handlerPtr, commonPtr);
+	return hleLogDebug(Log::sceKernel, __KernelSetAlarm(micro, handlerPtr, commonPtr));
 }
 
 int sceKernelCancelAlarm(SceUID uid)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelCancelAlarm(%08x)", uid);
-
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
 
-	return kernelObjects.Destroy<PSPAlarm>(uid);
+	return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<PSPAlarm>(uid));
 }
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
 	u32 error;
 	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
-	if (!alarm)
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelReferAlarmStatus(%08x, %08x): invalid alarm", uid, infoPtr);
-		return error;
+	if (!alarm) {
+		return hleLogError(Log::sceKernel, error, "invalid alarm", uid, infoPtr);
 	}
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelReferAlarmStatus(%08x, %08x)", uid, infoPtr);
-
 	if (!Memory::IsValidAddress(infoPtr))
-		return -1;
+		return hleLogError(Log::sceKernel, -1);
 
 	u32 size = Memory::Read_U32(infoPtr);
 
@@ -224,5 +215,5 @@ int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 	if (size > 16)
 		Memory::Write_U32(alarm->alm.commonPtr, infoPtr + 16);
 
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }

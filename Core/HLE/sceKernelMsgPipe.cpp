@@ -810,8 +810,7 @@ int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x, timeout=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
@@ -826,8 +825,7 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB(id=%i, addr=%08x, size=%i, mode=%i, result=%08x, timeout=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
@@ -844,8 +842,7 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelTrySendMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x, couldn't find msgpipe", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelTrySendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);
@@ -917,8 +914,7 @@ int sceKernelReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelReceiveMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMsgPipe(%i, %08x, %i, %i, %08x, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr, timeoutPtr);
@@ -933,8 +929,7 @@ int sceKernelReceiveMsgPipeCB(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB(%i, %08x, %i, %i, %08x, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr, timeoutPtr);
@@ -951,8 +946,7 @@ int sceKernelTryReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, 
 	}
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
-		ERROR_LOG(Log::sceKernel, "sceKernelTryReceiveMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	DEBUG_LOG(Log::sceKernel, "sceKernelTryReceiveMsgPipe(%i, %08x, %i, %i, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr);
@@ -965,10 +959,8 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
-	if (!m)
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelCancelMsgPipe(%i) - ERROR %08x", uid, error);
-		return error;
+	if (!m) {
+		return hleLogError(Log::sceKernel, error, "ERROR %08x", error);
 	}
 
 	hleEatCycles(1100);
@@ -990,8 +982,7 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 	// And now the entire buffer is free.
 	m->nmp.freeSize = m->nmp.bufSize;
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelCancelMsgPipe(%i, %i, %i)", uid, numSendThreadsAddr, numReceiveThreadsAddr);
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr) {

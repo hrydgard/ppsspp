@@ -514,8 +514,7 @@ static int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
 	hleEatCycles(330);
-	if (done != 0)
-	{
+	if (done != 0) {
 		DEBUG_LOG(Log::sceCtrl, "%d=sceCtrlReadBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
 	}
 	else

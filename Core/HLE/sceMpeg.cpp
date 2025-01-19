@@ -1172,6 +1172,8 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
+	int accumDelay = 0;
+
 	if (ispmp){
 #ifdef USE_FFMPEG
 		while (pmp_queue.size() != 0){
@@ -1183,12 +1185,11 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 			ctx->videoFrameCount++;
 			
 			// free front frame
-			hleDelayResult(0, "pmp video decode", 30);
+			accumDelay += 30;
 			pmp_queue.pop_front();
 		}
 #endif
-	}
-	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
+	} else if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
 		gpu->PerformWriteFormattedFromMemory(buffer, bufferSize, frameWidth, (GEBufferFormat)ctx->videoPixelMode);
 		ctx->avc.avcFrameStatus = 1;
@@ -1220,12 +1221,11 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
-	DEBUG_LOG(Log::ME, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
-
-	if (ctx->videoFrameCount <= 1)
-		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
-	else
-		return hleDelayResult(0, "mpeg decode", avcDecodeDelayMs);
+	if (ctx->videoFrameCount <= 1) {
+		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mpeg decode", accumDelay + avcFirstDelayMs);
+	} else {
+		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mpeg decode", accumDelay + avcDecodeDelayMs);
+	}
 	//hleEatMicro(3300);
 	//return hleDelayResult(0, "mpeg decode", 200);
 }

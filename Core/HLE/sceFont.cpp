@@ -624,12 +624,12 @@ public:
 
 		if (foundFontIndex < 0 || fontRefCount_[foundFontIndex] >= MAX_FONT_REFS) {
 			error = ERROR_FONT_TOO_MANY_OPEN_FONTS;
-			hleLogError(Log::sceFont, 0, "Too many fonts opened in FontLib");
+			ERROR_LOG(Log::sceFont, "OpenFont: Too many fonts opened in FontLib");
 			return nullptr;
 		}
 		if (!font->IsValid()) {
 			error = ERROR_FONT_INVALID_FONT_DATA;
-			hleLogError(Log::sceFont, 0, "Invalid font data");
+			ERROR_LOG(Log::sceFont, "OpenFont: Invalid font data");
 			return nullptr;
 		}
 

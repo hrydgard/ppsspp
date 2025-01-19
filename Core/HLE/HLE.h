@@ -25,6 +25,10 @@
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
+#ifdef _MSC_VER
+#pragma warning (error: 4834)  // discarding return value of function with 'nodiscard' attribute
+#endif
+
 class PointerWrap;
 class PSPAction;
 typedef void (* HLEFunc)();
@@ -136,10 +140,12 @@ void hleSplitSyscallOverGe();
 // Called after a split syscall from System.cpp
 void hleFinishSyscallAfterGe();
 
+[[nodiscard]]
 inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }
 
+[[nodiscard]]
 inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 	return hleDelayResult((u64) result, reason, usec);
 }
@@ -164,6 +170,7 @@ void *GetQuickSyscallFunc(MIPSOpcode op);
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
 
 template <typename T>
+[[nodiscard]]
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
 	if ((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
@@ -192,6 +199,7 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 }
 
 template <typename T>
+[[nodiscard]]
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask) {
 	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
 		return res;
@@ -208,6 +216,14 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 	return res;
 }
 
+// These will become important later.
+template <typename T>
+[[nodiscard]]
+inline T hleNoLog(T t) {
+	return t;
+}
+inline void hleNoLogVoid() {}
+
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
 #define HLE_LOG_LDEBUG LNOTICE
@@ -218,22 +234,31 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 #undef VERBOSE_LOG
 #define VERBOSE_LOG DEBUG_LOG
 #else
-#define HLE_LOG_LDEBUG LDEBUG
-#define HLE_LOG_LVERBOSE LVERBOSE
+#define HLE_LOG_LDEBUG LogLevel::LDEBUG
+#define HLE_LOG_LVERBOSE LogLevel::LVERBOSE
 #endif
 
-#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(t, LogLevel::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
-#define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
-#define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
-#define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+// IMPORTANT: These *must* only be used directly in HLE functions. They cannot be used by utility functions
+// called by them. Use regular ERROR_LOG etc for those.
+
+#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(t, level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
+#define hleLogError(t, res, ...) hleLogHelper(t, LogLevel::LERROR, res, 'x', ##__VA_ARGS__)
+#define hleLogWarning(t, res, ...) hleLogHelper(t, LogLevel::LWARNING, res, 'x', ##__VA_ARGS__)
 #define hleLogVerbose(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
+
+// If res is negative, log warn/error, otherwise log debug.
+#define hleLogSuccessOrWarn(t, res, ...) hleLogHelper(t, res < 0 ? LogLevel::LWARNING : HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessOrError(t, res, ...) hleLogHelper(t, res < 0 ? LogLevel::LERROR : HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+
+// NOTE: hleLogDebug is equivalent to hleLogSuccessI/X.
+#define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessX(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessI(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'i', ##__VA_ARGS__)
-#define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LINFO, res, 'i', ##__VA_ARGS__)
+#define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LogLevel::LINFO, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LogLevel::LINFO, res, 'i', ##__VA_ARGS__)
 #define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'i', ##__VA_ARGS__)
 
 #define hleReportError(t, res, ...) hleDoLog(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportWarning(t, res, ...) hleDoLog(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportDebug(t, res, ...) hleDoLog(t, LogLevel::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportDebug(t, res, ...) hleDoLog(t, HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)

@@ -166,7 +166,6 @@ std::string __KernelThreadingSummary();
 KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
 
-void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
 int KernelCurThreadPriority();
 bool KernelChangeThreadPriority(SceUID threadID, int priority);
@@ -259,9 +258,8 @@ int __KernelRegisterActionType(ActionCreator creator);
 void __KernelRestoreActionType(int actionType, ActionCreator creator);
 
 struct MipsCall {
-	MipsCall()
-	{
-		doAfter = NULL;
+	MipsCall() {
+		doAfter = nullptr;
 	}
 
 	u32 entryPoint;
