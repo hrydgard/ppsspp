@@ -600,7 +600,7 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addr, n, "KernelMemset");
-	return hleLogDebug(Log::sceIntc, addr);
+	return hleLogDebug(Log::sceKernel, addr);
 }
 
 static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {

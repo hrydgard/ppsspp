@@ -2143,7 +2143,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 
 	if (!module) {
 		if (magic == 0x46535000) {
-			// TODO: What's actually going on here?
+			// TODO: What's actually going on here? This is needed to keep Tekken 6 working, the "proper" error breaks it, when it tries to load PARAM.SFO as a module.
+			error = -1;
 			return hleDelayResult(hleLogError(Log::Loader, error, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic), "module loaded", 500);
 		}
 
