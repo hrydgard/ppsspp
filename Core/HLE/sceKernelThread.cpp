@@ -606,7 +606,7 @@ struct WaitTypeFuncs
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
-PSPThread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(PSPThread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
@@ -943,8 +943,8 @@ void __KernelThreadingInit()
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
-	__KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
-	__KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
+	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
+	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
@@ -1858,7 +1858,7 @@ void __KernelResetThread(PSPThread *t, int lowestPriority) {
 		ERROR_LOG_REPORT(Log::sceKernel, "Resetting thread with threads waiting on end?");
 }
 
-PSPThread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
 	std::lock_guard<std::mutex> guard(threadqueueLock);
 
 	PSPThread *t = new PSPThread();
@@ -1908,7 +1908,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 {
 	//grab mips regs
 	SceUID id;
-	PSPThread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
+	PSPThread *thread = __KernelCreateThreadObject(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
 	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(Log::sceKernel, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread, 0);
@@ -1919,7 +1919,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	__SetCurrentThread(thread, id, "root");
 	thread->nt.status = THREADSTATUS_RUNNING; // do not schedule
 
-	strcpy(thread->nt.name, "root");
+	truncate_cpy(thread->nt.name, "root");
 
 	KernelValidateThreadTarget(thread->context.pc);
 
@@ -1939,32 +1939,44 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr)
 {
 	SceUID id;
-	PSPThread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr);
 	if (newThread->currentStack.start == 0)
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 
 	return id;
 }
 
+// Note: Removed all the uses of hleReport* etc.
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel) {
-	if (threadName == nullptr)
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "NULL thread name");
+	if (!threadName) {
+		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
+		return SCE_KERNEL_ERROR_ERROR;
+	}
 
-	if ((u32)stacksize < 0x200)
-		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "bogus thread stack size %08x", stacksize);
+	if ((u32)stacksize < 0x200) {
+		WARN_LOG_REPORT(Log::sceKernel, "bogus thread stack size %08x", stacksize);
+		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
+	}
 	if (prio < 0x08 || prio > 0x77) {
-		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "bogus thread priority %08x", prio);
+		WARN_LOG(Log::sceKernel, "bogus thread priority %08x", prio);
+		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 	}
 	if (!Memory::IsValidAddress(entry)) {
 		// The PSP firmware seems to allow NULL...?
-		if (entry != 0)
-			return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid thread entry %08x", entry);
+		if (entry != 0) {
+			ERROR_LOG(Log::sceKernel, "invalid thread entry %08x", entry);
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		}
 	}
-	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0 && !allowKernel)
-		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "illegal thread attributes %08x", attr);
 
-	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported attributes %08x", threadName, attr);
+	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0 && !allowKernel) {
+		WARN_LOG(Log::sceKernel, "illegal thread attributes %08x", attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0) {
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported attributes %08x, ignoring", threadName, attr & ~PSP_THREAD_ATTR_SUPPORTED);
+	}
 
 	// TODO: Not sure what these values are, but they are removed from the attr silently.
 	// Some are USB/VSH specific, probably removes when they are from the wrong module?
@@ -1979,11 +1991,14 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	}
 
 	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
-	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY)
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "out of memory, %08x stack requested", stacksize);
+	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY) {
+		ERROR_LOG_REPORT(Log::sceKernel, "out of memory, %08x stack requested", stacksize);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
 
-	if (optionAddr != 0)
+	if (optionAddr != 0) {
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+	}
 
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.
 	dispatchEnabled = true;
@@ -1996,14 +2011,19 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// Before triggering, set v0, since we restore on return.
 	RETURN(id);
 	__KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, id, THREADEVENT_CREATE);
-	return hleLogSuccessInfoI(Log::sceKernel, id);
+	return id;
 }
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr) {
 	PSPThread *cur = __GetCurrentThread();
 	SceUID module = __KernelGetCurThreadModuleId();
 	bool allowKernel = KernelModuleIsKernelMode(module) || hleIsKernelMode() || (cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false);
-	return __KernelCreateThread(threadName, module, entry, prio, stacksize, attr, optionAddr, allowKernel);
+	int retval = __KernelCreateThread(threadName, module, entry, prio, stacksize, attr, optionAddr, allowKernel);
+	if (retval < 0) {
+		return hleLogError(Log::sceKernel, retval);
+	} else {
+		return hleLogSuccessInfoI(Log::sceKernel, retval);
+	}
 }
 
 int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs) {

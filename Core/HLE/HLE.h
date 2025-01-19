@@ -136,10 +136,12 @@ void hleSplitSyscallOverGe();
 // Called after a split syscall from System.cpp
 void hleFinishSyscallAfterGe();
 
+[[nodiscard]]
 inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }
 
+[[nodiscard]]
 inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 	return hleDelayResult((u64) result, reason, usec);
 }
@@ -164,6 +166,7 @@ void *GetQuickSyscallFunc(MIPSOpcode op);
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
 
 template <typename T>
+[[nodiscard]]
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
 	if ((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
@@ -192,6 +195,7 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 }
 
 template <typename T>
+[[nodiscard]]
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask) {
 	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
 		return res;

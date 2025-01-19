@@ -221,16 +221,17 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
 
+	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0) {
+		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
+	}
+
 	// Many games pass garbage into optionPtr, it doesn't have any options.
 	if (optionPtr != 0) {
 		if (!Memory::IsValidRange(optionPtr, 4))
-			hleLogWarning(Log::sceKernel, id, "invalid options parameter");
+			return hleLogWarning(Log::sceKernel, id, "invalid options parameter");
 		else if (Memory::Read_U32(optionPtr) > 4)
-			hleLogDebug(Log::sceKernel, id, "invalid options parameter size");
+			return hleLogDebug(Log::sceKernel, id, "invalid options parameter size");
 	}
-	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
-
 	return hleLogSuccessX(Log::sceKernel, id);
 }
 
