@@ -99,7 +99,10 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 	iconW += 5.0f;
 
 	*width += iconW + 12.0f;
-	// *height1 = std::max(*height1, iconH + 2.0f);   // this didn't look very good
+	if (height2 == 0.0f && iconH < 2.0f * *height1) {
+		// Center vertically using the icon.
+		*height1 = std::max(*height1, iconH + 2.0f);
+	}
 	*height = std::max(*height1 + height2 + 8.0f, iconH + 5.0f);
 }
 
@@ -115,13 +118,15 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 	}
 }
 
-static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha) {
+static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha, bool transparent) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
 
-	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-	dc.FillRect(background, bounds);
+	if (!transparent) {
+		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+		dc.FillRect(background, bounds);
+	}
 
 	float iconW = 0.0f;
 	float iconH = 0.0f;
@@ -163,8 +168,10 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
-		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
-		dc.FillRect(backgroundDark, bottomTextBounds);
+		if (!transparent) {
+			UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
+			dc.FillRect(backgroundDark, bottomTextBounds);
+		}
 		dc.SetFontScale(extraTextScale, extraTextScale);
 		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
 	}
@@ -179,7 +186,8 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		}
 		return;
 	} else {
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha);
+		bool transparent = entry.type == OSDType::TRANSPARENT_STATUS;
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, transparent);
 	}
 }
 
@@ -301,6 +309,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_ERROR] = ScreenEdgePosition::CENTER;
+	typeEdges[(size_t)OSDType::TRANSPARENT_STATUS] = ScreenEdgePosition::TOP_LEFT;
 
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
@@ -572,6 +581,6 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f);
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f, false);
 	dc.PopScissor();
 }
