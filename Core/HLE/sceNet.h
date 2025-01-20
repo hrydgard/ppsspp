@@ -109,7 +109,7 @@ private:
 };
 
 extern bool netInited;
-extern bool netApctlInited;
+extern bool g_netApctlInited;
 extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
 extern std::string defaultNetConfigName;
@@ -126,6 +126,10 @@ void __NetShutdown();
 void __NetDoState(PointerWrap &p);
 
 int NetApctl_GetState();
+
+inline bool __NetApctlConnected() {
+	return netApctlState >= PSP_NET_APCTL_STATE_GOT_IP;
+}
 
 int sceNetApctlConnect(int connIndex);
 
@@ -154,6 +158,8 @@ struct InfraDNSConfig {
 
 	std::string revivalTeam;
 	std::string revivalTeamURL;
+
+	bool connectAdHocForGrouping;
 };
 
 extern InfraDNSConfig g_infraDNSConfig;

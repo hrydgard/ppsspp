@@ -69,7 +69,7 @@ std::string defaultNetSSID = "Wifi"; // fake AP/hotspot
 int netApctlInfoId = 0;
 SceNetApctlInfoInternal netApctlInfo;
 
-bool netApctlInited;
+bool g_netApctlInited;
 u32 netApctlState;
 u32 apctlProdCodeAddr = 0;
 u32 apctlThreadHackAddr = 0;
@@ -185,6 +185,7 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 				dns->revivalTeamURL = revived.getStringOr("url", "");
 			}
 		}
+		dns->connectAdHocForGrouping = def.getBool("connect_adhoc_for_grouping", false);
 	}
 
 	const JsonNode *games = root.getArray("games");
@@ -242,6 +243,7 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 		dns->gameName = game.getStringOr("name", "");
 		dns->dns = game.getStringOr("dns", dns->dns.c_str());
 		dns->dyn_dns = game.getStringOr("dyn_dns", "");
+		dns->connectAdHocForGrouping = game.getBool("connect_adhoc_for_grouping", dns->connectAdHocForGrouping);
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
 			for (auto iter : domains.value_) {
@@ -332,7 +334,7 @@ int ScheduleApctlState(int event, int newState, int usec, const char* reason) {
 }
 
 void __NetApctlInit() {
-	netApctlInited = false;
+	g_netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 	apctlStateEvent = CoreTiming::RegisterEvent("__ApctlState", __ApctlState);
 	apctlHandlers.clear();
@@ -435,11 +437,11 @@ void __NetDoState(PointerWrap &p) {
 
 	auto cur_netInited = netInited;
 	auto cur_netInetInited = netInetInited;
-	auto cur_netApctlInited = netApctlInited;
+	auto cur_netApctlInited = g_netApctlInited;
 
 	Do(p, netInited);
 	Do(p, netInetInited);
-	Do(p, netApctlInited);
+	Do(p, g_netApctlInited);
 	Do(p, apctlHandlers);
 	Do(p, netMallocStat);
 	if (s < 2) {
@@ -488,7 +490,7 @@ void __NetDoState(PointerWrap &p) {
 
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
-		netApctlInited = cur_netApctlInited;
+		g_netApctlInited = cur_netApctlInited;
 		netInetInited = cur_netInetInited;
 		netInited = cur_netInited;
 
@@ -1006,7 +1008,7 @@ void NetApctl_InitInfo(int confId) {
 }
 
 static int sceNetApctlInit(int stackSize, int initPriority) {
-	if (netApctlInited) {
+	if (g_netApctlInited) {
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_ALREADY_INITIALIZED);
 	}
 
@@ -1038,16 +1040,22 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 		memcpy(prodCode->data, discID.c_str(), std::min(ADHOCCTL_ADHOCID_LEN, (int)discID.size()));
 	}
 
-	hleCall(sceNetAdhocctl, int, sceNetAdhocctlInit, stackSize, initPriority, apctlProdCodeAddr);
+	// Actually connect sceNetAdhocctl. TODO: Can we move this to sceNetApctlConnect? Would be good because a lot of games call Init but not Connect on startup.
+	if (g_infraDNSConfig.connectAdHocForGrouping) {
+		hleCall(sceNetAdhocctl, int, sceNetAdhocctlInit, stackSize, initPriority, apctlProdCodeAddr);
+	}
 
-	netApctlInited = true;
-
+	g_netApctlInited = true;
 	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
 int NetApctl_Term() {
 	// Note: Since we're borrowing AdhocServer for Grouping purpose, we should cleanup too
-	NetAdhocctl_Term();
+	// Should we check the g_infraDNSConfig.connectAdHocForGrouping flag here?
+	if (g_netApctlInited) {
+		hleCall(sceNetAdhocctl, int, sceNetAdhocctlTerm);
+	}
+
 	if (apctlProdCodeAddr != 0) {
 		userMemory.Free(apctlProdCodeAddr);
 		apctlProdCodeAddr = 0;
@@ -1061,9 +1069,8 @@ int NetApctl_Term() {
 		apctlThreadID = 0;
 	}
 
-	netApctlInited = false;
+	g_netApctlInited = false;
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
-
 	return 0;
 }
 
@@ -1275,12 +1282,18 @@ int sceNetApctlConnect(int confId) {
 
 	// Is this confId is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
 	netApctlInfoId = confId;
-	// Note: We're borrowing AdhocServer for Grouping purpose, so we can simulate Broadcast over the internet just like Adhoc's pro-online implementation
-	int ret = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, "INFRA");
 
-	if (netApctlState == PSP_NET_APCTL_STATE_DISCONNECTED)
+	// Note: We're borrowing AdhocServer for Grouping purpose, so we can simulate Broadcast over the internet just like Adhoc's pro-online implementation
+	int ret = 0;
+	if (g_infraDNSConfig.connectAdHocForGrouping) {
+		ret = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, "INFRA");
+	}
+
+	if (netApctlState == PSP_NET_APCTL_STATE_DISCONNECTED) {
 		__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_JOINING, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
-	//hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
+	}
+
+	// hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
 	// TODO: Blocks current thread and wait for a state change to prevent user-triggered connection attempt from causing events to piles up
 	return hleLogSuccessInfoI(Log::sceNet, 0, "connect = %i", ret);
 }
@@ -1289,7 +1302,9 @@ int sceNetApctlDisconnect() {
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
 	// Note: Since we're borrowing AdhocServer for Grouping purpose, we should disconnect too
-	hleCall(sceNetAdhocctl, int, sceNetAdhocctlDisconnect);
+	if (g_infraDNSConfig.connectAdHocForGrouping) {
+		hleCall(sceNetAdhocctl, int, sceNetAdhocctlDisconnect);
+	}
 
 	// Discards any pending events so we can disconnect immediately
 	apctlEvents.clear();
