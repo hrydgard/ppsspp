@@ -1317,6 +1317,10 @@ int NetApctl_GetState() {
 	return netApctlState;
 }
 
+bool __NetApctlConnected() {
+	return netApctlState >= PSP_NET_APCTL_STATE_GOT_IP;
+}
+
 static int sceNetApctlGetState(u32 pStateAddr) {
 	//if (!netApctlInited) return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss");
 
