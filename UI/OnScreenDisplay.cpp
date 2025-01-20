@@ -288,9 +288,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	edges[(size_t)ScreenEdgePosition::TOP_CENTER].alpha = 1.0f;
 
 	ScreenEdgePosition typeEdges[(size_t)OSDType::VALUE_COUNT]{};
-	// Default to top.
+	// Default to the configured position.
 	for (int i = 0; i < (size_t)OSDType::VALUE_COUNT; i++) {
-		typeEdges[i] = ScreenEdgePosition::TOP_CENTER;
+		typeEdges[i] = (ScreenEdgePosition)g_Config.iNotificationPos;
 	}
 
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = (ScreenEdgePosition)g_Config.iAchievementsChallengePos;
