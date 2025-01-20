@@ -133,7 +133,7 @@
 		},
 		{
 			"name": "Ratchet & Clank - Size Matters",
-			"dns": "67.222.156.251",
+			"dns": "67.222.156.250",
 			"other_ids": [
 				"UCES00420",
 				"UCUS98633"
@@ -151,6 +151,82 @@
 			"revival_credits": {
 				"group": "OutRun2006Tweaks"
 			}
+		},
+		{
+			"name": "SOCOM Fireteam Bravo",
+			"known_working_ids": [
+				"UCKS45021",
+				"UCUS98615",
+				"UCES00038"
+			],
+			"score": 4,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
+		},
+		{
+			"name": "SOCOM Fireteam Bravo 2",
+			"known_working_ids": [
+				"UCUS98645",
+				"UCES00543"
+			],
+			"other_ids": [
+				"UCKS45043",
+				"UCUS80171"
+			],
+			"score": 4,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
+		},
+		{
+			"name": "SOCOM Tactical Strike",
+			"known_working_ids": [
+				"UCUS98649",
+				"UCES00855"
+			],
+			"other_ids": [
+				"NPUG80220"
+			],
+			"score": 3,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
+		},
+		{
+			"name": "Syphon Filter: Dark Mirror",
+			"known_working_ids": [
+				"UCUS98641"
+			],
+			"score": 5
+		},
+		{
+			"name": "Driver '76",
+			"known_working_ids": [
+				"ULUS10235",
+				"ULES00740"
+			],
+			"score": 5,
+			"connect_adhoc_for_grouping": true
+		},
+		{
+			"name": "Rocky Balboa",
+			"other_ids": [
+				"ULES00670"
+			],
+			"score": 0,
+			"connect_adhoc_for_grouping": true
+		},
+		{
+			"name": "Onore no Shinzuru",
+			"other_ids": [
+				"ULJM05465"
+			],
+			"score": 0,
+			"connect_adhoc_for_grouping": true
 		}
 	]
 }

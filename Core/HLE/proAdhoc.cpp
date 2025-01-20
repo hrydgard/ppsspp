@@ -1372,7 +1372,7 @@ int friendFinder() {
 		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
 			if (g_Config.bEnableWlan) {
 				if (initNetwork(&product_code) == 0) {
-					networkInited = true;
+					g_adhocServerConnected = true;
 					INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
 					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
 					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
@@ -1380,7 +1380,7 @@ int friendFinder() {
 					isAdhocctlBusy = false;
 				} 
 				else {
-					networkInited = false;
+					g_adhocServerConnected = false;
 					shutdown((int)metasocket, SD_BOTH);
 					closesocket((int)metasocket);
 					metasocket = (int)INVALID_SOCKET;
@@ -1390,7 +1390,7 @@ int friendFinder() {
 		// Prevent retrying to Login again unless it was on demand
 		isAdhocctlNeedLogin = false;
 
-		if (networkInited) {
+		if (g_adhocServerConnected) {
 			// Ping Server
 			now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
@@ -1406,7 +1406,7 @@ int friendFinder() {
 					if (iResult == SOCKET_ERROR) {
 						ERROR_LOG(Log::sceNet, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", error);
 						if (error != EAGAIN && error != EWOULDBLOCK) {
-							networkInited = false;
+							g_adhocServerConnected = false;
 							shutdown((int)metasocket, SD_BOTH);
 							closesocket((int)metasocket);
 							metasocket = (int)INVALID_SOCKET;
