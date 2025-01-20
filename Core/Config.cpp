@@ -315,6 +315,7 @@ static const ConfigSetting generalSettings[] = {
 
 	ConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("LoadPlugins", &g_Config.bLoadPlugins, true, CfgFlag::PER_GAME),
+	ConfigSetting("NotificationPos", &g_Config.iNotificationPos, (int)ScreenEdgePosition::TOP_CENTER, CfgFlag::DEFAULT),
 
 	ConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", CfgFlag::PER_GAME | CfgFlag::REPORT),
 

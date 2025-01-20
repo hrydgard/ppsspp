@@ -116,7 +116,12 @@ void TextureReplacer::NotifyConfigChanged() {
 		// Somewhat crude message, re-using translation strings.
 		auto d = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(d->T("Save new textures")) + ": " + std::string(di->T("Enabled")), 2.0f);
+		std::string str(d->T("Save new textures"));
+		if (!str.empty()) {
+			str.append(": ");
+			str.append(di->T("Enabled"));
+			g_OSD.Show(OSDType::MESSAGE_INFO, str, 2.0f);
+		}
 	}
 }
 
