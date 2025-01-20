@@ -117,7 +117,7 @@ class PointerWrap;
 
 extern bool netInited;
 extern bool netInetInited;
-extern bool netApctlInited;
+extern bool g_netApctlInited;
 extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
 extern std::string defaultNetConfigName;
