@@ -67,11 +67,7 @@ static std::mutex g_netResolversLock;  // Do we really need this?
 static bool g_netResolverInitialized = true;
 
 static int sceNetResolverInit() {
-	// TODO: Move this to infra-jns.config! This isn't ok.
-	// However obviously don't remove the mHostToAlias mechanism.
-	g_Config.mHostToAlias["socomftb2.psp.online.scea.com"] = "67.222.156.250";
-	g_Config.mHostToAlias["socompsp-prod.muis.pdonline.scea.com"] = "67.222.156.250";
-
+	// Hardcoded mHostToAlias entries here have been moved to the infra-dns.json file.
 	return hleLogSuccessInfoI(Log::sceNet, 0);
 }
 
