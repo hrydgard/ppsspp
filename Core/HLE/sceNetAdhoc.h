@@ -106,7 +106,7 @@ void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 
 bool __NetAdhocConnected();
 
-// Called from netdialog
+// Called from netdialog (and from sceNetApctl)
 // NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
 int sceNetAdhocctlCreate(const char * groupName);
@@ -116,6 +116,7 @@ int sceNetAdhocctlScan();
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr);
 int sceNetAdhocctlDisconnect();
 int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr);
+int sceNetAdhocctlTerm();
 
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();

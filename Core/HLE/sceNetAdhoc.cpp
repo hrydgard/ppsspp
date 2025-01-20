@@ -128,7 +128,6 @@ void ZeroNetAdhocMatchingThreads();
 void SaveNetAdhocMatchingInited();
 void RestoreNetAdhocMatchingInited();
 
-
 bool __NetAdhocConnected() {
 	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
 }
@@ -1278,8 +1277,9 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
 	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
-	if (netAdhocctlInited)
+	if (netAdhocctlInited) {
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED);
+	}
 
 	auto product = PSPPointer<SceNetAdhocctlAdhocId>::Create(productAddr);
 	if (product.IsValid()) {
