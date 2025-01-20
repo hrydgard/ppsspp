@@ -159,7 +159,11 @@
 				"UCUS98615",
 				"UCES00038"
 			],
-			"score": 4
+			"score": 4,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
 		},
 		{
 			"name": "SOCOM Fireteam Bravo 2",
@@ -167,7 +171,15 @@
 				"UCUS98645",
 				"UCES00543"
 			],
-			"score": 4
+			"other_ids": [
+				"UCKS45043",
+				"UCUS80171"
+			],
+			"score": 4,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
 		},
 		{
 			"name": "SOCOM Tactical Strike",
@@ -175,7 +187,14 @@
 				"UCUS98649",
 				"UCES00855"
 			],
-			"score": 3
+			"other_ids": [
+				"NPUG80220"
+			],
+			"score": 3,
+			"domains": {
+				"socomftb2.psp.online.scea.com": "67.222.156.250",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+			}
 		},
 		{
 			"name": "Syphon Filter: Dark Mirror",
