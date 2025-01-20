@@ -257,7 +257,8 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 	return func(args...);
 }
 
-#define hleCall(module, retType, funcName, ...) hleCallImpl<retType>(#module, #funcName, funcName, __VA_ARGS__)
+// Note: ## is to eat the last comma if it's not needed (no arguments).
+#define hleCall(module, retType, funcName, ...) hleCallImpl<retType>(#module, #funcName, funcName, ## __VA_ARGS__)
 
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
