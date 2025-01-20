@@ -29,6 +29,8 @@ enum class OSDType {
 
 	PROGRESS_BAR,
 
+	TRANSPARENT_STATUS,  // Use icons from the atlas
+
 	VALUE_COUNT,
 };
 

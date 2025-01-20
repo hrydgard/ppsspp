@@ -668,6 +668,26 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 	return true;
 }
 
+// TODO: We should replace the "fpsLimit" system with a speed factor.
+static void ShowFpsLimitNotice() {
+	int fpsLimit = 60;
+
+	switch (PSP_CoreParameter().fpsLimit) {
+	case FPSLimit::CUSTOM1:
+		fpsLimit = g_Config.iFpsLimit1;
+		break;
+	case FPSLimit::CUSTOM2:
+		fpsLimit = g_Config.iFpsLimit2;
+		break;
+	}
+
+	// Now display it.
+
+	char temp[51];
+	snprintf(temp, sizeof(temp), "%d%%", (int)((float)fpsLimit / 60.0f * 100.0f));
+	g_OSD.Show(OSDType::TRANSPARENT_STATUS, temp, "", "I_FASTFORWARD", 1.5f, "altspeed");
+}
+
 void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
@@ -694,14 +714,13 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 			// Cycle through enabled speeds.
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0, "altspeed");
 			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0, "altspeed");
 			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0, "altspeed");
 			}
+
+			ShowFpsLimitNotice();
 		}
 		break;
 
@@ -709,12 +728,12 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0, "altspeed");
+				ShowFpsLimitNotice();
 			}
 		} else {
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0, "altspeed");
+				ShowFpsLimitNotice();
 			}
 		}
 		break;
@@ -722,12 +741,12 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0, "altspeed");
+				ShowFpsLimitNotice();
 			}
 		} else {
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0, "altspeed");
+				ShowFpsLimitNotice();
 			}
 		}
 		break;
@@ -737,6 +756,8 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 			// Trigger on key-up to partially avoid repetition problems.
 			// This is needed whenever we pop up a menu since the mapper
 			// might miss  the key-up. Same as VIRTKEY_OPENCHAT.
+			// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
+			// running in the background of the menu.
 			pauseTrigger_ = true;
 			controlMapper_.ForceReleaseVKey(virtualKeyCode);
 		}
