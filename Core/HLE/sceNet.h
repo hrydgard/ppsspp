@@ -127,9 +127,7 @@ void __NetDoState(PointerWrap &p);
 
 int NetApctl_GetState();
 
-inline bool __NetApctlConnected() {
-	return netApctlState >= PSP_NET_APCTL_STATE_GOT_IP;
-}
+bool __NetApctlConnected();
 
 int sceNetApctlConnect(int connIndex);
 
