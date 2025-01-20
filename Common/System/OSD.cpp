@@ -69,6 +69,12 @@ void OnScreenDisplay::ClickEntry(size_t index, double now) {
 }
 
 void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s, const char *id) {
+	if (text.empty()) {
+		// The user hacked the translation files to get rid of the message. Let's reward the dedication
+		// by skipping it entirely.
+		return;
+	}
+
 	// Automatic duration based on type.
 	if (duration_s <= 0.0f) {
 		switch (type) {
