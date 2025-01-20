@@ -748,17 +748,19 @@ DLResult GPUCommon::ProcessDLQueue() {
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &list = dls[listIndex];
 
-		if (!Memory::IsValidAddress(list.pc)) {
-			ERROR_LOG(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
-			return DLResult::Error;
+		if (list.state == PSP_GE_DL_STATE_PAUSED) {
+			return DLResult::Done;
+		}
+
+		// Temporary workaround for Crazy Taxi, see #19894
+		if (list.state == PSP_GE_DL_STATE_NONE) {
+			WARN_LOG(Log::G3D, "Discarding display list with state NONE (pc=%08x). This is odd.", list.pc);
+			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
+			return DLResult::Done;
 		}
 
 		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%lld)",
 			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
-
-		if (list.state == PSP_GE_DL_STATE_PAUSED) {
-			return DLResult::Done;
-		}
 
 		if (!resumingFromDebugBreak_) {
 			// TODO: Need to be careful when *resuming* a list (when it wasn't from a stall...)
@@ -770,6 +772,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 			list.started = true;
 
 			gstate_c.offsetAddr = list.offsetAddr;
+
+			if (!Memory::IsValidAddress(list.pc)) {
+				ERROR_LOG(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
+				return DLResult::Done;
+			}
 
 			cycleLastPC = list.pc;
 			cyclesExecuted += 60;
@@ -842,6 +849,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// don't do anything - though dunno about error...
 			break;
 		case GPUSTATE_STALL:
+			// Resume work on this same display list later.
 			return DLResult::Done;
 		default:
 			return DLResult::Error;
