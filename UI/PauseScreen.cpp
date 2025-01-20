@@ -44,6 +44,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetInet.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -277,11 +278,12 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
-	if (netInited != lastNetInited_ || netInetInited != lastNetInetInited_) {
+	if (netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
 		lastNetInited_ = netInited;
+		lastAdhocServerConnected_ = g_adhocServerConnected;
 	}
 
 	bool mustRunBehind = MustRunBehind();
@@ -384,7 +386,7 @@ void GamePauseScreen::CreateViews() {
 		}
 	}
 
-	if (netInited) {
+	if (netInited || g_adhocServerConnected) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
 		if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
@@ -398,6 +400,10 @@ void GamePauseScreen::CreateViews() {
 					return UI::EVENT_DONE;
 				});
 			}
+		}
+
+		if (g_adhocServerConnected) {
+			leftColumnItems->Add(new TextView(std::string(nw->T("AdHoc Server")) + ": " + std::string(nw->T("Connected"))));
 		}
 	}
 

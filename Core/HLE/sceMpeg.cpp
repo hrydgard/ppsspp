@@ -1673,7 +1673,7 @@ static u32 sceMpegFinish()
 		// TODO: Need to properly hook module load/unload for this to work right.
 		//return ERROR_MPEG_NOT_YET_INIT;
 	} else {
-		INFO_LOG(Log::ME, "sceMpegFinish(...)");
+		INFO_LOG(Log::ME, "sceMpegFinish()");
 		__VideoPmpShutdown();
 	}
 	isMpegInit = false;

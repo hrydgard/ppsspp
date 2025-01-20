@@ -125,7 +125,7 @@ int NetAdhoc_Term();
 // May need to use these from sceNet.cpp
 extern bool netAdhocInited;
 extern bool netAdhocctlInited;
-extern bool networkInited;
+extern bool g_adhocServerConnected;
 extern bool netAdhocGameModeEntered;
 extern int netAdhocEnterGameModeTimeout;
 extern int adhocDefaultTimeout; //3000000 usec
