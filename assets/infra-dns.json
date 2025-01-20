@@ -209,6 +209,23 @@
 				"ULUS10235",
 				"ULES00740"
 			],
+			"score": 5,
+			"connect_adhoc_for_grouping": true
+		},
+		{
+			"name": "Rocky Balboa",
+			"other_ids": [
+				"ULES00670"
+			],
+			"score": 0,
+			"connect_adhoc_for_grouping": true
+		},
+		{
+			"name": "Onore no Shinzuru",
+			"other_ids": [
+				"ULJM05465"
+			],
+			"score": 0,
 			"connect_adhoc_for_grouping": true
 		}
 	]
