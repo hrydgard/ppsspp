@@ -68,7 +68,7 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-bool networkInited = false;
+bool g_adhocServerConnected = false;
 
 #define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
 u64 netAdhocDiscoverStartTime = 0;
@@ -371,7 +371,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		}
 
 		// Retry until successfully sent. Login packet sent after successfully connected to Adhoc Server (indicated by networkInited), so we're not sending Login again here
-		if ((req.opcode == OPCODE_LOGIN && !networkInited) || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
+		if ((req.opcode == OPCODE_LOGIN && !g_adhocServerConnected) || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (now - adhocctlStartTime <= static_cast<u64>(adhocDefaultTimeout) + 500) {
 				// Try again in another 0.5ms until timedout.
@@ -1306,7 +1306,7 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	
 	// Need to make sure to be connected to Adhoc Server (indicated by networkInited) before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
 	int us = adhocDefaultDelay;
-	if (g_Config.bEnableWlan && !networkInited) {
+	if (g_Config.bEnableWlan && !g_adhocServerConnected) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
 		return hleLogSuccessOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
 	}
@@ -2582,7 +2582,7 @@ int NetAdhocctl_Term() {
 		//May also need to clear Handlers
 		adhocctlHandlers.clear();
 		// Free stuff here
-		networkInited = false;
+		g_adhocServerConnected = false;
 		shutdown((int)metasocket, SD_BOTH);
 		closesocket((int)metasocket);
 		metasocket = (int)INVALID_SOCKET;

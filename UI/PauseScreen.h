@@ -66,4 +66,5 @@ private:
 	UI::Button *playButton_ = nullptr;
 	bool lastNetInited_ = false;
 	bool lastNetInetInited_ = false;
+	bool lastAdhocServerConnected_ = false;
 };
