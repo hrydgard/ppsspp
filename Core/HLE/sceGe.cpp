@@ -332,18 +332,17 @@ bool __GeTriggerWait(GPUSyncType type, SceUID waitId) {
 	return false;
 }
 
+// Some games spam this, like MediEvil.
 static u32 sceGeEdramGetAddr() {
 	u32 retVal = 0x04000000;
-	DEBUG_LOG(Log::sceGe, "%08x = sceGeEdramGetAddr", retVal);
 	hleEatCycles(150);
-	return retVal;
+	return hleLogVerbose(Log::sceGe, retVal);
 }
 
 // TODO: Return a different value for the PS3 enhanced-emulator games?
 static u32 sceGeEdramGetSize() {
 	const u32 retVal = 0x00200000;
-	DEBUG_LOG(Log::sceGe, "%08x = sceGeEdramGetSize()", retVal);
-	return retVal;
+	return hleLogVerbose(Log::sceGe, retVal);
 }
 
 static int __GeSubIntrBase(int callbackId) {
@@ -351,9 +350,6 @@ static int __GeSubIntrBase(int callbackId) {
 }
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
-	DEBUG_LOG(Log::sceGe,
-		"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
-		listAddress, stallAddress, callbackId, optParamAddr, (int)CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;
@@ -369,13 +365,16 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	}
 	hleEatCycles(490);
 	hleCoreTimingForceCheck();
-	return listID; // We already logged above, logs get confusing if we use hleLogSuccess.
+	DEBUG_LOG(Log::sceGe,
+		"%08x=sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld", listID,
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks());
+	return hleNoLog(listID); // We already logged above, logs get confusing if we use hleLogSuccess.
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
-		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%d",
-		listAddress, stallAddress, callbackId, optParamAddr, (int)CoreTiming::GetTicks());
+		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld",
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks());
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;

@@ -798,6 +798,7 @@ void CallSyscall(MIPSOpcode op) {
 	}
 }
 
+// TODO: Also add support for argument names.
 size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	char *p = message;
 	size_t used = 0;
