@@ -615,16 +615,18 @@ namespace MainWindow
 		case WM_SETCURSOR:
 			if ((lParam & 0xFFFF) == HTCLIENT && g_Config.bShowImDebugger) {
 				LPTSTR win32_cursor = 0;
-				switch (ImGui_ImplPlatform_GetCursor()) {
-				case ImGuiMouseCursor_Arrow:        win32_cursor = IDC_ARROW; break;
-				case ImGuiMouseCursor_TextInput:    win32_cursor = IDC_IBEAM; break;
-				case ImGuiMouseCursor_ResizeAll:    win32_cursor = IDC_SIZEALL; break;
-				case ImGuiMouseCursor_ResizeEW:     win32_cursor = IDC_SIZEWE; break;
-				case ImGuiMouseCursor_ResizeNS:     win32_cursor = IDC_SIZENS; break;
-				case ImGuiMouseCursor_ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
-				case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
-				case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
-				case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+				if (g_Config.bShowImDebugger) {
+					switch (ImGui_ImplPlatform_GetCursor()) {
+					case ImGuiMouseCursor_Arrow:        win32_cursor = IDC_ARROW; break;
+					case ImGuiMouseCursor_TextInput:    win32_cursor = IDC_IBEAM; break;
+					case ImGuiMouseCursor_ResizeAll:    win32_cursor = IDC_SIZEALL; break;
+					case ImGuiMouseCursor_ResizeEW:     win32_cursor = IDC_SIZEWE; break;
+					case ImGuiMouseCursor_ResizeNS:     win32_cursor = IDC_SIZENS; break;
+					case ImGuiMouseCursor_ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
+					case ImGuiMouseCursor_ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
+					case ImGuiMouseCursor_Hand:         win32_cursor = IDC_HAND; break;
+					case ImGuiMouseCursor_NotAllowed:   win32_cursor = IDC_NO; break;
+					}
 				}
 				if (win32_cursor) {
 					SetCursor(::LoadCursor(nullptr, win32_cursor));
