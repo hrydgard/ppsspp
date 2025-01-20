@@ -808,15 +808,16 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	std::string msg(n->T("Network initialized"));
-	if (g_Config.bInfrastructureAutoDNS) {
-		msg += ": ";
-		msg += n->T("Auto DNS");
-		if (!g_infraDNSConfig.gameName.empty()) {
-			msg += " (" + g_infraDNSConfig.gameName + ")";
+	if (!msg.empty()) {
+		if (g_Config.bInfrastructureAutoDNS) {
+			msg += ": ";
+			msg += n->T("Auto DNS");
+			if (!g_infraDNSConfig.gameName.empty()) {
+				msg += " (" + g_infraDNSConfig.gameName + ")";
+			}
 		}
+		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0, "networkinit");
 	}
-
-	g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0, "networkinit");
 	return hleLogSuccessI(Log::sceNet, 0);
 }
 

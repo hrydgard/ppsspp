@@ -555,6 +555,7 @@ public:
 	bool bAchievementsEnableRAIntegration;
 
 	// Positioning of the various notifications
+	int iNotificationPos;
 	int iAchievementsLeaderboardTrackerPos;
 	int iAchievementsLeaderboardStartedOrFailedPos;
 	int iAchievementsLeaderboardSubmittedPos;
