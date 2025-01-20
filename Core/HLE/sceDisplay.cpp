@@ -1099,7 +1099,7 @@ static u32 sceDisplaySetBrightness(int level, int other) {
 static u32 sceDisplaySetHoldMode(u32 hMode) {
 	// Not sure what this does, seems to do nothing in tests and accept all values.
 	holdMode = hMode;
-	return hleReportError(Log::sceDisplay, 0, "unsupported");
+	return hleLogWarning(Log::sceDisplay, 0, "UNIMPL");
 }
 
 const HLEFunction sceDisplay[] = {
