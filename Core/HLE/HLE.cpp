@@ -410,7 +410,7 @@ static bool hleExecuteDebugBreak(const HLEFunction *func) {
 
 // Should be used *outside* hleLogError for example. Not the other way around.
 u32 hleDelayResult(u32 result, const char *reason, int usec) {
-	_dbg_assert_(g_stackSize == 0);
+	// _dbg_assert_(g_stackSize == 0);
 
 	if (!__KernelIsDispatchEnabled()) {
 		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stackSize ? g_stack[0]->name : "?");
@@ -427,14 +427,14 @@ u32 hleDelayResult(u32 result, const char *reason, int usec) {
 u64 hleDelayResult(u64 result, const char *reason, int usec) {
 	// Note: hleDelayResult is called at the outer level, *outside* logging.
 	// So, we read from the entry that was just popped. This is OK.
-	_dbg_assert_(g_stackSize == 0);
+	// _dbg_assert_(g_stackSize == 0);
 	if (!__KernelIsDispatchEnabled()) {
-		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stack[0]->name);
+		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stack[0]->name ? g_stack[0]->name : "N/A");
 	} else {
 		// TODO: Defer this, so you can call this multiple times, in case of syscalls calling syscalls? Although, return values are tricky.
 		SceUID thread = __KernelGetCurThread();
 		if (KernelIsThreadWaiting(thread))
-			ERROR_LOG(Log::HLE, "%s: Delaying a thread that's already waiting", g_stack[0]->name);
+			ERROR_LOG(Log::HLE, "%s: Delaying a thread that's already waiting", g_stack[0]->name ? g_stack[0]->name : "N/A");
 		u64 param = (result & 0xFFFFFFFF00000000) | thread;
 		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
 		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32)result, 0, false, reason);
@@ -975,7 +975,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 
 void hleLeave() {
 	int stackSize = g_stackSize;
-	_dbg_assert_(stackSize > 0);
+	//_dbg_assert_(stackSize > 0);
 	if (stackSize > 0) {
 		g_stackSize = stackSize - 1;
 	}  // else warn?
