@@ -23,6 +23,7 @@
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
@@ -176,7 +177,8 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
-					connResult = sceNetApctlConnect(1);
+					// connResult = sceNetApctlConnect(1);
+					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
 				}
 			}
 		}
@@ -217,13 +219,13 @@ int PSPNetconfDialog::Update(int animSpeed) {
 					{
 					case NETCONF_CREATE_ADHOC:
 						if (connResult < 0) {
-							connResult = sceNetAdhocctlCreate(request.NetconfData->groupName);
+							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlCreate, request.NetconfData->groupName);
 						}
 						break;
 					case NETCONF_JOIN_ADHOC:
 						// FIXME: Should we Scan for a matching group first before Joining a Group (like adhoc games normally do)? Or Is it really allowed to join non-existing group?
 						if (scanStep == 0) {
-							if (sceNetAdhocctlScan() >= 0) {
+							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlScan) >= 0) {
 								u32 structsz = sizeof(ScanInfos);
 								if (Memory::IsValidAddress(scanInfosAddr))
 									userMemory.Free(scanInfosAddr);
@@ -235,7 +237,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						else if (scanStep == 1) {
 							s32 sz = Memory::Read_U32(scanInfosAddr);
 							// Get required buffer size
-							if (sceNetAdhocctlGetScanInfo(scanInfosAddr, 0) >= 0) {
+							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, 0) >= 0) {
 								s32 reqsz = Memory::Read_U32(scanInfosAddr);
 								if (reqsz > sz) {
 									sz = reqsz;
@@ -246,7 +248,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 									Memory::Write_U32(sz, scanInfosAddr);
 								}
 								if (reqsz > 0) {
-									if (sceNetAdhocctlGetScanInfo(scanInfosAddr, scanInfosAddr + sizeof(s32)) >= 0) {
+									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
 										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointer(scanInfosAddr);
 										int n = scanInfos->sz / sizeof(SceNetAdhocctlScanInfoEmu);
 										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contagious where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
@@ -274,7 +276,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						}
 						else if (scanStep == 2) {
 							if (connResult < 0) {
-								connResult = sceNetAdhocctlJoin(scanInfosAddr + sizeof(s32));
+								connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlJoin, scanInfosAddr + (u32)sizeof(s32));
 								if (connResult >= 0) {
 									// We are done!
 									if (Memory::IsValidAddress(scanInfosAddr))
@@ -286,7 +288,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						break;
 					default:
 						if (connResult < 0) {
-							connResult = sceNetAdhocctlConnect(request.NetconfData->groupName);
+							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, request.NetconfData->groupName);
 						}
 						break;
 					}

@@ -2093,19 +2093,29 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	return 0;
 }
 
+// This gets called from other places, so we don't use the hleLog* here.
 int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs) {
-	if (threadToStartID == 0)
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_THID, "thread id is 0");
-	if (argSize < 0 || argBlockPtr & 0x80000000)
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad thread argument pointer/length %08x / %08x", argSize, argBlockPtr);
+	if (threadToStartID == 0) {
+		ERROR_LOG(Log::sceKernel, "thread id is 0");
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	}
+
+	if (argSize < 0 || argBlockPtr & 0x80000000) {
+		ERROR_LOG(Log::sceKernel, "bad thread argument pointer/length %08x / %08x", argSize, argBlockPtr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
 	u32 error = 0;
 	PSPThread *startThread = kernelObjects.Get<PSPThread>(threadToStartID, error);
-	if (startThread == 0)
-		return hleLogError(Log::sceKernel, error, "thread does not exist");
+	if (startThread == 0) {
+		ERROR_LOG(Log::sceKernel, "thread does not exist: %08x", error);
+		return error;
+	}
 
-	if (startThread->nt.status != THREADSTATUS_DORMANT)
-		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT, "thread already running");
+	if (startThread->nt.status != THREADSTATUS_DORMANT) {
+		WARN_LOG(Log::sceKernel, "thread already running");
+		return SCE_KERNEL_ERROR_NOT_DORMANT;
+	}
 
 	hleEatCycles(3400);
 	return __KernelStartThread(threadToStartID, argSize, argBlockPtr, forceArgs);
@@ -2113,7 +2123,8 @@ int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBloc
 
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr) {
-	return hleLogSuccessInfoI(Log::sceKernel, __KernelStartThreadValidate(threadToStartID, argSize, argBlockPtr));
+	int retval = __KernelStartThreadValidate(threadToStartID, argSize, argBlockPtr);
+	return hleLogSuccessOrError(Log::sceKernel, retval);
 }
 
 int sceKernelGetThreadStackFreeSize(SceUID threadID)
@@ -2202,8 +2213,7 @@ int sceKernelExitDeleteThread(int exitStatus) {
 	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	PSPThread *thread = __GetCurrentThread();
-	if (thread)
-	{
+	if (thread) {
 		INFO_LOG(Log::sceKernel,"sceKernelExitDeleteThread(%d)", exitStatus);
 		uint32_t thread_attr = thread->nt.attr;
 		uint32_t uid = thread->GetUID();
@@ -2218,7 +2228,7 @@ int sceKernelExitDeleteThread(int exitStatus) {
 	}
 	else
 		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
-	return 0;
+	return hleNoLog(0);
 }
 
 u32 sceKernelSuspendDispatchThread()
@@ -2415,11 +2425,9 @@ u32 __KernelGetCurThreadStackStart() {
 	return 0;
 }
 
-SceUID sceKernelGetThreadId()
-{
-	VERBOSE_LOG(Log::sceKernel, "%i = sceKernelGetThreadId()", currentThread);
+SceUID sceKernelGetThreadId() {
 	hleEatCycles(180);
-	return currentThread;
+	return hleLogVerbose(Log::sceKernel, currentThread);
 }
 
 int sceKernelGetThreadCurrentPriority() {

@@ -1154,8 +1154,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	INFO_LOG(Log::ME, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc);
-	return hleDelayResult(0, "player create", delayUs);	
+	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc), "player create", delayUs);
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1170,7 +1169,7 @@ static int scePsmfPlayerStop(u32 psmfPlayer) {
 
 	int delayUs = 3000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleLogSuccessInfoI(Log::ME, hleDelayResult(0, "psmfplayer stop", delayUs));
+	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "psmfplayer stop", delayUs);
 }
 
 static int scePsmfPlayerBreak(u32 psmfPlayer) {
@@ -1230,7 +1229,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	if (psmfplayer->filehandle < 0) {
-		return hleLogError(Log::ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "invalid file data or does not exist");
+		return hleDelayResult(hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid file data or does not exist"), "psmfplayer set", delayUs);
 	}
 
 	if (offset != 0)
@@ -1250,7 +1249,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	// TODO: Merge better with Psmf.
 	u16 numStreams = *(u16_be *)(buf + 0x80);
 	if (numStreams > 128) {
-		return hleReportError(Log::ME, hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs), "too many streams in PSMF video, bogus data");
+		return hleDelayResult(hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "too many streams in PSMF video, bogus data"), "psmfplayer set", delayUs);
 	}
 
 	psmfplayer->totalVideoStreams = 0;
@@ -1294,7 +1293,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleLogSuccessInfoI(Log::ME, hleDelayResult(0, "psmfplayer set", delayUs));
+	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "psmfplayer set", delayUs);
 }
 
 static int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) {
@@ -1463,7 +1462,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	psmfplayer->seekDestTimeStamp = initPts;
 	__PsmfPlayerContinueSeek(psmfplayer);
-	return delayUs == 0 ? 0 : hleDelayResult(0, "psmfplayer start", delayUs);
+	return delayUs == 0 ? 0 : hleDelayResult(hleNoLog(0), "psmfplayer start", delayUs);
 }
 
 static int scePsmfPlayerDelete(u32 psmfPlayer)

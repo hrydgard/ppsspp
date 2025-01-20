@@ -205,7 +205,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 						if (it != gameModePeerPorts.end())
 							port = it->second;
 							
-						int sent = sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+						int sent = hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
 							gma.dataSent = 1;
 							DEBUG_LOG(Log::sceNet, "GameMode: Master data Sent %d bytes to Area #%d [%s]", masterGameModeArea.size, gma.id, mac2str(&gma.mac).c_str());
@@ -234,7 +234,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 								if (it != gameModePeerPorts.end())
 									port = it->second;
 
-								sceNetAdhocPdpSend(gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
+								hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 							}
 						}
 					}
@@ -1279,7 +1279,7 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	// FIXME: Sometimes returning 0x80410601 (ERROR_NET_ADHOC_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited)
-		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED);
 
 	auto product = PSPPointer<SceNetAdhocctlAdhocId>::Create(productAddr);
 	if (product.IsValid()) {
@@ -1308,12 +1308,12 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !networkInited) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
-		return WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init");
+		return hleLogSuccessOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
 	}
 	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	hleEatMicro(us);
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int NetAdhocctl_GetState() {
@@ -1323,11 +1323,11 @@ int NetAdhocctl_GetState() {
 int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	// Library uninitialized
 	if (!netAdhocctlInited)
-		return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 
 	// Invalid Arguments
 	if (!Memory::IsValidAddress(ptrToStatus))
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_INVALID_ARG);
 
 	int state = NetAdhocctl_GetState();
 	// Output Adhocctl State
@@ -1349,11 +1349,11 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), port, bufferSize, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN");
 	}
 
 	if (!netInited)
-		return 0x800201CA; //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
+		return hleLogError(Log::sceNet, 0x800201CA); //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
@@ -1517,7 +1517,7 @@ static int sceNetAdhocctlGetParameter(u32 paramAddr) {
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetParameter(%08x) [Ch=%i][Group=%s][BSSID=%s][name=%s]", paramAddr, parameter.channel, grpName, mac2str(&parameter.bssid.mac_addr).c_str(), parameter.nickname.data);
 	if (!g_Config.bEnableWlan) {
-		return ERROR_NET_ADHOCCTL_DISCONNECTED;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_DISCONNECTED);
 	}
 
 	// Library initialized
@@ -1552,7 +1552,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpSend(%i, %s, %i, %p, %i, %i, %i) at %08x", id, mac2str((SceNetEtherAddr*)mac).c_str(), port, data, len, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
 	uint16_t dport = (uint16_t)port;
@@ -1776,7 +1776,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 	}
  
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	SceNetEtherAddr *saddr = (SceNetEtherAddr *)addr;
@@ -2252,7 +2252,7 @@ static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 int sceNetAdhocctlScan() {
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlScan() at %08x", currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Library initialized
@@ -2263,7 +2263,7 @@ int sceNetAdhocctlScan() {
 			// TODO: Valhalla Knights 2 need handler notification, but need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOCCTL_ALREADY_CONNECTED);
 			hleEatMicro(500);
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
@@ -2281,7 +2281,7 @@ int sceNetAdhocctlScan() {
 
 			if (friendFinderRunning) {
 				AdhocctlRequest req = { OPCODE_SCAN, {0} };
-				return WaitBlockingAdhocctlSocket(req, us, "adhocctl scan");
+				return hleLogSuccessOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, us, "adhocctl scan"));
 			}
 			else {
 				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
@@ -2291,7 +2291,7 @@ int sceNetAdhocctlScan() {
 			// Not delaying here may cause Naruto Shippuden Ultimate Ninja Heroes 3 to get disconnected when the mission started
 			hleEatMicro(us);
 			// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlScan switching to a different thread for at least 100ms after returning success and before executing the next line?
-			return hleDelayResult(0, "scan delay", adhocEventPollDelay);
+			return hleDelayResult(hleLogDebug(Log::sceNet, 0), "scan delay", adhocEventPollDelay);
 		}
 		
 		// FIXME: Returning BUSY when previous adhocctl handler's callback is not fully executed yet, But returning success and notifying handler's callback with error (ie. ALREADY_CONNECTED) when previous adhocctl handler's callback is fully executed? Is there a case where error = BUSY sent through handler's callback?
@@ -2310,7 +2310,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return 0;
+		return hleLogWarning(Log::sceNet, 0, "WLAN off");
 	}
 
 	// Library initialized
@@ -2534,9 +2534,7 @@ int sceNetAdhocctlDisconnect() {
 	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	int ret = NetAdhocctl_Disconnect();
-	INFO_LOG(Log::sceNet, "%08x=sceNetAdhocctlDisconnect() at %08x [group=%s]", ret, currentMIPS->pc, grpName);
-
-	return ret;
+	return hleLogSuccessI(Log::sceNet, ret, "group=%s", grpName);
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
@@ -2684,7 +2682,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	VERBOSE_LOG(Log::sceNet, "sceNetAdhocctlGetPeerInfo(%s, %i, %08x) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), size, peerInfoAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	SceNetEtherAddr * maddr = (SceNetEtherAddr *)mac;
@@ -2825,7 +2823,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 		memcpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlCreate(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
@@ -2839,7 +2837,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 		strncpy(grpName, groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlConnect(%s) at %08x", grpName, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
@@ -3348,7 +3346,7 @@ int RecreatePtpSocket(int ptpId) {
 static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen(%s, %d, %s, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport, mac2str((SceNetEtherAddr*)dstmac).c_str(),dport,bufsize, rexmt_int, rexmt_cnt, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 	SceNetEtherAddr* saddr = (SceNetEtherAddr*)srcmac;
 	SceNetEtherAddr* daddr = (SceNetEtherAddr*)dstmac;
@@ -3655,7 +3653,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Library is initialized
@@ -3868,7 +3866,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpConnect(%i, %i, %i) at %08x", id, timeout, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	return NetAdhocPtp_Connect(id, timeout, flag);
@@ -3926,7 +3924,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 static int sceNetAdhocPtpClose(int id, int unknown) {
 	INFO_LOG(Log::sceNet,"sceNetAdhocPtpClose(%d,%d) at %08x",id,unknown,currentMIPS->pc);
 	/*if (!g_Config.bEnableWlan) {
-		return 0;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}*/
 	
 	return NetAdhocPtp_Close(id, unknown);
@@ -3947,7 +3945,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport,bufsize,rexmt_int,rexmt_cnt,backlog,flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 	// Library is initialized
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)srcmac;
@@ -4627,7 +4625,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 	}
 
 	hleEatMicro(100);
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetAdhocGameModeDeleteReplica(int id) {
@@ -4653,7 +4651,7 @@ static int sceNetAdhocGameModeDeleteReplica(int id) {
 		//gameModeSocket = (int)INVALID_SOCKET;
 	}
 
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
@@ -4712,13 +4710,13 @@ void __NetTriggerCallbacks()
 				newState = ADHOCCTL_STATE_DISCONNECTED;
 				delayus = adhocDefaultDelay; // Tekken 5 expects AdhocctlDisconnect to be done within ~17ms (a frame?)
 				break;
-			case ADHOCCTL_EVENT_GAME: 
+			case ADHOCCTL_EVENT_GAME:
 			{
 				newState = ADHOCCTL_STATE_GAMEMODE;
 				delayus = adhocEventDelay;
 				// TODO: Use blocking PTP connection to sync the timing just like official prx did (which is done before notifying user-defined Adhocctl Handlers)
 				// Workaround: Extra delay to prevent Joining player to progress faster than the Creator on Pocket Pool, but unbalanced delays could cause an issue on Shaun White Snowboarding :(
-				if (adhocConnectionType == ADHOC_JOIN) 
+				if (adhocConnectionType == ADHOC_JOIN)
 					delayus += adhocExtraDelay * 3;
 				// Shows player list
 				INFO_LOG(Log::sceNet, "GameMode - All players have joined:");
@@ -4751,12 +4749,14 @@ void __NetTriggerCallbacks()
 			adhocctlEvents.pop_front();
 			// Since we don't have beforeAction, simulate it using ScheduleEvent
 			ScheduleAdhocctlState(flags, newState, delayus, "adhocctl callback state");
+			hleNoLogVoid();
 			return;
 		}
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 100-500ms for Adhocctl Events? or Not Less than the delays on sceNetAdhocctl HLE?
-	sceKernelDelayThread(adhocDefaultDelay);
+	hleCall(ThreadManForUser, int, sceKernelDelayThread, adhocDefaultDelay);
+	hleNoLogVoid();
 }
 
 const HLEFunction sceNetAdhoc[] = {
@@ -4841,7 +4841,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetPeerList([%08x]=%i, %08x) at %08x", sizeAddr, /*buflen ? *buflen : -1*/Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
-		return -1;
+		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
 	// Initialized Library
@@ -5033,7 +5033,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 			peerlock.unlock();
 
 			// Return Success
-			return hleLogDebug(Log::sceNet, hleDelayResult(0, "delay 100 ~ 1000us", 100), "success"); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
+			return hleDelayResult(hleLogDebug(Log::sceNet, 0, "success"), "delay 100 ~ 1000us", 100); // FIXME: Might have similar delay with GetPeerList? need to know which games using this tho
 		}
 
 		// Invalid Arguments

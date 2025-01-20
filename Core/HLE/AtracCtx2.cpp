@@ -6,8 +6,8 @@
 #include "Core/HW/Atrac3Standalone.h"
 
 // Convenient command line:
-// Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ --compare --timeout=5 --new-atrac --graphics=software pspautotests/tests/audio/atrac/decode.prx
-
+// Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --timeout=30 --graphics=software pspautotests/tests/audio/atrac/... --ignore pspautotests/tests/audio/atrac/second/resetting.prx --ignore pspautotests/tests/audio/atrac/second/replay.prx
+//
 // See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
 //
 // Test cases

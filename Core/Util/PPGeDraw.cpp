@@ -38,6 +38,7 @@
 #include "GPU/GPUCommon.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceGe.h"
@@ -469,7 +470,7 @@ void PPGeEnd()
 		// We actually drew something
 		gpu->EnableInterrupts(false);
 		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
-		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, -1, listArgs.ptr);
+		u32 list = hleCall(sceGe_user, u32, sceGeListEnQueue, dlPtr, dlWritePtr, -1, listArgs.ptr);
 		DEBUG_LOG(Log::sceGe, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 	}

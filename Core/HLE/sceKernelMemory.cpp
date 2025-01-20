@@ -1626,7 +1626,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
 			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
-				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 			if (vpl)
 			{
@@ -1641,7 +1641,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		}
 		// If anyone else was waiting, the allocation causes a delay.
 		else if (error == 0 && !vpl->waitingThreads.empty())
-			return hleDelayResult(error, "vpl allocated", 50);
+			return hleDelayResult(hleLogDebug(Log::sceKernel, error), "vpl allocated", 50);
 	}
 	return error;
 }
@@ -1657,7 +1657,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
 			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
-				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 			if (vpl)
 			{
@@ -1672,7 +1672,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		}
 		// If anyone else was waiting, the allocation causes a delay.
 		else if (error == 0 && !vpl->waitingThreads.empty())
-			return hleDelayResult(error, "vpl allocated", 50);
+			return hleDelayResult(hleLogDebug(Log::sceKernel, error), "vpl allocated", 50);
 	}
 	return error;
 }
@@ -1686,8 +1686,7 @@ int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
 
 int sceKernelFreeVpl(SceUID uid, u32 addr) {
 	if (addr && !Memory::IsValidAddress(addr)) {
-		WARN_LOG(Log::sceKernel, "%08x=sceKernelFreeVpl(%i, %08x): Invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, addr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address");
 	}
 
 	VERBOSE_LOG(Log::sceKernel, "sceKernelFreeVpl(%i, %08x)", uid, addr);
@@ -1737,7 +1736,6 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
@@ -1746,7 +1744,7 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 		if (wokeThreads)
 			hleReSchedule("vpl canceled");
 
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 	else
 	{
@@ -1796,11 +1794,9 @@ static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAdd
 	}
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, pname, size, (MemblockType)type, 0);
-	if (!block->IsValid())
-	{
+	if (!block->IsValid()) {
 		delete block;
-		ERROR_LOG(Log::sceKernel, "AllocMemoryBlock(%s, %i, %08x, %08x): allocation failed", pname, type, size, paramsAddr);
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "allocation failed");
 	}
 	SceUID uid = kernelObjects.Create(block);
 

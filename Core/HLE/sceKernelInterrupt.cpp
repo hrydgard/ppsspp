@@ -91,7 +91,7 @@ static int sceKernelCpuSuspendIntr()
 		returnValue = 0;
 	}
 	hleEatCycles(15);
-	return returnValue;
+	return hleNoLog(returnValue);
 }
 
 static void sceKernelCpuResumeIntr(u32 enable)
@@ -108,12 +108,12 @@ static void sceKernelCpuResumeIntr(u32 enable)
 		__DisableInterrupts();
 	}
 	hleEatCycles(15);
+	hleNoLogVoid();
 }
 
-static int sceKernelIsCpuIntrEnable()
-{
+static int sceKernelIsCpuIntrEnable() {
 	u32 retVal = __InterruptsEnabled(); 
-	return hleLogDebug(Log::sceIntc, retVal);
+	return hleLogVerbose(Log::sceIntc, retVal);
 }
 
 static int sceKernelIsCpuIntrSuspended(int flag)
@@ -124,6 +124,7 @@ static int sceKernelIsCpuIntrSuspended(int flag)
 
 static void sceKernelCpuResumeIntrWithSync(u32 enable)
 {
+	// Just a forward, don't bother with hleCall.
 	sceKernelCpuResumeIntr(enable);
 }
 
@@ -509,10 +510,8 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
 		return hleReportError(Log::sceIntc, error, "duplicate handler");
-	} else {
-		return hleReportError(Log::sceIntc, error);
 	}
-	return error;
+	return hleReportError(Log::sceIntc, error);
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {

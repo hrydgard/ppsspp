@@ -65,9 +65,10 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
 		int delayUs = size / 236;
 		dmacMemcpyDeadline = CoreTiming::GetTicks() + usToCycles(delayUs);
-		return hleDelayResult(0, "dmac copy", delayUs);
+		return delayUs;
+	} else {
+		return 0;
 	}
-	return 0;
 }
 
 static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
@@ -88,7 +89,9 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		// Might matter for overlapping copies.
 	}
 
-	return hleLogDebug(Log::HLE, __DmacMemcpy(dst, src, size));
+	int delay = __DmacMemcpy(dst, src, size);
+	int result = hleLogDebug(Log::HLE, 0);
+	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
 
 static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
@@ -106,7 +109,9 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 
-	return hleLogDebug(Log::HLE, __DmacMemcpy(dst, src, size));
+	int delay = __DmacMemcpy(dst, src, size);
+	int result = hleLogDebug(Log::HLE, 0);
+	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
 
 const HLEFunction sceDmac[] = {
