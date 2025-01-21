@@ -939,7 +939,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 	case VIRTKEY_TOGGLE_WLAN:
 		// Let's not allow the user to toggle wlan while connected, could get confusing.
-		if (down && !netInited) {
+		if (down && !g_netInited) {
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			g_Config.bEnableWlan = !g_Config.bEnableWlan;
@@ -1884,7 +1884,7 @@ void EmuScreen::resized() {
 }
 
 bool MustRunBehind() {
-	return netInited || __NetAdhocConnected();
+	return IsNetworkConnected();
 }
 
 bool ShouldRunBehind() {

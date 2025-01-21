@@ -42,3 +42,5 @@ void RestoreNetAdhocMatchingInited();
 void Register_sceNetAdhocMatching();
 void __NetAdhocMatchingInit();
 void __NetAdhocMatchingShutdown();
+
+extern bool netAdhocMatchingInited;

@@ -20,7 +20,6 @@
 #include <deque>
 #include "Core/HLE/proAdhoc.h"
 
-
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
@@ -128,6 +127,8 @@ extern bool netAdhocInited;
 extern bool netAdhocctlInited;
 extern bool g_adhocServerConnected;
 extern bool netAdhocGameModeEntered;
+extern s32 netAdhocDiscoverStatus;
+
 extern int netAdhocEnterGameModeTimeout;
 extern int adhocDefaultTimeout; //3000000 usec
 extern int adhocDefaultDelay; //10000

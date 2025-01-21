@@ -143,6 +143,8 @@ struct ImConfig {
 	bool pixelViewerOpen;
 	bool npOpen;
 	bool socketsOpen;
+	bool apctlOpen;
+	bool adhocOpen;
 	bool memDumpOpen;
 	bool memViewOpen[4];
 
@@ -231,3 +233,4 @@ void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);
 void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control);
 void StatusBar(std::string_view str);
+inline const char *BoolStr(bool s) { return s ? "true" : "false"; }

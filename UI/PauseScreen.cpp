@@ -278,11 +278,11 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
-	if (netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
+	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
-		lastNetInited_ = netInited;
+		lastNetInited_ = g_netInited;
 		lastAdhocServerConnected_ = g_adhocServerConnected;
 	}
 
@@ -386,19 +386,26 @@ void GamePauseScreen::CreateViews() {
 		}
 	}
 
-	if (netInited || g_adhocServerConnected) {
+	if (IsNetworkConnected()) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
-		if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
-			leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
-			leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
-			if (!g_infraDNSConfig.revivalTeamURL.empty()) {
-				leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
-					if (!g_infraDNSConfig.revivalTeamURL.empty()) {
-						System_LaunchUrl(LaunchUrlType::BROWSER_URL, g_infraDNSConfig.revivalTeamURL.c_str());
-					}
-					return UI::EVENT_DONE;
-				});
+		if (g_infraDNSConfig.loaded) {
+			if (g_infraDNSConfig.state == InfraGameState::NotWorking) {
+				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
+			} else if (g_infraDNSConfig.state == InfraGameState::Unknown) {
+				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
+			}
+			if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
+				leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
+				leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
+				if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+					leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
+						if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+							System_LaunchUrl(LaunchUrlType::BROWSER_URL, g_infraDNSConfig.revivalTeamURL.c_str());
+						}
+						return UI::EVENT_DONE;
+					});
+				}
 			}
 		}
 
@@ -409,7 +416,7 @@ void GamePauseScreen::CreateViews() {
 
 	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
 	bool showSavestateControls = achievementsAllowSavestates;
-	if (netInited && !g_Config.bAllowSavestateWhileConnected) {
+	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		showSavestateControls = false;
 	}
 

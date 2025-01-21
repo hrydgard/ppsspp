@@ -14,27 +14,16 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
-#if defined(_WIN32)
-#include <WinSock2.h>
-#include "Common/CommonWindows.h"
-#endif
-
-#if !defined(_WIN32)
-#include <sys/types.h>
-#include <netinet/tcp.h>
-#endif
-
-#ifndef MSG_NOSIGNAL
-// Default value to 0x00 (do nothing) in systems where it's not supported.
-#define MSG_NOSIGNAL 0x00
-#endif
-
-#include <mutex>
 // sceNetAdhoc
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
+
+
+#include <mutex>
+#include <string>
+
+#include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -88,7 +77,6 @@ int adhocMatchingEventDelay = 30000; //30000
 int adhocEventDelay = 2000000; //2000000 on real PSP ?
 
 constexpr u32 defaultLastRecvDelta = 10000; //10000 usec worked well for games published by Falcom (ie. Ys vs Sora Kiseki, Vantage Master Portable)
-
 
 SceUID threadAdhocID;
 
@@ -1352,7 +1340,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 		return hleLogError(Log::sceNet, -1, "WLAN");
 	}
 
-	if (!netInited)
+	if (!g_netInited)
 		return hleLogError(Log::sceNet, 0x800201CA); //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 
 	// Library is initialized

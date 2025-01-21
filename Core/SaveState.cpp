@@ -456,7 +456,7 @@ namespace SaveState
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
-		if (netInited) {
+		if (g_netInited) {
 			return;
 		}
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
