@@ -143,8 +143,9 @@ struct ImConfig {
 	bool pixelViewerOpen;
 	bool npOpen;
 	bool socketsOpen;
-	bool memDumpOpen;
+	bool apctlOpen;
 	bool adhocOpen;
+	bool memDumpOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings

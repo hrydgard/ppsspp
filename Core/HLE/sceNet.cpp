@@ -64,8 +64,9 @@ static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-std::string defaultNetConfigName = "NetConf";
-std::string defaultNetSSID = "Wifi"; // fake AP/hotspot
+const char * const defaultNetConfigName = "NetConf";
+const char * const defaultNetSSID = "Wifi"; // fake AP/hotspot
+
 int netApctlInfoId = 0;
 SceNetApctlInfoInternal netApctlInfo;
 
@@ -169,6 +170,8 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 	if (!data) {
 		return false;
 	}
+
+	dns->loaded = true;
 
 	std::string_view jsonStr = std::string_view((const char *)data.get(), jsonSize);
 	json::JsonReader reader(jsonStr.data(), jsonStr.length());
@@ -979,7 +982,7 @@ void NetApctl_InitInfo(int confId) {
 	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), defaultNetConfigName + std::to_string(confId));
 	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), defaultNetSSID);
 	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
-	netApctlInfo.ssidLength = static_cast<unsigned int>(defaultNetSSID.length());
+	netApctlInfo.ssidLength = static_cast<unsigned int>(strlen(defaultNetSSID));
 	netApctlInfo.strength = 99;
 	netApctlInfo.channel = g_Config.iWlanAdhocChannel;
 	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;

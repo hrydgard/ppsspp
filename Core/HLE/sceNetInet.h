@@ -120,8 +120,8 @@ extern bool netInetInited;
 extern bool g_netApctlInited;
 extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
-extern std::string defaultNetConfigName;
-extern std::string defaultNetSSID;
+extern const char *const defaultNetConfigName;
+extern const char *const defaultNetSSID;
 
 void Register_sceNetInet();
 
