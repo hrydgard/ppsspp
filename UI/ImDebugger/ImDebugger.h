@@ -144,6 +144,7 @@ struct ImConfig {
 	bool npOpen;
 	bool socketsOpen;
 	bool memDumpOpen;
+	bool adhocOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
@@ -231,3 +232,4 @@ void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);
 void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control);
 void StatusBar(std::string_view str);
+inline const char *BoolStr(bool s) { return s ? "true" : "false"; }

@@ -27,6 +27,8 @@ enum {
 	PSP_NET_APCTL_EVENT_SCAN_STOP = 11 // FIXME: not sure what this is, MGS:PW seems to check this value within ApctlHandler during Recruit, related to sceNetApctlScanSSID2 ?
 };
 
+const char *ApctlStateToString(int apctlState);
+
 #define 	PSP_NET_APCTL_INFO_PROFILE_NAME			0
 #define 	PSP_NET_APCTL_INFO_BSSID				1
 #define 	PSP_NET_APCTL_INFO_SSID					2

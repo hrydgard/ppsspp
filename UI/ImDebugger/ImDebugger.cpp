@@ -22,6 +22,11 @@
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceNp.h"
+#include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetApctl.h"
+#include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/proAdhoc.h"
+#include "Core/HLE/sceNetAdhocMatching.h"
 #include "Common/System/Request.h"
 
 #include "Core/HLE/sceAtrac.h"
@@ -490,12 +495,84 @@ static void DrawNp(ImConfig &cfg) {
 		return;
 	}
 
+	ImGui::Text("ApCtl state: %s", ApctlStateToString(netApctlState));
+
 	ImGui::Text("Signed in: %d", npSigninState);
 	ImGui::Text("Title ID: %s", npTitleId.data);
 
 	SceNpId id{};
 	NpGetNpId(&id);
 	ImGui::Text("User Handle: %s", id.handle.data);
+
+
+	ImGui::End();
+}
+
+static void DrawAdhoc(ImConfig &cfg) {
+	if (!ImGui::Begin("AdHoc", &cfg.adhocOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	const char *discoverStatusStr = "N/A";
+	switch (netAdhocDiscoverStatus) {
+	case 0: discoverStatusStr = "NONE"; break;
+	case 1: discoverStatusStr = "IN_PROGRESS"; break;
+	case 2: discoverStatusStr = "COMPLETED"; break;
+	default: break;
+	}
+
+	auto &io = ImGui::GetIO();
+
+	/*
+	ImGui::Text("WantCaptureMouse: %s", BoolStr(io.WantCaptureMouse));
+	ImGui::Text("WantCaptureKeyboard: %s", BoolStr(io.WantCaptureKeyboard));
+	ImGui::Text("WantCaptureMouseUnlessPopupClose: %s", BoolStr(io.WantCaptureMouseUnlessPopupClose));
+	ImGui::Text("WantTextInput: %s", BoolStr(io.WantTextInput));
+	*/
+
+	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
+	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
+	ImGui::Text("sceNetAdhocctl inited: %s", BoolStr(netAdhocctlInited));
+	ImGui::Text("sceNetAdhocMatching inited: %s", BoolStr(netAdhocctlInited));
+	ImGui::Text("GameMode entered: %s", BoolStr(netAdhocGameModeEntered));
+	ImGui::Text("FriendFinder running: %s", BoolStr(g_adhocServerConnected));
+	ImGui::Text("sceNetAdhocDiscover status: %s", discoverStatusStr);
+
+	if (ImGui::BeginTable("sock", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Non-blocking", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("BufSize", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("IsClient", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < MAX_SOCKET; i++) {
+			const AdhocSocket *socket = adhocSockets[i];
+			if (!socket) {
+				continue;
+			}
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", i + 1);
+			ImGui::TableNextColumn();
+			switch (socket->type) {
+			case SOCK_PDP: ImGui::TextUnformatted("PDP"); break;
+			case SOCK_PTP: ImGui::TextUnformatted("PTP"); break;
+			default: ImGui::Text("(%d)", socket->type); break;
+			}
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(socket->nonblocking ? "Non-blocking" : "Blocking");
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", socket->buffer_size);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(BoolStr(socket->isClient));
+		}
+		ImGui::EndTable();
+	}
+
 	ImGui::End();
 }
 
@@ -1147,6 +1224,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Network")) {
 			ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
 			ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
+			ImGui::MenuItem("AdHoc", nullptr, &cfg_.adhocOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Tools")) {
@@ -1277,6 +1355,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.npOpen) {
 		DrawNp(cfg_);
+	}
+	if (cfg_.adhocOpen) {
+		DrawAdhoc(cfg_);
 	}
 
 	// Process UI commands
@@ -1643,6 +1724,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("schedulerOpen", &schedulerOpen, false);
 	sync.Sync("socketsOpen", &socketsOpen, false);
 	sync.Sync("npOpen", &npOpen, false);
+	sync.Sync("adhocOpen", &adhocOpen, false);
 	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
