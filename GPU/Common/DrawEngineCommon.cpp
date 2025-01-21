@@ -250,6 +250,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 6);
 	float *verts = (float *)(decoded_ + 65536 * 12);
+	float *vertsTransformed = (float *)(decoded_ + 65536 * 18);
 
 	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
 	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
@@ -281,7 +282,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	} else {
 		// Simplify away indices, bones, and morph before proceeding.
 		// NOTE: No known game gets here, it's here for safety.
-		u8 *temp_buffer = decoded_ + 65536 * 18;
+		u8 *temp_buffer = decoded_ + 65536 * 24;
 
 		if ((inds || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)))) {
 			u16 indexLowerBound = 0;
@@ -329,13 +330,15 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		}
 	}
 
-	// Pretransform the verts in-place so we don't have to do it inside the loop.
+	// Pretransform the verts so we don't have to do it inside the loop.
 	// We do this differently in the fast version below since we skip the max/minOffset checks there
 	// making it easier to get the whole thing ready for SIMD.
+
+	// TODO: Merge this into the decoder loops above?
+	Mat4F32 world = Mat4F32::Load4x3(gstate.worldMatrix);
 	for (int i = 0; i < vertexCount; i++) {
-		float worldpos[3];
-		Vec3ByMatrix43(worldpos, &verts[i * 3], gstate.worldMatrix);
-		memcpy(&verts[i * 3], worldpos, 12);
+		// Note: The stores will overlap, but that's ok, as we don't overlap the input.
+		Vec4F32::Load(&verts[i * 3]).AsVec3ByMatrix44(world).Store(&vertsTransformed[i * 3]);
 	}
 
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
@@ -347,7 +350,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *worldpos = verts + i * 3;
+			const float *worldpos = vertsTransformed + i * 3;
 			float value = planes_.Test(plane, worldpos);
 			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
