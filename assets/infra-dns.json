@@ -227,6 +227,23 @@
 			],
 			"score": 0,
 			"connect_adhoc_for_grouping": true
+		},
+		{
+			"name": "Patapon 3",
+			"comment": {
+				"en_US": "Not working yet"
+			},
+			"not_working_ids": [
+				"UCUS98751",
+				"UCES01421",
+				"UCAS40318",
+				"UCKS45169",
+				"UCJS10113",
+				"UCJS18048",
+				"NPJG00122",
+				"UCJS18059"
+			],
+			"score": 0
 		}
 	]
 }
