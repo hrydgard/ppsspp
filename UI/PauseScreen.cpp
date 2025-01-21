@@ -389,13 +389,15 @@ void GamePauseScreen::CreateViews() {
 	if (IsNetworkConnected()) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
-		if (g_infraDNSConfig.loaded) {
+		if (g_infraDNSConfig.loaded && __NetApctlConnected()) {
+			leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Infrastructure"), ""));
+
 			if (g_infraDNSConfig.state == InfraGameState::NotWorking) {
 				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
 			} else if (g_infraDNSConfig.state == InfraGameState::Unknown) {
 				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
 			}
-			if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
+			if (!g_infraDNSConfig.revivalTeam.empty()) {
 				leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
 				leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
 				if (!g_infraDNSConfig.revivalTeamURL.empty()) {
@@ -409,7 +411,8 @@ void GamePauseScreen::CreateViews() {
 			}
 		}
 
-		if (g_adhocServerConnected) {
+		if (NetAdhocctl_GetState() >= ADHOCCTL_STATE_CONNECTED) {
+			// Awkwardly re-using a string here
 			leftColumnItems->Add(new TextView(std::string(nw->T("AdHoc Server")) + ": " + std::string(nw->T("Connected"))));
 		}
 	}
