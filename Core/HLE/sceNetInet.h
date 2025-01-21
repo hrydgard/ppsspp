@@ -115,7 +115,7 @@ typedef struct InetSocket {
 
 class PointerWrap;
 
-extern bool netInited;
+extern bool g_netInited;
 extern bool netInetInited;
 extern bool g_netApctlInited;
 extern u32 netApctlState;

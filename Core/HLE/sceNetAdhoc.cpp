@@ -1352,7 +1352,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 		return hleLogError(Log::sceNet, -1, "WLAN");
 	}
 
-	if (!netInited)
+	if (!g_netInited)
 		return hleLogError(Log::sceNet, 0x800201CA); //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 
 	// Library is initialized

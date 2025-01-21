@@ -278,11 +278,11 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
-	if (netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
+	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
-		lastNetInited_ = netInited;
+		lastNetInited_ = g_netInited;
 		lastAdhocServerConnected_ = g_adhocServerConnected;
 	}
 
@@ -386,7 +386,7 @@ void GamePauseScreen::CreateViews() {
 		}
 	}
 
-	if (netInited || g_adhocServerConnected) {
+	if (IsNetworkConnected()) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
 		if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
@@ -409,7 +409,7 @@ void GamePauseScreen::CreateViews() {
 
 	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
 	bool showSavestateControls = achievementsAllowSavestates;
-	if (netInited && !g_Config.bAllowSavestateWhileConnected) {
+	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		showSavestateControls = false;
 	}
 

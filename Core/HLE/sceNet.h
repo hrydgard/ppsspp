@@ -108,7 +108,7 @@ private:
 	u32_le argsAddr = 0;
 };
 
-extern bool netInited;
+extern bool g_netInited;
 extern bool g_netApctlInited;
 extern u32 netApctlState;
 extern SceNetApctlInfoInternal netApctlInfo;
@@ -130,6 +130,9 @@ int NetApctl_GetState();
 bool __NetApctlConnected();
 
 int sceNetApctlConnect(int connIndex);
+
+// Are we connected - for the purpose of disabling speed consoles and savestates etc.
+bool IsNetworkConnected();
 
 // These return false if allowed to be consistent with the similar function for achievements.
 bool NetworkWarnUserIfOnlineAndCantSavestate();

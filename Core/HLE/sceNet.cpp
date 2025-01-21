@@ -52,7 +52,7 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 
-bool netInited;
+bool g_netInited;
 
 u32 netDropRate = 0;
 u32 netDropDuration = 0;
@@ -88,8 +88,13 @@ int NetApctl_Term();
 void NetApctl_InitDefaultInfo();
 void NetApctl_InitInfo(int confId);
 
+bool IsNetworkConnected() {
+	// TODO: Tweak this.
+	return __NetApctlConnected() || __NetAdhocConnected();
+}
+
 bool NetworkWarnUserIfOnlineAndCantSavestate() {
-	if (netInited && !g_Config.bAllowSavestateWhileConnected) {
+	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Save states are not available when online"), 3.0f, "saveonline");
 		return true;
@@ -99,7 +104,7 @@ bool NetworkWarnUserIfOnlineAndCantSavestate() {
 }
 
 bool NetworkWarnUserIfOnlineAndCantSpeed() {
-	if (netInited) {
+	if (IsNetworkConnected()) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Speed controls are not available when online"), 3.0f, "speedonline");
 		return true;
@@ -109,11 +114,11 @@ bool NetworkWarnUserIfOnlineAndCantSpeed() {
 }
 
 bool NetworkAllowSpeedControl() {
-	return !netInited;
+	return !IsNetworkConnected();
 }
 
 bool NetworkAllowSaveState() {
-	return !netInited || g_Config.bAllowSavestateWhileConnected;
+	return !IsNetworkConnected() || g_Config.bAllowSavestateWhileConnected;
 }
 
 void AfterApctlMipsCall::DoState(PointerWrap & p) {
@@ -343,7 +348,7 @@ void __NetApctlInit() {
 }
 
 static void __ResetInitNetLib() {
-	netInited = false;
+	g_netInited = false;
 	netInetInited = false; // shouldn't this actually do something?
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
@@ -435,11 +440,11 @@ void __NetDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	auto cur_netInited = netInited;
+	auto cur_netInited = g_netInited;
 	auto cur_netInetInited = netInetInited;
 	auto cur_netApctlInited = g_netApctlInited;
 
-	Do(p, netInited);
+	Do(p, g_netInited);
 	Do(p, netInetInited);
 	Do(p, g_netApctlInited);
 	Do(p, apctlHandlers);
@@ -492,7 +497,7 @@ void __NetDoState(PointerWrap &p) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
 		g_netApctlInited = cur_netApctlInited;
 		netInetInited = cur_netInetInited;
-		netInited = cur_netInited;
+		g_netInited = cur_netInited;
 
 		// Discard leftover events
 		apctlEvents.clear();
@@ -673,7 +678,7 @@ u32 Net_Term() {
 	//NetInet_Term();
 
 	// Library is initialized
-	if (netInited) {
+	if (g_netInited) {
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
 
@@ -691,7 +696,7 @@ u32 Net_Term() {
 	FreeUser(netPoolAddr);
 	FreeUser(netThread1Addr);
 	FreeUser(netThread2Addr);
-	netInited = false;
+	g_netInited = false;
 
 	g_infraDNSConfig = {};
 	return 0;
@@ -720,7 +725,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// TODO: Create Network Threads using given priority & stack
 	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
 	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
-	if (netInited) {
+	if (g_netInited) {
 		// This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports.
 		// Maybe we shouldn't save/load "Inited" vars on SaveState?
 		Net_Term();
@@ -805,7 +810,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 		}
 	}
 
-	netInited = true;
+	g_netInited = true;
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
