@@ -247,6 +247,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
+	float *vertsTransformed = (float *)(decoded_ + 65536 * 24);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -325,13 +326,14 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		}
 	}
 
-	// Pretransform the verts in-place so we don't have to do it inside the loop.
+	// Pretransform the verts so we don't have to do it inside the loop.
 	// We do this differently in the fast version below since we skip the max/minOffset checks there
 	// making it easier to get the whole thing ready for SIMD.
+
+	// TODO: Merge this into the decoder loops above?
+	Mat4F32 world = Mat4F32::Load4x3(gstate.worldMatrix);
 	for (int i = 0; i < vertexCount; i++) {
-		float worldpos[3];
-		Vec3ByMatrix43(worldpos, &verts[i * 3], gstate.worldMatrix);
-		memcpy(&verts[i * 3], worldpos, 12);
+		Vec4F32::Load(&verts[i * 3]).AsVec3ByMatrix44(world).Store3(&vertsTransformed[i * 3]);
 	}
 
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
@@ -343,7 +345,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *worldpos = verts + i * 3;
+			const float *worldpos = vertsTransformed + i * 3;
 			float value = planes_.Test(plane, worldpos);
 			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
