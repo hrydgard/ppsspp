@@ -5,37 +5,33 @@
 #include "Core/HLE/sceIo.h"
 
 static int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr) {
-	WARN_LOG(Log::HLE, "UNIMPL: sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNIMPL");
 }
 
 static int sceNpDrmClearLicenseeKey() {
-	WARN_LOG(Log::HLE, "UNIMPL: sceNpDrmClearLicenseeKey()");
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNIMPL");
 }
 
 static int sceNpDrmRenameCheck(const char *filename) {
-	WARN_LOG(Log::HLE, "UNIMPL: sceNpDrmRenameCheck(%s)", filename);
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNIMPL");
 }
 
 static int sceNpDrmEdataSetupKey(u32 edataFd) {
-	INFO_LOG(Log::HLE, "sceNpDrmEdataSetupKey(%x)", edataFd);
 	int usec = 0;
 	// set PGD offset
 	int retval = __IoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0, usec);
 	if (retval != 0) {
-		return hleDelayResult(retval, "io ctrl command", usec);
+		return hleDelayResult(hleLogError(Log::HLE, retval), "io ctrl command", usec);
 	}
 	// call PGD open
 	// Note that usec accumulates.
 	retval = __IoIoctl(edataFd, 0x04100001, 0, 0, 0, 0, usec);
-	return hleDelayResult(retval, "io ctrl command", usec);
+	return hleDelayResult(hleLogSuccessInfoI(Log::HLE, retval), "io ctrl command", usec);
 }
 
 static int sceNpDrmEdataGetDataSize(u32 edataFd) {
-	INFO_LOG(Log::HLE, "sceNpDrmEdataGetDataSize %x", edataFd);
-	return sceIoIoctl(edataFd, 0x04100010, 0, 0, 0, 0);
+	int retval = hleCall(IoFileMgrForKernel, u32, sceIoIoctl, edataFd, 0x04100010, 0, 0, 0, 0);
+	return hleLogSuccessInfoI(Log::HLE, retval);
 }
 
 static int sceNpDrmOpen() {
