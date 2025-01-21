@@ -56,6 +56,14 @@ std::recursive_mutex npAuthEvtMtx;
 std::deque<NpAuthArgs> npAuthEvents;
 std::map<int, NpAuthHandler> npAuthHandlers;
 
+void __NpInit() {
+	npAuthInited = false;
+	npSigninState = NP_SIGNIN_STATUS_NONE;
+	npAuthMemStat = {};
+	npSigninTimestamp = {};
+	npTitleId = {};
+}
+
 // Tickets data are in big-endian based on captured packets
 static int writeTicketParam(u8* buffer, const u16_be type, const char* data = nullptr, const u16_be size = 0) {
 	if (buffer == nullptr) return 0;
@@ -144,14 +152,15 @@ static int sceNpInit()
 	} else {
 		npOnlineId.clear();
 	}
-
 	// NOTE: Checking validity and returning -1 here doesn't seem to work. Instead, we will fail to generate a ticket.
-
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpTerm()
 {
+	// Reset sign in state.
+	npSigninState = NP_SIGNIN_STATUS_NONE;
+
 	// No parameters
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }

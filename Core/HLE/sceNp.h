@@ -434,6 +434,8 @@ extern std::recursive_mutex npAuthEvtMtx;
 // Used by sceNp2.cpp
 extern SceNpCommunicationId npTitleId;
 
+void __NpInit();
+
 int NpGetNpId(SceNpId* npid);
 bool NpAuthProcessEvents();
 

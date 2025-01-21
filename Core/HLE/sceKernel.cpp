@@ -68,6 +68,7 @@
 #include "sceMp3.h"
 #include "sceMpeg.h"
 #include "sceNet.h"
+#include "sceNp.h"
 #include "sceNetAdhoc.h"
 #include "sceNetAdhocMatching.h"
 #include "scePower.h"
@@ -160,6 +161,7 @@ void __KernelInit()
 	__UsbMicInit();
 	__OpenPSIDInit();
 	__HttpInit();
+	__NpInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
