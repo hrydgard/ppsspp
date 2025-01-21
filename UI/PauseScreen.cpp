@@ -389,16 +389,23 @@ void GamePauseScreen::CreateViews() {
 	if (IsNetworkConnected()) {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, nw->T("Network connected"), ""));
 
-		if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
-			leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
-			leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
-			if (!g_infraDNSConfig.revivalTeamURL.empty()) {
-				leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
-					if (!g_infraDNSConfig.revivalTeamURL.empty()) {
-						System_LaunchUrl(LaunchUrlType::BROWSER_URL, g_infraDNSConfig.revivalTeamURL.c_str());
-					}
-					return UI::EVENT_DONE;
-				});
+		if (g_infraDNSConfig.loaded) {
+			if (g_infraDNSConfig.state == InfraGameState::NotWorking) {
+				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
+			} else if (g_infraDNSConfig.state == InfraGameState::Unknown) {
+				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
+			}
+			if (!g_infraDNSConfig.revivalTeam.empty() && netInetInited) {
+				leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
+				leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
+				if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+					leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
+						if (!g_infraDNSConfig.revivalTeamURL.empty()) {
+							System_LaunchUrl(LaunchUrlType::BROWSER_URL, g_infraDNSConfig.revivalTeamURL.c_str());
+						}
+						return UI::EVENT_DONE;
+					});
+				}
 			}
 		}
 
