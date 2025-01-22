@@ -64,6 +64,7 @@ private:
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 
 	UI::Button *playButton_ = nullptr;
+	bool lastOnline_ = false;
 	bool lastNetInited_ = false;
 	bool lastNetInetInited_ = false;
 	bool lastAdhocServerConnected_ = false;

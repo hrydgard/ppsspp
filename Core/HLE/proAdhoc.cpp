@@ -159,6 +159,9 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac, uint
 std::string ip2str(in_addr in, bool maskPublicIP) {
 	char str[INET_ADDRSTRLEN] = "...";
 	u8* ipptr = (u8*)&in;
+#ifdef _DEBUG
+	maskPublicIP = false;
+#endif
 	if (maskPublicIP && !isPrivateIP(in.s_addr))
 		snprintf(str, sizeof(str), "%u.%u.xx.%u", ipptr[0], ipptr[1], ipptr[3]);
 	else

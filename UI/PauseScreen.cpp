@@ -278,15 +278,17 @@ void GamePauseScreen::update() {
 		finishNextFrame_ = false;
 	}
 
-	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected) {
+	const bool networkConnected = IsNetworkConnected();
+	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected || lastOnline_ != networkConnected) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
 		lastNetInited_ = g_netInited;
 		lastAdhocServerConnected_ = g_adhocServerConnected;
+		lastOnline_ = networkConnected;
 	}
 
-	bool mustRunBehind = MustRunBehind();
+	const bool mustRunBehind = MustRunBehind();
 	playButton_->SetVisibility(mustRunBehind ? UI::V_GONE : UI::V_VISIBLE);
 
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
@@ -394,6 +396,14 @@ void GamePauseScreen::CreateViews() {
 
 			if (g_infraDNSConfig.state == InfraGameState::NotWorking) {
 				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
+				if (!g_infraDNSConfig.workingIDs.empty()) {
+					std::string str(nw->T("Other versions of this game that should work:"));
+					for (auto &id : g_infraDNSConfig.workingIDs) {
+						str.append("\n - ");
+						str += id;
+					}
+					leftColumnItems->Add(new TextView(str));
+				}
 			} else if (g_infraDNSConfig.state == InfraGameState::Unknown) {
 				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
 			}

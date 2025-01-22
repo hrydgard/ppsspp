@@ -161,6 +161,9 @@ struct InfraDNSConfig {
 	std::string revivalTeam;
 	std::string revivalTeamURL;
 
+	// PPSSPP can suggest other version of the game if one is known not to work.
+	std::vector<std::string> workingIDs;
+
 	bool connectAdHocForGrouping;
 };
 
