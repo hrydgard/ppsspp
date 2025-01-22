@@ -618,7 +618,12 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	}
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
 	//saddr.in.sin_port = htons(ntohs(saddr.in.sin_port) + portOffset);
+
 	DEBUG_LOG(Log::sceNet, "Bind: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	// Update socket debug metadata
+	inetSock->addr = ip2str(saddr.in.sin_addr);
+	inetSock->port = ntohs(saddr.in.sin_port);
+
 	changeBlockingMode(inetSock->sock, 0);
 	int retval = bind(inetSock->sock, (struct sockaddr*)&saddr, len);
 	if (retval < 0) {

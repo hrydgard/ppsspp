@@ -27,6 +27,7 @@ InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketS
 		if (inetSockets_[i].state == SocketState::Unused) {
 			*index = i;
 			InetSocket *inetSock = inetSockets_ + i;
+			*inetSock = {};  // Reset to default.
 			inetSock->sock = hostSock;
 			inetSock->state = state;
 			inetSock->domain = domain;

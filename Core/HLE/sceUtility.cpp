@@ -732,6 +732,7 @@ static int sceUtilityCheckNetParam(int id)
 * @param data - parameter data
 * @return 0 on success
 */
+// Let's figure out what games use this.
 static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 	if (id < 0 || id > 24) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_NETPARAM_BAD_NETCONF, "invalid id=%d", id);
