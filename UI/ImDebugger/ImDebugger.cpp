@@ -525,8 +525,8 @@ static void DrawApctl(ImConfig &cfg) {
 	}
 
 	if (g_Config.bInfrastructureAutoDNS) {
-		if (!g_infraDNSConfig.loaded) {
-			if (g_infraDNSConfig.gameName.empty()) {
+		if (g_infraDNSConfig.loaded) {
+			if (!g_infraDNSConfig.gameName.empty()) {
 				ImGui::Text("Known game: %s", g_infraDNSConfig.gameName.c_str());
 			}
 			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(g_infraDNSConfig.connectAdHocForGrouping));
