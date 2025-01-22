@@ -2437,3 +2437,14 @@ const char* getMatchingOpcodeStr(int code) {
 	return buf;
 }
 
+const char *AdhocCtlStateToString(int state) {
+	switch (state) {
+	case ADHOCCTL_STATE_DISCONNECTED: return "DISCONNECTED";
+	case ADHOCCTL_STATE_CONNECTED: return "CONNECTED";
+	case ADHOCCTL_STATE_SCANNING: return "SCANNING";
+	case ADHOCCTL_STATE_GAMEMODE: return "GAMEMODE";
+	case ADHOCCTL_STATE_DISCOVER: return "DISCOVER";
+	case ADHOCCTL_STATE_WOL: return "WOL";
+	default: return "(unk)";
+	}
+}

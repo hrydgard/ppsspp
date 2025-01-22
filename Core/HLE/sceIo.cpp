@@ -2612,10 +2612,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 	// Get PGD data size. Called from sceNpDrmEdataGetDataSize
 	case 0x04100010:
-		if(f->pgdInfo)
-			return f->pgdInfo->data_size;
+		if (f->pgdInfo)
+			return hleLogDebug(Log::sceIo, f->pgdInfo->data_size);
 		else
-			return (int)f->FileInfo().size;
+			return hleLogDebug(Log::sceIo, (int)f->FileInfo().size);
 		break;
 
 	// Get UMD sector size
@@ -2627,7 +2627,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			// ISOs always use 2048 sized sectors.
 			Memory::Write_U32(2048, outdataPtr);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2640,7 +2640,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			u32 offset = (u32)pspFileSystem.GetSeekPos(f->handle);
 			Memory::Write_U32(offset, outdataPtr);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2664,7 +2664,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			}
 			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2676,7 +2676,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
 			Memory::Write_U32(f->FileInfo().startSector, outdataPtr);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2688,7 +2688,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
 			Memory::Write_U64(f->FileInfo().size, outdataPtr);
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2704,10 +2704,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				usec = 0;
 				return sceIoRead(id, outdataPtr, size);
 			} else {
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 			}
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 
@@ -2734,12 +2734,12 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			if (size > 0 && Memory::IsValidAddress(outdataPtr) && size <= outlen) {
 				// sceIoRead does its own delaying (and deferring.)
 				usec = 0;
-				return sceIoRead(id, outdataPtr, size);
+				return hleCall(IoFileMgrForUser, u32, sceIoRead, id, outdataPtr, size);
 			} else {
-				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 			}
 		} else {
-			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 		}
 		break;
 

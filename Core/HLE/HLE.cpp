@@ -987,8 +987,8 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	u32 funcFlags = 0;
 
 	const int stackSize = g_stackSize;
-	if (!stackSize) {
-		ERROR_LOG(Log::HLE, "HLE function stack mismatch!");
+	if (stackSize <= 0) {
+		ERROR_LOG(Log::HLE, "HLE function stack mismatch (%s:%d)! stackSize = %d", file, line, stackSize);
 		return;
 	}
 

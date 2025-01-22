@@ -276,6 +276,52 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 	return true;
 }
 
+void LoadAutoDNS() {
+	if (!g_Config.bInfrastructureAutoDNS) {
+		return;
+	}
+
+	// Load the automatic DNS config for this game - or the defaults.
+	std::string discID = g_paramSFO.GetDiscID();
+	LoadDNSForGameID(discID, &g_infraDNSConfig);
+
+	// If dyn_dns is non-empty, try to use it to replace the specified DNS.
+	// If fails, we just use the dns. TODO: Do this in the background somehow...
+	const auto &dns = g_infraDNSConfig.dns;
+	const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
+	if (!dyn_dns.empty()) {
+		// Try to look it up in system DNS
+		INFO_LOG(Log::sceNet, "DynDNS requested, trying to resolve '%s'...", dyn_dns.c_str());
+		addrinfo *resolved = nullptr;
+		std::string err;
+		if (!net::DNSResolve(dyn_dns, "", &resolved, err)) {
+			ERROR_LOG(Log::sceNet, "Error resolving, falling back to '%s'", dns.c_str());
+		} else if (resolved) {
+			bool found = false;
+			for (auto ptr = resolved; ptr && !found; ptr = ptr->ai_next) {
+				switch (ptr->ai_family) {
+				case AF_INET:
+				{
+					char ipstr[256];
+					if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
+						INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
+						if (g_infraDNSConfig.dns != ipstr) {
+							WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
+							g_infraDNSConfig.dns = ipstr;
+						} else {
+							INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
+						}
+						found = true;
+					}
+					break;
+				}
+				}
+			}
+			net::DNSResolveFree(resolved);
+		}
+	}
+}
+
 void InitLocalhostIP() {
 	// The entire 127.*.*.* is reserved for loopback.
 	uint32_t localIP = 0x7F000001 + PPSSPP_ID - 1;
@@ -707,7 +753,6 @@ u32 Net_Term() {
 
 static u32 sceNetTerm() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	g_OSD.Show(OSDType::MESSAGE_INFO, n->T("Network shutdown"), 2.0, "networkinit");
 
 	int retval = Net_Term();
 
@@ -771,63 +816,12 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
 
-	if (g_Config.bInfrastructureAutoDNS) {
-		// Load the automatic DNS config for this game - or the defaults.
-		std::string discID = g_paramSFO.GetDiscID();
-		LoadDNSForGameID(discID, &g_infraDNSConfig);
-
-		// If dyn_dns is non-empty, try to use it to replace the specified DNS.
-		// If fails, we just use the dns. TODO: Do this in the background somehow...
-		const auto &dns = g_infraDNSConfig.dns;
-		const auto &dyn_dns = g_infraDNSConfig.dyn_dns;
-		if (!dyn_dns.empty()) {
-			// Try to look it up in system DNS
-			INFO_LOG(Log::sceNet, "DynDNS requested, trying to resolve '%s'...", dyn_dns.c_str());
-			addrinfo *resolved = nullptr;
-			std::string err;
-			if (!net::DNSResolve(dyn_dns, "", &resolved, err)) {
-				ERROR_LOG(Log::sceNet, "Error resolving, falling back to '%s'", dns.c_str());
-			} else if (resolved) {
-				bool found = false;
-				for (auto ptr = resolved; ptr && !found; ptr = ptr->ai_next) {
-					switch (ptr->ai_family) {
-					case AF_INET:
-					{
-						char ipstr[256];
-						if (inet_ntop(ptr->ai_family, &(((struct sockaddr_in*)ptr->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
-							INFO_LOG(Log::sceNet, "Successfully resolved '%s' to '%s', overriding DNS.", dyn_dns.c_str(), ipstr);
-							if (g_infraDNSConfig.dns != ipstr) {
-								WARN_LOG(Log::sceNet, "Replacing specified DNS IP %s with dyndns %s!", g_infraDNSConfig.dns.c_str(), ipstr);
-								g_infraDNSConfig.dns = ipstr;
-							} else {
-								INFO_LOG(Log::sceNet, "DynDNS: %s already up to date", g_infraDNSConfig.dns.c_str());
-							}
-							found = true;
-						}
-						break;
-					}
-					}
-				}
-				net::DNSResolveFree(resolved);
-			}
-		}
-	}
+	LoadAutoDNS();
 
 	g_netInited = true;
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	std::string msg(n->T("Network initialized"));
-	if (!msg.empty()) {
-		if (g_Config.bInfrastructureAutoDNS) {
-			msg += ": ";
-			msg += n->T("Auto DNS");
-			if (!g_infraDNSConfig.gameName.empty()) {
-				msg += " (" + g_infraDNSConfig.gameName + ")";
-			}
-		}
-		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0, "networkinit");
-	}
 	return hleLogSuccessI(Log::sceNet, 0);
 }
 

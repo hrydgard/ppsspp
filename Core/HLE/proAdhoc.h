@@ -1412,3 +1412,6 @@ const char* getMatchingEventStr(int code);
 
 // Convert Matching Opcode ID to String
 const char* getMatchingOpcodeStr(int code);
+
+// Convert adhoc ctl state to string
+const char *AdhocCtlStateToString(int state);
