@@ -670,7 +670,7 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 	int32x4_t ival = vreinterpretq_s32_f32(value.v);
 #if PPSSPP_ARCH(ARM64_NEON)
 	// Shortcut on arm64
-	return vmaxvq_s32(value.v) >= 0;
+	return vmaxvq_s32(ival) >= 0;
 #else
 	int32x2_t prod = vand_s32(vget_low_s32(ival), vget_high_s32(ival));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
