@@ -2791,8 +2791,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	return hleLogDebug(Log::sceIo, 0);
 }
 
-u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)
-{
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
 	int usec = 0;
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	if (usec != 0) {

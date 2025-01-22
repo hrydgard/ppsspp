@@ -134,6 +134,11 @@ int sceNetApctlConnect(int connIndex);
 // Are we connected - for the purpose of disabling speed consoles and savestates etc.
 bool IsNetworkConnected();
 
+// Kicks off a fetch of the json download, unless it's cached and new enough.
+void StartInfraJsonDownload();
+// Polls the fetch, if returns true, jsonOutput should be looked at. If it's empty, something went very wrong as we fallback on the asset file.
+bool PollInfraJsonDownload(std::string *jsonOutput);
+
 // These return false if allowed to be consistent with the similar function for achievements.
 bool NetworkWarnUserIfOnlineAndCantSavestate();
 bool NetworkWarnUserIfOnlineAndCantSpeed();

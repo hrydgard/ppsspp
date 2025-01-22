@@ -58,6 +58,9 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
+	// Kick off a request to the infra-dns.json since we'll need it later.
+	StartInfraJsonDownload();
+
 	requestAddr = paramAddr;
 	int size = Memory::Read_U32(paramAddr);
 	memset(&request, 0, sizeof(request));
@@ -106,6 +109,17 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	u64 now = (u64)(time_now_d() * 1000000.0);
 	
+	std::string json;
+	if (!jsonReady_ && PollInfraJsonDownload(&json)) {
+		if (!json.empty()) {
+			INFO_LOG(Log::sceNet, "Got and processed the json.");
+		} else {
+			// TODO: Show a notice?
+			WARN_LOG(Log::sceNet, "Failed to get json file. Autoconfig will not work.");
+		}
+		jsonReady_ = true;
+	}
+
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
 	if (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET || request.netAction == NETCONF_CONNECT_APNET_LAST) {
 		int state = NetApctl_GetState();
@@ -161,15 +175,14 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			}
 			DisplayButtons(DS_BUTTON_CANCEL, di->T("Cancel"));
 
-			// The Netconf dialog stays visible until the network reaches the state PSP_NET_APCTL_STATE_GOT_IP.			
-			if (state == PSP_NET_APCTL_STATE_GOT_IP) {
+			// The Netconf dialog stays visible until the network reaches the state PSP_NET_APCTL_STATE_GOT_IP,
+			// *AND* we have the json.
+			if (state == PSP_NET_APCTL_STATE_GOT_IP && jsonReady_) {
 				if (pendingStatus != SCE_UTILITY_STATUS_FINISHED) {
 					StartFade(false);
 					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 				}
-			}
-
-			else if (state == PSP_NET_APCTL_STATE_JOINING) {
+			} else if (state == PSP_NET_APCTL_STATE_JOINING) {
 				// Switch to the next message
 				StartFade(true);
 			}
