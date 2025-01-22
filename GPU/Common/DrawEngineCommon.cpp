@@ -239,7 +239,6 @@ void DrawEngineCommon::UpdatePlanes() {
 // * Compute min/max of the verts, and then compute a bounding sphere and check that against the planes.
 //   - Less accurate, but..
 //   - Only requires six plane evaluations then.
-
 bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 1024) {
@@ -375,6 +374,10 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 }
 
 // NOTE: This doesn't handle through-mode, indexing, morph, or skinning.
+// TODO: For high vertex counts, we should just take the min/max of all the verts, and test the resulting six cube
+// corners. That way we can cull more draws quite cheaply.
+// We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
+// This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
 bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, VertexDecoder *dec, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
