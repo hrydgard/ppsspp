@@ -732,10 +732,15 @@ static int sceUtilityCheckNetParam(int id)
 * @param data - parameter data
 * @return 0 on success
 */
+// Let's figure out what games use this.
 static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
-	DEBUG_LOG(Log::sceUtility, "sceUtilityGetNetParam(%d, %d, %08x)", id, param, dataAddr);
 	if (id < 0 || id > 24) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_NETPARAM_BAD_NETCONF, "invalid id=%d", id);
+	}
+
+	if (!g_netApctlInited) {
+		// Is this allowed?
+		WARN_LOG_REPORT_ONCE(getnetparam_early, Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
 	}
 
 	// TODO: Replace the temporary netApctlInfo with netConfInfo, since some of netApctlInfo contents supposed to be taken from netConfInfo during ApctlInit, while sceUtilityGetNetParam can be used before Apctl Initialized
@@ -933,7 +938,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_NETPARAM_BAD_PARAM, "invalid param=%d", param);
 	}
 
-	return 0;
+	return hleLogDebug(Log::sceUtility, 0);
 }
 
 /**

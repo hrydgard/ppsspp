@@ -210,10 +210,13 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 
 		bool found = false;
 
+		std::vector<std::string> workingIDs;
+
 		std::vector<std::string> ids;
 		if (workingIdsNode) {
 			JsonGet(workingIdsNode->value).getStringVector(&ids);
 			for (auto &id : ids) {
+				workingIDs.push_back(id);
 				if (id == gameID) {
 					found = true;
 					dns->state = InfraGameState::Working;
@@ -248,6 +251,7 @@ bool LoadDNSForGameID(std::string_view gameID, InfraDNSConfig *dns) {
 			continue;
 		}
 
+		dns->workingIDs = workingIDs;
 		dns->gameName = game.getStringOr("name", "");
 		dns->dns = game.getStringOr("dns", dns->dns.c_str());
 		dns->dyn_dns = game.getStringOr("dyn_dns", "");

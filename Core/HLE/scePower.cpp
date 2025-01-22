@@ -330,7 +330,8 @@ static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		break;
 
 	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
-		ERROR_LOG(Log::HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
+		// This is OK, let's not ERROR_LOG.
+		DEBUG_LOG(Log::HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
 		break;
 
 	default:

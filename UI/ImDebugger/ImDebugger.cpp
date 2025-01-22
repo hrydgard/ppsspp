@@ -620,14 +620,16 @@ static void DrawSockets(ImConfig &cfg) {
 		ImGui::End();
 		return;
 	}
-	if (ImGui::BeginTable("sock", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
+	if (ImGui::BeginTable("sock", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Host", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Port", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("IP address", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Non-blocking", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Created by", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Domain", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Protocol", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Host handle", ImGuiTableColumnFlags_WidthFixed);
 
 		ImGui::TableHeadersRow();
 
@@ -641,7 +643,9 @@ static void DrawSockets(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", i);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d", (int)inetSocket->sock);
+			ImGui::Text("%d", inetSocket->port);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(inetSocket->addr.c_str());
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(inetSocket->nonblocking ? "Non-blocking" : "Blocking");
 			ImGui::TableNextColumn();
@@ -656,6 +660,7 @@ static void DrawSockets(ImConfig &cfg) {
 			str = inetSocketProto2str(inetSocket->protocol);
 			ImGui::TextUnformatted(str.c_str());
 			ImGui::TableNextColumn();
+			ImGui::Text("%d", (int)inetSocket->sock);
 		}
 
 		ImGui::EndTable();

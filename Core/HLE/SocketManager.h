@@ -20,6 +20,9 @@ struct InetSocket {
 	int type;
 	int protocol;
 	bool nonblocking;
+	// Metadata for debug use only.
+	std::string addr;
+	int port;
 };
 
 // Only use this for sockets whose ID are exposed to the game.

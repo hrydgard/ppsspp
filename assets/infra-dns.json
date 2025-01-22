@@ -155,45 +155,60 @@
 		{
 			"name": "SOCOM Fireteam Bravo",
 			"known_working_ids": [
+				"UCUS98615"
+			],
+			"not_working_ids": [
 				"UCKS45021",
-				"UCUS98615",
 				"UCES00038"
 			],
 			"score": 4,
 			"domains": {
-				"socomftb2.psp.online.scea.com": "67.222.156.250",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+				"socomftb.online.scee.com": "67.222.156.251",
+				"socomftb2.psp.online.scea.com": "67.222.156.251",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251",
+				"socom-ftb-prod-muis.pdonline.scek.co.kr": "67.222.156.251"
+			}
+		},
+		{
+			"name": "SOCOM Fireteam Bravo Public Beta",
+			"known_working_ids": [
+				"UCUS98637"
+			],
+			"score": 4,
+			"domains": {
+				"socompsp-pubeta.muis.pdonline.scea.com": "67.222.156.251"
 			}
 		},
 		{
 			"name": "SOCOM Fireteam Bravo 2",
 			"known_working_ids": [
-				"UCUS98645",
-				"UCES00543"
+				"UCUS98645"
 			],
-			"other_ids": [
+			"not_working_ids": [
+				"UCES00543",
 				"UCKS45043",
 				"UCUS80171"
 			],
 			"score": 4,
 			"domains": {
-				"socomftb2.psp.online.scea.com": "67.222.156.250",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+				"socomftb2.online.scee.com": "67.222.156.251",
+				"socomftb2.psp.online.scea.com": "67.222.156.251",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251"
 			}
 		},
 		{
 			"name": "SOCOM Tactical Strike",
 			"known_working_ids": [
-				"UCUS98649",
-				"UCES00855"
+				"UCUS98649"
 			],
-			"other_ids": [
-				"NPUG80220"
+			"not_working_ids": [
+				"NPUG80220",
+				"UCES00855"
 			],
 			"score": 3,
 			"domains": {
-				"socomftb2.psp.online.scea.com": "67.222.156.250",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250"
+				"socomftb2.psp.online.scea.com": "67.222.156.251",
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251"
 			}
 		},
 		{

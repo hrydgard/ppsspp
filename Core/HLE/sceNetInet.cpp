@@ -40,7 +40,7 @@ static int UpdateErrnoFromHost(int hostErrno, const char *func) {
 		ERROR_LOG(Log::sceNet, "BAD: errno cleared (previously %s) in %s. Functions should not clear errno.", convertInetErrno2str(g_inetLastErrno), func);
 		g_inetLastErrno = 0;
 	} else if (g_inetLastErrno == newErrno) {
-		DEBUG_LOG(Log::sceNet, "errno remained %s in %s (host: %d)", convertInetErrno2str(newErrno), func, hostErrno);
+		VERBOSE_LOG(Log::sceNet, "errno remained %s in %s (host: %d)", convertInetErrno2str(newErrno), func, hostErrno);
 	} else {
 		INFO_LOG(Log::sceNet, "errno set to %s in %s (host: %d)", convertInetErrno2str(newErrno), func, hostErrno);
 		g_inetLastErrno = newErrno;
@@ -73,7 +73,11 @@ static int sceNetInetTerm() {
 }
 
 static int sceNetInetGetErrno() {
-	return hleLogSuccessInfoI(Log::sceNet, g_inetLastErrno, "returning %s at %08x", convertInetErrno2str(g_inetLastErrno), currentMIPS->pc);
+	if (g_inetLastErrno == ERROR_INET_EAGAIN) {
+		return hleLogVerbose(Log::sceNet, g_inetLastErrno, "returning %s at %08x", convertInetErrno2str(g_inetLastErrno), currentMIPS->pc);
+	} else {
+		return hleLogDebug(Log::sceNet, g_inetLastErrno, "returning %s at %08x", convertInetErrno2str(g_inetLastErrno), currentMIPS->pc);
+	}
 }
 
 static int sceNetInetGetPspError() {
@@ -618,7 +622,12 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	}
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
 	//saddr.in.sin_port = htons(ntohs(saddr.in.sin_port) + portOffset);
-	DEBUG_LOG(Log::sceNet, "Bind: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+
+	INFO_LOG(Log::sceNet, "sceNetInetBind: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	// Update socket debug metadata
+	inetSock->addr = ip2str(saddr.in.sin_addr);
+	inetSock->port = ntohs(saddr.in.sin_port);
+
 	changeBlockingMode(inetSock->sock, 0);
 	int retval = bind(inetSock->sock, (struct sockaddr*)&saddr, len);
 	if (retval < 0) {
@@ -650,7 +659,6 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	}
 
 	// Still using warn log here so it stands out in the log
-	WARN_LOG(Log::sceNet, "sceNetInetConnect(%i, %08x, %i) at %08x", socket, sockAddrPtr, sockAddrLen, currentMIPS->pc);
 
 	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetPointer(sockAddrPtr);
 	SockAddrIN4 saddr{};
@@ -678,6 +686,11 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 		return retval;
 	}
 	changeBlockingMode(inetSock->sock, 1);
+
+	if (saddr.in.sin_port == 53) {
+		WARN_LOG(Log::G3D, "Game connected to DNS server %s (port 53), likely for doing its own DNS lookups!", ip2str(saddr.in.sin_addr, false).c_str());
+		// We should sniff these messages...
+	}
 
 	return hleLogSuccessInfoI(Log::sceNet, retval, "Connect: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 }
