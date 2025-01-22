@@ -408,7 +408,7 @@ void GamePauseScreen::CreateViews() {
 				leftColumnItems->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
 			}
 			if (!g_infraDNSConfig.revivalTeam.empty()) {
-				leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure Mode server by")) + ":"));
+				leftColumnItems->Add(new TextView(std::string(nw->T("Infrastructure server provided by:"))));
 				leftColumnItems->Add(new TextView(g_infraDNSConfig.revivalTeam));
 				if (!g_infraDNSConfig.revivalTeamURL.empty()) {
 					leftColumnItems->Add(new Button(g_infraDNSConfig.revivalTeamURL))->OnClick.Add([](UI::EventParams &e) {
