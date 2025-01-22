@@ -810,9 +810,6 @@ int PSPOskDialog::NativeKeyboard() {
 		std::u16string defaultText;
 		GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
 
-		if (defaultText.empty())
-			defaultText.assign(u"VALUE");
-
 		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
 		System_InputBoxGetString(NON_EPHEMERAL_TOKEN, ::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), false,
 			[&](const std::string &value, int) {
