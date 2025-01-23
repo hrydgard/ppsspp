@@ -1268,6 +1268,11 @@ bool TouchTestScreen::key(const KeyInput &key) {
 }
 
 void TouchTestScreen::axis(const AxisInput &axis) {
+	if (axis.deviceId == DEVICE_ID_MOUSE && (axis.axisId == JOYSTICK_AXIS_MOUSE_REL_X || axis.axisId == JOYSTICK_AXIS_MOUSE_REL_Y)) {
+		// These spam a lot, don't log for now.
+		return;
+	}
+
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
 		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);
@@ -1311,12 +1316,6 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
 #endif
 
-	// Hm, why don't we print all the info on Android?
-#if PPSSPP_PLATFORM(ANDROID)
-	snprintf(buffer, sizeof(buffer),
-		"display_res: %dx%d\n",
-		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
-#else
 	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"
 		"dp_res: %dx%d pixel_res: %dx%d\n"
@@ -1329,7 +1328,6 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 		g_display.dpi_scale_real,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
-#endif
 
 	// On Android, also add joystick debug data.
 	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

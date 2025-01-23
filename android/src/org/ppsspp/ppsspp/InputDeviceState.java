@@ -163,6 +163,7 @@ public class InputDeviceState {
 			Log.i(TAG, "Not a joystick event: source = " + event.getSource());
 			return false;
 		}
+		Log.i(TAG, "onjoystick");
 		int count = 0;
 		for (int i = 0; i < mAxes.length; i++) {
 			int axisId = mAxes[i];

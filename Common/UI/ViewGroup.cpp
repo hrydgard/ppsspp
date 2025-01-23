@@ -958,7 +958,7 @@ std::string GridLayoutList::DescribeText() const {
 }
 
 TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
-	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
+	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));

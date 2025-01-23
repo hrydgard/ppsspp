@@ -322,7 +322,6 @@ private:
 	ScrollView *tabScroll_ = nullptr;
 	AnchorLayout *contents_ = nullptr;
 
-	float stripSize_;
 	int currentTab_ = 0;
 	std::vector<View *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;
