@@ -12,8 +12,9 @@
 
 namespace http {
 
-HTTPSRequest::HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, std::string_view name)
-	: Request(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile) {
+HTTPSRequest::HTTPSRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, ProgressBarMode progressBarMode, std::string_view name)
+	: Request(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime) {
+	outfile_ = outfile;
 }
 
 HTTPSRequest::~HTTPSRequest() {

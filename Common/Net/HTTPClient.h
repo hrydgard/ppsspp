@@ -96,7 +96,7 @@ protected:
 // Really an asynchronous request.
 class HTTPRequest : public Request {
 public:
-	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
+	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
 	~HTTPRequest();
 
 	void Start() override;
@@ -104,23 +104,6 @@ public:
 
 	bool Done() override { return completed_; }
 	bool Failed() const override { return failed_; }
-
-	// NOTE! The value of ResultCode is INVALID until Done() returns true.
-	int ResultCode() const override { return resultCode_; }
-
-	const Path &outfile() const override { return outfile_; }
-
-	// If not downloading to a file, access this to get the result.
-	Buffer &buffer() override { return buffer_; }
-	const Buffer &buffer() const override { return buffer_; }
-
-	void Cancel() override {
-		cancelled_ = true;
-	}
-
-	bool IsCancelled() const override {
-		return cancelled_;
-	}
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
@@ -130,14 +113,10 @@ private:
 
 	std::string postData_;
 	Buffer buffer_;
-	std::vector<std::string> responseHeaders_;
-	Path outfile_;
 	std::thread thread_;
 	std::string postMime_;
-	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;
-	bool cancelled_ = false;
 	bool joined_ = false;
 };
 

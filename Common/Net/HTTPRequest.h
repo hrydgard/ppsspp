@@ -23,7 +23,7 @@ enum class ProgressBarMode {
 // Abstract request.
 class Request {
 public:
-	Request(RequestMethod method, const std::string &url, std::string_view name, bool *cancelled, ProgressBarMode mode);
+	Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, ProgressBarMode mode);
 	virtual ~Request() {}
 
 	void SetAccept(const char *mime) {
@@ -51,31 +51,40 @@ public:
 	virtual bool Done() = 0;
 	virtual bool Failed() const = 0;
 
-	virtual int ResultCode() const = 0;
-
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_.progress; }
 	float SpeedKBps() const { return progress_.kBps; }
 	std::string url() const { return url_; }
-	virtual const Path &outfile() const = 0;
 
-	virtual void Cancel() = 0;
-	virtual bool IsCancelled() const = 0;
+	const Path &OutFile() const { return outfile_; }
 
-	// Response
-	virtual Buffer &buffer() = 0;
-	virtual const Buffer &buffer() const = 0;
+	void Cancel() { cancelled_ = true; }
+	bool IsCancelled() const { return cancelled_; }
+
+	// If not downloading to a file, access this to get the result.
+	Buffer &buffer() { return buffer_; }
+	const Buffer &buffer() const { return buffer_; }
+
+	// NOTE! The value of ResultCode is INVALID until Done() returns true.
+	int ResultCode() const { return resultCode_; }
 
 protected:
-	std::function<void(Request &)> callback_;
 	RequestMethod method_;
 	std::string url_;
 	std::string name_;
 	const char *acceptMime_ = "*/*";
 	std::string userAgent_;
+	Path outfile_;
+	Buffer buffer_;
+	bool cancelled_ = false;
+	int resultCode_ = 0;
+	std::vector<std::string> responseHeaders_;
 
 	net::RequestProgress progress_;
 	ProgressBarMode progressBarMode_;
+
+private:
+	std::function<void(Request &)> callback_;
 };
 
 using std::shared_ptr;

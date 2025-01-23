@@ -163,7 +163,7 @@ void GameManager::UninstallGame(const std::string &name) {
 void GameManager::Update() {
 	if (curDownload_.get() && curDownload_->Done()) {
 		INFO_LOG(Log::HLE, "Download completed! Status = %d", curDownload_->ResultCode());
-		Path fileName = curDownload_->outfile();
+		Path fileName = curDownload_->OutFile();
 		if (curDownload_->ResultCode() == 200) {
 			if (!File::Exists(fileName)) {
 				ERROR_LOG(Log::HLE, "Downloaded file '%s' does not exist :(", fileName.c_str());
