@@ -107,7 +107,8 @@ bool HTTPSRequest::Done() {
 		failed_ = true;
 		progress_.Update(bodyLength, bodyLength, true);
 	} else if (resultCode_ == 200) {
-		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
+		bool clear = !(flags_ & RequestFlags::KeepInMemory);
+		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_, clear)) {
 			ERROR_LOG(Log::IO, "Failed writing download to '%s'", outfile_.c_str());
 		}
 		progress_.Update(bodyLength, bodyLength, true);

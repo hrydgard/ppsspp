@@ -35,7 +35,6 @@ protected:
 
 private:
 	uintptr_t sock_ = -1;
-
 };
 
 }	// namespace net
@@ -116,10 +115,11 @@ private:
 	std::string postMime_;
 	bool completed_ = false;
 	bool failed_ = false;
-	bool joined_ = false;
 };
 
 // Fake request for cache hits.
+// The download manager uses this when caching was requested, and a new-enough file was present in the cache directory.
+// This is simply a finished request, that can still be queried like a normal one so users don't know it came from the cache.
 class CachedRequest : public Request {
 public:
 	CachedRequest(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags, std::string_view responseData)

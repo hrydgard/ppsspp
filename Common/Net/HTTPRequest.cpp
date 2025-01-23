@@ -2,6 +2,7 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/HTTPNaettRequest.h"
 #include "Common/TimeUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/System/OSD.h"
@@ -39,25 +40,66 @@ static bool IsHttpsUrl(std::string_view url) {
 	return startsWith(url, "https:");
 }
 
+Path UrlToCachePath(const Path &cacheDir, std::string_view url) {
+	std::string fn = "DLCACHE_";
+	for (auto c : url) {
+		if (isalnum(c) || c == '.' || c == '-' || c == '_') {
+			fn.push_back(tolower(c));
+		} else {
+			fn.push_back('_');
+		}
+	}
+	return cacheDir / fn;
+}
+
 std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name) {
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
-		return std::shared_ptr<Request>(new HTTPSRequest(method, url, postdata, postMime, outfile, flags, name));
+		return std::make_shared<HTTPSRequest>(method, url, postdata, postMime, outfile, flags, name);
 #else
 		return std::shared_ptr<Request>();
 #endif
 	} else {
-		return std::shared_ptr<Request>(new HTTPRequest(method, url, postdata, postMime, outfile, flags, name));
+		return std::make_shared<HTTPRequest>(method, url, postdata, postMime, outfile, flags, name);
 	}
 }
 
 std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime) {
 	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, "");
 
+	if (!cacheDir_.empty() && (flags & RequestFlags::Cached24H)) {
+		_dbg_assert_(outfile.empty());  // It's automatically replaced below
+
+		// Come up with a cache file path.
+		Path cacheFile = UrlToCachePath(cacheDir_, url);
+
+		// TODO: This should be done on the thread, maybe. But let's keep it simple for now.
+		time_t cacheFileTime;
+		if (File::GetModifTimeT(cacheFile, &cacheFileTime)) {
+			time_t now = (time_t)time_now_unix_utc();
+			if (cacheFileTime > now - 24 * 60 * 60) {
+				// The file is new enough. Let's construct a fake, already finished download so we don't need
+				// to modify the calling code.
+				std::string contents;
+				if (File::ReadBinaryFileToString(cacheFile, &contents)) {
+					// All is well, but we've indented a bit much here.
+					dl.reset(new CachedRequest(RequestMethod::GET, url, "", nullptr, flags, contents));
+					newDownloads_.push_back(dl);
+					return dl;
+				}
+			}
+		}
+
+		// OK, didn't get it from cache, so let's continue with the download, putting it in the cache.
+		dl->OverrideOutFile(cacheFile);
+		dl->AddFlag(RequestFlags::KeepInMemory);
+	}
+
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
+
 	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;

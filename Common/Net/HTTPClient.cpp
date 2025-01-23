@@ -494,7 +494,9 @@ HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string
 HTTPRequest::~HTTPRequest() {
 	g_OSD.RemoveProgressBar(url_, !failed_, 0.5f);
 
-	_assert_msg_(joined_, "Download destructed without join");
+	if (thread_.joinable()) {
+		_dbg_assert_msg_(false, "Download destructed without join");
+	}
 }
 
 void HTTPRequest::Start() {
@@ -502,11 +504,11 @@ void HTTPRequest::Start() {
 }
 
 void HTTPRequest::Join() {
-	if (joined_) {
+	if (!thread_.joinable()) {
 		ERROR_LOG(Log::HTTP, "Already joined thread!");
+		_dbg_assert_(false);
 	}
 	thread_.join();
-	joined_ = true;
 }
 
 void HTTPRequest::SetFailed(int code) {
@@ -599,7 +601,8 @@ void HTTPRequest::Do() {
 
 		if (resultCode == 200) {
 			INFO_LOG(Log::HTTP, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
-			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
+			bool clear = !(flags_ & RequestFlags::KeepInMemory);
+			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_, clear)) {
 				ERROR_LOG(Log::HTTP, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {

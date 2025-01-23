@@ -328,7 +328,7 @@ void StartInfraJsonDownload() {
 		INFO_LOG(Log::sceNet, "json is already being downloaded");
 	}
 	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-	g_infraDL = g_DownloadManager.StartDownload("http://metadata.ppsspp.org/infra-dns.json", Path(), http::RequestFlags::Default, acceptMime);
+	g_infraDL = g_DownloadManager.StartDownload("http://metadata.ppsspp.org/infra-dns.json", Path(), http::RequestFlags::Cached24H, acceptMime);
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
@@ -359,8 +359,12 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 	}
 
 	// OK, we actually got data. Load it!
-	INFO_LOG(Log::sceNet, "json downloaded");
 	g_infraDL->buffer().TakeAll(jsonOutput);
+
+	if (jsonOutput->empty()) {
+		_dbg_assert_msg_(false, "Json output is empty!");
+		ERROR_LOG(Log::sceNet, "JSON output is empty! Something went wrong.");
+	}
 
 	LoadAutoDNS(*jsonOutput);
 	return true;
