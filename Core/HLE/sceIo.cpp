@@ -2545,16 +2545,16 @@ static u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
-// NOTE: Logs like a HLE function. Careful.
 int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
-		return hleLogError(Log::sceIo, error, "bad file");
+		return error;
 	}
 
 	if (f->asyncBusy()) {
-		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+		ERROR_LOG(Log::sceIo, "__IoIoctl: async busy");
+		return SCE_KERNEL_ERROR_ASYNC_BUSY;
 	}
 
 	// TODO: Move this into each command, probably?
@@ -2591,16 +2591,18 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
 				// File is PGD file, but key mismatch
-				return hleLogError(Log::sceIo, ERROR_PGD_INVALID_HEADER, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
+				ERROR_LOG(Log::sceIo, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
+				return ERROR_PGD_INVALID_HEADER;
 			} else {
 				// File is not encrypted.
-				return hleLogSuccessInfoI(Log::sceIo, 0, "%s is not an encrypted PGD file as was expected. Proceeding.", f->fullpath.c_str());
+				WARN_LOG(Log::sceIo, "%s is not an encrypted PGD file as was expected. Proceeding anyway.", f->fullpath.c_str());
+				return 0;
 			}
 		} else {
 			// Everything OK.
 			f->npdrm = true;
 			f->pgdInfo->data_offset += f->pgd_offset;
-			return hleLogDebug(Log::sceIo, 0);
+			return 0;
 		}
 		break;
 	}
@@ -2613,9 +2615,9 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	// Get PGD data size. Called from sceNpDrmEdataGetDataSize
 	case 0x04100010:
 		if (f->pgdInfo)
-			return hleLogDebug(Log::sceIo, f->pgdInfo->data_size);
+			return f->pgdInfo->data_size;
 		else
-			return hleLogDebug(Log::sceIo, (int)f->FileInfo().size);
+			return (int)f->FileInfo().size;
 		break;
 
 	// Get UMD sector size
@@ -2627,7 +2629,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			// ISOs always use 2048 sized sectors.
 			Memory::Write_U32(2048, outdataPtr);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2640,7 +2642,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			u32 offset = (u32)pspFileSystem.GetSeekPos(f->handle);
 			Memory::Write_U32(offset, outdataPtr);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2664,7 +2666,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			}
 			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2676,7 +2678,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
 			Memory::Write_U32(f->FileInfo().startSector, outdataPtr);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2688,7 +2690,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
 			Memory::Write_U64(f->FileInfo().size, outdataPtr);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2704,10 +2706,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				usec = 0;
 				return sceIoRead(id, outdataPtr, size);
 			} else {
-				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			}
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2736,10 +2738,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				usec = 0;
 				return hleCall(IoFileMgrForUser, u32, sceIoRead, id, outdataPtr, size);
 			} else {
-				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			}
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2765,11 +2767,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			// Position is in sectors, don't forget.
 			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
-				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE);
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_SIZE;
 			}
 			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
 		} else {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
 
@@ -2783,21 +2785,21 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 				ERROR_LOG(Log::sceIo, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
 			}
-			return hleLogSuccessOrError(Log::sceIo, result);
+			return result;
 		}
 		break;
 	}
 
-	return hleLogDebug(Log::sceIo, 0);
+	return 0;
 }
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
 	int usec = 0;
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	if (usec != 0) {
-		return hleDelayResult(result, "io ctrl command", usec);
+		return hleDelayResult(hleLogSuccessOrError(Log::sceIo, result), "io ctrl command", usec);
 	}
-	return result;
+	return hleLogSuccessOrError(Log::sceIo, result);
 }
 
 static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
@@ -2960,7 +2962,7 @@ static int IoAsyncFinish(int id) {
 		hleSkipDeadbeef();
 
 		params.op = IoAsyncOp::NONE;
-		return 0;
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
