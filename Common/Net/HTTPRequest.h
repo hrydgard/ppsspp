@@ -95,10 +95,10 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Request> StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime = nullptr);
+	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, ProgressBarMode mode, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Request> StartDownloadWithCallback(
-		const std::string &url,
+		std::string_view url,
 		const Path &outfile,
 		ProgressBarMode mode,
 		std::function<void(Request &)> callback,
@@ -106,9 +106,9 @@ public:
 		const char *acceptMime = nullptr);
 
 	std::shared_ptr<Request> AsyncPostWithCallback(
-		const std::string &url,
-		const std::string &postData,
-		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
+		std::string_view url,
+		std::string_view postData,
+		std::string_view postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
 		ProgressBarMode mode,
 		std::function<void(Request &)> callback,
 		std::string_view name = "");
@@ -122,8 +122,6 @@ public:
 	}
 
 private:
-	static bool IsHttpsUrl(const std::string &url);
-
 	std::vector<std::shared_ptr<Request>> downloads_;
 	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads
 	// while running.
