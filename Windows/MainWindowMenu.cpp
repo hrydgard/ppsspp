@@ -754,11 +754,6 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIPTYPE_COUNT:    setFrameSkippingType(FRAMESKIPTYPE_COUNT); break;
 		case ID_OPTIONS_FRAMESKIPTYPE_PRCNT:    setFrameSkippingType(FRAMESKIPTYPE_PRCNT); break;
 
-		case ID_OPTIONS_FRAMESKIPDUMMY:
-			setFrameSkipping();
-			setFrameSkippingType();
-			break;
-
 		case ID_FILE_EXIT:
 			PostMessage(hWnd, WM_CLOSE, 0, 0);
 			break;
