@@ -81,6 +81,7 @@ volatile bool coreStatePending = false;
 
 static bool powerSaving = false;
 static bool g_breakAfterFrame = false;
+static std::string g_breakReason;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
@@ -390,7 +391,6 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 	}
 
 	{
-		// Stop the tracer
 		std::lock_guard<std::mutex> lock(g_stepMutex);
 		if (!g_cpuStepCommand.empty() && Core_IsStepping()) {
 			// If we're in a failed step that uses a temp breakpoint, we need to be able to override it here.
@@ -404,7 +404,11 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 				return;
 			}
 		}
+
+		// Stop the tracer
 		mipsTracer.stop_tracing();
+
+		g_breakReason = reason;
 		g_cpuStepCommand.type = CPUStepType::None;
 		g_cpuStepCommand.reason = reason;
 		g_cpuStepCommand.relatedAddr = relatedAddress;
@@ -413,6 +417,10 @@ void Core_Break(const char *reason, u32 relatedAddress) {
 		Core_UpdateState(CORE_STEPPING_CPU);
 	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+const std::string &Core_BreakReason() {
+	return g_breakReason;
 }
 
 // Free-threaded (or at least should be)

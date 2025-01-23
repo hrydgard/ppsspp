@@ -50,6 +50,8 @@ void Core_Break(const char *reason, u32 relatedAddress = 0);
 // Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();
 
+const std::string &Core_BreakReason();
+
 // This should be called externally.
 // Can fail if another step type was requested this frame.
 bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);

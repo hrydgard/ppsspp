@@ -906,7 +906,7 @@ namespace MainWindow
 						} else {
 							if (pause) {
 								Core_Break("ui.lost_focus", 0);
-							} else {
+							} else if (Core_BreakReason() == "ui.lost_focus") {
 								Core_Resume();
 							}
 						}
