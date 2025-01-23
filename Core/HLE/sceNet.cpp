@@ -328,7 +328,7 @@ void StartInfraJsonDownload() {
 		INFO_LOG(Log::sceNet, "json is already being downloaded");
 	}
 	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-	g_infraDL = g_DownloadManager.StartDownload("http://metadata.ppsspp.org/infra-dns.json", Path(), http::ProgressBarMode::NONE, acceptMime);
+	g_infraDL = g_DownloadManager.StartDownload("http://metadata.ppsspp.org/infra-dns.json", Path(), http::RequestFlags::Default, acceptMime);
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {

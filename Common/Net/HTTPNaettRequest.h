@@ -14,7 +14,7 @@ namespace http {
 // Really an asynchronous request.
 class HTTPSRequest : public Request {
 public:
-	HTTPSRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags progressBarMode = RequestFlags::ProgressBar | RequestFlags::ProgressBarDelayed, std::string_view name = "");
+	HTTPSRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags = RequestFlags::ProgressBar | RequestFlags::ProgressBarDelayed, std::string_view name = "");
 	~HTTPSRequest();
 
 	void Start() override;

@@ -9,8 +9,8 @@
 
 namespace http {
 
-Request::Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags mode)
-	: method_(method), url_(url), name_(name), progress_(cancelled), flags_(mode) {
+Request::Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags)
+	: method_(method), url_(url), name_(name), progress_(cancelled), flags_(flags) {
 	INFO_LOG(Log::HTTP, "HTTP %s request: %.*s (%.*s)", RequestMethodToString(method), (int)url.size(), url.data(), (int)name.size(), name.data());
 
 	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {

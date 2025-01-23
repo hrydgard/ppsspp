@@ -96,7 +96,7 @@ protected:
 // Really an asynchronous request.
 class HTTPRequest : public Request {
 public:
-	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags progressBarMode = RequestFlags::ProgressBar | RequestFlags::ProgressBarDelayed, std::string_view name = "");
+	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags = RequestFlags::ProgressBar | RequestFlags::ProgressBarDelayed, std::string_view name = "");
 	~HTTPRequest();
 
 	void Start() override;
@@ -117,6 +117,20 @@ private:
 	bool completed_ = false;
 	bool failed_ = false;
 	bool joined_ = false;
+};
+
+// Fake request for cache hits.
+class CachedRequest : public Request {
+public:
+	CachedRequest(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags, std::string_view responseData)
+		: Request(method, url, name, cancelled, flags)
+	{
+		buffer_.Append(responseData);
+	}
+	void Start() override {}
+	void Join() override {}
+	bool Done() override { return true; }
+	bool Failed() const override { return false; }
 };
 
 }  // namespace http
