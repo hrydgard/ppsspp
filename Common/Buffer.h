@@ -66,9 +66,9 @@ public:
 	// Simple I/O.
 
 	// Writes the entire buffer to the file descriptor. Also resets the
-	// size to zero. On failure, data remains in buffer and nothing is
+	// size to zero, if the clear flag is true. On failure, data remains in buffer and nothing is
 	// written.
-	bool FlushToFile(const Path &filename);
+	bool FlushToFile(const Path &filename, bool clear);
 
 	// Utilities. Try to avoid checking for size.
 	size_t size() const { return data_.size(); }

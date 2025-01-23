@@ -279,13 +279,14 @@ void GamePauseScreen::update() {
 	}
 
 	const bool networkConnected = IsNetworkConnected();
-	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected || lastOnline_ != networkConnected) {
+	if (g_netInited != lastNetInited_ || netInetInited != lastNetInetInited_ || lastAdhocServerConnected_ != g_adhocServerConnected || lastOnline_ != networkConnected || lastDNSConfigLoaded_ != g_infraDNSConfig.loaded) {
 		INFO_LOG(Log::sceNet, "Network status changed, recreating views");
 		RecreateViews();
 		lastNetInetInited_ = netInetInited;
 		lastNetInited_ = g_netInited;
 		lastAdhocServerConnected_ = g_adhocServerConnected;
 		lastOnline_ = networkConnected;
+		lastDNSConfigLoaded_ = g_infraDNSConfig.loaded;
 	}
 
 	const bool mustRunBehind = MustRunBehind();

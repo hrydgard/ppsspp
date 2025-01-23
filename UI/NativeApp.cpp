@@ -724,6 +724,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
+	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
+
 	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {

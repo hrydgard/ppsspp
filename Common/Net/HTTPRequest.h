@@ -18,7 +18,8 @@ enum class RequestFlags {
 	Default = 0,
 	ProgressBar = 1,
 	ProgressBarDelayed = 2,
-	// Cached = 4 etc
+	Cached24H = 4,
+	KeepInMemory = 8,
 };
 ENUM_CLASS_BITOPS(RequestFlags);
 
@@ -59,6 +60,12 @@ public:
 	std::string url() const { return url_; }
 
 	const Path &OutFile() const { return outfile_; }
+	void OverrideOutFile(const Path &path) {
+		outfile_ = path;
+	}
+	void AddFlag(RequestFlags flag) {
+		flags_ |= flag;
+	}
 
 	void Cancel() { cancelled_ = true; }
 	bool IsCancelled() const { return cancelled_; }
@@ -97,6 +104,7 @@ public:
 		CancelAll();
 	}
 
+	// NOTE: This is the only version that supports the cache flag (for now).
 	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Request> StartDownloadWithCallback(
@@ -119,9 +127,15 @@ public:
 	void Update();
 	void CancelAll();
 
-	void SetUserAgent(const std::string &userAgent) {
+	void SetUserAgent(std::string_view userAgent) {
 		userAgent_ = userAgent;
 	}
+
+	void SetCacheDir(const Path &path) {
+		cacheDir_ = path;
+	}
+
+	Path UrlToCachePath(const std::string_view url);
 
 private:
 	std::vector<std::shared_ptr<Request>> downloads_;
@@ -130,6 +144,7 @@ private:
 	std::vector<std::shared_ptr<Request>> newDownloads_;
 
 	std::string userAgent_;
+	Path cacheDir_;
 };
 
 inline const char *RequestMethodToString(RequestMethod method) {

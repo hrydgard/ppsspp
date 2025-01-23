@@ -61,4 +61,6 @@ private:
 	u32 scanInfosAddr = 0;
 	int scanStep = 0;
 	u64 startTime = 0;
+
+	bool jsonReady_ = false;
 };

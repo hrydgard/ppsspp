@@ -64,8 +64,11 @@ private:
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 
 	UI::Button *playButton_ = nullptr;
+
+	// State change tracking, a bit ugly heh, but works.
 	bool lastOnline_ = false;
 	bool lastNetInited_ = false;
 	bool lastNetInetInited_ = false;
 	bool lastAdhocServerConnected_ = false;
+	bool lastDNSConfigLoaded_ = false;
 };

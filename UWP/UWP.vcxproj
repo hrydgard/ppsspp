@@ -441,6 +441,10 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>
     </None>
+    <None Include="..\Assets\infra-dns.json">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </None>
     <None Include="..\Assets\knownfuncs.ini">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\%(Filename)%(Extension)</Link>

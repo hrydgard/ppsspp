@@ -186,6 +186,9 @@
     <None Include="..\Assets\langregion.ini">
       <Filter>Content</Filter>
     </None>
+    <None Include="..\Assets\infra-dns.json">
+      <Filter>Content</Filter>
+    </None>
     <None Include="..\Assets\redump.csv">
       <Filter>Content</Filter>
     </None>
