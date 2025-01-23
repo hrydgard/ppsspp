@@ -14,23 +14,25 @@ enum class RequestMethod {
 	POST,
 };
 
-enum class ProgressBarMode {
-	NONE,
-	VISIBLE,
-	DELAYED,
+enum class RequestFlags {
+	Default = 0,
+	ProgressBar = 1,
+	ProgressBarDelayed = 2,
+	// Cached = 4 etc
 };
+ENUM_CLASS_BITOPS(RequestFlags);
 
 // Abstract request.
 class Request {
 public:
-	Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, ProgressBarMode mode);
+	Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags mode);
 	virtual ~Request() {}
 
 	void SetAccept(const char *mime) {
 		acceptMime_ = mime;
 	}
 
-	void SetUserAgent(const std::string &userAgent) {
+	void SetUserAgent(std::string_view userAgent) {
 		userAgent_ = userAgent;
 	}
 
@@ -81,7 +83,7 @@ protected:
 	std::vector<std::string> responseHeaders_;
 
 	net::RequestProgress progress_;
-	ProgressBarMode progressBarMode_;
+	RequestFlags flags_;
 
 private:
 	std::function<void(Request &)> callback_;
@@ -95,12 +97,12 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, ProgressBarMode mode, const char *acceptMime = nullptr);
+	std::shared_ptr<Request> StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Request> StartDownloadWithCallback(
 		std::string_view url,
 		const Path &outfile,
-		ProgressBarMode mode,
+		RequestFlags flags,
 		std::function<void(Request &)> callback,
 		std::string_view name = "",
 		const char *acceptMime = nullptr);
@@ -109,7 +111,7 @@ public:
 		std::string_view url,
 		std::string_view postData,
 		std::string_view postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
-		ProgressBarMode mode,
+		RequestFlags flags,
 		std::function<void(Request &)> callback,
 		std::string_view name = "");
 

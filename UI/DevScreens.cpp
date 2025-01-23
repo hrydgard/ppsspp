@@ -1079,7 +1079,7 @@ void FrameDumpTestScreen::update() {
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), http::ProgressBarMode::DELAYED, acceptMime);
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {

@@ -9,8 +9,8 @@
 
 namespace http {
 
-Request::Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, ProgressBarMode mode)
-	: method_(method), url_(url), name_(name), progress_(cancelled), progressBarMode_(mode) {
+Request::Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags mode)
+	: method_(method), url_(url), name_(name), progress_(cancelled), flags_(mode) {
 	INFO_LOG(Log::HTTP, "HTTP %s request: %.*s (%.*s)", RequestMethodToString(method), (int)url.size(), url.data(), (int)name.size(), name.data());
 
 	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
@@ -25,9 +25,9 @@ Request::Request(RequestMethod method, std::string_view url, std::string_view na
 				message = url_;
 			}
 		}
-		if (progressBarMode_ != ProgressBarMode::NONE) {
+		if (flags_ & RequestFlags::ProgressBar) {
 			if (!done) {
-				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, progressBarMode_ == ProgressBarMode::DELAYED ? 3.0f : 0.0f);  // delay 3 seconds before showing.
+				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, flags_ & RequestFlags::ProgressBarDelayed ? 3.0f : 0.0f);  // delay 3 seconds before showing.
 			} else {
 				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
 			}
@@ -39,20 +39,20 @@ static bool IsHttpsUrl(std::string_view url) {
 	return startsWith(url, "https:");
 }
 
-std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, ProgressBarMode mode, std::string_view name) {
+std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name) {
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
-		return std::shared_ptr<Request>(new HTTPSRequest(method, url, postdata, postMime, outfile, mode, name));
+		return std::shared_ptr<Request>(new HTTPSRequest(method, url, postdata, postMime, outfile, flags, name));
 #else
 		return std::shared_ptr<Request>();
 #endif
 	} else {
-		return std::shared_ptr<Request>(new HTTPRequest(method, url, postdata, postMime, outfile, mode, name));
+		return std::shared_ptr<Request>(new HTTPRequest(method, url, postdata, postMime, outfile, flags, name));
 	}
 }
 
-std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, mode, "");
+std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime) {
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, "");
 
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
@@ -66,11 +66,11 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
 	std::string_view url,
 	const Path &outfile,
-	ProgressBarMode mode,
+	RequestFlags flags,
 	std::function<void(Request &)> callback,
 	std::string_view name,
 	const char *acceptMime) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, mode, name);
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, flags, name);
 
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
@@ -86,10 +86,10 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 	std::string_view url,
 	std::string_view postData,
 	std::string_view postMime,
-	ProgressBarMode mode,
+	RequestFlags flags,
 	std::function<void(Request &)> callback,
 	std::string_view name) {
-	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), mode, name);
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), flags, name);
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);

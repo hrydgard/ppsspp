@@ -289,7 +289,7 @@ static void server_call_callback(const rc_api_request_t *request,
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	if (request->post_data) {
-		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::ProgressBarMode::DELAYED, [=](http::Request &download) {
+		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, [=](http::Request &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -299,7 +299,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			callback(&response, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
-		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::ProgressBarMode::DELAYED, [=](http::Request &download) {
+		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, [=](http::Request &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -874,7 +874,7 @@ bool HasAchievementsOrLeaderboards() {
 void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
 	if (g_iconCache.MarkPending(cache_key)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
-		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::ProgressBarMode::NONE, [cache_key](http::Request &download) {
+		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::RequestFlags::Default, [cache_key](http::Request &download) {
 			if (download.ResultCode() != 200)
 				return;
 			std::string data;

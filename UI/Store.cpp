@@ -63,7 +63,7 @@ public:
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [](http::Request &download) {
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, [](http::Request &download) {
 				// Can't touch 'this' in this function! Don't use captures!
 				std::string path = download.url();
 				if (download.ResultCode() == 200) {
@@ -179,7 +179,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
 			auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::NONE, cb, acceptMime);
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::RequestFlags::Default, cb, acceptMime);
 		}
 
 		if (!textureData_.empty()) {
@@ -433,7 +433,7 @@ StoreScreen::StoreScreen() {
 
 	std::string indexPath = StoreBaseUrl() + "index.json";
 	const char *acceptMime = "application/json, */*; q=0.8";
-	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), http::ProgressBarMode::DELAYED, acceptMime);
+	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime);
 }
 
 StoreScreen::~StoreScreen() {

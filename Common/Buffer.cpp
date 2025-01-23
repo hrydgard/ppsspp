@@ -15,17 +15,11 @@ char *Buffer::Append(size_t length) {
 	}
 }
 
-void Buffer::Append(const std::string &str) {
+void Buffer::Append(std::string_view str) {
 	char *ptr = Append(str.size());
 	if (ptr) {
 		memcpy(ptr, str.data(), str.size());
 	}
-}
-
-void Buffer::Append(const char *str) {
-	size_t len = strlen(str);
-	char *dest = Append(len);
-	memcpy(dest, str, len);
 }
 
 void Buffer::Append(const Buffer &other) {
