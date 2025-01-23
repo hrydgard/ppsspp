@@ -23,6 +23,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/FileUtil.h"
 #include "Common/System/OSD.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -271,14 +272,16 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	return true;
 }
 
-static void LoadAutoDNS(std::string_view json) {
+static bool LoadAutoDNS(std::string_view json) {
 	if (!g_Config.bInfrastructureAutoDNS) {
-		return;
+		return true;
 	}
 
 	// Load the automatic DNS config for this game - or the defaults.
 	std::string discID = g_paramSFO.GetDiscID();
-	LoadDNSForGameID(discID, json, &g_infraDNSConfig);
+	if (!LoadDNSForGameID(discID, json, &g_infraDNSConfig)) {
+		return false;
+	}
 
 	// If dyn_dns is non-empty, try to use it to replace the specified DNS.
 	// If fails, we just use the dns. TODO: Do this in the background somehow...
@@ -315,9 +318,12 @@ static void LoadAutoDNS(std::string_view json) {
 			net::DNSResolveFree(resolved);
 		}
 	}
+	return true;
 }
 
 std::shared_ptr<http::Request> g_infraDL;
+
+static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
 
 void StartInfraJsonDownload() {
 	if (!g_Config.bInfrastructureAutoDNS) {
@@ -328,7 +334,7 @@ void StartInfraJsonDownload() {
 		INFO_LOG(Log::sceNet, "json is already being downloaded");
 	}
 	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-	g_infraDL = g_DownloadManager.StartDownload("http://metadata.ppsspp.org/infra-dns.json", Path(), http::RequestFlags::Cached24H, acceptMime);
+	g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
@@ -347,7 +353,16 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 
 	// The request is done, but did it fail?
 	if (g_infraDL->Failed()) {
-		// Let's just grab the assets file. Because later this will mean that we didn't even get the cached copy.
+		// First, fall back to cache if it exists. Could build this functionality into the download manager
+		// but it would be a bit awkward.
+		std::string json;
+		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(jsonUrl), &json) && !json.empty()) {
+			WARN_LOG(Log::sceNet, "Failed to download infra-dns.json, falling back to cached file");
+			*jsonOutput = json;
+			return true;
+		}
+
+		// If it doesn't, let's just grab the assets file. Because later this will mean that we didn't even get the cached copy.
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
 		if (!jsonStr) {
@@ -360,13 +375,15 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 
 	// OK, we actually got data. Load it!
 	g_infraDL->buffer().TakeAll(jsonOutput);
-
 	if (jsonOutput->empty()) {
 		_dbg_assert_msg_(false, "Json output is empty!");
 		ERROR_LOG(Log::sceNet, "JSON output is empty! Something went wrong.");
 	}
 
-	LoadAutoDNS(*jsonOutput);
+	if (!LoadAutoDNS(*jsonOutput)) {
+		// If the JSON parse fails, throw away the cache file at least.
+		File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
+	}
 	return true;
 }
 

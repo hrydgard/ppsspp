@@ -127,13 +127,15 @@ public:
 	void Update();
 	void CancelAll();
 
-	void SetUserAgent(const std::string &userAgent) {
+	void SetUserAgent(std::string_view userAgent) {
 		userAgent_ = userAgent;
 	}
 
 	void SetCacheDir(const Path &path) {
 		cacheDir_ = path;
 	}
+
+	Path UrlToCachePath(const std::string_view url);
 
 private:
 	std::vector<std::shared_ptr<Request>> downloads_;

@@ -52,6 +52,13 @@ Path UrlToCachePath(const Path &cacheDir, std::string_view url) {
 	return cacheDir / fn;
 }
 
+Path RequestManager::UrlToCachePath(const std::string_view url) {
+	if (cacheDir_.empty()) {
+		return Path();
+	}
+	return http::UrlToCachePath(cacheDir_, url);
+}
+
 std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name) {
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
@@ -71,7 +78,7 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 		_dbg_assert_(outfile.empty());  // It's automatically replaced below
 
 		// Come up with a cache file path.
-		Path cacheFile = UrlToCachePath(cacheDir_, url);
+		Path cacheFile = UrlToCachePath(url);
 
 		// TODO: This should be done on the thread, maybe. But let's keep it simple for now.
 		time_t cacheFileTime;
