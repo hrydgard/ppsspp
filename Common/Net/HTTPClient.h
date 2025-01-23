@@ -112,7 +112,6 @@ private:
 	void SetFailed(int code);
 
 	std::string postData_;
-	Buffer buffer_;
 	std::thread thread_;
 	std::string postMime_;
 	bool completed_ = false;
