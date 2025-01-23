@@ -64,13 +64,13 @@ public:
 	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress);
 
 	// Return value is the HTTP return code.
-	int POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, net::RequestProgress *progress);
-	int POST(const RequestParams &req, const std::string &data, Buffer *output, net::RequestProgress *progress);
+	int POST(const RequestParams &req, std::string_view data, std::string_view mime, Buffer *output, net::RequestProgress *progress);
+	int POST(const RequestParams &req, std::string_view data, Buffer *output, net::RequestProgress *progress);
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
 	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress);
-	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, net::RequestProgress *progress);
+	int SendRequestWithData(const char *method, const RequestParams &req, std::string_view data, const char *otherHeaders, net::RequestProgress *progress);
 	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string *statusLine = nullptr);
 	// If your response contains a response, you must read it.
 	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
@@ -79,7 +79,7 @@ public:
 		dataTimeout_ = t;
 	}
 
-	void SetUserAgent(const std::string &value) {
+	void SetUserAgent(std::string_view value) {
 		userAgent_ = value;
 	}
 
@@ -96,7 +96,7 @@ protected:
 // Really an asynchronous request.
 class HTTPRequest : public Request {
 public:
-	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
+	HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags progressBarMode = RequestFlags::ProgressBar | RequestFlags::ProgressBarDelayed, std::string_view name = "");
 	~HTTPRequest();
 
 	void Start() override;
@@ -112,7 +112,6 @@ private:
 	void SetFailed(int code);
 
 	std::string postData_;
-	Buffer buffer_;
 	std::thread thread_;
 	std::string postMime_;
 	bool completed_ = false;
@@ -120,4 +119,4 @@ private:
 	bool joined_ = false;
 };
 
-}	// http
+}  // namespace http

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Common/Common.h"
@@ -26,8 +27,7 @@ public:
 	char *Append(size_t length);
 
 	// These work pretty much like you'd expect.
-	void Append(const char *str);  // str null-terminated. The null is not copied.
-	void Append(const std::string &str);
+	void Append(std::string_view str);
 	void Append(const Buffer &other);
 
 	// Various types. Useful for varz etc. Appends a string representation of the

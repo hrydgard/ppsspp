@@ -294,7 +294,7 @@ namespace Reporting
 		std::string hostname = ServerHostname();
 		int port = ServerPort();
 		snprintf(url, sizeof(url), "http://%s:%d%s", hostname.c_str(), port, uri);
-		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::ProgressBarMode::NONE, callback);
+		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::RequestFlags::Default, callback);
 	}
 
 	std::string StripTrailingNull(const std::string &str) {
