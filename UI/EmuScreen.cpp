@@ -700,9 +700,12 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
+			/*
+			// This seems like strange behavior. Commented it out.
 			if (coreState == CORE_STEPPING_CPU) {
 				Core_Resume();
 			}
+			*/
 			PSP_CoreParameter().fastForward = true;
 		} else {
 			PSP_CoreParameter().fastForward = false;
