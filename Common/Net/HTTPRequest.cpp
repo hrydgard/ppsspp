@@ -9,9 +9,9 @@
 
 namespace http {
 
-Request::Request(RequestMethod method, const std::string &url, std::string_view name, bool *cancelled, ProgressBarMode mode)
+Request::Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, ProgressBarMode mode)
 	: method_(method), url_(url), name_(name), progress_(cancelled), progressBarMode_(mode) {
-	INFO_LOG(Log::HTTP, "HTTP %s request: %s (%.*s)", RequestMethodToString(method), url.c_str(), (int)name.size(), name.data());
+	INFO_LOG(Log::HTTP, "HTTP %s request: %.*s (%.*s)", RequestMethodToString(method), (int)url.size(), url.data(), (int)name.size(), name.data());
 
 	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
 		std::string message;
@@ -35,21 +35,24 @@ Request::Request(RequestMethod method, const std::string &url, std::string_view 
 	};
 }
 
-bool RequestManager::IsHttpsUrl(const std::string &url) {
+static bool IsHttpsUrl(std::string_view url) {
 	return startsWith(url, "https:");
 }
 
-std::shared_ptr<Request> RequestManager::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
-	std::shared_ptr<Request> dl;
+std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_view url, std::string_view postdata, std::string_view postMime, const Path &outfile, ProgressBarMode mode, std::string_view name) {
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
-		dl.reset(new HTTPSRequest(RequestMethod::GET, url, "", "", outfile, mode));
+		return std::shared_ptr<Request>(new HTTPSRequest(method, url, postdata, postMime, outfile, mode, name));
 #else
 		return std::shared_ptr<Request>();
 #endif
 	} else {
-		dl.reset(new HTTPRequest(RequestMethod::GET, url, "", "", outfile, mode));
+		return std::shared_ptr<Request>(new HTTPRequest(method, url, postdata, postMime, outfile, mode, name));
 	}
+}
+
+std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, mode, "");
 
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
@@ -61,22 +64,14 @@ std::shared_ptr<Request> RequestManager::StartDownload(const std::string &url, c
 }
 
 std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
-	const std::string &url,
+	std::string_view url,
 	const Path &outfile,
 	ProgressBarMode mode,
 	std::function<void(Request &)> callback,
 	std::string_view name,
 	const char *acceptMime) {
-	std::shared_ptr<Request> dl;
-	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
-#ifndef HTTPS_NOT_AVAILABLE
-		dl.reset(new HTTPSRequest(RequestMethod::GET, url, "", "", outfile, mode, name));
-#else
-		return std::shared_ptr<Request>();
-#endif
-	} else {
-		dl.reset(new HTTPRequest(RequestMethod::GET, url, "", "", outfile, mode, name));
-	}
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::GET, url, "", "", outfile, mode, name);
+
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
@@ -88,22 +83,13 @@ std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
 }
 
 std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
-	const std::string &url,
-	const std::string &postData,
-	const std::string &postMime,
+	std::string_view url,
+	std::string_view postData,
+	std::string_view postMime,
 	ProgressBarMode mode,
 	std::function<void(Request &)> callback,
 	std::string_view name) {
-	std::shared_ptr<Request> dl;
-	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
-#ifndef HTTPS_NOT_AVAILABLE
-		dl.reset(new HTTPSRequest(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
-#else
-		return std::shared_ptr<Request>();
-#endif
-	} else {
-		dl.reset(new HTTPRequest(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
-	}
+	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), mode, name);
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);

@@ -485,8 +485,9 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-HTTPRequest::HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, std::string_view name)
-	: Request(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime), outfile_(outfile) {
+HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, ProgressBarMode progressBarMode, std::string_view name)
+	: Request(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime) {
+	outfile_ = outfile;
 }
 
 HTTPRequest::~HTTPRequest() {

@@ -18,6 +18,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
@@ -525,8 +526,8 @@ static void DrawApctl(ImConfig &cfg) {
 	}
 
 	if (g_Config.bInfrastructureAutoDNS) {
-		if (!g_infraDNSConfig.loaded) {
-			if (g_infraDNSConfig.gameName.empty()) {
+		if (g_infraDNSConfig.loaded) {
+			if (!g_infraDNSConfig.gameName.empty()) {
 				ImGui::Text("Known game: %s", g_infraDNSConfig.gameName.c_str());
 			}
 			ImGui::Text("connectAdhocForGrouping: %s", BoolStr(g_infraDNSConfig.connectAdHocForGrouping));
@@ -540,6 +541,48 @@ static void DrawApctl(ImConfig &cfg) {
 					ImGui::Text("%s -> %s", iter.first.c_str(), iter.second.c_str());
 				}
 			}
+		}
+	}
+
+	ImGui::End();
+}
+
+static void DrawInternals(ImConfig &cfg) {
+	if (!ImGui::Begin("PPSSPP Internals", &cfg.internalsOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	struct entry {
+		PSPDirectories dir;
+		const char *name;
+	};
+
+	static const entry dirs[] = {
+		{DIRECTORY_PSP, "PSP"},
+		{DIRECTORY_CHEATS, "CHEATS"},
+		{DIRECTORY_SCREENSHOT, "SCREENSHOT"},
+		{DIRECTORY_SYSTEM, "SYSTEM"},
+		{DIRECTORY_GAME, "GAME"},
+		{DIRECTORY_SAVEDATA, "SAVEDATA"},
+		{DIRECTORY_PAUTH, "PAUTH"},
+		{DIRECTORY_DUMP, "DUMP"},
+		{DIRECTORY_SAVESTATE, "SAVESTATE"},
+		{DIRECTORY_CACHE, "CACHE"},
+		{DIRECTORY_TEXTURES, "TEXTURES"},
+		{DIRECTORY_PLUGINS, "PLUGINS"},
+		{DIRECTORY_APP_CACHE, "APP_CACHE"},
+		{DIRECTORY_VIDEO, "VIDEO"},
+		{DIRECTORY_AUDIO, "AUDIO"},
+		{DIRECTORY_MEMSTICK_ROOT, "MEMSTICK_ROOT"},
+		{DIRECTORY_EXDATA, "EXDATA"},
+		{DIRECTORY_CUSTOM_SHADERS, "CUSTOM_SHADERS"},
+		{DIRECTORY_CUSTOM_THEMES, "CUSTOM_THEMES"},
+	};
+
+	if (ImGui::CollapsingHeader("Directories", ImGuiTreeNodeFlags_DefaultOpen)) {
+		for (auto &dir : dirs) {
+			ImGui::Text("%s: %s", dir.name, GetSysDirectory(dir.dir).c_str());
 		}
 	}
 
@@ -1281,6 +1324,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			if (ImGui::MenuItem("Close Debugger")) {
 				g_Config.bShowImDebugger = false;
 			}
+			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::EndMenu();
@@ -1408,6 +1452,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.apctlOpen) {
 		DrawApctl(cfg_);
+	}
+
+	if (cfg_.internalsOpen) {
+		DrawInternals(cfg_);
 	}
 
 	// Process UI commands
@@ -1777,6 +1825,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("adhocOpen", &adhocOpen, false);
 	sync.Sync("apctlOpen", &apctlOpen, false);
 	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
+	sync.Sync("internalsOpen", &internalsOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

@@ -70,6 +70,8 @@ bool IsDirectory(const Path &filename);
 
 // Returns struct with modification date of file
 bool GetModifTime(const Path &filename, tm &return_time);
+// Same but with unix timestamp
+bool GetModifTimeT(const Path &filename, time_t *return_time);  // the time_t, of course, matches time_now_unix_utc().
 
 // Returns the size of filename (64bit)
 uint64_t GetFileSize(const Path &filename);

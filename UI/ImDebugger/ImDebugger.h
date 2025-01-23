@@ -146,6 +146,7 @@ struct ImConfig {
 	bool apctlOpen;
 	bool adhocOpen;
 	bool memDumpOpen;
+	bool internalsOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
