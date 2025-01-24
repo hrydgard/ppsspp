@@ -613,7 +613,7 @@ bool MainUI::event(QEvent *e) {
 		case Qt::LeftButton:
 			input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
 			input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
-			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+			input.flags = ((e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP) | TOUCH_MOUSE;
 			input.id = 0;
 			NativeTouch(input);
 			break;
@@ -636,7 +636,7 @@ bool MainUI::event(QEvent *e) {
 	case QEvent::MouseMove:
 		input.x = ((QMouseEvent*)e)->pos().x() * g_display.dpi_scale_x * xscale;
 		input.y = ((QMouseEvent*)e)->pos().y() * g_display.dpi_scale_y * yscale;
-		input.flags = TOUCH_MOVE;
+		input.flags = TOUCH_MOVE | TOUCH_MOUSE;
 		input.id = 0;
 		NativeTouch(input);
 		break;
