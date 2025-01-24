@@ -185,6 +185,19 @@ struct Vec4F32 {
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ _mm_loadu_ps(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
+	static Vec4F32 LoadS8Norm(const int8_t *src) {
+		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
+		__m128i value32 = _mm_unpacklo_epi16(_mm_unpacklo_epi8(value, value), value);
+		// Sign extension. A bit ugly without SSE4.
+		value32 = _mm_srai_epi32(value32, 24);
+		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f)) };
+	}
+	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
+		__m128i bits = _mm_castpd_si128(_mm_load_sd((const double *)src));
+		// Sign extension. A bit ugly without SSE4.
+		bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
+		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(bits), _mm_set1_ps(1.0f / 32768.0f)) };
+	}
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
 	void Store2(float *dst) { _mm_storel_epi64((__m128i *)dst, _mm_castps_si128(v)); }
 	void StoreAligned (float *dst) { _mm_store_ps(dst, v); }
@@ -506,6 +519,14 @@ struct Vec4F32 {
 	static Vec4F32 Splat(float lane) { return Vec4F32{ vdupq_n_f32(lane) }; }
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
+	static Vec4F32 LoadS8Norm(const int8_t *src) {
+		const int8x8_t value = (int8x8_t)vdup_n_u32(*((uint32_t *)src));
+		const int16x8_t value16 = vmovl_s8(value);
+		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_u16(value16)), 7) };
+	}
+	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
+		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vld1_s16(src)), 15) };
+	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
 	void Store(float *dst) { vst1q_f32(dst, v); }
 	void Store2(float *dst) { vst1_f32(dst, vget_low_f32(v)); }
@@ -727,11 +748,24 @@ struct Vec8U16 {
 struct Vec4S32 {
 	s32 v[4];
 
+	static Vec4F32 Zero() { return Vec4F32{ { 0.0f, 0.0f, 0.0f, 0.0f } }; }
+	static Vec4F32 Splat(float lane) { return Vec4F32{ { lane, lane, lane, lane } }; }
+
+	static Vec4F32 Load(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
+	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
+	void Store(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
+	void Store2(float *dst) { memcpy(dst, v, 2 * sizeof(s32)); }
+	void StoreAligned(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
+	void Store3(float *dst) { memcpy(dst, v, 3 * sizeof(s32)); }
+
 	Vec4S32 operator +(Vec4S32 other) const {
 		return Vec4S32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
 	}
 	Vec4S32 operator -(Vec4S32 other) const {
 		return Vec4S32{ { v[0] - other.v[0], v[1] - other.v[1], v[2] - other.v[2], v[3] - other.v[3], } };
+	}
+	Vec4S32 operator *(Vec4S32 other) const {
+		return Vec4S32{ { v[0] * other.v[0], v[1] * other.v[1], v[2] * other.v[2], v[3] * other.v[3], } };
 	}
 };
 
