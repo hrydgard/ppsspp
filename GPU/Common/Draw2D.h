@@ -1,7 +1,9 @@
 #pragma once
 
+#include "Data/Collections/Slice.h"
 #include "GPU/GPU.h"
 #include "Common/GPU/Shader.h"
+#include "GPU/thin3d.h"
 
 // For framebuffer copies and similar things that just require passthrough.
 struct Draw2DVertex {
