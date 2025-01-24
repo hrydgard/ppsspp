@@ -228,7 +228,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
-	float *vertsTransformed = (float *)(decoded_ + 65536 * 24);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -243,19 +242,28 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		gstate_c.Clean(DIRTY_CULL_PLANES);
 	}
 
+	// Pretransform the verts on load so we don't have to do it inside the loop.
+	// We do this differently in the fast version below since we skip the max/minOffset checks there
+	// making it easier to get the whole thing ready for SIMD.
+
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
+	Mat4F32 world = Mat4F32::Load4x3(gstate.worldMatrix);
+
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
-		memcpy(verts, vdata, sizeof(float) * 3 * vertexCount);
+		const float *vdata_pos = (const float *)vdata;
+		for (int i = 0; i < vertexCount; i++) {
+			Vec4F32::Load(&vdata_pos[i * 3]).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
+		}
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
 		const s8 *vtx = (const s8 *)vdata;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 128.0f);
+		for (int i = 0; i < vertexCount; i++) {
+			Vec4F32::LoadS8Norm(&vtx[i * 3]).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
 		}
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
 		const s16 *vtx = (const s16 *)vdata;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 32768.0f);
+		for (int i = 0; i < vertexCount; i++) {
+			Vec4F32::LoadS16Norm(&vtx[i * 3]).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
 		}
 	} else {
 		// Simplify away indices, bones, and morph before proceeding.
@@ -274,47 +282,34 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, dec, vertType);
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
-				verts[i * 3] = corners[conv(i)].pos.x;
-				verts[i * 3 + 1] = corners[conv(i)].pos.y;
-				verts[i * 3 + 2] = corners[conv(i)].pos.z;
+				int index = conv(i);
+				Vec4F32::Load(corners[index].pos.AsArray()).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
 			}
 		} else {
-			// Simple, most common case.
+			// Simple, most common case that's not just a pure position.
 			int stride = dec->VertexSize();
 			int offset = dec->posoff;
 			switch (vertType & GE_VTYPE_POS_MASK) {
 			case GE_VTYPE_POS_8BIT:
 				for (int i = 0; i < vertexCount; i++) {
 					const s8 *data = (const s8 *)vdata + i * stride + offset;
-					for (int j = 0; j < 3; j++) {
-						verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
-					}
+					Vec4F32::LoadS8Norm(data).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
 				}
 				break;
 			case GE_VTYPE_POS_16BIT:
 				for (int i = 0; i < vertexCount; i++) {
 					const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-					for (int j = 0; j < 3; j++) {
-						verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
-					}
+					Vec4F32::LoadS16Norm(data).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
 				}
 				break;
 			case GE_VTYPE_POS_FLOAT:
-				for (int i = 0; i < vertexCount; i++)
-					memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
+				for (int i = 0; i < vertexCount; i++) {
+					const float *data = (const float *)((const u8 *)vdata + stride * i + offset);
+					Vec4F32::Load(data).AsVec3ByMatrix44(world).Store(&verts[i * 3]);
+				}
 				break;
 			}
 		}
-	}
-
-	// Pretransform the verts so we don't have to do it inside the loop.
-	// We do this differently in the fast version below since we skip the max/minOffset checks there
-	// making it easier to get the whole thing ready for SIMD.
-
-	// TODO: Merge this into the decoder loops above?
-	Mat4F32 world = Mat4F32::Load4x3(gstate.worldMatrix);
-	for (int i = 0; i < vertexCount; i++) {
-		Vec4F32::Load(&verts[i * 3]).AsVec3ByMatrix44(world).Store3(&vertsTransformed[i * 3]);
 	}
 
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
@@ -326,7 +321,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *worldpos = vertsTransformed + i * 3;
+			const float *worldpos = verts + i * 3;
 			float value = planes_.Test(plane, worldpos);
 			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
