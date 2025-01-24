@@ -699,7 +699,6 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 #endif
 }
 
-
 struct Vec4U16 {
 	uint16x4_t v;  // 64 bits.
 
@@ -745,18 +744,62 @@ struct Vec8U16 {
 
 #else
 
+
+struct Mat4F32 {
+	Mat4F32() {}
+	Mat4F32(const float *src) {
+		memcpy(m, src, sizeof(m));)
+	}
+	void Store(float *dest) {
+		memcpy(dest, m, sizeof(m));
+	}
+	static Mat4F32 Load4x3(const float *src) {
+		m[0] = src[0];
+		m[1] = src[1];
+		m[2] = src[2];
+		m[3] = 0.0f;
+		m[0] = src[3];
+		m[1] = src[4];
+		m[2] = src[5];
+		m[3] = 0.0f;
+		m[0] = src[6];
+		m[1] = src[7];
+		m[2] = src[8];
+		m[3] = 0.0f;
+		m[0] = src[9];
+		m[1] = src[10];
+		m[2] = src[11];
+		m[3] = 1.0f;
+		return result;
+	}
+
+	// cols are consecutive
+	float m[16];
+};
+
 struct Vec4S32 {
 	s32 v[4];
 
-	static Vec4F32 Zero() { return Vec4F32{ { 0.0f, 0.0f, 0.0f, 0.0f } }; }
-	static Vec4F32 Splat(float lane) { return Vec4F32{ { lane, lane, lane, lane } }; }
+	static Vec4S32 Zero() { return Vec4S32{ vdupq_n_s32(0) }; }
+	static Vec4S32 Splat(int lane) { return Vec4S32{ vdupq_n_s32(lane) }; }
 
-	static Vec4F32 Load(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
-	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
-	void Store(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
-	void Store2(float *dst) { memcpy(dst, v, 2 * sizeof(s32)); }
-	void StoreAligned(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
-	void Store3(float *dst) { memcpy(dst, v, 3 * sizeof(s32)); }
+	static Vec4S32 Load(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
+	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
+	void Store(int *dst) { vst1q_s32(dst, v); }
+	void Store2(int *dst) { vst1_s32(dst, vget_low_s32(v)); }
+	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
+
+		// Warning: Unlike on x86, this is a full 32-bit multiplication.
+	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+
+	Vec4S32 SignExtend16() const { return Vec4S32{ vshrq_n_s32(vshlq_n_s32(v, 16), 16) }; }
+	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output (on SSE2 at least).
+	Vec4S32 Min16(Vec4S32 other) const { return Vec4S32{ vminq_s32(v, other.v) }; }
+	Vec4S32 Max16(Vec4S32 other) const { return Vec4S32{ vmaxq_s32(v, other.v) }; }
+	Vec4S32 FixupAfterMinMax() const { return Vec4S32{ v }; }
+
+	// NOTE: May be slow.
+	int operator[](size_t index) const { return ((int *)&v)[index]; }
 
 	Vec4S32 operator +(Vec4S32 other) const {
 		return Vec4S32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
@@ -767,6 +810,124 @@ struct Vec4S32 {
 	Vec4S32 operator *(Vec4S32 other) const {
 		return Vec4S32{ { v[0] * other.v[0], v[1] * other.v[1], v[2] * other.v[2], v[3] * other.v[3], } };
 	}
+	// TODO: Can optimize the bitwise ones with 64-bit operations.
+	Vec4S32 operator |(Vec4S32 other) const {
+		return Vec4S32{ { v[0] | other.v[0], v[1] | other.v[1], v[2] | other.v[2], v[3] | other.v[3], } };
+	}
+	Vec4S32 operator &(Vec4S32 other) const {
+		return Vec4S32{ { v[0] & other.v[0], v[1] & other.v[1], v[2] & other.v[2], v[3] & other.v[3], } };
+	}
+	Vec4S32 operator ^(Vec4S32 other) const {
+		return Vec4S32{ { v[0] ^ other.v[0], v[1] ^ other.v[1], v[2] ^ other.v[2], v[3] ^ other.v[3], } };
+	}
+	Vec4S32 AndNot(Vec4S32 other) const {
+		return Vec4S32{ { v[0] & ~other.v[0], v[1] & ~other.v[1], v[2] & ~other.v[2], v[3] & ~other.v[3], } };
+	}
+	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
+	void operator &=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] &= other.v[i]; }
+	void operator +=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] += other.v[i]; }
+	void operator -=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] -= other.v[i]; }
+
+	template<int imm>
+	Vec4S32 Shl() const { return Vec4S32{ { v[0] << imm, v[1] << imm, v[2] << imm, v[3] << imm } }; }
+
+	Vec4S32 CompareEq(Vec4S32 other) const { 
+		Vec4S32 out;
+		for (int i = 0; i < 4; i++) {
+			out[i] = v[i] == other.v[i] ? 0xFFFFFFFF : 0;
+		}
+		return out;
+	}
+	Vec4S32 CompareLt(Vec4S32 other) const { 
+		Vec4S32 out;
+		for (int i = 0; i < 4; i++) {
+			out[i] = v[i] < other.v[i] ? 0xFFFFFFFF : 0;
+		}
+		return out;
+	}
+	Vec4S32 CompareGt(Vec4S32 other) const { 
+		Vec4S32 out;
+		for (int i = 0; i < 4; i++) {
+			out[i] = v[i] > other.v[i] ? 0xFFFFFFFF : 0;
+		}
+		return out;
+	}
+	Vec4S32 CompareGtZero() const { 
+		Vec4S32 out;
+		for (int i = 0; i < 4; i++) {
+			out[i] = v[i] > 0 ? 0xFFFFFFFF : 0;
+		}
+		return out;
+	}
 };
+
+struct Vec4F32 {
+	float v[4];
+
+	static Vec4F32 Zero() { return Vec4F32{ { 0.0f, 0.0f, 0.0f, 0.0f } }; }
+	static Vec4F32 Splat(float lane) { return Vec4F32{ { lane, lane, lane, lane } }; }
+
+	static Vec4F32 Load(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
+	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ { src[0], src[1], src[2], src[3] } }; }
+	void Store(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
+	void Store2(float *dst) { memcpy(dst, v, 2 * sizeof(s32)); }
+	void StoreAligned(float *dst) { memcpy(dst, v, sizeof(Vec4S32)); }
+	void Store3(float *dst) { memcpy(dst, v, 3 * sizeof(s32)); }
+}
+
+struct Vec4U16 {
+	uint16_t v[4];  // 64 bits.
+
+	static Vec4U16 Zero() { return Vec4U16{}; }
+	static Vec4U16 Splat(uint16_t lane) { return Vec4U16{ { lane, lane, lane, lane } }; }
+
+	static Vec4U16 Load(const uint16_t *mem) { return Vec4U16{ { mem[0], mem[1], mem[2], mem[3] }}; }
+	void Store(uint16_t *mem) { memcpy(mem, 8, v); }
+
+	static Vec4U16 FromVec4S32(Vec4S32 v) {
+		return Vec4U16{ { (uint16_t)v.v[0], (uint16_t)v.v[1], (uint16_t)v.v[2], (uint16_t)v.v[3] }};
+	}
+	static Vec4U16 FromVec4F32(Vec4F32 v) {
+		return Vec4U16{ { (uint16_t)v.v[0], (uint16_t)v.v[1], (uint16_t)v.v[2], (uint16_t)v.v[3] }};
+	}
+
+	Vec4U16 operator |(Vec4U16 other) const { return Vec4U16{ { v[0] | other.v[0], v[1] | other.v[1], v[2] | other.v[2], v[3] | other.v[3], } }; }
+	Vec4U16 operator &(Vec4U16 other) const { return Vec4U16{ { v[0] & other.v[0], v[1] & other.v[1], v[2] & other.v[2], v[3] & other.v[3], } }; }
+	Vec4U16 operator ^(Vec4U16 other) const { return Vec4U16{ { v[0] ^ other.v[0], v[1] ^ other.v[1], v[2] ^ other.v[2], v[3] ^ other.v[3], } }; }
+
+/*
+	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ vmax_u16(v, other.v) }; }
+	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ vmin_u16(v, other.v) }; }
+	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ vclt_u16(v, other.v) }; }
+
+	Vec4U16 AndNot(Vec4U16 inverted) { return Vec4U16{ vand_u16(v, vmvn_u16(inverted.v)) }; }
+	*/
+};
+
+inline bool AnyZeroSignBit(Vec4S32 value) {
+	for (int i = 0; i < 4; i++) {
+		if (value.v[i] >= 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+	return Vec4U16{ { (uint16_t)(v.v[0] >> 31), (uint16_t)(v.v[1] >> 31), (uint16_t)(v.v[2] >> 31), (uint16_t)(v.v[3] >> 31),  } };
+}
+
+struct Vec8U16 {
+	uint16_t v[8];
+
+	static Vec8U16 Zero() { return Vec8U16{}; }
+	static Vec8U16 Splat(uint16_t value) { return Vec8U16{ {
+		value, value, value, value, value, value, value, value,
+	}}; }
+
+	static Vec8U16 Load(const uint16_t *mem) { Vec8U16 tmp; memcpy(tmp.v, mem, sizeof(v)); }
+	void Store(uint16_t *mem) { memcpy(mem, v, sizeof(v)); }
+};
+
 
 #endif
