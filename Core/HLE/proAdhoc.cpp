@@ -1374,6 +1374,7 @@ int friendFinder() {
 		// Reconnect when disconnected while Adhocctl is still inited
 		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
 			if (g_Config.bEnableWlan) {
+				// Not really initNetwork.
 				if (initNetwork(&product_code) == 0) {
 					g_adhocServerConnected = true;
 					INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
@@ -1390,6 +1391,7 @@ int friendFinder() {
 				}
 			}
 		}
+
 		// Prevent retrying to Login again unless it was on demand
 		isAdhocctlNeedLogin = false;
 
