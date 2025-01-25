@@ -18,6 +18,8 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -164,8 +166,6 @@ public:
 		return decoded_ + 12 * 65536;
 	}
 
-	void FlushQueuedDepth();
-
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
@@ -176,10 +176,6 @@ protected:
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
-
-	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
-	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
-	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -216,7 +212,7 @@ protected:
 		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 		gpuStats.numVertsDecoded += numDecodedVerts_;
 
-		indexGen.Reset();
+		indexGen_.Reset();
 		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
@@ -333,7 +329,7 @@ protected:
 	bool applySkinInDecode_ = false;
 
 	// Vertex collector state
-	IndexGenerator indexGen;
+	IndexGenerator indexGen_;
 	int numDecodedVerts_ = 0;
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
@@ -346,18 +342,37 @@ protected:
 	ComputedPipelineState pipelineState_;
 
 	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer;
+	TessellationDataTransfer *tessDataTransfer_ = nullptr;
+
+	GPUCommon *gpuCommon_ = nullptr;
 
 	// Culling
+private:
 	Plane8 planes_;
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
 	bool offsetOutsideEdge_;
 
-	GPUCommon *gpuCommon_;
+	// Software depth raster. TODO: Extract?
+public:
+	// Public interface
+	void FlushQueuedDepth();
 
-	// Software depth raster
+protected:
+	// Interface used by the backends.
+	void DepthRasterTransform(GEPrimitiveType prim, VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
+	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, VertexDecoder *dec, int vertexCount);
+
 	bool useDepthRaster_ = false;
+
+private:
+	// Internal implementation details.
+	void DepthThreadFunc();
+	void WaitForDepthPassFinish();
+
+	inline void EnqueueDepthDraw(const DepthDraw &draw);
+	inline void ProcessDepthDraw(const DepthDraw &draw);
+	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
 
 	float *depthTransformed_ = nullptr;
 	int *depthScreenVerts_ = nullptr;
@@ -368,5 +383,18 @@ protected:
 	int depthIndexCount_ = 0;
 	std::vector<DepthDraw> depthDraws_;
 
-	double rasterTimeStart_ = 0.0;
+	double depthRasterPassStart_ = 0.0;
+
+	std::thread depthThread_;
+	bool exitDepthThread_ = false;  // notify depthEnqueueCond_ to check this.
+
+	bool inDepthDrawPass_ = false;
+	std::mutex depthEnqueueMutex_;
+	std::condition_variable depthEnqueueCond_;
+
+	bool finishedSubmitting_ = false;
+	bool finishedDrawing_ = false;
+	int curDraw_ = 0;
+	std::mutex depthFinishMutex_;
+	std::condition_variable depthFinishCond_;
 };

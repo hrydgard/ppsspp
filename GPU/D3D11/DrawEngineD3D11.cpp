@@ -82,7 +82,7 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 
 	tessDataTransferD3D11 = new TessellationDataTransferD3D11(context_, device_);
-	tessDataTransfer = tessDataTransferD3D11;
+	tessDataTransfer_ = tessDataTransferD3D11;
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
@@ -108,7 +108,7 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	ClearInputLayoutMap();
 	delete tessDataTransferD3D11;
 	tessDataTransferD3D11 = nullptr;
-	tessDataTransfer = nullptr;
+	tessDataTransfer_ = nullptr;
 	delete pushVerts_;
 	delete pushInds_;
 	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {

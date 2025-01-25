@@ -59,7 +59,7 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 	InitDeviceObjects();
 
 	tessDataTransferGLES = new TessellationDataTransferGLES(render_);
-	tessDataTransfer = tessDataTransferGLES;
+	tessDataTransfer_ = tessDataTransferGLES;
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
@@ -231,7 +231,7 @@ void DrawEngineGLES::Flush() {
 		// Something went badly wrong. Try to survive by simply skipping the draw, though.
 		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad.");
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
-		indexGen.Reset();
+		indexGen_.Reset();
 		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;

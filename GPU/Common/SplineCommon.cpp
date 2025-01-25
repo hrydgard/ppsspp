@@ -552,7 +552,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	surface.Init(maxVerts);
 
 	if (CanUseHardwareTessellation(surface.primType)) {
-		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
+		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer_);
 	} else {
 		ControlPoints cpoints(points, num_points, managedBuf);
 		if (cpoints.IsValid())

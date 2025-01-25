@@ -94,7 +94,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	_dbg_assert_(VK_SUCCESS == res);
 
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
-	tessDataTransfer = tessDataTransferVulkan;
+	tessDataTransfer_ = tessDataTransferVulkan;
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineVulkan::Invalidate, this, std::placeholders::_1));
 }
@@ -115,7 +115,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	draw_->SetInvalidationCallback(InvalidationCallback());
 
 	delete tessDataTransferVulkan;
-	tessDataTransfer = nullptr;
+	tessDataTransfer_ = nullptr;
 	tessDataTransferVulkan = nullptr;
 
 	pushUBO_ = nullptr;
@@ -577,7 +577,7 @@ void DrawEngineVulkan::Flush() {
 }
 
 void DrawEngineVulkan::ResetAfterDraw() {
-	indexGen.Reset();
+	indexGen_.Reset();
 	numDecodedVerts_ = 0;
 	numDrawVerts_ = 0;
 	numDrawInds_ = 0;
