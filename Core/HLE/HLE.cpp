@@ -999,7 +999,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		_dbg_assert_(hleFunc->argmask != nullptr);
 
 		// NOTE: For second stack level, we can't get arguments (unless we somehow get them from the host stack!)
-		// Need to do something smart in hleCall.
+		// Need to do something smart in hleCall. But it's better than printing function name and args from the wrong function.
 		
 		if (stackSize == 1) {
 			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
