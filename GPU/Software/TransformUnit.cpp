@@ -155,14 +155,6 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	return Norm3ByMatrix43(coords, gstate.worldMatrix);
 }
 
-ViewCoords TransformUnit::WorldToView(const WorldCoords &coords) {
-	return Vec3ByMatrix43(coords, gstate.viewMatrix);
-}
-
-ClipCoords TransformUnit::ViewToClip(const ViewCoords &coords) {
-	return Vec3ByMatrix44(coords, gstate.projMatrix);
-}
-
 template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	ScreenCoords ret;
