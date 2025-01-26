@@ -774,8 +774,7 @@ static void CallSyscallWithoutFlags(const HLEFunction *info) {
 	g_stackSize = 0;
 }
 
-const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) 
-{
+const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;

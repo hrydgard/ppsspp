@@ -871,23 +871,19 @@ static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, i
 
 static u32 sceIoUnassign(const char *alias)
 {
-	WARN_LOG_REPORT(Log::sceIo, "sceIoUnassign(%s)", alias);
-	return 0;
+	return hleLogWarning(Log::sceIo, 0, "UNIMPL");
 }
 
 static u32 sceKernelStdin() {
-	DEBUG_LOG(Log::sceIo, "%d=sceKernelStdin()", PSP_STDIN);
-	return PSP_STDIN;
+	return hleLogDebug(Log::sceIo, PSP_STDIN);
 }
 
 static u32 sceKernelStdout() {
-	DEBUG_LOG(Log::sceIo, "%d=sceKernelStdout()", PSP_STDOUT);
-	return PSP_STDOUT;
+	return hleLogDebug(Log::sceIo, PSP_STDOUT);
 }
 
 static u32 sceKernelStderr() {
-	DEBUG_LOG(Log::sceIo, "%d=sceKernelStderr()", PSP_STDERR);
-	return PSP_STDERR;
+	return hleLogDebug(Log::sceIo, PSP_STDERR);
 }
 
 u64 __IoCompleteAsyncIO(FileNode *f) {
