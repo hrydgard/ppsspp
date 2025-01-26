@@ -613,7 +613,6 @@ static void DrawAdhoc(ImConfig &cfg) {
 	*/
 
 	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
-	ImGui::Text("sceNetAdhoc inited: %s", BoolStr(netAdhocInited));
 	ImGui::Text("sceNetAdhocctl inited: %s", BoolStr(netAdhocctlInited));
 	ImGui::Text("sceNetAdhocctl state: %s", AdhocCtlStateToString(NetAdhocctl_GetState()));
 	ImGui::Text("sceNetAdhocMatching inited: %s", BoolStr(netAdhocctlInited));
