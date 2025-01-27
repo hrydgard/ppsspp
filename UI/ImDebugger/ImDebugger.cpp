@@ -540,13 +540,20 @@ static void DrawApctl(ImConfig &cfg) {
 		return;
 	}
 
+	if (ImGui::CollapsingHeader("Localhost")) {
+		SceNetEtherAddr mac;
+		getLocalMac(&mac);
+		ImGui::Text("%s (%s)", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
+		ImGui::Text("Port offset: %d", g_Config.iPortOffset);
+	}
+
 	ImGui::Text("State: %s", ApctlStateToString(netApctlState));
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED && ImGui::CollapsingHeader("ApCtl Details")) {
 		ImGui::Text("Name: %s", netApctlInfo.name);
 		ImGui::Text("IP: %s", netApctlInfo.ip);
 		ImGui::Text("SubnetMask: %s", netApctlInfo.ip);
 		ImGui::Text("SSID: %.*s", netApctlInfo.ssidLength, netApctlInfo.ssid);
-		ImGui::Text("SSID: %.*s", netApctlInfo.ssidLength, netApctlInfo.ssid);
+		ImGui::Text("Proxy enabled", BoolStr(netApctlInfo.useProxy));
 		ImGui::Text("Gateway: %s", netApctlInfo.gateway);
 		ImGui::Text("PrimaryDNS: %s", netApctlInfo.primaryDns);
 		ImGui::Text("SecondaryDNS: %s", netApctlInfo.secondaryDns);
@@ -646,6 +653,8 @@ static void DrawAdhoc(ImConfig &cfg) {
 	ImGui::Text("GameMode entered: %s", BoolStr(netAdhocGameModeEntered));
 	ImGui::Text("FriendFinder running: %s", BoolStr(g_adhocServerConnected));
 	ImGui::Text("sceNetAdhocDiscover status: %s", discoverStatusStr);
+	ImGui::Text("isLocalServer: %s", BoolStr(isLocalServer));
+	ImGui::Text("adhocConnectionType %s", AdhocConnectionTypeToString(adhocConnectionType));
 
 	if (ImGui::BeginTable("sock", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);

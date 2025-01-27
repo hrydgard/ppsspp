@@ -129,7 +129,7 @@ static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsi
 
 static u32_le sceNetInetInetAddr(const char *hostname) {
 	if (hostname == nullptr || hostname[0] == '\0') {
-		return hleLogError(Log::sceNet, INADDR_NONE, "invalid arg");
+		return hleLogError(Log::sceNet, INADDR_NONE, "invalid arg ('')", hostname);
 	}
 
 	u32 retval = INADDR_NONE; // inet_addr(hostname); // deprecated?
@@ -622,6 +622,8 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 		getLocalIp(&sockAddr);
 		WARN_LOG(Log::sceNet, "Bind: Address Replacement = %s => %s", ip2str(saddr.in.sin_addr).c_str(), ip2str(sockAddr.sin_addr).c_str());
 		saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
+	} else {
+		WARN_LOG(Log::sceNet, "Bind: Address Replacement is off: %s", ip2str(saddr.in.sin_addr).c_str());
 	}
 	// TODO: Make use Port Offset only for PPSSPP to PPSSPP communications (ie. IP addresses available in the group/friendlist), otherwise should be considered as Online Service thus should use the port as is.
 	//saddr.in.sin_port = htons(ntohs(saddr.in.sin_port) + portOffset);

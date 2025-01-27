@@ -76,7 +76,7 @@ bool isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
-int adhocConnectionType               = ADHOC_CONNECT;
+AdhocConnectionType adhocConnectionType = ADHOC_CONNECT;
 
 int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
 int gameModeBuffSize                  = 0;
@@ -2455,5 +2455,14 @@ const char *AdhocCtlStateToString(int state) {
 	case ADHOCCTL_STATE_DISCOVER: return "DISCOVER";
 	case ADHOCCTL_STATE_WOL: return "WOL";
 	default: return "(unk)";
+	}
+}
+
+const char *AdhocConnectionTypeToString(AdhocConnectionType type) {
+	switch (type) {
+	case ADHOC_CONNECT: return "CONNECT";
+	case ADHOC_JOIN: return "JOIN";
+	case ADHOC_CREATE: return "CREATE";
+	default: return "UNKNOWN";
 	}
 }

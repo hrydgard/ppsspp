@@ -857,6 +857,12 @@ union SockAddrIN4 {
 	sockaddr_in in;
 };
 
+enum AdhocConnectionType : int {
+	ADHOC_CONNECT = 0,
+	ADHOC_CREATE = 1,
+	ADHOC_JOIN = 2,
+};
+
 extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
 extern bool isOriPort;
@@ -879,7 +885,7 @@ extern bool isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
-extern int adhocConnectionType;
+extern AdhocConnectionType adhocConnectionType;
 
 extern int gameModeSocket;
 extern int gameModeBuffSize;
@@ -890,13 +896,6 @@ extern std::vector<SceNetEtherAddr> requiredGameModeMacs;
 extern std::vector<SceNetEtherAddr> gameModeMacs;
 extern std::map<SceNetEtherAddr, u16_le> gameModePeerPorts;
 // End of Aux vars
-
-enum AdhocConnectionType : int
-{
-	ADHOC_CONNECT = 0,
-	ADHOC_CREATE = 1,
-	ADHOC_JOIN = 2,
-};
 
 // Check if Matching callback is running
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context);
@@ -1415,3 +1414,5 @@ const char* getMatchingOpcodeStr(int code);
 
 // Convert adhoc ctl state to string
 const char *AdhocCtlStateToString(int state);
+
+const char *AdhocConnectionTypeToString(AdhocConnectionType type);
