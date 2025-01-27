@@ -39,19 +39,6 @@
 // TODO: Determine how many handlers we can actually have
 const size_t MAX_APCTL_HANDLERS = 32;
 
-#ifdef _MSC_VER
-#pragma pack(push,1)
-#endif
-
-typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
-	s32_le unknown; // Unknown, set to 0 // Product Type ?
-	char product[PRODUCT_CODE_LENGTH]; // Game ID (Example: ULUS10000)
-} PACK ProductStruct;
-
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif
-
 typedef void(*sceNetApctlHandler)(int oldState, int newState, int event, int error, void* pArg);
 
 #define APCTL_PROFILENAME_MAXLEN 64
