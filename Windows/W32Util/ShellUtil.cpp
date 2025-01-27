@@ -10,15 +10,65 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "ShellUtil.h"
 
+#include <shobjidl.h>  // For IFileDialog and related interfaces
 #include <shlobj.h>
 #include <commdlg.h>
 #include <cderr.h>
 
 namespace W32Util {
-	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
-		std::wstring titleString = ConvertUTF8ToWString(title);
-		return BrowseForFolder(parent, titleString.c_str(), initialPath);
+
+std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_view initialPath) {
+	const std::wstring wtitle = ConvertUTF8ToWString(title);
+	const std::wstring initialDir = ConvertUTF8ToWString(initialPath);
+
+	std::wstring selectedFolder;
+
+	// Create the FileOpenDialog object
+	IFileDialog* pFileDialog = nullptr;
+	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pFileDialog));
+	if (!SUCCEEDED(hr)) {
+		return "";
 	}
+	// Set the options to select folders instead of files
+	DWORD dwOptions;
+	hr = pFileDialog->GetOptions(&dwOptions);
+	if (SUCCEEDED(hr)) {
+		hr = pFileDialog->SetOptions(dwOptions | FOS_PICKFOLDERS);
+	} else {
+		return "";
+	}
+
+	// Set the initial directory
+	if (!initialDir.empty()) {
+		IShellItem* pShellItem = nullptr;
+		hr = SHCreateItemFromParsingName(initialDir.c_str(), nullptr, IID_PPV_ARGS(&pShellItem));
+		if (SUCCEEDED(hr)) {
+			hr = pFileDialog->SetFolder(pShellItem);
+			pShellItem->Release();
+		}
+	}
+	pFileDialog->SetTitle(wtitle.c_str());
+
+	// Show the dialog
+	hr = pFileDialog->Show(parent);
+	if (SUCCEEDED(hr)) {
+		// Get the selected folder
+		IShellItem* pShellItem = nullptr;
+		hr = pFileDialog->GetResult(&pShellItem);
+		if (SUCCEEDED(hr)) {
+			PWSTR pszFilePath = nullptr;
+			hr = pShellItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+			if (SUCCEEDED(hr)) {
+				selectedFolder = pszFilePath;
+				CoTaskMemFree(pszFilePath);
+			}
+			pShellItem->Release();
+		}
+	}
+
+	pFileDialog->Release();
+	return ConvertWStringToUTF8(selectedFolder);
+}
 
 	static int CALLBACK BrowseFolderCallback(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
 		if (uMsg == BFFM_INITIALIZED) {
@@ -71,6 +121,12 @@ namespace W32Util {
 		CoTaskMemFree(idList);
 		return result;
 	}
+
+	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
+		std::wstring titleString = ConvertUTF8ToWString(title);
+		return BrowseForFolder(parent, titleString.c_str(), initialPath);
+	}
+
 
 	bool BrowseForFileName(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
 		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension,
@@ -333,4 +389,4 @@ bool CreateICOFromPNGData(const uint8_t *imageData, size_t imageDataSize, const 
 	return true;
 }
 
-}  // namespace
+}  // namespace W32Util
