@@ -612,8 +612,11 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	//        Meanwhile, it might be received by itself when binded to subnet (ie. 192.168.0.255) or INADDR_ANY(0.0.0.0).
 	//
 	// Replace INADDR_ANY (and INADDR_BROADCAST too) with a specific IP (using AdhocServer IP address as reference) in order not to send data through the wrong interface (especially during broadcast),
-	// But let's do this only when using built-in Adhoc Server, otherwise UNO won't works
-	if (g_Config.bEnableAdhocServer && (saddr.in.sin_addr.s_addr == INADDR_ANY || saddr.in.sin_addr.s_addr == INADDR_BROADCAST)) {
+	// But let's do this only when using built-in Adhoc Server, otherwise UNO won't work.
+	// Also, let's not do this at all if apctl is initialized, because in this case, presumably g_Config.bEnableAdhocServer was left on by mistake, and is irrelevant because
+	// the user is trying to do infrastructure play.
+	bool allowAddressReplacement = !g_netApctlInited || g_infraDNSConfig.connectAdHocForGrouping;
+	if (g_Config.bEnableAdhocServer && allowAddressReplacement && (saddr.in.sin_addr.s_addr == INADDR_ANY || saddr.in.sin_addr.s_addr == INADDR_BROADCAST)) {
 		// Get Local IP Address
 		sockaddr_in sockAddr{};
 		getLocalIp(&sockAddr);
