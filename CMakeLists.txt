@@ -491,6 +491,16 @@ if(NOT MSVC)
 	elseif(ANDROID)
 		add_compile_options(-fsigned-char)
 	endif()
+
+	check_symbol_exists(getauxval sys/auxv.h HAVE_GETAUXVAL)
+	if(HAVE_GETAUXVAL)
+		add_definitions(-DHAVE_GETAUXVAL)
+	endif()
+
+	check_symbol_exists(elf_aux_info sys/auxv.h HAVE_ELF_AUX_INFO)
+	if(HAVE_ELF_AUX_INFO)
+		add_definitions(-DHAVE_ELF_AUX_INFO)
+	endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
