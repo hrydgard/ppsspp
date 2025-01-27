@@ -27,7 +27,7 @@
 #include <cstring>
 #include <set>
 #include <sstream>
-#ifndef __OpenBSD__
+#if defined(HAVE_GETAUXVAL) || defined(HAVE_ELF_AUX_INFO)
 #include <sys/auxv.h>
 #endif
 #include <vector>
@@ -203,7 +203,20 @@ void CPUInfo::Detect()
 	}
 #endif
 
-#ifdef __OpenBSD__
+#if defined(HAVE_GETAUXVAL) || defined(HAVE_ELF_AUX_INFO)
+#ifdef HAVE_ELF_AUX_INFO
+	unsigned long hwcap = 0;
+	elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap));
+#else
+	unsigned long hwcap = getauxval(AT_HWCAP);
+#endif
+	RiscV_M = ExtensionSupported(hwcap, 'M');
+	RiscV_A = ExtensionSupported(hwcap, 'A');
+	RiscV_F = ExtensionSupported(hwcap, 'F');
+	RiscV_D = ExtensionSupported(hwcap, 'D');
+	RiscV_C = ExtensionSupported(hwcap, 'C');
+	RiscV_V = ExtensionSupported(hwcap, 'V');
+#elif defined(__OpenBSD__)
 	/* OpenBSD uses RV64GC */
 	RiscV_M = true;
 	RiscV_A = true;
@@ -211,14 +224,6 @@ void CPUInfo::Detect()
 	RiscV_D = true;
 	RiscV_C = true;
 	RiscV_V = false;
-#else
-	unsigned long hwcap = getauxval(AT_HWCAP);
-	RiscV_M = ExtensionSupported(hwcap, 'M');
-	RiscV_A = ExtensionSupported(hwcap, 'A');
-	RiscV_F = ExtensionSupported(hwcap, 'F');
-	RiscV_D = ExtensionSupported(hwcap, 'D');
-	RiscV_C = ExtensionSupported(hwcap, 'C');
-	RiscV_V = ExtensionSupported(hwcap, 'V');
 #endif
 	// We assume as in RVA20U64 that F means Zicsr is available.
 	RiscV_Zicsr = RiscV_F;
