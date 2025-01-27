@@ -170,59 +170,49 @@ void __PowerDoState(PointerWrap &p) {
 }
 
 static int scePowerGetBatteryLifePercent() {
-	DEBUG_LOG(Log::HLE, "100=scePowerGetBatteryLifePercent");
-	return 100;
+	return hleLogDebug(Log::HLE, 100);
 }
 
 static int scePowerGetBatteryLifeTime() {
-	DEBUG_LOG(Log::HLE, "0=scePowerGetBatteryLifeTime()");
 	// 0 means we're on AC power.
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerGetBatteryTemp() {
-	DEBUG_LOG(Log::HLE, "0=scePowerGetBatteryTemp()");
 	// 0 means celsius temperature of the battery
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerIsPowerOnline() {
-	DEBUG_LOG(Log::HLE, "1=scePowerIsPowerOnline");
-	return 1;
+	return hleLogDebug(Log::HLE, 1);
 }
 
 static int scePowerIsBatteryExist() {
-	DEBUG_LOG(Log::HLE, "1=scePowerIsBatteryExist");
-	return 1;
+	return hleLogDebug(Log::HLE, 1);
 }
 
 static int scePowerIsBatteryCharging() {
-	DEBUG_LOG(Log::HLE, "0=scePowerIsBatteryCharging");
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerGetBatteryChargingStatus() {
-	DEBUG_LOG(Log::HLE, "0=scePowerGetBatteryChargingStatus");
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerIsLowBattery() {
-	DEBUG_LOG(Log::HLE, "0=scePowerIsLowBattery");
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerRegisterCallback(int slot, int cbId) {
-	DEBUG_LOG(Log::HLE, "0=scePowerRegisterCallback(%i, %i)", slot, cbId);
-
 	if (slot < -1 || slot >= numberOfCBPowerSlotsPrivate) {
-		return PSP_POWER_ERROR_INVALID_SLOT;
+		return hleLogError(Log::HLE, PSP_POWER_ERROR_INVALID_SLOT);
 	}
 	if (slot >= numberOfCBPowerSlots) {
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED);
 	}
 	// TODO: If cbId is invalid return PSP_POWER_ERROR_INVALID_CB.
 	if (cbId == 0) {
-		return PSP_POWER_ERROR_INVALID_CB;
+		return hleLogError(Log::HLE, PSP_POWER_ERROR_INVALID_CB);
 	}
 
 	int retval = -1;
@@ -235,42 +225,40 @@ static int scePowerRegisterCallback(int slot, int cbId) {
 			}
 		}
 		if (retval == -1) {
-			return PSP_POWER_ERROR_SLOTS_FULL;
+			return hleLogError(Log::HLE, PSP_POWER_ERROR_SLOTS_FULL);
 		}
 	} else {
 		if (powerCbSlots[slot] == 0) {
 			powerCbSlots[slot] = cbId;
 			retval = 0;
 		} else {
-			return PSP_POWER_ERROR_TAKEN_SLOT;
+			return hleLogError(Log::HLE, PSP_POWER_ERROR_TAKEN_SLOT);
 		}
 	}
 	if (retval >= 0) {
 		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | PSP_POWER_CB_BATTERY_FULL;
 		__KernelNotifyCallback(cbId, arg);
 	}
-	return retval;
+	return hleLogSuccessOrError(Log::HLE, retval);
 }
 
 static int scePowerUnregisterCallback(int slotId) {
 	DEBUG_LOG(Log::HLE, "0=scePowerUnregisterCallback(%i)", slotId);
 
 	if (slotId < 0 || slotId >= numberOfCBPowerSlotsPrivate) {
-		return PSP_POWER_ERROR_INVALID_SLOT;
+		return hleLogError(Log::HLE, PSP_POWER_ERROR_INVALID_SLOT);
 	}
 	if (slotId >= numberOfCBPowerSlots) {
-		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED);
 	}
 
 	if (powerCbSlots[slotId] != 0) {
 		int cbId = powerCbSlots[slotId];
-		DEBUG_LOG(Log::HLE, "0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
 		powerCbSlots[slotId] = 0;
+		return hleLogDebug(Log::HLE, 0, "(cbid = %i)", cbId);
 	} else {
-		return PSP_POWER_ERROR_EMPTY_SLOT;
+		return hleLogError(Log::HLE, PSP_POWER_ERROR_EMPTY_SLOT);
 	}
-
-	return 0;
 }
 
 static int sceKernelPowerLock(int lockType) {
@@ -293,6 +281,7 @@ static int sceKernelPowerTick(int flag) {
 	return hleLogDebug(Log::HLE, 0, "UNIMPL");
 }
 
+// not a syscall
 int KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -305,14 +294,13 @@ int KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	// It's always available in the emu.
 	// TODO: Should really reserve this properly!
 	if (Memory::IsValidAddress(paddr)) {
-		Memory::Write_U32(0x08400000, paddr);
+		Memory::WriteUnchecked_U32(0x08400000, paddr);
 	}
 	if (Memory::IsValidAddress(psize)) {
-		Memory::Write_U32(0x00400000, psize);
+		Memory::WriteUnchecked_U32(0x00400000, psize);
 	}
 	volatileMemLocked = true;
 	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08400000, 0x400000, "Volatile memory (locked)");
-
 	return 0;
 }
 
@@ -331,15 +319,14 @@ static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 
 	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		// This is OK, let's not ERROR_LOG.
-		DEBUG_LOG(Log::HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
-		break;
+		return hleLogDebug(Log::HLE, error, "(%i, %08x, %08x) - already locked!", type, paddr, psize);
 
 	default:
 		ERROR_LOG_REPORT(Log::HLE, "%08x=sceKernelVolatileMemTryLock(%i, %08x, %08x) - error", type, paddr, psize, error);
 		break;
 	}
 
-	return error;
+	return hleLogSuccessOrError(Log::HLE, error);
 }
 
 int KernelVolatileMemUnlock(int type) {

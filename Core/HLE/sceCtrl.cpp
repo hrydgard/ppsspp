@@ -503,32 +503,27 @@ static int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
 	hleEatCycles(330);
 	if (done != 0) {
-		DEBUG_LOG(Log::sceCtrl, "%d=sceCtrlReadBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
-	}
-	else
-	{
+		return hleLogDebug(Log::sceCtrl, done);
+	} else {
 		waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
-		DEBUG_LOG(Log::sceCtrl, "sceCtrlReadBufferPositive(%08x, %i) - waiting", ctrlDataPtr, nBufs);
+		return hleLogDebug(Log::sceCtrl, done, "waiting");
 	}
-	return done;
 }
 
 static int sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, false);
 	hleEatCycles(330);
-	if (done != 0)
-	{
-		DEBUG_LOG(Log::sceCtrl, "%d=sceCtrlReadBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	if (done != 0) {
+		return hleLogDebug(Log::sceCtrl, done);
 	}
 	else
 	{
 		waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
-		DEBUG_LOG(Log::sceCtrl, "sceCtrlReadBufferNegative(%08x, %i) - waiting", ctrlDataPtr, nBufs);
+		return hleLogDebug(Log::sceCtrl, done, "waiting");
 	}
-	return done;
 }
 
 static int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)

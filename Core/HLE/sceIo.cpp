@@ -1129,14 +1129,16 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 static u32 sceIoRead(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (id > 2 && f != NULL) {
+	if (!f) {
+		return hleLogError(Log::sceIo, error, "bad file descriptor");
+	}
+
+	if (id > 2) {
 		if (!__KernelIsDispatchEnabled()) {
-			DEBUG_LOG(Log::sceIo, "sceIoRead(%d, %08x, %x): dispatch disabled", id, data_addr, size);
-			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 		}
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(Log::sceIo, "sceIoRead(%d, %08x, %x): inside interrupt", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 		}
 	}
 
@@ -1144,12 +1146,10 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 	int us;
 	bool complete = __IoRead(result, id, data_addr, size, us);
 	if (!complete) {
-		DEBUG_LOG(Log::sceIo, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
-
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
-		return 0;
+		return hleLogDebug(Log::sceIo, 0, "deferring result");
 	} else if (result >= 0) {
 		return hleDelayResult(hleLogDebug(Log::ME, result), "io read", us);
 	} else {
@@ -1257,12 +1257,10 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (id > 2 && f != NULL) {
 		if (!__KernelIsDispatchEnabled()) {
-			DEBUG_LOG(Log::sceIo, "sceIoWrite(%d, %08x, %x): dispatch disabled", id, data_addr, size);
-			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 		}
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(Log::sceIo, "sceIoWrite(%d, %08x, %x): inside interrupt", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
 		}
 	}
 
@@ -1270,18 +1268,16 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 	int us;
 	bool complete = __IoWrite(result, id, data_addr, size, us);
 	if (!complete) {
-		DEBUG_LOG(Log::sceIo, "sceIoWrite(%d, %08x, %x): deferring result", id, data_addr, size);
-
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
-		return 0;
+		return hleLogDebug(Log::sceIo, 0, "deferring result");
 	} else if (result >= 0) {
 		if (__KernelIsDispatchEnabled()) {
 			// If we wrote to stdout, return an error (even though we did log it) rather than delaying.
 			// On actual hardware, it would just return this... we just want the log output.
 			if (__IsInInterrupt()) {
-				return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
 			}
 			return hleDelayResult(hleLogDebug(Log::sceIo, result), "io write", us);
 		} else {
@@ -1426,11 +1422,10 @@ static s64 __IoLseek(SceUID id, s64 offset, int whence) {
 static s64 sceIoLseek(int id, s64 offset, int whence) {
 	s64 result = __IoLseek(id, offset, whence);
 	if (result >= 0 || result == -1) {
-		DEBUG_LOG(Log::sceIo, "%lli = sceIoLseek(%d, %llx, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
-		return result;
+		return hleLogDebug(Log::sceIo, result);
 	} else {
 		return hleLogError(Log::sceIo, result, "bad file descriptor");
 	}
@@ -1439,11 +1434,10 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 static u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
 	if (result >= 0 || result == -1) {
-		DEBUG_LOG(Log::sceIo, "%i = sceIoLseek32(%d, %x, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
-		return result;
+		return hleLogDebug(Log::sceIo, result);
 	} else {
 		return hleLogError(Log::sceIo, result, "bad file descriptor");
 	}
@@ -1744,8 +1738,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	case 0x01F100A6:
 	case 0x01F100A8:
 	case 0x01F100A9:
-		ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
-		return 0;
+		return hleReportError(Log::sceIo, 0, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 	}
 
 	// This should really send it on to a FileSystem implementation instead.
@@ -1790,7 +1783,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					}
 					return hleNoLog(0);
 				} else {
-					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
 			} else {
 				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
@@ -1811,8 +1804,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 				if (slot != (size_t)-1) {
 					memStickCallbacks.erase(memStickCallbacks.begin() + slot);
-					DEBUG_LOG(Log::sceIo, "sceIoDevctl: Unregistered memstick callback %i", cbId);
-					return hleLogDebug(Log::sceIo, 0);
+					return hleLogDebug(Log::sceIo, 0, "sceIoDevctl: Unregistered memstick callback %i", cbId);
 				} else {
 					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
@@ -1855,7 +1847,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					deviceSize.NotifyWrite("ms0:02425818");
 				}
 
-				return 0;
+				return hleLogDebug(Log::sceIo, 0);
 			} else {
 				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
@@ -1936,20 +1928,18 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
-				ERROR_LOG(Log::sceIo, "Failed 0x02415823 fat");
-				return -1;
+				return hleLogError(Log::sceIo, -1, "Failed 0x02415823 fat");
 			}
 			break;
 		case 0x02425823:  
 			// Check if FAT enabled
 			// If the values added together are >= 0x80000000, or less than outPtr, invalid address.
 			if (((int)outPtr + outLen) < (int)outPtr) {
-				ERROR_LOG(Log::sceIo, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
-				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
 			} else if (!Memory::IsValidAddress(outPtr)) {
 				// Technically, only checks for NULL, crashes for many bad addresses.
-				ERROR_LOG(Log::sceIo, "sceIoDevctl: fatms0: 0x02425823 command, no output address");
-				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+				ERROR_LOG(Log::sceIo, "sceIoDevctl: ");
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "fatms0: 0x02425823 command, no output address");
 			} else {
 				// Does not care about outLen, even if it's 0.
 				// Note: writes 1 when inserted, 0 when not inserted.
@@ -1960,7 +1950,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02425824:  
 			// Check if write protected
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
-				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
 			}
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
@@ -2030,7 +2020,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				if (PSP_CoreParameter().collectDebugOutput)
 					*PSP_CoreParameter().collectDebugOutput += data;
 			}
-			return 0;
+			return hleNoLog(0);
 		case EMULATOR_DEVCTL__IS_EMULATOR:
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(1, outPtr);
@@ -2399,15 +2389,13 @@ public:
 };
 
 static u32 sceIoDopen(const char *path) {
-	DEBUG_LOG(Log::sceIo, "sceIoDopen(\"%s\")", path);
-
 	double startTime = time_now_d();
 
 	bool listingExists = false;
 	auto listing = pspFileSystem.GetDirListing(path, &listingExists);
 
 	if (!listingExists) {
-		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
 	}
 
 	DirListing *dir = new DirListing();
@@ -2464,7 +2452,7 @@ static u32 sceIoDopen(const char *path) {
 	}
 	
 	// TODO: The result is delayed only from the memstick, it seems.
-	return id;
+	return hleLogDebug(Log::sceIo, id);
 }
 
 // For some reason strncpy will fill up the entire output buffer. No reason to do that,
@@ -2537,8 +2525,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 }
 
 static u32 sceIoDclose(int id) {
-	DEBUG_LOG(Log::sceIo, "sceIoDclose(%d)", id);
-	return kernelObjects.Destroy<DirListing>(id);
+	return hleLogDebug(Log::sceIo, kernelObjects.Destroy<DirListing>(id));
 }
 
 int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
@@ -2700,7 +2687,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
 				// sceIoRead does its own delaying (and deferring.)
 				usec = 0;
-				return sceIoRead(id, outdataPtr, size);
+				return hleCall(IoFileMgrForUser, u32, sceIoRead, id, outdataPtr, size);
 			} else {
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			}

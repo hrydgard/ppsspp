@@ -332,6 +332,7 @@ void sceKernelExitGame()
 	Core_Stop();
 
 	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGame()", 0.0f, "kernelexit");
+	hleNoLogVoid();
 }
 
 void sceKernelExitGameWithStatus()
@@ -341,6 +342,7 @@ void sceKernelExitGameWithStatus()
 	Core_Stop();
 
 	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGameWithStatus()");
+	hleNoLogVoid();
 }
 
 u32 sceKernelDevkitVersion()
@@ -418,7 +420,7 @@ int sceKernelDcacheWritebackAll()
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
 	hleEatCycles(3524);
 	hleReSchedule("dcache writeback all");
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelDcacheWritebackRange(u32 addr, int size)
@@ -427,13 +429,13 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 	NOTICE_LOG(Log::CPU,"sceKernelDcacheWritebackRange(%08x, %i)", addr, size);
 #endif
 	if (size < 0)
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_INVALID_SIZE);
 
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
 	hleEatCycles(165);
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
@@ -442,13 +444,13 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 	NOTICE_LOG(Log::CPU,"sceKernelDcacheInvalidateRange(%08x, %i)", addr, size);
 #endif
 	if (size < 0)
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_INVALID_SIZE);
 
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
 	}
 	hleEatCycles(165);
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelDcacheWritebackInvalidateAll()

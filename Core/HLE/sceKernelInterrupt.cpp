@@ -431,6 +431,7 @@ void __KernelReturnFromInterrupt()
 		else
 			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 	}
+	hleNoLogVoid();
 }
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
