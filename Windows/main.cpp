@@ -626,7 +626,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
 		std::thread([=] {
-			std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1, param2);
+			std::string folder = W32Util::BrowseForFolder2(MainWindow::GetHWND(), param1, param2);
 			if (folder.size()) {
 				g_requestManager.PostSystemSuccess(requestId, folder.c_str());
 			} else {
@@ -843,7 +843,11 @@ static void InitMemstickDirectory() {
 }
 
 static void WinMainInit() {
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	if (FAILED(hr)) {
+		_dbg_assert_(false);
+	}
+
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	// Windows, API init stuff
@@ -858,11 +862,6 @@ static void WinMainInit() {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 	PROFILE_INIT();
-
-#if PPSSPP_ARCH(AMD64) && defined(_MSC_VER) && _MSC_VER < 1900
-	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
-	_set_FMA3_enable(0);
-#endif
 
 	InitDarkMode();
 }

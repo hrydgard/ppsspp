@@ -17,23 +17,6 @@
 
 #pragma once
 
-#undef _WIN32_WINNT
-
-#if defined(_MSC_VER) && _MSC_VER < 1700
-#error You need a newer version of Visual Studio
-#else
-#define _WIN32_WINNT 0x601 // Compile for Win7 on Visual Studio 2012 and above
-#endif
-
-#undef WINVER
-#define WINVER _WIN32_WINNT
-#ifndef _WIN32_IE
-#define _WIN32_IE 0x0600       // Default value is 0x0400
-#endif
-
-#undef _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
-#define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
-
 #ifndef __clang__
 #if defined _M_IX86
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
