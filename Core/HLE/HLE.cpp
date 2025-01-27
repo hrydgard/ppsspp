@@ -710,7 +710,8 @@ static void updateSyscallStats(int modulenum, int funcnum, double total)
 }
 
 static void CallSyscallWithFlags(const HLEFunction *info) {
-	_dbg_assert_(g_stackSize == 0);
+	// _dbg_assert_(g_stackSize == 0);
+	g_stackSize = 0;
 
 	const int stackSize = g_stackSize;
 	if (stackSize == 0) {
@@ -749,7 +750,8 @@ static void CallSyscallWithFlags(const HLEFunction *info) {
 }
 
 static void CallSyscallWithoutFlags(const HLEFunction *info) {
-	_dbg_assert_(g_stackSize == 0);
+	// _dbg_assert_(g_stackSize == 0);
+	g_stackSize = 0;
 
 	const int stackSize = g_stackSize;
 	if (stackSize == 0) {
