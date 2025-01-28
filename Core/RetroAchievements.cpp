@@ -746,16 +746,20 @@ void UpdateSettings() {
 
 bool Shutdown() {
 	g_activeChallenges.clear();
+	if (g_rcClient) {
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-	rc_client_unload_raintegration(g_rcClient);
+		rc_client_unload_raintegration(g_rcClient);
 #endif
-	rc_client_destroy(g_rcClient);
-	g_rcClient = nullptr;
-	INFO_LOG(Log::Achievements, "Achievements shut down.");
+		rc_client_destroy(g_rcClient);
+		g_rcClient = nullptr;
+		INFO_LOG(Log::Achievements, "Achievements shut down.");
+	}
 	return true;
 }
 
 void ResetRuntime() {
+	if (!g_rcClient)
+		return;
 	INFO_LOG(Log::Achievements, "Resetting rcheevos state...");
 	rc_client_reset(g_rcClient);
 	g_activeChallenges.clear();

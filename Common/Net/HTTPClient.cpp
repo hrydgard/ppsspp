@@ -159,7 +159,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
 			if (cancelConnect && *cancelConnect) {
-				WARN_LOG(Log::HTTP, "connect: cancelled (1)");
+				WARN_LOG(Log::HTTP, "connect: cancelled (1): %s:%d", host_.c_str(), port_);
 				break;
 			}
 		}
@@ -183,7 +183,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		}
 
 		if (cancelConnect && *cancelConnect) {
-			WARN_LOG(Log::HTTP, "connect: cancelled (2)");
+			WARN_LOG(Log::HTTP, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
 			break;
 		}
 
