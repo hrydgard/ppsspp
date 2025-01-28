@@ -745,6 +745,8 @@ struct Vec8U16 {
 
 #else
 
+#define CROSSSIMD_SLOW 1
+
 // Fake SIMD by using scalar.
 
 struct Mat4F32 {
