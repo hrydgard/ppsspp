@@ -475,7 +475,7 @@ public:
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;
-
+	bool bDontDownloadInfraJson;
 	int iChatButtonPosition;
 	int iChatScreenPosition;
 
