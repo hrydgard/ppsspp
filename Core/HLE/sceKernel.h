@@ -242,7 +242,9 @@ enum : u32 {
 	SCE_KERNEL_ERROR_MUTEX_LOCK_OVERFLOW              = 0x800201c6,
 	SCE_KERNEL_ERROR_MUTEX_UNLOCK_UNDERFLOW           = 0x800201c7,
 	SCE_KERNEL_ERROR_MUTEX_RECURSIVE_NOT_ALLOWED      = 0x800201c8,
+
 	SCE_KERNEL_ERROR_MESSAGEBOX_DUPLICATE_MESSAGE     = 0x800201c9,
+
 	SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND                = 0x800201ca,
 	SCE_KERNEL_ERROR_LWMUTEX_LOCKED                   = 0x800201cb,
 	SCE_KERNEL_ERROR_LWMUTEX_UNLOCKED                 = 0x800201cc,
@@ -583,3 +585,6 @@ void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_LoadExecForKernel();
 void Register_UtilsForKernel();
+
+// returns nullptr if not found.
+const char *KernelErrorToString(u32 err);

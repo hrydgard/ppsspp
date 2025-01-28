@@ -2030,7 +2030,7 @@ int __KernelGPUReplay() {
 	}
 
 	// Return 0 for normal looping, 1 for break.
-	return result == GPURecord::ReplayResult::Break ? 1 : 0;
+	return hleNoLog(result == GPURecord::ReplayResult::Break ? 1 : 0);
 }
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr) {

@@ -774,8 +774,7 @@ static void CallSyscallWithoutFlags(const HLEFunction *info) {
 	g_stackSize = 0;
 }
 
-const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) 
-{
+const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
@@ -1000,7 +999,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		_dbg_assert_(hleFunc->argmask != nullptr);
 
 		// NOTE: For second stack level, we can't get arguments (unless we somehow get them from the host stack!)
-		// Need to do something smart in hleCall.
+		// Need to do something smart in hleCall. But it's better than printing function name and args from the wrong function.
 		
 		if (stackSize == 1) {
 			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);

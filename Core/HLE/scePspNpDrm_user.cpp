@@ -30,7 +30,7 @@ static int sceNpDrmEdataSetupKey(u32 edataFd) {
 	// call PGD open
 	// Note that usec accumulates.
 	retval = __IoIoctl(edataFd, 0x04100001, 0, 0, 0, 0, usec);
-	return hleDelayResult(hleLogError(Log::sceIo, retval), "io ctrl command", usec);
+	return hleDelayResult(hleLogSuccessOrError(Log::sceIo, retval), "io ctrl command", usec);
 }
 
 static int sceNpDrmEdataGetDataSize(u32 edataFd) {

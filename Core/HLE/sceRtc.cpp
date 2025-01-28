@@ -271,8 +271,7 @@ static bool __RtcValidatePspTime(const ScePspDateTime &t)
 
 static u32 sceRtcGetTickResolution()
 {
-	DEBUG_LOG(Log::sceRtc, "sceRtcGetTickResolution()");
-	return 1000000;
+	return hleLogDebug(Log::sceRtc, 1000000);
 }
 
 static u32 sceRtcGetCurrentTick(u32 tickPtr)
@@ -284,7 +283,7 @@ static u32 sceRtcGetCurrentTick(u32 tickPtr)
 		Memory::Write_U64(curTick, tickPtr);
 	hleEatCycles(300);
 	hleReSchedule("rtc current tick");
-	return 0;
+	return hleNoLog(0);
 }
 
 static u64 sceRtcGetAccumulativeTime()
@@ -292,7 +291,7 @@ static u64 sceRtcGetAccumulativeTime()
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetAccumulativeTime()");
 	hleEatCycles(300);
 	hleReSchedule("rtc accumulative time");
-	return __RtcGetCurrentTick();
+	return hleNoLog(__RtcGetCurrentTick());
 }
 
 static u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz) {

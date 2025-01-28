@@ -86,7 +86,7 @@ u32 sceKernelGetSystemTimeLow()
 	if (PSP_CoreParameter().compat.flags().KernelGetSystemTimeLowEatMoreCycles)
 		hleEatCycles(70000);
 	hleReSchedule("system time");
-	return (u32)t;
+	return hleNoLog((u32)t);
 }
 
 u64 sceKernelGetSystemTimeWide()
@@ -95,7 +95,7 @@ u64 sceKernelGetSystemTimeWide()
 	VERBOSE_LOG(Log::sceKernel,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
 	hleReSchedule("system time");
-	return t;
+	return hleNoLog(t);
 }
 
 int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
@@ -104,14 +104,14 @@ int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 	if (Memory::IsValidAddress(clockPtr))
 		Memory::Write_U64((usec & 0xFFFFFFFFL), clockPtr);
 	hleEatCycles(165);
-	return 0;
+	return hleNoLog(0);
 }
 
 u64 sceKernelUSec2SysClockWide(u32 usec)
 {
 	VERBOSE_LOG(Log::sceKernel, "sceKernelUSec2SysClockWide(%i)", usec);
 	hleEatCycles(150);
-	return usec; 
+	return hleNoLog(usec);
 }
 
 int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
@@ -121,11 +121,11 @@ int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
 	u32 highResult = (u32)(time / 1000000);
 	u32 lowResult = (u32)(time % 1000000);
 	if (Memory::IsValidAddress(highPtr))
-		Memory::Write_U32(highResult, highPtr);
+		Memory::WriteUnchecked_U32(highResult, highPtr);
 	if (Memory::IsValidAddress(lowPtr))
-		Memory::Write_U32(lowResult, lowPtr);
+		Memory::WriteUnchecked_U32(lowResult, lowPtr);
 	hleEatCycles(415);
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr)
@@ -133,40 +133,38 @@ int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 high
 	u64 sysClock = lowClock | ((u64)highClock << 32);
 	DEBUG_LOG(Log::sceKernel, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", sysClock, lowPtr, highPtr);
 	if (Memory::IsValidAddress(lowPtr)) {
-		Memory::Write_U32((u32)(sysClock / 1000000), lowPtr);
+		Memory::WriteUnchecked_U32((u32)(sysClock / 1000000), lowPtr);
 		if (Memory::IsValidAddress(highPtr)) 
-			Memory::Write_U32((u32)(sysClock % 1000000), highPtr);
+			Memory::WriteUnchecked_U32((u32)(sysClock % 1000000), highPtr);
 	} else 
 		if (Memory::IsValidAddress(highPtr)) 
-			Memory::Write_U32((int) sysClock, highPtr);
+			Memory::WriteUnchecked_U32((int) sysClock, highPtr);
 	hleEatCycles(385);
-	return 0;
+	return hleNoLog(0);
 }
 
 u32 sceKernelLibcClock()
 {
 	u32 retVal = (u32) CoreTiming::GetGlobalTimeUs();
-	DEBUG_LOG(Log::sceKernel, "%i = sceKernelLibcClock", retVal);
 	hleEatCycles(330);
 	hleReSchedule("libc clock");
-	return retVal;
+	return hleLogDebug(Log::sceKernel, retVal);
 }
 
 u32 sceKernelLibcTime(u32 outPtr)
 {
 	u32 t = (u32) start_time + (u32) (CoreTiming::GetGlobalTimeUs() / 1000000ULL);
 
-	DEBUG_LOG(Log::sceKernel, "%i = sceKernelLibcTime(%08X)", t, outPtr);
 	// The PSP sure takes its sweet time on this function.
 	hleEatCycles(3385);
 
 	if (Memory::IsValidAddress(outPtr))
-		Memory::Write_U32(t, outPtr);
+		Memory::WriteUnchecked_U32(t, outPtr);
 	else if (outPtr != 0)
 		return 0;
 
 	hleReSchedule("libc time");
-	return t;
+	return hleLogDebug(Log::sceKernel, t);
 }
 
 u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
@@ -182,7 +180,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	hleEatCycles(1885);
 
 	hleReSchedule("libc timeofday");
-	return 0;
+	return hleNoLog(0);
 }
 
 std::string KernelTimeNowFormatted() {

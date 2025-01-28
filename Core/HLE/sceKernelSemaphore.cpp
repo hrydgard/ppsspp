@@ -198,8 +198,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelSema(%i, %i, %08x): invalid semaphore", id, newCount, numWaitThreadsPtr);
-		return error;
+		return hleLogError(Log::sceKernel, error, "invalid semaphore");
 	}
 }
 

@@ -258,29 +258,27 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	}
 }
 
-static int sceUmdCheckMedium()
-{
+static int sceUmdCheckMedium() {
+	int retVal = 0;
 	if (UMDInserted) {
-		DEBUG_LOG(Log::sceIo, "1=sceUmdCheckMedium()");
-		return 1; //non-zero: disc in drive
+		retVal = 1; //non-zero: disc in drive
 	}
-	DEBUG_LOG(Log::sceIo, "0=sceUmdCheckMedium()");
-	return 0;
+	return hleLogDebug(Log::sceKernel, retVal);
 }
 	
-static u32 sceUmdGetDiscInfo(u32 infoAddr)
-{
+static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 	DEBUG_LOG(Log::sceIo, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
 	if (Memory::IsValidAddress(infoAddr)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
 		if (info->size != 8)
-			return PSP_ERROR_UMD_INVALID_PARAM;
+			return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
 
 		info->type = PSP_UMD_TYPE_GAME;
-		return 0;
-	} else
-		return PSP_ERROR_UMD_INVALID_PARAM;
+		return hleLogDebug(Log::sceIo, 0);
+	} else {
+		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+	}
 }
 
 static int sceUmdActivate(u32 mode, const char *name) {
@@ -299,17 +297,15 @@ static int sceUmdDeactivate(u32 mode, const char *name)
 {
 	// Why 18?  No idea.
 	if (mode > 18)
-		return PSP_ERROR_UMD_INVALID_PARAM;
+		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
 
 	__KernelUmdDeactivate();
 
 	if (mode == 1) {
-		DEBUG_LOG(Log::sceIo, "0=sceUmdDeactivate(%d, %s)", mode, name);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
-		ERROR_LOG(Log::sceIo, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
+		return hleLogError(Log::sceIo, 0, "UNTESTED mode != 1");
 	}
-
-	return 0;
 }
 
 static u32 sceUmdRegisterUMDCallBack(u32 cbId)
@@ -323,39 +319,33 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		// There's only ever one.
 		driveCBId = cbId;
 	}
-	DEBUG_LOG(Log::sceIo, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
-	return retVal;
+	return hleLogDebug(Log::sceIo, retVal);
 }
 
 static int sceUmdUnRegisterUMDCallBack(int cbId)
 {
-	int retVal;
-
 	if (cbId != driveCBId) {
-		retVal = PSP_ERROR_UMD_INVALID_PARAM;
+		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
 	} else {
+		int retVal;
 		if (sceKernelGetCompiledSdkVersion() > 0x3000000) {
 			retVal = 0;
 		} else {
 			retVal = cbId;
 		}
 		driveCBId = 0;
+		return hleLogDebug(Log::sceIo, retVal);
 	}
-	DEBUG_LOG(Log::sceIo, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
-	return retVal;
 }
 
-static u32 sceUmdGetDriveStat()
-{
+static u32 sceUmdGetDriveStat() {
 	if (!UMDInserted) {
-		WARN_LOG(Log::sceIo, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
-		return PSP_UMD_NOT_PRESENT;
+		return hleLogWarning(Log::sceIo, PSP_UMD_NOT_PRESENT, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
 	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	// This one can be very spammy.
-	VERBOSE_LOG(Log::sceIo,"0x%02x=sceUmdGetDriveStat()", retVal);
-	return retVal;
+	return hleLogVerbose(Log::sceIo, retVal, "0x%02x=sceUmdGetDriveStat()", retVal);
 }
 
 static void __UmdStatTimeout(u64 userdata, int cyclesLate)
@@ -405,7 +395,7 @@ static int sceUmdWaitDriveStat(u32 stat) {
 		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
-		return 0;
+		return hleLogDebug(Log::sceIo, 0);
 	}
 
 	return hleLogSuccessI(Log::sceIo, 0);
@@ -424,11 +414,10 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
-		return 0;
+		return hleLogDebug(Log::sceIo, 0, "waiting");
 	} else {
 		hleReSchedule("umd stat checked");
 	}
@@ -450,7 +439,6 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	hleEatCycles(520);
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
 		if (timeout == 0) {
 			timeout = 8000;
 		}
@@ -458,6 +446,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
+		return hleLogSuccessI(Log::sceIo, 0, "waiting");
 	} else {
 		hleReSchedule("umd stat waited");
 	}
@@ -465,10 +454,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	return hleLogSuccessI(Log::sceIo, 0);
 }
 
-static u32 sceUmdCancelWaitDriveStat()
-{
-	DEBUG_LOG(Log::sceIo, "0=sceUmdCancelWaitDriveStat()");
-
+static u32 sceUmdCancelWaitDriveStat() {
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		const SceUID threadID = umdWaitingThreads[i];
 		CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
@@ -476,13 +462,11 @@ static u32 sceUmdCancelWaitDriveStat()
 	}
 	umdWaitingThreads.clear();
 
-	return 0;
+	return hleLogDebug(Log::sceIo, 0);
 }
 
-static u32 sceUmdGetErrorStat()
-{
-	DEBUG_LOG(Log::sceIo,"%i=sceUmdGetErrorStat()", umdErrorStat);
-	return umdErrorStat;
+static u32 sceUmdGetErrorStat() {
+	return hleLogError(Log::sceIo, umdErrorStat);
 }
 
 void __UmdReplace(const Path &filepath) {
@@ -510,26 +494,22 @@ bool getUMDReplacePermit() {
 	return g_UMDReplacePermit;
 }
 
-static u32 sceUmdReplaceProhibit()
-{
-	DEBUG_LOG(Log::sceIo, "sceUmdReplaceProhibit()");
+static u32 sceUmdReplaceProhibit() {
 	if (g_UMDReplacePermit) {
 		INFO_LOG(Log::sceIo, "sceUmdReplaceProhibit() - prohibited");
 		g_UMDReplacePermit = false;
 		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
-	return 0;
+	return hleLogDebug(Log::sceIo, 0);
 }
 
-static u32 sceUmdReplacePermit()
-{
-	DEBUG_LOG(Log::sceIo, "sceUmdReplacePermit()");
+static u32 sceUmdReplacePermit() {
 	if (!g_UMDReplacePermit) {
 		INFO_LOG(Log::sceIo, "sceUmdReplacePermit() - permitted");
 		g_UMDReplacePermit = true;
 		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
-	return 0;
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 const HLEFunction sceUmdUser[] = 
