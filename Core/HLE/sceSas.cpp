@@ -662,7 +662,7 @@ static u32 sceSasRevParam(u32 core, int delay, int feedback) {
 
 static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 	if (lv > 0x1000 || rv > 0x1000) {
-		return hleReportDebug(Log::sceSas, ERROR_SAS_REV_INVALID_VOLUME, "invalid volume");
+		return hleLogWarning(Log::sceSas, ERROR_SAS_REV_INVALID_VOLUME, "invalid volume");
 	}
 
 	__SasDrain();

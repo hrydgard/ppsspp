@@ -681,7 +681,7 @@ static u32 sceMp3GetMPEGVersion(u32 mp3) {
 	}
 
 	// Tests have not revealed how to expose more than "3" here as a result.
-	return hleReportDebug(Log::ME, ctx->Version);
+	return hleLogDebug(Log::ME, ctx->Version);
 }
 
 static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {

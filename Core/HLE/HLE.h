@@ -180,7 +180,7 @@ template <bool leave, typename T>
 __attribute__((format(printf, 8, 9)))
 #endif
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reasonFmt, ...) {
-	if ((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+	if (!GenericLogEnabled(level, t)) {
 		if (leave) {
 			hleLeave();
 		}
@@ -269,6 +269,10 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 #define DEBUG_LOG NOTICE_LOG
 #undef VERBOSE_LOG
 #define VERBOSE_LOG DEBUG_LOG
+#undef DEBUG_LEVEL
+#define DEBUG_LEVEL NOTICE_LEVEL
+#undef VERBOSE_LEVEL
+#define VERBOSE_LEVEL NOTICE_LEVEL
 #else
 #define HLE_LOG_LDEBUG LogLevel::LDEBUG
 #define HLE_LOG_LVERBOSE LogLevel::LVERBOSE
@@ -277,7 +281,9 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 // IMPORTANT: These *must* only be used directly in HLE functions. They cannot be used by utility functions
 // called by them. Use regular ERROR_LOG etc for those.
 
-#define hleLogHelper(t, level, res, retmask, ...) hleDoLog<true>(t, level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
+#define hleLogHelper(t, level, res, retmask, ...) \
+	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true>(t, level, (res), __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__) : (res))
+
 #define hleLogError(t, res, ...) hleLogHelper(t, LogLevel::LERROR, res, 'x', ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogHelper(t, LogLevel::LWARNING, res, 'x', ##__VA_ARGS__)
 #define hleLogVerbose(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
@@ -297,4 +303,3 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 
 #define hleReportError(t, res, ...) hleDoLog<true>(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportWarning(t, res, ...) hleDoLog<true>(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportDebug(t, res, ...) hleDoLog<true>(t, HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
