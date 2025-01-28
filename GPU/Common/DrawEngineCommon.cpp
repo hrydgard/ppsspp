@@ -56,6 +56,9 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	indexGen.Setup(decIndex_);
 
+#ifdef CROSSSIMD_SLOW
+	useDepthRaster_ = false;
+#else
 	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
 	case DepthRasterMode::DEFAULT:
 	case DepthRasterMode::LOW_QUALITY:
@@ -67,6 +70,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	case DepthRasterMode::OFF:
 		useDepthRaster_ = false;
 	}
+#endif
 	if (useDepthRaster_) {
 		depthDraws_.reserve(256);
 	}

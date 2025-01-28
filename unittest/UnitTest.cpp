@@ -466,7 +466,7 @@ bool TestVFPUSinCos() {
 	return true;
 }
 
-bool TestMatrixTranspose() {
+bool TestVFPUMatrixTranspose() {
 	MatrixSize sz = M_4x4;
 	int matrix = 0;  // M000
 	u8 cols[4];
@@ -489,6 +489,7 @@ bool TestMatrixTranspose() {
 	return true;
 }
 
+// TODO: Hook this up again!
 void TestGetMatrix(int matrix, MatrixSize sz) {
 	INFO_LOG(Log::System, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
 	u8 fullMatrix[16];
@@ -1182,7 +1183,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
-	TEST_ITEM(MatrixTranspose),
+	TEST_ITEM(VFPUMatrixTranspose),
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
