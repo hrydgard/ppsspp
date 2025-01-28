@@ -679,6 +679,8 @@ static void ShowFpsLimitNotice() {
 	case FPSLimit::CUSTOM2:
 		fpsLimit = g_Config.iFpsLimit2;
 		break;
+	default:
+		break;
 	}
 
 	// Now display it.

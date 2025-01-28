@@ -565,7 +565,12 @@ struct Vec4F32 {
 	void operator +=(Vec4F32 other) { v = vaddq_f32(v, other.v); }
 	void operator -=(Vec4F32 other) { v = vsubq_f32(v, other.v); }
 	void operator *=(Vec4F32 other) { v = vmulq_f32(v, other.v); }
+#if PPSSPP_ARCH(ARM64_NEON)
+	void operator /=(Vec4F32 other) { v = vdivq_f32(v, other.v); }
+#else
+	// ARM32 doesn't have vdivq.
 	void operator /=(Vec4F32 other) { v = vmulq_f32(v, other.Recip().v); }
+#endif
 	void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 
@@ -775,6 +780,15 @@ struct Mat4F32 {
 	float m[16];
 };
 
+// The columns are consecutive but missing the last row (implied 0,0,0,1).
+// This is just intermediate storage for multiplication.
+struct Mat4x3F32 {
+	Mat4x3F32(const float *matrix) {
+		memcpy(m, matrix, 12 * sizeof(float));
+	}
+	float m[12];
+};
+
 struct Vec4S32 {
 	int32_t v[4];
 
@@ -982,7 +996,15 @@ struct Vec4F32 {
 			v[i] /= other.v[i];
 		}
 	}
-	// void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
+	void operator &=(Vec4S32 other) {
+		// TODO: This can be done simpler, although with some ugly casts.
+		for (int i = 0; i < 4; i++) {
+			uint32_t val;
+			memcpy(&val, &v[i], 4);
+			val &= other.v[i];
+			memcpy(&v[i], &val, 4);
+		}
+	}
 	Vec4F32 operator *(float f) const {
 		return Vec4F32{ { v[0] * f, v[1] * f, v[2] * f, v[3] * f } };
 	}
@@ -1177,5 +1199,53 @@ inline Vec4F32 Vec4F32FromS32(Vec4S32 f) {
 	return Vec4F32{ { (float)f.v[0], (float)f.v[1], (float)f.v[2], (float)f.v[3] } };
 }
 
+// Make sure the W component of scale is 1.0f.
+inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
+	for (int i = 0; i < 4; i++) {
+		m.m[i * 4 + 0] *= scale.v[0];
+		m.m[i * 4 + 1] *= scale.v[1];
+		m.m[i * 4 + 2] *= scale.v[2];
+		m.m[i * 4 + 3] *= scale.v[3];
+	}
+}
+
+inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translate) {
+	for (int i = 0; i < 4; i++) {
+		m.m[i * 4 + 0] = m.m[i * 4 + 0] * scale.v[0] + translate.v[0] * m.m[i * 4 + 3];
+		m.m[i * 4 + 1] = m.m[i * 4 + 1] * scale.v[1] + translate.v[1] * m.m[i * 4 + 3];
+		m.m[i * 4 + 2] = m.m[i * 4 + 2] * scale.v[2] + translate.v[2] * m.m[i * 4 + 3];
+		m.m[i * 4 + 3] = m.m[i * 4 + 3] * scale.v[3] + translate.v[3] * m.m[i * 4 + 3];
+	}
+}
+
+inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < 4; i++) {
+			float sum = 0.0f;
+			for (int k = 0; k < 4; k++) {
+				sum += b.m[i * 4 + k] * a.m[k * 4 + j];
+			}
+			result.m[j * 4 + i] = sum;
+		}
+	}
+	return result;
+}
+
+inline Mat4F32 Mul4x3By4x4(Mat4x3F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < 4; i++) {
+			float sum = 0.0f;
+			for (int k = 0; k < 3; k++) {
+				sum += b.m[i * 4 + k] * a.m[k * 3 + j];
+			}
+			result.m[j * 4 + i] = sum + b.m[i * 4 + 3];
+		}
+	}
+	return result;
+}
 
 #endif
