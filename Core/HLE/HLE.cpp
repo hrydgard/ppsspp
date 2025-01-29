@@ -709,7 +709,7 @@ static void updateSyscallStats(int modulenum, int funcnum, double total)
 	}
 }
 
-static void CallSyscallWithFlags(const HLEFunction *info) {
+static void PerformCallSyscall(const HLEFunction *info) {
 	// _dbg_assert_(g_stackSize == 0);
 	g_stackSize = 0;
 
@@ -736,31 +736,6 @@ static void CallSyscallWithFlags(const HLEFunction *info) {
 	} else {
 		info->func();
 	}
-
-	// Now, g_stackSize should be back to 0. Enable this for "pedantic mode", will find a lot of problems.
-	// Check g_stack[0] in the debugger.
-	// _dbg_assert_(g_stackSize == 0);
-
-	if (hleAfterSyscall != HLE_AFTER_NOTHING)
-		hleFinishSyscall(info);
-	else
-		SetDeadbeefRegs();
-
-	g_stackSize = 0;
-}
-
-static void CallSyscallWithoutFlags(const HLEFunction *info) {
-	// _dbg_assert_(g_stackSize == 0);
-	g_stackSize = 0;
-
-	const int stackSize = g_stackSize;
-	if (stackSize == 0) {
-		g_stack[0] = info;
-		g_stackSize = 1;
-	}
-	g_syscallPC = currentMIPS->pc;
-
-	info->func();
 
 	// Now, g_stackSize should be back to 0. Enable this for "pedantic mode", will find a lot of problems.
 	// Check g_stack[0] in the debugger.
@@ -807,9 +782,7 @@ void *GetQuickSyscallFunc(MIPSOpcode op) {
 	// TODO: Do this with a flag?
 	if (op == idleOp)
 		return (void *)info->func;
-	if (info->flags != 0)
-		return (void *)&CallSyscallWithFlags;
-	return (void *)&CallSyscallWithoutFlags;
+	return (void *)&PerformCallSyscall;
 }
 
 void hleSetFlipTime(double t) {
@@ -833,10 +806,8 @@ void CallSyscall(MIPSOpcode op) {
 	if (info->func) {
 		if (op == idleOp)
 			info->func();
-		else if (info->flags != 0)
-			CallSyscallWithFlags(info);
 		else
-			CallSyscallWithoutFlags(info);
+			PerformCallSyscall(info);
 	} else {
 		// We haven't incremented the stack yet.
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
@@ -919,7 +890,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			if (Memory::IsValidAddress(regval)) {
 				const char *s = Memory::GetCharPointer(regval);
 				const int safeLen = Memory::ValidSize(regval, 128);
-				if (strnlen(s, safeLen) >= safeLen) {
+				if ((int)strnlen(s, safeLen) >= safeLen) {
 					APPEND_FMT("%.*s...", safeLen, Memory::GetCharPointer(regval));
 				} else {
 					APPEND_FMT("%.*s", safeLen, Memory::GetCharPointer(regval));
