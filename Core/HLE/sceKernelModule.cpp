@@ -2096,7 +2096,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			}
 
 			// TODO: It would be more ideal to allocate memory for this module.
-			return hleLogSuccessInfoI(Log::Loader, module->GetUID(), "created fake module");
+			return hleLogInfo(Log::Loader, module->GetUID(), "created fake module");
 		}
 	}
 
@@ -2176,7 +2176,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 {
 	// TODO: Handle recursive syscall properly
-	return hleLogSuccessOrError(Log::Loader, sceKernelLoadModule(name, flags, optionAddr));
+	return hleLogDebugOrError(Log::Loader, sceKernelLoadModule(name, flags, optionAddr));
 }
 
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
@@ -2243,7 +2243,7 @@ static u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 retu
 	} else if (module->isFake) {
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
-		return hleLogSuccessInfoI(Log::sceModule, moduleId, "Faked (undecryptable module)");
+		return hleLogInfo(Log::sceModule, moduleId, "Faked (undecryptable module)");
 	} else if (module->nm.status == MODULE_STATUS_STARTED) {
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
 		// But I also get crashes...
@@ -2259,7 +2259,7 @@ static u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 retu
 			module->nm.status = MODULE_STATUS_STARTING;
 			module->waitingThreads.push_back(mwt);
 		}
-		return hleLogSuccessInfoI(Log::sceModule, ret);
+		return hleLogInfo(Log::sceModule, ret);
 	}
 }
 
@@ -2281,7 +2281,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	if (module->isFake) {
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
-		return hleLogSuccessInfoI(Log::sceModule, 0, "faking");
+		return hleLogInfo(Log::sceModule, 0, "faking");
 	}
 	if (module->nm.status != MODULE_STATUS_STARTED) {
 		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ALREADY_STOPPED, "already stopped");
@@ -2327,7 +2327,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	else if (stopFunc == 0)
 	{
 		module->nm.status = MODULE_STATUS_STOPPED;
-		return hleLogSuccessInfoI(Log::sceModule, 0, "no stop func, skipping");
+		return hleLogInfo(Log::sceModule, 0, "no stop func, skipping");
 	}
 	else
 	{
@@ -2519,13 +2519,13 @@ static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE) {
 		return hleLogError(Log::sceModule, state.result, "module not found at address");
 	} else {
-		return hleLogSuccessOrError(Log::sceModule, state.result, "%08x", state.result);
+		return hleLogDebugOrError(Log::sceModule, state.result, "%08x", state.result);
 	}
 }
 
 static u32 sceKernelGetModuleId()
 {
-	return hleLogSuccessI(Log::sceModule, __KernelGetCurThreadModuleId());
+	return hleLogDebug(Log::sceModule, __KernelGetCurThreadModuleId());
 }
 
 u32 sceKernelFindModuleByUID(u32 uid)
@@ -2535,7 +2535,7 @@ u32 sceKernelFindModuleByUID(u32 uid)
 	if (!module || module->isFake) {
 		return hleLogError(Log::sceModule, 0, "Module Not Found or Fake");
 	}
-	return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
+	return hleLogInfo(Log::sceModule, module->modulePtr.ptr);
 }
 
 u32 sceKernelFindModuleByName(const char *name)
@@ -2548,7 +2548,7 @@ u32 sceKernelFindModuleByName(const char *name)
 		if (strcmp(name, module->nm.name) == 0) {
 			if (!module->isFake) {
 				INFO_LOG(Log::sceModule, "%d = sceKernelFindModuleByName(%s)", module->modulePtr.ptr, name);
-				return hleLogSuccessInfoI(Log::sceModule, module->modulePtr.ptr);
+				return hleLogInfo(Log::sceModule, module->modulePtr.ptr);
 			} else {
 				return hleDelayResult(hleLogWarning(Log::sceModule, 0, "Module Fake"), "Module Fake", 1000 * 1000);
 			}

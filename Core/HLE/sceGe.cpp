@@ -503,7 +503,7 @@ static u32 sceGeSetCallback(u32 structAddr) {
 		hleCall(InterruptManager, u32, sceKernelEnableSubIntr, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
-	return hleLogSuccessI(Log::sceGe, cbID);
+	return hleLogDebug(Log::sceGe, cbID);
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
@@ -577,7 +577,7 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
 		return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
-	return hleLogSuccessInfoI(Log::sceGe, 0);
+	return hleLogInfo(Log::sceGe, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -607,7 +607,7 @@ static u32 sceGeGetCmd(int cmd) {
 		default:
 			break;
 		}
-		return hleLogSuccessInfoX(Log::sceGe, val);
+		return hleLogInfo(Log::sceGe, val);
 	}
 	return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX);
 }

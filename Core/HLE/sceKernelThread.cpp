@@ -1294,7 +1294,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 	hleEatCycles(1400);
 	hleReSchedule("refer thread status");
-	return hleLogSuccessVerboseI(Log::sceKernel, 0);
+	return hleLogVerbose(Log::sceKernel, 0);
 }
 
 // Thanks JPCSP
@@ -1341,7 +1341,7 @@ int __KernelGetThreadExitStatus(SceUID threadID) {
 
 	// __KernelResetThread and __KernelCreateThread set exitStatus in case it's DORMANT.
 	if (t->nt.status == THREADSTATUS_DORMANT) {
-		return hleLogSuccessI(Log::sceKernel, t->nt.exitStatus);
+		return hleLogDebug(Log::sceKernel, t->nt.exitStatus);
 	}
 	return hleLogVerbose(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT, "not dormant");
 }
@@ -2022,7 +2022,7 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 	if (retval < 0) {
 		return hleLogError(Log::sceKernel, retval);
 	} else {
-		return hleLogSuccessInfoI(Log::sceKernel, retval);
+		return hleLogInfo(Log::sceKernel, retval);
 	}
 }
 
@@ -2124,7 +2124,7 @@ int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBloc
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr) {
 	int retval = __KernelStartThreadValidate(threadToStartID, argSize, argBlockPtr);
-	return hleLogSuccessOrError(Log::sceKernel, retval);
+	return hleLogDebugOrError(Log::sceKernel, retval);
 }
 
 int sceKernelGetThreadStackFreeSize(SceUID threadID)
@@ -2298,7 +2298,7 @@ int sceKernelRotateThreadReadyQueue(int priority) {
 		hleReSchedule("rotatethreadreadyqueue");
 		hleEatCycles(250);
 	}
-	return hleLogSuccessVerboseI(Log::sceKernel, result);
+	return hleLogVerbose(Log::sceKernel, result);
 }
 
 int sceKernelDeleteThread(int threadID) {
@@ -2386,7 +2386,7 @@ int sceKernelTerminateThread(SceUID threadID) {
 		RETURN(0);
 		__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, t->GetUID(), THREADEVENT_EXIT);
 
-		return hleLogSuccessInfoI(Log::sceKernel, 0);
+		return hleLogInfo(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "thread doesn't exist");
 	}
@@ -2432,7 +2432,7 @@ SceUID sceKernelGetThreadId() {
 
 int sceKernelGetThreadCurrentPriority() {
 	u32 retVal = __GetCurrentThread()->nt.currentPriority;
-	return hleLogSuccessI(Log::sceKernel, retVal);
+	return hleLogDebug(Log::sceKernel, retVal);
 }
 
 int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr) {
@@ -2446,7 +2446,7 @@ int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr) {
 		return hleReportError(Log::sceKernel, -1, "no current thread");
 
 	t->nt.attr = (t->nt.attr & ~clearAttr) | setAttr;
-	return hleLogSuccessI(Log::sceKernel, 0);
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // Assumes validated parameters.
@@ -2502,7 +2502,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 		hleEatCycles(450);
 		hleReSchedule("change thread priority");
 
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "thread not found");
 	}
@@ -2535,7 +2535,7 @@ int sceKernelDelayThreadCB(u32 usec) {
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
-	return hleLogSuccessI(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
+	return hleLogDebug(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
 }
 
 int sceKernelDelayThread(u32 usec) {
@@ -2546,7 +2546,7 @@ int sceKernelDelayThread(u32 usec) {
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
-	return hleLogSuccessI(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
+	return hleLogDebug(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
 }
 
 int sceKernelDelaySysClockThreadCB(u32 sysclockAddr) {
@@ -2563,7 +2563,7 @@ int sceKernelDelaySysClockThreadCB(u32 sysclockAddr) {
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
-	return hleLogSuccessI(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
+	return hleLogDebug(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
 }
 
 int sceKernelDelaySysClockThread(u32 sysclockAddr) {
@@ -2580,7 +2580,7 @@ int sceKernelDelaySysClockThread(u32 sysclockAddr) {
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
-	return hleLogSuccessI(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
+	return hleLogDebug(Log::sceKernel, 0, "delaying %lld usecs", delayUs);
 }
 
 u32 __KernelGetThreadPrio(SceUID id) {
@@ -2609,11 +2609,11 @@ int sceKernelWakeupThread(SceUID uid) {
 	if (t) {
 		if (!t->isWaitingFor(WAITTYPE_SLEEP, 0)) {
 			t->nt.wakeupCount++;
-			return hleLogSuccessI(Log::sceKernel, 0, "wakeupCount incremented to %i", t->nt.wakeupCount);
+			return hleLogDebug(Log::sceKernel, 0, "wakeupCount incremented to %i", t->nt.wakeupCount);
 		} else {
 			__KernelResumeThreadFromWait(uid, 0);
 			hleReSchedule("thread woken up");
-			return hleLogSuccessVerboseI(Log::sceKernel, 0, "woke thread at %i", t->nt.wakeupCount);
+			return hleLogVerbose(Log::sceKernel, 0, "woke thread at %i", t->nt.wakeupCount);
 		}
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad thread id");
@@ -2630,7 +2630,7 @@ int sceKernelCancelWakeupThread(SceUID uid) {
 	if (t) {
 		int wCount = t->nt.wakeupCount;
 		t->nt.wakeupCount = 0;
-		return hleLogSuccessI(Log::sceKernel, wCount, "wakeupCount reset to 0");
+		return hleLogDebug(Log::sceKernel, wCount, "wakeupCount reset to 0");
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad thread id");
 	}
@@ -2645,10 +2645,10 @@ static int __KernelSleepThread(bool doCallbacks) {
 
 	if (thread->nt.wakeupCount > 0) {
 		thread->nt.wakeupCount--;
-		return hleLogSuccessI(Log::sceKernel, 0, "wakeupCount decremented to %i", thread->nt.wakeupCount);
+		return hleLogDebug(Log::sceKernel, 0, "wakeupCount decremented to %i", thread->nt.wakeupCount);
 	} else {
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
-		return hleLogSuccessVerboseI(Log::sceKernel, 0, "sleeping");
+		return hleLogVerbose(Log::sceKernel, 0, "sleeping");
 	}
 	return 0;
 }
@@ -2867,7 +2867,7 @@ SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 	if (thread)
 		thread->callbacks.push_back(id);
 
-	return hleLogSuccessI(Log::sceKernel, id);
+	return hleLogDebug(Log::sceKernel, id);
 }
 
 int sceKernelDeleteCallback(SceUID cbId)
@@ -2882,7 +2882,7 @@ int sceKernelDeleteCallback(SceUID cbId)
 		if (cb->nc.notifyCount != 0)
 			readyCallbacksCount--;
 
-		return hleLogSuccessI(Log::sceKernel, kernelObjects.Destroy<PSPCallback>(cbId));
+		return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<PSPCallback>(cbId));
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad cbId");
 	}
@@ -2895,7 +2895,7 @@ int sceKernelNotifyCallback(SceUID cbId, int notifyArg)
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(cbId, error);
 	if (cb) {
 		__KernelNotifyCallback(cbId, notifyArg);
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad cbId");
 	}
@@ -2908,7 +2908,7 @@ int sceKernelCancelCallback(SceUID cbId)
 	if (cb) {
 		// This just resets the notify count.
 		cb->nc.notifyArg = 0;
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad cbId");
 	}
@@ -2919,7 +2919,7 @@ int sceKernelGetCallbackCount(SceUID cbId)
 	u32 error;
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(cbId, error);
 	if (cb) {
-		return hleLogSuccessVerboseI(Log::sceKernel, cb->nc.notifyCount);
+		return hleLogVerbose(Log::sceKernel, cb->nc.notifyCount);
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad cbId");
 	}
@@ -2933,7 +2933,7 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr) {
 		if (status.IsValid() && status->size != 0) {
 			*status = c->nc;
 			status.NotifyWrite("CallbackStatus");
-			return hleLogSuccessI(Log::sceKernel, 0);
+			return hleLogDebug(Log::sceKernel, 0);
 		} else {
 			return hleLogDebug(Log::sceKernel, 0, "struct size was 0");
 		}
@@ -2971,7 +2971,7 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
 
 	hleSkipDeadbeef();
-	return hleLogSuccessI(Log::sceKernel, 0);
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 void __KernelReturnFromExtendStack()
@@ -3787,7 +3787,7 @@ SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u3
 	SceUID uid = kernelObjects.Create(teh);
 	threadEventHandlers[threadID].push_back(uid);
 
-	return hleLogSuccessI(Log::sceKernel, uid);
+	return hleLogDebug(Log::sceKernel, uid);
 }
 
 int sceKernelReleaseThreadEventHandler(SceUID uid) {
@@ -3799,7 +3799,7 @@ int sceKernelReleaseThreadEventHandler(SceUID uid) {
 
 	auto &handlers = threadEventHandlers[teh->nteh.threadID];
 	handlers.erase(std::remove(handlers.begin(), handlers.end(), uid), handlers.end());
-	return hleLogSuccessI(Log::sceKernel, kernelObjects.Destroy<ThreadEventHandler>(uid));
+	return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<ThreadEventHandler>(uid));
 }
 
 int sceKernelReferThreadEventHandlerStatus(SceUID uid, u32 infoPtr) {
@@ -3813,7 +3813,7 @@ int sceKernelReferThreadEventHandlerStatus(SceUID uid, u32 infoPtr) {
 	if (info.IsValid() && info->size != 0) {
 		*info = teh->nteh;
 		info.NotifyWrite("ThreadEventHandlerStatus");
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogDebug(Log::sceKernel, 0, "struct size was 0");
 	}

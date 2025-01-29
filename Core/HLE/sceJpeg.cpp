@@ -164,8 +164,8 @@ static int JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidt
 	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, (uint32_t)destSize, "JpegCsc");
 
 	if ((widthHeight & 0xFFFF) == 0)
-		return hleLogSuccessI(Log::ME, -1);
-	return hleLogSuccessI(Log::ME, 0);
+		return hleLogDebug(Log::ME, -1);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int &usec) {
@@ -237,7 +237,7 @@ static int JpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int buffe
 
 	NotifyMemInfo(MemBlockFlags::WRITE, imageAddr, destSize, "JpegMJpegCsc");
 
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
@@ -320,7 +320,7 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 	}
 
 	free(jpegBuf);
-	return hleLogSuccessX(Log::ME, getWidthHeight(width, height));
+	return hleLogDebug(Log::ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
@@ -411,7 +411,7 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return hleLogSuccessX(Log::ME, getYCbCrBufferSize(width, height));
+	return hleLogDebug(Log::ME, getYCbCrBufferSize(width, height));
 }
 
 static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode) {
@@ -533,7 +533,7 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 
 	// Rough estimate based on observed timing.
 	usec += (width * height) / 14;
-	return hleLogSuccessX(Log::ME, getWidthHeight(width, height));
+	return hleLogDebug(Log::ME, getWidthHeight(width, height));
 }
 
 static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
@@ -578,7 +578,7 @@ static int sceJpegCreateMJpeg(int width, int height) {
 	mjpegWidth = width;
 	mjpegHeight = height;
 
-	return hleLogSuccessInfoI(Log::ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static int sceJpegDeleteMJpeg() {
@@ -588,7 +588,7 @@ static int sceJpegDeleteMJpeg() {
 		return hleLogError(Log::ME, ERROR_JPEG_INVALID_STATE, "not yet created");
 
 	mjpegInited = 1;
-	return hleLogSuccessInfoI(Log::ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static int sceJpegInitMJpeg() {
@@ -598,7 +598,7 @@ static int sceJpegInitMJpeg() {
 	// If it was -1, it's from an old save state, avoid double init error but assume inited.
 	if (mjpegInited == 0)
 		mjpegInited = 1;
-	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mjpeg init", 130);
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mjpeg init", 130);
 }
 
 static int sceJpegFinishMJpeg() {
@@ -609,7 +609,7 @@ static int sceJpegFinishMJpeg() {
 
 	// Even from an old save state, if we see this we leave compat mode.
 	mjpegInited = 0;
-	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mjpeg finish", 120);
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mjpeg finish", 120);
 }
 
 static int sceJpegMJpegCscWithColorOption() {

@@ -406,7 +406,7 @@ static int UtilityInitDialog(int type) {
 	accessThreadFinished = true;
 	accessThreadState = "init finished";
 	if (dialog)
-		return hleLogSuccessI(Log::sceUtility, dialog->FinishInit());
+		return hleLogDebug(Log::sceUtility, dialog->FinishInit());
 	return hleLogError(Log::sceUtility, 0, "invalid dialog type?");
 }
 
@@ -415,7 +415,7 @@ static int UtilityFinishDialog(int type) {
 	accessThreadFinished = true;
 	accessThreadState = "shutdown finished";
 	if (dialog)
-		return hleLogSuccessI(Log::sceUtility, dialog->FinishShutdown());
+		return hleLogDebug(Log::sceUtility, dialog->FinishShutdown());
 	return hleLogError(Log::sceUtility, 0, "invalid dialog type?");
 }
 
@@ -438,7 +438,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	}
 
 	ActivateDialog(UtilityDialogType::SAVEDATA);
-	return hleLogSuccessX(Log::sceUtility, saveDialog->Init(paramAddr));
+	return hleLogDebug(Log::sceUtility, saveDialog->Init(paramAddr));
 }
 
 static int sceUtilitySavedataShutdownStart() {
@@ -448,7 +448,7 @@ static int sceUtilitySavedataShutdownStart() {
 	DeactivateDialog();
 	int ret = saveDialog->Shutdown();
 	hleEatCycles(30000);
-	return hleLogSuccessX(Log::sceUtility, ret);
+	return hleLogDebug(Log::sceUtility, ret);
 }
 
 static int sceUtilitySavedataGetStatus() {
@@ -462,9 +462,9 @@ static int sceUtilitySavedataGetStatus() {
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogSuccessI(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 static int sceUtilitySavedataUpdate(int animSpeed) {
@@ -472,7 +472,7 @@ static int sceUtilitySavedataUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	int result = hleLogSuccessI(Log::sceUtility, saveDialog->Update(animSpeed));
+	int result = hleLogDebug(Log::sceUtility, saveDialog->Update(animSpeed));
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
 	return result;
@@ -486,13 +486,13 @@ static u32 sceUtilityLoadAvModule(u32 module) {
 	
 	if (module == 0)
 		JpegNotifyLoadStatus(1);
-	return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility av module loaded", 25000);
+	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module) {
 	if (module == 0)
 		JpegNotifyLoadStatus(-1);
-	return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility av module unloaded", 800);
+	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module unloaded", 800);
 }
 
 static const ModuleLoadInfo *__UtilityModuleInfo(int module) {
@@ -536,9 +536,9 @@ static u32 sceUtilityLoadModule(u32 module) {
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
-		return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility module loaded", 130);
+		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module loaded", 130);
 	else
-		return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility module loaded", 25000);
+		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadModule(u32 module) {
@@ -560,9 +560,9 @@ static u32 sceUtilityUnloadModule(u32 module) {
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
-		return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility module unloaded", 110);
+		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module unloaded", 110);
 	else
-		return hleDelayResult(hleLogSuccessInfoI(Log::sceUtility, 0), "utility module unloaded", 400);
+		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module unloaded", 400);
 }
 
 static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
@@ -571,7 +571,7 @@ static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
 	}
 	
 	ActivateDialog(UtilityDialogType::MSG);
-	return hleLogSuccessInfoX(Log::sceUtility, msgDialog->Init(paramAddr));
+	return hleLogInfo(Log::sceUtility, msgDialog->Init(paramAddr));
 }
 
 static int sceUtilityMsgDialogShutdownStart() {
@@ -580,7 +580,7 @@ static int sceUtilityMsgDialogShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessX(Log::sceUtility, msgDialog->Shutdown());
+	return hleLogDebug(Log::sceUtility, msgDialog->Shutdown());
 }
 
 static int sceUtilityMsgDialogUpdate(int animSpeed) {
@@ -590,9 +590,9 @@ static int sceUtilityMsgDialogUpdate(int animSpeed) {
 	
 	int ret = msgDialog->Update(animSpeed);
 	if (ret >= 0)
-		return hleDelayResult(hleLogSuccessX(Log::sceUtility, ret), "msgdialog update", 800);
+		return hleDelayResult(hleLogDebug(Log::sceUtility, ret), "msgdialog update", 800);
 	else
-		return hleLogSuccessX(Log::sceUtility, ret);
+		return hleLogDebug(Log::sceUtility, ret);
 }
 
 static int sceUtilityMsgDialogGetStatus() {
@@ -604,9 +604,9 @@ static int sceUtilityMsgDialogGetStatus() {
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogSuccessI(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 static int sceUtilityMsgDialogAbort() {
@@ -614,7 +614,7 @@ static int sceUtilityMsgDialogAbort() {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	return hleLogSuccessX(Log::sceUtility, msgDialog->Abort());
+	return hleLogDebug(Log::sceUtility, msgDialog->Abort());
 }
 
 
@@ -625,7 +625,7 @@ static int sceUtilityOskInitStart(u32 oskPtr) {
 	}
 	
 	ActivateDialog(UtilityDialogType::OSK);
-	return hleLogSuccessInfoX(Log::sceUtility, oskDialog->Init(oskPtr));
+	return hleLogInfo(Log::sceUtility, oskDialog->Init(oskPtr));
 }
 
 static int sceUtilityOskShutdownStart() {
@@ -634,7 +634,7 @@ static int sceUtilityOskShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessX(Log::sceUtility, oskDialog->Shutdown());
+	return hleLogDebug(Log::sceUtility, oskDialog->Shutdown());
 }
 
 static int sceUtilityOskUpdate(int animSpeed) {
@@ -645,7 +645,7 @@ static int sceUtilityOskUpdate(int animSpeed) {
 	// This is the vblank period, plus a little slack. Needed to fix timing bug in Ghost Recon: Predator.
 	// See issue #12044.
 	hleEatCycles(msToCycles(0.7315 + 0.1));
-	return hleLogSuccessX(Log::sceUtility, oskDialog->Update(animSpeed));
+	return hleLogDebug(Log::sceUtility, oskDialog->Update(animSpeed));
 }
 
 static int sceUtilityOskGetStatus() {
@@ -657,9 +657,9 @@ static int sceUtilityOskGetStatus() {
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogSuccessI(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 
@@ -669,7 +669,7 @@ static int sceUtilityNetconfInitStart(u32 paramsAddr) {
 	}
 	
 	ActivateDialog(UtilityDialogType::NET);
-	return hleLogSuccessInfoI(Log::sceUtility, netDialog->Init(paramsAddr));
+	return hleLogInfo(Log::sceUtility, netDialog->Init(paramsAddr));
 }
 
 static int sceUtilityNetconfShutdownStart() {
@@ -678,7 +678,7 @@ static int sceUtilityNetconfShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessI(Log::sceUtility, netDialog->Shutdown());
+	return hleLogDebug(Log::sceUtility, netDialog->Shutdown());
 }
 
 static int sceUtilityNetconfUpdate(int animSpeed) {
@@ -686,7 +686,7 @@ static int sceUtilityNetconfUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogSuccessI(Log::sceUtility, netDialog->Update(animSpeed));
+	return hleLogDebug(Log::sceUtility, netDialog->Update(animSpeed));
 }
 
 static int sceUtilityNetconfGetStatus() {
@@ -699,9 +699,9 @@ static int sceUtilityNetconfGetStatus() {
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogSuccessI(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 /**
@@ -995,7 +995,7 @@ static int sceUtilityScreenshotGetStatus() {
 		oldStatus = status;
 		return hleLogWarning(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 static int sceUtilityScreenshotContStart(u32 paramAddr) {
@@ -1015,7 +1015,7 @@ static int sceUtilityGamedataInstallInitStart(u32 paramsAddr) {
 	int result = gamedataInstallDialog->Init(paramsAddr);
 	if (result < 0)
 		DeactivateDialog();
-	return hleLogSuccessInfoX(Log::sceUtility, result);
+	return hleLogInfo(Log::sceUtility, result);
 }
 
 static int sceUtilityGamedataInstallShutdownStart() {
@@ -1024,7 +1024,7 @@ static int sceUtilityGamedataInstallShutdownStart() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessX(Log::sceUtility, gamedataInstallDialog->Shutdown());
+	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Shutdown());
 }
 
 static int sceUtilityGamedataInstallUpdate(int animSpeed) {
@@ -1032,7 +1032,7 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
-	return hleLogSuccessX(Log::sceUtility, gamedataInstallDialog->Update(animSpeed));
+	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Update(animSpeed));
 }
 
 static int sceUtilityGamedataInstallGetStatus() {
@@ -1044,7 +1044,7 @@ static int sceUtilityGamedataInstallGetStatus() {
 
 	int status = gamedataInstallDialog->GetStatus();
 	CleanupDialogThreads();
-	return hleLogSuccessI(Log::sceUtility, status);
+	return hleLogDebug(Log::sceUtility, status);
 }
 
 static int sceUtilityGamedataInstallAbort() {
@@ -1053,7 +1053,7 @@ static int sceUtilityGamedataInstallAbort() {
 	}
 	
 	DeactivateDialog();
-	return hleLogSuccessX(Log::sceUtility, gamedataInstallDialog->Abort());
+	return hleLogDebug(Log::sceUtility, gamedataInstallDialog->Abort());
 }
 
 //TODO: should save to config file
@@ -1181,7 +1181,7 @@ static int sceUtilityNpSigninInitStart(u32 paramsPtr) {
 	}
 
 	ActivateDialog(UtilityDialogType::NPSIGNIN);
-	return hleLogSuccessInfoI(Log::sceUtility, npSigninDialog->Init(paramsPtr));
+	return hleLogInfo(Log::sceUtility, npSigninDialog->Init(paramsPtr));
 }
 
 static int sceUtilityNpSigninShutdownStart() {
@@ -1190,7 +1190,7 @@ static int sceUtilityNpSigninShutdownStart() {
 	}
 
 	DeactivateDialog();
-	return hleLogSuccessI(Log::sceUtility, npSigninDialog->Shutdown());
+	return hleLogDebug(Log::sceUtility, npSigninDialog->Shutdown());
 }
 
 static int sceUtilityNpSigninUpdate(int animSpeed) {
@@ -1198,7 +1198,7 @@ static int sceUtilityNpSigninUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogSuccessI(Log::sceUtility, npSigninDialog->Update(animSpeed));
+	return hleLogDebug(Log::sceUtility, npSigninDialog->Update(animSpeed));
 }
 
 static int sceUtilityNpSigninGetStatus() {
@@ -1210,9 +1210,9 @@ static int sceUtilityNpSigninGetStatus() {
 	CleanupDialogThreads();
 	if (oldStatus != status) {
 		oldStatus = status;
-		return hleLogSuccessI(Log::sceUtility, status);
+		return hleLogDebug(Log::sceUtility, status);
 	}
-	return hleLogSuccessVerboseI(Log::sceUtility, status);
+	return hleLogVerbose(Log::sceUtility, status);
 }
 
 static void sceUtilityInstallInitStart(u32 unknown)

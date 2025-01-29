@@ -575,7 +575,7 @@ static int sceHttpCreateRequest(int connectionID, int method, const char *path, 
 
 	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, path? path:"", contentLength));
 	int retid = (int)httpObjects.size();
-	return hleLogSuccessI(Log::sceNet, retid);
+	return hleLogDebug(Log::sceNet, retid);
 }
 
 // FIXME: port type is probably u16 (but passed in a single register anyway, so type doesn't matter)
@@ -592,7 +592,7 @@ static int sceHttpCreateConnection(int templateID, const char *hostString, const
 
 	httpObjects.emplace_back(std::make_shared<HTTPConnection>(templateID, hostString ? hostString : "", scheme ? scheme : "", port, enableKeepalive));
 	int retid = (int)httpObjects.size();
-	return hleLogSuccessI(Log::sceNet, retid);
+	return hleLogDebug(Log::sceNet, retid);
 }
 
 static int sceHttpGetNetworkErrno(int request, u32 errNumPtr) {
@@ -724,7 +724,7 @@ static int sceHttpCreateTemplate(const char *userAgent, int httpVer, int autoPro
 	std::lock_guard<std::mutex> guard(httpLock);
 	httpObjects.push_back(std::make_shared<HTTPTemplate>(userAgent? userAgent:"", httpVer, autoProxyConf));
 	int retid = (int)httpObjects.size();
-	return hleLogSuccessI(Log::sceNet, retid);
+	return hleLogDebug(Log::sceNet, retid);
 }
 
 // Parameter "method" should be one of PSPHttpMethod's listed entries
@@ -746,7 +746,7 @@ static int sceHttpCreateRequestWithURL(int connectionID, int method, const char 
 
 	httpObjects.emplace_back(std::make_shared<HTTPRequest>(connectionID, method, url ? url : "", contentLength));
 	int retid = (int)httpObjects.size();
-	return hleLogSuccessI(Log::sceNet, retid);
+	return hleLogDebug(Log::sceNet, retid);
 }
 
 static int sceHttpCreateConnectionWithURL(int templateID, const char *url, int enableKeepalive) {
@@ -766,7 +766,7 @@ static int sceHttpCreateConnectionWithURL(int templateID, const char *url, int e
 
 	httpObjects.emplace_back(std::make_shared<HTTPConnection>(templateID, baseURL.Host().c_str(), baseURL.Protocol().c_str(), baseURL.Port(), enableKeepalive));
 	int retid = (int)httpObjects.size();
-	return hleLogSuccessI(Log::sceNet, retid);
+	return hleLogDebug(Log::sceNet, retid);
 }
 
 // id: ID of the template or connection

@@ -150,13 +150,13 @@ void __UsbDoState(PointerWrap &p) {
 static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
 	usbStarted = true;
 	UsbUpdateState();
-	return hleLogSuccessInfoI(Log::HLE, 0);
+	return hleLogInfo(Log::HLE, 0);
 }
 
 static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
 	usbStarted = false;
 	UsbUpdateState();
-	return hleLogSuccessInfoI(Log::HLE, 0);
+	return hleLogInfo(Log::HLE, 0);
 }
 
 static int sceUsbGetState() {
@@ -190,7 +190,7 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_EVF_ILPAT, "bad state");
 
 	if (UsbMatchState(state, waitMode)) {
-		return hleLogSuccessX(Log::HLE, UsbCurrentState());
+		return hleLogDebug(Log::HLE, UsbCurrentState());
 	}
 
 	// We'll have to wait as long as it takes.  Cleanup first, just in case.
@@ -199,7 +199,7 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 
 	UsbSetTimeout(PSPPointer<int>::Create(timeoutPtr));
 	__KernelWaitCurThread(WAITTYPE_USB, state, waitMode, timeoutPtr, false, "usb state waited");
-	return hleLogSuccessI(Log::HLE, 0, "waiting");
+	return hleLogDebug(Log::HLE, 0, "waiting");
 }
 
 static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {

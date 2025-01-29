@@ -63,13 +63,13 @@ static int sceNetInetInit() {
 	if (netInetInited)
 		return hleLogError(Log::sceNet, ERROR_NET_INET_ALREADY_INITIALIZED);
 	netInetInited = true;
-	return hleLogSuccessI(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetInetTerm() {
 	WARN_LOG(Log::sceNet, "UNIMPL sceNetInetTerm()");
 	__NetInetShutdown();
-	return hleLogSuccessI(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceNetInetGetErrno() {
@@ -82,7 +82,7 @@ static int sceNetInetGetErrno() {
 
 static int sceNetInetGetPspError() {
 	uint32_t error = convertInetErrno2PSPError(g_inetLastErrno);
-	return hleLogSuccessInfoI(Log::sceNet, error, "returning %s converted to %08x at %08x", convertInetErrno2str(g_inetLastErrno), error, currentMIPS->pc);
+	return hleLogInfo(Log::sceNet, error, "returning %s converted to %08x at %08x", convertInetErrno2str(g_inetLastErrno), error, currentMIPS->pc);
 }
 
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
@@ -96,7 +96,7 @@ static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
 		UpdateErrnoFromHost(socket_errno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
-	return hleLogSuccessI(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, retval);
 }
 
 static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
@@ -107,7 +107,7 @@ static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
 	// TODO: Wait what, we're calling pton in aton?
 	int retval = inet_pton(AF_INET, hostname, (void*)Memory::GetPointer(inAddrPtr));
 	// inet_aton() returns nonzero if the address is valid, zero if not.
-	return hleLogSuccessI(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, retval);
 }
 
 // TODO: Need to find out whether it's possible to get partial output or not, since Coded Arms Contagion is using a small bufsize(4)
@@ -124,7 +124,7 @@ static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsi
 	if (inet_ntop(convertSocketDomainPSP2Host(af), Memory::GetCharPointer(srcInAddrPtr), (char*)Memory::GetCharPointer(dstBufPtr), bufsize) == NULL) {
 		//return hleLogDebug(Log::sceNet, 0, "invalid arg?"); // Temporarily commented out in case it's allowed to have partial output
 	}
-	return hleLogSuccessX(Log::sceNet, dstBufPtr, "%s", safe_string(Memory::GetCharPointer(dstBufPtr)));
+	return hleLogDebug(Log::sceNet, dstBufPtr, "%s", safe_string(Memory::GetCharPointer(dstBufPtr)));
 }
 
 static u32_le sceNetInetInetAddr(const char *hostname) {
@@ -135,7 +135,7 @@ static u32_le sceNetInetInetAddr(const char *hostname) {
 	u32 retval = INADDR_NONE; // inet_addr(hostname); // deprecated?
 	inet_pton(AF_INET, hostname, &retval); // Alternative to the deprecated inet_addr
 
-	return hleLogSuccessX(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, retval);
 }
 
 static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
@@ -169,7 +169,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
 	memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
 	name->sa_family = saddr.addr.sa_family;
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
@@ -202,7 +202,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	// We shouldn't use the returned len here, because the returned len is the actual size needed, which can be larger than the inputted len
 	memcpy(name->sa_data, saddr.addr.sa_data, name->sa_len - (sizeof(name->sa_len) + sizeof(name->sa_family)));
 	name->sa_family = saddr.addr.sa_family;
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
@@ -322,7 +322,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 		UpdateErrnoFromHost(socket_errno, __FUNCTION__);
 		return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
 	}
-	return hleDelayResult(hleLogSuccessI(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
 }
 
 int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
@@ -380,7 +380,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x, availToRecv: %d", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents, (int)getAvailToRecv(fdarray[i].fd));
 	}
 	//hleEatMicro(1000);
-	return hleDelayResult(hleLogSuccessI(Log::sceNet, retval), "workaround until blocking-socket", 1000); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 1000); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
 }
 
 static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
@@ -405,7 +405,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DataToHexString(10, 0, Memory::GetPointer(bufPtr), retval, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
 
-	return hleDelayResult(hleLogSuccessInfoI(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
+	return hleDelayResult(hleLogInfo(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
 }
 
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
@@ -425,7 +425,7 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 		UpdateErrnoFromHost(socket_errno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
-	return hleLogSuccessInfoI(Log::sceNet, retval);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetInetSocket(int domain, int type, int protocol) {
@@ -449,7 +449,7 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	setSockReuseAddrPort(inetSock->sock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
 	setUDPConnReset(inetSock->sock, false);
-	return hleLogSuccessI(Log::sceNet, socket);
+	return hleLogDebug(Log::sceNet, socket);
 }
 
 static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
@@ -469,7 +469,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		switch (optname) {
 		case PSP_NET_INET_SO_NBIO:
 			inetSock->nonblocking = optval;
-			return hleLogSuccessI(Log::sceNet, 0);
+			return hleLogDebug(Log::sceNet, 0);
 		// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),
 		//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
 		/*else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_BROADCAST) {
@@ -479,12 +479,12 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		// TODO: Ignoring SO_REUSEADDR flag to prevent disrupting multiple-instance feature
 		case PSP_NET_INET_SO_REUSEADDR:
 			//memcpy(&sock->reuseaddr, (int*)optval, std::min(sizeof(sock->reuseaddr), optlen));
-			return hleLogSuccessI(Log::sceNet, 0);
+			return hleLogDebug(Log::sceNet, 0);
 
 		// TODO: Ignoring SO_REUSEPORT flag to prevent disrupting multiple-instance feature (not sure if PSP has SO_REUSEPORT or not tho, defined as 15 on Android)
 		case PSP_NET_INET_SO_REUSEPORT: // 15
 			//memcpy(&sock->reuseport, (int*)optval, std::min(sizeof(sock->reuseport), optlen));
-			return hleLogSuccessI(Log::sceNet, 0);
+			return hleLogDebug(Log::sceNet, 0);
 
 		// TODO: Ignoring SO_NOSIGPIPE flag to prevent crashing PPSSPP (not sure if PSP has NOSIGPIPE or not tho, defined as 0x1022 on Darwin)
 		case PSP_NET_INET_SO_NOSIGPIPE: // WARNING: Not sure about this one. But we definitely don't want signals, so we ignore it.
@@ -523,7 +523,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		UpdateErrnoFromHost(socket_errno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
-	return hleLogSuccessI(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, retval);
 }
 
 static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPtr, u32 optlenPtr) {
@@ -543,7 +543,7 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 		//*optlen = std::min(sizeof(sock->nonblocking), *optlen);
 		//memcpy((int*)optval, &sock->nonblocking, *optlen);
 		//if (sock->nonblocking && *optlen>0) *optval = 0x80; // on true, returning 0x80 when retrieved using getsockopt?
-		return hleLogSuccessI(Log::sceNet, 0);
+		return hleLogDebug(Log::sceNet, 0);
 	}
 	// FIXME: Should we ignore SO_BROADCAST flag since we are using fake broadcast (ie. only broadcast to friends),
 	//        But Infrastructure/Online play might need to use broadcast for SSDP and to support LAN MP with real PSP
@@ -557,19 +557,19 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_REUSEADDR) {
 		//*optlen = std::min(sizeof(sock->reuseaddr), *optlen);
 		//memcpy((int*)optval, &sock->reuseaddr, *optlen);
-		return hleLogSuccessI(Log::sceNet, 0);
+		return hleLogDebug(Log::sceNet, 0);
 	}
 	// TODO: Ignoring SO_REUSEPORT flag to prevent disrupting multiple-instance feature (not sure if PSP has SO_REUSEPORT or not tho, defined as 15 on Android)
 	else if (level == PSP_NET_INET_SOL_SOCKET && optname == PSP_NET_INET_SO_REUSEPORT) { // 15
 		//*optlen = std::min(sizeof(sock->reuseport), *optlen);
 		//memcpy((int*)optval, &sock->reuseport, *optlen);
-		return hleLogSuccessI(Log::sceNet, 0);
+		return hleLogDebug(Log::sceNet, 0);
 	}
 	// TODO: Ignoring SO_NOSIGPIPE flag to prevent crashing PPSSPP (not sure if PSP has NOSIGPIPE or not tho, defined as 0x1022 on Darwin)
 	else if (level == PSP_NET_INET_SOL_SOCKET && optname == 0x1022) { // PSP_NET_INET_SO_NOSIGPIPE ?
 		//*optlen = std::min(sizeof(sock->nosigpipe), *optlen);
 		//memcpy((int*)optval, &sock->nosigpipe, *optlen);
-		return hleLogSuccessI(Log::sceNet, 0);
+		return hleLogDebug(Log::sceNet, 0);
 	}
 	int retval = 0;
 	// PSP timeout are a single 32bit value (micro seconds)
@@ -588,7 +588,7 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 		return hleLogError(Log::sceNet, retval);
 	}
 	DEBUG_LOG(Log::sceNet, "SockOpt: OptValue = %d", *optval);
-	return hleLogSuccessI(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, retval);
 }
 
 static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
@@ -649,7 +649,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	saddr.in.sin_port = 0;
 	sendto(socket, dummyPeekBuf64k, 0, MSG_NOSIGNAL, (struct sockaddr*)&saddr, sizeof(saddr));
 	*/
-	return hleLogSuccessInfoI(Log::sceNet, retval);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
@@ -692,7 +692,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 		// We should sniff these messages...
 	}
 
-	return hleLogSuccessInfoI(Log::sceNet, retval, "Connect: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return hleLogInfo(Log::sceNet, retval, "Connect: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 }
 
 static int sceNetInetListen(int socket, int backlog) {
@@ -707,7 +707,7 @@ static int sceNetInetListen(int socket, int backlog) {
 		return hleLogError(Log::sceNet, retval);
 	}
 
-	return hleLogSuccessInfoI(Log::sceNet, retval);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
@@ -746,7 +746,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	}
 	DEBUG_LOG(Log::sceNet, "Accept: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 
-	return hleLogSuccessInfoI(Log::sceNet, newSocketId);
+	return hleLogInfo(Log::sceNet, newSocketId);
 }
 
 static int sceNetInetShutdown(int socket, int how) {
@@ -764,7 +764,7 @@ static int sceNetInetShutdown(int socket, int how) {
 	}
 
 	int retVal = shutdown(inetSock->sock, hostHow);  // no translation
-	return hleLogSuccessInfoI(Log::sceNet, retVal);
+	return hleLogInfo(Log::sceNet, retVal);
 }
 
 static int sceNetInetSocketAbort(int socket) {
@@ -775,7 +775,7 @@ static int sceNetInetSocketAbort(int socket) {
 
 	// FIXME: either using shutdown/close or select? probably using select if blocking mode is being simulated with non-blocking
 	int retVal = shutdown(inetSock->sock, SHUT_RDWR);
-	return hleLogSuccessInfoI(Log::sceNet, retVal);
+	return hleLogInfo(Log::sceNet, retVal);
 }
 
 static int sceNetInetClose(int socket) {
@@ -785,7 +785,7 @@ static int sceNetInetClose(int socket) {
 	}
 
 	g_socketManager.Close(inetSock);
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 // TODO: How is this different than just sceNetInetClose?
@@ -801,7 +801,7 @@ static int sceNetInetCloseWithRST(int socket) {
 	sl.l_linger = 0;	// timeout interval in seconds
 	setsockopt(inetSock->sock, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 	g_socketManager.Close(inetSock);
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
@@ -848,7 +848,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
 
 	// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
-	return hleDelayResult(hleLogSuccessInfoI(Log::sceNet, retval,
+	return hleDelayResult(hleLogInfo(Log::sceNet, retval,
 		"RecvFrom: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port)), "workaround until blocking-socket", 500);
 }
 
@@ -921,7 +921,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 		}
 	}
 
-	return hleLogSuccessInfoI(Log::sceNet, retval, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return hleLogInfo(Log::sceNet, retval, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 }
 
 // Similar to POSIX's sendmsg or Winsock2's WSASendMsg? Are their packets compatible one another?
@@ -1119,7 +1119,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 			return hleLogError(Log::sceNet, retval);
 		}
 	}
-	return hleLogSuccessInfoI(Log::sceNet, retval); // returns number of bytes sent?
+	return hleLogInfo(Log::sceNet, retval); // returns number of bytes sent?
 }
 
 // Similar to POSIX's recvmsg or Mswsock's WSARecvMsg? Are their packets compatible one another?

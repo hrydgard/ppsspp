@@ -69,7 +69,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 	heap->address = addr;
 	heap->alloc.Init(heap->address + 128, heap->size - 128, true);
 	heap->uid = uid;
-	return hleLogSuccessInfoX(Log::sceKernel, uid);
+	return hleLogInfo(Log::sceKernel, uid);
 }
 
 static int sceKernelAllocHeapMemory(int heapId, int size) {
@@ -81,7 +81,7 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 	// There's 8 bytes at the end of every block, reserved.
 	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
 	u32 addr = heap->alloc.Alloc(memSize, true);
-	return hleLogSuccessInfoX(Log::sceKernel, addr);
+	return hleLogInfo(Log::sceKernel, addr);
 }
 
 static int sceKernelDeleteHeap(int heapId) {
@@ -95,7 +95,7 @@ static int sceKernelDeleteHeap(int heapId) {
 	if (allocator)
 		allocator->Free(heap->address);
 	kernelObjects.Destroy<KernelHeap>(heap->uid);
-	return hleLogSuccessInfoX(Log::sceKernel, 0);
+	return hleLogInfo(Log::sceKernel, 0);
 }
 
 static u32 sceKernelPartitionTotalFreeMemSize(int partitionId) {
@@ -126,12 +126,12 @@ static int sceKernelFreeHeapMemory(int heapId, u32 block) {
 	if (!heap)
 		return hleLogError(Log::sceKernel, error, "invalid heapId");
 	if (block == 0) {
-		return hleLogSuccessInfoI(Log::sceKernel, 0, "heapId,0: block");
+		return hleLogInfo(Log::sceKernel, 0, "heapId,0: block");
 	}
 	if (!heap->alloc.FreeExact(block)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid pointer %08x", block);
 	}
-	return hleLogSuccessInfoI(Log::sceKernel, 0, "heapId, block");
+	return hleLogInfo(Log::sceKernel, 0, "heapId, block");
 }
 
 static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 paramsPtr) {

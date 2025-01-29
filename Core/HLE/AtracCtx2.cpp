@@ -128,7 +128,7 @@ int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels
 	} else {
 		bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 	}
-	return hleLogSuccessI(Log::ME, successCode);
+	return hleLogDebug(Log::ME, successCode);
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {

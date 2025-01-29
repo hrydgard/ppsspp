@@ -65,7 +65,7 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 		NotifyMemInfo(MemBlockFlags::WRITE, OutBuffer, stream.total_out, tagData, tagSize);
 	}
 
-	return hleLogSuccessI(Log::HLE, stream.total_out);
+	return hleLogDebug(Log::HLE, stream.total_out);
 }
 
 static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {

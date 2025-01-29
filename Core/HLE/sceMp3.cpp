@@ -224,9 +224,9 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
-		return hleDelayResult(hleLogSuccessI(Log::ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
+		return hleDelayResult(hleLogDebug(Log::ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
 	} else if (pcmBytes == 0) {
-		return hleLogSuccessI(Log::ME, pcmBytes);
+		return hleLogDebug(Log::ME, pcmBytes);
 	}
 	// Should already have logged.
 	return pcmBytes;
@@ -242,7 +242,7 @@ static int sceMp3ResetPlayPosition(u32 mp3) {
 		return hleLogError(Log::ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->AuResetPlayPosition());
+	return hleLogDebug(Log::ME, ctx->AuResetPlayPosition());
 }
 
 static int sceMp3CheckStreamDataNeeded(u32 mp3) {
@@ -255,7 +255,7 @@ static int sceMp3CheckStreamDataNeeded(u32 mp3) {
 		return hleLogError(Log::ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->AuCheckStreamDataNeeded());
+	return hleLogDebug(Log::ME, ctx->AuCheckStreamDataNeeded());
 }
 
 static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
@@ -309,21 +309,21 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	int handle = (int)mp3Map.size();
 	mp3Map[handle] = Au;
 
-	return hleLogSuccessI(Log::ME, handle);
+	return hleLogDebug(Log::ME, handle);
 }
 
 static int sceMp3InitResource() {
 	// TODO: Could validate the utility modules have been loaded?
 	if (resourceInited) {
-		return hleLogSuccessI(Log::ME, 0);
+		return hleLogDebug(Log::ME, 0);
 	}
 	resourceInited = true;
-	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mp3 resource init", 200);
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mp3 resource init", 200);
 }
 
 static int sceMp3TermResource() {
 	if (!resourceInited) {
-		return hleLogSuccessI(Log::ME, 0);
+		return hleLogDebug(Log::ME, 0);
 	}
 
 	// Free any handles that are still open.
@@ -333,7 +333,7 @@ static int sceMp3TermResource() {
 	mp3Map.clear();
 
 	resourceInited = false;
-	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mp3 resource term", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mp3 resource term", 100);
 }
 
 static int __CalculateMp3Channels(int bitval) {
@@ -498,7 +498,7 @@ static int sceMp3Init(u32 mp3) {
 
 	ctx->Version = versionBits;
 
-	return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mp3 init", PARSE_DELAY_MS);
+	return hleDelayResult(hleLogDebug(Log::ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
 
 static int sceMp3GetLoopNum(u32 mp3) {
@@ -511,7 +511,7 @@ static int sceMp3GetLoopNum(u32 mp3) {
 		return hleLogError(Log::ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->LoopNum);
+	return hleLogDebug(Log::ME, ctx->LoopNum);
 }
 
 static int sceMp3GetMaxOutputSample(u32 mp3) {
@@ -526,7 +526,7 @@ static int sceMp3GetMaxOutputSample(u32 mp3) {
 		return hleLogWarning(Log::ME, 0, "no channel available for low level");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->MaxOutputSample);
+	return hleLogDebug(Log::ME, ctx->MaxOutputSample);
 }
 
 static int sceMp3GetSumDecodedSample(u32 mp3) {
@@ -539,7 +539,7 @@ static int sceMp3GetSumDecodedSample(u32 mp3) {
 		return hleLogError(Log::ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->SumDecodedSamples);
+	return hleLogDebug(Log::ME, ctx->SumDecodedSamples);
 }
 
 static int sceMp3SetLoopNum(u32 mp3, int loop) {
@@ -556,7 +556,7 @@ static int sceMp3SetLoopNum(u32 mp3, int loop) {
 		loop = -1;
 
 	ctx->LoopNum = loop;
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static int sceMp3GetMp3ChannelNum(u32 mp3) {
@@ -571,7 +571,7 @@ static int sceMp3GetMp3ChannelNum(u32 mp3) {
 		return hleLogWarning(Log::ME, 0, "no channel available for low level");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->Channels);
+	return hleLogDebug(Log::ME, ctx->Channels);
 }
 
 static int sceMp3GetBitRate(u32 mp3) {
@@ -586,7 +586,7 @@ static int sceMp3GetBitRate(u32 mp3) {
 		return hleLogWarning(Log::ME, 0, "no bitrate available for low level");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->BitRate);
+	return hleLogDebug(Log::ME, ctx->BitRate);
 }
 
 static int sceMp3GetSamplingRate(u32 mp3) {
@@ -601,7 +601,7 @@ static int sceMp3GetSamplingRate(u32 mp3) {
 		return hleLogWarning(Log::ME, 0, "no sample rate available for low level");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->SamplingRate);
+	return hleLogDebug(Log::ME, ctx->SamplingRate);
 }
 
 static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
@@ -614,7 +614,7 @@ static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32
 		return hleLogError(Log::ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr));
+	return hleLogDebug(Log::ME, ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr));
 }
 
 static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
@@ -627,7 +627,7 @@ static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 		return hleLogError(Log::ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->AuNotifyAddStreamData(size));
+	return hleLogDebug(Log::ME, ctx->AuNotifyAddStreamData(size));
 }
 
 static int sceMp3ReleaseMp3Handle(u32 mp3) {
@@ -635,7 +635,7 @@ static int sceMp3ReleaseMp3Handle(u32 mp3) {
 	if (ctx) {
 		delete ctx;
 		mp3Map.erase(mp3);
-		return hleLogSuccessI(Log::ME, 0);
+		return hleLogDebug(Log::ME, 0);
 	} else if (mp3 >= MP3_MAX_HANDLES) {
 		return hleLogError(Log::ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 	}
@@ -664,7 +664,7 @@ static u32 sceMp3GetFrameNum(u32 mp3) {
 		return hleLogError(Log::ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->FrameNum);
+	return hleLogDebug(Log::ME, ctx->FrameNum);
 }
 
 static u32 sceMp3GetMPEGVersion(u32 mp3) {
@@ -698,7 +698,7 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 		return hleLogError(Log::ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
 	}
 
-	return hleLogSuccessI(Log::ME, ctx->AuResetPlayPositionByFrame(frame));
+	return hleLogDebug(Log::ME, ctx->AuResetPlayPositionByFrame(frame));
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
@@ -717,7 +717,7 @@ static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
 	// Indicate that we've run low level init by setting version to 1.
 	ctx->Version = 1;
 
-	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "mp3 low level", 600);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "mp3 low level", 600);
 }
 
 static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {

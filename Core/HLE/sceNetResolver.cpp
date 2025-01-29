@@ -68,7 +68,7 @@ static bool g_netResolverInitialized = true;
 
 static int sceNetResolverInit() {
 	// Hardcoded mHostToAlias entries here have been moved to the infra-dns.json file.
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 void __NetResolverShutdown() {
@@ -79,7 +79,7 @@ void __NetResolverShutdown() {
 static int sceNetResolverTerm() {
 	g_netResolverInitialized = false;
 	__NetResolverShutdown();
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 // Note: timeouts are in seconds
@@ -175,7 +175,7 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 
 	for (int attempt = 0; attempt < retry; ++attempt) {
 		if (const int status = NetResolver_StartNtoA(resolverId, hostnamePtr, inAddrPtr, timeout, retry); status >= 0) {
-			return hleLogSuccessInfoI(Log::sceNet, status);
+			return hleLogInfo(Log::sceNet, status);
 		}
 	}
 	return -1;
@@ -239,7 +239,7 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	};
 
 	Memory::Write_U32(currentNetResolverId, resolverIdPtr);
-	return hleLogSuccessInfoI(Log::sceNet, 0, "ID: %d", Memory::Read_U32(resolverIdPtr));
+	return hleLogInfo(Log::sceNet, 0, "ID: %d", Memory::Read_U32(resolverIdPtr));
 }
 
 static int sceNetResolverStop(u32 resolverId) {
@@ -260,7 +260,7 @@ static int sceNetResolverStop(u32 resolverId) {
 	}
 
 	resolverIter->second.isRunning = false;
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
@@ -276,7 +276,7 @@ static int sceNetResolverDelete(u32 resolverId) {
 	}
 	g_netResolvers.erase(resolverIter);
 
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 const HLEFunction sceNetResolver[] = {
