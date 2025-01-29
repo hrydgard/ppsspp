@@ -897,7 +897,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	return hleLogSuccessI(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 // Free(delete) thread info / data. 
@@ -931,7 +931,7 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
-	return hleDelayResult(hleLogSuccessI(Log::sceNet, 0), "get ether mac", 200);
+	return hleDelayResult(hleLogDebug(Log::sceNet, 0), "get ether mac", 200);
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
@@ -943,11 +943,11 @@ static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 }
 
 static u32 sceWlanDevIsPowerOn() {
-	return hleLogSuccessVerboseI(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogVerbose(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
 }
 
 static u32 sceWlanGetSwitchState() {
-	return hleLogSuccessVerboseI(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogVerbose(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
 }
 
 // Probably a void function, but often returns a useful value.
@@ -1025,7 +1025,7 @@ static int sceNetGetMallocStat(u32 statPtr) {
 
 	*stat = netMallocStat;
 	stat.NotifyWrite("sceNetGetMallocStat");
-	return hleLogSuccessVerboseI(Log::sceNet, 0);
+	return hleLogVerbose(Log::sceNet, 0);
 }
 
 void NetApctl_InitDefaultInfo() {
@@ -1123,7 +1123,7 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	}
 
 	g_netApctlInited = true;
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 int NetApctl_Term() {
@@ -1154,7 +1154,7 @@ int NetApctl_Term() {
 static int sceNetApctlTerm() {
 	int retval = NetApctl_Term();
 	hleEatMicro(adhocDefaultDelay);
-	return hleLogSuccessInfoI(Log::sceNet, retval);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
@@ -1288,7 +1288,7 @@ static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_INVALID_CODE, "apctl invalid code");
 	}
 
-	return hleLogSuccessI(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int NetApctl_AddHandler(u32 handlerPtr, u32 handlerArg) {
@@ -1339,7 +1339,7 @@ static int NetApctl_DelHandler(u32 handlerID) {
 	auto iter = apctlHandlers.find(handlerID);
 	if (iter != apctlHandlers.end()) {
 		apctlHandlers.erase(iter);
-		return hleLogSuccessInfoI(Log::sceNet, 0, "Deleted Apctl handler: %d", handlerID);
+		return hleLogInfo(Log::sceNet, 0, "Deleted Apctl handler: %d", handlerID);
 	} else {
 		return hleLogError(Log::sceNet, -1, "Invalid Apctl handler: %d", handlerID);
 	}
@@ -1372,7 +1372,7 @@ int sceNetApctlConnect(int confId) {
 
 	// hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
 	// TODO: Blocks current thread and wait for a state change to prevent user-triggered connection attempt from causing events to piles up
-	return hleLogSuccessInfoI(Log::sceNet, 0, "connect = %i", ret);
+	return hleLogInfo(Log::sceNet, 0, "connect = %i", ret);
 }
 
 int sceNetApctlDisconnect() {
@@ -1387,7 +1387,7 @@ int sceNetApctlDisconnect() {
 	apctlEvents.clear();
 	__UpdateApctlHandlers(netApctlState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
 	// TODO: Blocks current thread and wait for a state change, but the state should probably need to be changed within 1 frame-time (~16ms) 
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 int NetApctl_GetState() {
@@ -1406,7 +1406,7 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 		// Return Thread Status
 		Memory::Write_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
-		return hleLogSuccessI(Log::sceNet, 0);
+		return hleLogDebug(Log::sceNet, 0);
 	}
 
 	return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
@@ -1422,7 +1422,7 @@ int NetApctl_ScanUser() {
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
 
 	__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_SCANNING, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
-	return hleLogSuccessInfoX(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetApctlScanUser() {
@@ -1465,7 +1465,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			Memory::Write_U32(0, bufAddr + offset - userInfoSize);
 	}
 
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
@@ -1647,13 +1647,13 @@ static int sceNetUpnpGetNatInfo() {
 static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr) {
 	Memory::Write_U32(netDropRate, dropRateAddr);
 	Memory::Write_U32(netDropDuration, dropDurationAddr);
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetSetDropRate(u32 dropRate, u32 dropDuration) {
 	netDropRate = dropRate;
 	netDropDuration = dropDuration;
-	return hleLogSuccessInfoI(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 const HLEFunction sceNet[] = {

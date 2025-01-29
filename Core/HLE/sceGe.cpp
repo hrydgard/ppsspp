@@ -503,7 +503,7 @@ static u32 sceGeSetCallback(u32 structAddr) {
 		hleCall(InterruptManager, u32, sceKernelEnableSubIntr, PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
-	return hleLogSuccessI(Log::sceGe, cbID);
+	return hleLogDebug(Log::sceGe, cbID);
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
@@ -577,7 +577,7 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
 		return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
-	return hleLogSuccessInfoI(Log::sceGe, 0);
+	return hleLogInfo(Log::sceGe, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -607,7 +607,7 @@ static u32 sceGeGetCmd(int cmd) {
 		default:
 			break;
 		}
-		return hleLogSuccessInfoX(Log::sceGe, val);
+		return hleLogInfo(Log::sceGe, val);
 	}
 	return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX);
 }
@@ -634,7 +634,7 @@ const HLEFunction sceGe_user[] = {
 	{0XAB49E76A, &WrapU_UUIU<sceGeListEnQueue>,          "sceGeListEnQueue",             'x', "xxip"},
 	{0X1C0D95A6, &WrapU_UUIU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead",         'x', "xxip"},
 	{0XE0D68148, &WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr",     'i', "xx"  },
-	{0X03444EB4, &WrapI_UU<sceGeListSync>,               "sceGeListSync",                'i', "xx"  },
+	{0X03444EB4, &WrapI_UU<sceGeListSync>,               "sceGeListSync",                'x', "xx"  },
 	{0XB287BD61, &WrapU_U<sceGeDrawSync>,                "sceGeDrawSync",                'x', "x"   },
 	{0XB448EC0D, &WrapI_UU<sceGeBreak>,                  "sceGeBreak",                   'i', "xx"  },
 	{0X4C06E472, &WrapI_V<sceGeContinue>,                "sceGeContinue",                'i', ""    },

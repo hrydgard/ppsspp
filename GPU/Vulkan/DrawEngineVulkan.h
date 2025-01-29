@@ -31,6 +31,7 @@
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
 // won't get any bone data, etc.
 
+#include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -43,14 +44,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Vulkan/StateMappingVulkan.h"
 #include "GPU/Vulkan/VulkanRenderManager.h"
-
-
-// TODO: Move to some appropriate header.
-#ifdef _MSC_VER
-#define NO_INLINE __declspec(noinline)
-#else
-#define NO_INLINE __attribute__((noinline))
-#endif
 
 struct DecVtxFormat;
 struct UVScale;

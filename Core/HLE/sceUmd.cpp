@@ -290,7 +290,7 @@ static int sceUmdActivate(u32 mode, const char *name) {
 	if (mode != 1) {
 		return hleLogError(Log::sceIo, 0, "UNTESTED");
 	}
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static int sceUmdDeactivate(u32 mode, const char *name)
@@ -398,7 +398,7 @@ static int sceUmdWaitDriveStat(u32 stat) {
 		return hleLogDebug(Log::sceIo, 0);
 	}
 
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
@@ -422,7 +422,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 		hleReSchedule("umd stat checked");
 	}
 
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
@@ -446,12 +446,12 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
-		return hleLogSuccessI(Log::sceIo, 0, "waiting");
+		return hleLogDebug(Log::sceIo, 0, "waiting");
 	} else {
 		hleReSchedule("umd stat waited");
 	}
 
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static u32 sceUmdCancelWaitDriveStat() {

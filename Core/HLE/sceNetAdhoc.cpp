@@ -1253,7 +1253,7 @@ u32 sceNetAdhocInit() {
 		deleteAllGMB();
 
 		// Return Success
-		return hleLogSuccessInfoI(Log::sceNet, 0, "at %08x", currentMIPS->pc);
+		return hleLogInfo(Log::sceNet, 0, "at %08x", currentMIPS->pc);
 	}
 	// Already initialized
 	return hleLogWarning(Log::sceNet, ERROR_NET_ADHOC_ALREADY_INITIALIZED, "already initialized");
@@ -1296,7 +1296,7 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !g_adhocServerConnected) {
 		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
-		return hleLogSuccessOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
+		return hleLogDebugOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
 	}
 	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	hleEatMicro(us);
@@ -1322,7 +1322,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	Memory::Write_U32(state, ptrToStatus);
 
 	// Return Success
-	return hleLogSuccessVerboseI(Log::sceNet, 0, "state = %d", state);
+	return hleLogVerbose(Log::sceNet, 0, "state = %d", state);
 }
 
 /**
@@ -1633,7 +1633,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 									// Non-Blocking
 									if (flag) 
-										return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+										return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
 									return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_TIMEOUT, "timeout?"); // ERROR_NET_ADHOC_INVALID_ADDR;
@@ -1879,7 +1879,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 					peerlock.unlock();
 
-					return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space");
+					return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_ENOUGH_SPACE, "not enough space");
 				}
 
 				sinlen = sizeof(sin);
@@ -2269,7 +2269,7 @@ int sceNetAdhocctlScan() {
 
 			if (friendFinderRunning) {
 				AdhocctlRequest req = { OPCODE_SCAN, {0} };
-				return hleLogSuccessOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, us, "adhocctl scan"));
+				return hleLogDebugOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, us, "adhocctl scan"));
 			}
 			else {
 				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
@@ -2522,7 +2522,7 @@ int sceNetAdhocctlDisconnect() {
 	char grpName[9] = { 0 };
 	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	int ret = NetAdhocctl_Disconnect();
-	return hleLogSuccessI(Log::sceNet, ret, "group=%s", grpName);
+	return hleLogDebug(Log::sceNet, ret, "group=%s", grpName);
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
@@ -3023,7 +3023,7 @@ int sceNetAdhocTerm() {
 	int retval = NetAdhoc_Term();
 
 	hleEatMicro(adhocDefaultDelay);
-	return hleLogSuccessInfoI(Log::sceNet, retval);
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
@@ -3113,11 +3113,11 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 		}
 
 		// Invalid Arguments
-		return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
+		return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 
 	// Library is uninitialized
-	return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
+	return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 
@@ -3221,11 +3221,11 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 		}
 		
 		// Invalid Arguments
-		return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
+		return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
 	
 	// Library is uninitialized
-	return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
+	return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
 
 
@@ -3601,7 +3601,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					changeBlockingMode(newsocket, 1);
 
 					// Return Socket
-					return hleLogSuccessI(Log::sceNet, i + 1, "Established (%s:%u) - state: %d", ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
+					return hleLogDebug(Log::sceNet, i + 1, "Established (%s:%u) - state: %d", ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
 				}
 
 				// Free Memory
@@ -3699,26 +3699,26 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 
 					// Action would block
 					if (flag)
-						return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Timeout
-					return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_TIMEOUT, "timeout");
+					return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_TIMEOUT, "timeout");
 				}
 
 				// Client Socket
-				return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_NOT_LISTENED, "not listened");
+				return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_LISTENED, "not listened");
 			}
 
 			// Invalid Socket
-			return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
+			return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 		}
 
 		// Invalid Arguments
-		return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
+		return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 	}
 	
 	// Library is uninitialized
-	return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
+	return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
 
 int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) {
@@ -4174,7 +4174,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						// Non-Blocking
 						if (flag) 
-							return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+							return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 						
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
@@ -4263,7 +4263,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 							return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
 						}
 
-						return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 					}
 
 					// Free Network Lock
@@ -4376,7 +4376,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
 					if (nonblock)
-						return hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
+						return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 					// Simulate blocking behaviour with non-blocking socket
 					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
@@ -4507,7 +4507,7 @@ static int sceNetAdhocGameModeCreateReplica(const char *mac, u32 dataAddr, int s
 				DEBUG_LOG(Log::sceNet, "GameMode: Blocking Thread %d to Sync initial Master data", __KernelGetCurThread());
 			}
 		}
-		return hleLogSuccessInfoI(Log::sceNet, ret, "success");
+		return hleLogInfo(Log::sceNet, ret, "success");
 	}
 
 	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_NOT_CREATED, "not created");
@@ -5119,7 +5119,7 @@ int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
 	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
 	netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND;
 	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
-	return hleLogSuccessInfoX(Log::sceNet, 0);
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 // Note1: When canceling the progress, Legend Of The Dragon will use DiscoverStop -> AdhocctlDisconnect -> DiscoverTerm (when status changed to 2)

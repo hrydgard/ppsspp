@@ -239,7 +239,7 @@ static int scePowerRegisterCallback(int slot, int cbId) {
 		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | PSP_POWER_CB_BATTERY_FULL;
 		__KernelNotifyCallback(cbId, arg);
 	}
-	return hleLogSuccessOrError(Log::HLE, retval);
+	return hleLogDebugOrError(Log::HLE, retval);
 }
 
 static int scePowerUnregisterCallback(int slotId) {
@@ -326,7 +326,7 @@ static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		break;
 	}
 
-	return hleLogSuccessOrError(Log::HLE, error);
+	return hleLogDebugOrError(Log::HLE, error);
 }
 
 int KernelVolatileMemUnlock(int type) {
@@ -373,7 +373,7 @@ static int sceKernelVolatileMemUnlock(int type) {
 		return error;
 	}
 
-	return hleLogSuccessI(Log::HLE, 0);
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
@@ -483,7 +483,7 @@ static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 		return hleLogDebug(Log::sceMisc, 0, "locked by user config at %i", GetLockedCPUSpeedMhz());
 	}
 	CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
-	return hleLogSuccessI(Log::sceMisc, 0);
+	return hleLogDebug(Log::sceMisc, 0);
 }
 
 static u32 scePowerSetBusClockFrequency(u32 busfreq) {
@@ -508,20 +508,20 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	else
 		busFreq = pllFreq / 2;
 
-	return hleLogSuccessI(Log::sceMisc, 0);
+	return hleLogDebug(Log::sceMisc, 0);
 }
 
 static u32 scePowerGetCpuClockFrequencyInt() {
 	int cpuFreq = CoreTiming::GetClockFrequencyHz() / 1000000;
-	return hleLogSuccessI(Log::sceMisc, cpuFreq);
+	return hleLogDebug(Log::sceMisc, cpuFreq);
 }
 
 static u32 scePowerGetPllClockFrequencyInt() {
-	return hleLogSuccessInfoI(Log::sceMisc, pllFreq / 1000000);
+	return hleLogInfo(Log::sceMisc, pllFreq / 1000000);
 }
 
 static u32 scePowerGetBusClockFrequencyInt() {
-	return hleLogSuccessInfoI(Log::sceMisc, busFreq / 1000000);
+	return hleLogInfo(Log::sceMisc, busFreq / 1000000);
 }
 
 static float scePowerGetCpuClockFrequencyFloat() {

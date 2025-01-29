@@ -54,7 +54,7 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 			*workAreaSz = sz;
 			workAreaSz.NotifyWrite("UriParse");
 		}
-		return hleLogSuccessI(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
+		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);

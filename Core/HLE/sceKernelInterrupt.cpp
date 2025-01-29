@@ -524,7 +524,7 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 	}
 
 	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
-	return hleLogSuccessOrError(Log::sceIntc, error);
+	return hleLogDebugOrError(Log::sceIntc, error);
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
@@ -937,7 +937,7 @@ static u32 sysclib_strncpy(u32 dest, u32 src, u32 size) {
 		*destp++ = 0;
 	}
 
-	return hleLogSuccessX(Log::sceKernel, dest);
+	return hleLogDebug(Log::sceKernel, dest);
 }
 
 static u32 sysclib_strtol(u32 strPtr, u32 endPtrPtr, int base) {	

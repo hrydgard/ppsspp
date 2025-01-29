@@ -296,7 +296,7 @@ static u32 _sceSasCore(u32 core, u32 outAddr) {
 
 	__SasEnqueueMix(outAddr);
 
-	return hleLogSuccessVerboseI(Log::sceSas, delaySasResult(0));
+	return hleLogVerbose(Log::sceSas, delaySasResult(0));
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -315,7 +315,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 
 	__SasEnqueueMix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 
-	return hleLogSuccessVerboseI(Log::sceSas, delaySasResult(0));
+	return hleLogVerbose(Log::sceSas, delaySasResult(0));
 }
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
@@ -643,7 +643,7 @@ static u32 sceSasRevType(u32 core, int type) {
 
 	__SasDrain();
 	sas->SetWaveformEffectType(type);
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasRevParam(u32 core, int delay, int feedback) {
@@ -657,7 +657,7 @@ static u32 sceSasRevParam(u32 core, int delay, int feedback) {
 	__SasDrain();
 	sas->waveformEffect.delay = delay;
 	sas->waveformEffect.feedback = feedback;
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
@@ -668,14 +668,14 @@ static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 	__SasDrain();
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasRevVON(u32 core, int dry, int wet) {
 	__SasDrain();
 	sas->waveformEffect.isDryOn = dry != 0;
 	sas->waveformEffect.isWetOn = wet != 0;
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasGetGrain(u32 core) {
@@ -749,7 +749,7 @@ static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 	v.atrac3.setContext(atrac3Context);
 	Memory::Write_U32(atrac3Context, core + 56 * voiceNum + 20);
 
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int atrac3DataLength) {
@@ -782,7 +782,7 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	v.paused = false;
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
 
-	return hleLogSuccessI(Log::sceSas, 0);
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 void __SasGetDebugStats(char *stats, size_t bufsize) {

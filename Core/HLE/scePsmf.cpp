@@ -793,7 +793,7 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 		delete iter->second;
 	psmfMap[data->headerOffset] = psmf;
 
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetNumberOfStreams(u32 psmfStruct) {
@@ -801,7 +801,7 @@ static u32 scePsmfGetNumberOfStreams(u32 psmfStruct) {
 	if (!psmf) {
 		return hleLogError(Log::ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	return hleLogSuccessI(Log::ME, psmf->numStreams);
+	return hleLogDebug(Log::ME, psmf->numStreams);
 }
 
 static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
@@ -817,7 +817,7 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 		}
 	}
 
-	return hleLogSuccessI(Log::ME, streamNum);
+	return hleLogDebug(Log::ME, streamNum);
 }
 
 static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel) {
@@ -831,7 +831,7 @@ static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u3
 		// Also, returns 0 even when no stream found.
 		return hleLogWarning(Log::ME, 0, "no stream found");
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum) {
@@ -843,7 +843,7 @@ static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamTy
 		// Don't update stream, just bail out.
 		return hleLogWarning(Log::ME, ERROR_PSMF_INVALID_ID, "no stream found");
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
@@ -855,7 +855,7 @@ static u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 		psmf->setStreamNum(psmfStruct, ERROR_PSMF_NOT_INITIALIZED);
 		return hleLogWarning(Log::ME, ERROR_PSMF_INVALID_ID, "bad stream id");
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
@@ -875,7 +875,7 @@ static u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	}
 	Memory::Write_U32(info->videoWidth_ == PsmfStream::USE_PSMF ? psmf->videoWidth : info->videoWidth_, videoInfoAddr);
 	Memory::Write_U32(info->videoHeight_ == PsmfStream::USE_PSMF ? psmf->videoHeight : info->videoHeight_, videoInfoAddr + 4);
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
@@ -895,7 +895,7 @@ static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 	}
 	Memory::Write_U32(info->audioChannels_ == PsmfStream::USE_PSMF ? psmf->audioChannels : info->audioChannels_, audioInfoAddr);
 	Memory::Write_U32(info->audioFrequency_ == PsmfStream::USE_PSMF ? psmf->audioFrequency : info->audioFrequency_, audioInfoAddr + 4);
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
@@ -913,7 +913,7 @@ static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channel
 		Memory::Write_U32(psmf->currentStreamType, typeAddr);
 		Memory::Write_U32(psmf->currentStreamChannel, channelAddr);
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
@@ -1026,7 +1026,7 @@ static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct) {
 	if (psmf->currentStreamNum < 0) {
 		return hleLogError(Log::ME, psmf->currentStreamNum, "invalid stream");
 	}
-	return hleLogSuccessI(Log::ME, psmf->currentStreamNum);
+	return hleLogDebug(Log::ME, psmf->currentStreamNum);
 }
 
 static u32 scePsmfCheckEPMap(u32 psmfStruct)
@@ -1057,7 +1057,7 @@ static u32 scePsmfGetEPWithId(u32 psmfStruct, int epid, u32 entryAddr)
 		*entry = psmf->EPMap[epid];
 		entry.NotifyWrite("PsmfGetEPWithId");
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
@@ -1081,7 +1081,7 @@ static u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 		*entry = psmf->EPMap[epid];
 		entry.NotifyWrite("PsmfGetEPWithTimestamp");
 	}
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
@@ -1154,7 +1154,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	int delayUs = 20000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_INIT, delayUs);
-	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc), "player create", delayUs);
+	return hleDelayResult(hleLogInfo(Log::ME, 0, "psmfplayer create, psmfPlayerLibVersion 0x%0x, psmfPlayerLibcrc %x", psmfPlayerLibVersion, psmfPlayerLibcrc), "player create", delayUs);
 }
 
 static int scePsmfPlayerStop(u32 psmfPlayer) {
@@ -1169,7 +1169,7 @@ static int scePsmfPlayerStop(u32 psmfPlayer) {
 
 	int delayUs = 3000;
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "psmfplayer stop", delayUs);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "psmfplayer stop", delayUs);
 }
 
 static int scePsmfPlayerBreak(u32 psmfPlayer) {
@@ -1293,7 +1293,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 
 	DelayPsmfStateChange(psmfPlayer, PSMF_PLAYER_STATUS_STANDBY, delayUs);
-	return hleDelayResult(hleLogSuccessInfoI(Log::ME, 0), "psmfplayer set", delayUs);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "psmfplayer set", delayUs);
 }
 
 static int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) {
@@ -1627,7 +1627,7 @@ static int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	}
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
-		return hleLogSuccessInfoI(Log::HLE, ERROR_PSMFPLAYER_NO_MORE_DATA, "paused mode");
+		return hleLogInfo(Log::HLE, ERROR_PSMFPLAYER_NO_MORE_DATA, "paused mode");
 	}
 
 	int ret = 0;
@@ -1772,7 +1772,7 @@ static u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr
 	if (Memory::IsValidAddress(audioStreamNumAddr)) {
 		Memory::Write_U32(psmfplayer->audioStreamNum, audioStreamNumAddr);
 	}
-	return hleLogSuccessInfoI(Log::ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufSize)
@@ -1791,7 +1791,7 @@ static int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufS
 	// fake it right now, use tempbuf from memory directly
 	//psmfplayer->tempbuf = tempBufAddr;
 	//psmfplayer->tempbufSize = tempBufSize;
-	return hleLogSuccessInfoI(Log::ME, 0);
+	return hleLogInfo(Log::ME, 0);
 }
 
 static u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpeed)

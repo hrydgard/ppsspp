@@ -1042,14 +1042,14 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	// The game should never see this value, the return value is replaced
 	// by the action. Except if we disable the alloc, in this case we return
 	// the handle correctly here.
-	return hleDelayResult(hleLogSuccessInfoI(Log::sceFont, newLib->handle()), "new fontlib", 30000);
+	return hleDelayResult(hleLogInfo(Log::sceFont, newLib->handle()), "new fontlib", 30000);
 }
 
 static int sceFontDoneLib(u32 fontLibHandle) {
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (fl) {
 		fl->Done();
-		return hleLogSuccessInfoI(Log::sceFont, 0);
+		return hleLogInfo(Log::sceFont, 0);
 	}
 
 	return hleLogWarning(Log::sceFont, 0, "invalid font lib");
@@ -1079,8 +1079,8 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 		*errorCode = 0;
 		// Delay only on the first open.
 		if (fontLib->GetFontRefCount(internalFonts[index]) == 1)
-			return hleDelayResult(hleLogSuccessX(Log::sceFont, font->Handle()), "font open", 10000);
-		return hleLogSuccessX(Log::sceFont, font->Handle());
+			return hleDelayResult(hleLogDebug(Log::sceFont, font->Handle()), "font open", 10000);
+		return hleLogDebug(Log::sceFont, font->Handle());
 	}
 	return 0;
 }
@@ -1118,7 +1118,7 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 	LoadedFont *font = fontLib->OpenFont(f, FONT_OPEN_USERBUFFER, *errorCode);
 	if (font) {
 		*errorCode = 0;
-		return hleLogSuccessX(Log::sceFont, font->Handle());
+		return hleLogDebug(Log::sceFont, font->Handle());
 	}
 	delete f;
 	return hleNoLog(0);
@@ -1158,7 +1158,7 @@ static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u3
 	LoadedFont *font = fontLib->OpenFont(f, openMode, *errorCode);
 	if (font) {
 		*errorCode = 0;
-		return hleLogSuccessInfoX(Log::sceFont, font->Handle());
+		return hleLogInfo(Log::sceFont, font->Handle());
 	}
 
 	delete f;
@@ -1214,7 +1214,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 			if (str == "ltn12.pgf") {
 				optimumFont = internalFonts[j];
 				*errorCode = 0;
-				return hleLogSuccessInfoI(Log::sceFont, GetInternalFontIndex(optimumFont));
+				return hleLogInfo(Log::sceFont, GetInternalFontIndex(optimumFont));
 			}
 		}
 	}
@@ -1248,10 +1248,10 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	}
 	if (optimumFont) {
 		*errorCode = 0;
-		return hleLogSuccessInfoX(Log::sceFont, GetInternalFontIndex(optimumFont) ,"");
+		return hleLogInfo(Log::sceFont, GetInternalFontIndex(optimumFont) ,"");
 	} else {
 		*errorCode = 0;
-		return hleLogSuccessInfoX(Log::sceFont, 0, "");
+		return hleLogInfo(Log::sceFont, 0, "");
 	}
 }
 
@@ -1477,7 +1477,7 @@ static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
 	}
 
 	fl->SetAltCharCode(charCode & 0xFFFF);
-	return hleLogSuccessInfoI(Log::sceFont, 0);
+	return hleLogInfo(Log::sceFont, 0);
 }
 
 static int sceFontFlush(u32 fontHandle) {

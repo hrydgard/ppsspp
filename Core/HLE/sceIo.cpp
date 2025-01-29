@@ -1170,7 +1170,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		params.std.addr = data_addr;
 		params.std.size = size;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
@@ -1301,7 +1301,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 		params.std.addr = data_addr;
 		params.std.size = size;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
@@ -1459,7 +1459,7 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 		params.seek.pos = offset;
 		params.seek.whence = whence;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
@@ -1482,7 +1482,7 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 		params.seek.pos = offset;
 		params.seek.whence = whence;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
@@ -1590,12 +1590,12 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
 		if (sys && !f->isTTY && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
 			// These are fast to open, no delay or even rescheduling happens.
-			return hleLogSuccessI(Log::sceIo, id);
+			return hleLogDebug(Log::sceIo, id);
 		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
-		return hleDelayResult(hleLogSuccessI(Log::sceIo, id), "file opened", delay);
+		return hleDelayResult(hleLogDebug(Log::sceIo, id), "file opened", delay);
 	}
 }
 
@@ -2116,7 +2116,7 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 
 	if (id == -1) {
 		asyncDefaultPriority = priority;
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	}
 
 	u32 error;
@@ -2133,7 +2133,7 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	}
 
 	asyncParams[id].priority = priority;
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static int sceIoCloseAsync(int id) {
@@ -2151,7 +2151,7 @@ static int sceIoCloseAsync(int id) {
 	auto &params = asyncParams[id];
 	params.op = IoAsyncOp::CLOSE;
 	IoStartAsyncThread(id, f);
-	return hleLogSuccessI(Log::sceIo, 0);
+	return hleLogDebug(Log::sceIo, 0);
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
@@ -2216,7 +2216,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	}
 
 	f->asyncResult = fd;
-	return hleLogSuccessI(Log::sceIo, fd);
+	return hleLogDebug(Log::sceIo, fd);
 }
 
 static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
@@ -2281,7 +2281,7 @@ static int sceIoWaitAsync(int id, u32 address) {
 			}
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
-			return hleLogSuccessI(Log::sceIo, 0, "waiting");
+			return hleLogDebug(Log::sceIo, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
 				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
@@ -2293,7 +2293,7 @@ static int sceIoWaitAsync(int id, u32 address) {
 				__IoFreeFd(id, error);
 			}
 
-			return hleLogSuccessI(Log::sceIo, 0, "complete");
+			return hleLogDebug(Log::sceIo, 0, "complete");
 		} else {
 			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
@@ -2317,7 +2317,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
-			return hleLogSuccessI(Log::sceIo, 0, "waiting");
+			return hleLogDebug(Log::sceIo, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -2326,7 +2326,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 				__IoFreeFd(id, error);
 			}
 
-			return hleLogSuccessI(Log::sceIo, 0, "complete");
+			return hleLogDebug(Log::sceIo, 0, "complete");
 		} else {
 			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
@@ -2340,7 +2340,7 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->pendingAsyncResult) {
-			return hleLogSuccessVerboseI(Log::sceIo, 1, "not ready");
+			return hleLogVerbose(Log::sceIo, 1, "not ready");
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -2348,7 +2348,7 @@ static u32 sceIoPollAsync(int id, u32 address) {
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
-			return hleLogSuccessI(Log::sceIo, 0);
+			return hleLogDebug(Log::sceIo, 0);
 		} else {
 			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
@@ -2780,9 +2780,9 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	int usec = 0;
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	if (usec != 0) {
-		return hleDelayResult(hleLogSuccessOrError(Log::sceIo, result), "io ctrl command", usec);
+		return hleDelayResult(hleLogDebugOrError(Log::sceIo, result), "io ctrl command", usec);
 	}
-	return hleLogSuccessOrError(Log::sceIo, result);
+	return hleLogDebugOrError(Log::sceIo, result);
 }
 
 static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
@@ -2801,7 +2801,7 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 		params.ioctl.outAddr = outdataPtr;
 		params.ioctl.outSize = outlen;
 		IoStartAsyncThread(id, f);
-		return hleLogSuccessI(Log::sceIo, 0);
+		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}

@@ -103,7 +103,7 @@ static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const ch
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_PARSE_HTTP_NOT_FOUND, "parse http not found");
 	}
 
-	return hleLogSuccessI(Log::sceNet, len);
+	return hleLogDebug(Log::sceNet, len);
 }
 
 static int sceParseHttpStatusLine(u32 headerAddr, u32 headerLength, u32 httpVersionMajorAddr, u32 httpVersionMinorAddr, u32 httpStatusCodeAddr, u32 httpStatusCommentAddr, u32 httpStatusCommentLengthAddr) {
@@ -166,7 +166,7 @@ static int sceParseHttpStatusLine(u32 headerAddr, u32 headerLength, u32 httpVers
 		return hleLogError(Log::sceNet, -1, "Unknown error");
 	}
 
-	return hleLogSuccessI(Log::sceNet, 0);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 const HLEFunction sceParseHttp[] = {

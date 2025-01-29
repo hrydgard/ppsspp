@@ -696,7 +696,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder();
-	return hleLogSuccessInfoI(Log::ME, successCode, "%s %s audio", codecName, channelName);
+	return hleLogInfo(Log::ME, successCode, "%s %s audio", codecName, channelName);
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
@@ -714,7 +714,7 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	second_.addr = secondBuffer;
 	second_.size = secondBufferSize;
 	second_.fileoffset = secondFileOffset;
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
@@ -727,7 +727,7 @@ int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 
 	*fileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	*desiredSize = track_.fileSize - *fileOffset;
-	return hleLogSuccessI(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {

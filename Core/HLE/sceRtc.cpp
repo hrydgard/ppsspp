@@ -317,7 +317,7 @@ static u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz) {
 
 	hleEatCycles(1900);
 	hleReSchedule("rtc current clock");
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr) {
@@ -339,7 +339,7 @@ static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr) {
 
 	hleEatCycles(2000);
 	hleReSchedule("rtc current clock local");
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static u32 sceRtcSetTick(u32 pspTimePtr, u32 tickPtr) {
@@ -350,7 +350,7 @@ static u32 sceRtcSetTick(u32 pspTimePtr, u32 tickPtr) {
 		return hleLogError(Log::sceRtc, 0, "bad address");
 
 	__RtcTicksToPspTime(*pt, *tick);
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr) {
@@ -363,7 +363,7 @@ static u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr) {
 		return hleLogWarning(Log::sceRtc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid time");
 
 	*tick = __RtcPspTimeToTicks(*pt);
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
@@ -504,7 +504,7 @@ static int sceRtcCheckValid(u32 datePtr) {
 		result = PSP_TIME_INVALID_SECONDS;
 	else if (pt->microsecond >= 1000000UL)
 		result = PSP_TIME_INVALID_MICROSECONDS;
-	return hleLogSuccessI(Log::sceRtc, result);
+	return hleLogDebug(Log::sceRtc, result);
 }
 
 static int sceRtcSetTime_t(u32 datePtr, u32 time) {
@@ -513,7 +513,7 @@ static int sceRtcSetTime_t(u32 datePtr, u32 time) {
 		return hleLogError(Log::sceRtc, 1, "bad address");
 
 	__RtcTicksToPspTime(*pt, time * 1000000ULL + rtcMagicOffset);
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcSetTime64_t(u32 datePtr, u64 time) {
@@ -522,7 +522,7 @@ static int sceRtcSetTime64_t(u32 datePtr, u64 time) {
 		return hleLogError(Log::sceRtc, 1, "bad address");
 
 	__RtcTicksToPspTime(*pt, time * 1000000ULL + rtcMagicOffset);
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcGetTime_t(u32 datePtr, u32 timePtr) {
@@ -532,7 +532,7 @@ static int sceRtcGetTime_t(u32 datePtr, u32 timePtr) {
 		return hleLogError(Log::sceRtc, 1, "bad address");
 
 	*timep = (u32)((__RtcPspTimeToTicks(*pt) - rtcMagicOffset) / 1000000ULL);
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcGetTime64_t(u32 datePtr, u32 timePtr) {
@@ -542,7 +542,7 @@ static int sceRtcGetTime64_t(u32 datePtr, u32 timePtr) {
 		return hleLogError(Log::sceRtc, 1, "bad address");
 
 	*timep = (__RtcPspTimeToTicks(*pt) - rtcMagicOffset) / 1000000ULL;
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcSetDosTime(u32 datePtr, u32 dosTime) {
@@ -561,7 +561,7 @@ static int sceRtcSetDosTime(u32 datePtr, u32 dosTime) {
 	pt->second = (hms << 1) & 0x3E;
 	pt->microsecond = 0;
 
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
@@ -588,7 +588,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
 	int hms = hour | minute | second;
 
 	*dosp = (ymd << 16) | hms;
-	return hleLogSuccessI(Log::sceRtc, 0);
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)

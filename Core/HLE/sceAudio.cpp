@@ -222,7 +222,7 @@ static u32 sceAudioChRelease(u32 chan) {
 	// TODO: Does this error if busy?
 	chans[chan].reset();
 	chans[chan].reserved = false;
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
@@ -287,7 +287,7 @@ static u32 sceAudioOutput2Reserve(u32 sampleCount) {
 	chan.format = PSP_AUDIO_FORMAT_STEREO;
 	chan.reserved = true;
 	__AudioSetSRCFrequency(0);
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
@@ -309,7 +309,7 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_OUTPUT2, true);
 	if (result < 0)
 		return hleLogError(Log::sceAudio, result);
-	return hleLogSuccessI(Log::sceAudio, result);
+	return hleLogDebug(Log::sceAudio, result);
 }
 
 static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
@@ -318,7 +318,7 @@ static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
 	chan.sampleCount = sampleCount;
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioOutput2GetRestSample() {
@@ -331,7 +331,7 @@ static u32 sceAudioOutput2GetRestSample() {
 		// If ChangeLength reduces the size, it still gets output but this return is clamped.
 		size = chan.sampleCount;
 	}
-	return hleLogSuccessI(Log::sceAudio, size);
+	return hleLogDebug(Log::sceAudio, size);
 }
 
 static u32 sceAudioOutput2Release() {
@@ -343,7 +343,7 @@ static u32 sceAudioOutput2Release() {
 
 	chan.reset();
 	chan.reserved = false;
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioSetFrequency(u32 freq) {
@@ -392,7 +392,7 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	chan.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
 	// Zero means default to 44.1kHz.
 	__AudioSetSRCFrequency(freq);
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioSRCChRelease() {
@@ -404,7 +404,7 @@ static u32 sceAudioSRCChRelease() {
 
 	chan.reset();
 	chan.reserved = false;
-	return hleLogSuccessI(Log::sceAudio, 0);
+	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
@@ -425,14 +425,14 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_SRC, true);
 	if (result < 0)
 		return hleLogError(Log::sceAudio, result);
-	return hleLogSuccessI(Log::sceAudio, result);
+	return hleLogDebug(Log::sceAudio, result);
 }
 
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	if (!Memory::IsValidAddress(bufAddr)) {
 		return hleLogError(Log::HLE, -1, "invalid address");
 	}
-	return hleLogSuccessInfoI(Log::HLE, __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT));
+	return hleLogInfo(Log::HLE, __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT));
 }
 
 static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {

@@ -1004,7 +1004,7 @@ int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr) {
 			*status = m->nmp;
 			status.NotifyWrite("MsgPipeStatus");
 		}
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad message pipe");
 	}

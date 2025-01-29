@@ -576,7 +576,7 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 	ctx->isAnalyzed = false;
 	ctx->mediaengine = new MediaEngine();
 
-	return hleDelayResult(hleLogSuccessInfoX(Log::ME, 0), "mpeg create", 29000);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "mpeg create", 29000);
 }
 
 static int sceMpegDelete(u32 mpeg)
@@ -1218,9 +1218,9 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	if (ctx->videoFrameCount <= 1) {
-		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mpeg decode", accumDelay + avcFirstDelayMs);
+		return hleDelayResult(hleLogDebug(Log::ME, 0), "mpeg decode", accumDelay + avcFirstDelayMs);
 	} else {
-		return hleDelayResult(hleLogSuccessI(Log::ME, 0), "mpeg decode", accumDelay + avcDecodeDelayMs);
+		return hleDelayResult(hleLogDebug(Log::ME, 0), "mpeg decode", accumDelay + avcDecodeDelayMs);
 	}
 	//hleEatMicro(3300);
 	//return hleDelayResult(0, "mpeg decode", 200);
@@ -1682,7 +1682,7 @@ static u32 sceMpegFinish()
 }
 
 static u32 sceMpegQueryMemSize() {
-	return hleLogSuccessX(Log::ME, MpegRequiredMem());
+	return hleLogDebug(Log::ME, MpegRequiredMem());
 }
 
 static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
@@ -2159,7 +2159,7 @@ static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 bufferA
 	if (data) {
 		__MpegAvcConvertToYuv420(data, bufferOutputAddr, width, height);
 	}
-	return hleLogSuccessX(Log::ME, (width << 16) | height);
+	return hleLogDebug(Log::ME, (width << 16) | height);
 }
 
 static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)

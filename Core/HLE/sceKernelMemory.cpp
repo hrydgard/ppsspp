@@ -920,7 +920,7 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr) {
 			*status = fpl->nf;
 			status.NotifyWrite("FplStatus");
 		}
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "invalid fpl");
 	}
@@ -1176,7 +1176,7 @@ static int sceKernelPrintf(const char *formatString) {
 		result.resize(result.size() - 1);
 
 	if (supported)
-		return hleLogSuccessInfoI(Log::Printf, 0, "\"%s\"", result.c_str());
+		return hleLogInfo(Log::Printf, 0, "\"%s\"", result.c_str());
 	else
 		return hleLogError(Log::Printf, 0, "UNIMPL fmt (%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 }
@@ -1769,7 +1769,7 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 			*info = vpl->nv;
 			info.NotifyWrite("VplStatus");
 		}
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "invalid vpl");
 	}
@@ -2098,7 +2098,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	tls->alignment = alignment;
 	tls->usage.resize(count, 0);
 
-	return hleLogSuccessInfoI(Log::sceKernel, id);
+	return hleLogInfo(Log::sceKernel, id);
 }
 
 int sceKernelDeleteTlspl(SceUID uid)
@@ -2251,7 +2251,7 @@ int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr) {
 			*info = tls->ntls;
 			info.NotifyWrite("TlsplStatus");
 		}
-		return hleLogSuccessI(Log::sceKernel, 0);
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "invalid tlspl");
 	}

@@ -339,7 +339,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
-	return hleLogSuccessX(Log::sceKernel, id);
+	return hleLogDebug(Log::sceKernel, id);
 }
 
 int sceKernelDeleteMutex(SceUID id)
@@ -673,7 +673,7 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
 		*info = m->nm;
 		info.NotifyWrite("MutexStatus");
 	}
-	return hleLogSuccessI(Log::sceKernel, 0);
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
@@ -1084,7 +1084,7 @@ static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr) {
 		*info = m->nm;
 		info.NotifyWrite("LwMutexStatus");
 	}
-	return hleLogSuccessI(Log::sceKernel, 0);
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr) {

@@ -24,6 +24,8 @@
 
 #if defined(_MSC_VER)
 
+#define NO_INLINE __declspec(noinline)
+
 typedef unsigned __int8 u8;
 typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
@@ -35,6 +37,8 @@ typedef signed __int32 s32;
 typedef signed __int64 s64;
 
 #else
+
+#define NO_INLINE __attribute__((noinline))
 
 #ifdef __SWITCH__
 // Some HID conflicts
