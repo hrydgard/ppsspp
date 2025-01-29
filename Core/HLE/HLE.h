@@ -172,14 +172,15 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
-void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
+void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason);
 
 template <bool leave, typename T>
 [[nodiscard]]
 #ifdef __GNUC__
-__attribute__((format(printf, 8, 9)))
+__attribute__((format(printf, 7, 8)))
 #endif
-T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reasonFmt, ...) {
+NO_INLINE
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, const char *reasonFmt, ...) {
 	if (!GenericLogEnabled(level, t)) {
 		if (leave) {
 			hleLeave();
@@ -205,7 +206,7 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 	} else if (std::is_signed<T>::value) {
 		fmtRes = (s64)res;
 	}
-	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, reasonFmt, formatted_reason);
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, reasonFmt, formatted_reason);
 	if (leave) {
 		hleLeave();
 	}
@@ -214,7 +215,8 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 
 template <bool leave, typename T>
 [[nodiscard]]
-T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, char retmask) {
+NO_INLINE
+T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag) {
 	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
 		if (leave) {
 			hleLeave();
@@ -229,7 +231,7 @@ T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char 
 	} else if (std::is_signed<T>::value) {
 		fmtRes = (s64)res;
 	}
-	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, nullptr, "");
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, nullptr, "");
 	if (leave) {
 		hleLeave();
 	}
@@ -281,18 +283,18 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 // IMPORTANT: These *must* only be used directly in HLE functions. They cannot be used by utility functions
 // called by them. Use regular ERROR_LOG etc for those.
 
-#define hleLogReturnHelper(t, level, res, retmask, ...) \
-	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true>(t, level, (res), __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__) : (res))
+#define hleLogReturnHelper(t, level, res, ...) \
+	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true>(t, level, (res), __FILE__, __LINE__, nullptr, ##__VA_ARGS__) : (res))
 
-#define hleLogError(t, res, ...) hleLogReturnHelper(t, LogLevel::LERROR, res, 'x', ##__VA_ARGS__)
-#define hleLogWarning(t, res, ...) hleLogReturnHelper(t, LogLevel::LWARNING, res, 'x', ##__VA_ARGS__)
-#define hleLogDebug(t, res, ...) hleLogReturnHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
-#define hleLogInfo(t, res, ...) hleLogReturnHelper(t, LogLevel::LINFO, res, 'x', ##__VA_ARGS__)
-#define hleLogVerbose(t, res, ...) hleLogReturnHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
+#define hleLogError(t, res, ...) hleLogReturnHelper(t, LogLevel::LERROR, res, ##__VA_ARGS__)
+#define hleLogWarning(t, res, ...) hleLogReturnHelper(t, LogLevel::LWARNING, res, ##__VA_ARGS__)
+#define hleLogDebug(t, res, ...) hleLogReturnHelper(t, HLE_LOG_LDEBUG, res, ##__VA_ARGS__)
+#define hleLogInfo(t, res, ...) hleLogReturnHelper(t, LogLevel::LINFO, res, ##__VA_ARGS__)
+#define hleLogVerbose(t, res, ...) hleLogReturnHelper(t, HLE_LOG_LVERBOSE, res, ##__VA_ARGS__)
 
 // If res is negative, log warn/error, otherwise log debug.
-#define hleLogDebugOrWarn(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LWARNING : HLE_LOG_LDEBUG), res, 'x', ##__VA_ARGS__)
-#define hleLogDebugOrError(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LERROR : HLE_LOG_LDEBUG), res, 'x', ##__VA_ARGS__)
+#define hleLogDebugOrWarn(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LWARNING : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
+#define hleLogDebugOrError(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LERROR : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
 
-#define hleReportError(t, res, ...) hleDoLog<true>(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportWarning(t, res, ...) hleDoLog<true>(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportError(t, res, ...) hleDoLog<true>(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", ##__VA_ARGS__)
+#define hleReportWarning(t, res, ...) hleDoLog<true>(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", ##__VA_ARGS__)

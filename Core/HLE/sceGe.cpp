@@ -634,7 +634,7 @@ const HLEFunction sceGe_user[] = {
 	{0XAB49E76A, &WrapU_UUIU<sceGeListEnQueue>,          "sceGeListEnQueue",             'x', "xxip"},
 	{0X1C0D95A6, &WrapU_UUIU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead",         'x', "xxip"},
 	{0XE0D68148, &WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr",     'i', "xx"  },
-	{0X03444EB4, &WrapI_UU<sceGeListSync>,               "sceGeListSync",                'i', "xx"  },
+	{0X03444EB4, &WrapI_UU<sceGeListSync>,               "sceGeListSync",                'x', "xx"  },
 	{0XB287BD61, &WrapU_U<sceGeDrawSync>,                "sceGeDrawSync",                'x', "x"   },
 	{0XB448EC0D, &WrapI_UU<sceGeBreak>,                  "sceGeBreak",                   'i', "xx"  },
 	{0X4C06E472, &WrapI_V<sceGeContinue>,                "sceGeContinue",                'i', ""    },

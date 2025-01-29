@@ -982,7 +982,7 @@ void hleLeave() {
 	}  // else warn?
 }
 
-void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
+void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason) {
 	char formatted_args[2048];
 	const char *funcName = "?";
 	u32 funcFlags = 0;
@@ -995,6 +995,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 	const HLEFunction *hleFunc = g_stack[g_stackSize - 1];
 
+	char retmask = hleFunc->retmask;
 	if (stackSize) {
 		_dbg_assert_(hleFunc->argmask != nullptr);
 
@@ -1007,35 +1008,47 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 			truncate_cpy(formatted_args, "...N/A...");
 		}
 
-		// This acts as an override (for error returns which are usually hex.)
-		if (retmask == '\0')
-			retmask = hleFunc->retmask;
-
 		funcName = hleFunc->name;
 		funcFlags = hleFunc->flags;
 	} else {
-		strcpy(formatted_args, "?");
+		formatted_args[0] = '?';
+		formatted_args[1] = '\0';
 	}
 
 	const char *fmt;
-	if (retmask == 'x') {
-		fmt = "%s%08llx=%s(%s)%s";
+	switch (retmask) {
+	case 'x':
 		// Truncate the high bits of the result (from any sign extension.)
 		res = (u32)res;
-	} else if (retmask == 'i' || retmask == 'I') {
+		fmt = "%s%08llx=%s(%s)%s";
+		break;
+	case 'i':
+	case 'I':
 		fmt = "%s%lld=%s(%s)%s";
-	} else if (retmask == 'f') {
+		break;
+	case 'f':
 		// TODO: For now, floats are just shown as bits.
-		fmt = "%s%08x=%s(%s)%s";
-	} else {
+		fmt = "%s%08llx=%s(%s)%s";
+		break;
+	case 'v':
+		// Void. Return value should not be shown.
+		fmt = "%s=%s(%s)%s";
+		break;
+	default:
 		_dbg_assert_msg_(false, "Invalid return format: %c", retmask);
 		fmt = "%s%08llx=%s(%s)%s";
+		break;
 	}
 
-	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) != 0 ? "K " : "";
-	GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) ? "K " : "";
+	if (retmask != 'v') {
+		GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+	} else {
+		// Skipping the res argument for this format string.
+		GenericLog(level, t, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
+	}
 
-	if (reportTag != nullptr) {
+	if (reportTag) {
 		// A blank string means always log, not just once.
 		if (reportTag[0] == '\0' || Reporting::ShouldLogNTimes(reportTag, 1)) {
 			// Here we want the original key, so that different args, etc. group together.
