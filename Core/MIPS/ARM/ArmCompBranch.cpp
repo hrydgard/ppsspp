@@ -690,14 +690,11 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 #else
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc)
-	{
+	if (quickFunc) {
 		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallFuncPointer(op));
 		// Already flushed, so R1 is safe.
 		QuickCallFunction(R1, quickFunc);
-	}
-	else
-	{
+	} else {
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}

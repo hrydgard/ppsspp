@@ -735,6 +735,10 @@ static void PerformCallSyscall(const HLEFunction *info) {
 		RETURN(hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt"));
 	} else {
 		info->func();
+		if (flags & HLE_AUTO_LOG) {
+			int retval = currentMIPS->r[MIPS_REG_V0];
+			retval = hleLogDebugOrError(info->logCat, retval);
+		}
 	}
 
 	// Now, g_stackSize should be back to 0. Enable this for "pedantic mode", will find a lot of problems.
@@ -769,6 +773,7 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
+// This almost never returns a direct function, we nearly always return PerformCallSyscall.
 void *GetQuickSyscallFunc(MIPSOpcode op) {
 	if (coreCollectDebugStats)
 		return nullptr;
@@ -789,6 +794,7 @@ void hleSetFlipTime(double t) {
 	hleFlipTime = t;
 }
 
+// This is only called when debug stats is on. In that case, code is recompiled to call this instead of using GetQuickSyscallFunc to bypass it.
 void CallSyscall(MIPSOpcode op) {
 	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
