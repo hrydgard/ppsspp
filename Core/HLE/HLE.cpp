@@ -1016,15 +1016,28 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	}
 
 	const char *fmt;
+	const char *errStr;
 	switch (retmask) {
 	case 'x':
 		// Truncate the high bits of the result (from any sign extension.)
 		res = (u32)res;
-		fmt = "%s%08llx=%s(%s)%s";
+		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+			// It's a known syscall error code, let's display it as string.
+			res = (u64)(uintptr_t)errStr;
+			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+		} else {
+			fmt = "%s%08llx=%s(%s)%s";
+		}
 		break;
 	case 'i':
 	case 'I':
-		fmt = "%s%lld=%s(%s)%s";
+		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+			// It's a known syscall error code, let's display it as string.
+			res = (u64)(uintptr_t)errStr;
+			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+		} else {
+			fmt = "%s%lld=%s(%s)%s";
+		}
 		break;
 	case 'f':
 		// TODO: For now, floats are just shown as bits.
