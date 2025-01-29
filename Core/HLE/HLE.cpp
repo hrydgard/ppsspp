@@ -1016,15 +1016,26 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	}
 
 	const char *fmt;
+	const char *errStr = nullptr;
 	switch (retmask) {
 	case 'x':
 		// Truncate the high bits of the result (from any sign extension.)
 		res = (u32)res;
-		fmt = "%s%08llx=%s(%s)%s";
+		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+			// It's a known syscall error code, let's display it as string.
+			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+		} else {
+			fmt = "%s%08llx=%s(%s)%s";
+		}
 		break;
 	case 'i':
 	case 'I':
-		fmt = "%s%lld=%s(%s)%s";
+		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+			// It's a known syscall error code, let's display it as string.
+			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+		} else {
+			fmt = "%s%lld=%s(%s)%s";
+		}
 		break;
 	case 'f':
 		// TODO: For now, floats are just shown as bits.
@@ -1042,7 +1053,11 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) ? "K " : "";
 	if (retmask != 'v') {
-		GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+		if (errStr) {
+			GenericLog(level, t, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
+		} else {
+			GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+		}
 	} else {
 		// Skipping the res argument for this format string.
 		GenericLog(level, t, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);

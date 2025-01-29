@@ -55,7 +55,7 @@ public:
 		} else {
 			// Can't fit? Just allocate a new block and fill it up with the new data.
 			int bsize = (int)blockSize_;
-			if (size > bsize) {
+			if ((int)size > bsize) {
 				bsize = (int)size;
 			}
 			Block *b = new Block{};
@@ -102,7 +102,7 @@ public:
 		Block *b = head_;
 		do {
 			int remain = b->tail - b->head;
-			if (remain > peekOff) {
+			if (remain > (int)peekOff) {
 				return b->data[b->head + peekOff];
 			} else {
 				peekOff -= remain;

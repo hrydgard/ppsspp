@@ -97,7 +97,7 @@ bool containsNoCase(std::string_view haystack, std::string_view needle) {
 
 int countChar(std::string_view haystack, char needle) {
 	int count = 0;
-	for (int i = 0; i < haystack.size(); i++) {
+	for (int i = 0; i < (int)haystack.size(); i++) {
 		if (haystack[i] == needle) {
 			count++;
 		}
@@ -111,6 +111,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 	}
 	// First, remove any chars not in A-Za-z0-9_-. This will effectively get rid of any Unicode char, emojis etc too.
 	std::string sanitized;
+	sanitized.reserve(input.size());
 	for (auto c : input) {
 		switch (restriction) {
 		case StringRestriction::None:
@@ -128,7 +129,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 	}
 
 	if (minLength >= 0) {
-		if (sanitized.size() < minLength) {
+		if ((int)sanitized.size() < minLength) {
 			// Just reject it by returning an empty string, as we can't really
 			// conjure up new characters here.
 			return std::string();
@@ -137,7 +138,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 
 	if (maxLength >= 0) {
 		// TODO: Cut at whole UTF-8 chars!
-		if (sanitized.size() > maxLength) {
+		if ((int)sanitized.size() > maxLength) {
 			sanitized.resize(maxLength);
 		}
 	}
