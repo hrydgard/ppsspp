@@ -155,18 +155,16 @@
 		{
 			"name": "SOCOM Fireteam Bravo",
 			"known_working_ids": [
-				"UCUS98615"
+				"UCUS98615",
+				"UCES00038"
 			],
 			"not_working_ids": [
-				"UCKS45021",
-				"UCES00038"
+				"UCKS45021"	
 			],
 			"score": 4,
 			"domains": {
-				"socomftb.online.scee.com": "67.222.156.251",
-				"socomftb2.psp.online.scea.com": "67.222.156.251",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251",
-				"socom-ftb-prod-muis.pdonline.scek.co.kr": "67.222.156.251"
+				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.250",
+				"socomftb.online.scee.com": "67.222.156.250"
 			}
 		},
 		{
@@ -176,39 +174,38 @@
 			],
 			"score": 4,
 			"domains": {
-				"socompsp-pubeta.muis.pdonline.scea.com": "67.222.156.251"
+				"socompsp-pubeta.muis.pdonline.scea.com": "67.222.156.250"
 			}
 		},
 		{
 			"name": "SOCOM Fireteam Bravo 2",
 			"known_working_ids": [
-				"UCUS98645"
+				"UCUS98645",
+				"UCES00543"
 			],
 			"not_working_ids": [
-				"UCES00543",
 				"UCKS45043",
 				"UCUS80171"
 			],
 			"score": 4,
 			"domains": {
-				"socomftb2.online.scee.com": "67.222.156.251",
-				"socomftb2.psp.online.scea.com": "67.222.156.251",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251"
+				"socomftb2.online.scee.com": "67.222.156.250",
+				"socomftb2.psp.online.scea.com": "67.222.156.250"
 			}
 		},
 		{
 			"name": "SOCOM Tactical Strike",
 			"known_working_ids": [
-				"UCUS98649"
+				"UCUS98649",
+				"UCES00855"
 			],
 			"not_working_ids": [
-				"NPUG80220",
-				"UCES00855"
+				"NPUG80220"
 			],
 			"score": 3,
 			"domains": {
-				"socomftb2.psp.online.scea.com": "67.222.156.251",
-				"socompsp-prod.muis.pdonline.scea.com": "67.222.156.251"
+				"socomtacticspsp.online.scee.com": "67.222.156.250",
+				"socomtactics.psp.online.scea.com": "67.222.156.250"
 			}
 		},
 		{
@@ -216,7 +213,10 @@
 			"known_working_ids": [
 				"UCUS98641"
 			],
-			"score": 5
+			"score": 5,
+			"domains": {
+				"syphonfilterdm-prod.pdonline.scea.com": "67.222.156.250"
+			}
 		},
 		{
 			"name": "Driver '76",
