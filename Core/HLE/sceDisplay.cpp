@@ -951,7 +951,7 @@ static void __DisplayWaitForVblanksCB(const char *reason, int vblanks) {
 
 static int sceDisplayWaitVblankStart() {
 	__DisplayWaitForVblanks("vblank start waited", 1);
-	return hleLogDebug(Log::sceDisplay, 0);
+	return 0;
 }
 
 static int sceDisplayWaitVblank() {
@@ -1107,7 +1107,7 @@ const HLEFunction sceDisplay[] = {
 	{0X289D82FE, &WrapI_UIII<sceDisplaySetFramebuf>,          "sceDisplaySetFrameBuf",             'i', "xiii"},
 	{0XEEDA2E54, &WrapU_UUUI<sceDisplayGetFramebuf>,          "sceDisplayGetFrameBuf",             'x', "pppi"},
 	{0X36CDFADE, &WrapI_V<sceDisplayWaitVblank>,              "sceDisplayWaitVblank",              'i', "",   HLE_NOT_DISPATCH_SUSPENDED },
-	{0X984C27E7, &WrapI_V<sceDisplayWaitVblankStart>,         "sceDisplayWaitVblankStart",         'i', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X984C27E7, &WrapI_V<sceDisplayWaitVblankStart>,         "sceDisplayWaitVblankStart",         'i', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_AUTO_LOG, 0, Log::sceDisplay },
 	{0X40F1469C, &WrapI_I<sceDisplayWaitVblankStartMulti>,    "sceDisplayWaitVblankStartMulti",    'i', "i"   },
 	{0X8EB9EC49, &WrapI_V<sceDisplayWaitVblankCB>,            "sceDisplayWaitVblankCB",            'i', "",   HLE_NOT_DISPATCH_SUSPENDED },
 	{0X46F186C3, &WrapI_V<sceDisplayWaitVblankStartCB>,       "sceDisplayWaitVblankStartCB",       'i', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
