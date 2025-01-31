@@ -14,6 +14,7 @@
 #include <shlobj.h>
 #include <commdlg.h>
 #include <cderr.h>
+#include <wrl/client.h>
 
 namespace W32Util {
 
@@ -248,16 +249,16 @@ std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_vi
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc, LPCWSTR lpszIcon, int iconIndex) {
 	HRESULT hres;
-	IShellLink *psl = nullptr;
+	Microsoft::WRL::ComPtr<IShellLink> psl;
 	hres = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	if (FAILED(hres))
 		return hres;
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.
-	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID *)&psl);
+	hres = CoCreateInstance(__uuidof(ShellLink), NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&psl));
 	if (SUCCEEDED(hres) && psl) {
-		IPersistFile *ppf = nullptr;
+		Microsoft::WRL::ComPtr<IPersistFile> ppf;
 
 		// Set the path to the shortcut target and add the description. 
 		psl->SetPath(lpszPathObj);
@@ -269,14 +270,12 @@ static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lp
 
 		// Query IShellLink for the IPersistFile interface, used for saving the 
 		// shortcut in persistent storage. 
-		hres = psl->QueryInterface(IID_IPersistFile, (LPVOID *)&ppf);
+		hres = psl.As(&ppf);
 
 		if (SUCCEEDED(hres) && ppf) {
 			// Save the link by calling IPersistFile::Save. 
 			hres = ppf->Save(lpszPathLink, TRUE);
-			ppf->Release();
 		}
-		psl->Release();
 	}
 	CoUninitialize();
 

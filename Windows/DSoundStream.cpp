@@ -72,22 +72,21 @@ bool DSoundAudioBackend::CreateBuffer() {
 		dsBuffer_->SetCurrentPosition(0);
 		return true;
 	} else {
-		dsBuffer_ = NULL;
+		dsBuffer_ = nullptr;
 		return false;
 	}
 }
 
 int DSoundAudioBackend::RunThread() {
 	if (FAILED(DirectSoundCreate8(0, &ds_, 0))) {
-		ds_ = NULL;
+		ds_ = nullptr;
 		threadData_ = 2;
 		return 1;
 	}
 
 	ds_->SetCooperativeLevel(window_, DSSCL_PRIORITY);
 	if (!CreateBuffer()) {
-		ds_->Release();
-		ds_ = NULL;
+		ds_ = nullptr;
 		threadData_ = 2;
 		return 1;
 	}
@@ -135,8 +134,8 @@ int DSoundAudioBackend::RunThread() {
 	}
 	dsBuffer_->Stop();
 
-	dsBuffer_->Release();
-	ds_->Release();
+	dsBuffer_ = nullptr;
+	ds_ = nullptr;
 
 	threadData_ = 2;
 	return 0;
