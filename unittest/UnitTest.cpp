@@ -1183,7 +1183,18 @@ bool TestCrossSIMD() {
 		EXPECT_EQ_FLOAT(result[i], known_vec_result[i]);
 	}
 
-	// PrintFloats(result, 3);
+	Vec4F32 scale = Vec4F32::Load(a_values);
+	Vec4F32 translate = Vec4F32::Load(b_values);
+
+	TranslateAndScaleInplace(a, scale, translate);
+	a.Store(result);
+
+	static const float known_scale_result[16] = { -47.0f, 16.0f, -1.0f, 36.0f, -103.0f, 41.0f, 1.5f, 81.0f, -146.0f, 61.0f, 3.5f, 117.0f, 14.0f, 30.0f, 0.0f, 0.0f,};
+	for (int i = 0; i < ARRAY_SIZE(known_scale_result); i++) {
+		EXPECT_EQ_FLOAT(result[i], known_scale_result[i]);
+	}
+
+	// PrintFloats(result, 16);
 
 	return true;
 }
