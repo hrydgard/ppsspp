@@ -1144,6 +1144,13 @@ bool TestSIMD() {
 	return true;
 }
 
+static void PrintFloats(const float *f, int count) {
+	for (int i = 0; i < count; i++) {
+		printf("%.1ff, ", f[i]);
+	}
+	printf("\n");
+}
+
 bool TestCrossSIMD() {
 	static const float a_values[16] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f };
 	static const float b_values[16] = { -12.0f, 3.0f, -2.5f, 5.0f, 31.0f, 0.5f, 4.0f, 6.0f, 7.0f, 13.0f, 12.0f, 51.0f, 81.0f, 32.0f };
@@ -1155,21 +1162,28 @@ bool TestCrossSIMD() {
 	Mul4x4By4x4(a, b).Store(result);
 
 	for (int i = 0; i < ARRAY_SIZE(known_result); i++) {
-		// printf("%.1ff, ", result[i]);
 		EXPECT_EQ_FLOAT(result[i], known_result[i]);
 	}
-	printf("\n");
 
 	Mat4x3F32 d = Mat4x3F32(b_values + 2);
 	Mul4x3By4x4(d, a).Store(result);
 
 	static const float known_4x3_result[16] = { 332.5f, 371.0f, 404.5f, 438.0f, 80.5f, 95.0f, 105.5f, 116.0f, 192.0f, 237.0f, 269.0f, 301.0f, 790.0f, 1036.0f, 1185.0f, 1349.0f, };
 	for (int i = 0; i < ARRAY_SIZE(known_4x3_result); i++) {
-		// printf("%.1ff, ", result[i]);
 		EXPECT_EQ_FLOAT(result[i], known_4x3_result[i]);
 	}
-	printf("\n");
 
+	static const float vec_values[4] = { 3.0f, 5.0f, 7.0f, 10000000.0f };
+	Vec4F32 v = Vec4F32::Load(vec_values);
+
+	v.AsVec3ByMatrix44(b).Store3(result);
+
+	static const float known_vec_result[3] = { 249.0f, 134.5f, 96.5f, };
+	for (int i = 0; i < ARRAY_SIZE(known_vec_result); i++) {
+		EXPECT_EQ_FLOAT(result[i], known_vec_result[i]);
+	}
+
+	// PrintFloats(result, 3);
 
 	return true;
 }
