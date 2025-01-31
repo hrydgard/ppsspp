@@ -1222,12 +1222,11 @@ inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translat
 
 inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
 	Mat4F32 result;
-
 	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 4; i++) {
 			float sum = 0.0f;
 			for (int k = 0; k < 4; k++) {
-				sum += b.m[i * 4 + k] * a.m[k * 4 + j];
+				sum += b.m[k * 4 + i] * a.m[j * 4 + k];
 			}
 			result.m[j * 4 + i] = sum;
 		}
