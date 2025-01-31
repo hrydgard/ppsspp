@@ -50,6 +50,7 @@ public class NativeApp {
 
 	public static native void accelerometer(float x, float y, float z);
 
+	public static native void mouse(float x, float y, int button, int action);
 	public static native void mouseDelta(float x, float y);
 	public static native void sendMessageFromJava(String msg, String arg);
 	public static native void sendRequestResult(int seqID, boolean result, String value, int iValue);

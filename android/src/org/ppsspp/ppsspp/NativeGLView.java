@@ -17,6 +17,7 @@ import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceControl;
@@ -60,10 +61,47 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		return ev.getToolType(pointer);
 	}
 
+
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
+	private boolean onMouseEventModern(final MotionEvent ev) {
+		if (!NativeSurfaceView.isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
+			return false;
+		}
+		switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_DOWN: {
+				// Log.i(TAG, "Action down. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 1);
+				break;
+			}
+			case MotionEvent.ACTION_UP: {
+				// Log.i(TAG, "Action up. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 2);
+				break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				// Log.i(TAG, "Action move. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 0, 0);
+				break;
+			}
+			default: {
+				Log.i(TAG, "Unhandled modern mouse action: " + ev.getAction());
+				break;
+			}
+		}
+		return true;
+	}
+
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
+			// This is where workable mouse support arrived.
+			if (onMouseEventModern(ev)) {
+				return true;
+			}
+		}
 
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
