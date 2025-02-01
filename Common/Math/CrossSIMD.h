@@ -504,10 +504,10 @@ struct Vec4S32 {
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
 
-	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ vceqq_s32(v, other.v) }; }
-	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ vcltq_s32(v, other.v) }; }
-	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ vcgtq_s32(v, other.v) }; }
-	Vec4S32 CompareGtZero() const { return Vec4S32{ vcgtq_s32(v, vdupq_n_s32(0)) }; }
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vceqq_s32(v, other.v)) }; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcltq_s32(v, other.v)) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcgtq_s32(v, other.v)) }; }
+	Vec4S32 CompareGtZero() const { return Vec4S32{ vreinterpretq_s32_u32(vcgtq_s32(v, vdupq_n_s32(0))) }; }
 };
 
 struct Vec4F32 {
@@ -520,7 +520,7 @@ struct Vec4F32 {
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
 		const int8x8_t value = (int8x8_t)vdup_n_u32(*((uint32_t *)src));
 		const int16x8_t value16 = vmovl_s8(value);
-		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_u16(value16)), 7) };
+		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_s16(value16)), 7) };
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vld1_s16(src)), 15) };
