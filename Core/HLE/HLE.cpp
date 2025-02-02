@@ -1026,6 +1026,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
 		} else {
 			fmt = "%s%08llx=%s(%s)%s";
+			errStr = nullptr;  // We check errstr later to determine which format to use.
 		}
 		break;
 	case 'i':
@@ -1035,6 +1036,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
 		} else {
 			fmt = "%s%lld=%s(%s)%s";
+			errStr = nullptr;  // We check errstr later to determine which format to use.
 		}
 		break;
 	case 'f':
@@ -1042,8 +1044,8 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		fmt = "%s%08llx=%s(%s)%s";
 		break;
 	case 'v':
-		// Void. Return value should not be shown.
-		fmt = "%s=%s(%s)%s";
+		// Void. Return value should not be shown. (the first %s is the "K " string, see below).
+		fmt = "%s%s(%s)%s";
 		break;
 	default:
 		_dbg_assert_msg_(false, "Invalid return format: %c", retmask);
