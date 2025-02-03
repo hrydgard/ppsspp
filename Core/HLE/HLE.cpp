@@ -1070,11 +1070,21 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		if (reportTag[0] == '\0' || Reporting::ShouldLogNTimes(reportTag, 1)) {
 			// Here we want the original key, so that different args, etc. group together.
 			std::string key = std::string(kernelFlag) + std::string("%08x=") + funcName + "(%s)";
-			if (reason != nullptr)
-				key += std::string(": ") + reason;
+			if (reason != nullptr) {
+				key += ": ";
+				key += reason;
+			}
 
 			char formatted_message[8192];
-			snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+			if (retmask != 'v') {
+				if (errStr) {
+					snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
+				} else {
+					snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+				}
+			} else {
+				snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, funcName, formatted_args, formatted_reason);
+			}
 			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
 		}
 	}
