@@ -880,7 +880,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 			_assert_(renderPass);
-			compileQueue_.push_back(CompileQueueEntry(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
+			compileQueue_.emplace_back(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 			needsCompile = true;
 		}
 	}

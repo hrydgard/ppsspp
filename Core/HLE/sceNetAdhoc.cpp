@@ -1089,10 +1089,11 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 
 void netAdhocValidateLoopMemory() {
 	// Allocate Memory if it wasn't valid/allocated after loaded from old SaveState
-	if (!dummyThreadHackAddr || (dummyThreadHackAddr && strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0)) {
+	if (!dummyThreadHackAddr || strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
 		u32 blockSize = sizeof(dummyThreadCode);
 		dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
-		if (dummyThreadHackAddr) Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
+		if (dummyThreadHackAddr)
+			Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
 	}
 }
 

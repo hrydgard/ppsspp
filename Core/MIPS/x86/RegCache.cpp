@@ -349,7 +349,7 @@ void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
 	if (!regs[i].away && regs[i].location.IsImm()) {
 		_assert_msg_(false, "Bad immediate");
 	}
-	if (!regs[i].away || (regs[i].away && regs[i].location.IsImm())) {
+	if (!regs[i].away || regs[i].location.IsImm()) {
 		X64Reg xr = GetFreeXReg();
 		_assert_msg_(!xregs[xr].dirty, "Xreg already dirty");
 		_assert_msg_(!xregs[xr].allocLocked, "GetFreeXReg returned locked register");
