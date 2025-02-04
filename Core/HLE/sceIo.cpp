@@ -77,11 +77,6 @@ extern "C" {
 #include "Core/HLE/Plugins.h"
 #include "Input/KeyCodes.h"
 
-static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
-static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
-static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
-static const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
-
 // TODO: Should actually report the real free space like we do in the savedata code.
 static constexpr int FAKE_FREE_SPACE = (1024 + 512) * 1024 * 1024;
 
@@ -1657,7 +1652,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(0x10, outPtr + 4);  // Always return game disc (if present)
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F20002:  
@@ -1666,7 +1661,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(0x10, outPtr);  // Assume first sector
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F20003:
@@ -1675,7 +1670,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32((u32) (info.size) - 1, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F100A3:  
@@ -1683,7 +1678,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			return hleDelayResult(hleLogDebug(Log::sceIo, 0), "dev seek", 100);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F100A4:  
@@ -1691,7 +1686,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A5:  
@@ -1700,7 +1695,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			Memory::Write_U32(1, outPtr); // Status (unitary index of the requested read, greater or equal to 1)
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A7:
@@ -1710,7 +1705,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// Place the calling thread in wait state
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A8:
@@ -1721,7 +1716,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// 0x20 - UMD data cache thread is running
 			return hleLogDebug(Log::sceIo, 0); // Return finished
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	case 0x01F300A9:
@@ -1731,7 +1726,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			// Wake up the thread waiting for the UMD data cache handling.
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
-			return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 		break;
 	// TODO: What do these do?  Seem to require a u32 in, no output.
@@ -1758,7 +1753,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				}
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02015804:
@@ -1786,7 +1781,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02015805:	
@@ -1809,7 +1804,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 					return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 				}
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02025806:	
@@ -1820,7 +1815,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_U32(MemoryStick_State(), outPtr);
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02425818:  
@@ -1849,7 +1844,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		case 0x02425824:
@@ -1983,7 +1978,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				}
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
-				return hleLogError(Log::sceIo, ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
 		}
@@ -2575,7 +2570,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
 				// File is PGD file, but key mismatch
 				ERROR_LOG(Log::sceIo, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
-				return ERROR_PGD_INVALID_HEADER;
+				return SCE_ERROR_PGD_INVALID_HEADER;
 			} else {
 				// File is not encrypted.
 				WARN_LOG(Log::sceIo, "%s is not an encrypted PGD file as was expected. Proceeding anyway.", f->fullpath.c_str());
@@ -2645,7 +2640,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			s64 newPos = __IoLseekDest(f, seekInfo->offset, seekInfo->whence, seek);
 			if (newPos < 0 || newPos > f->FileInfo().size) {
 				// Not allowed to seek past the end of the file with this API.
-				return ERROR_ERRNO_IO_ERROR;
+				return SCE_KERNEL_ERROR_ERRNO_IO_ERROR;
 			}
 			pspFileSystem.SeekFile(f->handle, (s32)seekInfo->offset, seek);
 		} else {

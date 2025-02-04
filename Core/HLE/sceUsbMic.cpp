@@ -24,6 +24,7 @@
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUsbMic.h"
@@ -38,11 +39,6 @@
 #include "Common/CommonWindows.h"
 #include "Windows/CaptureDevice.h"
 #endif
-
-enum {
-	SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES = 0x80243806,
-	SCE_USBMIC_ERROR_INVALID_SAMPLERATE  = 0x8024380A,
-};
 
 int eventMicBlockingResume = -1;
 
@@ -258,11 +254,11 @@ static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 
 	INFO_LOG(Log::HLE, "sceUsbMicInputBlocking: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
-		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
 	}
 
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
-		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
 	}
 
 	return __MicInput(maxSamples, sampleRate, bufAddr, USBMIC);
@@ -281,11 +277,11 @@ static int sceUsbMicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 
 	WARN_LOG(Log::HLE, "UNTEST sceUsbMicInput: maxSamples: %d, samplerate: %d, bufAddr: %08x", maxSamples, sampleRate, bufAddr);
 	if (maxSamples <= 0 || (maxSamples & 0x3F) != 0) {
-		return SCE_USBMIC_ERROR_INVALID_MAX_SAMPLES;
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
 	}
 
 	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
-		return SCE_USBMIC_ERROR_INVALID_SAMPLERATE;
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
 	}
 
 	return __MicInput(maxSamples, sampleRate, bufAddr, USBMIC, false);
