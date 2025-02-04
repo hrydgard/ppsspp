@@ -566,7 +566,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExcepti
 // Can't be ignored
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x PC %08x LR %08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x pc=%08x ra=%08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};

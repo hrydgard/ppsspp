@@ -309,7 +309,7 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 			if (!g_Config.bFastMemory) {
 				DISABLE;
 			}
-			DISABLE;
+			DISABLE;  // The code below isn't quite working, so we fall back to interpreter for now.
 
 			gpr.MapReg(rs, true, false);
 			gpr.FlushLockX(ECX);

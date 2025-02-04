@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+
 #include "Common/System/Display.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
@@ -430,9 +431,6 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Rasterizer::Init();
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
-	if (!drawEngine_)
-		return;
-
 	drawEngine_->SetGPUCommon(this);
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
