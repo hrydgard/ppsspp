@@ -59,36 +59,42 @@ static int micState; // 0 means stopped, 1 means started, for save state.
 static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
-	int count = 0;
-	for (auto waitingThread : waitingThreads) {
-		if (waitingThread.threadID == threadID) {
-			SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MICINPUT, error);
-			if (waitID == 0)
-				continue;
-			if (Microphone::isHaveDevice()) {
-				if (Microphone::getReadMicDataLength() >= waitingThread.needSize) {
-					u32 ret = __KernelGetWaitValue(threadID, error);
-					DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
-					__KernelResumeThreadFromWait(threadID, ret);
-					waitingThreads.erase(waitingThreads.begin() + count);
-				} else {
-					u64 waitTimeus = (waitingThread.needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / waitingThread.sampleRate;
-					CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
-				}
-			} else {
-				for (int i = 0; i < waitingThread.needSize; i++) {
-					if (Memory::IsValidAddress(waitingThread.addr + i)) {
-						Memory::Write_U8(i & 0xFF, waitingThread.addr + i);
-					}
-				}
-				u32 ret = __KernelGetWaitValue(threadID, error);
-				DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)waitingThread.threadID);
-				__KernelResumeThreadFromWait(threadID, ret);
-				waitingThreads.erase(waitingThreads.begin() + count);
-				readMicDataLength += waitingThread.needSize;
-			}
+	// On each path, we must either erase-iter-idiom, or increment iter
+	for (auto iter = waitingThreads.begin(); iter != waitingThreads.end();) {
+		if (iter->threadID != threadID) {
+			iter++;
+			continue;
 		}
-		++count;
+
+		SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MICINPUT, error);
+		if (waitID == 0) {
+			iter++;
+			continue;
+		}
+
+		if (Microphone::isHaveDevice()) {
+			if (Microphone::getReadMicDataLength() >= iter->needSize) {
+				u32 ret = __KernelGetWaitValue(threadID, error);
+				DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
+				__KernelResumeThreadFromWait(threadID, ret);
+				iter = waitingThreads.erase(iter);
+			} else {
+				u64 waitTimeus = (iter->needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / iter->sampleRate;
+				CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
+				iter++;
+			}
+		} else {
+			for (int i = 0; i < iter->needSize; i++) {
+				if (Memory::IsValidAddress(iter->addr + i)) {
+					Memory::Write_U8(i & 0xFF, iter->addr + i);
+				}
+			}
+			u32 ret = __KernelGetWaitValue(threadID, error);
+			DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
+			__KernelResumeThreadFromWait(threadID, ret);
+			readMicDataLength += iter->needSize;
+			iter = waitingThreads.erase(iter);
+		}
 	}
 }
 

@@ -228,7 +228,7 @@ void TextDrawer::OncePerFrame() {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
 				if (iter->second->texture)
 					iter->second->texture->Release();
-				cache_.erase(iter++);
+				iter = cache_.erase(iter);
 			} else {
 				iter++;
 			}
@@ -236,7 +236,7 @@ void TextDrawer::OncePerFrame() {
 
 		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
+				iter = sizeCache_.erase(iter);
 			} else {
 				iter++;
 			}

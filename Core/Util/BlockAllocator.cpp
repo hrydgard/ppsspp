@@ -505,7 +505,6 @@ void BlockAllocator::Block::DoState(PointerWrap &p)
 	// Since we use truncate_cpy, the empty space is not zeroed.  Zero it now.
 	// This avoids saving uninitialized memory.
 	size_t tagLen = strlen(tag);
-	if (tagLen != sizeof(tag))
-		memset(tag + tagLen, 0, sizeof(tag) - tagLen);
+	memset(tag + tagLen, 0, sizeof(tag) - tagLen);
 	DoArray(p, tag, sizeof(tag));
 }

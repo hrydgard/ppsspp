@@ -822,7 +822,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
 				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(iter->second.get());
-				secondCache_.erase(iter++);
+				iter = secondCache_.erase(iter);
 			} else {
 				++iter;
 			}
@@ -838,7 +838,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 void TextureCacheCommon::DecimateVideos() {
 	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
 		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
-			iter = videos_.erase(iter++);
+			iter = videos_.erase(iter);
 		} else {
 			++iter;
 		}

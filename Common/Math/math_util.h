@@ -9,18 +9,10 @@
 
 typedef unsigned short float16;
 
-// This ain't a 1.5.10 float16, it's a stupid hack format where we chop 16 bits off a float.
-// This choice is subject to change. Don't think I'm using this for anything at all now anyway.
-// DEPRECATED
-inline float16 FloatToFloat16(float x) {
-	int ix;
-	memcpy(&ix, &x, sizeof(float));
-	return ix >> 16;
-}
-
 inline float Float16ToFloat(float16 ix) {
+	uint32_t extended = ix;
 	float x;
-	memcpy(&x, &ix, sizeof(float));
+	memcpy(&x, &extended, sizeof(float));
 	return x;
 }
 
