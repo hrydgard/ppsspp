@@ -40,10 +40,6 @@ const static u32 GAMEDATA_READS_PER_UPDATE = 20;
 
 const u32 PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS = 1;
 
-const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_REMOVED = 0x80111901;
-const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
-const u32 ERROR_UTILITY_GAMEDATA_INVALID_MODE = 0x80111908;
-
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
 namespace
@@ -113,7 +109,7 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	if (param->mode >= 2) {
-		param->common.result = ERROR_UTILITY_GAMEDATA_INVALID_MODE;
+		param->common.result = SCE_ERROR_UTILITY_GAMEDATA_INVALID_MODE;
 		param.NotifyWrite("DialogResult");
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
