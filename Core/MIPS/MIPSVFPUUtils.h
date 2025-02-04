@@ -232,7 +232,7 @@ static inline int GetNumVectorElements(VectorSize sz) {
 	case V_Pair:   return 2;
 	case V_Triple: return 3;
 	case V_Quad:   return 4;
-	default:       return 0;
+	default:       return 1;   // let's not confuse static analyzers more than necessary. Anyway, in reality this is unreachable.
 	}
 }
 
