@@ -189,7 +189,7 @@ void IconCache::Decimate(int64_t maxSize) {
 			if (iter->second.texture) {
 				iter->second.texture->Release();
 			}
-			cache_.erase(iter);
+			cache_.erase(iter);  // iter is recomputed above, so no need to set it.
 		}
 		sortEntries.pop_back();
 	}
