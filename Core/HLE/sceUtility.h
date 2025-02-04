@@ -50,8 +50,6 @@ class PointerWrap;
 
 // Return values for the SystemParam functions
 #define PSP_SYSTEMPARAM_RETVAL_OK                       0
-#define PSP_SYSTEMPARAM_RETVAL_STRING_TOO_LONG          0x80110102
-#define PSP_SYSTEMPARAM_RETVAL_FAIL                     0x80110103
 
 // Valid values for PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL
 #define PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC     0

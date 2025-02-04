@@ -1055,11 +1055,10 @@ static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 	return 0;
 }
 
-static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
-{
+static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
 	if (!Memory::IsValidRange(destAddr, destSize)) {
 		// TODO: What error code?
-		return -1;
+		return hleLogError(Log::sceUtility, -1);
 	}
 	DEBUG_LOG(Log::sceUtility, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destAddr, destSize);
 	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
@@ -1067,16 +1066,16 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
 		// If there's not enough space for the string and null terminator, fail.
 		if (destSize <= (int)g_Config.sNickName.length())
-			return PSP_SYSTEMPARAM_RETVAL_STRING_TOO_LONG;
+			return SCE_ERROR_UTILITY_STRING_TOO_LONG;
 		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
 		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
 
 	default:
-		return PSP_SYSTEMPARAM_RETVAL_FAIL;
+		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
 
-	return 0;
+	return hleLogDebug(Log::sceUtility, 0);
 }
 
 static u32 sceUtilitySetSystemParamInt(u32 id, u32 value) {
@@ -1144,7 +1143,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 		param = g_Config.iLockParentalLevel;
 		break;
 	default:
-		return hleLogError(Log::sceUtility, PSP_SYSTEMPARAM_RETVAL_FAIL);
+		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
 
 	Memory::Write_U32(param, destaddr);
