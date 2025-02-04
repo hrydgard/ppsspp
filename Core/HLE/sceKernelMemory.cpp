@@ -1844,13 +1844,6 @@ static u32 SysMemUserForUser_945E45DA() {
 
 enum
 {
-	PSP_ERROR_UNKNOWN_TLSPL_ID = 0x800201D0,
-	PSP_ERROR_TOO_MANY_TLSPL   = 0x800201D1,
-	PSP_ERROR_TLSPL_IN_USE     = 0x800201D2,
-};
-
-enum
-{
 	// TODO: Complete untested guesses.
 	PSP_TLSPL_ATTR_FIFO     = 0,
 	PSP_TLSPL_ATTR_PRIORITY = 0x100,
@@ -1875,7 +1868,7 @@ struct TLSPL : public KernelObject
 	const char *GetName() override { return ntls.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "TLS"; }
-	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLSPL_ID; }
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_TLSPL_ID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Tlspl; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Tlspl; }
 
@@ -2052,7 +2045,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	}
 
 	if (index == -1)
-		return hleLogWarning(Log::sceKernel, PSP_ERROR_TOO_MANY_TLSPL, "ran out of indexes for TLS pools");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_TOO_MANY_TLSPL, "ran out of indexes for TLS pools");
 
 	// Unless otherwise specified, we align to 4 bytes (a mips word.)
 	u32 alignment = 4;
@@ -2115,7 +2108,7 @@ int sceKernelDeleteTlspl(SceUID uid)
 		}
 		if (inUse)
 		{
-			error = PSP_ERROR_TLSPL_IN_USE;
+			error = SCE_KERNEL_ERROR_TLSPL_IN_USE;
 			WARN_LOG(Log::sceKernel, "%08x=sceKernelDeleteTlspl(%08x): in use", error, uid);
 			return error;
 		}

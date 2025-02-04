@@ -26,8 +26,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 
-static constexpr uint32_t ERROR_USB_WAIT_TIMEOUT = 0x80243008;
-
 // TODO: Map by driver name
 static bool usbStarted = false;
 // TODO: Check actual status
@@ -82,7 +80,7 @@ static void UsbWaitExecTimeout(u64 userdata, int cycleslate) {
 		*timeout = 0;
 
 	HLEKernel::RemoveWaitingThread(waitingThreads, threadID);
-	__KernelResumeThreadFromWait(threadID, ERROR_USB_WAIT_TIMEOUT);
+	__KernelResumeThreadFromWait(threadID, SCE_ERROR_USB_WAIT_TIMEOUT);
 	__KernelReSchedule("wait timed out");
 }
 

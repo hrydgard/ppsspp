@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -74,7 +76,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	if(messageDialog.type == 0 && !(messageDialog.errorNum & 0x80000000))
 	{
 		flag |= DS_ERROR;
-		messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_ERRORCODEINVALID;
+		messageDialog.result = SCE_ERROR_UTILITY_MSGDIALOG_ERRORCODEINVALID;
 	}
 	else if(size == SCE_UTILITY_MSGDIALOG_SIZE_V2 && messageDialog.type == 1)
 	{
@@ -84,7 +86,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 		if (((messageDialog.options | validOp) ^ validOp) != 0)
 		{
 			flag |= DS_ERROR;
-			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+			messageDialog.result = SCE_ERROR_UTILITY_MSGDIALOG_BADOPTION;
 		}
 	}
 	else if(size == SCE_UTILITY_MSGDIALOG_SIZE_V3)
@@ -93,12 +95,12 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 				!(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_YESNO))
 		{
 			flag |= DS_ERROR;
-			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+			messageDialog.result = SCE_ERROR_UTILITY_MSGDIALOG_BADOPTION;
 		}
 		if (messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED)
 		{
 			flag |= DS_ERROR;
-			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;
+			messageDialog.result = SCE_ERROR_UTILITY_MSGDIALOG_BADOPTION;
 		}
 	}
 

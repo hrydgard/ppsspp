@@ -36,9 +36,6 @@
 
 #define SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED          0x000001B3 // OR of all options coded to display warning
 
-#define SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION           0x80110501
-#define SCE_UTILITY_MSGDIALOG_ERROR_ERRORCODEINVALID    0x80110502
-
 struct pspMessageDialog
 {
 	pspUtilityDialogCommon common;

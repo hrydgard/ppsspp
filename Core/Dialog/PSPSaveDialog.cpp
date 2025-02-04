@@ -31,6 +31,7 @@
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"

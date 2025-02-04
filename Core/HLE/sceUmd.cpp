@@ -272,18 +272,18 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 	if (Memory::IsValidAddress(infoAddr)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
 		if (info->size != 8)
-			return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
 		info->type = PSP_UMD_TYPE_GAME;
 		return hleLogDebug(Log::sceIo, 0);
 	} else {
-		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 	}
 }
 
 static int sceUmdActivate(u32 mode, const char *name) {
 	if (mode < 1 || mode > 2)
-		return hleLogWarning(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
 	__KernelUmdActivate();
 
@@ -297,7 +297,7 @@ static int sceUmdDeactivate(u32 mode, const char *name)
 {
 	// Why 18?  No idea.
 	if (mode > 18)
-		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
 	__KernelUmdDeactivate();
 
@@ -312,9 +312,9 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
 	int retVal = 0;
 
-	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
+	// TODO: If the callback is invalid, return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT.
 	if (!kernelObjects.IsValid(cbId)) {
-		retVal = PSP_ERROR_UMD_INVALID_PARAM;
+		retVal = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	} else {
 		// There's only ever one.
 		driveCBId = cbId;
@@ -325,7 +325,7 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 static int sceUmdUnRegisterUMDCallBack(int cbId)
 {
 	if (cbId != driveCBId) {
-		return hleLogError(Log::sceIo, PSP_ERROR_UMD_INVALID_PARAM);
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 	} else {
 		int retVal;
 		if (sceKernelGetCompiledSdkVersion() > 0x3000000) {

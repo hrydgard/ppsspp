@@ -20,6 +20,7 @@
 #include <cctype>
 #include <cmath>
 #include <algorithm>
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -30,6 +31,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
