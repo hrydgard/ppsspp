@@ -4919,6 +4919,10 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	s32_le *buflen = NULL; //int32_t
 	if (Memory::IsValidAddress(sizeAddr)) buflen = (s32_le *)Memory::GetPointer(sizeAddr);
 
+	if (!nickName || !buflen) {
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_INVALID_ARG);
+	}
+
 	char nckName[ADHOCCTL_NICKNAME_LEN];
 	memcpy(nckName, nickName, ADHOCCTL_NICKNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	nckName[ADHOCCTL_NICKNAME_LEN - 1] = 0;
@@ -4928,8 +4932,6 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	// Library initialized
 	if (netAdhocctlInited)
 	{
-		// Valid Arguments
-		if (nickName != NULL && buflen != NULL)
 		{
 			SceNetAdhocctlPeerInfoEmu *buf = NULL;
 			if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
