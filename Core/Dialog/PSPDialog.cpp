@@ -36,6 +36,21 @@
 
 constexpr float FONT_SCALE = 0.55f;
 
+const char *UtilityDialogTypeToString(UtilityDialogType type) {
+	switch (type) {
+	case UtilityDialogType::NONE: return "NONE";
+	case UtilityDialogType::SAVEDATA: return "SAVEDATA";
+	case UtilityDialogType::MSG: return "MSG";
+	case UtilityDialogType::OSK: return "OSK";
+	case UtilityDialogType::NET: return "NET";
+	case UtilityDialogType::SCREENSHOT: return "SCREENSHOT";
+	case UtilityDialogType::GAMESHARING: return "GAMESHARING";
+	case UtilityDialogType::GAMEDATAINSTALL: return "GAMEDATAINSTALL";
+	case UtilityDialogType::NPSIGNIN: return "NPSIGNIN";
+	default: return "(unknown)";
+	}
+}
+
 void PSPDialog::InitCommon() {
 	UpdateCommon();
 

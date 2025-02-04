@@ -27,20 +27,6 @@ class PointerWrap;
 enum PspAudioFormats { PSP_AUDIO_FORMAT_STEREO = 0, PSP_AUDIO_FORMAT_MONO = 0x10 };
 enum PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48000 };
 
-#define SCE_ERROR_AUDIO_CHANNEL_NOT_INIT                        0x80260001
-#define SCE_ERROR_AUDIO_CHANNEL_BUSY                            0x80260002
-#define SCE_ERROR_AUDIO_INVALID_CHANNEL                         0x80260003
-#define SCE_ERROR_AUDIO_PRIV_REQUIRED                           0x80260004
-#define SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE                   0x80260005
-#define SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED     0x80260006
-#define SCE_ERROR_AUDIO_INVALID_FORMAT                          0x80260007
-#define SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED                    0x80260008
-#define SCE_ERROR_AUDIO_NOT_OUTPUT                              0x80260009
-#define SCE_ERROR_AUDIO_INVALID_FREQUENCY                       0x8026000A
-#define SCE_ERROR_AUDIO_INVALID_VOLUME                          0x8026000B
-#define SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED                0x80268002
-
-
 const u32 PSP_AUDIO_CHANNEL_MAX = 8;
 
 const int PSP_AUDIO_CHANNEL_SRC = 8;

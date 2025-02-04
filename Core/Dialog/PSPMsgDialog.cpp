@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"

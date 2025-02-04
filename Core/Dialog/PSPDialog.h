@@ -29,12 +29,6 @@ class PointerWrap;
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL       1
 #define SCE_UTILITY_DIALOG_RESULT_ABORT        2
 
-const int SCE_ERROR_UTILITY_INVALID_STATUS      = 0x80110001;
-const int SCE_ERROR_UTILITY_INVALID_PARAM_SIZE  = 0x80110004;
-const int SCE_ERROR_UTILITY_WRONG_TYPE          = 0x80110005;
-const int ERROR_UTILITY_INVALID_ADHOC_CHANNEL   = 0x80110104;
-const int ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID = 0x80110103;
-
 struct pspUtilityDialogCommon
 {
 	u32_le size;            /** Size of the structure */
@@ -140,3 +134,5 @@ private:
 	UtilityDialogType dialogType_ = UtilityDialogType::NONE;
 	bool volatileLocked_ = false;
 };
+
+const char *UtilityDialogTypeToString(UtilityDialogType type);

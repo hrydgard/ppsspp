@@ -67,13 +67,6 @@
 #define PSP_USB_MODULE_CAM 4 // Requires PSP_USB_MODULE_ACC loading first
 #define PSP_USB_MODULE_GPS 5 // Requires PSP_USB_MODULE_ACC loading first
 
-const int SCE_ERROR_NETPARAM_BAD_NETCONF = 0x80110601;
-const int SCE_ERROR_NETPARAM_BAD_PARAM = 0x80110604;
-const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
-const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
-const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
-const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
-
 static const int noDeps[] = {0};
 static const int httpModuleDeps[] = {0x0102, 0x0103, 0x0104, 0};
 static const int sslModuleDeps[] = {0x0102, 0};
@@ -481,7 +474,7 @@ static int sceUtilitySavedataUpdate(int animSpeed) {
 static u32 sceUtilityLoadAvModule(u32 module) {
 	if (module > 7) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
-		return SCE_ERROR_AV_MODULE_BAD_ID;
+		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
 	}
 	
 	if (module == 0)
@@ -720,8 +713,7 @@ static int sceUtilityCheckNetParam(int id)
 		available = false;
 	}
 	int ret = available ? 0 : SCE_ERROR_NETPARAM_BAD_NETCONF;
-	DEBUG_LOG(Log::sceUtility, "%08x=sceUtilityCheckNetParam(%d)", ret, id);
-	return ret;
+	return hleLogDebugOrError(Log::sceUtility, ret);
 }
 
 /**
@@ -1087,27 +1079,24 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize)
 	return 0;
 }
 
-static u32 sceUtilitySetSystemParamInt(u32 id, u32 value)
-{
+static u32 sceUtilitySetSystemParamInt(u32 id, u32 value) {
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		if (value != 0 && value != 1 && value != 6 && value != 11) {
-			return ERROR_UTILITY_INVALID_ADHOC_CHANNEL;
+			return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_ADHOC_CHANNEL);
 		}
-		//Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_ADHOC_CHANNEL, value);
+		// Save the setting? We don't really care about this one.
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
-		// Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_WLAN_POWER_SAVE, value);
 		break;
 	default:
 		// PSP can only set above int parameters
-		return ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID;
+		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
-	return 0;
+	return hleLogDebug(Log::sceUtility, 0);
 }
 
-static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
-{
+static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
@@ -1155,12 +1144,11 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.iLockParentalLevel;
 		break;
 	default:
-		return PSP_SYSTEMPARAM_RETVAL_FAIL;
+		return hleLogError(Log::sceUtility, PSP_SYSTEMPARAM_RETVAL_FAIL);
 	}
 
-	INFO_LOG(Log::sceUtility, "sceUtilityGetSystemParamInt(%i, %08x <- %08x)", id, destaddr, param);
 	Memory::Write_U32(param, destaddr);
-	return 0;
+	return hleLogInfo(Log::sceUtility, 0, "param: %08x", param);
 }
 
 static u32 sceUtilityLoadNetModule(u32 module)
@@ -1228,7 +1216,7 @@ static int sceUtilityStoreCheckoutShutdownStart()
 
 static int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
-	ERROR_LOG_REPORT(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	ERROR_LOG(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 
@@ -1268,23 +1256,19 @@ static int sceUtilityGameSharingInitStart(u32 paramsPtr) {
 
 static int sceUtilityGameSharingUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(Log::sceUtility, "sceUtilityGameSharingUpdate(%i): wrong dialog type", animSpeed);
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
-	return 0;
+	return hleLogError(Log::sceUtility, 0, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
 }
 
 static int sceUtilityGameSharingGetStatus() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		DEBUG_LOG(Log::sceUtility, "sceUtilityGameSharingGetStatus(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceUtilityGameSharingGetStatus()");
 	CleanupDialogThreads();
-	return 0;
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static u32 sceUtilityLoadUsbModule(u32 module)
