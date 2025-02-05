@@ -7,15 +7,6 @@
 #include <cstring>
 #include <cstdint>
 
-typedef unsigned short float16;
-
-inline float Float16ToFloat(float16 ix) {
-	uint32_t extended = ix;
-	float x;
-	memcpy(&x, &extended, sizeof(float));
-	return x;
-}
-
 inline bool isPowerOf2(int n) {
 	return n == 1 || (n & (n - 1)) == 0;
 }
@@ -36,6 +27,7 @@ inline uint32_t RoundUpToPowerOf2(uint32_t v, uint32_t power) {
 	return (v + power - 1) & ~(power - 1);
 }
 
+// TODO: this should just use a bitscan.
 inline uint32_t log2i(uint32_t val) {
 	unsigned int ret = -1;
 	while (val != 0) {
