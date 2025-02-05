@@ -5,6 +5,9 @@
 #include "Common/GhidraClient.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
+struct ImConfig;
+struct ImControl;
+
 // Struct viewer visualizes objects data in game memory using types and symbols fetched from a Ghidra project.
 // It also allows to set memory breakpoints and edit field values which is helpful when reverse engineering unknown
 // types.
@@ -24,7 +27,7 @@ class ImStructViewer {
 		std::string name;
 	};
 
-	struct NewWatch {
+	struct WatchForm {
 		char name[256] = {};
 		std::string typeDisplayName;
 		std::string typePathName;
@@ -32,12 +35,17 @@ class ImStructViewer {
 		bool dynamic = false;
 		std::string error;
 		ImGuiTextFilter typeFilter;
+
+		void Clear();
+
+		void SetFrom(const std::unordered_map<std::string, GhidraType>& types, const Watch& watch);
 	};
 
 public:
-	void Draw(MIPSDebugInterface* mipsDebug, bool* open);
+	void Draw(ImConfig& cfg, ImControl& control, MIPSDebugInterface* mipsDebug);
 
 private:
+	ImControl* control_ = nullptr;
 	MIPSDebugInterface* mipsDebug_ = nullptr;
 
 	ImGuiTextFilter globalFilter_;
@@ -51,8 +59,9 @@ private:
 	std::vector<Watch> watches_;
 	int nextWatchId_ = 0; // ID value to use when creating new watch entry
 	int removeWatchId_ = -1; // Watch entry id to be removed on next draw
+	int editWatchId_ = -1; // Watch entry id currently being edited
 	Watch addWatch_; // Temporary variable to store watch entry added from the Globals tab
-	NewWatch newWatch_; // State for the new watch entry UI
+	WatchForm watchForm_; // State for the new and edit watch form UI
 
 	void DrawConnectionSetup();
 
@@ -62,7 +71,9 @@ private:
 
 	void DrawWatch();
 
-	void DrawNewWatchEntry();
+	void DrawWatchForm();
+
+	void ClearWatchForm();
 
 	void DrawType(
 		u32 base,
