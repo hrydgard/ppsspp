@@ -633,14 +633,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		break;
 	}
 
-	// Hide D3D9 when we know it likely won't work well.
-#if PPSSPP_PLATFORM(WINDOWS)
-	caps_.supportsD3D9 = true;
-	if (!strcmp(gl_extensions.model, "Intel(R) Iris(R) Xe Graphics")) {
-		caps_.supportsD3D9 = false;
-	}
-#endif
-
 	// Very rough heuristic!
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
 

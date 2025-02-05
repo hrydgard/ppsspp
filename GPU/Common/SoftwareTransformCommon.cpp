@@ -38,7 +38,7 @@
 
 // There's code here that simply expands transformed RECTANGLES into plain triangles.
 
-// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0 or DX9.
+// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
 // Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
 // this code.
 

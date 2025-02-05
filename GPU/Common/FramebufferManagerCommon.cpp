@@ -1528,7 +1528,7 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
 	// CopyToOutput reverses these, probably to match "up".
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D11) {
 		flags |= OutputFlags::POSITION_FLIPPED;
 	}
 
@@ -1695,7 +1695,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
 		}
 		// DrawActiveTexture reverses these, probably to match "up".
-		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+		if (GetGPUBackend() == GPUBackend::DIRECT3D11) {
 			flags |= OutputFlags::POSITION_FLIPPED;
 		}
 
