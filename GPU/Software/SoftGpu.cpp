@@ -634,7 +634,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	case GPUBackend::OPENGL:
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
 		break;
-	case GPUBackend::DIRECT3D9:
 	case GPUBackend::DIRECT3D11:
 		outputFlags |= OutputFlags::POSITION_FLIPPED;
 		break;
