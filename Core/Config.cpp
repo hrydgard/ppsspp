@@ -530,11 +530,6 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-#if PPSSPP_API(D3D9)
-		if (!failed.count(GPUBackend::DIRECT3D9)) {
-			return (int)GPUBackend::DIRECT3D9;
-		}
-#endif
 
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		sFailedGPUBackends += ",ALL";
@@ -571,7 +566,7 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	if (backend == GPUBackend::DIRECT3D11 && !IsVistaOrHigher())
 		return false;
 #else
-	if (backend == GPUBackend::DIRECT3D11 || backend == GPUBackend::DIRECT3D9)
+	if (backend == GPUBackend::DIRECT3D11)
 		return false;
 #endif
 
