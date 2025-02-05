@@ -2252,9 +2252,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		!(texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551);  // socom
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
-	case ShaderLanguage::HLSL_D3D9:
-		useShaderDepal = false;
-		break;
 	case ShaderLanguage::GLSL_1xx:
 		// Force off for now, in case <= GLSL 1.20 or GLES 2, which don't support switch-case.
 		useShaderDepal = false;

@@ -90,7 +90,6 @@ enum BufferFilter {
 // Software is not among these because it will have one of these perform the blit to display.
 enum class GPUBackend {
 	OPENGL = 0,
-	DIRECT3D9 = 1,
 	DIRECT3D11 = 2,
 	VULKAN = 3,
 };

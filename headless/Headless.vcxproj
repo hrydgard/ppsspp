@@ -455,7 +455,6 @@
     </ClCompile>
     <ClCompile Include="..\Windows\CaptureDevice.cpp" />
     <ClCompile Include="..\Windows\GPU\D3D11Context.cpp" />
-    <ClCompile Include="..\Windows\GPU\D3D9Context.cpp" />
     <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
