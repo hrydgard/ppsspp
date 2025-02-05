@@ -249,7 +249,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -289,7 +289,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
@@ -325,7 +325,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
@@ -359,7 +359,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
@@ -397,7 +397,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -446,7 +446,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -489,7 +489,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -530,7 +530,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;d3d9.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dwmapi.lib;winhttp.lib;uxtheme.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>

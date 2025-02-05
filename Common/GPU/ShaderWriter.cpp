@@ -39,9 +39,6 @@ const char * const hlsl_preamble_fs =
 static const char * const hlsl_d3d11_preamble_fs =
 "#define DISCARD discard\n"
 "#define DISCARD_BELOW(x) clip(x);\n";
-static const char * const hlsl_d3d9_preamble_fs =
-"#define DISCARD clip(-1)\n"
-"#define DISCARD_BELOW(x) clip(x)\n";
 
 static const char * const vulkan_glsl_preamble_vs =
 "#extension GL_ARB_separate_shader_objects : enable\n"
@@ -524,6 +521,8 @@ ShaderWriter &ShaderWriter::LoadTexture2D(const char *sampName, const char *uv, 
 ShaderWriter &ShaderWriter::GetTextureSize(const char *szVariable, const char *texName) {
 	switch (lang_.shaderLanguage) {
 	case HLSL_D3D11:
+		F("  float2 %s; %s.GetDimensions(%s.x, %s.y);", szVariable, texName, szVariable, szVariable);
+		break;
 	default:
 		// Note: we ignore the sampler. make sure you bound samplers to the textures correctly.
 		F("vec2 %s = textureSize(%s, 0);", szVariable, texName);

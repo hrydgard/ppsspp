@@ -1009,8 +1009,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				const std::wstring restOfOption = wideArgs[i].substr(gpuBackend.size());
 
 				// Force software rendering off, as picking gles implies HW acceleration.
-				// Once software rendering supports Direct3D9/11, we can add more options for software,
-				// such as "software-gles", "software-d3d9", and "software-d3d11", or something similar.
+				// We could add more options for software such as "software-gles",
+				// "software-vulkan" and "software-d3d11", or something similar.
 				// For now, software rendering force-activates OpenGL.
 				if (restOfOption == L"directx11") {
 					g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;

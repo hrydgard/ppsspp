@@ -191,7 +191,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -225,7 +225,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -258,7 +258,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
     </Link>
@@ -289,7 +289,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib</AdditionalLibraryDirectories>
     </Link>
@@ -323,7 +323,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -362,7 +362,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -400,7 +400,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -435,7 +435,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
