@@ -10,6 +10,7 @@
 #include "ppsspp_config.h"
 
 #include "stdint.h"
+#include <string.h>
 
 #ifdef __clang__
 // Weird how you can't just use #pragma in a macro.
