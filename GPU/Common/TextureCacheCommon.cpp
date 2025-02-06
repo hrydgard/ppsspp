@@ -3010,7 +3010,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			if (decPitch != stride) {
 				// Rearrange in place to match the requested pitch.
 				// (it can only be larger than w * bpp, and a match is likely.)
-				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
+				// Note! This is bad because it reads the mapped memory!
 				for (int y = scaledH - 1; y >= 0; --y) {
 					memcpy((u8 *)data + stride * y, (u8 *)data + decPitch * y, scaledW *4);
 				}
