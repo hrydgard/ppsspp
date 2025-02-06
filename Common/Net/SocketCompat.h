@@ -118,20 +118,6 @@ inline bool connectInProgress(int errcode) { return (errcode == EAGAIN || errcod
 inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
 
-#ifndef POLL_ERR
-#define POLL_ERR 0x008 /* Error condition. */
-#endif
-#ifndef POLLERR
-#define POLLERR POLL_ERR
-#endif
-
-#ifndef POLL_PRI
-#define POLL_PRI 0x002 /* There is urgent data to read. */
-#endif
-#ifndef POLLPRI
-#define POLLPRI POLL_PRI
-#endif
-
 #ifndef SD_RECEIVE
 #define SD_RECEIVE SHUT_RD //0x00
 #endif
