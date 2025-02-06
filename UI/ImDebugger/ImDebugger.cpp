@@ -1408,7 +1408,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.structViewerOpen) {
-		structViewer_.Draw(mipsDebug, &cfg_.structViewerOpen);
+		structViewer_.Draw(cfg_, control, mipsDebug);
 	}
 
 	if (cfg_.geDebuggerOpen) {

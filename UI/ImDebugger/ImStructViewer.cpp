@@ -12,6 +12,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 
 #include "UI/ImDebugger/ImStructViewer.h"
+#include "UI/ImDebugger/ImDebugger.h"
 
 static auto COLOR_GRAY = ImVec4(0.45f, 0.45f, 0.45f, 1);
 static auto COLOR_RED = ImVec4(1, 0, 0, 1);
@@ -31,7 +32,7 @@ enum class BuiltInType {
 struct BuiltIn {
 	BuiltInType type;
 	ImGuiDataType imGuiType;
-	const char* hexFormat;
+	const char *hexFormat;
 };
 
 static const std::unordered_map<std::string, BuiltIn> knownBuiltIns = {
@@ -72,7 +73,7 @@ static const std::unordered_map<std::string, BuiltIn> knownBuiltIns = {
 	{"/void", {BuiltInType::Void, -1, nullptr}},
 };
 
-static void DrawBuiltInEditPopup(const BuiltIn& builtIn, const u32 address) {
+static void DrawBuiltInEditPopup(const BuiltIn &builtIn, const u32 address) {
 	if (builtIn.imGuiType == -1) {
 		return;
 	}
@@ -101,7 +102,7 @@ static void DrawBuiltInEditPopup(const BuiltIn& builtIn, const u32 address) {
 					break;
 			}
 		}
-		void* data = Memory::GetPointerWriteUnchecked(address);
+		void *data = Memory::GetPointerWriteUnchecked(address);
 		if (builtIn.hexFormat) {
 			ImGui::DragScalar("Value (hex)", builtIn.imGuiType, data, 0.2f, nullptr, nullptr, builtIn.hexFormat);
 		}
@@ -129,7 +130,7 @@ static void DrawIntBuiltInEditPopup(const u32 address, const u32 length) {
 	}
 }
 
-static void DrawBuiltInContent(const BuiltIn& builtIn, const u32 address) {
+static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 	switch (builtIn.type) {
 		case BuiltInType::Bool:
 			ImGui::Text("= %s", Memory::Read_U8(address) ? "true" : "false");
@@ -188,6 +189,32 @@ static u64 ReadMemoryInt(const u32 address, const u32 length) {
 	}
 }
 
+void ImStructViewer::WatchForm::Clear() {
+	memset(name, 0, sizeof(name));
+	memset(expression, 0, sizeof(expression));
+	dynamic = false;
+	error = "";
+	typeFilter.Clear();
+	// Not clearing the actual selected type on purpose here, user will have to reselect one anyway and
+	// maybe there is a chance they will reuse the current one
+}
+
+void ImStructViewer::WatchForm::SetFrom(const std::unordered_map<std::string, GhidraType> &types, const Watch &watch) {
+	if (!types.count(watch.typePathName)) {
+		return;
+	}
+	snprintf(name, sizeof(name), "%s", watch.name.c_str());
+	typeDisplayName = types.at(watch.typePathName).displayName;
+	typePathName = watch.typePathName;
+	if (watch.expression.empty()) {
+		snprintf(expression, sizeof(expression), "0x%x", watch.address);
+	} else {
+		snprintf(expression, sizeof(expression), "%s", watch.expression.c_str());
+	}
+	dynamic = !watch.expression.empty();
+	error = "";
+}
+
 static constexpr int COLUMN_NAME = 0;
 static constexpr int COLUMN_TYPE = 1;
 static constexpr int COLUMN_CONTENT = 2;
@@ -196,10 +223,11 @@ static constexpr int COLUMN_CONTENT = 2;
 static constexpr int MAX_POINTER_ELEMENTS = 0x100000;
 static constexpr u32 INDEXED_MEMBERS_CHUNK_SIZE = 0x1000;
 
-void ImStructViewer::Draw(MIPSDebugInterface* mipsDebug, bool* open) {
+void ImStructViewer::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
+	control_ = &control;
 	mipsDebug_ = mipsDebug;
 	ImGui::SetNextWindowSize(ImVec2(750, 550), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Struct viewer", open) || !mipsDebug->isAlive() || !Memory::IsActive()) {
+	if (!ImGui::Begin("Struct viewer", &cfg.structViewerOpen) || !mipsDebug->isAlive() || !Memory::IsActive()) {
 		ImGui::End();
 		return;
 	}
@@ -271,8 +299,11 @@ void ImStructViewer::DrawStructViewer() {
 		addWatch_ = Watch();
 	}
 	if (removeWatchId_ != -1) {
-		auto pred = [&](const Watch& watch) { return watch.id == removeWatchId_; };
+		auto pred = [&](const Watch &watch) { return watch.id == removeWatchId_; };
 		watches_.erase(std::remove_if(watches_.begin(), watches_.end(), pred), watches_.end());
+		if (editWatchId_ == removeWatchId_) {
+			ClearWatchForm();
+		}
 		removeWatchId_ = -1;
 	}
 
@@ -300,7 +331,7 @@ void ImStructViewer::DrawGlobals() {
 		ImGui::TableSetupColumn("Content");
 		ImGui::TableHeadersRow();
 
-		for (const auto& symbol : ghidraClient_.result.symbols) {
+		for (const auto &symbol : ghidraClient_.result.symbols) {
 			if (!symbol.label || !symbol.userDefined || symbol.dataTypePathName.empty()) {
 				continue;
 			}
@@ -315,7 +346,7 @@ void ImStructViewer::DrawGlobals() {
 }
 
 void ImStructViewer::DrawWatch() {
-	DrawNewWatchEntry();
+	DrawWatchForm();
 	ImGui::Dummy(ImVec2(1, 6));
 
 	watchFilter_.Draw();
@@ -328,7 +359,7 @@ void ImStructViewer::DrawWatch() {
 		ImGui::TableSetupColumn("Content");
 		ImGui::TableHeadersRow();
 
-		for (const auto& watch : watches_) {
+		for (const auto &watch : watches_) {
 			if (!watchFilter_.PassFilter(watch.name.c_str())) {
 				continue;
 			}
@@ -349,23 +380,23 @@ void ImStructViewer::DrawWatch() {
 	}
 }
 
-void ImStructViewer::DrawNewWatchEntry() {
+void ImStructViewer::DrawWatchForm() {
 	ImGui::PushItemWidth(150);
-	ImGui::InputText("Name", newWatch_.name, IM_ARRAYSIZE(newWatch_.name));
+	ImGui::InputText("Name", watchForm_.name, IM_ARRAYSIZE(watchForm_.name));
 
 	ImGui::SameLine();
-	if (ImGui::BeginCombo("Type", newWatch_.typeDisplayName.c_str())) {
+	if (ImGui::BeginCombo("Type", watchForm_.typeDisplayName.c_str())) {
 		if (ImGui::IsWindowAppearing()) {
 			ImGui::SetKeyboardFocusHere(0);
 		}
-		newWatch_.typeFilter.Draw();
-		for (const auto& entry : ghidraClient_.result.types) {
-			const auto& type = entry.second;
-			if (newWatch_.typeFilter.PassFilter(type.displayName.c_str())) {
+		watchForm_.typeFilter.Draw();
+		for (const auto &entry : ghidraClient_.result.types) {
+			const auto &type = entry.second;
+			if (watchForm_.typeFilter.PassFilter(type.displayName.c_str())) {
 				ImGui::PushID(type.pathName.c_str());
-				if (ImGui::Selectable(type.displayName.c_str(), newWatch_.typePathName == type.pathName)) {
-					newWatch_.typePathName = type.pathName;
-					newWatch_.typeDisplayName = type.displayName;
+				if (ImGui::Selectable(type.displayName.c_str(), watchForm_.typePathName == type.pathName)) {
+					watchForm_.typePathName = type.pathName;
+					watchForm_.typeDisplayName = type.displayName;
 				}
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && ImGui::BeginTooltip()) {
 					ImGui::Text("%s (%s)", type.displayName.c_str(), type.pathName.c_str());
@@ -379,9 +410,9 @@ void ImStructViewer::DrawNewWatchEntry() {
 	}
 
 	ImGui::SameLine();
-	ImGui::InputText("Expression", newWatch_.expression, IM_ARRAYSIZE(newWatch_.expression));
+	ImGui::InputText("Expression", watchForm_.expression, IM_ARRAYSIZE(watchForm_.expression));
 	ImGui::SameLine();
-	ImGui::Checkbox("Dynamic", &newWatch_.dynamic);
+	ImGui::Checkbox("Dynamic", &watchForm_.dynamic);
 	if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_DelayNormal)) {
 		ImGui::SetTooltip("When checked the expression will be\nre-evaluated on each frame.");
 	}
@@ -389,45 +420,65 @@ void ImStructViewer::DrawNewWatchEntry() {
 	ImGui::PopItemWidth();
 
 	ImGui::SameLine();
-	if (ImGui::Button("Add watch")) {
+	if (editWatchId_ == -1 ? ImGui::Button("Add watch") : ImGui::Button("Edit watch")) {
 		u32 val;
 		PostfixExpression postfix;
-		if (newWatch_.typePathName.empty()) {
-			newWatch_.error = "type can't be empty";
-		} else if (!initExpression(mipsDebug_, newWatch_.expression, postfix)
+		if (watchForm_.typePathName.empty()) {
+			watchForm_.error = "type can't be empty";
+		} else if (!initExpression(mipsDebug_, watchForm_.expression, postfix)
 		           || !parseExpression(mipsDebug_, postfix, val)) {
-			newWatch_.error = "invalid expression";
+			watchForm_.error = "invalid expression";
 		} else {
-			std::string watchName = newWatch_.name;
+			std::string watchName = watchForm_.name;
 			if (watchName.empty()) {
 				watchName = "<watch>";
 			}
-			watches_.emplace_back(Watch{
-				nextWatchId_++,
-				newWatch_.dynamic ? newWatch_.expression : "",
-				newWatch_.dynamic ? 0 : val,
-				newWatch_.typePathName,
-				newWatch_.dynamic ? watchName + " (" + newWatch_.expression + ")" : watchName
-			});
-			memset(newWatch_.name, 0, sizeof(newWatch_.name));
-			memset(newWatch_.expression, 0, sizeof(newWatch_.name));
-			newWatch_.dynamic = false;
-			newWatch_.error = "";
-			newWatch_.typeFilter.Clear();
-			// Not clearing the actual selected type on purpose here, user will have to reselect one anyway and
-			// maybe there is a chance they will reuse the current one
+			if (watchForm_.dynamic) {
+				watchName = watchName + " (" + watchForm_.expression + ")";
+			}
+			if (editWatchId_ == -1) {
+				watches_.emplace_back(Watch{
+					nextWatchId_++,
+					watchForm_.dynamic ? watchForm_.expression : "",
+					watchForm_.dynamic ? 0 : val,
+					watchForm_.typePathName,
+					watchName
+				});
+			} else {
+				for (auto &watch : watches_) {
+					if (watch.id == editWatchId_) {
+						watch.expression = watchForm_.dynamic ? watchForm_.expression : "";
+						watch.address = watchForm_.dynamic ? 0 : val;
+						watch.typePathName = watchForm_.typePathName;
+						watch.name = watchName;
+						break;
+					}
+				}
+			}
+			ClearWatchForm();
 		}
 	}
-	if (!newWatch_.error.empty()) {
+	if (editWatchId_ != -1) {
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			ClearWatchForm();
+		}
+	}
+	if (!watchForm_.error.empty()) {
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-		ImGui::TextWrapped("Error: %s", newWatch_.error.c_str());
+		ImGui::TextWrapped("Error: %s", watchForm_.error.c_str());
 		ImGui::PopStyleColor();
 	}
 }
 
+void ImStructViewer::ClearWatchForm() {
+	watchForm_.Clear();
+	editWatchId_ = -1;
+}
+
 static void DrawTypeColumn(
-	const std::string& format,
-	const std::string& typeDisplayName,
+	const std::string &format,
+	const std::string &typeDisplayName,
 	const u32 base,
 	const u32 offset
 ) {
@@ -444,17 +495,17 @@ static void DrawTypeColumn(
 }
 
 static void DrawArrayContent(
-	const std::unordered_map<std::string, GhidraType>& types,
-	const GhidraType& type,
+	const std::unordered_map<std::string, GhidraType> &types,
+	const GhidraType &type,
 	const u32 address
 ) {
 	if (type.arrayElementLength != 1 || !types.count(type.arrayTypePathName)) {
 		return;
 	}
-	const auto& arrayType = types.at(type.arrayTypePathName);
+	const auto &arrayType = types.at(type.arrayTypePathName);
 	bool charElement = false;
 	if (arrayType.kind == TYPEDEF && types.count(arrayType.typedefBaseTypePathName)) {
-		const auto& baseArrayType = types.at(arrayType.typedefBaseTypePathName);
+		const auto &baseArrayType = types.at(arrayType.typedefBaseTypePathName);
 		charElement = baseArrayType.pathName == "/char";
 	} else {
 		charElement = arrayType.pathName == "/char";
@@ -462,7 +513,7 @@ static void DrawArrayContent(
 	if (!charElement) {
 		return;
 	}
-	const char* charPointer = Memory::GetCharPointerUnchecked(address);
+	const char *charPointer = Memory::GetCharPointerUnchecked(address);
 	std::string text(charPointer, charPointer + type.arrayElementCount);
 	text = std::regex_replace(text, std::regex("\n"), "\\n");
 	ImGui::Text("= \"%s\"", text.c_str());
@@ -483,18 +534,18 @@ static void DrawPointerText(const u32 value) {
 }
 
 static void DrawPointerContent(
-	const std::unordered_map<std::string, GhidraType>& types,
-	const GhidraType& type,
+	const std::unordered_map<std::string, GhidraType> &types,
+	const GhidraType &type,
 	const u32 value
 ) {
 	if (!types.count(type.pointerTypePathName)) {
 		DrawPointerText(value);
 		return;
 	}
-	const auto& pointedType = types.at(type.pointerTypePathName);
+	const auto &pointedType = types.at(type.pointerTypePathName);
 	bool charPointerElement = false;
 	if (pointedType.kind == TYPEDEF && types.count(pointedType.typedefBaseTypePathName)) {
-		const auto& basePointedType = types.at(pointedType.typedefBaseTypePathName);
+		const auto &basePointedType = types.at(pointedType.typedefBaseTypePathName);
 		charPointerElement = basePointedType.pathName == "/char";
 	} else {
 		charPointerElement = pointedType.pathName == "/char";
@@ -503,7 +554,7 @@ static void DrawPointerContent(
 		DrawPointerText(value);
 		return;
 	}
-	const char* charPointer = Memory::GetCharPointerUnchecked(value);
+	const char *charPointer = Memory::GetCharPointerUnchecked(value);
 	std::string text(charPointer);
 	text = std::regex_replace(text, std::regex("\n"), "\\n");
 	ImGui::Text("= \"%s\"", text.c_str());
@@ -512,7 +563,7 @@ static void DrawPointerContent(
 // If enum is a bitfield then format as it would look in code with 'or' operator (e.g. "ALIGN_TOP | ALIGN_LEFT")
 // otherwise just try to find exact matching member
 static std::string FormatEnumValue(
-	const std::vector<GhidraEnumMember>& enumMembers,
+	const std::vector<GhidraEnumMember> &enumMembers,
 	const u64 value,
 	const bool bitfield
 ) {
@@ -522,7 +573,7 @@ static std::string FormatEnumValue(
 
 		// The value for the yet unknown enum members, it will be non-zero if the enum definition is incomplete
 		u64 remainderValue = value;
-		for (const auto& member : enumMembers) {
+		for (const auto &member : enumMembers) {
 			remainderValue &= ~member.value;
 		}
 		if (remainderValue != 0) {
@@ -530,7 +581,7 @@ static std::string FormatEnumValue(
 			hasPrevious = true;
 		}
 
-		for (const auto& member : enumMembers) {
+		for (const auto &member : enumMembers) {
 			if ((value & member.value) != 0 || (value == 0 && member.value == 0)) {
 				if (hasPrevious) {
 					ss << " | ";
@@ -542,7 +593,7 @@ static std::string FormatEnumValue(
 		return ss.str();
 	}
 
-	for (const auto& member : enumMembers) {
+	for (const auto &member : enumMembers) {
 		if (value == member.value) {
 			return member.name;
 		}
@@ -553,13 +604,13 @@ static std::string FormatEnumValue(
 void ImStructViewer::DrawType(
 	const u32 base,
 	const u32 offset,
-	const std::string& typePathName,
-	const char* typeDisplayNameOverride,
-	const char* name,
+	const std::string &typePathName,
+	const char *typeDisplayNameOverride,
+	const char *name,
 	const int watchId,
 	const ImGuiTreeNodeFlags extraTreeNodeFlags
 ) {
-	const auto& types = ghidraClient_.result.types;
+	const auto &types = ghidraClient_.result.types;
 	// Generic pointer is not included in the type listing, need to resolve it manually to void*
 	if (typePathName == "/pointer") {
 		DrawType(base, offset, "/void *", "pointer", name, watchId);
@@ -575,7 +626,7 @@ void ImStructViewer::DrawType(
 
 	// Resolve typedefs as early as possible
 	if (hasType) {
-		const auto& type = types.at(typePathName);
+		const auto &type = types.at(typePathName);
 		if (type.kind == TYPEDEF) {
 			DrawType(base, offset, type.typedefBaseTypePathName, type.displayName.c_str(), name, watchId);
 			return;
@@ -607,7 +658,7 @@ void ImStructViewer::DrawType(
 		return;
 	}
 
-	const auto& type = types.at(typePathName);
+	const auto &type = types.at(typePathName);
 	const std::string typeDisplayName =
 			typeDisplayNameOverride == nullptr ? type.displayName : typeDisplayNameOverride;
 
@@ -663,10 +714,8 @@ void ImStructViewer::DrawType(
 						ImGui::TableNextRow();
 						ImGui::TableSetColumnIndex(COLUMN_NAME);
 						int inputElementCount = pointerElementCount;
-						constexpr int step = 1;
-						constexpr int stepFast = 10;
 						ImGui::PushItemWidth(110);
-						ImGui::InputScalar("Elements", ImGuiDataType_S32, &inputElementCount, &step, &stepFast, "%x");
+						ImGui::InputScalar("Elements", ImGuiDataType_S32, &inputElementCount, NULL, NULL, "%x");
 						if (ImGui::IsItemDeactivatedAfterEdit()) {
 							const int newValue = std::clamp(inputElementCount, 1, MAX_POINTER_ELEMENTS);
 							ImGui::GetStateStorage()->SetInt(countStateId, newValue);
@@ -705,7 +754,7 @@ void ImStructViewer::DrawType(
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			if (nodeOpen) {
-				for (const auto& member : type.compositeMembers) {
+				for (const auto &member : type.compositeMembers) {
 					DrawType(base, offset + member.offset, member.typePathName, nullptr,
 					         member.fieldName.c_str(), -1);
 				}
@@ -719,7 +768,7 @@ void ImStructViewer::DrawType(
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
 
 			ImGui::TableSetColumnIndex(COLUMN_CONTENT);
-			ImGui::Text("<function definition>"); // TODO could be go to in disassembler here
+			ImGui::Text("<function definition>");
 			break;
 		case BUILT_IN: {
 			ImGui::TreeNodeEx("Field", leafFlags, "%s", name);
@@ -758,8 +807,8 @@ void ImStructViewer::DrawType(
 void ImStructViewer::DrawIndexedMembers(
 	const u32 base,
 	const u32 offset,
-	const std::string& typePathName,
-	const char* name,
+	const std::string &typePathName,
+	const char *name,
 	const u32 elementCount,
 	const int elementLength,
 	const bool openFirst
@@ -810,10 +859,10 @@ void ImStructViewer::DrawContextMenu(
 	const u32 base,
 	const u32 offset,
 	const int length,
-	const std::string& typePathName,
-	const char* name,
+	const std::string &typePathName,
+	const char *name,
 	const int watchId,
-	const u64* value
+	const u64 *value
 ) {
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
 	if (ImGui::BeginPopup("context")) {
@@ -825,6 +874,7 @@ void ImStructViewer::DrawContextMenu(
 		if (value && ImGui::MenuItem("Copy value")) {
 			CopyHexNumberToClipboard(*value);
 		}
+		ImGui::Separator();
 
 		// This might be called when iterating over existing watches so can't modify the watch vector directly here
 		if (watchId < 0) {
@@ -838,11 +888,20 @@ void ImStructViewer::DrawContextMenu(
 			if (ImGui::MenuItem("Remove watch")) {
 				removeWatchId_ = watchId;
 			}
+			if (ImGui::MenuItem("Edit watch")) {
+				for (const auto &watch : watches_) {
+					if (watch.id == watchId) {
+						editWatchId_ = watchId;
+						watchForm_.SetFrom(ghidraClient_.result.types, watch);
+						break;
+					}
+				}
+			}
 		}
 
-		// if (ImGui::MenuItem("Go to in memory view")) {
-		// TODO imgui memory view not yet implemented
-		// }
+		ImGui::Separator();
+		ShowInWindowMenuItems(address, *control_);
+		ImGui::Separator();
 
 		// Memory breakpoints are only possible for sized types
 		if (length > 0) {

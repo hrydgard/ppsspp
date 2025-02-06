@@ -6,7 +6,7 @@
 
 using namespace json;
 
-static GhidraTypeKind ResolveTypeKind(const std::string& kind) {
+static GhidraTypeKind ResolveTypeKind(const std::string &kind) {
 	if (kind == "ENUM") return ENUM;
 	if (kind == "TYPEDEF") return TYPEDEF;
 	if (kind == "POINTER") return POINTER;
@@ -18,9 +18,9 @@ static GhidraTypeKind ResolveTypeKind(const std::string& kind) {
 	return UNKNOWN;
 }
 
-static bool IsBitfieldEnum(const std::vector<GhidraEnumMember>& enumMembers) {
+static bool IsBitfieldEnum(const std::vector<GhidraEnumMember> &enumMembers) {
 	u64 previousValues = 0;
-	for (const auto& member : enumMembers) {
+	for (const auto &member : enumMembers) {
 		if (previousValues & member.value) {
 			return false;
 		}
@@ -35,7 +35,7 @@ GhidraClient::~GhidraClient() {
 	}
 }
 
-void GhidraClient::FetchAll(const std::string& host, const int port) {
+void GhidraClient::FetchAll(const std::string &host, const int port) {
 	std::lock_guard<std::mutex> lock(mutex_);
 	if (status_ != Status::Idle) {
 		return;
@@ -47,7 +47,7 @@ void GhidraClient::FetchAll(const std::string& host, const int port) {
 	});
 }
 
-bool GhidraClient::FetchAllDo(const std::string& host, const int port) {
+bool GhidraClient::FetchAllDo(const std::string &host, const int port) {
 	std::lock_guard<std::mutex> lock(mutex_);
 	host_ = host;
 	port_ = port;
@@ -129,12 +129,12 @@ bool GhidraClient::FetchTypes() {
 
 		switch (type.kind) {
 			case ENUM: {
-				const JsonNode* enumEntries = entry.getArray("members");
+				const JsonNode *enumEntries = entry.getArray("members");
 				if (!enumEntries) {
 					pendingResult_.error = "missing enum members";
 					return false;
 				}
-				for (const JsonNode* pEnumEntry : enumEntries->value) {
+				for (const JsonNode *pEnumEntry : enumEntries->value) {
 					JsonGet enumEntry = pEnumEntry->value;
 					GhidraEnumMember member;
 					member.name = enumEntry.getStringOr("name", "");
@@ -159,12 +159,12 @@ bool GhidraClient::FetchTypes() {
 				break;
 			case STRUCTURE:
 			case UNION: {
-				const JsonNode* compositeEntries = entry.getArray("members");
+				const JsonNode *compositeEntries = entry.getArray("members");
 				if (!compositeEntries) {
 					pendingResult_.error = "missing composite members";
 					return false;
 				}
-				for (const JsonNode* pCompositeEntry : compositeEntries->value) {
+				for (const JsonNode *pCompositeEntry : compositeEntries->value) {
 					JsonGet compositeEntry = pCompositeEntry->value;
 					GhidraCompositeMember member;
 					member.fieldName = compositeEntry.getStringOr("fieldName", "");
@@ -192,7 +192,7 @@ bool GhidraClient::FetchTypes() {
 	return true;
 }
 
-bool GhidraClient::FetchResource(const std::string& path, std::string& outResult) {
+bool GhidraClient::FetchResource(const std::string &path, std::string &outResult) {
 	http::Client http;
 	if (!http.Resolve(host_.c_str(), port_)) {
 		pendingResult_.error = "can't resolve host";
