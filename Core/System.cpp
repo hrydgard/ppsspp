@@ -661,7 +661,7 @@ bool CreateSysDirectories() {
 
 	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
 	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
-	File::CreateDir(pspDir);
+	File::CreateFullPath(pspDir);
 	if (!File::Exists(pspDir)) {
 		INFO_LOG(Log::IO, "Not a workable memstick directory. Giving up");
 		return false;
