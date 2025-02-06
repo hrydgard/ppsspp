@@ -6,7 +6,9 @@
 
 #include "Common/Math/SIMDHeaders.h"
 
-#if PPSSPP_ARCH(SSE2)
+#define TEST_FALLBACK 0
+
+#if PPSSPP_ARCH(SSE2) && !TEST_FALLBACK
 
 // The point of this, as opposed to a float4 array, is to almost force the compiler
 // to keep the matrix in registers, rather than loading on every access.
@@ -367,7 +369,7 @@ inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	};
 }
 
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && !TEST_FALLBACK
 
 struct Mat4F32 {
 	Mat4F32() {}
@@ -1222,12 +1224,11 @@ inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translat
 
 inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
 	Mat4F32 result;
-
 	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 4; i++) {
 			float sum = 0.0f;
 			for (int k = 0; k < 4; k++) {
-				sum += b.m[i * 4 + k] * a.m[k * 4 + j];
+				sum += b.m[k * 4 + i] * a.m[j * 4 + k];
 			}
 			result.m[j * 4 + i] = sum;
 		}
@@ -1242,9 +1243,12 @@ inline Mat4F32 Mul4x3By4x4(Mat4x3F32 a, Mat4F32 b) {
 		for (int i = 0; i < 4; i++) {
 			float sum = 0.0f;
 			for (int k = 0; k < 3; k++) {
-				sum += b.m[i * 4 + k] * a.m[k * 3 + j];
+				sum += b.m[k * 4 + i] * a.m[j * 3 + k];
 			}
-			result.m[j * 4 + i] = sum + b.m[i * 4 + 3];
+			if (j == 3) {
+				sum += b.m[12 + i];
+			}
+			result.m[j * 4 + i] = sum;
 		}
 	}
 	return result;

@@ -1144,6 +1144,80 @@ bool TestSIMD() {
 	return true;
 }
 
+static void PrintFloats(const float *f, int count) {
+	for (int i = 0; i < count; i++) {
+		printf("%.1ff, ", f[i]);
+	}
+	printf("\n");
+}
+
+static bool CompareFloats(const float *values, const float *known_good, int count, int line) {
+	int wrongCount = 0;
+
+	for (int i = 0; i < count; i++) {
+		if (values[i] != known_good[i]) {
+			wrongCount++;
+		}
+	}
+
+	if (wrongCount > 0) {
+		for (int i = 0; i < count; i++) {
+			bool wrong = values[i] != known_good[i];
+			printf("%d: %0.3f vs %0.3f %s\n", i + 1, values[i], known_good[i], wrong ? "!! MISMATCH" : "");
+		}
+		printf("At UnitTest.cpp:%d: %d / %d were wrong\n", line, wrongCount, count);
+		return false;
+	} else {
+		return true;
+	}
+}
+
+bool TestCrossSIMD() {
+	static const float a_values[16] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f };
+	static const float b_values[16] = { -12.0f, 3.0f, -2.5f, 5.0f, 31.0f, 0.5f, 4.0f, 6.0f, 7.0f, 13.0f, 12.0f, 51.0f, 81.0f, 32.0f };
+	static const float known_result[16] = { 395.0f, 171.0f, 41.5f, 170.0f, 942.0f, 410.5f, 111.5f, 475.0f, 1358.0f, 607.5f, 163.0f, 728.0f, 297.0f, 49.5f, 25.0f, 160.0f, };
+	float result[16];
+	Mat4F32 a(a_values);
+	Mat4F32 b(b_values);
+
+	Mul4x4By4x4(a, b).Store(result);
+	if (!CompareFloats(result, known_result, 16, __LINE__)) {
+		return false;
+	}
+
+	Mat4x3F32 d = Mat4x3F32(b_values + 2);
+	Mul4x3By4x4(d, a).Store(result);
+
+	static const float known_4x3_result[16] = { 332.5f, 371.0f, 404.5f, 438.0f, 80.5f, 95.0f, 105.5f, 116.0f, 192.0f, 237.0f, 269.0f, 301.0f, 790.0f, 1036.0f, 1185.0f, 1349.0f, };
+	if (!CompareFloats(result, known_4x3_result, 16, __LINE__)) {
+		return false;
+	}
+
+	static const float vec_values[4] = { 3.0f, 5.0f, 7.0f, 10000000.0f };
+	Vec4F32 v = Vec4F32::Load(vec_values);
+
+	v.AsVec3ByMatrix44(b).Store3(result);
+
+	static const float known_vec_result[3] = { 249.0f, 134.5f, 96.5f, };
+	if (!CompareFloats(result, known_vec_result, ARRAY_SIZE(known_vec_result), __LINE__)) {
+		return false;
+	}
+	Vec4F32 scale = Vec4F32::Load(a_values);
+	Vec4F32 translate = Vec4F32::Load(b_values);
+
+	TranslateAndScaleInplace(a, scale, translate);
+	a.Store(result);
+
+	static const float known_scale_result[16] = { -47.0f, 16.0f, -1.0f, 36.0f, -103.0f, 41.0f, 1.5f, 81.0f, -146.0f, 61.0f, 3.5f, 117.0f, 14.0f, 30.0f, 0.0f, 0.0f,};
+	if (!CompareFloats(result, known_scale_result, ARRAY_SIZE(known_scale_result), __LINE__)) {
+		return false;
+	}
+
+	// PrintFloats(result, 16);
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1207,6 +1281,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),
 	TEST_ITEM(SIMD),
+	TEST_ITEM(CrossSIMD),
 };
 
 int main(int argc, const char *argv[]) {
