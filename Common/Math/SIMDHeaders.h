@@ -67,6 +67,10 @@ static inline uint32x4_t vcgezq_f32(float32x4_t v) {
 
 #endif
 
+#if PPSSPP_ARCH(LOONGARCH64)
+#include "string.h"
+#endif
+
 #if PPSSPP_ARCH(SSE2)
 
 #if defined __SSE4_2__
