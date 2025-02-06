@@ -10,6 +10,7 @@
 #include "ppsspp_config.h"
 
 #include "stdint.h"
+#include <string.h>
 
 #ifdef __clang__
 // Weird how you can't just use #pragma in a macro.
@@ -65,10 +66,6 @@ static inline uint32x4_t vcgezq_f32(float32x4_t v) {
 	return vcgeq_f32(v, vdupq_n_f32(0.0f));
 }
 
-#endif
-
-#if PPSSPP_ARCH(LOONGARCH64)
-#include "string.h"
 #endif
 
 #if PPSSPP_ARCH(SSE2)
