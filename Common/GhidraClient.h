@@ -108,7 +108,7 @@ public:
 	~GhidraClient();
 
 	//  If client is idle then asynchronously starts fetching data from Ghidra.
-	void FetchAll(const std::string& host, int port);
+	void FetchAll(const std::string &host, int port);
 
 	// If client is ready then updates the result field with newly fetched data.
 	// This must be called from the thread using the result.
@@ -128,11 +128,11 @@ private:
 	std::string host_;
 	int port_ = 0;
 
-	bool FetchAllDo(const std::string& host, int port);
+	bool FetchAllDo(const std::string &host, int port);
 
 	bool FetchSymbols();
 
 	bool FetchTypes();
 
-	bool FetchResource(const std::string& path, std::string& outResult);
+	bool FetchResource(const std::string &path, std::string &outResult);
 };

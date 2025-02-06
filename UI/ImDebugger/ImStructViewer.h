@@ -38,15 +38,15 @@ class ImStructViewer {
 
 		void Clear();
 
-		void SetFrom(const std::unordered_map<std::string, GhidraType>& types, const Watch& watch);
+		void SetFrom(const std::unordered_map<std::string, GhidraType> &types, const Watch &watch);
 	};
 
 public:
-	void Draw(ImConfig& cfg, ImControl& control, MIPSDebugInterface* mipsDebug);
+	void Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug);
 
 private:
-	ImControl* control_ = nullptr;
-	MIPSDebugInterface* mipsDebug_ = nullptr;
+	ImControl *control_ = nullptr;
+	MIPSDebugInterface *mipsDebug_ = nullptr;
 
 	ImGuiTextFilter globalFilter_;
 	ImGuiTextFilter watchFilter_;
@@ -78,17 +78,17 @@ private:
 	void DrawType(
 		u32 base,
 		u32 offset,
-		const std::string& typePathName,
-		const char* typeDisplayNameOverride,
-		const char* name,
+		const std::string &typePathName,
+		const char *typeDisplayNameOverride,
+		const char *name,
 		int watchId,
 		ImGuiTreeNodeFlags extraTreeNodeFlags = 0);
 
 	void DrawIndexedMembers(
 		u32 base,
 		u32 offset,
-		const std::string& typePathName,
-		const char* name,
+		const std::string &typePathName,
+		const char *name,
 		u32 elementCount,
 		int elementLength,
 		bool openFirst);
@@ -97,8 +97,8 @@ private:
 		u32 base,
 		u32 offset,
 		int length,
-		const std::string& typePathName,
-		const char* name,
+		const std::string &typePathName,
+		const char *name,
 		int watchId,
-		const u64* value);
+		const u64 *value);
 };
