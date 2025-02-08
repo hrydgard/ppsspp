@@ -11,12 +11,15 @@ extern "C" {
 extern void fast_matrix_mul_4x4_c(float *dest, const float *a, const float *b);
 extern void fast_matrix_mul_4x4_neon(float *dest, const float *a, const float *b);
 extern void fast_matrix_mul_4x4_sse(float *dest, const float *a, const float *b);
+extern void fast_matrix_mul_4x4_lsx(float *dest, const float *a, const float *b);
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 // Hard link to SSE implementations on x86/amd64
 #define fast_matrix_mul_4x4 fast_matrix_mul_4x4_sse
 #elif PPSSPP_ARCH(ARM_NEON)
 #define fast_matrix_mul_4x4 fast_matrix_mul_4x4_neon
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+#define fast_matrix_mul_4x4 fast_matrix_mul_4x4_lsx
 #else
 #define fast_matrix_mul_4x4 fast_matrix_mul_4x4_c
 #endif
