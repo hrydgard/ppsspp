@@ -2252,6 +2252,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceMpeg.h
 	Core/HLE/sceNet.cpp
 	Core/HLE/sceNet.h
+	Core/HLE/sceNet_lib.cpp
+	Core/HLE/sceNet_lib.h
 	Core/HLE/sceNetAdhoc.cpp
 	Core/HLE/sceNetAdhoc.h
 	Core/HLE/sceNetAdhocMatching.cpp
