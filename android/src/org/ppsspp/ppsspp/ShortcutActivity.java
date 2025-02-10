@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -122,7 +124,7 @@ public class ShortcutActivity extends Activity {
 		PpssppActivity.CheckABIAndLoadLibrary();
 		String gameName = queryGameName(path);
 		byte [] iconData = null;
-		if (gameName.equals("")) {
+		if (gameName.isEmpty()) {
 			Log.i(TAG, "Failed to retrieve game name - ignoring.");
 			// This probably happened because PPSSPP isn't running so the GameInfoCache isn't working.
 			// Let's just continue with our fallback name until we can fix that.
@@ -146,9 +148,20 @@ public class ShortcutActivity extends Activity {
 			// Try to create a PNG from the iconData.
 			Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
 			if (bmp != null) {
-				// Scale it to a square.
-				Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 144, true);
-				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, scaledBitmap);
+				// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio.
+				Bitmap paddedBitmap = Bitmap.createBitmap(
+					bmp.getWidth(), bmp.getWidth(),
+					Bitmap.Config.ARGB_8888);
+				Canvas canvas = new Canvas(paddedBitmap);
+				canvas.drawARGB(0, 0, 0, 0);
+				int y = (bmp.getWidth() - bmp.getHeight()) / 2;
+				if (y < 0) {
+					// To be safe from wacky-aspect-ratio bitmaps.
+					y = 0;
+				}
+				canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
+				// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
+				responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
 			}
 			setIcon = true;
 		}
