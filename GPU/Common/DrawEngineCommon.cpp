@@ -56,9 +56,6 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	indexGen.Setup(decIndex_);
 
-#ifdef CROSSSIMD_SLOW
-	useDepthRaster_ = false;
-#else
 	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
 	case DepthRasterMode::DEFAULT:
 	case DepthRasterMode::LOW_QUALITY:
@@ -70,7 +67,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	case DepthRasterMode::OFF:
 		useDepthRaster_ = false;
 	}
-#endif
+
 	if (useDepthRaster_) {
 		depthDraws_.reserve(256);
 	}
@@ -933,12 +930,15 @@ Mat4F32 ComputeFinalProjMatrix() {
 		gstate.getViewportXCenter() - gstate.getOffsetX(),
 		gstate.getViewportYCenter() - gstate.getOffsetY(),
 		gstate.getViewportZCenter(),
+		0.0f,
 	};
 
 	Mat4F32 wv = Mul4x3By4x4(Mat4x3F32(gstate.worldMatrix), Mat4F32::Load4x3(gstate.viewMatrix));
 	Mat4F32 m = Mul4x4By4x4(wv, Mat4F32(gstate.projMatrix));
 	// NOTE: Applying the translation actually works pre-divide, since W is also affected.
-	TranslateAndScaleInplace(m, Vec4F32::LoadF24x3_One(&gstate.viewportxscale), Vec4F32::Load(viewportTranslate));
+	Vec4F32 scale = Vec4F32::LoadF24x3_One(&gstate.viewportxscale);
+	Vec4F32 translate = Vec4F32::Load(viewportTranslate);
+	TranslateAndScaleInplace(m, scale, translate);
 	return m;
 }
 

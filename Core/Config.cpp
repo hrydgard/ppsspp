@@ -40,6 +40,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Log/LogManager.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/OSVersion.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
@@ -140,6 +141,11 @@ std::string DefaultLangRegion() {
 }
 
 static int DefaultDepthRaster() {
+#ifdef CROSSSIMD_SLOW
+	// No SIMD acceleration for the depth rasterizer.
+	// Default to off.
+	return (int)DepthRasterMode::OFF;
+#endif
 
 // For 64-bit ARM and x86 with SIMD, enable depth raster.
 #if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(SSE2)
