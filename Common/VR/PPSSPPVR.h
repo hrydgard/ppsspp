@@ -53,6 +53,7 @@ void PostVRFrameRender();
 int GetVRFBOIndex();
 int GetVRPassesCount();
 bool IsPassthroughSupported();
+bool IsBigScreenVRMode();
 bool IsFlatVRGame();
 bool IsFlatVRScene();
 bool IsGameVRScene();
