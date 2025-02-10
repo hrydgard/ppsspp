@@ -81,6 +81,7 @@
     //https://github.com/gcc-mirror/gcc/blob/master/gcc/config/loongarch/loongarch-c.cc
     #define PPSSPP_ARCH_LOONGARCH64 1
     #define PPSSPP_ARCH_64BIT 1
+    #define PPSSPP_ARCH_LOONGARCH64_LSX 1
 #endif
 
 // PLATFORM defines

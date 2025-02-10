@@ -31,6 +31,12 @@
 #endif
 #endif
 
+#if PPSSPP_ARCH(LOONGARCH64)
+#if PPSSPP_ARCH(LOONGARCH64_LSX)
+#include <lsxintrin.h>
+#endif
+#endif
+
 // Basic types
 
 #if PPSSPP_ARCH(ARM64_NEON)
