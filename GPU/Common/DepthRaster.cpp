@@ -348,6 +348,7 @@ int DepthRasterClipIndexedRectangles(int *tx, int *ty, float *tz, const float *t
 		}
 
 		// These names are wrong .. until we transpose.
+		// TODO: Maybe combine two rects here at a time. But hardly relevant for performance.
 		Vec4F32 x = Vec4F32::Load(verts[0]);
 		Vec4F32 y = Vec4F32::Load(verts[1]);
 		Vec4F32 z = Vec4F32::Zero();

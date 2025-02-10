@@ -765,18 +765,18 @@ struct Mat4F32 {
 		mat.m[1] = src[1];
 		mat.m[2] = src[2];
 		mat.m[3] = 0.0f;
-		mat.m[0] = src[3];
-		mat.m[1] = src[4];
-		mat.m[2] = src[5];
-		mat.m[3] = 0.0f;
-		mat.m[0] = src[6];
-		mat.m[1] = src[7];
-		mat.m[2] = src[8];
-		mat.m[3] = 0.0f;
-		mat.m[0] = src[9];
-		mat.m[1] = src[10];
-		mat.m[2] = src[11];
-		mat.m[3] = 1.0f;
+		mat.m[4] = src[3];
+		mat.m[5] = src[4];
+		mat.m[6] = src[5];
+		mat.m[7] = 0.0f;
+		mat.m[8] = src[6];
+		mat.m[9] = src[7];
+		mat.m[10] = src[8];
+		mat.m[11] = 0.0f;
+		mat.m[12] = src[9];
+		mat.m[13] = src[10];
+		mat.m[14] = src[11];
+		mat.m[15] = 1.0f;
 		return mat;
 	}
 
@@ -1083,23 +1083,21 @@ struct Vec4F32 {
 		return temp;
 	}
 
-	// In-place transpose. Fast on SIMD, not ideal on not.
+	// In-place transpose.
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
-		std::swap(col0.v[1], col1.v[0]);
-		std::swap(col0.v[2], col2.v[0]);
-		std::swap(col0.v[3], col3.v[0]);
-
-		std::swap(col1.v[0], col0.v[1]);
-		std::swap(col1.v[2], col2.v[1]);
-		std::swap(col1.v[3], col3.v[1]);
-
-		std::swap(col2.v[0], col0.v[2]);
-		std::swap(col2.v[1], col1.v[2]);
-		std::swap(col2.v[3], col3.v[2]);
-
-		std::swap(col3.v[0], col0.v[3]);
-		std::swap(col3.v[1], col1.v[3]);
-		std::swap(col3.v[2], col2.v[3]);
+		float m[16];
+		for (int i = 0; i < 4; i++) {
+			m[0 + i] = col0.v[i];
+			m[4 + i] = col1.v[i];
+			m[8 + i] = col2.v[i];
+			m[12 + i] = col3.v[i];
+		}
+		for (int i = 0; i < 4; i++) {
+			col0.v[i] = m[i * 4 + 0];
+			col1.v[i] = m[i * 4 + 1];
+			col2.v[i] = m[i * 4 + 2];
+			col3.v[i] = m[i * 4 + 3];
+		}
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {

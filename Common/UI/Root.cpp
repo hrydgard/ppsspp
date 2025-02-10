@@ -97,9 +97,6 @@ bool IsFocusMovementEnabled() {
 }
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets) {
-	_assert_(root);
-	_assert_(&dc);
-
 	Bounds rootBounds = ignoreInsets ? dc.GetBounds() : dc.GetLayoutBounds();
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w);
