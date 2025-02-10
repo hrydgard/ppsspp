@@ -341,8 +341,10 @@ static inline void FlipProjMatrix(Matrix4x4 &in, bool useBufferedRendering) {
 static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 
 	bool hud = true;
+	//HUD shouldn't be modified in nonVR mode
+	if (IsBigScreenVRMode()) hud = false;
 	//HUD can be disabled in settings
-	if (!g_Config.bRescaleHUD) hud = false;
+	else if (!g_Config.bRescaleHUD) hud = false;
 	//HUD cannot be rendered in flatscreen
 	else if (flatScreen) hud = false;
 	//HUD has to be 2D

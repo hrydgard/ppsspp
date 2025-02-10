@@ -508,12 +508,6 @@ bool StartVRRender() {
 
 	if (VR_InitFrame(VR_GetEngine())) {
 
-		// VR flags
-		bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
-		bool vrMode = (g_Config.bEnableVR || IsImmersiveVRMode()) && !vrIncompatibleGame;
-		bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
-		bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
-
 		// Get VR status
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			vrView[eye] = VR_GetView(eye);
@@ -548,7 +542,8 @@ bool StartVRRender() {
 
 		// Decide if the scene is 3D or not
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
-		if (vrMode && vrScene && (appMode == VR_GAME_MODE)) {
+		bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
+		if (!IsBigScreenVRMode() && (appMode == VR_GAME_MODE)) {
 			VR_SetConfig(VR_CONFIG_MODE, vrStereo ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_6DOF);
 			VR_SetConfig(VR_CONFIG_REPROJECTION, IsImmersiveVRMode() ? 0 : 1);
 			vrFlatGame = false;
@@ -566,7 +561,7 @@ bool StartVRRender() {
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
 
 		// Set customizations
-		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, vrScene && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, !IsBigScreenVRMode() && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
 		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough && IsPassthroughSupported());
 		return true;
 	}
@@ -597,6 +592,13 @@ int GetVRPassesCount() {
 
 bool IsPassthroughSupported() {
 	return VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PASSTHROUGH);
+}
+
+bool IsBigScreenVRMode() {
+	bool vrIncompatibleGame = PSP_CoreParameter().compat.vrCompat().ForceFlatScreen;
+	bool vrMode = (g_Config.bEnableVR || IsImmersiveVRMode()) && !vrIncompatibleGame;
+	bool vrScene = !vrFlatForced && (g_Config.bManualForceVR || (vr3DGeometryCount > 15));
+	return !vrMode || !vrScene;
 }
 
 bool IsFlatVRGame() {
@@ -691,7 +693,7 @@ void UpdateVRParams(float* projMatrix) {
 
 void UpdateVRProjection(float* projMatrix, float* output) {
 	for (int i = 0; i < 16; i++) {
-		if (!IsVREnabled()) {
+		if (!IsVREnabled() || IsBigScreenVRMode()) {
 			output[i] = projMatrix[i];
 		} else if (PSP_CoreParameter().compat.vrCompat().ProjectionHack && ((i == 8) || (i == 9))) {
 			output[i] = 0;
