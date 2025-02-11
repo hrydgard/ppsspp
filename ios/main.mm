@@ -316,7 +316,9 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+extern "C" {
 int Apple_GetCurrentBatteryCapacity();
+}
 
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {

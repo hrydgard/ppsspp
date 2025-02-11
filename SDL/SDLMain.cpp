@@ -514,7 +514,9 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 }
 
 #if PPSSPP_PLATFORM(MAC)
+extern "C" {
 int Apple_GetCurrentBatteryCapacity();
+}
 #endif
 
 int64_t System_GetPropertyInt(SystemProperty prop) {

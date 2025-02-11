@@ -5,6 +5,8 @@
 //  Created by Serena on 24/01/2023.
 //
 
+#include "ppsspp_config.h"
+
 #import <Foundation/Foundation.h>
 
 #if PPSSPP_PLATFORM(MAC)
