@@ -749,10 +749,12 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, CfgFlag::PER_GAME),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, CfgFlag::DEFAULT),
-	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_FULL, CfgFlag::PER_GAME),
+
+	ConfigSetting("GlobalVolume", &g_Config.iGameVolume, VOLUME_FULL, CfgFlag::PER_GAME),
 	ConfigSetting("ReverbVolume", &g_Config.iReverbVolume, VOLUME_FULL, CfgFlag::PER_GAME),
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, CfgFlag::PER_GAME),
 	ConfigSetting("AchievementSoundVolume", &g_Config.iAchievementSoundVolume, 6, CfgFlag::PER_GAME),
+
 	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", CfgFlag::DEFAULT),
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioMixWithOthers", &g_Config.bAudioMixWithOthers, true, CfgFlag::DEFAULT),
@@ -1485,7 +1487,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
 	if (PPSSPP_ID > 1) {
-		g_Config.iGlobalVolume = 0;
+		g_Config.iGameVolume = 0;
 	}
 
 	// Automatically switch away from deprecated setting value.

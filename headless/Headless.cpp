@@ -527,7 +527,7 @@ int main(int argc, const char* argv[])
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
-	g_Config.iGlobalVolume = VOLUME_FULL;
+	g_Config.iGameVolume = VOLUME_FULL;
 	g_Config.iReverbVolume = VOLUME_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseExperimentalAtrac = newAtrac;

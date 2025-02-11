@@ -279,10 +279,13 @@ public:
 	// Sound
 	bool bEnableSound;
 	int iAudioBackend;
-	int iGlobalVolume;
+
+	// Volume settings, 0-10
+	int iGameVolume;
 	int iReverbVolume;
 	int iAltSpeedVolume;
 	int iAchievementSoundVolume;
+
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;
