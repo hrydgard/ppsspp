@@ -41,6 +41,7 @@
 #include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -90,61 +91,57 @@ void StereoResampler::UpdateBufferSize() {
 	}
 }
 
-template<bool useShift>
-inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) {
+// factor is a 0.12-bit fixed point number.
+template<bool multiply>
+inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, int factor) {
+	if (multiply) {
+		// Let's SIMD later. Unfortunately for s16 operations, SSE2 is very different and odd
+		// so CrossSIMD won't be very useful.
+		for (size_t i = 0; i < size; i++) {
+			out[i] = clamp_s16((in[i] * factor) >> 12);
+		}
+	} else {
 #ifdef _M_SSE
-	// Size will always be 16-byte aligned as the hwBlockSize is.
-	while (size >= 8) {
-		__m128i in1 = _mm_loadu_si128((__m128i *)in);
-		__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
-		__m128i packed = _mm_packs_epi32(in1, in2);
-		if (useShift) {
-			packed = _mm_srai_epi16(packed, volShift);
+		// Size will always be 16-byte aligned as the hwBlockSize is.
+		while (size >= 8) {
+			__m128i in1 = _mm_loadu_si128((__m128i *)in);
+			__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
+			__m128i packed = _mm_packs_epi32(in1, in2);  // pack with signed saturation, perfect.
+			_mm_storeu_si128((__m128i *)out, packed);
+			out += 8;
+			in += 8;
+			size -= 8;
 		}
-		_mm_storeu_si128((__m128i *)out, packed);
-		out += 8;
-		in += 8;
-		size -= 8;
-	}
 #elif PPSSPP_ARCH(ARM_NEON)
-	// Dynamic shifts can only be left, but it's signed - negate to shift right.
-	int16x4_t signedVolShift = vdup_n_s16(-volShift);
-	while (size >= 8) {
-		int32x4_t in1 = vld1q_s32(in);
-		int32x4_t in2 = vld1q_s32(in + 4);
-		int16x4_t packed1 = vqmovn_s32(in1);
-		int16x4_t packed2 = vqmovn_s32(in2);
-		if (useShift) {
-			packed1 = vshl_s16(packed1, signedVolShift);
-			packed2 = vshl_s16(packed2, signedVolShift);
+		// Dynamic shifts can only be left, but it's signed - negate to shift right.
+		int16x4_t signedVolShift = vdup_n_s16(-volShift);
+		while (size >= 8) {
+			int32x4_t in1 = vld1q_s32(in);
+			int32x4_t in2 = vld1q_s32(in + 4);
+			int16x4_t packed1 = vqmovn_s32(in1);
+			int16x4_t packed2 = vqmovn_s32(in2);
+			vst1_s16(out, packed1);
+			vst1_s16(out + 4, packed2);
+			out += 8;
+			in += 8;
+			size -= 8;
 		}
-		vst1_s16(out, packed1);
-		vst1_s16(out + 4, packed2);
-		out += 8;
-		in += 8;
-		size -= 8;
-	}
 #endif
-	// This does the remainder if SIMD was used, otherwise it does it all.
-	for (size_t i = 0; i < size; i++) {
-		out[i] = clamp_s16(useShift ? (in[i] >> volShift) : in[i]);
+		// This does the remainder if SIMD was used, otherwise it does it all.
+		for (size_t i = 0; i < size; i++) {
+			out[i] = clamp_s16(in[i]);
+		}
 	}
 }
 
-inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
-	int volume = g_Config.iGlobalVolume;
-	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
-		if (g_Config.iAltSpeedVolume != -1) {
-			volume = g_Config.iAltSpeedVolume;
-		}
-	}
-
-	if (volume >= VOLUME_FULL) {
+inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size, int volume) {
+	// The last parameter to ClampBufferToS16 is no longer a shift, now it's a 12-bit multiplier.
+	if (volume >= 4096) {
 		ClampBufferToS16<false>(out, in, size, 0);
-	} else if (volume <= VOLUME_OFF) {
+	} else if (volume <= 0) {
 		memset(out, 0, size * sizeof(s16));
 	} else {
-		ClampBufferToS16<true>(out, in, size, VOLUME_FULL - (s8)volume);
+		ClampBufferToS16<true>(out, in, size, volume);
 	}
 }
 
@@ -277,13 +274,30 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 		return;
 	}
 
+	int vol = g_Config.iGlobalVolume;
+	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
+		if (g_Config.iAltSpeedVolume != -1) {
+			vol = g_Config.iAltSpeedVolume;
+		}
+	}
+
+	vol = std::clamp(vol, 0, VOLUME_FULL);
+
+	// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
+	int volume;
+	if (vol != 0) {
+		volume = 4096 >> (VOLUME_FULL - vol);
+	} else {
+		volume = 0;
+	}
+
 	// Check if we need to roll over to the start of the buffer during the copy.
 	unsigned int indexW_left_samples = m_maxBufsize * 2 - (indexW & INDEX_MASK);
 	if (numSamples * 2 > indexW_left_samples) {
-		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, indexW_left_samples);
-		ClampBufferToS16WithVolume(&m_buffer[0], samples + indexW_left_samples, numSamples * 2 - indexW_left_samples);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, indexW_left_samples, volume);
+		ClampBufferToS16WithVolume(&m_buffer[0], samples + indexW_left_samples, numSamples * 2 - indexW_left_samples, volume);
 	} else {
-		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, numSamples * 2);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, numSamples * 2, volume);
 	}
 
 	m_indexW += numSamples * 2;

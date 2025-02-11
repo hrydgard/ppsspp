@@ -25,11 +25,11 @@
 #include "Common/Common.h"
 #include "Common/CommonFuncs.h"
 
-const int PSP_MODEL_FAT = 0;
-const int PSP_MODEL_SLIM = 1;
-const int PSP_DEFAULT_FIRMWARE = 660;
-static const int8_t VOLUME_OFF = 0;
-static const int8_t VOLUME_FULL = 10;
+constexpr int PSP_MODEL_FAT = 0;
+constexpr int PSP_MODEL_SLIM = 1;
+constexpr int PSP_DEFAULT_FIRMWARE = 660;
+constexpr int VOLUME_OFF = 0;
+constexpr int VOLUME_FULL = 10;
 
 struct ConfigTouchPos {
 	float x;
