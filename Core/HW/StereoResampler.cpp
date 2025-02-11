@@ -97,6 +97,7 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, int factor) {
 	if (multiply) {
 		// Let's SIMD later. Unfortunately for s16 operations, SSE2 is very different and odd
 		// so CrossSIMD won't be very useful.
+		// LLVM autovec does an okay job with this on ARM64, it turns out.
 		for (size_t i = 0; i < size; i++) {
 			out[i] = clamp_s16((in[i] * factor) >> 12);
 		}
@@ -114,7 +115,6 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, int factor) {
 		}
 #elif PPSSPP_ARCH(ARM_NEON)
 		// Dynamic shifts can only be left, but it's signed - negate to shift right.
-		int16x4_t signedVolShift = vdup_n_s16(-volShift);
 		while (size >= 8) {
 			int32x4_t in1 = vld1q_s32(in);
 			int32x4_t in2 = vld1q_s32(in + 4);
@@ -248,7 +248,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 }
 
 // Executes on the emulator thread, pushing sound into the buffer.
-void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
+void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples, int volume) {
 	inputSampleCount_ += numSamples;
 
 	UpdateBufferSize();
@@ -272,23 +272,6 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
 		}
 		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?
 		return;
-	}
-
-	int vol = g_Config.iGlobalVolume;
-	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
-		if (g_Config.iAltSpeedVolume != -1) {
-			vol = g_Config.iAltSpeedVolume;
-		}
-	}
-
-	vol = std::clamp(vol, 0, VOLUME_FULL);
-
-	// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
-	int volume;
-	if (vol != 0) {
-		volume = 4096 >> (VOLUME_FULL - vol);
-	} else {
-		volume = 0;
 	}
 
 	// Check if we need to roll over to the start of the buffer during the copy.

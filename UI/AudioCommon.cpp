@@ -28,9 +28,9 @@ void System_AudioClear() {
 	g_resampler.Clear();
 }
 
-void System_AudioPushSamples(const int32_t *audio, int numSamples) {
+void System_AudioPushSamples(const int32_t *audio, int numSamples, int volume) {
 	if (audio) {
-		g_resampler.PushSamples(audio, numSamples);
+		g_resampler.PushSamples(audio, numSamples, volume);
 	} else {
 		g_resampler.Clear();
 	}

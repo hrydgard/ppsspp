@@ -17,7 +17,7 @@
 
 #include <atomic>
 #include <mutex>
-
+#include <algorithm>
 #include "Common/Common.h"
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
@@ -414,7 +414,24 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		System_AudioPushSamples(mixBuffer, hwBlockSize);
+		int vol = g_Config.iGlobalVolume;
+		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
+			if (g_Config.iAltSpeedVolume != -1) {
+				vol = g_Config.iAltSpeedVolume;
+			}
+		}
+
+		vol = std::clamp(vol, 0, VOLUME_FULL);
+
+		// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
+		int volume;
+		if (vol != 0) {
+			volume = 4096 >> (VOLUME_FULL - vol);
+		} else {
+			volume = 0;
+		}
+		System_AudioPushSamples(mixBuffer, hwBlockSize, volume);
+
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();
