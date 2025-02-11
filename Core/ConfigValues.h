@@ -42,12 +42,10 @@ inline float Volume10ToMultiplier(int volume) {
 	return powf(2.0f, (float)(volume - 10));
 }
 
+// NOTE: This is used for new volume parameters.
+// It uses a more intuitive-feeling curve.
 inline float Volume100ToMultiplier(int volume) {
-	// Allow muting entirely.
-	if (volume <= 0) {
-		return 0.0f;
-	}
-	return powf(2.0f, (float)(volume - 100) * 0.1f);
+	return powf(volume * 0.01f, 1.75f);
 }
 
 struct ConfigTouchPos {
