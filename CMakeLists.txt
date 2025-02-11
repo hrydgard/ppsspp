@@ -926,7 +926,6 @@ add_library(Common STATIC
 	Common/SysError.cpp
 	Common/TimeUtil.cpp
 	Common/TimeUtil.h
-	Common/Battery/Battery.h
 )
 
 include_directories(Common)

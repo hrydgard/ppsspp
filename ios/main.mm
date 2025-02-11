@@ -316,6 +316,10 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+extern "C" {
+int Apple_GetCurrentBatteryCapacity();
+}
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -324,6 +328,8 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 			return DEVICE_TYPE_MOBILE;
 		case SYSPROP_SYSTEMVERSION:
 			return g_iosVersionMajor;
+		case SYSPROP_BATTERY_PERCENTAGE:
+			return Apple_GetCurrentBatteryCapacity();
 		default:
 			return -1;
 	}
@@ -381,6 +387,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_SUPPORTS_HTTPS:
 			return true;
 #endif
+		case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
+			return true;
+
 		default:
 			return false;
 	}

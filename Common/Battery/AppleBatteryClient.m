@@ -5,7 +5,8 @@
 //  Created by Serena on 24/01/2023.
 //
 
-#include "Battery.h"
+#include "ppsspp_config.h"
+
 #import <Foundation/Foundation.h>
 
 #if PPSSPP_PLATFORM(MAC)
@@ -90,7 +91,7 @@ void _powerSourceRunLoopCallback(void * __unused ctx) {
 
 @end
 
-
-int getCurrentBatteryCapacity() {
+// TODO: Move this.
+int Apple_GetCurrentBatteryCapacity() {
     return [[AppleBatteryClient sharedClient] batteryLevel];
 }

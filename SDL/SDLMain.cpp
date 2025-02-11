@@ -513,6 +513,12 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+#if PPSSPP_PLATFORM(MAC)
+extern "C" {
+int Apple_GetCurrentBatteryCapacity();
+}
+#endif
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -543,6 +549,18 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		return g_DesktopWidth;
 	case SYSPROP_DISPLAY_YRES:
 		return g_DesktopHeight;
+	case SYSPROP_BATTERY_PERCENTAGE:
+#if PPSSPP_PLATFORM(MAC)
+	// Let's keep using the old code on Mac for safety. Evaluate later if to be deleted.
+		return Apple_GetCurrentBatteryCapacity();
+#else
+		{
+			int seconds = 0;
+			int percentage = 0;
+			SDL_GetPowerInfo(&seconds, &percentage);
+			return percentage;
+		}
+#endif
 	default:
 		return -1;
 	}
@@ -604,7 +622,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_FILE_BROWSER:
-		return true;
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
 #if defined(MOBILE_DEVICE)
@@ -612,7 +629,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
 		return false;
 #endif
-	default:
+	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
+		return true;
+default:
 		return false;
 	}
 }
