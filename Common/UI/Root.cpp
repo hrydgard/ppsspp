@@ -17,8 +17,7 @@ static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
 
-static std::function<void(UISound, float)> soundCallback;
-static bool soundEnabled = true;
+static std::function<void(UISound)> soundCallback;
 
 struct DispatchQueueItem {
 	Event *e;
@@ -126,17 +125,13 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	}
 }
 
-void SetSoundEnabled(bool enabled) {
-	soundEnabled = enabled;
-}
-
-void SetSoundCallback(std::function<void(UISound, float)> func) {
+void SetSoundCallback(std::function<void(UISound)> func) {
 	soundCallback = func;
 }
 
-void PlayUISound(UISound sound, float volume) {
-	if (soundEnabled && soundCallback) {
-		soundCallback(sound, volume);
+void PlayUISound(UISound sound) {
+	if (soundCallback) {
+		soundCallback(sound);
 	}
 }
 

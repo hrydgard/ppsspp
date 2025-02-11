@@ -36,8 +36,8 @@ public:
 
 	// Called from main thread
 	// This clamps the samples to 16-bit before starting to work on them.
-	// Volume is a 12-bit fixed point multiplier.
-	void PushSamples(const s32* samples, unsigned int num_samples, int volume);
+	// Volume is a multiplier from 0.0f to 1.0f.
+	void PushSamples(const s32* samples, unsigned int num_samples, float volume);
 
 	void Clear();
 

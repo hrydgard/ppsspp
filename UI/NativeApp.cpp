@@ -1031,8 +1031,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_OSD.Update();
 
-	UI::SetSoundEnabled(g_Config.bUISound);
-
 	_dbg_assert_(graphicsContext != nullptr);
 	_dbg_assert_(g_screenManager != nullptr);
 

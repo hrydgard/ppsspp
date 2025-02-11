@@ -636,9 +636,6 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	audioSettings->Add(new ItemHeader(ms->T("Audio")));
-	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound,a->T("Enable Sound")));
-
 #if PPSSPP_PLATFORM(IOS)
 	CheckBox *respectSilentMode = audioSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
 	respectSilentMode->OnClick.Add([=](EventParams &e) {
@@ -654,21 +651,36 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	mixWithOthers->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
 
-	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGameVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Global volume"), screenManager()));
+	audioSettings->Add(new ItemHeader(a->T("Game volume")));
+
+	// This is here because it now only applies to in-game. Muting the menu sounds is separate.
+	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
+
+	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGameVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Game volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
-
-	PopupSliderChoice *altVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAltSpeedVolume, VOLUME_OFF, VOLUME_FULL, NO_DEFAULT_INT, a->T("Alternate speed volume"), screenManager()));
-	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
-	altVolume->SetZeroLabel(a->T("Mute"));
 
 	PopupSliderChoice *reverbVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iReverbVolume, VOLUME_OFF, 2 * VOLUME_FULL, VOLUME_FULL, a->T("Reverb volume"), screenManager()));
 	reverbVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	reverbVolume->SetZeroLabel(a->T("Disabled"));
 
+	PopupSliderChoice *altVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAltSpeedVolume, VOLUME_OFF, VOLUMEHI_FULL, NO_DEFAULT_INT, a->T("Alternate speed volume"), screenManager()));
+	altVolume->SetFormat("%d%%");
+	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
+	altVolume->SetZeroLabel(a->T("Mute"));
+
 	PopupSliderChoice *achievementVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, ac->T("Achievement sound volume"), screenManager()));
 	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	achievementVolume->SetZeroLabel(a->T("Mute"));
+
+	audioSettings->Add(new ItemHeader(a->T("UI sound")));
+
+	audioSettings->Add(new CheckBox(&g_Config.bUISound, a->T("UI sound")));
+	PopupSliderChoice *uiVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, VOLUMEHI_FULL, ac->T("UI volume"), screenManager()));
+	uiVolume->SetFormat("%d%%");
+	uiVolume->SetZeroLabel(a->T("Mute"));
+
+	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	// Hide the backend selector in UWP builds (we only support XAudio2 there).
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -1098,7 +1110,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	});
 #endif
 
-	systemSettings->Add(new CheckBox(&g_Config.bUISound, sy->T("UI Sound")));
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {

@@ -321,7 +321,7 @@ bool BackgroundAudio::Play() {
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.
-	if (!g_Config.bEnableSound) {
+	if (g_Config.iUIVolume <= 0) {
 		Clear(true);
 		System_AudioClear();
 		return true;
@@ -332,17 +332,20 @@ bool BackgroundAudio::Play() {
 	if (lastPlaybackTime_ > 0.0 && lastPlaybackTime_ <= now) {
 		sz = (int)((now - lastPlaybackTime_) * 44100);
 	}
+
 	sz = std::min(BUFSIZE / 2, sz);
 	if (at3Reader_) {
 		if (at3Reader_->Read(buffer, sz)) {
 			if (fadingOut_) {
-                float vol = volume_;
-				for (int i = 0; i < sz*2; i += 2) {
-					buffer[i] = (int)((float)buffer[i] * vol);
-					buffer[i + 1] = (int)((float)buffer[i + 1] * vol);
+				float vol = volume_;
+				// TODO: This isn't optimized. But hardly matters...
+				for (int i = 0; i < sz * 2; i += 2) {
+					const float v = vol;
+					buffer[i] = (int)((float)buffer[i] * v);
+					buffer[i + 1] = (int)((float)buffer[i + 1] * v);
 					vol += delta_;
 				}
-                volume_ = vol;
+				volume_ = vol;
 			}
 		}
 	} else {
@@ -352,15 +355,8 @@ bool BackgroundAudio::Play() {
 		}
 	}
 
-	int vol = std::clamp(g_Config.iGlobalVolume, 0, VOLUME_FULL);
-	// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
-	int volume;
-	if (vol != 0) {
-		volume = 4096 >> (VOLUME_FULL - vol);
-	} else {
-		volume = 0;
-	}
-	System_AudioPushSamples(buffer, sz, volume);
+	float multiplier = Volume100ToMultiplier(g_Config.iUIVolume);
+	System_AudioPushSamples(buffer, sz, multiplier);
 
 	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
 		Clear(true);
@@ -554,6 +550,7 @@ void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
 
 void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	const char *filename = nullptr;
+
 	switch (sound) {
 	case UI::UISound::BACK: filename = "sfx_back.wav"; break;
 	case UI::UISound::SELECT: filename = "sfx_select.wav"; break;
@@ -565,6 +562,7 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	default:
 		return;
 	}
+
 	Sample *sample = Sample::Load(filename);
 	if (!sample) {
 		ERROR_LOG(Log::Audio, "Failed to load the default sample for UI sound %d", (int)sound);
@@ -589,12 +587,16 @@ private:
 
 void SoundEffectMixer::Init() {
 	samples_.resize((size_t)UI::UISound::COUNT);
-	UI::SetSoundCallback([](UI::UISound sound, float volume) {
-		g_BackgroundAudio.SFX().Play(sound, volume);
+
+	// Setup UI sound callback. For navigation sounds only.
+	UI::SetSoundCallback([](UI::UISound sound) {
+		if (g_Config.bUISound) {
+			float volume = Volume100ToMultiplier(g_Config.iUIVolume);
+			g_BackgroundAudio.SFX().Play(sound, volume);
+		}
 	});
 
 	// Load samples in the background.
-
 	g_threadManager.EnqueueTask(new SampleLoadTask(this));
 }
 

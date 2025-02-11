@@ -286,6 +286,9 @@ public:
 	int iAltSpeedVolume;
 	int iAchievementSoundVolume;
 
+	// Newer volume settings, 0-100
+	int iUIVolume;
+
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;

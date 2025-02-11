@@ -48,11 +48,10 @@ enum class UISound {
 	COUNT,
 };
 
-void SetSoundEnabled(bool enabled);
-void SetSoundCallback(std::function<void(UISound, float)> func);
+void SetSoundCallback(std::function<void(UISound)> func);
 
 // This is only meant for actual UI navigation sound, not achievements.
 // Call directly into the player for other UI effects.
-void PlayUISound(UISound sound, float volume = 0.25f);
+void PlayUISound(UISound sound);
 
 }  // namespace UI

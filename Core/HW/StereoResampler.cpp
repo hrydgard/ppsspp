@@ -248,7 +248,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 }
 
 // Executes on the emulator thread, pushing sound into the buffer.
-void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples, int volume) {
+void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples, float multiplier) {
 	inputSampleCount_ += numSamples;
 
 	UpdateBufferSize();
@@ -273,6 +273,9 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples, i
 		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?
 		return;
 	}
+
+	// 12-bit volume.
+	int volume = (int)(multiplier * 4096.0f);
 
 	// Check if we need to roll over to the start of the buffer during the copy.
 	unsigned int indexW_left_samples = m_maxBufsize * 2 - (indexW & INDEX_MASK);

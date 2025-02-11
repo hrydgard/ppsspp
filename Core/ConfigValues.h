@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cmath>
 #include <string>
 #ifndef _MSC_VER
 #include <strings.h>
@@ -30,6 +31,24 @@ constexpr int PSP_MODEL_SLIM = 1;
 constexpr int PSP_DEFAULT_FIRMWARE = 660;
 constexpr int VOLUME_OFF = 0;
 constexpr int VOLUME_FULL = 10;
+constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
+
+// This matches exactly the old shift-based curve.
+inline float Volume10ToMultiplier(int volume) {
+	// Allow muting entirely.
+	if (volume <= 0) {
+		return 0.0f;
+	}
+	return powf(2.0f, (float)(volume - 10));
+}
+
+inline float Volume100ToMultiplier(int volume) {
+	// Allow muting entirely.
+	if (volume <= 0) {
+		return 0.0f;
+	}
+	return powf(2.0f, (float)(volume - 100) * 0.1f);
+}
 
 struct ConfigTouchPos {
 	float x;

@@ -114,7 +114,7 @@ void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(UIMessage message, const std::string &param) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
-void System_AudioPushSamples(const s32 *audio, int numSamples, int volume) {}
+void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 // To clear the secret entirely, just save an empty string.
