@@ -1,5 +1,6 @@
 #include <string>
 #include <mutex>
+#include <algorithm>
 
 #include "ext/minimp3/minimp3_ex.h"
 
@@ -351,7 +352,15 @@ bool BackgroundAudio::Play() {
 		}
 	}
 
-	System_AudioPushSamples(buffer, sz);
+	int vol = std::clamp(g_Config.iGlobalVolume, 0, VOLUME_FULL);
+	// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
+	int volume;
+	if (vol != 0) {
+		volume = 4096 >> (VOLUME_FULL - vol);
+	} else {
+		volume = 0;
+	}
+	System_AudioPushSamples(buffer, sz, volume);
 
 	if (at3Reader_ && fadingOut_ && volume_ <= 0.0f) {
 		Clear(true);

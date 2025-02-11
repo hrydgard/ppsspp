@@ -302,7 +302,8 @@ void System_AudioClear();
 // These samples really have 16 bits of value, but can be a little out of range.
 // This is for pushing rate-controlled 44khz audio from emulation.
 // If you push a little too fast, we'll pitch up to a limit, for example.
-void System_AudioPushSamples(const int32_t *audio, int numSamples);
+// Volume is a 12-bit multiplier.
+void System_AudioPushSamples(const int32_t *audio, int numSamples, int volume);
 
 inline void System_AudioResetStatCounters() {
 	return System_AudioGetDebugStats(nullptr, 0);
