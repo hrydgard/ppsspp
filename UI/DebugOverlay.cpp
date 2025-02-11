@@ -453,13 +453,14 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 		}
 	}
 
-#ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
-	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
-		char temp[256];
-		snprintf(temp, sizeof(temp), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());
-		snprintf(fpsbuf, sizeof(fpsbuf), "%s", temp);
+	if (System_GetPropertyBool(SYSPROP_CAN_READ_BATTERY_PERCENTAGE)) {
+		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
+			char temp[256];
+			const int percentage = System_GetPropertyInt(SYSPROP_BATTERY_PERCENTAGE);
+			snprintf(temp, sizeof(temp), "%s Battery: %d%%", fpsbuf, percentage);
+			snprintf(fpsbuf, sizeof(fpsbuf), "%s", temp);
+		}
 	}
-#endif
 
 	ctx->Flush();
 	ctx->BindFontTexture();

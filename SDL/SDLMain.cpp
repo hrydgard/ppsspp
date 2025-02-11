@@ -513,6 +513,10 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+#if PPSSPP_PLATFORM(MAC)
+int Apple_GetCurrentBatteryCapacity();
+#endif
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -543,6 +547,10 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		return g_DesktopWidth;
 	case SYSPROP_DISPLAY_YRES:
 		return g_DesktopHeight;
+#if PPSSPP_PLATFORM(MAC)
+	case SYSPROP_BATTERY_PERCENTAGE:
+		return Apple_GetCurrentBatteryCapacity();
+#endif
 	default:
 		return -1;
 	}
@@ -604,6 +612,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_FILE_BROWSER:
+	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
