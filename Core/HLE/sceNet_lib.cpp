@@ -36,7 +36,7 @@ u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
 	u32 psp_str_end = Memory::GetAddressFromHostPointer(str_end);
 	Memory::Write_U32(psp_str_end, strEndAddrPtr);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
@@ -47,7 +47,7 @@ u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
 
 	// Remap the pointer
 	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetStrcpy(void* dest, const char *src) {
@@ -56,28 +56,28 @@ u32 sceNetStrcpy(void* dest, const char *src) {
 
 	// Remap the pointer
 	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 s32 sceNetStrncmp(const char *lhs, const char *rhs, u32 count) {
 	// Redirect that to libc
 	s32 res = std::strncmp(lhs, rhs, count);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 s32 sceNetStrcasecmp(const char *lhs, const char *rhs) {
 	// Redirect that to eh... what is this, a libc extension?
 	s32 res = strcasecmp(lhs, rhs);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 s32 sceNetStrcmp(const char *lhs, const char *rhs) {
 	// Redirect that to libc
 	s32 res = std::strcmp(lhs, rhs);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetStrncpy(void *dest, const char *src, u32 count) {
@@ -86,7 +86,7 @@ u32 sceNetStrncpy(void *dest, const char *src, u32 count) {
 
 	// Remap the pointer
 	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetStrchr(void *str, int ch) {
@@ -98,37 +98,37 @@ u32 sceNetStrchr(void *str, int ch) {
 
 	// Remap the pointer
 	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetStrlen(const char* str) {
 	// Redirect that to libc
 	u32 res = std::strlen(str);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
 	// Redirect that to libc
 	s32 res = std::memcmp(Memory::GetPointer(lhsPtr), Memory::GetPointer(rhsPtr), count);
 
-	return res;
+	return hleLogDebug(Log::sceNet, res);
 }
 
 
 const HLEFunction sceNet_lib[] = {
 	{0X1858883D, nullptr,                        "sceNetRand",                  'i', ""       },
-	{0X2A73ADDC, &WrapU_CUI<sceNetStrtoul>,      "sceNetStrtoul",               'i', ""       },
-	{0X4753D878, &WrapU_VUU<sceNetMemmove>,      "sceNetMemmove",               'i', ""       },
-	{0X80C9F02A, &WrapU_VC<sceNetStrcpy>,        "sceNetStrcpy",                'i', ""       },
-	{0X94DCA9F0, &WrapI_CCU<sceNetStrncmp>,      "sceNetStrncmp",               'i', ""       },
-	{0X9CFBC7E3, &WrapI_CC<sceNetStrcasecmp>,    "sceNetStrcasecmp",            'i', ""       },
-	{0XA0F16ABD, &WrapI_CC<sceNetStrcmp>,        "sceNetStrcmp",                'i', ""       },
-	{0XB5CE388A, &WrapU_VCU<sceNetStrncpy>,      "sceNetStrncpy",               'i', ""       },
-	{0XBCBE14CF, &WrapU_VI<sceNetStrchr>,        "sceNetStrchr",                'i', ""       },
+	{0X2A73ADDC, &WrapU_CUI<sceNetStrtoul>,      "sceNetStrtoul",               'i', "sxi"    },
+	{0X4753D878, &WrapU_VUU<sceNetMemmove>,      "sceNetMemmove",               'i', "xxx"    },
+	{0X80C9F02A, &WrapU_VC<sceNetStrcpy>,        "sceNetStrcpy",                'i', "xs"     },
+	{0X94DCA9F0, &WrapI_CCU<sceNetStrncmp>,      "sceNetStrncmp",               'i', "ssx"    },
+	{0X9CFBC7E3, &WrapI_CC<sceNetStrcasecmp>,    "sceNetStrcasecmp",            'i', "ss"     },
+	{0XA0F16ABD, &WrapI_CC<sceNetStrcmp>,        "sceNetStrcmp",                'i', "ss"     },
+	{0XB5CE388A, &WrapU_VCU<sceNetStrncpy>,      "sceNetStrncpy",               'i', "xsx"    },
+	{0XBCBE14CF, &WrapU_VI<sceNetStrchr>,        "sceNetStrchr",                'i', "si"     },
 	{0XCF705E46, nullptr,                        "sceNetSprintf",               'i', ""       },
-	{0XD8722983, &WrapU_C<sceNetStrlen>,         "sceNetStrlen",                'i', ""       },
-	{0XE0A81C7C, &WrapI_UUU<sceNetMemcmp>,       "sceNetMemcmp",                'i', ""       },
+	{0XD8722983, &WrapU_C<sceNetStrlen>,         "sceNetStrlen",                'i', "s"      },
+	{0XE0A81C7C, &WrapI_UUU<sceNetMemcmp>,       "sceNetMemcmp",                'i', "xxx"    },
 };
 
 
