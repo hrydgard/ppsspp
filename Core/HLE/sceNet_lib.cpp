@@ -28,8 +28,6 @@
 
 
 u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
-	// WrapU_CUI?
-
 	// Redirect that to libc
 	char* str_end = nullptr;
 	u32 res = std::strtoul(str, &str_end, base);
@@ -42,8 +40,6 @@ u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
 }
 
 u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
-	// WrapU_VUU?
-
 	// Redirect that to libc
 	void* host_ptr = std::memmove(
 		dest, Memory::GetPointer(srcPtr), count
@@ -55,8 +51,6 @@ u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
 }
 
 u32 sceNetStrcpy(void* dest, const char *src) {
-	// WrapU_VC?
-
 	// Redirect that to libc
 	char* host_ptr = std::strcpy(static_cast<char*>(dest), src);
 
@@ -66,8 +60,6 @@ u32 sceNetStrcpy(void* dest, const char *src) {
 }
 
 s32 sceNetStrncmp(const char *lhs, const char *rhs, u32 count) {
-	// WrapI_CCU?
-
 	// Redirect that to libc
 	s32 res = std::strncmp(lhs, rhs, count);
 
@@ -75,8 +67,6 @@ s32 sceNetStrncmp(const char *lhs, const char *rhs, u32 count) {
 }
 
 s32 sceNetStrcasecmp(const char *lhs, const char *rhs) {
-	// WrapI_CC?
-
 	// Redirect that to eh... what is this, a libc extension?
 	s32 res = strcasecmp(lhs, rhs);
 
@@ -84,8 +74,6 @@ s32 sceNetStrcasecmp(const char *lhs, const char *rhs) {
 }
 
 s32 sceNetStrcmp(const char *lhs, const char *rhs) {
-	// WrapI_CC?
-
 	// Redirect that to libc
 	s32 res = std::strcmp(lhs, rhs);
 
@@ -93,8 +81,6 @@ s32 sceNetStrcmp(const char *lhs, const char *rhs) {
 }
 
 u32 sceNetStrncpy(void *dest, const char *src, u32 count) {
-	// WrapU_VCU?
-
 	// Redirect that to libc
 	char* host_ptr = std::strncpy(static_cast<char*>(dest), src, count);
 
@@ -103,33 +89,46 @@ u32 sceNetStrncpy(void *dest, const char *src, u32 count) {
 	return res;
 }
 
-u32 sceNetStrchr(char *str, int ch) {
-	// For some reason doesn't build for me if I make 'str' a const char
-
-	// Wrap_CI
+u32 sceNetStrchr(void *str, int ch) {
+	// For some reason it doesn't build for me if I make 'str' a const char *
+	// At the same time I can't make it char *, because then WrapU_CI won't work
 
 	// Redirect that to libc
-	char* host_ptr = std::strchr(str, ch);
+	char* host_ptr = std::strchr(static_cast<char*>(str), ch);
 
 	// Remap the pointer
 	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
 	return res;
 }
 
+u32 sceNetStrlen(const char* str) {
+	// Redirect that to libc
+	u32 res = std::strlen(str);
+
+	return res;
+}
+
+s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
+	// Redirect that to libc
+	s32 res = std::memcmp(Memory::GetPointer(lhsPtr), Memory::GetPointer(rhsPtr), count);
+
+	return res;
+}
+
 
 const HLEFunction sceNet_lib[] = {
-	{0X1858883D, nullptr,           "sceNetRand",                  'i', ""       },
-	{0X2A73ADDC, nullptr,           "sceNetStrtoul",               'i', ""       },
-	{0X4753D878, nullptr,           "sceNetMemmove",               'i', ""       },
-	{0X80C9F02A, nullptr,           "sceNetStrcpy",                'i', ""       },
-	{0X94DCA9F0, nullptr,           "sceNetStrncmp",               'i', ""       },
-	{0X9CFBC7E3, nullptr,           "sceNetStrcasecmp",            'i', ""       },
-	{0XA0F16ABD, nullptr,           "sceNetStrcmp",                'i', ""       },
-	{0XB5CE388A, nullptr,           "sceNetStrncpy",               'i', ""       },
-	{0XBCBE14CF, nullptr,           "sceNetStrchr",                'i', ""       },
-	{0XCF705E46, nullptr,           "sceNetSprintf",               'i', ""       },
-	{0XD8722983, nullptr,           "sceNetStrlen",                'i', ""       },
-	{0XE0A81C7C, nullptr,           "sceNetMemcmp",                'i', ""       },
+	{0X1858883D, nullptr,                        "sceNetRand",                  'i', ""       },
+	{0X2A73ADDC, &WrapU_CUI<sceNetStrtoul>,      "sceNetStrtoul",               'i', ""       },
+	{0X4753D878, &WrapU_VUU<sceNetMemmove>,      "sceNetMemmove",               'i', ""       },
+	{0X80C9F02A, &WrapU_VC<sceNetStrcpy>,        "sceNetStrcpy",                'i', ""       },
+	{0X94DCA9F0, &WrapI_CCU<sceNetStrncmp>,      "sceNetStrncmp",               'i', ""       },
+	{0X9CFBC7E3, &WrapI_CC<sceNetStrcasecmp>,    "sceNetStrcasecmp",            'i', ""       },
+	{0XA0F16ABD, &WrapI_CC<sceNetStrcmp>,        "sceNetStrcmp",                'i', ""       },
+	{0XB5CE388A, &WrapU_VCU<sceNetStrncpy>,      "sceNetStrncpy",               'i', ""       },
+	{0XBCBE14CF, &WrapU_VI<sceNetStrchr>,        "sceNetStrchr",                'i', ""       },
+	{0XCF705E46, nullptr,                        "sceNetSprintf",               'i', ""       },
+	{0XD8722983, &WrapU_C<sceNetStrlen>,         "sceNetStrlen",                'i', ""       },
+	{0XE0A81C7C, &WrapI_UUU<sceNetMemcmp>,       "sceNetMemcmp",                'i', ""       },
 };
 
 
