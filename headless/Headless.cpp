@@ -528,7 +528,7 @@ int main(int argc, const char* argv[])
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
 	g_Config.iGameVolume = VOLUMEHI_FULL;
-	g_Config.iReverbVolume = VOLUME_FULL;
+	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseExperimentalAtrac = newAtrac;
 

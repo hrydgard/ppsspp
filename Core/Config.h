@@ -283,13 +283,14 @@ public:
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;
 	int iLegacyReverbVolume;
-	int iAltSpeedVolume;
-	int iAchievementSoundVolume;
+	int iLegacyAchievementVolume;
 
 	// Newer volume settings, 0-100
 	int iGameVolume;
 	int iReverbVolume;
 	int iUIVolume;
+	int iAchievementVolume;
+	int iAltSpeedVolume;
 
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
