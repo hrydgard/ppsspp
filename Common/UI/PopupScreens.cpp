@@ -202,7 +202,7 @@ void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_);
+	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	if (!negativeLabel_.empty())
 		popupScreen->SetNegativeDisable(negativeLabel_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
@@ -346,6 +346,13 @@ void SliderPopupScreen::UpdateTextBox() {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "%d", sliderValue_);
 	edit_->SetText(temp);
+	if (liveUpdate_ && *value_ != sliderValue_) {
+		*value_ = sliderValue_;
+		EventParams e{};
+		e.v = nullptr;
+		e.a = *value_;
+		OnChange.Trigger(e);
+	}
 }
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

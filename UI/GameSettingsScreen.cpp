@@ -679,7 +679,12 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	PopupSliderChoice *uiVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, VOLUMEHI_FULL, ac->T("UI volume"), screenManager()));
 	uiVolume->SetFormat("%d%%");
 	uiVolume->SetZeroLabel(a->T("Mute"));
-
+	uiVolume->SetLiveUpdate(true);
+	uiVolume->OnChange.Add([](UI::EventParams &e) {
+		// Audio preview
+		PlayUISound(UI::UISound::CONFIRM);
+		return UI::EVENT_DONE;
+	});
 	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
 
 	// Hide the backend selector in UWP builds (we only support XAudio2 there).
