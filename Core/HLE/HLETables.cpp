@@ -84,6 +84,7 @@
 #include "sceNetInet.h"
 #include "sceNetResolver.h"
 // #include "sceNp2.h"
+#include "sceNet_lib.h"
 
 #define N(s) s
 
@@ -319,6 +320,7 @@ void RegisterAllModules() {
 	Register_mp4msv();
 	Register_InterruptManagerForKernel();
 	Register_sceSircs();
+	Register_sceNet_lib();
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 
