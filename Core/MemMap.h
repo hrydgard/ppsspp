@@ -399,7 +399,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T &operator[](int i) const
+	inline const T &operator[](int i) const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
+#else
+		return *((const T *)(Memory::base + ptr) + i);
+#endif
+	}
+
+	inline T &operator[](int i)
 	{
 #ifdef MASKED_PSP_MEMORY
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
@@ -408,7 +417,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T *operator->() const
+	inline const T *operator->() const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
+#endif
+	}
+
+	inline T *operator->()
 	{
 #ifdef MASKED_PSP_MEMORY
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
