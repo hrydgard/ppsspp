@@ -339,6 +339,15 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 			return KEYBOARD_LAYOUT_QWERTY;
 		}
 	}
+	case SYSPROP_BATTERY_PERCENTAGE:
+	{
+		SYSTEM_POWER_STATUS status{};
+		if (GetSystemPowerStatus(&status)) {
+			return status.BatteryLifePercent < 255 ? status.BatteryLifePercent : 100;
+		} else {
+			return 100;
+		}
+	}
 	default:
 		return -1;
 	}
@@ -394,6 +403,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
 	case SYSPROP_OK_BUTTON_LEFT:
+		return true;
+	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
 	default:
 		return false;
