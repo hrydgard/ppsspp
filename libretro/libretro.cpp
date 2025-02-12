@@ -1924,7 +1924,7 @@ inline int16_t Clamp16(int32_t sample) {
    return sample;
 }
 
-void System_AudioPushSamples(const int32_t *audio, int numSamples, int volume) {
+void System_AudioPushSamples(const int32_t *audio, int numSamples, float volume) {
    // We ignore volume here, because it's handled by libretro presumably.
 
    // Convert to 16-bit audio for further processing.

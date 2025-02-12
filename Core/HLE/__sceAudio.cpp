@@ -414,23 +414,15 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		int vol = g_Config.iGlobalVolume;
+		float multiplier = Volume10ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUME_FULL));
 		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
 			if (g_Config.iAltSpeedVolume != -1) {
-				vol = g_Config.iAltSpeedVolume;
+				// Multiply in the alt speed volume instead of replacing like before.
+				multiplier *= Volume100ToMultiplier(g_Config.iAltSpeedVolume);
 			}
 		}
 
-		vol = std::clamp(vol, 0, VOLUME_FULL);
-
-		// 12-bit volume. So far this isn't any better than the shift, but stay tuned.
-		int volume;
-		if (vol != 0) {
-			volume = 4096 >> (VOLUME_FULL - vol);
-		} else {
-			volume = 0;
-		}
-		System_AudioPushSamples(mixBuffer, hwBlockSize, volume);
+		System_AudioPushSamples(mixBuffer, hwBlockSize, multiplier);
 
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {

@@ -115,7 +115,7 @@ void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
-void System_AudioPushSamples(const s32 *audio, int numSamples, int volume) {}
+void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }
@@ -527,7 +527,7 @@ int main(int argc, const char* argv[])
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
-	g_Config.iGlobalVolume = VOLUME_FULL;
+	g_Config.iGameVolume = VOLUME_FULL;
 	g_Config.iReverbVolume = VOLUME_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseExperimentalAtrac = newAtrac;

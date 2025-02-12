@@ -340,7 +340,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		return UI::EVENT_DONE;
 	});
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
 	viewGroup->Add(new Choice(ac->T("RetroAchievements website")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {

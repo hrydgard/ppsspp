@@ -80,8 +80,8 @@ private:
 
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, std::string_view title, int step = 1, std::string_view units = "")
-		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, int defaultValue, std::string_view title, int step, std::string_view units, bool liveUpdate)
+		: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), liveUpdate_(liveUpdate) {}
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	void SetNegativeDisable(const std::string &str) {
@@ -110,6 +110,7 @@ private:
 	int maxValue_;
 	int defaultValue_;
 	int step_;
+	bool liveUpdate_;
 	bool changing_ = false;
 	bool disabled_ = false;
 };
@@ -303,6 +304,9 @@ public:
 	void SetZeroLabel(std::string_view str) {
 		zeroLabel_ = str;
 	}
+	void SetLiveUpdate(bool update) {
+		liveUpdate_ = update;
+	}
 	void SetNegativeDisable(std::string_view str) {
 		negativeLabel_ = str;
 	}
@@ -327,6 +331,7 @@ private:
 	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_ = false;
+	bool liveUpdate_ = false;
 };
 
 class PopupSliderChoiceFloat : public AbstractChoiceWithValueDisplay {

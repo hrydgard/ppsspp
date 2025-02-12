@@ -196,10 +196,6 @@ std::thread *graphicsLoadThread;
 // globals
 Path boot_filename;
 
-int NativeMix(short *audio, int numSamples, int sampleRateHz) {
-	return __AudioMix(audio, numSamples, sampleRateHz);
-}
-
 // This is called before NativeInit so we do a little bit of initialization here.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version) {
 	*app_nice_name = "PPSSPP";
@@ -1030,8 +1026,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_Discord.Update();
 
 	g_OSD.Update();
-
-	UI::SetSoundEnabled(g_Config.bUISound);
 
 	_dbg_assert_(graphicsContext != nullptr);
 	_dbg_assert_(g_screenManager != nullptr);
