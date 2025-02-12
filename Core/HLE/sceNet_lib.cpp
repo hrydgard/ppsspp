@@ -27,57 +27,93 @@
 // This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
 
 
-u32 sceNetStrtoul(char *str, u32 strEndAddrPtr, int base) {
-	// TODO
-	// Wrap_U_CUI?
+u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
+	// WrapU_CUI?
+
 	// Redirect that to libc
 	char* str_end = nullptr;
 	u32 res = std::strtoul(str, &str_end, base);
 
-	// str_end - Memory::base;
-	return 0;
+	// Remap the pointer
+	u32 psp_str_end = Memory::GetAddressFromHostPointer(str_end);
+	Memory::Write_U32(psp_str_end, strEndAddrPtr);
+
+	return res;
 }
 
-u32 sceNetMemmove(void *dest, void *src, u32 count) {
-	// TODO
-	auto res = std::memmove(dest, src, count);
-	return 0;
+u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
+	// WrapU_VUU?
+
+	// Redirect that to libc
+	void* host_ptr = std::memmove(
+		dest, Memory::GetPointer(srcPtr), count
+	);
+
+	// Remap the pointer
+	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
+	return res;
 }
 
-u32 sceNetStrcpy(char *dest, char *src) {
-	// TODO
-	auto res = std::strcpy(dest, src);
-	return 0;
+u32 sceNetStrcpy(void* dest, const char *src) {
+	// WrapU_VC?
+
+	// Redirect that to libc
+	char* host_ptr = std::strcpy(static_cast<char*>(dest), src);
+
+	// Remap the pointer
+	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
+	return res;
 }
 
-u32 sceNetStrncmp(char *lhs, char *rhs, u32 count) {
-	// TODO
-	auto res = std::strncmp(lhs, rhs, count);
-	return 0;
+s32 sceNetStrncmp(const char *lhs, const char *rhs, u32 count) {
+	// WrapI_CCU?
+
+	// Redirect that to libc
+	s32 res = std::strncmp(lhs, rhs, count);
+
+	return res;
 }
 
-u32 sceNetStrcasecmp(char *lhs, char *rhs) {
-	// TODO
-	auto res = strcasecmp(lhs, rhs);
-	return 0;
+s32 sceNetStrcasecmp(const char *lhs, const char *rhs) {
+	// WrapI_CC?
+
+	// Redirect that to eh... what is this, a libc extension?
+	s32 res = strcasecmp(lhs, rhs);
+
+	return res;
 }
 
-u32 sceNetStrcmp(char *lhs, char *rhs) {
-	// TODO
-	auto res = std::strcmp(lhs, rhs);
-	return 0;
+s32 sceNetStrcmp(const char *lhs, const char *rhs) {
+	// WrapI_CC?
+
+	// Redirect that to libc
+	s32 res = std::strcmp(lhs, rhs);
+
+	return res;
 }
 
-u32 sceNetStrncpy(char *dest, char *src, u32 count) {
-	// TODO
-	auto res = std::strncpy(dest, src, count);
-	return 0;
+u32 sceNetStrncpy(void *dest, const char *src, u32 count) {
+	// WrapU_VCU?
+
+	// Redirect that to libc
+	char* host_ptr = std::strncpy(static_cast<char*>(dest), src, count);
+
+	// Remap the pointer
+	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
+	return res;
 }
 
 u32 sceNetStrchr(char *str, int ch) {
-	// TODO
-	auto res = std::strchr(str, ch);
-	return 0;
+	// For some reason doesn't build for me if I make 'str' a const char
+
+	// Wrap_CI
+
+	// Redirect that to libc
+	char* host_ptr = std::strchr(str, ch);
+
+	// Remap the pointer
+	u32 res = Memory::GetAddressFromHostPointer(host_ptr);
+	return res;
 }
 
 
