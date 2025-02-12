@@ -754,16 +754,22 @@ static int DefaultGameVolume() {
 	return LegacyVolumeToNewVolume(g_Config.iLegacyGameVolume, 100);
 }
 
+static int DefaultReverbVolume() {
+	return LegacyVolumeToNewVolume(g_Config.iLegacyReverbVolume, 200);
+}
+
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, CfgFlag::PER_GAME),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, CfgFlag::DEFAULT),
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
+	// The default settings here are still relevant, they will get propagated into the new ones.
 	ConfigSetting("GlobalVolume", &g_Config.iLegacyGameVolume, VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
+	ConfigSetting("ReverbVolume", &g_Config.iLegacyReverbVolume, VOLUME_FULL, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
 
 	ConfigSetting("GameVolume", &g_Config.iGameVolume, &DefaultGameVolume, CfgFlag::PER_GAME),
-	ConfigSetting("ReverbVolume", &g_Config.iReverbVolume, VOLUME_FULL, CfgFlag::PER_GAME),
+	ConfigSetting("ReverbRelativeVolume", &g_Config.iReverbVolume, &DefaultReverbVolume, CfgFlag::PER_GAME),
 	ConfigSetting("AltSpeedRelativeVolume", &g_Config.iAltSpeedVolume, VOLUMEHI_FULL, CfgFlag::PER_GAME),
 	ConfigSetting("AchievementSoundVolume", &g_Config.iAchievementSoundVolume, 6, CfgFlag::PER_GAME),
 	ConfigSetting("UIVolume", &g_Config.iUIVolume, 70, CfgFlag::DEFAULT),

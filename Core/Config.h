@@ -280,14 +280,15 @@ public:
 	bool bEnableSound;
 	int iAudioBackend;
 
-	// Volume settings, 0-10
+	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;
-	int iReverbVolume;
+	int iLegacyReverbVolume;
 	int iAltSpeedVolume;
 	int iAchievementSoundVolume;
 
 	// Newer volume settings, 0-100
 	int iGameVolume;
+	int iReverbVolume;
 	int iUIVolume;
 
 	bool bExtraAudioBuffering;  // For bluetooth
