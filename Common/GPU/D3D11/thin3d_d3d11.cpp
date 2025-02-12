@@ -361,12 +361,6 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	caps_.isTilingGPU = false;
 
-	// Hide D3D9 when we know it likely won't work well.
-	caps_.supportsD3D9 = true;
-	if (!strcmp(adapterDesc_.c_str(), "Intel(R) Iris(R) Xe Graphics")) {
-		caps_.supportsD3D9 = false;
-	}
-
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
 	D3D11_TEXTURE2D_DESC packDesc{};
