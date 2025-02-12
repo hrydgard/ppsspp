@@ -21,6 +21,64 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
 
+#include <cstring>
+
+
+// This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
+
+
+u32 sceNetStrtoul(char *str, u32 strEndAddrPtr, int base) {
+	// TODO
+	// Wrap_U_CUI?
+	// Redirect that to libc
+	char* str_end = nullptr;
+	u32 res = std::strtoul(str, &str_end, base);
+
+	// str_end - Memory::base;
+	return 0;
+}
+
+u32 sceNetMemmove(void *dest, void *src, u32 count) {
+	// TODO
+	auto res = std::memmove(dest, src, count);
+	return 0;
+}
+
+u32 sceNetStrcpy(char *dest, char *src) {
+	// TODO
+	auto res = std::strcpy(dest, src);
+	return 0;
+}
+
+u32 sceNetStrncmp(char *lhs, char *rhs, u32 count) {
+	// TODO
+	auto res = std::strncmp(lhs, rhs, count);
+	return 0;
+}
+
+u32 sceNetStrcasecmp(char *lhs, char *rhs) {
+	// TODO
+	auto res = strcasecmp(lhs, rhs);
+	return 0;
+}
+
+u32 sceNetStrcmp(char *lhs, char *rhs) {
+	// TODO
+	auto res = std::strcmp(lhs, rhs);
+	return 0;
+}
+
+u32 sceNetStrncpy(char *dest, char *src, u32 count) {
+	// TODO
+	auto res = std::strncpy(dest, src, count);
+	return 0;
+}
+
+u32 sceNetStrchr(char *str, int ch) {
+	// TODO
+	auto res = std::strchr(str, ch);
+	return 0;
+}
 
 
 const HLEFunction sceNet_lib[] = {
