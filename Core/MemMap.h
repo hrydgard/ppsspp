@@ -380,6 +380,22 @@ inline const char *GetCharPointer(const u32 address) {
 	}
 }
 
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer, no checks are made
+inline u32 GetAddressFromHostPointerUnchecked(const void* host_ptr) {
+	auto address = static_cast<const u8*>(host_ptr) - base;
+	return static_cast<u32>(address);
+}
+
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer with checks
+inline u32 GetAddressFromHostPointer(const void* host_ptr) {
+	u32 address = GetAddressFromHostPointerUnchecked(host_ptr);
+	if (!IsValidAddress(address)) {
+		// Somehow report the error?
+		return 0;
+	}
+	return address;
+}
+
 }  // namespace Memory
 
 // Avoiding a global include for NotifyMemInfo.
@@ -399,7 +415,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T &operator[](int i) const
+	inline const T &operator[](int i) const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
+#else
+		return *((const T *)(Memory::base + ptr) + i);
+#endif
+	}
+
+	inline T &operator[](int i)
 	{
 #ifdef MASKED_PSP_MEMORY
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
@@ -408,7 +433,16 @@ struct PSPPointer
 #endif
 	}
 
-	inline T *operator->() const
+	inline const T *operator->() const
+	{
+#ifdef MASKED_PSP_MEMORY
+		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
+#endif
+	}
+
+	inline T *operator->()
 	{
 #ifdef MASKED_PSP_MEMORY
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
