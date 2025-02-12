@@ -2092,3 +2092,31 @@ bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string
 	*str = ApplySafeSubstitutions(ga->T("Time Played: %1h %2m %3s"), hours, minutes, seconds);
 	return true;
 }
+
+// This matches exactly the old shift-based curve.
+float Volume10ToMultiplier(int volume) {
+	// Allow muting entirely.
+	if (volume <= 0) {
+		return 0.0f;
+	}
+	return powf(2.0f, (float)(volume - 10));
+}
+
+// NOTE: This is used for new volume parameters.
+// It uses a more intuitive-feeling curve.
+float Volume100ToMultiplier(int volume) {
+	// Switch to linear above the 1.0f point.
+	if (volume > 100) {
+		return volume / 100.0f;
+	}
+	return powf(volume * 0.01f, 1.75f);
+}
+
+// Used for migration from the old settings.
+int MultiplierToVolume100(float multiplier) {
+	// Switch to linear above the 1.0f point.
+	if (multiplier > 1.0f) {
+		return multiplier * 100;
+	}
+	return (int)(powf(multiplier, 1.0f / 1.75f) * 100.f + 0.5f);
+}
