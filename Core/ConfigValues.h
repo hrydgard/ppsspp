@@ -34,19 +34,14 @@ constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
 
 // This matches exactly the old shift-based curve.
-inline float Volume10ToMultiplier(int volume) {
-	// Allow muting entirely.
-	if (volume <= 0) {
-		return 0.0f;
-	}
-	return powf(2.0f, (float)(volume - 10));
-}
+float Volume10ToMultiplier(int volume);
 
 // NOTE: This is used for new volume parameters.
 // It uses a more intuitive-feeling curve.
-inline float Volume100ToMultiplier(int volume) {
-	return powf(volume * 0.01f, 1.75f);
-}
+float Volume100ToMultiplier(int volume);
+
+// Used for migration from the old settings.
+int MultiplierToVolume100(float multiplier);
 
 struct ConfigTouchPos {
 	float x;

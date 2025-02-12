@@ -207,7 +207,7 @@ private:
 	int size_;
 };
 
-void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, uint16_t volLeft, uint16_t volRight) {
+void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight) {
 	// This means replicate the input signal in the processed buffer.
 	// Can also be used to verify that the error is in here...
 	if (preset_ == -1) {
@@ -221,13 +221,15 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		return;
 	}
 
-	const uint8_t reverbVolume = Clamp(g_Config.iReverbVolume, 0, 25);
+	const float reverbVolumeMultiplier = Volume100ToMultiplier(g_Config.iReverbVolume);
 	// Standard volume is 10, which pairs with a normal shift of 15.
-	const uint8_t finalShift = 25 - reverbVolume;
-	if (reverbVolume == 0) {
+	if (reverbVolumeMultiplier <= 0.0f) {
 		// Force to zero output, which is not the same as "Off."
 		memset(output, 0, inputSize * 4);
 		return;
+	} else {
+		volLeft *= reverbVolumeMultiplier;
+		volRight *= reverbVolumeMultiplier;
 	}
 
 	const SasReverbData &d = presets[preset_];
@@ -266,8 +268,8 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		output[i * 4 + 0] = clamp_s16((Lout * volLeft) >> finalShift);
-		output[i * 4 + 1] = clamp_s16((Rout * volRight) >> finalShift);
+		output[i * 4 + 0] = clamp_s16((Lout * volLeft) >> 15);
+		output[i * 4 + 1] = clamp_s16((Rout * volRight) >> 15);
 		output[i * 4 + 2] = 0;
 		output[i * 4 + 3] = 0;
 

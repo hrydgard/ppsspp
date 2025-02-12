@@ -58,6 +58,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/BackgroundAudio.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -656,11 +657,13 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	// This is here because it now only applies to in-game. Muting the menu sounds is separate.
 	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 
-	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGameVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Game volume"), screenManager()));
+	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGameVolume, VOLUME_OFF, VOLUMEHI_FULL, VOLUMEHI_FULL, a->T("Game volume"), screenManager()));
+	volume->SetFormat("%d%%");
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 	volume->SetZeroLabel(a->T("Mute"));
 
-	PopupSliderChoice *reverbVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iReverbVolume, VOLUME_OFF, 2 * VOLUME_FULL, VOLUME_FULL, a->T("Reverb volume"), screenManager()));
+	PopupSliderChoice *reverbVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iReverbVolume, VOLUME_OFF, 2 * VOLUMEHI_FULL, VOLUMEHI_FULL, a->T("Reverb volume"), screenManager()));
+	reverbVolume->SetFormat("%d%%");
 	reverbVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	reverbVolume->SetZeroLabel(a->T("Disabled"));
 
@@ -669,9 +672,17 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	altVolume->SetZeroLabel(a->T("Mute"));
 
-	PopupSliderChoice *achievementVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, ac->T("Achievement sound volume"), screenManager()));
+	PopupSliderChoice *achievementVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, MultiplierToVolume100(0.6f), ac->T("Achievement sound volume"), screenManager()));
+	achievementVolume->SetFormat("%d%%");
 	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	achievementVolume->SetZeroLabel(a->T("Mute"));
+	achievementVolume->SetLiveUpdate(true);
+	achievementVolume->OnChange.Add([](UI::EventParams &e) {
+		// Audio preview
+		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
+		g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume);
+		return UI::EVENT_DONE;
+	});
 
 	audioSettings->Add(new ItemHeader(a->T("UI sound")));
 
@@ -691,8 +702,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (IsVistaOrHigher()) {
 		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
-		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), I18NCat::AUDIO, screenManager()));
-		audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
+		audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), I18NCat::AUDIO, screenManager()));
 	}
 #endif
 
@@ -712,7 +722,6 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
-	extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
 
 	// Show OpenSL debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);

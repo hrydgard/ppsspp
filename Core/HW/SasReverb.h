@@ -31,7 +31,7 @@ public:
 
 	// Input should be a mixdown of all the channels that have reverb enabled, at 22khz.
 	// Output is written back at 44khz.
-	void ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, uint16_t volLeft, uint16_t volRight);
+	void ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight);
 
 private:
 	enum {

@@ -1218,6 +1218,20 @@ bool TestCrossSIMD() {
 	return true;
 }
 
+bool TestVolumeFunc() {
+	for (int i = 0; i <= 20; i++) {
+		float mul = Volume10ToMultiplier(i);
+
+		int vol100 = MultiplierToVolume100(mul);
+		float mul2 = Volume100ToMultiplier(vol100);
+
+		bool smaller = (fabsf(mul2 - mul) < 0.02f);
+		EXPECT_TRUE(smaller);
+		// printf("%d -> %f -> %d -> %f\n", i, mul, vol100, mul2);
+	}
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1282,6 +1296,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Buffer),
 	TEST_ITEM(SIMD),
 	TEST_ITEM(CrossSIMD),
+	TEST_ITEM(VolumeFunc),
 };
 
 int main(int argc, const char *argv[]) {

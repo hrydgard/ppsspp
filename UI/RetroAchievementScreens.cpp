@@ -36,7 +36,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 		layoutParams_->height = ITEM_HEIGHT;
 	}
 	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
-		float achievementVolume = g_Config.iAchievementSoundVolume * 0.1f;
+		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 		g_BackgroundAudio.SFX().Play(sound_, achievementVolume);
 		return UI::EVENT_DONE;
 	});
@@ -363,9 +363,10 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
 	}
-	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, ac->T("Achievement sound volume"), screenManager()));
-	volume->SetEnabledPtr(&g_Config.bEnableSound);
-	volume->SetZeroLabel(a->T("Mute"));
+	PopupSliderChoice *achievementVolume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, MultiplierToVolume100(0.6f), ac->T("Achievement sound volume"), screenManager()));
+	achievementVolume->SetFormat("%d%%");
+	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
+	achievementVolume->SetZeroLabel(a->T("Mute"));
 
 	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 

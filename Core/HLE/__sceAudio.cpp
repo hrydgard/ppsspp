@@ -414,7 +414,7 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		float multiplier = Volume10ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUME_FULL));
+		float multiplier = Volume100ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUMEHI_FULL));
 		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
 			if (g_Config.iAltSpeedVolume != -1) {
 				// Multiply in the alt speed volume instead of replacing like before.

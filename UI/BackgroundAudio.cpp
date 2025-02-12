@@ -534,9 +534,9 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 	}
 }
 
-void SoundEffectMixer::Play(UI::UISound sfx, float volume) {
+void SoundEffectMixer::Play(UI::UISound sfx, float multiplier) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * volume), false });
+	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * multiplier), false });
 }
 
 void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
