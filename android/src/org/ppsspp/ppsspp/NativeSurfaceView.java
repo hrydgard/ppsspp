@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.InputDevice;
+import android.view.InputEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceControl;
@@ -66,14 +67,55 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
 			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
 			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
+			Log.i(TAG, "Mouse delta: " + dx + " " + dy);
 			NativeApp.mouseDelta(dx, dy);
 		}
+	}
+
+	public static boolean isFromSource(final InputEvent ev, int source) {
+		return (ev.getSource() & source) == source;
+	}
+
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
+	private boolean onMouseEventModern(final MotionEvent ev) {
+		if (!isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
+			return false;
+		}
+		switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_DOWN: {
+				// Log.i(TAG, "Action down. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 1);
+				break;
+			}
+			case MotionEvent.ACTION_UP: {
+				// Log.i(TAG, "Action up. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 1, 2);
+				break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				// Log.i(TAG, "Action move. button state: " + ev.getButtonState());
+				NativeApp.mouse(ev.getX(), ev.getY(), 0, 0);
+				break;
+			}
+			default: {
+				Log.i(TAG, "Unhandled modern mouse action: " + ev.getAction());
+				break;
+			}
+		}
+		return true;
 	}
 
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
+			// This is where workable mouse support arrived.
+			if (onMouseEventModern(ev)) {
+				return true;
+			}
+		}
 
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
@@ -109,7 +151,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 					int tool = getToolType(ev, i);
 					code |= tool << 10; // We use the Android tool type codes
 				}
-				// Can't use || due to short circuit evaluation
 				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}

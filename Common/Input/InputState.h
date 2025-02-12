@@ -138,7 +138,7 @@ enum {
 	TOUCH_RELEASE_ALL = 1 << 6,  // Useful for app focus switches when events may be lost.
 	TOUCH_HOVER = 1 << 7,
 
-	// These are the Android getToolType() codes, shifted by 10.
+	// These are the Android getToolType() codes, shifted by 10. Unused currently.
 	TOUCH_TOOL_MASK = 7 << 10,
 	TOUCH_TOOL_UNKNOWN = 0 << 10,
 	TOUCH_TOOL_FINGER = 1 << 10,

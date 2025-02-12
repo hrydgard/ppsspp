@@ -1252,6 +1252,70 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	env->ReleaseFloatArrayElements(values, valueBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
 }
 
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouse(
+	JNIEnv *env, jclass, jfloat x, jfloat y, int button, int action) {
+	if (!renderer_inited)
+		return false;
+	TouchInput input{};
+
+	static float last_x = 0.0f;
+	static float last_y = 0.0f;
+
+	if (x == -1.0f) {
+		x = last_x;
+	} else {
+		last_x = x;
+	}
+	if (y == -1.0f) {
+		y = last_y;
+	} else {
+		last_y = y;
+	}
+
+	x *= g_display.dpi_scale_x;
+	y *= g_display.dpi_scale_y;
+
+	if (button == 0) {
+		// It's a pure mouse move.
+		input.flags = TOUCH_MOUSE | TOUCH_MOVE;
+		input.x = x;
+		input.y = y;
+		input.id = 0;
+	} else {
+		input.buttons = button;
+		input.x = x;
+		input.y = y;
+		switch (action) {
+		case 1:
+			input.flags = TOUCH_MOUSE | TOUCH_DOWN;
+			break;
+		case 2:
+			input.flags = TOUCH_MOUSE | TOUCH_UP;
+			break;
+		}
+		input.id = 0;
+	}
+	INFO_LOG(Log::System, "New-style mouse event: %f %f %d %d -> x: %f y: %f buttons: %d flags: %04x", x, y, button, action, input.x, input.y, input.buttons, input.flags);
+	NativeTouch(input);
+
+	// Also send mouse button key events, for binding.
+	if (button) {
+		KeyInput input{};
+		input.deviceId = DEVICE_ID_MOUSE;
+		switch (button) {
+		case 1: input.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
+		case 2: input.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
+		case 3: input.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
+		default: WARN_LOG(Log::System, "Unexpected mouse button %d", button);
+		}
+		input.flags = action == 1 ? KEY_DOWN : KEY_UP;
+		if (input.keyCode != 0) {
+			NativeKey(input);
+		}
+	}
+	return true;
+}
+
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jfloat x, jfloat y) {
 	if (!renderer_inited)
