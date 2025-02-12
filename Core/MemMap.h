@@ -380,6 +380,22 @@ inline const char *GetCharPointer(const u32 address) {
 	}
 }
 
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer, no checks are made
+inline u32 GetAddressFromHostPointerUnchecked(const void* host_ptr) {
+	auto address = static_cast<const u8*>(host_ptr) - base;
+	return static_cast<u32>(address);
+}
+
+// Remaps the host pointer (potentially 64bit) into the 32bit virtual pointer with checks
+inline u32 GetAddressFromHostPointer(const void* host_ptr) {
+	u32 address = GetAddressFromHostPointerUnchecked(host_ptr);
+	if (!IsValidAddress(address)) {
+		// Somehow report the error?
+		return 0;
+	}
+	return address;
+}
+
 }  // namespace Memory
 
 // Avoiding a global include for NotifyMemInfo.
