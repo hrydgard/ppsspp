@@ -630,7 +630,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
 		if (g_Config.bAchievementsSoundEffects && g_Config.bEnableSound) {
-			float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume) * Volume100ToMultiplier(g_Config.iGameVolume);
+			float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 			// TODO: Handle this some nicer way.
 			if (!strcmp(value, "achievement_unlocked")) {
 				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume);
