@@ -233,7 +233,7 @@ void DrawEngineCommon::UpdatePlanes() {
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-// The name is a slight misnomer, because any bounding shape will work, not just boxes.
+// The name is a slight misnomer, because any convex bounding shape will work, not just boxes.
 //
 // Potential optimizations:
 // * SIMD-ify the plane culling, and also the vertex data conversion (could even group together xxxxyyyyzzzz for example)
@@ -241,18 +241,15 @@ void DrawEngineCommon::UpdatePlanes() {
 //   - Less accurate, but..
 //   - Only requires six plane evaluations then.
 bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, VertexDecoder *dec, u32 vertType) {
-	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
-	if (vertexCount > 1024) {
+	// Below, we grab temp buffer space from large offsets in decoded_. This is safe because bbox draws
+	// are generally just 8 vertices, so let's bail if the count is very large.
+	// Also, in VR, let's just return true. Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	if (vertexCount > 1024 || gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
 
-	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
-	float *verts = (float *)(decoded_ + 65536 * 18);
-
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
-		return true;
+	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 6);
+	float *verts = (float *)(decoded_ + 65536 * 12);
 
 	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
 	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
@@ -262,23 +259,29 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		gstate_c.Clean(DIRTY_CULL_PLANES);
 	}
 
-	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
-	// and a large vertex format.
+	// Games using bboxes: Tekken 6, Driver '76 (more to be added).
+	//
+	// Try to skip NormalizeVertices if it's pure positions, which is the most common case.
+	// No need to bother with a vertex decoder and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
+		// The format used by Tekken 6
 		memcpy(verts, vdata, sizeof(float) * 3 * vertexCount);
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
+		// No known game uses this format, but let's support it.
 		const s8 *vtx = (const s8 *)vdata;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
+		// This format is used by Driver '76.
 		const s16 *vtx = (const s16 *)vdata;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
 	} else {
 		// Simplify away indices, bones, and morph before proceeding.
-		u8 *temp_buffer = decoded_ + 65536 * 24;
+		// NOTE: No known game gets here, it's here for safety.
+		u8 *temp_buffer = decoded_ + 65536 * 18;
 
 		if ((inds || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)))) {
 			u16 indexLowerBound = 0;
