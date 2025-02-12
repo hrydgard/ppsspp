@@ -281,12 +281,13 @@ public:
 	int iAudioBackend;
 
 	// Volume settings, 0-10
-	int iGameVolume;
+	int iLegacyGameVolume;
 	int iReverbVolume;
 	int iAltSpeedVolume;
 	int iAchievementSoundVolume;
 
 	// Newer volume settings, 0-100
+	int iGameVolume;
 	int iUIVolume;
 
 	bool bExtraAudioBuffering;  // For bluetooth
