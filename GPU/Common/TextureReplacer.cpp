@@ -240,6 +240,7 @@ bool TextureReplacer::LoadIni(std::string *error) {
 
 void TextureReplacer::ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
 	// Scan the root of the texture folder/zip and preinitialize the hash map.
+	// TODO: Could put VFSFileReference into the map...
 	std::vector<File::FileInfo> filesInRoot;
 	dir->GetFileListing("", &filesInRoot, nullptr);
 	for (auto file : filesInRoot) {
