@@ -455,6 +455,22 @@ static bool ReadVFSToString(const char *filename, std::string *contents, std::mu
 	return true;
 }
 
+static bool LoadReplacementImage(GameInfo *info, GameInfoTex *tex, const char *filename) {
+	if (g_Config.bReplaceTextures) {
+		const Path customIconFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / filename;
+		const Path zipFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / "textures.zip";
+		if (File::Exists(customIconFilename)) {
+			tex->dataLoaded = ReadLocalFileToString(customIconFilename, &tex->data, &info->lock);
+		} else if (File::Exists(zipFilename)) {
+			// Read file from zip if available.
+			tex->dataLoaded = ReadSingleFileFromZip(zipFilename, filename, &tex->data, &info->lock);
+		}
+		return tex->dataLoaded;
+	} else {
+		return false;
+	}
+}
+
 class GameInfoWorkItem : public Task {
 public:
 	GameInfoWorkItem(const Path &gamePath, std::shared_ptr<GameInfo> &info, GameInfoFlags flags)
@@ -544,20 +560,23 @@ public:
 
 				// Then, ICON0.PNG.
 				if (flags_ & GameInfoFlags::ICON) {
-					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
+					if (LoadReplacementImage(info_.get(), &info_->icon, "icon.png")) {
+						// Nothing more to do
+					} else if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->icon.data);
 					} else {
 						Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
 						Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 						// Try using png/jpg screenshots first
-						if (File::Exists(screenshot_png))
+						if (File::Exists(screenshot_png)) {
 							ReadLocalFileToString(screenshot_png, &info_->icon.data, &info_->lock);
-						else if (File::Exists(screenshot_jpg))
+						} else if (File::Exists(screenshot_jpg)) {
 							ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
-						else
+						} else {
 							// Read standard icon
 							ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+						}
 					}
 					info_->icon.dataLoaded = true;
 				}
@@ -759,21 +778,9 @@ handleELF:
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
 				// First, do try to get an icon from the replacement texture pack, if available.
 				if (flags_ & GameInfoFlags::ICON) {
-					if (g_Config.bReplaceTextures) {
-						const Path customIconFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";
-						const Path zipFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "textures.zip";
-						if (File::Exists(customIconFilename)) {
-							info_->icon.dataLoaded = ReadLocalFileToString(customIconFilename, &info_->icon.data, &info_->lock);
-						} else if (File::Exists(zipFilename)) {
-							// Read file from zip if available.
-							info_->icon.dataLoaded = ReadSingleFileFromZip(zipFilename, "icon.png", &info_->icon.data, &info_->lock);
-						}
-						if (info_->icon.dataLoaded) {
-							break;
-						}
-					}
-
-					if (ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
+					if (LoadReplacementImage(info_.get(), &info_->icon, "icon.png")) {
+						// Nothing more to do
+					} else if (ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
 						info_->icon.dataLoaded = true;
 					} else {
 						Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
