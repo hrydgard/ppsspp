@@ -68,7 +68,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	minValues[3] = clampEnable;
 	maxValues[0] = x.second;
 	maxValues[1] = y.second;
-	maxValues[2] = z.second;
+	maxValues[2] = z.second + 1.0f / 65536.0f; // Adjustment needed due to some kind of rounding. See #17061
 	maxValues[3] = NAN;
 }
 
