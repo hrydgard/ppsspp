@@ -107,10 +107,6 @@ typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
 void Core_ListenLifecycle(CoreLifecycleFunc func);
 void Core_NotifyLifecycle(CoreLifecycle stage);
 
-// Callback is executed on requesting thread.
-typedef void (* CoreStopRequestFunc)();
-void Core_ListenStopRequest(CoreStopRequestFunc callback);
-
 bool Core_IsStepping();
 
 bool Core_IsActive();

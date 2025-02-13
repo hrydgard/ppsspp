@@ -71,7 +71,6 @@ static std::mutex m_hInactiveMutex;
 
 static int steppingCounter = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
-static std::set<CoreStopRequestFunc> stopFuncs;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING_CPU;
@@ -106,16 +105,9 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 	}
 }
 
-void Core_ListenStopRequest(CoreStopRequestFunc func) {
-	stopFuncs.insert(func);
-}
-
 void Core_Stop() {
 	Core_ResetException();
 	Core_UpdateState(CORE_POWERDOWN);
-	for (auto func : stopFuncs) {
-		func();
-	}
 }
 
 void Core_UpdateState(CoreState newState) {

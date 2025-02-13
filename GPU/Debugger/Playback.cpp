@@ -822,16 +822,6 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 	return real_size == sz;
 }
 
-static void ReplayStop() {
-	_dbg_assert_(!replayThread.joinable());
-
-	// This can happen from a separate thread.
-	lastExecFilename.clear();
-	lastExecCommands.clear();
-	lastExecPushbuf.clear();
-	lastExecVersion = 0;
-}
-
 static u32 LoadReplay(const std::string &filename) {
 	PROFILE_THIS_SCOPE("ReplayLoad");
 	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
@@ -910,8 +900,6 @@ void WriteRunDumpCode(u32 codeStart) {
 // This is called by the syscall.
 ReplayResult RunMountedReplay(const std::string &filename) {
 	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
-
-	Core_ListenStopRequest(&ReplayStop);
 
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {
