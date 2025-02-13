@@ -58,8 +58,12 @@ uint8_t *ZipFileReader::ReadFile(const char *path, size_t *size) {
 	std::lock_guard<std::mutex> guard(lock_);
 	// Figure out the file size first.
 	struct zip_stat zstat;
-	zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
-	zip_file *file = zip_fopen(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
+	int retval = zip_stat(zip_file_, temp_path.c_str(), ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat);
+	if (retval != 0) {
+		ERROR_LOG(Log::IO, "Error opening %s from ZIP", temp_path.c_str());
+		return 0;
+	}
+	zip_file *file = zip_fopen_index(zip_file_, zstat.index, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
 	if (!file) {
 		ERROR_LOG(Log::IO, "Error opening %s from ZIP", temp_path.c_str());
 		return 0;
