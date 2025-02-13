@@ -65,7 +65,7 @@ public:
 
 struct ImGePixelViewer : public PixelLookup {
 	~ImGePixelViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
@@ -90,7 +90,7 @@ private:
 struct ImGeReadbackViewer : public PixelLookup {
 	ImGeReadbackViewer();
 	~ImGeReadbackViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *);
+	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
@@ -152,4 +152,5 @@ private:
 	std::vector<GPUDebugVertex> previewVertices_;
 	int previewCount_ = 0;
 	Draw::Aspect selectedAspect_;
+	float previewZoom_ = 1.0f;
 };
