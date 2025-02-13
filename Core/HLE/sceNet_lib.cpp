@@ -103,7 +103,7 @@ u32 sceNetStrchr(void *str, int ch) {
 
 u32 sceNetStrlen(const char* str) {
 	// Redirect that to libc
-	u32 res = std::strlen(str);
+	u32 res = (u32)std::strlen(str);
 
 	return hleLogDebug(Log::sceNet, res);
 }
