@@ -88,6 +88,7 @@
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
+#include "sceAac.h"
 #include "sceOpenPSID.h"
 #include "sceHttp.h"
 #include "Core/Util/PPGeDraw.h"

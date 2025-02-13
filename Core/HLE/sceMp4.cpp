@@ -25,34 +25,25 @@
 #include "Core/HLE/sceMp4.h"
 #include "Core/HW/SimpleAudioDec.h"
 
-static u32 sceMp4Init()
-{
-	INFO_LOG(Log::ME, "sceMp4Init()");
-	return 0;
+static u32 sceMp4Init() {
+	return hleLogInfo(Log::ME, 0);
 }
 
-static u32 sceMp4Finish()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4Finish()");
-	return 0;
+static u32 sceMp4Finish() {
+	return hleLogError(Log::ME, 0);
 }
 
-static u32 sceMp4Create(u32 mp4, u32 callbacks, u32 readBufferAddr, u32 readBufferSize)
-{
+static u32 sceMp4Create(u32 mp4, u32 callbacks, u32 readBufferAddr, u32 readBufferSize) {
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp4Create(mp4 %i,callbacks %08x,readBufferAddr %08x,readBufferSize %i)", mp4, callbacks, readBufferAddr, readBufferSize);
 	return 0;
 }
 
-static u32 sceMp4GetNumberOfSpecificTrack()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
-	return 1;
+static u32 sceMp4GetNumberOfSpecificTrack() {
+	return hleLogError(Log::ME, 1, "UNIMPL");
 }
 
-static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
-	return 0;
+static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2) {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
 static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 trackAddr, u32 writableSamplesAddr, u32 writableBytesAddr) {
@@ -63,126 +54,90 @@ static u32 sceMp4Delete(u32 mp4) {
 	return hleLogError(Log::ME, 0, "unimplemented");
 }
 
-static u32 sceMp4AacDecodeInitResource(int unknown)
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
-	return 0;
+static u32 sceMp4AacDecodeInitResource(int unknown) {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr)
-{
+static u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr) {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
-	return 0;
+	return hleLogError(Log::ME, 0, "UNIMPL (mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
 }
 
 static u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
-	return 0;
+	return hleLogError(Log::ME, 0, "UNIMPL (mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
 }
 
-
-static u32 sceMp4GetAvcTrackInfoData()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetAvcTrackInfoData()");
-	return 0;
+static u32 sceMp4GetAvcTrackInfoData() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
-{
-	// unknown4 == value returned by sceMp4_BCA9389C
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
-	return 0;
+static u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7) {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
 static u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
 {
 	u32 value = std::max(unknown2 * unknown3, unknown4 << 1) + (unknown2 << 6) + unknown5 + 256;
-	ERROR_LOG(Log::ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
-	return value;
+	return hleLogWarning(Log::ME, value);
 }
 
-static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency)
-{
+static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency) {
 	// Decode audio:
 	// - init: 1 at first call, 0 afterwards
 	// - frequency: 44100
-	ERROR_LOG(Log::ME, "sceMp4AacDecode(mp4 %i,auAddr %08x,bufferAddr %08x,init %i,frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
-	return 0;
+	return hleLogError(Log::ME, 0, "mp4 % i, auAddr % 08x, bufferAddr % 08x, init % i, frequency % i ", mp4, auAddr, bufferAddr, init, frequency);
 	//This is hack
 	//return -1;
 }
 
-static u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
-{
+static u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4) {
 	// unknown4: pointer to a 40-bytes structure
-	ERROR_LOG(Log::ME, "sceMp4GetAacAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %i ", mp4, unknown2, auAddr, unknown4);
-	return 0;
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4GetSampleInfo()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetSampleInfo()");
-	return 0;
+static u32 sceMp4GetSampleInfo() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4GetSampleNumWithTimeStamp()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
-	return 0;
+static u32 sceMp4GetSampleNumWithTimeStamp() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4TrackSampleBufFlush()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4TrackSampleBufFlush()");
-	return 0;
+static u32 sceMp4TrackSampleBufFlush() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4AacDecodeInit(int unknown)
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
-	return 0;
+static u32 sceMp4AacDecodeInit(int unknown) {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4GetAacTrackInfoData()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetAacTrackInfoData()");
-	return 0;
+static u32 sceMp4GetAacTrackInfoData() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4GetNumberOfMetaData()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4GetNumberOfMetaData()");
-	return 0;
+static u32 sceMp4GetNumberOfMetaData() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
-	return 0;
+static u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5) {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceMp4SearchSyncSampleNum()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceMp4SearchSyncSampleNum()");
-	return 0;
+static u32 sceMp4SearchSyncSampleNum() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
-
 
 static u32 mp4msv_3C2183C7(u32 unknown1, u32 unknown2) {
-	ERROR_LOG(Log::ME, "UNIMPL mp4msv_3C2183C7(%d, %x)", unknown1, unknown2);
-	return 0;
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
 static u32 mp4msv_9CA13D1A(u32 unknown1, u32 unknown2) {
-	ERROR_LOG(Log::ME, "UNIMPL mp4msv_9CA13D1A(%d, %x)", unknown1, unknown2);
-	return 0;
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-const HLEFunction sceMp4[] =
-{
+const HLEFunction sceMp4[] = {
 	{0X68651CBC, &WrapU_V<sceMp4Init>,                           "sceMp4Init",                        'x', ""       },
 	{0X9042B257, &WrapU_V<sceMp4Finish>,                         "sceMp4Finish",                      'x', ""       },
 	{0XB1221EE7, &WrapU_UUUU<sceMp4Create>,                      "sceMp4Create",                      'x', "xxxx"   },
@@ -227,15 +182,12 @@ const HLEFunction sceMp4[] =
 const HLEFunction mp4msv[] = {
 	{0x3C2183C7, &WrapU_UU<mp4msv_3C2183C7>,                    "mp4msv_3C2183C7",               'x', "xx"      },
 	{0x9CA13D1A, &WrapU_UU<mp4msv_9CA13D1A>,                    "mp4msv_9CA13D1A",               'x', "xx"      },
-
 };
 
-void Register_sceMp4()
-{
+void Register_sceMp4() {
 	RegisterModule("sceMp4", ARRAY_SIZE(sceMp4), sceMp4);
 }
 
-void Register_mp4msv()
-{
+void Register_mp4msv() {
 	RegisterModule("mp4msv", ARRAY_SIZE(mp4msv), mp4msv);
 }
