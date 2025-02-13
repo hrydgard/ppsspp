@@ -2276,6 +2276,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceMt19937.h
 	Core/HLE/sceMd5.cpp
 	Core/HLE/sceMd5.h
+	Core/HLE/sceAac.cpp
+	Core/HLE/sceAac.h
 	Core/HLE/sceMp4.cpp
 	Core/HLE/sceMp4.h
 	Core/HLE/sceMp3.cpp

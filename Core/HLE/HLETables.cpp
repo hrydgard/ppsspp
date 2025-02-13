@@ -49,6 +49,7 @@
 #include "sceKernelTime.h"
 #include "sceMd5.h"
 #include "sceMp4.h"
+#include "sceAac.h"
 #include "sceMp3.h"
 #include "sceNet.h"
 #include "sceNetAdhoc.h"
@@ -275,6 +276,7 @@ void RegisterAllModules() {
 	Register_sceGameUpdate();
 	Register_sceDeflt();
 	Register_sceMp4();
+	Register_sceAac();
 	Register_scePauth();
 	Register_sceNp();
 	Register_sceNpCommerce2();
