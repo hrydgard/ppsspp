@@ -43,6 +43,7 @@ private:
 
 	Draw::DrawContext *draw_ = nullptr;
 	IDXGISwapChain *swapChain_ = nullptr;
+	DXGI_SWAP_CHAIN_DESC swapChainDesc_ = {};
 	ID3D11Device *device_ = nullptr;
 	ID3D11Device1 *device1_ = nullptr;
 	ID3D11DeviceContext *context_ = nullptr;
