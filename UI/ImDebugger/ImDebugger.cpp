@@ -4,6 +4,7 @@
 #include "ext/imgui/imgui_internal.h"
 
 #include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -403,17 +404,40 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 }
 
 // TODO: Add popup menu, export file, export dir, etc...
-static void RecurseFileSystem(IFileSystem *fs, std::string path) {
+static void RecurseFileSystem(IFileSystem *fs, std::string path, RequesterToken token) {
 	std::vector<PSPFileInfo> fileInfo = fs->GetDirListing(path);
 	for (auto &file : fileInfo) {
 		if (file.type == FileType::FILETYPE_DIRECTORY) {
 			if (file.name != "." && file.name != ".." && ImGui::TreeNode(file.name.c_str())) {
 				std::string fpath = path + "/" + file.name;
-				RecurseFileSystem(fs, fpath);
+				RecurseFileSystem(fs, fpath, token);
 				ImGui::TreePop();
 			}
 		} else {
-			ImGui::TextUnformatted(file.name.c_str());
+			ImGui::Selectable(file.name.c_str());
+			if (ImGui::BeginPopupContextItem()) {
+				if (ImGui::MenuItem("Copy Path")) {
+					System_CopyStringToClipboard(path + "/" + file.name);
+				}
+				if (ImGui::MenuItem("Save file...")) {
+					std::string fullPath = path + "/" + file.name;
+					int size = file.size;
+					// save dialog
+					System_BrowseForFileSave(token, "Save file", file.name, BrowseFileType::ANY, [fullPath, fs, size](const char *responseString, int) {
+						int fd = fs->OpenFile(fullPath, FILEACCESS_READ);
+						if (fd >= 0) {
+							std::string data;
+							data.resize(size);
+							fs->ReadFile(fd, (u8 *)data.data(), size);
+							fs->CloseFile(fd);
+							Path dest(responseString);
+							File::WriteDataToFile(false, data.data(), data.size(), dest);
+						}
+					});
+				}
+				// your popup code
+				ImGui::EndPopup();
+			}
 		}
 	}
 }
@@ -433,7 +457,7 @@ static void DrawFilesystemBrowser(ImConfig &cfg) {
 		snprintf(fsTitle, sizeof(fsTitle), "%s - %s", fs.prefix.c_str(), desc);
 		if (ImGui::TreeNode(fsTitle)) {
 			auto system = fs.system;
-			RecurseFileSystem(system.get(), path);
+			RecurseFileSystem(system.get(), path, cfg.requesterToken);
 			ImGui::TreePop();
 		}
 	}
@@ -1764,6 +1788,8 @@ Path ImDebugger::ConfigPath() {
 // But, I don't really want Core to know about the ImDebugger..
 
 void ImConfig::LoadConfig(const Path &iniFile) {
+	requesterToken = g_requestManager.GenerateRequesterToken();
+
 	IniFile ini;
 	ini.Load(iniFile);  // Ignore return value, might not exist yet. In that case we'll end up loading defaults.
 	SyncConfig(&ini, false);
