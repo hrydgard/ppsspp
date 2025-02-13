@@ -294,16 +294,10 @@ bool VR_InitFrame( engine_t* engine ) {
 		passthroughRunning = (VR_GetConfig(VR_CONFIG_PASSTHROUGH) != 0);
 	}
 
-	// NOTE: OpenXR does not use the concept of frame indices. Instead,
-	// XrWaitFrame returns the predicted display time.
-	XrFrameWaitInfo waitFrameInfo = {};
-	waitFrameInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-	waitFrameInfo.next = NULL;
-
 	frameState.type = XR_TYPE_FRAME_STATE;
 	frameState.next = NULL;
 
-	OXR(xrWaitFrame(engine->appState.Session, &waitFrameInfo, &frameState));
+	OXR(xrWaitFrame(engine->appState.Session, 0, &frameState));
 	engine->predictedDisplayTime = frameState.predictedDisplayTime;
 
 	XrViewLocateInfo projectionInfo = {};
