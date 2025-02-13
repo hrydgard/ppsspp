@@ -48,25 +48,21 @@ void __AACDoState(PointerWrap &p) {
 
 	Do(p, aacMap);
 }
-static u32 sceAacExit(u32 id)
-{
-	INFO_LOG(Log::ME, "sceAacExit(id %i)", id);
+
+static u32 sceAacExit(u32 id) {
 	if (aacMap.find(id) != aacMap.end()) {
 		delete aacMap[id];
 		aacMap.erase(id);
 	} else {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac ID");
 	}
-	return 0;
+	return hleLogInfo(Log::ME, 0);
 }
 
 static u32 sceAacInit(u32 id)
 {
-	INFO_LOG(Log::ME, "UNIMPL sceAacInit(%08x)", id);
 	if (!Memory::IsValidAddress(id)) {
-		ERROR_LOG(Log::ME, "sceAacInit() AAC Invalid id address %08x", id);
-		return ERROR_AAC_INVALID_ADDRESS;
+		return hleLogError(Log::ME, ERROR_AAC_INVALID_ADDRESS, "AAC Invalid id address %08x", id);
 	}
 
 	AuCtx *aac = new AuCtx();
@@ -80,22 +76,22 @@ static u32 sceAacInit(u32 id)
 	if (aac->AuBuf == 0 || aac->PCMBuf == 0) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
 		delete aac;
-		return ERROR_AAC_INVALID_ADDRESS;
+		return hleNoLog(ERROR_AAC_INVALID_ADDRESS);
 	}
 	if (aac->startPos > aac->endPos) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
-		return ERROR_AAC_INVALID_PARAMETER;
+		return hleNoLog(ERROR_AAC_INVALID_PARAMETER);
 	}
 	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
 		delete aac;
-		return ERROR_AAC_INVALID_PARAMETER;
+		return hleNoLog(ERROR_AAC_INVALID_PARAMETER);
 	}
 	if (aac->freq != 24000 && aac->freq != 32000 && aac->freq != 44100 && aac->freq != 48000) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID freq %i", aac->freq);
 		delete aac;
-		return ERROR_AAC_INVALID_PARAMETER;
+		return hleNoLog(ERROR_AAC_INVALID_PARAMETER);
 	}
 
 	DEBUG_LOG(Log::ME, "startPos %llx endPos %llx AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d",
@@ -115,137 +111,97 @@ static u32 sceAacInit(u32 id)
 	}
 	aacMap[id] = aac;
 
-	return id;
+	return hleNoLog(id);
 }
 
-static u32 sceAacInitResource(u32 numberIds)
-{
+static u32 sceAacInitResource(u32 numberIds) {
 	// Do nothing here
 	INFO_LOG_REPORT(Log::ME, "sceAacInitResource(%i)", numberIds);
-	return 0;
+	return hleNoLog(0);
 }
 
-static u32 sceAacTermResource()
-{
-	ERROR_LOG(Log::ME, "UNIMPL sceAacTermResource()");
-	return 0;
+static u32 sceAacTermResource() {
+	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 sceAacDecode(u32 id, u32 pcmAddr)
-{
+static u32 sceAacDecode(u32 id, u32 pcmAddr) {
 	// return the size of output pcm, <0 error
-	DEBUG_LOG(Log::ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->AuDecode(pcmAddr);
+	return hleLogDebug(Log::ME, ctx->AuDecode(pcmAddr));
 }
 
-static u32 sceAacGetLoopNum(u32 id)
-{
-	INFO_LOG(Log::ME, "sceAacGetLoopNum(id %i)", id);
+static u32 sceAacGetLoopNum(u32 id) {
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-	return ctx->LoopNum;
+	return hleLogInfo(Log::ME, ctx->LoopNum);
 }
 
-static u32 sceAacSetLoopNum(u32 id, int loop)
-{
-	INFO_LOG(Log::ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
+static u32 sceAacSetLoopNum(u32 id, int loop) {
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
 	ctx->LoopNum = loop;
-	return 0;
+	return hleLogInfo(Log::ME, 0);
 }
 
-static int sceAacCheckStreamDataNeeded(u32 id)
-{
+static int sceAacCheckStreamDataNeeded(u32 id) {
 	// return 1 to read more data stream, 0 don't read, <0 error
-	DEBUG_LOG(Log::ME, "sceAacCheckStreamDataNeeded(%i)", id);
-
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->AuCheckStreamDataNeeded();
+	return hleLogDebug(Log::ME, ctx->AuCheckStreamDataNeeded());
 }
 
-static u32 sceAacNotifyAddStreamData(u32 id, int size)
-{
+static u32 sceAacNotifyAddStreamData(u32 id, int size) {
 	// check how many bytes we have read from source file
-	DEBUG_LOG(Log::ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
-
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->AuNotifyAddStreamData(size);
+	return hleLogDebug(Log::ME, ctx->AuNotifyAddStreamData(size));
 }
 
-static u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
-{
+static u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos) {
 	// read from stream position srcPos of size bytes into buff
-	DEBUG_LOG(Log::ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
-
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac handle %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->AuGetInfoToAddStreamData(buff, size, srcPos);
+	return hleLogDebug(Log::ME, ctx->AuGetInfoToAddStreamData(buff, size, srcPos));
 }
 
-static u32 sceAacGetMaxOutputSample(u32 id)
-{
-	DEBUG_LOG(Log::ME, "sceAacGetMaxOutputSample(id %i)", id);
+static u32 sceAacGetMaxOutputSample(u32 id) {
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->MaxOutputSample;
+	return hleLogDebug(Log::ME, ctx->MaxOutputSample);
 }
 
-static u32 sceAacGetSumDecodedSample(u32 id)
-{
-	DEBUG_LOG(Log::ME, "sceAacGetSumDecodedSample(id %i)", id);
+static u32 sceAacGetSumDecodedSample(u32 id) {
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->SumDecodedSamples;
+	return hleLogDebug(Log::ME, ctx->SumDecodedSamples);
 }
 
 static u32 sceAacResetPlayPosition(u32 id) {
 	INFO_LOG(Log::ME, "sceAacResetPlayPosition(id %i)", id);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
-		ERROR_LOG(Log::ME, "%s: bad aac id %08x", __FUNCTION__, id);
-		return -1;
+		return hleLogError(Log::ME, -1, "bad aac id");
 	}
-
-	return ctx->AuResetPlayPosition();
+	return hleLogInfo(Log::ME, ctx->AuResetPlayPosition());
 }
 
-// 395
 const HLEFunction sceAac[] = {
 	{0XE0C89ACA, &WrapU_U<sceAacInit>,                           "sceAacInit",                        'x', "x"      },
 	{0X33B8C009, &WrapU_U<sceAacExit>,                           "sceAacExit",                        'x', "x"      },
