@@ -804,14 +804,8 @@ public:
 	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
-	void SetChoiceStyle(bool choiceStyle) {
-		choiceStyle_ = choiceStyle;
-	}
 
 private:
-	CallbackColorTween *bgColor_ = nullptr;
-	CallbackColorTween *fgColor_ = nullptr;
-
 	std::string text_;
 	std::string rightText_;
 

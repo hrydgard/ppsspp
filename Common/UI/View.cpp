@@ -557,30 +557,12 @@ std::string Choice::DescribeText() const {
 InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
-	bgColor_ = AddTween(new CallbackColorTween(0.1f));
-	bgColor_->Persist();
-	fgColor_ = AddTween(new CallbackColorTween(0.1f));
-	fgColor_->Persist();
 }
 
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
-
-	if (choiceStyle_) {
-		style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->itemStyle;
-	}
-
-	if (style.background.type == DRAW_SOLID_COLOR) {
-		// For a smoother fade, using the same color with 0 alpha.
-		if ((style.background.color & 0xFF000000) == 0)
-			style.background.color = dc.theme->itemFocusedStyle.background.color & 0x00FFFFFF;
-		bgColor_->Divert(style.background.color & 0x7fffffff);
-		style.background.color = bgColor_->CurrentValue();
-	}
-	fgColor_->Divert(style.fgColor);
-	style.fgColor = fgColor_->CurrentValue();
 
 	dc.FillRect(style.background, bounds_);
 
