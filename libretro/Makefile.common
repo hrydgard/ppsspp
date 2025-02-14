@@ -751,6 +751,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceP3da.cpp \
 	       $(COREDIR)/HLE/sceMt19937.cpp \
 	       $(COREDIR)/HLE/sceMd5.cpp \
+	       $(COREDIR)/HLE/sceAac.cpp \
 	       $(COREDIR)/HLE/sceMp4.cpp \
 	       $(COREDIR)/HLE/sceMp3.cpp \
 	       $(COREDIR)/HLE/sceParseHttp.cpp \

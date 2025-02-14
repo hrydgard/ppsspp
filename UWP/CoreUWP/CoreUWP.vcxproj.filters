@@ -450,6 +450,9 @@
     <ClCompile Include="..\..\Core\HLE\sceMp4.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceAac.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\sceMpeg.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
@@ -1538,6 +1541,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceMp4.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceAac.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceMpeg.h">

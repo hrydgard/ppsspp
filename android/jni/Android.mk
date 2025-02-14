@@ -705,6 +705,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceMpeg.cpp \
   $(SRC)/Core/HLE/sceMd5.cpp \
   $(SRC)/Core/HLE/sceMp4.cpp \
+  $(SRC)/Core/HLE/sceAac.cpp \
   $(SRC)/Core/HLE/sceMp3.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
   $(SRC)/Core/HLE/sceNet_lib.cpp \
