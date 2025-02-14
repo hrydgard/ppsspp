@@ -164,6 +164,7 @@ struct ImConfig {
 	int breakCount = 0;
 
 	bool displayLatched = false;
+	int requesterToken;
 
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);

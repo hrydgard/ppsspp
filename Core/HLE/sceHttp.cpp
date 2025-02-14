@@ -289,27 +289,7 @@ int HTTPRequest::sendRequest(u32 postDataPtr, u32 postDataSize) {
 	return 0;
 }
 
-static void __HttpNotifyLifecycle(CoreLifecycle stage) {
-	if (stage == CoreLifecycle::STOPPING) {
-		for (const auto& it : httpObjects) {
-			if (it->className() == name_HTTPRequest)
-				(static_cast<HTTPRequest*>(it.get()))->abortRequest();
-		}
-	}
-}
-
-static void __HttpRequestStop() {
-	// This can happen from a separate thread.
-	std::lock_guard<std::mutex> guard(httpLock);
-	for (const auto& it : httpObjects) {
-		if (it->className() == name_HTTPRequest)
-			(static_cast<HTTPRequest*>(it.get()))->abortRequest();
-	}
-}
-
 void __HttpInit() {
-	Core_ListenLifecycle(&__HttpNotifyLifecycle);
-	Core_ListenStopRequest(&__HttpRequestStop);
 }
 
 void __HttpShutdown() {
@@ -317,6 +297,11 @@ void __HttpShutdown() {
 	httpInited = false;
 	httpsInited = false;
 	httpCacheInited = false;
+
+	for (const auto& it : httpObjects) {
+		if (it->className() == name_HTTPRequest)
+			(static_cast<HTTPRequest*>(it.get()))->abortRequest();
+	}
 	httpObjects.clear();
 }
 

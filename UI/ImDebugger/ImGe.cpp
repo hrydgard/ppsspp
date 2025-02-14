@@ -174,7 +174,7 @@ void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInte
 	ImGui::SameLine();
 	if (ImGui::BeginChild("right")) {
 		ImVec2 p0 = ImGui::GetCursorScreenPos();
-		viewer_.Draw(gpuDebug, draw);
+		viewer_.Draw(gpuDebug, draw, 1.0f);
 		if (ImGui::IsItemHovered()) {
 			int x = (int)(ImGui::GetMousePos().x - p0.x);
 			int y = (int)(ImGui::GetMousePos().y - p0.y);
@@ -197,7 +197,7 @@ ImGePixelViewer::~ImGePixelViewer() {
 		texture_->Release();
 }
 
-bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	if (dirty_) {
 		UpdateTexture(draw);
 		dirty_ = false;
@@ -206,7 +206,7 @@ bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw)
 	if (Memory::IsValid4AlignedAddress(addr)) {
 		if (texture_) {
 			ImTextureID texId = ImGui_ImplThin3d_AddTextureTemp(texture_, useAlpha ? ImGuiPipeline::TexturedAlphaBlend : ImGuiPipeline::TexturedOpaque);
-			ImGui::Image(texId, ImVec2((float)width, (float)height));
+			ImGui::Image(texId, ImVec2((float)width * zoom, (float)height * zoom));
 			return true;
 		} else {
 			ImGui::Text("(invalid params: %dx%d, %08x)", width, height, addr);
@@ -375,7 +375,7 @@ ImGeReadbackViewer::~ImGeReadbackViewer() {
 	delete[] data_;
 }
 
-bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	FramebufferManagerCommon *fbmanager = gpuDebug->GetFramebufferManagerCommon();
 	if (!vfb || !vfb->fbo || !fbmanager) {
 		ImGui::TextUnformatted("(N/A)");
@@ -454,7 +454,7 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 	} else {
 		texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 	}
-	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width(), (float)vfb->fbo->Height()));
+	ImGui::Image(texId, ImVec2((float)vfb->fbo->Width() * zoom, (float)vfb->fbo->Height() * zoom));
 	return true;
 }
 
@@ -857,7 +857,6 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::EndDisabled();
 	}
 
-	ImGui::SameLine();
 	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
 
 	if (disableStepButtons) {
@@ -881,26 +880,13 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		ImGui::EndDisabled();
 	}
 
-	// Line break
-	if (ImGui::Button("Goto PC")) {
-		disasmView_.GotoPC();
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Settings")) {
-		ImGui::OpenPopup("disSettings");
-	}
-	if (ImGui::BeginPopup("disSettings")) {
-		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
-		ImGui::EndPopup();
-	}
-
 	// Display any pending step event.
 	if (gpuDebug->GetBreakNext() != GPUDebug::BreakNext::NONE && gpuDebug->GetBreakNext() != GPUDebug::BreakNext::DEBUG_RUN) {
 		if (showBannerInFrames_ > 0) {
 			showBannerInFrames_--;
 		}
 		if (showBannerInFrames_ == 0) {
-			ImGui::Text("Step pending (waiting for CPU): %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
+			ImGui::Text("Step pending: %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
 			ImGui::SameLine();
 			if (gpuDebug->GetBreakNext() == GPUDebug::BreakNext::COUNT) {
 				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
@@ -912,6 +898,19 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 		}
 	} else {
 		showBannerInFrames_ = 2;
+	}
+
+	// Line break
+	if (ImGui::Button("Goto PC")) {
+		disasmView_.GotoPC();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Settings")) {
+		ImGui::OpenPopup("disSettings");
+	}
+	if (ImGui::BeginPopup("disSettings")) {
+		ImGui::Checkbox("Follow PC", &disasmView_.followPC_);
+		ImGui::EndPopup();
 	}
 
 	// First, let's list any active display lists in the left column, on top of the disassembly.
@@ -980,7 +979,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 	}
 
-	ImGui::BeginChild("texture/fb view"); // Leave room for 1 line below us
+	ImGui::BeginChild("texture/fb view");
 
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
@@ -1001,7 +1000,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				} else {
 					ImGui::Text("Framebuffer");
 				}
+				ImGui::SameLine();
 			}
+			ImGui::SetNextItemWidth(200.0f);
+			ImGui::SliderFloat("Zoom", &previewZoom_, 0.125f, 2.f, "%.3f", ImGuiSliderFlags_Logarithmic);
 
 			// Use selectable instead of tab bar so we can get events (haven't figured that out).
 			static const Draw::Aspect aspects[3] = { Draw::Aspect::COLOR_BIT, Draw::Aspect::DEPTH_BIT, Draw::Aspect::STENCIL_BIT, };
@@ -1020,7 +1022,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				float maximum = 256.0f;
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(200.0f);
-				if (ImGui::DragFloat("Z scale", &rbViewer_.scale, 1.0f, 0.5f, 256.0f, "%0.2f", ImGuiSliderFlags_Logarithmic)) {
+				if (ImGui::DragFloat("Z value scale", &rbViewer_.scale, 1.0f, 0.5f, 256.0f, "%0.2f", ImGuiSliderFlags_Logarithmic)) {
 					rbViewer_.Snapshot();
 					swViewer_.Snapshot();
 				}
@@ -1031,7 +1033,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 			float scale = 1.0f;
 			if (vfb && vfb->fbo) {
 				scale = vfb->renderScaleFactor;
-				p1 = ImVec2(p0.x + vfb->fbo->Width(), p0.y + vfb->fbo->Height());
+				p1 = ImVec2(p0.x + vfb->fbo->Width() * previewZoom_, p0.y + vfb->fbo->Height() * previewZoom_);
 			} else {
 				// Guess
 				p1 = ImVec2(p0.x + swViewer_.width, p0.y + swViewer_.height);
@@ -1042,23 +1044,23 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 
 			PixelLookup *lookup = nullptr;
 			if (vfb) {
-				rbViewer_.Draw(gpuDebug, draw);
+				rbViewer_.Draw(gpuDebug, draw, previewZoom_);
 				lookup = &rbViewer_;
 				// ImTextureID texId = ImGui_ImplThin3d_AddFBAsTextureTemp(vfb->fbo, Draw::Aspect::COLOR_BIT, ImGuiPipeline::TexturedOpaque);
 				// ImGui::Image(texId, ImVec2(vfb->width, vfb->height));
 			} else {
-				swViewer_.Draw(gpuDebug, draw);
+				swViewer_.Draw(gpuDebug, draw, previewZoom_);
 				lookup = &swViewer_;
 			}
 
 			// Draw vertex preview on top!
-			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale, scale);
+			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale * previewZoom_, scale * previewZoom_);
 
 			drawList->PopClipRect();
 
 			if (ImGui::IsItemHovered()) {
-				int x = (int)(ImGui::GetMousePos().x - p0.x);
-				int y = (int)(ImGui::GetMousePos().y - p0.y);
+				int x = (int)(ImGui::GetMousePos().x - p0.x) * previewZoom_;
+				int y = (int)(ImGui::GetMousePos().y - p0.y) * previewZoom_;
 				char temp[128];
 				if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
 					ImGui::Text("(%d, %d): %s", x, y, temp);
