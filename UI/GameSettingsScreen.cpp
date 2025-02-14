@@ -1215,7 +1215,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 				// Probably it's just the root. So let's add PSP to make it clear.
 				usbPath = "/PSP";
 			}
-			systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 		}
 	}
 #elif defined(_WIN32)

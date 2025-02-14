@@ -557,30 +557,12 @@ std::string Choice::DescribeText() const {
 InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
-	bgColor_ = AddTween(new CallbackColorTween(0.1f));
-	bgColor_->Persist();
-	fgColor_ = AddTween(new CallbackColorTween(0.1f));
-	fgColor_->Persist();
 }
 
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
-
-	if (choiceStyle_) {
-		style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->itemStyle;
-	}
-
-	if (style.background.type == DRAW_SOLID_COLOR) {
-		// For a smoother fade, using the same color with 0 alpha.
-		if ((style.background.color & 0xFF000000) == 0)
-			style.background.color = dc.theme->itemFocusedStyle.background.color & 0x00FFFFFF;
-		bgColor_->Divert(style.background.color & 0x7fffffff);
-		style.background.color = bgColor_->CurrentValue();
-	}
-	fgColor_->Divert(style.fgColor);
-	style.fgColor = fgColor_->CurrentValue();
 
 	dc.FillRect(style.background, bounds_);
 
@@ -612,6 +594,7 @@ void ItemHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(large_ ? dc.theme->uiFont : dc.theme->uiFontSmall);
 
 	const UI::Style &style = popupStyle_ ? dc.theme->popupStyle : dc.theme->headerStyle;
+	dc.FillRect(style.background, bounds_);
 	dc.DrawText(text_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
@@ -641,7 +624,7 @@ CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, Layout
 }
 
 void CollapsibleHeader::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
+	Style style = dc.theme->collapsibleHeaderStyle;
 	if (HasFocus()) style = dc.theme->itemFocusedStyle;
 	if (down_) style = dc.theme->itemDownStyle;
 	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
@@ -727,8 +710,12 @@ void PopupHeader::Draw(UIContext &dc) {
 		dc.PushScissor(tb);
 	}
 
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->itemStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemStyle.fgColor);
+	// Header background
+	dc.FillRect(dc.theme->popupHeaderStyle.background, bounds_);
+	// Header title text
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->popupHeaderStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	// Underline
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupHeaderStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();

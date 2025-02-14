@@ -88,7 +88,6 @@ struct FontStyle {
 	int flags = 0;
 };
 
-
 // To use with an UI atlas.
 struct Theme {
 	FontStyle uiFont;
@@ -108,10 +107,15 @@ struct Theme {
 
 	Style headerStyle;
 	Style infoStyle;
+	Style collapsibleHeaderStyle;
 
 	Style popupStyle;
+	Style popupHeaderStyle;
+
+	Style tooltipStyle;
 
 	uint32_t backgroundColor;
+	uint32_t scrollbarColor;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -801,14 +805,8 @@ public:
 	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
-	void SetChoiceStyle(bool choiceStyle) {
-		choiceStyle_ = choiceStyle;
-	}
 
 private:
-	CallbackColorTween *bgColor_ = nullptr;
-	CallbackColorTween *fgColor_ = nullptr;
-
 	std::string text_;
 	std::string rightText_;
 
