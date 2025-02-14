@@ -624,7 +624,7 @@ CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, Layout
 }
 
 void CollapsibleHeader::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
+	Style style = dc.theme->collapsibleHeaderStyle;
 	if (HasFocus()) style = dc.theme->itemFocusedStyle;
 	if (down_) style = dc.theme->itemDownStyle;
 	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;

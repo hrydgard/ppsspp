@@ -55,6 +55,8 @@ struct ThemeInfo {
 	uint32_t uPopupHeaderStyleBg = 0x00000000;  // default to invisible
 	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
 	uint32_t uTooltipStyleBg = 0xC0303030;
+	uint32_t uCollapsibleHeaderStyleFg = 0xFFFFFFFF;
+	uint32_t uCollapsibleHeaderStyleBg = 0x55000000;
 	uint32_t uBackgroundColor = 0xFF754D24;
 	uint32_t uScrollbarColor = 0x80FFFFFF;
 
@@ -148,6 +150,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("TooltipStyleBg", &info.uTooltipStyleBg, info.uTooltipStyleBg);
 				section.Get("PopupHeaderStyleFg", &info.uPopupHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupHeaderStyleBg", &info.uPopupHeaderStyleBg, info.uPopupHeaderStyleBg);
+				section.Get("CollapsibleHeaderStyleFg", &info.uCollapsibleHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
+				section.Get("CollapsibleHeaderStyleBg", &info.uCollapsibleHeaderStyleBg, info.uItemStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
 				section.Get("ScrollbarColor", &info.uScrollbarColor, info.uScrollbarColor);
 
@@ -248,6 +252,7 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.itemDisabledStyle = MakeStyle(themeInfo.uItemDisabledStyleFg, themeInfo.uItemDisabledStyleBg);
 
 	ui_theme.headerStyle = MakeStyle(themeInfo.uHeaderStyleFg, themeInfo.uHeaderStyleBg);
+	ui_theme.collapsibleHeaderStyle = MakeStyle(themeInfo.uCollapsibleHeaderStyleFg, themeInfo.uCollapsibleHeaderStyleBg);
 	ui_theme.infoStyle = MakeStyle(themeInfo.uInfoStyleFg, themeInfo.uInfoStyleBg);
 
 	ui_theme.popupStyle = MakeStyle(themeInfo.uPopupStyleFg, themeInfo.uPopupStyleBg);

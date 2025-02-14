@@ -107,6 +107,7 @@ struct Theme {
 
 	Style headerStyle;
 	Style infoStyle;
+	Style collapsibleHeaderStyle;
 
 	Style popupStyle;
 	Style popupHeaderStyle;
