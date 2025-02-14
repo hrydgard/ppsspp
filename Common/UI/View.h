@@ -111,6 +111,8 @@ struct Theme {
 	Style popupStyle;
 	Style popupHeaderStyle;
 
+	Style tooltipStyle;
+
 	uint32_t backgroundColor;
 	uint32_t scrollbarColor;
 };

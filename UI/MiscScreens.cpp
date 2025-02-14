@@ -1096,13 +1096,14 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
 	}
 
-	if (alpha >= 0.1f) {
-		UI::Style style = dc.theme->popupStyle;
-		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
-		dc.FillRect(style.background, bounds_);
+	UI::Style style = dc.theme->tooltipStyle;
+
+	if (alpha >= 0.001f) {
+		uint32_t bgColor = alphaMul(style.background.color, alpha);
+		dc.FillRect(UI::Drawable(bgColor), bounds_);
 	}
 
-	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	uint32_t textColor = alphaMul(style.fgColor, alpha);
 	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time

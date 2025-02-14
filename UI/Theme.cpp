@@ -53,6 +53,8 @@ struct ThemeInfo {
 	uint32_t uPopupStyleBg = 0xFF303030;
 	uint32_t uPopupHeaderStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupHeaderStyleBg = 0x00000000;  // default to invisible
+	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
+	uint32_t uTooltipStyleBg = 0xC0303030;
 	uint32_t uBackgroundColor = 0xFF754D24;
 	uint32_t uScrollbarColor = 0x80FFFFFF;
 
@@ -142,6 +144,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("InfoStyleBg", &info.uInfoStyleBg, info.uInfoStyleBg);
 				section.Get("PopupStyleFg", &info.uPopupStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
+				section.Get("TooltipStyleFg", &info.uTooltipStyleFg, info.uTooltipStyleFg);  // Backwards compat
+				section.Get("TooltipStyleBg", &info.uTooltipStyleBg, info.uTooltipStyleBg);
 				section.Get("PopupHeaderStyleFg", &info.uPopupHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupHeaderStyleBg", &info.uPopupHeaderStyleBg, info.uPopupHeaderStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
@@ -237,6 +241,9 @@ void UpdateTheme(UIContext *ctx) {
 
 	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
 	ui_theme.popupHeaderStyle = MakeStyle(themeInfos[i].uPopupHeaderStyleFg, themeInfos[i].uPopupHeaderStyleBg);
+
+	ui_theme.tooltipStyle = MakeStyle(themeInfos[i].uTooltipStyleFg, themeInfos[i].uTooltipStyleBg);
+
 	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
 	ui_theme.scrollbarColor = themeInfos[i].uScrollbarColor;
 
