@@ -201,17 +201,26 @@ void UpdateTheme(UIContext *ctx) {
 		ReloadAllThemeInfo();
 	}
 
-	size_t i;
-	for (i = 0; i < themeInfos.size(); ++i) {
+	int defaultThemeIndex = -1;
+	int selectedThemeIndex = -1;
+	for (int i = 0; i < themeInfos.size(); ++i) {
+		if (themeInfos[i].name == "Default") {
+			defaultThemeIndex = i;
+		}
 		if (themeInfos[i].name == g_Config.sThemeName) {
-			break;
+			selectedThemeIndex = i;
 		}
 	}
 
 	// Reset to Default if not found
-	if (i >= themeInfos.size()) {
+	if (selectedThemeIndex < 0 || selectedThemeIndex >= themeInfos.size()) {
 		g_Config.sThemeName = "Default";
-		i = 0;
+		selectedThemeIndex = defaultThemeIndex;
+		if (selectedThemeIndex < 0) {
+			_dbg_assert_(false);
+			// No themes? Bad.
+			return;
+		}
 	}
 
 #if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
@@ -230,32 +239,34 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.sliderKnob = ImageID("I_CIRCLE");
 	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");
 
+	const ThemeInfo &themeInfo = themeInfos[selectedThemeIndex];
+
 	// Actual configurable themes setting start here
-	ui_theme.itemStyle = MakeStyle(themeInfos[i].uItemStyleFg, themeInfos[i].uItemStyleBg);
-	ui_theme.itemFocusedStyle = MakeStyle(themeInfos[i].uItemFocusedStyleFg, themeInfos[i].uItemFocusedStyleBg);
-	ui_theme.itemDownStyle = MakeStyle(themeInfos[i].uItemDownStyleFg, themeInfos[i].uItemDownStyleBg);
-	ui_theme.itemDisabledStyle = MakeStyle(themeInfos[i].uItemDisabledStyleFg, themeInfos[i].uItemDisabledStyleBg);
+	ui_theme.itemStyle = MakeStyle(themeInfo.uItemStyleFg, themeInfo.uItemStyleBg);
+	ui_theme.itemFocusedStyle = MakeStyle(themeInfo.uItemFocusedStyleFg, themeInfo.uItemFocusedStyleBg);
+	ui_theme.itemDownStyle = MakeStyle(themeInfo.uItemDownStyleFg, themeInfo.uItemDownStyleBg);
+	ui_theme.itemDisabledStyle = MakeStyle(themeInfo.uItemDisabledStyleFg, themeInfo.uItemDisabledStyleBg);
 
-	ui_theme.headerStyle = MakeStyle(themeInfos[i].uHeaderStyleFg, themeInfos[i].uHeaderStyleBg);
-	ui_theme.infoStyle = MakeStyle(themeInfos[i].uInfoStyleFg, themeInfos[i].uInfoStyleBg);
+	ui_theme.headerStyle = MakeStyle(themeInfo.uHeaderStyleFg, themeInfo.uHeaderStyleBg);
+	ui_theme.infoStyle = MakeStyle(themeInfo.uInfoStyleFg, themeInfo.uInfoStyleBg);
 
-	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
-	ui_theme.popupHeaderStyle = MakeStyle(themeInfos[i].uPopupHeaderStyleFg, themeInfos[i].uPopupHeaderStyleBg);
+	ui_theme.popupStyle = MakeStyle(themeInfo.uPopupStyleFg, themeInfo.uPopupStyleBg);
+	ui_theme.popupHeaderStyle = MakeStyle(themeInfo.uPopupHeaderStyleFg, themeInfo.uPopupHeaderStyleBg);
 
-	ui_theme.tooltipStyle = MakeStyle(themeInfos[i].uTooltipStyleFg, themeInfos[i].uTooltipStyleBg);
+	ui_theme.tooltipStyle = MakeStyle(themeInfo.uTooltipStyleFg, themeInfo.uTooltipStyleBg);
 
-	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
-	ui_theme.scrollbarColor = themeInfos[i].uScrollbarColor;
+	ui_theme.backgroundColor = themeInfo.uBackgroundColor;
+	ui_theme.scrollbarColor = themeInfo.uScrollbarColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
-	LoadAtlasMetadata(ui_atlas, (themeInfos[i].sUIAtlas + ".meta").c_str(), true);
+	LoadAtlasMetadata(ui_atlas, (themeInfo.sUIAtlas + ".meta").c_str(), true);
 #if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 	LoadAtlasMetadata(font_atlas, "font_atlas.meta", ui_atlas.num_fonts == 0);
 #else
 	LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta", ui_atlas.num_fonts == 0);
 #endif
 
-	ctx->setUIAtlas(themeInfos[i].sUIAtlas + ".zim");
+	ctx->setUIAtlas(themeInfo.sUIAtlas + ".zim");
 }
 
 UI::Theme *GetTheme() {
