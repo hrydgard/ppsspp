@@ -612,6 +612,7 @@ void ItemHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(large_ ? dc.theme->uiFont : dc.theme->uiFontSmall);
 
 	const UI::Style &style = popupStyle_ ? dc.theme->popupStyle : dc.theme->headerStyle;
+	dc.FillRect(style.background, bounds_);
 	dc.DrawText(text_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }

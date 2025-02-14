@@ -46,6 +46,7 @@ struct ThemeInfo {
 	uint32_t uItemDisabledStyleBg = 0x55000000;
 
 	uint32_t uHeaderStyleFg = 0xFFFFFFFF;
+	uint32_t uHeaderStyleBg = 0x00000000;
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
@@ -135,6 +136,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("ItemDisabledStyleBg", &info.uItemDisabledStyleBg, info.uItemDisabledStyleBg);
 
 				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, info.uHeaderStyleFg);
+				section.Get("HeaderStyleBg", &info.uHeaderStyleBg, info.uHeaderStyleBg);
 				section.Get("InfoStyleFg", &info.uInfoStyleFg, info.uInfoStyleFg);
 				section.Get("InfoStyleBg", &info.uInfoStyleBg, info.uInfoStyleBg);
 				section.Get("PopupStyleFg", &info.uPopupStyleFg, info.uItemStyleFg);  // Backwards compat
@@ -228,7 +230,7 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.itemDownStyle = MakeStyle(themeInfos[i].uItemDownStyleFg, themeInfos[i].uItemDownStyleBg);
 	ui_theme.itemDisabledStyle = MakeStyle(themeInfos[i].uItemDisabledStyleFg, themeInfos[i].uItemDisabledStyleBg);
 
-	ui_theme.headerStyle.fgColor = themeInfos[i].uHeaderStyleFg;
+	ui_theme.headerStyle = MakeStyle(themeInfos[i].uHeaderStyleFg, themeInfos[i].uHeaderStyleBg);
 	ui_theme.infoStyle = MakeStyle(themeInfos[i].uInfoStyleFg, themeInfos[i].uInfoStyleBg);
 
 	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
