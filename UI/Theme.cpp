@@ -54,6 +54,7 @@ struct ThemeInfo {
 	uint32_t uPopupHeaderStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupHeaderStyleBg = 0x00000000;  // default to invisible
 	uint32_t uBackgroundColor = 0xFF754D24;
+	uint32_t uScrollbarColor = 0x80FFFFFF;
 
 	std::string sUIAtlas = "ui_atlas";
 
@@ -144,6 +145,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupHeaderStyleFg", &info.uPopupHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupHeaderStyleBg", &info.uPopupHeaderStyleBg, info.uPopupHeaderStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
+				section.Get("ScrollbarColor", &info.uScrollbarColor, info.uScrollbarColor);
 
 				std::string tmpPath;
 				section.Get("UIAtlas", &tmpPath, "");
@@ -236,6 +238,7 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
 	ui_theme.popupHeaderStyle = MakeStyle(themeInfos[i].uPopupHeaderStyleFg, themeInfos[i].uPopupHeaderStyleBg);
 	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
+	ui_theme.scrollbarColor = themeInfos[i].uScrollbarColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).
 	LoadAtlasMetadata(ui_atlas, (themeInfos[i].sUIAtlas + ".meta").c_str(), true);

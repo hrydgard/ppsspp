@@ -112,6 +112,7 @@ struct Theme {
 	Style popupHeaderStyle;
 
 	uint32_t backgroundColor;
+	uint32_t scrollbarColor;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".

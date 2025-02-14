@@ -250,7 +250,7 @@ void ScrollView::Draw(UIContext &dc) {
 
 	if (bob.show) {
 		Bounds bobBounds(bounds_.x2() - bob.thickness, bounds_.y + bob.offset, bob.thickness, bob.size);
-		dc.FillRect(Drawable(0x80FFFFFF), bobBounds);
+		dc.FillRect(Drawable(dc.GetTheme().scrollbarColor), bobBounds);
 	}
 }
 
