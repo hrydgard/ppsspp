@@ -361,7 +361,9 @@ public:
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
+
 	bool bGamepadOnlyFocused;
+
 	// Control Style
 	int iTouchButtonStyle;
 	int iTouchButtonOpacity;
@@ -376,6 +378,9 @@ public:
 
 	// Sticky D-pad (can't glide off it)
 	bool bStickyTouchDPad;
+
+	// Touch gliding (see #14490)
+	bool bTouchGliding;
 
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)

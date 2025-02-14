@@ -54,6 +54,8 @@ public:
 	MultiTouchButton *SetAngle(float angle) { angle_ = angle; bgAngle_ = angle; return this; }
 	MultiTouchButton *SetAngle(float angle, float bgAngle) { angle_ = angle; bgAngle_ = bgAngle; return this; }
 
+	bool CanGlide() const;
+
 protected:
 	uint32_t pointerDownMask_ = 0;
 	float scale_;

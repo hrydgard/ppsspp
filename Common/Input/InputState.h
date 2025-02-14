@@ -145,6 +145,8 @@ enum {
 	TOUCH_TOOL_STYLUS = 2 << 10,
 	TOUCH_TOOL_MOUSE = 3 << 10,
 	TOUCH_TOOL_ERASER = 4 << 10,
+
+	TOUCH_MAX_POINTERS = 10,
 };
 
 // Used for asynchronous touch input.

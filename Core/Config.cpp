@@ -284,6 +284,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("SwipeSmoothing", &g_Config.fSwipeSmoothing, 0.3f, CfgFlag::PER_GAME),
 	ConfigSetting("DoubleTapGesture", &g_Config.iDoubleTapGesture, 0, CfgFlag::PER_GAME),
 	ConfigSetting("GestureControlEnabled", &g_Config.bGestureControlEnabled, false, CfgFlag::PER_GAME),
+	ConfigSetting("TouchGliding", &g_Config.bTouchGliding, false, CfgFlag::PER_GAME),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default", CfgFlag::DEFAULT),

@@ -1080,6 +1080,9 @@ bool EmuScreen::key(const KeyInput &key) {
 void EmuScreen::touch(const TouchInput &touch) {
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
+		if (!ImGui::GetIO().WantCaptureMouse) {
+			UIScreen::touch(touch);
+		}
 	} else {
 		UIScreen::touch(touch);
 	}

@@ -42,6 +42,8 @@ static uint32_t analogPointerMask = 0;
 static float g_gamepadOpacity;
 static double g_lastTouch;
 
+MultiTouchButton *primaryButton[TOUCH_MAX_POINTERS]{};
+
 void GamepadUpdateOpacity(float force) {
 	if (force >= 0.0f) {
 		g_gamepadOpacity = force;
@@ -100,23 +102,36 @@ void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float
 	}
 }
 
+bool MultiTouchButton::CanGlide() const {
+	return g_Config.bTouchGliding;
+}
+
 bool MultiTouchButton::Touch(const TouchInput &input) {
+	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
+
 	bool retval = GamepadView::Touch(input);
 	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 		usedPointerMask |= 1 << input.id;
+		if (CanGlide() && !primaryButton[input.id])
+			primaryButton[input.id] = this;
 	}
 	if (input.flags & TOUCH_MOVE) {
 		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
-			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id)))
+			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
+				if (CanGlide() && !primaryButton[input.id]) {
+					primaryButton[input.id] = this;
+				}
 				pointerDownMask_ |= 1 << input.id;
-			else
+			} else if (primaryButton[input.id] != this) {
 				pointerDownMask_ &= ~(1 << input.id);
+			}
 		}
 	}
 	if (input.flags & TOUCH_UP) {
 		pointerDownMask_ &= ~(1 << input.id);
 		usedPointerMask &= ~(1 << input.id);
+		primaryButton[input.id] = nullptr;
 	}
 	if (input.flags & TOUCH_RELEASE_ALL) {
 		pointerDownMask_ = 0;
