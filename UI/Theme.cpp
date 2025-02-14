@@ -48,6 +48,7 @@ struct ThemeInfo {
 	uint32_t uHeaderStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleFg = 0xFFFFFFFF;
 	uint32_t uInfoStyleBg = 0x00000000;
+	uint32_t uPopupStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupStyleBg = 0xFF303030;
 	uint32_t uBackgroundColor = 0xFF754D24;
 
@@ -134,6 +135,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("HeaderStyleFg", &info.uHeaderStyleFg, info.uHeaderStyleFg);
 				section.Get("InfoStyleFg", &info.uInfoStyleFg, info.uInfoStyleFg);
 				section.Get("InfoStyleBg", &info.uInfoStyleBg, info.uInfoStyleBg);
+				section.Get("PopupStyleFg", &info.uPopupStyleBg, info.uItemStyleFg);  // Backwards compat
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
 
@@ -225,7 +227,7 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.headerStyle.fgColor = themeInfos[i].uHeaderStyleFg;
 	ui_theme.infoStyle = MakeStyle(themeInfos[i].uInfoStyleFg, themeInfos[i].uInfoStyleBg);
 
-	ui_theme.popupStyle = MakeStyle(themeInfos[i].uItemStyleFg, themeInfos[i].uPopupStyleBg);
+	ui_theme.popupStyle = MakeStyle(themeInfos[i].uPopupStyleFg, themeInfos[i].uPopupStyleBg);
 	ui_theme.backgroundColor = themeInfos[i].uBackgroundColor;
 
 	// Load any missing atlas metadata (the images are loaded from UIContext).

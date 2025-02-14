@@ -88,7 +88,6 @@ struct FontStyle {
 	int flags = 0;
 };
 
-
 // To use with an UI atlas.
 struct Theme {
 	FontStyle uiFont;
