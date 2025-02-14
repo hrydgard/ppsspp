@@ -727,8 +727,12 @@ void PopupHeader::Draw(UIContext &dc) {
 		dc.PushScissor(tb);
 	}
 
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->itemStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemStyle.fgColor);
+	// Header background
+	dc.FillRect(dc.theme->popupHeaderStyle.background, bounds_);
+	// Header title text
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->popupHeaderStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	// Underline
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupHeaderStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
