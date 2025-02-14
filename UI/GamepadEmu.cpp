@@ -110,7 +110,7 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 		if (!(input.flags & TOUCH_MOUSE) || input.buttons) {
 			if (bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id)))
 				pointerDownMask_ |= 1 << input.id;
-			else
+			else if (!g_Config.bTouchGliding)
 				pointerDownMask_ &= ~(1 << input.id);
 		}
 	}
