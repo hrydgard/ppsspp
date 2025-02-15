@@ -1,7 +1,9 @@
 #include "ppsspp_config.h"
 
 #include "Common/CommonWindows.h"
+#ifndef __LIBRETRO__  // their build server uses an old SDK
 #include <dxgi1_5.h>
+#endif
 #include <d3d11.h>
 #include <WinError.h>
 
@@ -178,6 +180,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	swapChainDesc_.Windowed = TRUE;
 	swapChainDesc_.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
+#ifndef __LIBRETRO__  // their build server uses an old SDK
 	IDXGIFactory5 *dxgiFactory5 = nullptr;
 	hr = dxgiFactory->QueryInterface(__uuidof(IDXGIFactory5), (void**)&dxgiFactory5);
 	if (SUCCEEDED(hr)) {
@@ -191,6 +194,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		}
 		dxgiFactory5->Release();
 	}
+#endif
 
 	hr = dxgiFactory->CreateSwapChain(device_, &swapChainDesc_, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);

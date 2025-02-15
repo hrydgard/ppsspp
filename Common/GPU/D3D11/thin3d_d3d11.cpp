@@ -18,7 +18,9 @@
 
 #include <cfloat>
 #include <D3Dcommon.h>
+#ifndef __LIBRETRO__  // their build server uses an old SDK
 #include <dxgi1_5.h>
+#endif
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <D3Dcompiler.h>
@@ -369,6 +371,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		caps_.supportsD3D9 = false;
 	}
 
+#ifndef __LIBRETRO__  // their build server uses an old SDK
 	if (swapChain_) {
 		DXGI_SWAP_CHAIN_DESC swapChainDesc;
 		swapChain_->GetDesc(&swapChainDesc);
@@ -377,7 +380,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			swapChainTearingSupported_ = true;
 		}
 	}
-
+#endif
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
 	D3D11_TEXTURE2D_DESC packDesc{};
@@ -496,7 +499,9 @@ void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
 		uint32_t flags = 0;
 		if (presentMode != PresentMode::FIFO) {
 			interval = 0;
+#ifndef __LIBRETRO__  // their build server uses an old SDK
 			flags |= swapChainTearingSupported_ ? DXGI_PRESENT_ALLOW_TEARING : 0; // Assume "vsync off" also means "allow tearing"
+#endif
 		}
 		swapChain_->Present(interval, flags);
 	}
