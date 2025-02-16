@@ -84,6 +84,9 @@ do
 		--no_mmap) echo "Disable mmap"
 			CMAKE_ARGS="-DUSE_NO_MMAP=ON ${CMAKE_ARGS}"
 			;;
+   		--gles) echo "Using GLES/EGL"
+                	CMAKE_ARGS="-DUSING_GLES2=ON -DUSING_EGL=ON ${CMAKE_ARGS}"
+                	;;
 		*) MAKE_OPT="$1 ${MAKE_OPT}"
 			;;
 	esac
