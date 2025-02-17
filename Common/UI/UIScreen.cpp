@@ -430,11 +430,15 @@ void PopupScreen::CreateViews() {
 	box_->SetSpacing(0.0f);
 
 	if (HasTitleBar()) {
-		View* title = new PopupHeader(title_);
+		View *title = new PopupHeader(title_);
 		box_->Add(title);
 	}
 
 	CreatePopupContents(box_);
+	root_->Recurse([](View *view) {
+		view->SetPopupStyle(true);
+	});
+
 	root_->SetDefaultFocusView(box_);
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.

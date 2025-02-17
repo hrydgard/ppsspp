@@ -48,6 +48,13 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
+void ViewGroup::Recurse(void (*func)(View *view)) {
+	for (View *view : views_) {
+		func(view);
+		view->Recurse(func);
+	}
+}
+
 void ViewGroup::RemoveSubview(View *subView) {
 	// loop counter needed, so can't convert loop.
 	for (size_t i = 0; i < views_.size(); i++) {

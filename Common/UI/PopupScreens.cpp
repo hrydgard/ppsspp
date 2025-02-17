@@ -20,7 +20,7 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	std::vector<std::string_view> messageLines;
 	SplitString(message_, '\n', messageLines);
 	for (auto lineOfText : messageLines)
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false))->SetTextColor(dc.theme->popupStyle.fgColor);
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false));
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
@@ -374,7 +374,6 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
-	edit_->SetTextColor(dc.theme->itemStyle.fgColor);
 	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = true;
@@ -383,7 +382,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
+		lin->Add(new TextView(units_));
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);

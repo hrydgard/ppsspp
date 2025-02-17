@@ -51,8 +51,8 @@ struct ThemeInfo {
 	uint32_t uInfoStyleBg = 0x00000000;
 	uint32_t uPopupStyleFg = 0xFFFFFFFF;
 	uint32_t uPopupStyleBg = 0xFF303030;
-	uint32_t uPopupHeaderStyleFg = 0xFFFFFFFF;
-	uint32_t uPopupHeaderStyleBg = 0x00000000;  // default to invisible
+	uint32_t uPopupTitleStyleFg = 0xFFFFFFFF;
+	uint32_t uPopupTitleStyleBg = 0x00000000;  // default to invisible
 	uint32_t uTooltipStyleFg = 0xFFFFFFFF;
 	uint32_t uTooltipStyleBg = 0xC0303030;
 	uint32_t uCollapsibleHeaderStyleFg = 0xFFFFFFFF;
@@ -148,8 +148,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 				section.Get("TooltipStyleFg", &info.uTooltipStyleFg, info.uTooltipStyleFg);  // Backwards compat
 				section.Get("TooltipStyleBg", &info.uTooltipStyleBg, info.uTooltipStyleBg);
-				section.Get("PopupHeaderStyleFg", &info.uPopupHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
-				section.Get("PopupHeaderStyleBg", &info.uPopupHeaderStyleBg, info.uPopupHeaderStyleBg);
+				section.Get("PopupHeaderStyleFg", &info.uPopupTitleStyleFg, info.uItemStyleFg);  // Backwards compat
+				section.Get("PopupHeaderStyleBg", &info.uPopupTitleStyleBg, info.uPopupTitleStyleBg);
 				section.Get("CollapsibleHeaderStyleFg", &info.uCollapsibleHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("CollapsibleHeaderStyleBg", &info.uCollapsibleHeaderStyleBg, info.uItemStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);
@@ -256,7 +256,7 @@ void UpdateTheme(UIContext *ctx) {
 	ui_theme.infoStyle = MakeStyle(themeInfo.uInfoStyleFg, themeInfo.uInfoStyleBg);
 
 	ui_theme.popupStyle = MakeStyle(themeInfo.uPopupStyleFg, themeInfo.uPopupStyleBg);
-	ui_theme.popupHeaderStyle = MakeStyle(themeInfo.uPopupHeaderStyleFg, themeInfo.uPopupHeaderStyleBg);
+	ui_theme.popupTitleStyle = MakeStyle(themeInfo.uPopupTitleStyleFg, themeInfo.uPopupTitleStyleBg);
 
 	ui_theme.tooltipStyle = MakeStyle(themeInfo.uTooltipStyleFg, themeInfo.uTooltipStyleBg);
 

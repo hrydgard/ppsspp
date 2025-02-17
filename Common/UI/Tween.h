@@ -151,14 +151,6 @@ protected:
 	uint32_t Current(float pos) override;
 };
 
-class TextColorTween : public ColorTween {
-public:
-	using ColorTween::ColorTween;
-
-protected:
-	void DoApply(View *view, float pos) override;
-};
-
 class CallbackColorTween : public ColorTween {
 public:
 	using ColorTween::ColorTween;

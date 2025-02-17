@@ -110,7 +110,7 @@ struct Theme {
 	Style collapsibleHeaderStyle;
 
 	Style popupStyle;
-	Style popupHeaderStyle;
+	Style popupTitleStyle;
 
 	Style tooltipStyle;
 
@@ -429,6 +429,8 @@ public:
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
 
+	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
+
 	bool HasFocus() const {
 		return GetFocusedView() == this;
 	}
@@ -480,6 +482,8 @@ public:
 		return t;
 	}
 
+	virtual void Recurse(void (*func)(View *view)) {}
+
 protected:
 	// Inputs to layout
 	std::unique_ptr<LayoutParams> layoutParams_;
@@ -495,6 +499,9 @@ protected:
 	Bounds bounds_{};
 
 	std::vector<Tween *> tweens_;
+
+	// Whether to use popup colors for styling.
+	bool popupStyle_ = false;
 
 private:
 	std::function<bool()> enabledFunc_;
@@ -851,11 +858,9 @@ public:
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void SetLarge(bool large) { large_ = large; }
-	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 private:
 	std::string text_;
 	bool large_ = false;
-	bool popupStyle_ = false;
 };
 
 class PopupHeader : public Item {

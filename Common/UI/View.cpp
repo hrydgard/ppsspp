@@ -711,11 +711,11 @@ void PopupHeader::Draw(UIContext &dc) {
 	}
 
 	// Header background
-	dc.FillRect(dc.theme->popupHeaderStyle.background, bounds_);
+	dc.FillRect(dc.theme->popupTitleStyle.background, bounds_);
 	// Header title text
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->popupHeaderStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.theme->popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	// Underline
-	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupHeaderStyle.fgColor);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitleStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
@@ -1055,7 +1055,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 void TextView::Draw(UIContext &dc) {
-	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
+	uint32_t textColor = hasTextColor_ ? textColor_ : (popupStyle_ ? dc.theme->popupStyle.fgColor : dc.theme->infoStyle.fgColor);
 	if (!(textColor & 0xFF000000))
 		return;
 
@@ -1130,9 +1130,11 @@ void TextEdit::FocusChanged(int focusFlags) {
 void TextEdit::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	dc.SetFontStyle(dc.theme->uiFont);
+
+	// TODO: make background themeable?
 	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
 
-	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
+	uint32_t textColor = popupStyle_ ? dc.theme->popupStyle.fgColor : dc.theme->infoStyle.fgColor;
 	float textX = bounds_.x;
 	float w, h;
 
