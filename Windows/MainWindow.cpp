@@ -819,12 +819,12 @@ namespace MainWindow
 	bool ConfirmExit(HWND hWnd) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
-			return false;
+			return true;
 		}
 
 		std::string confirmExitMessage = GetConfirmExitMessage();
 		if (confirmExitMessage.empty()) {
-			return false;
+			return true;
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -1159,6 +1159,10 @@ namespace MainWindow
 
 		case WM_USER_SWITCHUMD_UPDATED:
 			UpdateSwitchUMD();
+			break;
+
+		case WM_USER_DESTROY:
+			DestroyWindow(hWnd);
 			break;
 
 		case WM_MENUSELECT:

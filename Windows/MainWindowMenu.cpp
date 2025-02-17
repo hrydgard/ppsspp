@@ -443,7 +443,7 @@ namespace MainWindow {
 			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;
-			DestroyWindow(MainWindow::GetHWND());
+			PostMessage(MainWindow::GetHWND(), WM_USER_DESTROY, 0, 0);
 		}
 	}
 
