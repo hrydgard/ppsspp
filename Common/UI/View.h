@@ -110,7 +110,7 @@ struct Theme {
 	Style collapsibleHeaderStyle;
 
 	Style popupStyle;
-	Style popupHeaderStyle;
+	Style popupTitleStyle;
 
 	Style tooltipStyle;
 
