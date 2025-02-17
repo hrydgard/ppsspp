@@ -227,6 +227,8 @@ void __UtilityInit() {
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
 	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
+
+	ResetSecondsSinceLastGameSave();
 }
 
 void __UtilityDoState(PointerWrap &p) {

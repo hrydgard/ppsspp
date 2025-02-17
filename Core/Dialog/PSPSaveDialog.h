@@ -104,6 +104,8 @@ private:
 
 	std::thread *ioThread = nullptr;
 	std::mutex paramLock;
-	volatile SaveIOStatus ioThreadStatus;
+	volatile SaveIOStatus ioThreadStatus = SAVEIO_NONE;
 };
 
+void ResetSecondsSinceLastGameSave();
+double SecondsSinceLastGameSave();

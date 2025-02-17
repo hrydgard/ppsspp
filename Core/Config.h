@@ -137,6 +137,7 @@ public:
 	bool bMemStickInserted;
 	int iMemStickSizeGB;
 	bool bLoadPlugins;
+	int iAskForExitConfirmationAfterSeconds;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
