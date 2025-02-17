@@ -1157,7 +1157,7 @@ double g_lastSaveTime = -1.0;
 		lastSaveDataGeneration = 0;
 		saveStateInitialGitVersion.clear();
 
-		g_lastSaveTime = -1.0;
+		g_lastSaveTime = time_now_d();
 	}
 
 	void Shutdown()

@@ -25,8 +25,7 @@
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
 
-namespace SaveState
-{
+namespace SaveState {
 	enum class Status {
 		FAILURE,
 		WARNING,
@@ -114,4 +113,4 @@ namespace SaveState
 
 	// Returns the time since last save. -1 if N/A.
 	double SecondsSinceLastSavestate();
-};
+}  // namespace SaveState

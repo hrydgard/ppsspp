@@ -42,7 +42,7 @@
 static double g_lastSaveTime = -1.0;
 
 void ResetSecondsSinceLastGameSave() {
-	g_lastSaveTime = -1.0;
+	g_lastSaveTime = time_now_d();
 }
 
 double SecondsSinceLastGameSave() {
