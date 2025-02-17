@@ -348,7 +348,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		return true;
 	}
 
-	if (!g_Config.bDontDownloadInfraJson) {
+	if (g_Config.bDontDownloadInfraJson) {
 		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json from /assets");
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
