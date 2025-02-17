@@ -1055,7 +1055,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 void TextView::Draw(UIContext &dc) {
-	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
+	uint32_t textColor = hasTextColor_ ? textColor_ : (popupStyle_ ? dc.theme->popupStyle.fgColor : dc.theme->infoStyle.fgColor);
 	if (!(textColor & 0xFF000000))
 		return;
 
@@ -1130,9 +1130,11 @@ void TextEdit::FocusChanged(int focusFlags) {
 void TextEdit::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	dc.SetFontStyle(dc.theme->uiFont);
+
+	// TODO: make background themeable?
 	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
 
-	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
+	uint32_t textColor = popupStyle_ ? dc.theme->popupStyle.fgColor : dc.theme->infoStyle.fgColor;
 	float textX = bounds_.x;
 	float w, h;
 

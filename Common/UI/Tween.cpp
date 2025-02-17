@@ -1,4 +1,4 @@
-﻿#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -71,12 +71,6 @@ template void TweenBase<Point2D>::PersistData(PersistStatus status, std::string 
 
 uint32_t ColorTween::Current(float pos) {
 	return colorBlend(to_, from_, pos);
-}
-
-void TextColorTween::DoApply(View *view, float pos) {
-	// TODO: No validation without RTTI?
-	TextView *tv = (TextView *)view;
-	tv->SetTextColor(Current(pos));
 }
 
 void CallbackColorTween::DoApply(View *view, float pos) {

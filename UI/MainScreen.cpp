@@ -1738,16 +1738,16 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
 	PopupMultiChoice *beziersChoice = items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Grid icon size")))->SetPopupStyle(true);
+	items->Add(new ItemHeader(sy->T("Grid icon size")));
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
 	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
 
-	items->Add(new ItemHeader(sy->T("Display Extra Info")))->SetPopupStyle(true);
+	items->Add(new ItemHeader(sy->T("Display Extra Info")));
 	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
 	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
 
 	if (g_Config.iMaxRecent > 0) {
-		items->Add(new ItemHeader(sy->T("Clear Recent")))->SetPopupStyle(true);
+		items->Add(new ItemHeader(sy->T("Clear Recent")));
 		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
 	}
 
