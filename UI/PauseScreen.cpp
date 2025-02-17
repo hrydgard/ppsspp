@@ -587,7 +587,8 @@ int GetUnsavedProgressSeconds() {
 	return (int)std::min(timeSinceSaveState, timeSinceGameSave);
 }
 
-UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+// If empty, no confirmation dialog should be shown.
+std::string GetConfirmExitMessage() {
 	std::string confirmMessage;
 
 	int unsavedSeconds = GetUnsavedProgressSeconds();
@@ -606,13 +607,20 @@ UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
 	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
+		confirmMessage += '\n';
 	}
 
-	if (!confirmMessage.empty()) {
+	return confirmMessage;
+}
+
+UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+	std::string confirmExitMessage = GetConfirmExitMessage();
+
+	if (!confirmExitMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		confirmMessage += '\n';
-		confirmMessage += di->T("Are you sure you want to exit?");
-		screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+		confirmExitMessage += '\n';
+		confirmExitMessage += di->T("Are you sure you want to exit?");
+		screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();

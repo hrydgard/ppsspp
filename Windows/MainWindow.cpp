@@ -86,8 +86,8 @@
 #include "GPU/GPUCommon.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/PauseScreen.h"
 #include "Core/SaveState.h"
-#include "Core/Dialog/PSPSaveDialog.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -817,26 +817,20 @@ namespace MainWindow
 	}
 
 	bool ConfirmExit(HWND hWnd) {
-		GlobalUIState state = GetUIState();
-		if (state != UISTATE_MENU && state != UISTATE_EXIT && g_Config.iAskForExitConfirmationAfterSeconds > 0) {
-			const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
-			const double timeSinceGameSave = SecondsSinceLastGameSave();
-
-			const double minTime = std::min(timeSinceSaveState, timeSinceGameSave);
-			if (minTime > g_Config.iAskForExitConfirmationAfterSeconds) {
-				auto di = GetI18NCategory(I18NCat::DIALOG);
-				auto mm = GetI18NCategory(I18NCat::MAINMENU);
-				std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)minTime));
-				dlgMsg += '\n';
-				dlgMsg += '\n';
-				dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
-
-				if (IDNO == MessageBox(hWnd, ConvertUTF8ToWString(dlgMsg).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION)) {
-					return false;
-				}
-			}
+		const GlobalUIState state = GetUIState();
+		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
+			return false;
 		}
-		return true;
+
+		std::string confirmExitMessage = GetConfirmExitMessage();
+		if (confirmExitMessage.empty()) {
+			return false;
+		}
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		confirmExitMessage += '\n';
+		confirmExitMessage += di->T("Are you sure you want to exit?");
+		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
