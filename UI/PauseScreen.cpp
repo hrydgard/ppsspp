@@ -26,6 +26,7 @@
 #include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
@@ -34,6 +35,7 @@
 
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
+#include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Core.h"
@@ -516,9 +518,9 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer(20.0));
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
 	} else {
-		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
 	}
 
 	middleColumn->SetSpacing(20.0f);
@@ -578,12 +580,34 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
+int GetUnsavedProgressSeconds() {
+	const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
+	const double timeSinceGameSave = SecondsSinceLastGameSave();
+
+	return (int)std::min(timeSinceSaveState, timeSinceGameSave);
+}
+
+UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+	std::string confirmMessage;
+
+	int unsavedSeconds = GetUnsavedProgressSeconds();
+
 	// If RAIntegration has dirty info, ask for confirmation.
 	if (Achievements::RAIntegrationDirty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+		confirmMessage = ac->T("You have unsaved RAIntegration changes. Exit?");
+	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, ac->T("You have unsaved RAIntegration changes. Exit?"), di->T("Yes"), di->T("No"), [=](bool result) {
+		std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
+		dlgMsg += '\n';
+		dlgMsg += '\n';
+		dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
+		confirmMessage = dlgMsg;
+	}
+
+	if (!confirmMessage.empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Yes"), di->T("No"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();

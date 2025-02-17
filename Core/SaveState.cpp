@@ -60,8 +60,10 @@
 // Slot number is visual only, -2 will display special message
 constexpr int LOAD_UNDO_SLOT = -2;
 
-namespace SaveState
-{
+namespace SaveState {
+
+double g_lastSaveTime = -1.0;
+
 	struct SaveStart
 	{
 		void DoState(PointerWrap &p);
@@ -76,13 +78,10 @@ namespace SaveState
 		SAVESTATE_SAVE_SCREENSHOT,
 	};
 
-	struct Operation
-	{
+	struct Operation {
 		// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
 		Operation(OperationType t, const Path &f, int slot_, Callback cb, void *cbUserData_)
-			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_)
-		{
-		}
+			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_) {}
 
 		OperationType type;
 		Path filename;
@@ -1005,6 +1004,7 @@ namespace SaveState
 						}
 					}
 #endif
+					g_lastSaveTime = time_now_d();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleLoadFailure(false);
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
@@ -1040,6 +1040,7 @@ namespace SaveState
 						}
 					}
 #endif
+					g_lastSaveTime = time_now_d();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;
@@ -1155,11 +1156,21 @@ namespace SaveState
 		saveDataGeneration = 0;
 		lastSaveDataGeneration = 0;
 		saveStateInitialGitVersion.clear();
+
+		g_lastSaveTime = time_now_d();
 	}
 
 	void Shutdown()
 	{
 		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
+	}
+
+	double SecondsSinceLastSavestate() {
+		if (g_lastSaveTime < 0) {
+			return -1.0;
+		} else {
+			return time_now_d() - g_lastSaveTime;
+		}
 	}
 }

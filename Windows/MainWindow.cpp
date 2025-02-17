@@ -37,6 +37,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -85,6 +86,8 @@
 #include "GPU/GPUCommon.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameSettingsScreen.h"
+#include "Core/SaveState.h"
+#include "Core/Dialog/PSPSaveDialog.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -813,6 +816,29 @@ namespace MainWindow
 		};
 	}
 
+	bool ConfirmExit(HWND hWnd) {
+		GlobalUIState state = GetUIState();
+		if (state != UISTATE_MENU && state != UISTATE_EXIT && g_Config.iAskForExitConfirmationAfterSeconds > 0) {
+			const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
+			const double timeSinceGameSave = SecondsSinceLastGameSave();
+
+			const double minTime = std::min(timeSinceSaveState, timeSinceGameSave);
+			if (minTime > g_Config.iAskForExitConfirmationAfterSeconds) {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				auto mm = GetI18NCategory(I18NCat::MAINMENU);
+				std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)minTime));
+				dlgMsg += '\n';
+				dlgMsg += '\n';
+				dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
+
+				if (IDNO == MessageBox(hWnd, ConvertUTF8ToWString(dlgMsg).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		LRESULT darkResult = 0;
 		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
@@ -1090,12 +1116,17 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
+		{
+			if (ConfirmExit(hWnd)) {
+				DestroyWindow(hWnd);
+			}
+			return 0;
+		}
+
+		case WM_DESTROY:
 			InputDevice::StopPolling();
 			MainThread_Stop();
 			WindowsRawInput::Shutdown();
-			return DefWindowProc(hWnd,message,wParam,lParam);
-
-		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.

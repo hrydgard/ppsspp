@@ -29,6 +29,7 @@
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Common/TimeUtil.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -37,6 +38,20 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
+
+static double g_lastSaveTime = -1.0;
+
+void ResetSecondsSinceLastGameSave() {
+	g_lastSaveTime = time_now_d();
+}
+
+double SecondsSinceLastGameSave() {
+	if (g_lastSaveTime < 0) {
+		return -1.0;
+	} else {
+		return time_now_d() - g_lastSaveTime;
+	}
+}
 
 const static float FONT_SCALE = 0.55f;
 
@@ -85,8 +100,7 @@ PSPSaveDialog::~PSPSaveDialog() {
 	JoinIOThread();
 }
 
-int PSPSaveDialog::Init(int paramAddr)
-{
+int PSPSaveDialog::Init(int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
 		ERROR_LOG_REPORT(Log::sceUtility, "A save request is already running, not starting a new one");
@@ -1068,6 +1082,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);
 		if (result == 0) {
 			display = DS_LOAD_DONE;
+			g_lastSaveTime = time_now_d();
 		} else {
 			display = DS_LOAD_FAILED;
 		}
@@ -1076,6 +1091,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		SaveState::NotifySaveData();
 		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName()) == 0) {
 			display = DS_SAVE_DONE;
+			g_lastSaveTime = time_now_d();
 		} else {
 			display = DS_SAVE_FAILED;
 		}
