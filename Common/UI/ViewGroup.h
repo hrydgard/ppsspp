@@ -82,6 +82,8 @@ public:
 	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
 	std::string DescribeText() const override;
 
+	void Recurse(void (*func)(View *view)) override;
+
 protected:
 	std::string DescribeListUnordered(std::string_view heading) const;
 	std::string DescribeListOrdered(std::string_view heading) const;
