@@ -816,6 +816,29 @@ namespace MainWindow
 		};
 	}
 
+	bool ConfirmExit(HWND hWnd) {
+		GlobalUIState state = GetUIState();
+		if (state != UISTATE_MENU && state != UISTATE_EXIT && g_Config.iAskForExitConfirmationAfterSeconds > 0) {
+			const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
+			const double timeSinceGameSave = SecondsSinceLastGameSave();
+
+			const double minTime = std::min(timeSinceSaveState, timeSinceGameSave);
+			if (minTime > g_Config.iAskForExitConfirmationAfterSeconds) {
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				auto mm = GetI18NCategory(I18NCat::MAINMENU);
+				std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)minTime));
+				dlgMsg += '\n';
+				dlgMsg += '\n';
+				dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
+
+				if (IDNO == MessageBox(hWnd, ConvertUTF8ToWString(dlgMsg).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		LRESULT darkResult = 0;
 		if (UAHDarkModeWndProc(hWnd, message, wParam, lParam, &darkResult)) {
@@ -1093,27 +1116,12 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			if (GetUIState() != UISTATE_MENU && g_Config.iAskForExitConfirmationAfterSeconds > 0) {
-				const double timeSinceSaveState = SaveState::SecondsSinceLastSavestate();
-				const double timeSinceGameSave = SecondsSinceLastGameSave();
-
-				const double minTime = std::min(timeSinceSaveState, timeSinceGameSave);
-				if (minTime > g_Config.iAskForExitConfirmationAfterSeconds) {
-					auto di = GetI18NCategory(I18NCat::DIALOG);
-					auto mm = GetI18NCategory(I18NCat::MAINMENU);
-					std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)minTime));
-					dlgMsg += '\n';
-					dlgMsg += '\n';
-					dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
-
-					if (IDNO == MessageBox(hWnd, ConvertUTF8ToWString(dlgMsg).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION)) {
-						return 0;
-					}
-				}
+		{
+			if (ConfirmExit(hWnd)) {
+				DestroyWindow(hWnd);
 			}
-
-			DestroyWindow(hWnd);
 			return 0;
+		}
 
 		case WM_DESTROY:
 			InputDevice::StopPolling();

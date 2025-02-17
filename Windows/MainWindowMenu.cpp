@@ -443,7 +443,7 @@ namespace MainWindow {
 			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			DestroyWindow(MainWindow::GetHWND());
 		}
 	}
 
@@ -755,7 +755,9 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIPTYPE_PRCNT:    setFrameSkippingType(FRAMESKIPTYPE_PRCNT); break;
 
 		case ID_FILE_EXIT:
-			PostMessage(hWnd, WM_CLOSE, 0, 0);
+			if (MainWindow::ConfirmExit(hWnd)) {
+				DestroyWindow(hWnd);
+			}
 			break;
 
 		case ID_DEBUG_BREAKONLOAD:
