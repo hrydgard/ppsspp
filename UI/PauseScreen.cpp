@@ -595,18 +595,23 @@ UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
 	// If RAIntegration has dirty info, ask for confirmation.
 	if (Achievements::RAIntegrationDirty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		confirmMessage = ac->T("You have unsaved RAIntegration changes. Exit?");
+		confirmMessage = ac->T("You have unsaved RAIntegration changes.");
+		confirmMessage += '\n';
+	}
+
+	if (IsNetworkConnected()) {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		confirmMessage += nw->T("Network connected");
+		confirmMessage += '\n';
 	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
-		dlgMsg += '\n';
-		dlgMsg += '\n';
-		dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
-		confirmMessage = dlgMsg;
+		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
 	}
 
 	if (!confirmMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
+		confirmMessage += '\n';
+		confirmMessage += di->T("Are you sure you want to exit?");
 		screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Yes"), di->T("No"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
