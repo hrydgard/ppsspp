@@ -587,7 +587,8 @@ int GetUnsavedProgressSeconds() {
 	return (int)std::min(timeSinceSaveState, timeSinceGameSave);
 }
 
-UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+// If empty, no confirmation dialog should be shown.
+std::string GetConfirmExitMessage() {
 	std::string confirmMessage;
 
 	int unsavedSeconds = GetUnsavedProgressSeconds();
@@ -595,19 +596,31 @@ UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
 	// If RAIntegration has dirty info, ask for confirmation.
 	if (Achievements::RAIntegrationDirty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		confirmMessage = ac->T("You have unsaved RAIntegration changes. Exit?");
-	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		std::string dlgMsg = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
-		dlgMsg += '\n';
-		dlgMsg += '\n';
-		dlgMsg += di->T("Are you sure you want to exit? All unsaved progress will be lost.");
-		confirmMessage = dlgMsg;
+		confirmMessage = ac->T("You have unsaved RAIntegration changes.");
+		confirmMessage += '\n';
 	}
 
-	if (!confirmMessage.empty()) {
+	if (IsNetworkConnected()) {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		confirmMessage += nw->T("Network connected");
+		confirmMessage += '\n';
+	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
+		confirmMessage += '\n';
+	}
+
+	return confirmMessage;
+}
+
+UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
+	std::string confirmExitMessage = GetConfirmExitMessage();
+
+	if (!confirmExitMessage.empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		confirmExitMessage += '\n';
+		confirmExitMessage += di->T("Are you sure you want to exit?");
+		screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();

@@ -125,6 +125,8 @@ bool IsNetworkConnected();
 void StartInfraJsonDownload();
 // Polls the fetch, if returns true, jsonOutput should be looked at. If it's empty, something went very wrong as we fallback on the asset file.
 bool PollInfraJsonDownload(std::string *jsonOutput);
+bool LoadAutoDNS(std::string_view json);
+void DeleteAutoDNSCacheFile();
 
 // These return false if allowed to be consistent with the similar function for achievements.
 bool NetworkWarnUserIfOnlineAndCantSavestate();

@@ -148,8 +148,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupStyleBg", &info.uPopupStyleBg, info.uPopupStyleBg);
 				section.Get("TooltipStyleFg", &info.uTooltipStyleFg, info.uTooltipStyleFg);  // Backwards compat
 				section.Get("TooltipStyleBg", &info.uTooltipStyleBg, info.uTooltipStyleBg);
-				section.Get("PopupHeaderStyleFg", &info.uPopupTitleStyleFg, info.uItemStyleFg);  // Backwards compat
-				section.Get("PopupHeaderStyleBg", &info.uPopupTitleStyleBg, info.uPopupTitleStyleBg);
+				section.Get("PopupTitleStyleFg", &info.uPopupTitleStyleFg, info.uItemStyleFg);  // Backwards compat
+				section.Get("PopupTitleStyleBg", &info.uPopupTitleStyleBg, info.uPopupTitleStyleBg);
 				section.Get("CollapsibleHeaderStyleFg", &info.uCollapsibleHeaderStyleFg, info.uItemStyleFg);  // Backwards compat
 				section.Get("CollapsibleHeaderStyleBg", &info.uCollapsibleHeaderStyleBg, info.uItemStyleBg);
 				section.Get("BackgroundColor", &info.uBackgroundColor, info.uBackgroundColor);

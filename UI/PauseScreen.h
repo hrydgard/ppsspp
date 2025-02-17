@@ -72,3 +72,5 @@ private:
 	bool lastAdhocServerConnected_ = false;
 	bool lastDNSConfigLoaded_ = false;
 };
+
+std::string GetConfirmExitMessage();

@@ -18,6 +18,7 @@
 #include <mutex>
 #include <string>
 #include <algorithm>
+
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
@@ -272,7 +273,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	return true;
 }
 
-static bool LoadAutoDNS(std::string_view json) {
+bool LoadAutoDNS(std::string_view json) {
 	if (!g_Config.bInfrastructureAutoDNS) {
 		return true;
 	}
@@ -325,14 +326,19 @@ std::shared_ptr<http::Request> g_infraDL;
 
 static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
 
+void DeleteAutoDNSCacheFile() {
+	File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
+}
+
 void StartInfraJsonDownload() {
 	if (!g_Config.bInfrastructureAutoDNS) {
 		return;
 	}
 
 	if (g_infraDL) {
-		INFO_LOG(Log::sceNet, "json is already being downloaded");
+		WARN_LOG(Log::sceNet, "json is already being downloaded. Still, starting a new download.");
 	}
+
 	const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
 	g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
 }
@@ -342,7 +348,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		return true;
 	}
 
-	if (!g_Config.bDontDownloadInfraJson) {
+	if (g_Config.bDontDownloadInfraJson) {
 		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json from /assets");
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
@@ -371,6 +377,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(jsonUrl), &json) && !json.empty()) {
 			WARN_LOG(Log::sceNet, "Failed to download infra-dns.json, falling back to cached file");
 			*jsonOutput = json;
+			LoadAutoDNS(*jsonOutput);
 			return true;
 		}
 
@@ -390,11 +397,6 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 	if (jsonOutput->empty()) {
 		_dbg_assert_msg_(false, "Json output is empty!");
 		ERROR_LOG(Log::sceNet, "JSON output is empty! Something went wrong.");
-	}
-
-	if (!LoadAutoDNS(*jsonOutput)) {
-		// If the JSON parse fails, throw away the cache file at least.
-		File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
 	}
 	return true;
 }

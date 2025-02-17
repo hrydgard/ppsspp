@@ -537,8 +537,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		if (!NativeIsRestarting()) {
-			// Clean exit is handled in WM_DESTROY.
-			DestroyWindow(MainWindow::GetHWND());
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_DESTROY, 0, 0);
 		}
 		return true;
 	case SystemRequestType::RESTART_APP:
@@ -550,7 +549,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;
-			DestroyWindow(MainWindow::GetHWND());
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_DESTROY, 0, 0);
 		}
 		return true;
 	}
