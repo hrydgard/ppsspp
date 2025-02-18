@@ -441,31 +441,32 @@ static bool ReadLocalFileToString(const Path &path, std::string *contents, std::
 static bool ReadVFSToString(const char *filename, std::string *contents, std::mutex *mtx) {
 	size_t sz;
 	uint8_t *data = g_VFS.ReadFile(filename, &sz);
-	if (data) {
-		if (mtx) {
-			std::lock_guard<std::mutex> lock(*mtx);
-			*contents = std::string((const char *)data, sz);
-		} else {
-			*contents = std::string((const char *)data, sz);
-		}
-	} else {
+	if (!data) {
 		return false;
+	}
+	if (mtx) {
+		std::lock_guard<std::mutex> lock(*mtx);
+		*contents = std::string((const char *)data, sz);
+	} else {
+		*contents = std::string((const char *)data, sz);
 	}
 	delete [] data;
 	return true;
 }
 
 static bool LoadReplacementImage(GameInfo *info, GameInfoTex *tex, const char *filename) {
-	if (g_Config.bReplaceTextures) {
-		const Path customIconFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / filename;
-		const Path zipFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / "textures.zip";
-		if (File::Exists(customIconFilename)) {
-			tex->dataLoaded = ReadLocalFileToString(customIconFilename, &tex->data, &info->lock);
-		} else if (File::Exists(zipFilename)) {
-			// Read file from zip if available.
-			tex->dataLoaded = ReadSingleFileFromZip(zipFilename, filename, &tex->data, &info->lock);
-		}
-		return tex->dataLoaded;
+	if (!g_Config.bReplaceTextures) {
+		return false;
+	}
+
+	const Path customIconFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / filename;
+	const Path zipFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info->id / "textures.zip";
+	if (ReadLocalFileToString(customIconFilename, &tex->data, &info->lock)) {
+		tex->dataLoaded = true;
+		return true;
+	} else if (ReadSingleFileFromZip(zipFilename, filename, &tex->data, &info->lock)) {
+		tex->dataLoaded = true;
+		return true;
 	} else {
 		return false;
 	}
