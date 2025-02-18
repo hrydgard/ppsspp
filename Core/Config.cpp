@@ -990,7 +990,6 @@ static const ConfigSetting systemParamSettings[] = {
 #endif
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("SavedataUpgradeVersion", &g_Config.bSavedataUpgrade, true, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", &g_Config.iMemStickSizeGB, 16, CfgFlag::DEFAULT),
 };
 

@@ -352,6 +352,7 @@ bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, st
 		if (mutex) {
 			mutex->unlock();
 		}
+		data->resize(0);
 		zip_fclose(file);
 		zip_close(zip);
 		return false;
