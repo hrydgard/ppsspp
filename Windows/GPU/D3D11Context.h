@@ -23,6 +23,7 @@
 #include "Windows/GPU/WindowsGraphicsContext.h"
 #include <d3d11.h>
 #include <d3d11_1.h>
+#include <wrl/client.h>
 
 class DrawContext;
 
@@ -42,19 +43,19 @@ private:
 	void GotBackbuffer();
 
 	Draw::DrawContext *draw_ = nullptr;
-	IDXGISwapChain *swapChain_ = nullptr;
+	Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain_;
 	DXGI_SWAP_CHAIN_DESC swapChainDesc_ = {};
-	ID3D11Device *device_ = nullptr;
-	ID3D11Device1 *device1_ = nullptr;
-	ID3D11DeviceContext *context_ = nullptr;
-	ID3D11DeviceContext1 *context1_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Device> device_;
+	Microsoft::WRL::ComPtr<ID3D11Device1> device1_;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context1_;
 
-	ID3D11Texture2D *bbRenderTargetTex_ = nullptr;
-	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> bbRenderTargetTex_;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> bbRenderTargetView_;
 
 #ifdef _DEBUG
-	ID3D11Debug *d3dDebug_ = nullptr;
-	ID3D11InfoQueue *d3dInfoQueue_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Debug> d3dDebug_;
+	Microsoft::WRL::ComPtr<ID3D11InfoQueue> d3dInfoQueue_;
 #endif
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;
 	int adapterId = -1;

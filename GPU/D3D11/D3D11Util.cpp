@@ -18,10 +18,13 @@
 #include "Common/StringUtils.h"
 
 #include "D3D11Util.h"
+#include <wrl/client.h>
+
+using namespace Microsoft::WRL;
 
 std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeSize, const char *target, UINT flags) {
-	ID3DBlob *compiledCode = nullptr;
-	ID3DBlob *errorMsgs = nullptr;
+	ComPtr<ID3DBlob> compiledCode;
+	ComPtr<ID3DBlob> errorMsgs;
 	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
 	std::string errors;
 	if (errorMsgs) {
@@ -45,65 +48,64 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 		}
 		OutputDebugStringA(errors.c_str());
 		OutputDebugStringA(numberedCode.c_str());
-		errorMsgs->Release();
 	}
 	if (compiledCode) {
 		// Success!
 		const uint8_t *buf = (const uint8_t *)compiledCode->GetBufferPointer();
 		std::vector<uint8_t> compiled = std::vector<uint8_t>(buf, buf +  compiledCode->GetBufferSize());
 		_assert_(compiled.size() != 0);
-		compiledCode->Release();
 		return compiled;
 	}
 	return std::vector<uint8_t>();
 }
 
-ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
+HRESULT CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11VertexShader **ppVertexShader) {
+	if (ppVertexShader)
+		*ppVertexShader = nullptr;
 	const char *profile = featureLevel <= D3D_FEATURE_LEVEL_9_3 ? "vs_4_0_level_9_1" : "vs_4_0";
 	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, profile, flags);
 	if (byteCode.empty())
-		return nullptr;
+		return S_FALSE;
 
-	ID3D11VertexShader *vs;
-	device->CreateVertexShader(byteCode.data(), byteCode.size(), nullptr, &vs);
+	auto hr = device->CreateVertexShader(byteCode.data(), byteCode.size(), nullptr, ppVertexShader);
 	if (byteCodeOut)
 		*byteCodeOut = byteCode;
-	return vs;
+	return hr;
 }
 
-ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
+HRESULT CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11PixelShader **ppPixelShader) {
+	if (ppPixelShader)
+		*ppPixelShader = nullptr;
 	const char *profile = featureLevel <= D3D_FEATURE_LEVEL_9_3 ? "ps_4_0_level_9_1" : "ps_4_0";
 	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, profile, flags);
 	if (byteCode.empty())
-		return nullptr;
+		return S_FALSE;
 
-	ID3D11PixelShader *ps;
-	device->CreatePixelShader(byteCode.data(), byteCode.size(), nullptr, &ps);
-	return ps;
+	return device->CreatePixelShader(byteCode.data(), byteCode.size(), nullptr, ppPixelShader);
 }
 
-ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
+HRESULT CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11ComputeShader **ppComputeShader) {
+	if (ppComputeShader)
+		*ppComputeShader = nullptr;
 	if (featureLevel <= D3D_FEATURE_LEVEL_9_3)
-		return nullptr;
+		return S_FALSE;
 	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, "cs_4_0", flags);
 	if (byteCode.empty())
-		return nullptr;
+		return S_FALSE;
 
-	ID3D11ComputeShader *cs;
-	device->CreateComputeShader(byteCode.data(), byteCode.size(), nullptr, &cs);
-	return cs;
+	return device->CreateComputeShader(byteCode.data(), byteCode.size(), nullptr, ppComputeShader);
 }
 
-ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags) {
+HRESULT CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11GeometryShader **ppGeometryShader) {
+	if (ppGeometryShader)
+		*ppGeometryShader = nullptr;
 	if (featureLevel <= D3D_FEATURE_LEVEL_9_3)
-		return nullptr;
+		return S_FALSE;
 	std::vector<uint8_t> byteCode = CompileShaderToBytecodeD3D11(code, codeSize, "gs_5_0", flags);
 	if (byteCode.empty())
-		return nullptr;
+		return S_FALSE;
 
-	ID3D11GeometryShader *gs;
-	device->CreateGeometryShader(byteCode.data(), byteCode.size(), nullptr, &gs);
-	return gs;
+	return device->CreateGeometryShader(byteCode.data(), byteCode.size(), nullptr, ppGeometryShader);
 }
 
 void StockObjectsD3D11::Create(ID3D11Device *device) {
@@ -161,15 +163,15 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 
 void StockObjectsD3D11::Destroy() {
 	for (int i = 0; i < 16; i++) {
-		blendStateDisabledWithColorMask[i]->Release();
+		blendStateDisabledWithColorMask[i].Reset();
 	}
-	depthStencilDisabled->Release();
-	depthDisabledStencilWrite->Release();
-	rasterStateNoCull->Release();
-	samplerPoint2DWrap->Release();
-	samplerLinear2DWrap->Release();
-	samplerPoint2DClamp->Release();
-	samplerLinear2DClamp->Release();
+	depthStencilDisabled.Reset();
+	depthDisabledStencilWrite.Reset();
+	rasterStateNoCull.Reset();
+	samplerPoint2DWrap.Reset();
+	samplerLinear2DWrap.Reset();
+	samplerPoint2DClamp.Reset();
+	samplerLinear2DClamp.Reset();
 }
 
 StockObjectsD3D11 stockD3D11;

@@ -20,6 +20,7 @@
 #include "Common/CommonWindows.h"
 
 #include <d3d11.h>
+#include <wrl/client.h>
 
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -35,10 +36,10 @@ class SamplerCacheD3D11 {
 public:
 	SamplerCacheD3D11() {}
 	~SamplerCacheD3D11();
-	ID3D11SamplerState *GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key);
+	HRESULT GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key, ID3D11SamplerState **);
 
 private:
-	std::map<SamplerCacheKey, ID3D11SamplerState *> cache_;
+	std::map<SamplerCacheKey, Microsoft::WRL::ComPtr<ID3D11SamplerState>> cache_;
 };
 
 class TextureCacheD3D11 : public TextureCacheCommon {
@@ -69,8 +70,8 @@ private:
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
-	ID3D11Device *device_;
-	ID3D11DeviceContext *context_;
+	Microsoft::WRL::ComPtr<ID3D11Device> device_;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
 
 	ID3D11Resource *&DxTex(const TexCacheEntry *entry) const {
 		return (ID3D11Resource *&)entry->texturePtr;
@@ -82,7 +83,7 @@ private:
 	SamplerCacheD3D11 samplerCache_;
 
 	ID3D11ShaderResourceView *lastBoundTexture;
-	ID3D11Buffer *depalConstants_;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> depalConstants_;
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);
