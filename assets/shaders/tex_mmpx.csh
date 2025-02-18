@@ -7,6 +7,8 @@
    by Morgan McGuire and Mara Gagiu.
 */
 
+// Performs 2x upscaling.
+
 #define ABGR8 uint
 
 // If we took an image as input, we could use a sampler to do the clamping. But we decode
