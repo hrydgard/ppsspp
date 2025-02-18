@@ -530,7 +530,14 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		return DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	});
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
+	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
+
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("GPU texture upscaler (fast)"), &TextureTranslateName));
+		textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
+		textureShaderChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	}
+
 #ifndef MOBILE_DEVICE
 	static const char *texScaleLevels[] = {"Off", "2x", "3x", "4x", "5x"};
 #else
@@ -538,7 +545,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 #endif
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), I18NCat::GRAPHICS, screenManager()));
+	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("CPU texture upscaler (slow)"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), I18NCat::GRAPHICS, screenManager()));
 	texScalingType->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
@@ -567,12 +574,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	});
 	deposterize->SetEnabledFunc([]() {
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
-	});
-
-	ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("Texture Shader"), &TextureTranslateName));
-	textureShaderChoice->OnClick.Handle(this, &GameSettingsScreen::OnTextureShader);
-	textureShaderChoice->SetEnabledFunc([]() {
-		return GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
 	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
