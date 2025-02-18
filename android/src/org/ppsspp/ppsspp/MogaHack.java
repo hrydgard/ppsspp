@@ -68,7 +68,7 @@ public class MogaHack {
 				// Convert implicit intent to explicit intent, see http://stackoverflow.com/a/26318757
 				Intent intent = new Intent(IControllerService.class.getName());
 				List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentServices(intent, 0);
-				if (resolveInfos == null || resolveInfos.size() != 1) {
+				if (resolveInfos.size() != 1) {
 					// What? this doesn't do anything.
 					// Log.e("MogaHack", "Somebody is trying to intercept our intent. Disabling MOGA controller for security.");
 				}

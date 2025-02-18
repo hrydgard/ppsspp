@@ -275,7 +275,7 @@ public abstract class NativeActivity extends Activity {
 			for (String var : varNames) {
 				Log.i(TAG, "getSdCardPaths: Checking env " + var);
 				String secStore = System.getenv("SECONDARY_STORAGE");
-				if (secStore != null && secStore.length() > 0) {
+				if (secStore != null && !secStore.isEmpty()) {
 					list = new ArrayList<String>();
 					list.add(secStore);
 					break;
@@ -573,10 +573,8 @@ public abstract class NativeActivity extends Activity {
 	// Need API 11 to check for existence of a vibrator? Zany.
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	public void checkForVibrator() {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-			if (!vibrator.hasVibrator()) {
-				vibrator = null;
-			}
+		if (!vibrator.hasVibrator()) {
+			vibrator = null;
 		}
 	}
 
@@ -786,7 +784,7 @@ public abstract class NativeActivity extends Activity {
 					do {
 						try {
 							Thread.sleep(10);
-						} catch (InterruptedException e) {
+						} catch (InterruptedException ignored) {
 						}
 						tries--;
 					} while (nativeRenderer.isRenderingFrame() && tries > 0);
@@ -979,7 +977,7 @@ public abstract class NativeActivity extends Activity {
 			for (InputDeviceState input : inputPlayers) {
 				buffer += input.getDebugString();
 			}
-			if (buffer.length() == 0) {
+			if (buffer.isEmpty()) {
 				buffer = "(no devices)";
 			}
 			return buffer;
@@ -997,6 +995,23 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent event) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && !isXperiaPlay) {
+			Log.i(TAG, "key event" + event.getSource());
+			if (NativeSurfaceView.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
+				Log.i(TAG, "Forwarding key event from mouse");
+				if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+					// Probably a right click
+					switch (event.getAction()) {
+						case KeyEvent.ACTION_DOWN:
+							NativeApp.mouse(-1, -1, 2, 1);
+							break;
+						case KeyEvent.ACTION_UP:
+							NativeApp.mouse(-1, -1, 2, 2);
+							break;
+					}
+				}
+				return true;
+			}
+
 			InputDeviceState state = getInputDeviceState(event);
 			if (state == null) {
 				return super.dispatchKeyEvent(event);
@@ -1067,17 +1082,15 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 	public boolean onGenericMotionEvent(MotionEvent event) {
-		// Log.d(TAG, "onGenericMotionEvent: " + event);
+		// Log.i(TAG, "NativeActivity onGenericMotionEvent: " + event);
 		if (InputDeviceState.inputSourceIsJoystick(event.getSource())) {
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
-				InputDeviceState state = getInputDeviceState(event);
-				if (state == null) {
-					Log.w(TAG, "Joystick event but failed to get input device state.");
-					return super.onGenericMotionEvent(event);
-				}
-				state.onJoystickMotion(event);
-				return true;
+			InputDeviceState state = getInputDeviceState(event);
+			if (state == null) {
+				Log.w(TAG, "Joystick event but failed to get input device state.");
+				return super.onGenericMotionEvent(event);
 			}
+			state.onJoystickMotion(event);
+			return true;
 		}
 
 		if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
@@ -1092,10 +1105,28 @@ public abstract class NativeActivity extends Activity {
 			switch (event.getAction()) {
 			case MotionEvent.ACTION_HOVER_MOVE:
 				// process the mouse hover movement...
+				NativeApp.mouse(event.getX(), event.getY(), 0, 0);
 				return true;
 			case MotionEvent.ACTION_SCROLL:
 				NativeApp.mouseWheelEvent(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
 				return true;
+			}
+		}
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			switch (event.getActionMasked()) {
+				case MotionEvent.ACTION_BUTTON_PRESS: {
+					int button = event.getActionButton();
+					NativeApp.mouse(event.getX(), event.getY(), button, 1);
+					return true;
+				}
+				case MotionEvent.ACTION_BUTTON_RELEASE: {
+					int button = event.getActionButton();
+					NativeApp.mouse(event.getX(), event.getY(), button, 2);
+					return true;
+				}
+				default:
+					break;
 			}
 		}
 		return super.onGenericMotionEvent(event);
