@@ -576,7 +576,7 @@ void AtracBase::CreateDecoder() {
 		delete decoder_;
 	}
 
-	// First, init the standalone decoder. Only used for low-level-decode initially, but simple.
+	// First, init the standalone decoder.
 	if (track_.codecType == PSP_MODE_AT_3) {
 		// We don't pull this from the RIFF so that we can support OMA also.
 		uint8_t extraData[14]{};
@@ -650,6 +650,10 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) {
 	outputChannels_ = outputChannels;
 
+	if (outputChannels != track_.channels) {
+		WARN_LOG(Log::ME, "outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
+	}
+
 	first_.addr = buffer;
 	first_.size = readSize;
 
@@ -696,7 +700,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder();
-	return hleLogInfo(Log::ME, successCode, "%s %s audio", codecName, channelName);
+	return hleLogInfo(Log::ME, successCode, "%s %s (%d channels) audio", codecName, channelName, track_.channels);
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
