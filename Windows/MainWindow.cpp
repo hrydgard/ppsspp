@@ -919,14 +919,15 @@ namespace MainWindow
 				} else {
 					g_activeWindow = WINDOW_OTHER;
 				}
+
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {
 						if (disasmWindow) {
 							SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						} else {
 							if (pause) {
-								Core_Break("ui.lost_focus", 0);
-							} else if (Core_BreakReason() == "ui.lost_focus") {
+								Core_Break(BreakReason::UIFocus, 0);
+							} else if (Core_BreakReason() == BreakReason::UIFocus) {
 								Core_Resume();
 							}
 						}

@@ -1003,7 +1003,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			if (hasBPs && g_breakpoints.IsAddressBreakPoint(curMips->pc) && g_breakpoints.CheckSkipFirst() != curMips->pc) {
 				auto cond = g_breakpoints.GetBreakPointCondition(currentMIPS->pc);
 				if (!cond || cond->Evaluate()) {
-					Core_Break("cpu.breakpoint", curMips->pc);
+					Core_Break(BreakReason::CpuBreakpoint, curMips->pc);
 					if (g_breakpoints.IsTempBreakPoint(curMips->pc))
 						g_breakpoints.RemoveBreakPoint(curMips->pc);
 					break;

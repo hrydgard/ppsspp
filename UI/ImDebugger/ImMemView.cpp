@@ -315,10 +315,6 @@ void ImMemView::onChar(int c) {
 		return;
 	}
 
-	bool active = Core_IsActive();
-	if (active)
-		Core_Break("memory.access", curAddress_);
-
 	if (asciiSelected_) {
 		Memory::WriteUnchecked_U8((u8)c, curAddress_);
 		ScrollCursor(1, GotoMode::RESET);
@@ -341,8 +337,6 @@ void ImMemView::onChar(int c) {
 	}
 
 	Reporting::NotifyDebugger();
-	if (active)
-		Core_Resume();
 }
 
 ImMemView::GotoMode ImMemView::GotoModeFromModifiers(bool isRightClick) {

@@ -120,10 +120,9 @@ static void __EmuScreenVblank()
 {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
-	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
-	{
+	if (frameStep_ && lastNumFlips != gpuStats.numFlips) {
 		frameStep_ = false;
-		Core_Break("ui.frameAdvance", 0);
+		Core_Break(BreakReason::FrameAdvance, 0);
 		lastNumFlips = gpuStats.numFlips;
 	}
 #ifndef MOBILE_DEVICE
@@ -772,10 +771,10 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	case VIRTKEY_PAUSE_NO_MENU:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed()) {
 			// We re-use debug break/resume to implement pause/resume without a menu.
-			if (coreState == CORE_STEPPING_CPU) {
+			if (coreState == CORE_STEPPING_CPU) {  // should we check reason?
 				Core_Resume();
 			} else {
-				Core_Break("user-pause");
+				Core_Break(BreakReason::UIPause);
 			}
 		}
 		break;
@@ -1586,7 +1585,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				Core_Resume();
 			} else if (!frameStep_) {
 				lastNumFlips = gpuStats.numFlips;
-				Core_Break("ui.frameAdvance", 0);
+				Core_Break(BreakReason::FrameAdvance, 0);
 			}
 		}
 	}

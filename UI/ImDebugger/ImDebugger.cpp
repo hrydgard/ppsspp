@@ -1341,7 +1341,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				break;
 			case CoreState::CORE_RUNNING_CPU:
 				if (ImGui::MenuItem("Break")) {
-					Core_Break("Menu:Break");
+					Core_Break(BreakReason::DebugBreak);
 				}
 				break;
 			default:
@@ -1717,7 +1717,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
 		ImGui::Text("!!! Currently stepping the GE");
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Open Ge debugger")) {
+		if (ImGui::SmallButton("Open Ge Debugger")) {
 			cfg.geDebuggerOpen = true;
 			ImGui::SetWindowFocus("GE Debugger");
 		}
@@ -1732,7 +1732,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 	ImGui::BeginDisabled(coreState != CORE_RUNNING_CPU);
 	if (ImGui::SmallButton("Pause")) {
-		Core_Break("Pause");
+		Core_Break(BreakReason::DebugBreak);
 	}
 	ImGui::EndDisabled();
 
@@ -1837,6 +1837,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 		disasmView_.setCurAddress(gotoAddr_);
 		disasmView_.scrollAddressIntoView();
 	}
+
+	BreakReason breakReason = Core_BreakReason();
+	ImGui::SameLine();
+	ImGui::TextUnformatted(BreakReasonToString(breakReason));
 
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	avail.y -= ImGui::GetTextLineHeightWithSpacing();
