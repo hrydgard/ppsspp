@@ -649,15 +649,17 @@ void __DisplayFlip(int cyclesLate) {
 
 	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 		// Check first though, might've just quit / been paused.
-		if (!forceNoFlip)
+		if (!forceNoFlip) {
 			nextFrame = Core_NextFrame();
+			if (!nextFrame) {
+				WARN_LOG(Log::sceDisplay, "Core_NextFrame returned false");
+			}
+		}
 		if (nextFrame) {
 			gpu->CopyDisplayToOutput(fbReallyDirty);
 			if (fbReallyDirty) {
 				DisplayFireActualFlip();
 			}
-		} else {
-			WARN_LOG(Log::sceDisplay, "Core_NextFrame returned false");
 		}
 	}
 
