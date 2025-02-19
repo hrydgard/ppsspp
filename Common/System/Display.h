@@ -16,22 +16,21 @@ enum class DisplayRotation {
 };
 
 struct DisplayProperties {
+	// Display resolution in virtual ("display") pixels
 	int dp_xres;
 	int dp_yres;
+	// Display resolution in true pixels.
 	int pixel_xres;
 	int pixel_yres;
 
-	float dpi = 1.0f;  // will be overwritten with a value that makes sense.
-	float dpi_scale_x = 1.0f;
-	float dpi_scale_y = 1.0f;
+	float dpi = 1.0f;
+	float dpi_scale = 1.0f;
 
 	// pixel_xres/yres in dps
-	float pixel_in_dps_x = 1.0f;
-	float pixel_in_dps_y = 1.0f;
+	float pixel_in_dps = 1.0f;
 
 	// If DPI is overridden (like in small window mode), these are still the original DPI.
-	float dpi_scale_real_x = 1.0f;
-	float dpi_scale_real_y = 1.0f;
+	float dpi_scale_real = 1.0f;
 
 	float display_hz = 60.0f;
 

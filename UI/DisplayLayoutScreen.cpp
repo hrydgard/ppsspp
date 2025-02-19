@@ -50,10 +50,10 @@ enum Mode {
 
 static Bounds FRectToBounds(FRect rc) {
 	Bounds b;
-	b.x = rc.x * g_display.dpi_scale_x;
-	b.y = rc.y * g_display.dpi_scale_y;
-	b.w = rc.w * g_display.dpi_scale_x;
-	b.h = rc.h * g_display.dpi_scale_y;
+	b.x = rc.x * g_display.dpi_scale;
+	b.y = rc.y * g_display.dpi_scale;
+	b.w = rc.w * g_display.dpi_scale;
+	b.h = rc.h * g_display.dpi_scale;
 	return b;
 }
 

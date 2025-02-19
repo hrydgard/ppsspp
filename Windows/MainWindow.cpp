@@ -659,8 +659,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 
-				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				float x = GET_X_LPARAM(lParam) * g_display.dpi_scale;
+				float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -707,8 +707,8 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				float x = (float)cursorX * g_display.dpi_scale_x;
-				float y = (float)cursorY * g_display.dpi_scale_y;
+				float x = (float)cursorX * g_display.dpi_scale;
+				float y = (float)cursorY * g_display.dpi_scale;
 				WindowsRawInput::SetMousePos(x, y);
 
 				// Mouse moves now happen also when no button is pressed.
@@ -733,8 +733,8 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 
-				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+				float x = (float)GET_X_LPARAM(lParam) * g_display.dpi_scale;
+				float y = (float)GET_Y_LPARAM(lParam) * g_display.dpi_scale;
 				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch{};
@@ -753,8 +753,8 @@ namespace MainWindow
 
 		case WM_RBUTTONDOWN:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale;
 
 			TouchInput touch{};
 			touch.buttons = 2;
@@ -767,8 +767,8 @@ namespace MainWindow
 
 		case WM_RBUTTONUP:
 		{
-			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale_x;
-			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale_y;
+			float x = GET_X_LPARAM(lParam) * g_display.dpi_scale;
+			float y = GET_Y_LPARAM(lParam) * g_display.dpi_scale;
 
 			TouchInput touch{};
 			touch.buttons = 2;

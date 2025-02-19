@@ -293,13 +293,13 @@ void ImGui_ImplThin3d_DestroyDeviceObjects() {
 bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw, const uint8_t *ttf_font, size_t size) {
 	ImGuiIO& io = ImGui::GetIO();
 	if (ttf_font) {
-		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font, (int)size, 21.0f / g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
+		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font, (int)size, 21.0f / g_display.dpi_scale, nullptr, io.Fonts->GetGlyphRangesDefault());
 	} else {
 		// fallback
 		g_proportionalFont = g_fixedFont;
 	}
 	g_fixedFont = io.Fonts->AddFontDefault();
-	ImGui::GetStyle().ScaleAllSizes(1.0f / g_display.dpi_scale_x);
+	ImGui::GetStyle().ScaleAllSizes(1.0f / g_display.dpi_scale);
 	ImGui::GetStyle().Colors[ImGuiCol_Border] = ImColor(IM_COL32(0x2A, 0x2F, 0x3B, 0xFF));
 
 	IMGUI_CHECKVERSION();

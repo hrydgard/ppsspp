@@ -53,8 +53,8 @@ bool TouchInputHandler::GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float 
 	point.x = (LONG)(TOUCH_COORD_TO_PIXEL(input.x));
 	point.y = (LONG)(TOUCH_COORD_TO_PIXEL(input.y));
 	if (ScreenToClient(hWnd, &point)) {
-		x = point.x * g_display.dpi_scale_x;
-		y = point.y * g_display.dpi_scale_y;
+		x = point.x * g_display.dpi_scale;
+		y = point.y * g_display.dpi_scale;
 		return true;
 	}
 
