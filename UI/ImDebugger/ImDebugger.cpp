@@ -36,6 +36,9 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/sceMp3.h"
 #include "Core/HLE/AtracCtx.h"
+#include "Core/HLE/sceSas.h"
+#include "Core/HW/SasAudio.h"
+
 #include "Core/CoreTiming.h"
 // Threads window
 #include "Core/HLE/sceKernelThread.h"
@@ -1053,6 +1056,106 @@ void DrawAudioChannels(ImConfig &cfg) {
 	ImGui::End();
 }
 
+static const char *VoiceTypeToString(VoiceType type) {
+	switch (type) {
+	case VOICETYPE_OFF: return "OFF";
+	case VOICETYPE_VAG: return "VAG";  // default
+	case VOICETYPE_NOISE: return "NOISE";
+	case VOICETYPE_TRIWAVE: return "TRIWAVE";  // are these used? there are functions for them (sceSetTriangularWave)
+	case VOICETYPE_PULSEWAVE: return "PULSEWAVE";
+	case VOICETYPE_PCM: return "PCM";
+	case VOICETYPE_ATRAC3: return "ATRAC3";
+	default: return "(unknown!)";
+	}
+}
+
+void DrawSasAudio(ImConfig &cfg) {
+	if (!ImGui::Begin("sasAudio", &cfg.sasAudioOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	const SasInstance *sas = GetSasInstance();
+	if (!sas) {
+		ImGui::Text("Sas instance not available");
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Checkbox("Show all voices", &cfg.sasShowAllVoices);
+
+	if (ImGui::BeginTable("saschannels", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("On", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Loop", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Pause", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Cur", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Addr", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Volume", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableHeadersRow();
+
+		for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
+			const SasVoice &voice = sas->voices[i];
+			if (!voice.on && !cfg.sasShowAllVoices) {
+				continue;
+			}
+			if (!voice.on) {
+				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
+			}
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", i);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(VoiceTypeToString(voice.type));
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(BoolStr(voice.on));
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(BoolStr(voice.loop));
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(BoolStr(voice.paused));
+			ImGui::TableNextColumn();
+			switch (voice.type) {
+			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
+			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vag.GetReadPtr()); break;
+			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmAddr + voice.pcmIndex * 2); break;
+			default:
+				ImGui::TextUnformatted("N/A");
+				break;
+			}
+			ImGui::TableNextColumn();
+			switch (voice.type) {
+			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
+			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vagAddr); break;
+			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmAddr); break;
+			case VOICETYPE_ATRAC3: ImGui::Text("atrac: %d", voice.atrac3.id()); break;
+			default:
+				ImGui::TextUnformatted("N/A");
+				break;
+			}
+			ImGui::TableNextColumn();
+			switch (voice.type) {
+			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
+			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vagSize); break;
+			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmSize); break;
+			case VOICETYPE_ATRAC3: ImGui::Text("atrac: n/a"); break;
+			default:
+				ImGui::TextUnformatted("N/A");
+				break;
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%d | %d", voice.volumeLeft, voice.volumeRight);
+			if (!voice.on) {
+				ImGui::PopStyleColor();
+			}
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 static void DrawCallStacks(const MIPSDebugInterface *debug, bool *open) {
 	if (!ImGui::Begin("Callstacks", open)) {
 		ImGui::End();
@@ -1327,6 +1430,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Audio")) {
+			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
 			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
 			ImGui::MenuItem("Decoder contexts", nullptr, &cfg_.audioDecodersOpen);
 			ImGui::EndMenu();
@@ -1389,6 +1493,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.audioChannelsOpen) {
 		DrawAudioChannels(cfg_);
+	}
+
+	if (cfg_.sasAudioOpen) {
+		DrawSasAudio(cfg_);
 	}
 
 	if (cfg_.kernelObjectsOpen) {
@@ -1851,6 +1959,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("apctlOpen", &apctlOpen, false);
 	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
 	sync.Sync("internalsOpen", &internalsOpen, false);
+	sync.Sync("sasAudioOpen", &sasAudioOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

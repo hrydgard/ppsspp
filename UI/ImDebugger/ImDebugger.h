@@ -147,6 +147,7 @@ struct ImConfig {
 	bool adhocOpen;
 	bool memDumpOpen;
 	bool internalsOpen;
+	bool sasAudioOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
@@ -165,6 +166,8 @@ struct ImConfig {
 
 	bool displayLatched = false;
 	int requesterToken;
+
+	bool sasShowAllVoices = false;
 
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);
