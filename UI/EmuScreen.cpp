@@ -95,6 +95,7 @@ using namespace std::placeholders;
 #include "UI/DebugOverlay.h"
 
 #include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "ext/imgui/imgui_impl_platform.h"
 
@@ -1750,7 +1751,22 @@ void EmuScreen::runImDebugger() {
 			io.AddKeyEvent(ImGuiMod_Alt, keyAltLeft_ || keyAltRight_);
 			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
 
-			ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+			ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
+
+			ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
+
+			if (!io.WantCaptureKeyboard) {
+				// Draw a focus rectangle to indicate inputs will be passed through.
+				ImGui::GetBackgroundDrawList()->AddRect
+				(
+					node->Pos,
+					{ node->Pos.x + node->Size.x, node->Pos.y + node->Size.y },
+					IM_COL32(255, 255, 255, 90),
+					0.f,
+					ImDrawFlags_None,
+					1.f
+				);
+			}
 
 			imDebugger_->Frame(currentDebugMIPS, gpuDebug, draw);
 
