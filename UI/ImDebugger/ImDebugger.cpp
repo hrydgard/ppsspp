@@ -141,7 +141,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 
 static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS GPRs", &config.gprOpen)) {
+	if (!ImGui::Begin("GPRs", &config.gprOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -201,7 +201,7 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS FPRs", &config.fprOpen)) {
+	if (!ImGui::Begin("FPRs", &config.fprOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -253,7 +253,7 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("MIPS VFPU regs", &config.vfpuOpen)) {
+	if (!ImGui::Begin("VFPU", &config.vfpuOpen)) {
 		ImGui::End();
 		return;
 	}
