@@ -26,6 +26,7 @@
 #include "Common/System/OSD.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/Math/geom2d.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -42,6 +43,8 @@ struct Vertex {
 	float u, v;
 	uint32_t rgba;
 };
+
+extern Bounds g_imguiCentralNodeBounds;
 
 FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
@@ -66,6 +69,15 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 		rc.y += top;
 		rc.h -= (top + bottom);
 	}
+
+	if (g_Config.bShowImDebugger) {
+		// Set rectangle to match central node. Here we ignore bIgnoreScreenInsets.
+		rc.x = g_imguiCentralNodeBounds.x;
+		rc.y = g_imguiCentralNodeBounds.y;
+		rc.w = g_imguiCentralNodeBounds.w;
+		rc.h = g_imguiCentralNodeBounds.h;
+	}
+
 	return rc;
 }
 

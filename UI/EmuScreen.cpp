@@ -1752,8 +1752,10 @@ void EmuScreen::runImDebugger() {
 			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
 
 			ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
-
 			ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
+
+			// Not elegant! But don't know how else to pass through the bounds, without making a mess.
+			g_imguiCentralNodeBounds = Bounds(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
 
 			if (!io.WantCaptureKeyboard) {
 				// Draw a focus rectangle to indicate inputs will be passed through.
@@ -1767,7 +1769,6 @@ void EmuScreen::runImDebugger() {
 					1.f
 				);
 			}
-
 			imDebugger_->Frame(currentDebugMIPS, gpuDebug, draw);
 
 			// Convert to drawlists.
