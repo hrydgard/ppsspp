@@ -299,9 +299,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					keepStatusBarText = true;
 					view->LockPosition();
 					bool isRunning = Core_IsActive();
-					if (isRunning)
-					{
-						Core_Break("cpu.breakpoint.add", 0);
+					if (isRunning) {
+						Core_Break(BreakReason::AddBreakpoint, 0);
 						Core_WaitInactive();
 					}
 
@@ -401,10 +400,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					}
 					if (!Core_IsStepping())	{  // stop
 						ptr->setDontRedraw(false);
-						Core_Break("ui.break", 0);
+						Core_Break(BreakReason::DebugBreak, 0);
 					} else {					// go
 						lastTicks_ = CoreTiming::GetTicks();
-
 						Core_Resume();
 					}
 				}

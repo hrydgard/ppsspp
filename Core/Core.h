@@ -44,13 +44,42 @@ enum class CPUStepType {
 	Frame,
 };
 
+// Must be set when breaking.
+enum class BreakReason {
+	None,
+	DebugBreak,
+	DebugStep,
+	DebugStepInto,
+	UIFocus,
+	AfterFrame,
+	MemoryException,
+	CpuException,
+	BreakInstruction,
+	SavestateLoad,
+	SavestateSave,
+	SavestateRewind,
+	SavestateCrash,
+	MemoryBreakpoint,
+	CpuBreakpoint,
+	BreakpointUpdate,
+	MemoryAccess,  // ???
+	JitBranchDebug,
+	BreakOnBoot,
+	RABreak,
+	AddBreakpoint,
+	FrameAdvance,
+	UIPause,
+	HLEDebugBreak,
+};
+const char *BreakReasonToString(BreakReason reason);
+
 // Async, called from gui
-void Core_Break(const char *reason, u32 relatedAddress = 0);
+void Core_Break(BreakReason reason, u32 relatedAddress = 0);
 
 // Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();
 
-const std::string &Core_BreakReason();
+BreakReason Core_BreakReason();
 
 // This should be called externally.
 // Can fail if another step type was requested this frame.
@@ -62,7 +91,7 @@ void Core_SwitchToGe();  // Switches from CPU emulation to GE display list execu
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
 struct SteppingReason {
-	const char *reason = nullptr;
+	BreakReason reason;
 	u32 relatedAddress = 0;
 };
 SteppingReason Core_GetSteppingReason();

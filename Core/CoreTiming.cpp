@@ -147,7 +147,7 @@ int RegisterEvent(const char *name, TimedCallback callback) {
 
 void AntiCrashCallback(u64 userdata, int cyclesLate) {
 	ERROR_LOG(Log::SaveState, "Savestate broken: an unregistered event was called.");
-	Core_Break("savestate.crash", 0);
+	Core_Break(BreakReason::SavestateCrash, 0);
 }
 
 void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callback) {

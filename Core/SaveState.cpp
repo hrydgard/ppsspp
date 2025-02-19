@@ -432,7 +432,7 @@ double g_lastSaveTime = -1.0;
 
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break("savestate.load", 0);
+			Core_Break(BreakReason::SavestateLoad, 0);
 		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
@@ -444,7 +444,7 @@ double g_lastSaveTime = -1.0;
 
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break("savestate.save", 0);
+			Core_Break(BreakReason::SavestateSave, 0);
 		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
@@ -459,7 +459,7 @@ double g_lastSaveTime = -1.0;
 			return;
 		}
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break("savestate.rewind", 0);
+			Core_Break(BreakReason::SavestateRewind, 0);
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 

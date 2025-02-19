@@ -441,7 +441,7 @@ void OSXOpenURL(const char *url) {
         Core_Resume();
         item.title = DESKTOPUI_LOCALIZED("Break");
     } else {
-        Core_Break("ui.break", 0);
+        Core_Break(BreakReason::DebugBreak, 0);
         item.title = DEVELOPERUI_LOCALIZED("Resume");
     }
 }

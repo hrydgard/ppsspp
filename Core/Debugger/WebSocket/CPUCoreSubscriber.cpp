@@ -72,7 +72,7 @@ void WebSocketCPUStepping(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 	if (!Core_IsStepping() && Core_IsActive()) {
-		Core_Break("cpu.stepping", 0);
+		Core_Break(BreakReason::DebugStep, 0);
 	}
 }
 
