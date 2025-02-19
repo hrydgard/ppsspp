@@ -10,6 +10,7 @@
 #include "imgui_impl_platform.h"
 
 static ImGuiMouseCursor g_cursor = ImGuiMouseCursor_Arrow;
+Bounds g_imguiCentralNodeBounds;
 
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	ImGuiIO &io = ImGui::GetIO();

@@ -77,7 +77,11 @@ enum {
 
 // TODO - allow more than one, associating each with one Core pointer (passed in to all the functions)
 // No known games use more than one instance of Sas though.
-static SasInstance *sas = NULL;
+static SasInstance *sas;
+
+SasInstance *GetSasInstance() {
+	return sas;
+}
 
 enum SasThreadState {
 	DISABLED,
@@ -247,7 +251,7 @@ static u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u3
 	INFO_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 
 	sas->SetGrainSize(grainSize);
-	// Seems like maxVoices is actually ignored for all intents and purposes.
+	// Seems like the maxVoices param is actually ignored for all intents and purposes.
 	sas->maxVoices = PSP_SAS_VOICES_MAX;
 	sas->outputMode = outputMode;
 	for (int i = 0; i < sas->maxVoices; i++) {

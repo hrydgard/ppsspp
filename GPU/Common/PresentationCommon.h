@@ -39,7 +39,6 @@ struct PostShaderUniforms {
 	float gl_HalfPixel[4];
 };
 
-// Could use UI::Bounds but don't want to depend on that here.
 struct FRect {
 	float x;
 	float y;

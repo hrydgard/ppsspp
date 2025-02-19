@@ -140,6 +140,7 @@ public:
 	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
 	~SasAtrac3() { delete sampleQueue_; }
 	int setContext(u32 context);
+	int id() const { return atracID_; }
 	void getNextSamples(s16 *outbuf, int wantedSamples);
 	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);

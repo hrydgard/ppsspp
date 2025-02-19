@@ -188,9 +188,9 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, end_);
 }
 
-int SasAtrac3::setContext(u32 context) {
-	contextAddr_ = context;
-	atracID_ = AtracSasGetIDByContext(context);
+int SasAtrac3::setContext(u32 contextAddr) {
+	contextAddr_ = contextAddr;
+	atracID_ = AtracSasGetIDByContext(contextAddr);
 	if (!sampleQueue_)
 		sampleQueue_ = new BufferQueue();
 	sampleQueue_->clear();

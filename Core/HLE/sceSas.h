@@ -24,3 +24,7 @@ void __SasShutdown();
 void __SasGetDebugStats(char *stats, size_t bufsize);
 
 void Register_sceSasCore();
+
+class SasInstance;
+
+SasInstance *GetSasInstance();
