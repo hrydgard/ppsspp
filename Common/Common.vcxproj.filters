@@ -250,15 +250,6 @@
     <ClInclude Include="UI\ViewGroup.h">
       <Filter>UI</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h">
-      <Filter>GPU\D3D9</Filter>
-    </ClInclude>
-    <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h">
-      <Filter>GPU\D3D9</Filter>
-    </ClInclude>
-    <ClInclude Include="GPU\D3D9\D3D9StateCache.h">
-      <Filter>GPU\D3D9</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\D3D11\D3D11Loader.h">
       <Filter>GPU\D3D11</Filter>
     </ClInclude>
@@ -911,20 +902,8 @@
     <ClCompile Include="UI\ViewGroup.cpp">
       <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp">
-      <Filter>GPU\D3D9</Filter>
-    </ClCompile>
     <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp">
       <Filter>GPU\D3D11</Filter>
-    </ClCompile>
-    <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp">
-      <Filter>GPU\D3D9</Filter>
-    </ClCompile>
-    <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp">
-      <Filter>GPU\D3D9</Filter>
-    </ClCompile>
-    <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp">
-      <Filter>GPU\D3D9</Filter>
     </ClCompile>
     <ClCompile Include="GPU\D3D11\D3D11Loader.cpp">
       <Filter>GPU\D3D11</Filter>
@@ -1367,9 +1346,6 @@
     </Filter>
     <Filter Include="GPU">
       <UniqueIdentifier>{3b448d70-d5c6-4732-96f0-29f3e101bfe8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GPU\D3D9">
-      <UniqueIdentifier>{a1745de8-f61a-4f11-b715-705a8812862e}</UniqueIdentifier>
     </Filter>
     <Filter Include="GPU\D3D11">
       <UniqueIdentifier>{8241d0c2-78c8-4fc6-9543-69042ec5eb54}</UniqueIdentifier>
