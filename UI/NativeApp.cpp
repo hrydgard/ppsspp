@@ -1518,6 +1518,7 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {
+	_dbg_assert_(customScale > 0.1f);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
 	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 
@@ -1531,6 +1532,8 @@ bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customSca
 	bool smallWindow = IsWindowSmall(pixel_width, pixel_height);
 	if (smallWindow) {
 		customScale *= 0.5f;
+	} else {
+		customScale = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
 	}
 
 	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, customScale)) {

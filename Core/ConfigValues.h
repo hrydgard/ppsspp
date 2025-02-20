@@ -43,6 +43,8 @@ float Volume100ToMultiplier(int volume);
 // Used for migration from the old settings.
 int MultiplierToVolume100(float multiplier);
 
+float UIScaleFactorToMultiplier(int factor);
+
 struct ConfigTouchPos {
 	float x;
 	float y;

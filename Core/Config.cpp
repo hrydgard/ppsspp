@@ -341,6 +341,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RunBehindPauseMenu", &g_Config.bRunBehindPauseMenu, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("ShowGPOLEDs", &g_Config.bShowGPOLEDs, false, CfgFlag::PER_GAME),
+
+	ConfigSetting("UIScaleFactor", &g_Config.iUIScaleFactor, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {
@@ -2150,4 +2152,8 @@ int MultiplierToVolume100(float multiplier) {
 		return multiplier * 100;
 	}
 	return (int)(powf(multiplier, 1.0f / 1.75f) * 100.f + 0.5f);
+}
+
+float UIScaleFactorToMultiplier(int factor) {
+	return powf(2.0f, (float)factor / 8.0f);
 }
