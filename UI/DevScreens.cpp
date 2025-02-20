@@ -1316,15 +1316,15 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 		"display_res: %dx%d\n"
 #endif
 		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"g_dpi: %0.3f g_dpi_scale: %0.3fx%0.3f\n"
-		"g_dpi_scale_real: %0.3fx%0.3f\n"
+		"g_dpi: %0.3f g_dpi_scale: %0.3f\n"
+		"g_dpi_scale_real: %0.3f\n"
 		"delta: %0.2f ms fps: %0.3f\n%s",
 #if PPSSPP_PLATFORM(ANDROID)
 		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
 #endif
 		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi, g_display.dpi_scale_x, g_display.dpi_scale_y,
-		g_display.dpi_scale_real_x, g_display.dpi_scale_real_y,
+		g_display.dpi, g_display.dpi_scale,
+		g_display.dpi_scale_real,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
 

@@ -209,7 +209,7 @@ static u32 AtracValidateData(const AtracBase *atrac) {
 	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
 		return hleLogError(Log::ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else {
-		return 0;
+		return hleNoLog(0);
 	}
 }
 
@@ -223,7 +223,7 @@ static u32 AtracValidateManaged(const AtracBase *atrac) {
 	} else if (atrac->BufferState() == ATRAC_STATUS_FOR_SCESAS) {
 		return hleLogError(Log::ME, ATRAC_ERROR_IS_FOR_SCESAS, "SAS stream, can't use");
 	} else {
-		return 0;
+		return hleNoLog(0);
 	}
 }
 

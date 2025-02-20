@@ -360,16 +360,15 @@ void ProcessDelta(double now, float dx, float dy) {
 void MouseDeltaToAxes(double now, float *mx, float *my) {
 	std::unique_lock<std::mutex> lock(g_mouseMutex);
 
-	float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-	float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+	float scaleFactor = g_display.dpi_scale * 0.1 * g_Config.fMouseSensitivity;
 
 	DecayMouse(now);
 
 	// TODO: Make configurable.
 	float mouseDeadZone = 0.1f;
 
-	float outX = clamp_value(g_mouseDeltaX * scaleFactor_x, -1.0f, 1.0f);
-	float outY = clamp_value(g_mouseDeltaY * scaleFactor_y, -1.0f, 1.0f);
+	float outX = clamp_value(g_mouseDeltaX * scaleFactor, -1.0f, 1.0f);
+	float outY = clamp_value(g_mouseDeltaY * scaleFactor, -1.0f, 1.0f);
 
 	ApplyDeadzoneXY(outX, outY, mx, my, mouseDeadZone, true);
 }

@@ -202,7 +202,7 @@ void SetVRAppMode(VRAppMode mode) {
 	appMode = mode;
 }
 
-void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
+void UpdateVRInput(bool haptics, float dp_scale) {
 	//axis
 	if (pspKeys[(int)VIRTKEY_VR_CAMERA_ADJUST]) {
 		AxisInput axis[2] = {};
@@ -321,8 +321,8 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		//inform engine about the status
 		TouchInput touch;
 		touch.id = mouseController;
-		touch.x = x * dp_xscale;
-		touch.y = (height - y - 1) * dp_yscale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		touch.x = x * dp_scale;
+		touch.y = (height - y - 1) * dp_scale / VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {

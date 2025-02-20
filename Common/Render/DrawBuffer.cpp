@@ -109,14 +109,14 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
 	// Round Y to the closest full pixel, since we're making it 1-pixel-thin.
-	y -= fmodf(y, g_display.pixel_in_dps_y);
-	Rect(x1, y, x2 - x1, g_display.pixel_in_dps_y, color);
+	y -= fmodf(y, g_display.pixel_in_dps);
+	Rect(x1, y, x2 - x1, g_display.pixel_in_dps, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
 	// Round X to the closest full pixel, since we're making it 1-pixel-thin.
-	x -= fmodf(x, g_display.pixel_in_dps_x);
-	Rect(x, y1, g_display.pixel_in_dps_x, y2 - y1, color);
+	x -= fmodf(x, g_display.pixel_in_dps);
+	Rect(x, y1, g_display.pixel_in_dps, y2 - y1, color);
 }
 
 void DrawBuffer::RectVGradient(float x1, float y1, float x2, float y2, uint32_t colorTop, uint32_t colorBottom) {
@@ -129,11 +129,11 @@ void DrawBuffer::RectVGradient(float x1, float y1, float x2, float y2, uint32_t 
 }
 
 void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color, int align) {
-	hLine(x, y, x + w + g_display.pixel_in_dps_x, color);
-	hLine(x, y + h, x + w + g_display.pixel_in_dps_x, color);
+	hLine(x, y, x + w + g_display.pixel_in_dps, color);
+	hLine(x, y + h, x + w + g_display.pixel_in_dps, color);
 
-	vLine(x, y, y + h + g_display.pixel_in_dps_y, color);
-	vLine(x + w, y, y + h + g_display.pixel_in_dps_y, color);
+	vLine(x, y, y + h + g_display.pixel_in_dps, color);
+	vLine(x + w, y, y + h + g_display.pixel_in_dps, color);
 }
 
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, const GradientStop *stops, int numStops) {

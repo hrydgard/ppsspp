@@ -58,10 +58,10 @@ void DisplayProperties::Print() {
 	printf("dp_xres/yres: %d, %d\n", dp_xres, dp_yres);
 	printf("pixel_xres/yres: %d, %d\n", pixel_xres, pixel_yres);
 
-	printf("dpi, x, y: %f, %f, %f\n", dpi, dpi_scale_x, dpi_scale_y);
-	printf("pixel_in_dps: %f, %f\n", pixel_in_dps_x, pixel_in_dps_y);
+	printf("dpi, dpi_scale: %f, %f\n", dpi, dpi_scale);
+	printf("pixel_in_dps: %f\n", pixel_in_dps);
 
-	printf("dpi_real: %f, %f\n", dpi_scale_real_x, dpi_scale_real_y);
+	printf("dpi_real: %f\n", dpi_scale_real);
 	printf("display_hz: %f\n", display_hz);
 
 	printf("rotation: %d\n", (int)rotation);
@@ -77,14 +77,15 @@ Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordC
 		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
 		break;
 	case CoordConvention::Direct3D9:
+	{
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		Matrix4x4 translation;
 		// Account for the small window adjustment.
-		translation.setTranslation(Vec3(
-			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
-			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
+		float half_pixel = -0.5f * g_display.dpi_scale / g_display.dpi_scale_real;
+		Matrix4x4 translation;
+		translation.setTranslation(Vec3(half_pixel, half_pixel, 0.0f));
 		ortho = translation * ortho;
 		break;
+	}
 	case CoordConvention::Direct3D11:
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;

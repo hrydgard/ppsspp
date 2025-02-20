@@ -320,8 +320,8 @@ public:
 			float xOffset = bounds_.x;
 			float yOffset = bounds_.y;
 
-			dc.Draw()->Rect((x1+x2)/2 + xOffset - g_display.pixel_in_dps_x, y1 + yOffset, 3.0f * g_display.pixel_in_dps_x, y2-y1, col);
-			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - g_display.pixel_in_dps_y, x2-x1, 3.0f * g_display.pixel_in_dps_y, col);
+			dc.Draw()->Rect((x1+x2)/2 + xOffset - g_display.pixel_in_dps, y1 + yOffset, 3.0f * g_display.pixel_in_dps, y2-y1, col);
+			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - g_display.pixel_in_dps, x2-x1, 3.0f * g_display.pixel_in_dps, col);
 
 			for (int x = x1 + (x1+x2)/2 % g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
 				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);

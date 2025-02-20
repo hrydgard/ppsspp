@@ -1512,8 +1512,8 @@ bool Native_IsWindowHidden() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_display.dpi_scale_x);
-	int h = (int)(pixelHeight * g_display.dpi_scale_y);
+	int w = (int)(pixelWidth * g_display.dpi_scale);
+	int h = (int)(pixelHeight * g_display.dpi_scale);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
@@ -1530,22 +1530,18 @@ bool Native_UpdateScreenScale(int width, int height) {
 		g_logical_dpi = 96.0f;
 	}
 
-	g_display.dpi_scale_x = g_logical_dpi / g_display.dpi;
-	g_display.dpi_scale_y = g_logical_dpi / g_display.dpi;
-	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
-	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
+	g_display.dpi_scale = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale_real = g_display.dpi_scale;
 
 	smallWindow = IsWindowSmall(width, height);
 	if (smallWindow) {
 		g_display.dpi /= 2.0f;
-		g_display.dpi_scale_x *= 2.0f;
-		g_display.dpi_scale_y *= 2.0f;
+		g_display.dpi_scale *= 2.0f;
 	}
-	g_display.pixel_in_dps_x = 1.0f / g_display.dpi_scale_x;
-	g_display.pixel_in_dps_y = 1.0f / g_display.dpi_scale_y;
+	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
 
-	int new_dp_xres = (int)(width * g_display.dpi_scale_x);
-	int new_dp_yres = (int)(height * g_display.dpi_scale_y);
+	int new_dp_xres = (int)(width * g_display.dpi_scale);
+	int new_dp_yres = (int)(height * g_display.dpi_scale);
 
 	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
 	bool px_changed = g_display.pixel_xres != width || g_display.pixel_yres != height;
