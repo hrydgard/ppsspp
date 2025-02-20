@@ -56,22 +56,23 @@ DisplayProperties::DisplayProperties() {
 
 bool DisplayProperties::Recalculate(int new_pixel_xres, int new_pixel_yres, float new_scale, float customScale) {
 	bool px_changed = false;
-	if (pixel_xres != new_pixel_xres) {
+	if (new_pixel_xres > 0 && pixel_xres != new_pixel_xres) {
 		pixel_xres = new_pixel_xres;
 		px_changed = true;
 	}
-	if (pixel_yres != new_pixel_yres) {
+	if (new_pixel_yres > 0 && pixel_yres != new_pixel_yres) {
 		pixel_yres = new_pixel_yres;
 		px_changed = true;
 	}
 
-	dpi_scale_real = new_scale;
-	dpi_scale = new_scale / customScale;
+	if (new_scale > 0) {
+		dpi_scale_real = new_scale;
+	}
+	dpi_scale = dpi_scale_real / customScale;
 	pixel_in_dps = 1.0f / dpi_scale;
 
-	int new_dp_xres = (int)(new_pixel_xres * dpi_scale);
-	int new_dp_yres = (int)(new_pixel_yres * dpi_scale);
-
+	int new_dp_xres = (int)(pixel_xres * dpi_scale);
+	int new_dp_yres = (int)(pixel_yres * dpi_scale);
 	if (new_dp_xres != dp_xres || new_dp_yres != dp_yres || px_changed) {
 		dp_xres = new_dp_xres;
 		dp_yres = new_dp_yres;

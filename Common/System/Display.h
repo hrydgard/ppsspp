@@ -41,6 +41,7 @@ struct DisplayProperties {
 	void Print();
 
 	// Returns true if the dimensions changed.
+	// The first three parameters can take -1 to signify "unchanged".
 	bool Recalculate(int new_pixel_xres, int new_pixel_yres, float new_scale, float customScale);
 };
 
