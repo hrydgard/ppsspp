@@ -1000,30 +1000,28 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	return true;
 }
 
-static void recalculateDpi() {
-	g_display.Recalculate(display_xres, display_yres, 240.0f / (float)display_dpi, 1.0f);
+static bool recalculateDpi(int pixel_xres, int pixel_yres) {
+	bool retval = g_display.Recalculate(pixel_xres, pixel_yres, 240.0f / (float)display_dpi, 1.0f);
 
 	INFO_LOG(Log::G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
 	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%d g_dpi_scale=%f dp_xres=%d dp_yres=%d", display_dpi, g_display.dpi_scale, g_display.dp_xres, g_display.dp_yres);
+
+	return retval;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
-	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format) {
+	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", pixel_xres, pixel_yres);
 
-	bool new_size = g_display.pixel_xres != bufw || g_display.pixel_yres != bufh;
 	int old_w = g_display.pixel_xres;
 	int old_h = g_display.pixel_yres;
 	// pixel_*res is the backbuffer resolution.
-	g_display.pixel_xres = bufw;
-	g_display.pixel_yres = bufh;
 	backbuffer_format = format;
 
 	if (IsVREnabled()) {
-		GetVRResolutionPerEye(&g_display.pixel_xres, &g_display.pixel_yres);
+		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
 
-	recalculateDpi();
-
+	bool new_size = recalculateDpi(pixel_xres, pixel_yres);
 	if (new_size) {
 		INFO_LOG(Log::G3D, "Size change detected (previously %d,%d) - calling NativeResized()", old_w, old_h);
 		NativeResized();
@@ -1418,8 +1416,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 		display_yres = yres;
 		display_dpi = dpi;
 		g_display.display_hz = refreshRate;
-
-		recalculateDpi();
+		// TODO: This is conflicting with the call in backbufferResize.
+		recalculateDpi(display_xres, display_yres);
 		NativeResized();
 	}
 }
