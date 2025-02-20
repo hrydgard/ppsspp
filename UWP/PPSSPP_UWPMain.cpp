@@ -143,16 +143,21 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 
 	if (g_display.rotation == DisplayRotation::ROTATE_90 || g_display.rotation == DisplayRotation::ROTATE_270) {
 		// We need to swap our width/height.
+		// TODO: This is most likely dead code, since we no longer support Windows Phone.
 		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
 
-	g_display.dpi = m_deviceResources->GetActualDpi();
+	// TODO: The below stuff is probably completely redundant since the UWP app elsewhere calls Native_UpdateScreenScale.
 
+	float dpi = m_deviceResources->GetActualDpi();
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
-		g_display.dpi *= 96.0f / 136.0f;
+		dpi *= 96.0f / 136.0f;
 	}
-	g_display.dpi_scale = 96.0f / g_display.dpi;
+
+	g_display.dpi_scale_real = 96.0f / dpi;
+
+	g_display.dpi_scale = g_display.dpi_scale_real;
 	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
 
 	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale;

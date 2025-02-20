@@ -549,7 +549,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue) {
 }
 
 void MainUI::resizeGL(int w, int h) {
-	if (Native_UpdateScreenScale(w, h)) {
+	if (Native_UpdateScreenScale(w, h, 1.0f)) {
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 	xscale = w / this->width();
@@ -839,14 +839,10 @@ int main(int argc, char *argv[])
 
 	if (res.width() < res.height())
 		res.transpose();
-	g_display.pixel_xres = res.width();
-	g_display.pixel_yres = res.height();
 
-	g_display.dpi_scale = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
 	// We assume physicalDotsPerInchY is the same as PerInchX.
-	g_display.dpi_scale_real = g_display.dpi_scale;
-	g_display.dp_xres = (int)(g_display.pixel_xres * g_display.dpi_scale);
-	g_display.dp_yres = (int)(g_display.pixel_yres * g_display.dpi_scale);
+	float dpi_scale = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
+	g_display.Recalculate(res.width(), res.height(), dpi_scale, 1.0f);
 
 	refreshRate = screen->refreshRate();
 

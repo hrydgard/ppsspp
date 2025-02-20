@@ -646,11 +646,11 @@ void SystemInfoScreen::CreateTabs() {
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
 #endif
-	displayInfo->Add(new InfoItem(si->T("UI resolution"), StringFromFormat("%dx%d (%s: %0.2f)",
+	displayInfo->Add(new InfoItem(si->T("UI resolution"), StringFromFormat("%dx%d (%s: %d)",
 		g_display.dp_xres,
 		g_display.dp_yres,
 		si->T_cstr("DPI"),
-		g_display.dpi)));
+		System_GetPropertyInt(SYSPROP_DISPLAY_DPI))));
 	displayInfo->Add(new InfoItem(si->T("Pixel resolution"), StringFromFormat("%dx%d",
 		g_display.pixel_xres,
 		g_display.pixel_yres)));
@@ -1311,22 +1311,25 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 	truncate_cpy(extra_debug, Android_GetInputDeviceDebugString().c_str());
 #endif
 
+	// Hm, why don't we print all the info on Android?
+#if PPSSPP_PLATFORM(ANDROID)
 	snprintf(buffer, sizeof(buffer),
-#if PPSSPP_PLATFORM(ANDROID)
+		"display_res: %dx%d\n",
+		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
+#else
+	snprintf(buffer, sizeof(buffer),
 		"display_res: %dx%d\n"
-#endif
 		"dp_res: %dx%d pixel_res: %dx%d\n"
-		"g_dpi: %0.3f g_dpi_scale: %0.3f\n"
-		"g_dpi_scale_real: %0.3f\n"
+		"dpi_scale: %0.3f\n"
+		"dpi_scale_real: %0.3f\n"
 		"delta: %0.2f ms fps: %0.3f\n%s",
-#if PPSSPP_PLATFORM(ANDROID)
 		(int)System_GetPropertyInt(SYSPROP_DISPLAY_XRES), (int)System_GetPropertyInt(SYSPROP_DISPLAY_YRES),
-#endif
 		g_display.dp_xres, g_display.dp_yres, g_display.pixel_xres, g_display.pixel_yres,
-		g_display.dpi, g_display.dpi_scale,
+		g_display.dpi_scale,
 		g_display.dpi_scale_real,
 		delta * 1000.0, 1.0 / delta,
 		extra_debug);
+#endif
 
 	// On Android, also add joystick debug data.
 	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

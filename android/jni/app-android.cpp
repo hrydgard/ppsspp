@@ -152,8 +152,8 @@ static int deviceType;
 // Exposed so it can be displayed on the touchscreen test.
 static int display_xres;
 static int display_yres;
-static int display_dpi_x;
-static int display_dpi_y;
+static int display_dpi;
+
 static int backbuffer_format;	// Android PixelFormat enum
 
 static int desiredBackbufferSizeX;
@@ -412,6 +412,8 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		return display_xres;
 	case SYSPROP_DISPLAY_YRES:
 		return display_yres;
+	case SYSPROP_DISPLAY_DPI:
+		return display_dpi;
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return sampleRate;
 	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
@@ -998,37 +1000,28 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	return true;
 }
 
-static void recalculateDpi() {
-	g_display.dpi = (float)display_dpi_x;
-	g_display.dpi_scale_real = 240.0f / (float)display_dpi_x;
-	g_display.dpi_scale = g_display.dpi_scale_real;
-
-	g_display.dp_xres = display_xres * g_display.dpi_scale;
-	g_display.dp_yres = display_yres * g_display.dpi_scale;
-
-	g_display.pixel_in_dps = (float)g_display.pixel_xres / g_display.dp_xres;
+static bool recalculateDpi(int pixel_xres, int pixel_yres) {
+	bool retval = g_display.Recalculate(pixel_xres, pixel_yres, 240.0f / (float)display_dpi, 1.0f);
 
 	INFO_LOG(Log::G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
-	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%f g_dpi_scale=%f dp_xres=%d dp_yres=%d", g_display.dpi, g_display.dpi_scale, g_display.dp_xres, g_display.dp_yres);
+	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%d g_dpi_scale=%f dp_xres=%d dp_yres=%d", display_dpi, g_display.dpi_scale, g_display.dp_xres, g_display.dp_yres);
+
+	return retval;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
-	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", bufw, bufh);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format) {
+	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", pixel_xres, pixel_yres);
 
-	bool new_size = g_display.pixel_xres != bufw || g_display.pixel_yres != bufh;
 	int old_w = g_display.pixel_xres;
 	int old_h = g_display.pixel_yres;
 	// pixel_*res is the backbuffer resolution.
-	g_display.pixel_xres = bufw;
-	g_display.pixel_yres = bufh;
 	backbuffer_format = format;
 
 	if (IsVREnabled()) {
-		GetVRResolutionPerEye(&g_display.pixel_xres, &g_display.pixel_yres);
+		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
 
-	recalculateDpi();
-
+	bool new_size = recalculateDpi(pixel_xres, pixel_yres);
 	if (new_size) {
 		INFO_LOG(Log::G3D, "Size change detected (previously %d,%d) - calling NativeResized()", old_w, old_h);
 		NativeResized();
@@ -1415,17 +1408,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;
-	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
+	changed = changed || display_dpi != dpi;
 	changed = changed || g_display.display_hz != refreshRate;
 
 	if (changed) {
 		display_xres = xres;
 		display_yres = yres;
-		display_dpi_x = dpi;
-		display_dpi_y = dpi;
+		display_dpi = dpi;
 		g_display.display_hz = refreshRate;
-
-		recalculateDpi();
+		// TODO: This is conflicting with the call in backbufferResize.
+		recalculateDpi(display_xres, display_yres);
 		NativeResized();
 	}
 }

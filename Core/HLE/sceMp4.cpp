@@ -87,7 +87,7 @@ static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 fr
 	// Decode audio:
 	// - init: 1 at first call, 0 afterwards
 	// - frequency: 44100
-	return hleLogError(Log::ME, 0, "mp4 % i, auAddr % 08x, bufferAddr % 08x, init % i, frequency % i ", mp4, auAddr, bufferAddr, init, frequency);
+	return hleLogError(Log::ME, 0, "mp4 %i, auAddr %08x, bufferAddr %08x, init %i, frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
 	//This is hack
 	//return -1;
 }

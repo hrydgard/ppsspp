@@ -90,5 +90,5 @@ void Native_NotifyWindowHidden(bool hidden);
 bool Native_IsWindowHidden();
 
 // TODO: Feels like this belongs elsewhere.
-bool Native_UpdateScreenScale(int width, int height);
+bool Native_UpdateScreenScale(int width, int height, float customScale);
 

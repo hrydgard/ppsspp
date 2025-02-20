@@ -298,7 +298,7 @@ namespace MainWindow
 
 		DEBUG_LOG(Log::System, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
-		if (Native_UpdateScreenScale(width, height)) {
+		if (Native_UpdateScreenScale(width, height, 1.0f)) {
 			System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
 			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		}

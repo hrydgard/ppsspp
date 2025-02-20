@@ -427,7 +427,7 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 				// Allow overwriting the command.
 				break;
 			default:
-				ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", g_cpuStepCommand.reason);
+				ERROR_LOG(Log::CPU, "Core_Break called with a step-command already in progress: %s", BreakReasonToString(g_cpuStepCommand.reason));
 				return;
 			}
 		}
