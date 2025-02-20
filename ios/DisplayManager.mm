@@ -149,18 +149,10 @@
 		float diagonal = sqrt(size.height * size.height + size.width * size.width);
 		dpi = diagonal * scale * 0.1f;
 	}
-	g_display.dpi_scale_real = 240.0f / dpi;
 
-	g_display.dpi_scale = g_display.dpi_scale_real;
+	float dpi_scale = 240.0f / dpi;
+	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale, 1.0f);
 
-	g_display.pixel_xres = size.width * scale;
-	g_display.pixel_yres = size.height * scale;
-
-	g_display.dp_xres = g_display.pixel_xres * g_display.dpi_scale;
-	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale;
-
-	g_display.pixel_in_dps = (float)g_display.pixel_xres / (float)g_display.dp_xres;
-	
 	[[sharedViewController getView] setContentScaleFactor:scale];
 
 	// PSP native resize
