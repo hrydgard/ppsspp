@@ -1520,31 +1520,37 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height) {
 	bool smallWindow;
 
-	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
-	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+	const bool px_changed = g_display.pixel_xres != pixel_width || g_display.pixel_yres != pixel_height;
 
-	if (g_display.dpi < 0.0f) {
-		g_display.dpi = 96.0f;
+	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
+	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+
+	if (dpi < 0.0f) {
+		dpi = 96.0f;
 	}
 	if (g_logical_dpi < 0.0f) {
 		g_logical_dpi = 96.0f;
 	}
 
-	g_display.dpi_scale_real = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale_real = g_logical_dpi / dpi;
 	g_display.dpi_scale = g_display.dpi_scale_real;
+
+	float scaleFactor = 1.0f;
 
 	smallWindow = IsWindowSmall(pixel_width, pixel_height);
 	if (smallWindow) {
-		g_display.dpi /= 2.0f;
-		g_display.dpi_scale *= 2.0f;
+		scaleFactor = 0.5f;
 	}
+
+	// No need to change ".dpi" here.
+	g_display.dpi_scale /= scaleFactor;
+
 	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
 
 	int new_dp_xres = (int)(pixel_width * g_display.dpi_scale);
 	int new_dp_yres = (int)(pixel_height * g_display.dpi_scale);
 
-	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
-	bool px_changed = g_display.pixel_xres != pixel_width || g_display.pixel_yres != pixel_height;
+	const bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
 
 	if (!dp_changed && !px_changed) {
 		return false;

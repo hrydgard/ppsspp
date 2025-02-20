@@ -147,13 +147,13 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
 
-	g_display.dpi = m_deviceResources->GetActualDpi();
+	float dpi = m_deviceResources->GetActualDpi();
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
-		g_display.dpi *= 96.0f / 136.0f;
+		dpi *= 96.0f / 136.0f;
 	}
 
-	g_display.dpi_scale_real = 96.0f / g_display.dpi;
+	g_display.dpi_scale_real = 96.0f / dpi;
 
 	g_display.dpi_scale = g_display.dpi_scale_real;
 	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;

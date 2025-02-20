@@ -58,7 +58,7 @@ void DisplayProperties::Print() {
 	printf("dp_xres/yres: %d, %d\n", dp_xres, dp_yres);
 	printf("pixel_xres/yres: %d, %d\n", pixel_xres, pixel_yres);
 
-	printf("dpi, dpi_scale: %f, %f\n", dpi, dpi_scale);
+	printf("dpi_scale: %f\n", dpi_scale);
 	printf("pixel_in_dps: %f\n", pixel_in_dps);
 
 	printf("dpi_real: %f\n", dpi_scale_real);

@@ -412,6 +412,8 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		return display_xres;
 	case SYSPROP_DISPLAY_YRES:
 		return display_yres;
+	case SYSPROP_DISPLAY_DPI:
+		return display_dpi;
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return sampleRate;
 	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
@@ -999,8 +1001,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 }
 
 static void recalculateDpi() {
-	g_display.dpi = (float)display_dpi;
 	g_display.dpi_scale_real = 240.0f / (float)display_dpi;
+
 	g_display.dpi_scale = g_display.dpi_scale_real;
 
 	g_display.dp_xres = display_xres * g_display.dpi_scale;
@@ -1009,7 +1011,7 @@ static void recalculateDpi() {
 	g_display.pixel_in_dps = (float)g_display.pixel_xres / g_display.dp_xres;
 
 	INFO_LOG(Log::G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
-	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%f g_dpi_scale=%f dp_xres=%d dp_yres=%d", g_display.dpi, g_display.dpi_scale, g_display.dp_xres, g_display.dp_yres);
+	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%d g_dpi_scale=%f dp_xres=%d dp_yres=%d", display_dpi, g_display.dpi_scale, g_display.dp_xres, g_display.dp_yres);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
