@@ -40,6 +40,8 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceCtrl.h"
@@ -1286,9 +1288,15 @@ void MainScreen::CreateViews() {
 #endif
 
 	rightColumnItems->Add(logos);
-	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
+	ClickableTextView *ver = rightColumnItems->Add(new ClickableTextView(versionString, new LinearLayoutParams(Margins(70, -10, 0, 4))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
+	ver->OnClick.Add([](UI::EventParams &e) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		System_CopyStringToClipboard(PPSSPP_GIT_VERSION);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), PPSSPP_GIT_VERSION));
+		return UI::EVENT_DONE;
+	});
 
 	LinearLayout *rightColumnChoices = rightColumnItems;
 	if (vertical) {

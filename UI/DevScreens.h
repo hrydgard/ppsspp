@@ -113,6 +113,7 @@ public:
 	void update() override;
 
 protected:
+	UI::EventReturn CopySummaryToClipboard(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 	void CreateInternalsTab(UI::ViewGroup *internals);
 };

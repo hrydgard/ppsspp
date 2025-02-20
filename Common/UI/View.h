@@ -1023,6 +1023,19 @@ private:
 	float pad_ = 0.0f;
 };
 
+// Quick hack for clickable version number
+class ClickableTextView : public TextView {
+public:
+	ClickableTextView(std::string_view text, LayoutParams *layoutParams = 0)
+		: TextView(text, layoutParams) {}
+	bool Touch(const TouchInput &input);
+	Event OnClick;
+
+private:
+	bool down_;
+	bool dragging_;
+};
+
 class TextEdit : public View {
 public:
 	TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams = nullptr);

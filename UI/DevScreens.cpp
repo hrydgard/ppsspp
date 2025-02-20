@@ -36,6 +36,7 @@
 
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
@@ -49,6 +50,7 @@
 #include "Common/Log/LogManager.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
+#include "Common/GPU/ShaderWriter.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -471,6 +473,45 @@ void SystemInfoScreen::update() {
 	g_OSD.NudgeSidebar();
 }
 
+// TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
+UI::EventReturn SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::DIALOG);
+
+	char *summary = new char[100000];
+	StringWriter w(summary);
+
+	std::string_view build = "Release";
+#ifdef _DEBUG
+	build = "Debug";
+#endif
+	w.W(PPSSPP_GIT_VERSION).C(" ").W(build).endl();
+	w.C("CPU: ").W(cpu_info.cpu_string).endl();
+	w.C("ABI: ").W(GetCompilerABI()).endl();
+	w.C("OS: ").W(System_GetProperty(SYSPROP_NAME)).C(" ").W(System_GetProperty(SYSPROP_SYSTEMBUILD)).endl();
+	w.C("Page Size: ").W(StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())).endl();
+	w.C("RW/RX exclusive: ").W(PlatformIsWXExclusive() ? "Yes" : "No").endl();
+
+	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
+	if (!board.empty())
+		w.C("Board: ").W(board).endl();
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	w.C("3D API: ").W(draw->GetInfoString(Draw::InfoField::APINAME)).endl();
+	w.C("API version: ").W(draw->GetInfoString(Draw::InfoField::APIVERSION)).endl();
+	w.C("Device API version: ").W(draw->GetInfoString(Draw::InfoField::DEVICE_API_VERSION)).endl();
+	w.C("Vendor: ").W(draw->GetInfoString(Draw::InfoField::VENDOR)).endl();
+	w.C("VendorString: ").W(draw->GetInfoString(Draw::InfoField::VENDORSTRING)).endl();
+	w.C("Driver: ").W(draw->GetInfoString(Draw::InfoField::DRIVER)).endl();
+	w.C("Depth buffer format: ").W(DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)).endl();
+	w.C("Refresh rate: ").W(StringFromFormat(si->T_cstr("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))).endl();
+
+	System_CopyStringToClipboard(summary);
+	delete[] summary;
+
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("System Information")));
+	return UI::EVENT_DONE;
+}
+
 void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
@@ -483,6 +524,8 @@ void SystemInfoScreen::CreateTabs() {
 	LinearLayout *deviceSpecs = AddTab("Device Info", si->T("Device Info"));
 
 	CollapsibleSection *systemInfo = deviceSpecs->Add(new CollapsibleSection(si->T("System Information")));
+
+	systemInfo->Add(new Choice(si->T("Copy summary to clipboard")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
 	systemInfo->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
@@ -699,9 +742,6 @@ void SystemInfoScreen::CreateTabs() {
 	LinearLayout *buildConfig = AddTab("DevSystemInfoBuildConfig", si->T("Build Config"));
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
-#ifdef JENKINS
-	buildConfig->Add(new InfoItem(si->T("Built by"), "Jenkins"));
-#endif
 #ifdef ANDROID_LEGACY
 	buildConfig->Add(new InfoItem("ANDROID_LEGACY", ""));
 #endif

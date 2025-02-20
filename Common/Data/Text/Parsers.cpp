@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <climits>
 #include <cstdio>
 #include <string>
@@ -156,4 +157,12 @@ bool TryParse(const std::string &str, bool *const output) {
 		return false;
 
 	return true;
+}
+
+StringWriter &StringWriter::F(const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	p_ += vsprintf(p_, format, args);
+	va_end(args);
+	return *this;
 }

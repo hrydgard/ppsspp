@@ -1112,6 +1112,40 @@ void TextView::Draw(UIContext &dc) {
 	}
 }
 
+bool ClickableTextView::Touch(const TouchInput &input) {
+	bool contains = bounds_.Contains(input.x, input.y);
+
+	// Ignore buttons other than the left one.
+	if ((input.flags & TOUCH_MOUSE) && (input.buttons & 1) == 0) {
+		return contains;
+	}
+
+	if (input.flags & TOUCH_DOWN) {
+		if (bounds_.Contains(input.x, input.y)) {
+			if (IsFocusMovementEnabled())
+				SetFocusedView(this);
+			dragging_ = true;
+			down_ = true;
+		} else {
+			down_ = false;
+			dragging_ = false;
+		}
+	} else if (input.flags & TOUCH_MOVE) {
+		if (dragging_)
+			down_ = bounds_.Contains(input.x, input.y);
+	}
+	if (input.flags & TOUCH_UP) {
+		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
+			EventParams e{};
+			e.v = this;
+			OnClick.Trigger(e);
+		}
+		down_ = false;
+		dragging_ = false;
+	}
+	return contains;
+}
+
 TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams)
   : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
     textColor_(0xFFFFFFFF), maxLen_(255) {
