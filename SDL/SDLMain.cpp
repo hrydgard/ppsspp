@@ -615,6 +615,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
 #if defined(MOBILE_DEVICE)
