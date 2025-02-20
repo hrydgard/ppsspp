@@ -1512,16 +1512,12 @@ bool Native_IsWindowHidden() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_display.dpi_scale);
-	int h = (int)(pixelHeight * g_display.dpi_scale);
+	int w = (int)(pixelWidth * g_display.dpi_scale_real);
+	int h = (int)(pixelHeight * g_display.dpi_scale_real);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
-bool Native_UpdateScreenScale(int pixel_width, int pixel_height) {
-	bool smallWindow;
-
-	const bool px_changed = g_display.pixel_xres != pixel_width || g_display.pixel_yres != pixel_height;
-
+bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
 	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 
@@ -1532,34 +1528,15 @@ bool Native_UpdateScreenScale(int pixel_width, int pixel_height) {
 		g_logical_dpi = 96.0f;
 	}
 
-	g_display.dpi_scale_real = g_logical_dpi / dpi;
-	g_display.dpi_scale = g_display.dpi_scale_real;
-
-	float scaleFactor = 1.0f;
-
-	smallWindow = IsWindowSmall(pixel_width, pixel_height);
+	bool smallWindow = IsWindowSmall(pixel_width, pixel_height);
 	if (smallWindow) {
-		scaleFactor = 0.5f;
+		customScale *= 0.5f;
 	}
 
-	// No need to change ".dpi" here.
-	g_display.dpi_scale /= scaleFactor;
-
-	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
-
-	int new_dp_xres = (int)(pixel_width * g_display.dpi_scale);
-	int new_dp_yres = (int)(pixel_height * g_display.dpi_scale);
-
-	const bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
-
-	if (!dp_changed && !px_changed) {
+	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, customScale)) {
+		NativeResized();
+		return true;
+	} else {
 		return false;
 	}
-
-	g_display.dp_xres = new_dp_xres;
-	g_display.dp_yres = new_dp_yres;
-	g_display.pixel_xres = pixel_width;
-	g_display.pixel_yres = pixel_height;
-	NativeResized();
-	return true;
 }

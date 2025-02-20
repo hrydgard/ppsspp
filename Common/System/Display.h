@@ -39,6 +39,9 @@ struct DisplayProperties {
 
 	DisplayProperties();
 	void Print();
+
+	// Returns true if the dimensions changed.
+	bool Recalculate(int new_pixel_xres, int new_pixel_yres, float new_scale, float customScale);
 };
 
 extern DisplayProperties g_display;

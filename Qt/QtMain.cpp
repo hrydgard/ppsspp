@@ -549,7 +549,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue) {
 }
 
 void MainUI::resizeGL(int w, int h) {
-	if (Native_UpdateScreenScale(w, h)) {
+	if (Native_UpdateScreenScale(w, h, 1.0f)) {
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 	}
 	xscale = w / this->width();
