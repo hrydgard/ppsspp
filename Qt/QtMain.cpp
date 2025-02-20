@@ -840,15 +840,9 @@ int main(int argc, char *argv[])
 	if (res.width() < res.height())
 		res.transpose();
 
-	g_display.pixel_xres = res.width();
-	g_display.pixel_yres = res.height();
-
 	// We assume physicalDotsPerInchY is the same as PerInchX.
-	g_display.dpi_scale_real = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
-
-	g_display.dpi_scale = g_display.dpi_scale_real;
-	g_display.dp_xres = (int)(g_display.pixel_xres * g_display.dpi_scale);
-	g_display.dp_yres = (int)(g_display.pixel_yres * g_display.dpi_scale);
+	float dpi_scale = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
+	g_display.Recalculate(res.width(), res.height(), dpi_scale, 1.0f);
 
 	refreshRate = screen->refreshRate();
 
