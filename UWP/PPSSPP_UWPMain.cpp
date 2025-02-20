@@ -147,6 +147,8 @@ void PPSSPP_UWPMain::UpdateScreenState() {
 		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
 
+	// TODO: The below stuff is probably completely redundant since the UWP app elsewhere calls Native_UpdateScreenScale.
+
 	float dpi = m_deviceResources->GetActualDpi();
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
