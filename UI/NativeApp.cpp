@@ -1517,7 +1517,7 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
-bool Native_UpdateScreenScale(int width, int height) {
+bool Native_UpdateScreenScale(int pixel_width, int pixel_height) {
 	bool smallWindow;
 
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
@@ -1530,29 +1530,30 @@ bool Native_UpdateScreenScale(int width, int height) {
 		g_logical_dpi = 96.0f;
 	}
 
-	g_display.dpi_scale = g_logical_dpi / g_display.dpi;
-	g_display.dpi_scale_real = g_display.dpi_scale;
+	g_display.dpi_scale_real = g_logical_dpi / g_display.dpi;
+	g_display.dpi_scale = g_display.dpi_scale_real;
 
-	smallWindow = IsWindowSmall(width, height);
+	smallWindow = IsWindowSmall(pixel_width, pixel_height);
 	if (smallWindow) {
 		g_display.dpi /= 2.0f;
 		g_display.dpi_scale *= 2.0f;
 	}
 	g_display.pixel_in_dps = 1.0f / g_display.dpi_scale;
 
-	int new_dp_xres = (int)(width * g_display.dpi_scale);
-	int new_dp_yres = (int)(height * g_display.dpi_scale);
+	int new_dp_xres = (int)(pixel_width * g_display.dpi_scale);
+	int new_dp_yres = (int)(pixel_height * g_display.dpi_scale);
 
 	bool dp_changed = new_dp_xres != g_display.dp_xres || new_dp_yres != g_display.dp_yres;
-	bool px_changed = g_display.pixel_xres != width || g_display.pixel_yres != height;
+	bool px_changed = g_display.pixel_xres != pixel_width || g_display.pixel_yres != pixel_height;
 
-	if (dp_changed || px_changed) {
-		g_display.dp_xres = new_dp_xres;
-		g_display.dp_yres = new_dp_yres;
-		g_display.pixel_xres = width;
-		g_display.pixel_yres = height;
-		NativeResized();
-		return true;
+	if (!dp_changed && !px_changed) {
+		return false;
 	}
-	return false;
+
+	g_display.dp_xres = new_dp_xres;
+	g_display.dp_yres = new_dp_yres;
+	g_display.pixel_xres = pixel_width;
+	g_display.pixel_yres = pixel_height;
+	NativeResized();
+	return true;
 }

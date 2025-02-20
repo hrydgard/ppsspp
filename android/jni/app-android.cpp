@@ -152,8 +152,8 @@ static int deviceType;
 // Exposed so it can be displayed on the touchscreen test.
 static int display_xres;
 static int display_yres;
-static int display_dpi_x;
-static int display_dpi_y;
+static int display_dpi;
+
 static int backbuffer_format;	// Android PixelFormat enum
 
 static int desiredBackbufferSizeX;
@@ -999,8 +999,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 }
 
 static void recalculateDpi() {
-	g_display.dpi = (float)display_dpi_x;
-	g_display.dpi_scale_real = 240.0f / (float)display_dpi_x;
+	g_display.dpi = (float)display_dpi;
+	g_display.dpi_scale_real = 240.0f / (float)display_dpi;
 	g_display.dpi_scale = g_display.dpi_scale_real;
 
 	g_display.dp_xres = display_xres * g_display.dpi_scale;
@@ -1415,14 +1415,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 
 	bool changed = false;
 	changed = changed || display_xres != xres || display_yres != yres;
-	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
+	changed = changed || display_dpi != dpi;
 	changed = changed || g_display.display_hz != refreshRate;
 
 	if (changed) {
 		display_xres = xres;
 		display_yres = yres;
-		display_dpi_x = dpi;
-		display_dpi_y = dpi;
+		display_dpi = dpi;
 		g_display.display_hz = refreshRate;
 
 		recalculateDpi();
