@@ -1,4 +1,6 @@
 #include "Common/GPU/Shader.h"
+#include "glslang/Include/ResourceLimits.h"
+#include <cstring>
 
 #ifdef USE_CRT_DBG
 #undef new

@@ -160,9 +160,6 @@
     <ClCompile Include="..\..\ext\glslang\glslang\OSDependent\Windows\ossource.cpp">
       <Filter>glslang\OSDependent</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp">
-      <Filter>OGLCompilersDLL</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\attribute.cpp">
       <Filter>glslang\MachineIndependent</Filter>
     </ClCompile>
@@ -333,9 +330,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.h">
       <Filter>hlsl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h">
-      <Filter>OGLCompilersDLL</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\attribute.h">
       <Filter>glslang\MachineIndependent</Filter>
