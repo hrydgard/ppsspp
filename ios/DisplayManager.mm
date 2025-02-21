@@ -13,6 +13,9 @@
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Core/System.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
+
 #import <AVFoundation/AVFoundation.h>
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
@@ -151,7 +154,7 @@
 	}
 
 	float dpi_scale = 240.0f / dpi;
-	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale, 1.0f);
+	g_display.Recalculate(size.width * scale, size.height * scale, dpi_scale, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	[[sharedViewController getView] setContentScaleFactor:scale];
 

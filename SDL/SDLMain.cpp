@@ -780,7 +780,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 			// This one calls NativeResized if the size changed.
-			Native_UpdateScreenScale(new_width_px, new_height_px, 1.0f);
+			Native_UpdateScreenScale(new_width_px, new_height_px, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 			// Set variable here in case fullscreen was toggled by hotkey
 			if (g_Config.UseFullScreen() != fullscreen) {
@@ -1437,7 +1437,7 @@ int main(int argc, char *argv[]) {
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
 
-	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, 1.0f);
+	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 

@@ -1128,6 +1128,14 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	});
 #endif
 
+	PopupSliderChoice *uiScale = systemSettings->Add(new PopupSliderChoice(&g_Config.iUIScaleFactor, -8, 8, 0, sy->T("UI size adjustment (DPI)"), screenManager()));
+	uiScale->SetZeroLabel(sy->T("Off"));
+	uiScale->OnChange.Add([](UI::EventParams &e) {
+		g_display.Recalculate(-1, -1, -1, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+		NativeResized();
+		return UI::EVENT_DONE;
+	});
+
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
