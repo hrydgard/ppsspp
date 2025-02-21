@@ -175,9 +175,6 @@
     <ClCompile Include="MainWindow.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
-    <ClCompile Include="GPU\D3D9Context.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
     <ClCompile Include="GPU\WindowsGLContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -390,9 +387,6 @@
     <ClInclude Include="MainWindow.h">
       <Filter>Windows\UI</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\D3D9Context.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\WindowsGLContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
@@ -592,12 +586,6 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\README.md" />
-    <None Include="aboutbox.rc">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="version.rc">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="..\assets\knownfuncs.ini">
       <Filter>Resource Files</Filter>
     </None>
