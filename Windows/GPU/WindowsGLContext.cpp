@@ -270,10 +270,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 		if (yes) {
 			// Change the config to D3D and restart.
-			const char *d3d9Or11 = "Direct3D 9? (Or no for Direct3D 11)";
-			std::wstring whichD3D9 = ConvertUTF8ToWString(err->T("D3D9or11", d3d9Or11));
-			bool d3d9 = IDYES == MessageBox(hWnd_, whichD3D9.c_str(), title.c_str(), MB_YESNO);
-			g_Config.iGPUBackend = d3d9 ? (int)GPUBackend::DIRECT3D9 : (int)GPUBackend::DIRECT3D11;
+			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
 			g_Config.sFailedGPUBackends.clear();
 			g_Config.Save("save_d3d11_fallback");
 

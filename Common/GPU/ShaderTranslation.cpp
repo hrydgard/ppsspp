@@ -102,22 +102,13 @@ layout (std140, set = 0, binding = 0) uniform Data {
 };
 )";
 
-static const char * const d3d9RegisterDecl = R"(
-float4 gl_HalfPixel : register(c0);
-float2 u_texelDelta : register(c1);
-float2 u_pixelDelta : register(c2);
-float4 u_time : register(c3);
-float4 u_timeDelta : register(c4);
-float4 u_setting : register(c5);
-float u_video : register(c6);
-)";
 
 // SPIRV-Cross' HLSL output has some deficiencies we need to work around.
 // Also we need to rip out single uniforms and replace them with blocks.
 // Should probably do it in the source shader instead and then back translate to old style GLSL, but
 // SPIRV-Cross currently won't compile with the Android NDK so I can't be bothered.
 std::string Postprocess(std::string code, ShaderLanguage lang, ShaderStage stage) {
-	if (lang != HLSL_D3D11 && lang != HLSL_D3D9)
+	if (lang != HLSL_D3D11)
 		return code;
 
 	std::stringstream out;
@@ -125,18 +116,11 @@ std::string Postprocess(std::string code, ShaderLanguage lang, ShaderStage stage
 	// Output the uniform buffer.
 	if (lang == HLSL_D3D11)
 		out << cbufferDecl;
-	else if (lang == HLSL_D3D9)
-		out << d3d9RegisterDecl;
 
 	// Alright, now let's go through it line by line and zap the single uniforms.
 	std::string line;
 	std::stringstream instream(code);
 	while (std::getline(instream, line)) {
-		int num;
-		if (lang == HLSL_D3D9 && sscanf(line.c_str(), "uniform sampler2D sampler%d;", &num) == 1) {
-			out << "sampler2D sampler" << num << " : register(s" << num << ");\n";
-			continue;
-		}
 		if (line.find("uniform float") != std::string::npos) {
 			continue;
 		}
@@ -272,19 +256,6 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 
 	switch (destLang) {
 #ifdef _WIN32
-	case HLSL_D3D9:
-	{
-		spirv_cross::CompilerHLSL hlsl(spirv);
-		spirv_cross::CompilerHLSL::Options options{};
-		options.shader_model = 30;
-		spirv_cross::CompilerGLSL::Options options_common{};
-		options_common.vertex.fixup_clipspace = true;
-		hlsl.set_hlsl_options(options);
-		hlsl.set_common_options(options_common);
-		std::string raw = hlsl.compile();
-		*dest = Postprocess(raw, destLang, stage);
-		return true;
-	}
 	case HLSL_D3D11:
 	{
 		spirv_cross::CompilerHLSL hlsl(spirv);

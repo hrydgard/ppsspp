@@ -582,11 +582,6 @@ void SystemInfoScreen::CreateTabs() {
 	if (GetGPUBackend() != GPUBackend::VULKAN) {
 		gpuInfo->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 	}
-#if !PPSSPP_PLATFORM(UWP)
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		gpuInfo->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
-	}
-#endif
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gpuInfo->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
@@ -1218,14 +1213,13 @@ void TouchTestScreen::CreateViews() {
 	root_->Add(theTwo);
 
 #if !PPSSPP_PLATFORM(UWP)
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
+	static const char *renderingBackend[] = { "OpenGL", "(n/a)", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
 
 	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
 		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
-	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
-		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
+	renderingBackendChoice->HideChoice(1);   // previously D3D9
 	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
 		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
 	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
