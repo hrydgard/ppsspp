@@ -27,6 +27,8 @@
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HW/Atrac3Standalone.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include <sstream>
+#include <iomanip>
 
 const size_t overAllocBytes = 16384;
 
@@ -357,8 +359,23 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				// This is the offset to the jointStereo_ field.
 				track->jointStereo = Memory::Read_U32(addr + offset + 24);
 			}
+			if (chunkSize > 16) {
+				std::stringstream restChunkStream;
+
+				// Read and format extra bytes as hexadecimal
+				for (int i = 16; i < chunkSize; ++i) {
+					unsigned char byte = Memory::Read_U8(addr + offset + i);
+					restChunkStream << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (int)byte;
+				}
+
+				std::string restChunk = restChunkStream.str();
+				if (!restChunk.empty()) {
+					DEBUG_LOG(Log::ME, "Additional chunk data:%s", restChunk.c_str());
+				}
+
+			}
+			break;
 		}
-		break;
 		case FACT_CHUNK_MAGIC:
 		{
 			track->endSample = Memory::Read_U32(addr + offset);
@@ -369,8 +386,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				u32 largerOffset = Memory::Read_U32(addr + offset + 8);
 				sampleOffsetAdjust = track->firstSampleOffset - largerOffset;
 			}
+			break;
 		}
-		break;
 		case SMPL_CHUNK_MAGIC:
 		{
 			if (chunkSize < 32) {
@@ -400,8 +417,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 					return hleReportError(Log::ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
 				}
 			}
+			break;
 		}
-		break;
 		case DATA_CHUNK_MAGIC:
 		{
 			bfoundData = true;
