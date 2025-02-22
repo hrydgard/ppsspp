@@ -964,25 +964,25 @@ uint32_t vrnd_generate(uint32_t *rcx) {
 
 // Lookup tables.
 // Note: these are never unloaded, and stay till program termination.
-static uint32_t (*vfpu_sin_lut8192)=nullptr;
+static uint32_t *vfpu_sin_lut8192=nullptr;
 static  int8_t  (*vfpu_sin_lut_delta)[2]=nullptr;
-static  int16_t (*vfpu_sin_lut_interval_delta)=nullptr;
-static uint8_t  (*vfpu_sin_lut_exceptions)=nullptr;
+static  int16_t *vfpu_sin_lut_interval_delta=nullptr;
+static uint8_t  *vfpu_sin_lut_exceptions=nullptr;
 
 static  int8_t  (*vfpu_sqrt_lut)[2]=nullptr;
 
 static  int8_t  (*vfpu_rsqrt_lut)[2]=nullptr;
 
-static uint32_t (*vfpu_exp2_lut65536)=nullptr;
+static uint32_t *vfpu_exp2_lut65536=nullptr;
 static uint8_t  (*vfpu_exp2_lut)[2]=nullptr;
 
-static uint32_t (*vfpu_log2_lut65536)=nullptr;
-static uint32_t (*vfpu_log2_lut65536_quadratic)=nullptr;
+static uint32_t *vfpu_log2_lut65536=nullptr;
+static uint32_t *vfpu_log2_lut65536_quadratic=nullptr;
 static uint8_t  (*vfpu_log2_lut)[131072][2]=nullptr;
 
 static  int32_t (*vfpu_asin_lut65536)[3]=nullptr;
-static uint64_t (*vfpu_asin_lut_deltas)=nullptr;
-static uint16_t (*vfpu_asin_lut_indices)=nullptr;
+static uint64_t *vfpu_asin_lut_deltas=nullptr;
+static uint16_t *vfpu_asin_lut_indices=nullptr;
 
 static  int8_t  (*vfpu_rcp_lut)[2]=nullptr;
 

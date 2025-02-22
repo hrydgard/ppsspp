@@ -350,6 +350,10 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	case TextureType::CUBE:
 		hr = device_->CreateCubeTexture(desc.width, desc.mipLevels, usage, d3dfmt_, pool, &cubeTex_, NULL);
 		break;
+	case TextureType::ARRAY1D:
+	case TextureType::ARRAY2D:
+	case TextureType::UNKNOWN:
+		break;
 	}
 	if (FAILED(hr)) {
 		ERROR_LOG(Log::G3D, "D3D9 Texture creation failed");
@@ -481,6 +485,10 @@ void D3D9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 
 	case TextureType::CUBE:
 		device->SetTexture(sampler, cubeTex_.Get());
+		break;
+	case TextureType::ARRAY1D:
+	case TextureType::ARRAY2D:
+	case TextureType::UNKNOWN:
 		break;
 	}
 }
@@ -739,7 +747,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	if (SUCCEEDED(result)) {
-		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
+		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04lx VS: %04lx", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
 		WARN_LOG(Log::G3D, "Direct3D9: Failed to get the device caps!");
 		truncate_cpy(shadeLangVersion_, "N/A");
@@ -795,6 +803,16 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		if (NVIDIAGetDeviceGeneration(caps_.deviceID) < NV_KEPLER) {
 			bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
 		}
+		break;
+	case Draw::GPUVendor::VENDOR_AMD:
+	case Draw::GPUVendor::VENDOR_APPLE:
+	case Draw::GPUVendor::VENDOR_ARM:
+	case Draw::GPUVendor::VENDOR_BROADCOM:
+	case Draw::GPUVendor::VENDOR_IMGTEC:
+	case Draw::GPUVendor::VENDOR_MESA:
+	case Draw::GPUVendor::VENDOR_QUALCOMM:
+	case Draw::GPUVendor::VENDOR_UNKNOWN:
+	case Draw::GPUVendor::VENDOR_VIVANTE:
 		break;
 	}
 
@@ -913,11 +931,17 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 		switch (desc.cull) {
 		case CullMode::FRONT: rs->cullMode = D3DCULL_CCW; break;
 		case CullMode::BACK: rs->cullMode = D3DCULL_CW; break;
+		case CullMode::FRONT_AND_BACK:
+		case CullMode::NONE:
+			break;
 		}
 	case Facing::CCW:
 		switch (desc.cull) {
 		case CullMode::FRONT: rs->cullMode = D3DCULL_CW; break;
 		case CullMode::BACK: rs->cullMode = D3DCULL_CCW; break;
+		case CullMode::FRONT_AND_BACK:
+		case CullMode::NONE:
+			break;
 		}
 	}
 	return rs;
@@ -1565,7 +1589,12 @@ bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, Aspect aspects, int 
 				_assert_(false);
 			}
 			break;
-		}
+			case Aspect::NO_BIT:
+			case Aspect::SURFACE_BIT:
+			case Aspect::VIEW_BIT:
+			case Aspect::FORMAT_BIT:
+				break;
+			}
 	}
 
 	if (aspects != Aspect::COLOR_BIT) {
@@ -1589,6 +1618,9 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 		device_->GetDepthStencilSurface(&deviceDSsurf);
 		break;
 	case Event::PRESENTED:
+	case Event::GOT_DEVICE:
+	case Event::LOST_DEVICE:
+	case Event::RESIZED:
 		break;
 	}
 }

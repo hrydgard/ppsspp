@@ -47,7 +47,7 @@ class TabDisplayLists : public Dialog
 public:
 	TabDisplayLists(HINSTANCE _hInstance, HWND _hParent);
 	~TabDisplayLists();
-	void Update(bool reload = true);
+	void Update() override;
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 private:

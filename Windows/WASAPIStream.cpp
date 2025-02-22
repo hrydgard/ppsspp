@@ -361,14 +361,14 @@ bool WASAPIAudioThread::DetectFormat() {
 			} else {
 				wchar_t guid[256]{};
 				StringFromGUID2(closest->SubFormat, guid, 256);
-				ERROR_LOG_REPORT_ONCE(badfallbackclosest, Log::sceAudio, "WASAPI fallback and closest unsupported (fmt=%04x/%s)", closest->Format.wFormatTag, guid);
+				ERROR_LOG_REPORT_ONCE(badfallbackclosest, Log::sceAudio, "WASAPI fallback and closest unsupported (fmt=%04x/%s)", closest->Format.wFormatTag, ConvertWStringToUTF8(guid).c_str());
 				CoTaskMemFree(closest);
 				return false;
 			}
 		} else {
 			CoTaskMemFree(closest);
 			if (hr != AUDCLNT_E_DEVICE_INVALIDATED && hr != AUDCLNT_E_SERVICE_NOT_RUNNING)
-				ERROR_LOG_REPORT_ONCE(badfallback, Log::sceAudio, "WASAPI fallback format was unsupported (%08x)", hr);
+				ERROR_LOG_REPORT_ONCE(badfallback, Log::sceAudio, "WASAPI fallback format was unsupported (%08lx)", hr);
 			return false;
 		}
 	}
@@ -513,6 +513,8 @@ void WASAPIAudioThread::Run() {
 				break;
 			case Format::PCM16:
 				callback_((short *)pData, pNumAvFrames, sampleRate_);
+				break;
+			case Format::UNKNOWN:
 				break;
 			}
 		}

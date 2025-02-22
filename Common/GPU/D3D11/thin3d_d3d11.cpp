@@ -172,15 +172,17 @@ public:
 		case InfoField::DRIVER: return "-";
 		case InfoField::SHADELANGVERSION:
 			switch (featureLevel_) {
-			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1"; break;
-			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2"; break;
-			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3"; break;
-			case D3D_FEATURE_LEVEL_10_0: return "Feature Level 10.0"; break;
-			case D3D_FEATURE_LEVEL_10_1: return "Feature Level 10.1"; break;
-			case D3D_FEATURE_LEVEL_11_0: return "Feature Level 11.0"; break;
-			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1"; break;
-			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0"; break;
-			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1"; break;
+			case D3D_FEATURE_LEVEL_1_0_CORE: return "Feature Level 1.0 Core";
+			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1";
+			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2";
+			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3";
+			case D3D_FEATURE_LEVEL_10_0: return "Feature Level 10.0";
+			case D3D_FEATURE_LEVEL_10_1: return "Feature Level 10.1";
+			case D3D_FEATURE_LEVEL_11_0: return "Feature Level 11.0";
+			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1";
+			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0";
+			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1";
+			case D3D_FEATURE_LEVEL_12_2: return "Feature Level 12.2";
 			}
 			return "Unknown feature level";
 		case InfoField::APINAME: return "Direct3D 11";
@@ -464,6 +466,11 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		curRTHeight_ = height;
 		break;
 	}
+	case Event::LOST_DEVICE:
+	case Event::GOT_DEVICE:
+	case Event::RESIZED:
+	case Event::PRESENTED:
+		break;
 	}
 }
 
@@ -1168,6 +1175,8 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 		case ShaderStage::Geometry:
 			dPipeline->gs = module->gs;
 			break;
+		case ShaderStage::Compute:
+			break;
 		}
 	}
 	dPipeline->shaderModules = shaders;
@@ -1636,6 +1645,12 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		srcTex = src->depthStencilTex;
 		dstTex = dst->depthStencilTex;
 		break;
+	case Aspect::NO_BIT:
+	case Aspect::STENCIL_BIT:
+	case Aspect::SURFACE_BIT:
+	case Aspect::VIEW_BIT:
+	case Aspect::FORMAT_BIT:
+		break;
 	}
 	_assert_(srcTex && dstTex);
 
@@ -1813,6 +1828,11 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 		} else {
 			_assert_(false);
 		}
+		break;
+	case Aspect::NO_BIT:
+	case Aspect::SURFACE_BIT:
+	case Aspect::VIEW_BIT:
+	case Aspect::FORMAT_BIT:
 		break;
 	}
 

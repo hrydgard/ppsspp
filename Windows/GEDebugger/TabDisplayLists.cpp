@@ -226,9 +226,9 @@ void TabDisplayLists::UpdateSize(WORD width, WORD height)
 	}
 }
 
-void TabDisplayLists::Update(bool reload)
+void TabDisplayLists::Update()
 {
-	if (reload && gpuDebug != NULL)
+	if (gpuDebug != NULL)
 	{
 		lists = gpuDebug->ActiveDisplayLists();
 	}
