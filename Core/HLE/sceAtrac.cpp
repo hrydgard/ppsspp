@@ -203,7 +203,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	return hleLogInfo(Log::ME, atracID);
 }
 
-static u32 AtracValidateData(const AtracBase *atrac) {
+static int AtracValidateData(const AtracBase *atrac) {
 	if (!atrac) {
 		return hleLogError(Log::ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
@@ -213,7 +213,7 @@ static u32 AtracValidateData(const AtracBase *atrac) {
 	}
 }
 
-static u32 AtracValidateManaged(const AtracBase *atrac) {
+static int AtracValidateManaged(const AtracBase *atrac) {
 	if (!atrac) {
 		return hleLogError(Log::ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
@@ -233,7 +233,7 @@ static u32 AtracValidateManaged(const AtracBase *atrac) {
 // The total size of the buffer is atrac->bufferMaxSize_.
 static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
-	u32 err = AtracValidateManaged(atrac);
+	int err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
 		return err;
