@@ -961,7 +961,12 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 		i++;
 	}
 
-	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
+	ScreenshotType type = SCREENSHOT_OUTPUT;
+	if (g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage) {
+		type = SCREENSHOT_DISPLAY;
+	}
+
+	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type);
 	if (success) {
 		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
