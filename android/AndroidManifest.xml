@@ -59,7 +59,6 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                <category android:name="tv.ouya.intent.category.GAME"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

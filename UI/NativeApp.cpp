@@ -167,7 +167,6 @@ std::string config_filename;
 
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
-static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
 
@@ -754,7 +753,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		StartWebServer(WebServerFlags::DEBUGGER);
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
-	isOuya = KeyMap::IsOuya(sysName);
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.

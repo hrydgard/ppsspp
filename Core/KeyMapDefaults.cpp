@@ -301,27 +301,6 @@ static const DefMappingStruct defaultPadMapIOS[] = {
 	{VIRTKEY_FASTFORWARD , JOYSTICK_AXIS_RTRIGGER, +1},
 };
 
-static const DefMappingStruct defaultOuyaMap[] = {
-	{CTRL_CROSS          , NKCODE_BUTTON_A},
-	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
-	{CTRL_SQUARE         , NKCODE_BUTTON_X},
-	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	{CTRL_UP             , NKCODE_DPAD_UP},
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
-	{CTRL_START          , NKCODE_BUTTON_R2},
-	{CTRL_SELECT         , NKCODE_BUTTON_L2},
-	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
-	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_FASTFORWARD  , NKCODE_BUTTON_THUMBL},
-	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
-	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
-	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
-};
-
 static const DefMappingStruct defaultXperiaPlay[] = {
 	{CTRL_CROSS          , NKCODE_BUTTON_CROSS},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_CIRCLE},
@@ -410,9 +389,6 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	case DEFAULT_MAPPING_IOS_PAD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMapIOS, ARRAY_SIZE(defaultPadMapIOS), replace);
-		break;
-	case DEFAULT_MAPPING_OUYA:
-		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
 		break;
 	case DEFAULT_MAPPING_XPERIA_PLAY:
 		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);

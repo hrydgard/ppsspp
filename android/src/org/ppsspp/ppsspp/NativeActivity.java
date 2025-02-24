@@ -636,20 +636,14 @@ public abstract class NativeActivity extends Activity {
 			// the format here, if we specify that we want destination alpha in the config chooser, which we do.
 			// http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
 
-			// Needed to avoid banding on Ouya?
-			if (Build.MANUFACTURER.equals("OUYA")) {
-				mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
-				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
-			} else {
-				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
+			// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
 
-				// Then I tried to require 8888/16/8 but that backfired too, does not work on Mali 450 which is
-				// used in popular TVs and boxes like Mi Box. So we'll just get what we get, I guess...
+			// Then I tried to require 8888/16/8 but that backfired too, does not work on Mali 450 which is
+			// used in popular TVs and boxes like Mi Box. So we'll just get what we get, I guess...
 
-				// if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
-					// mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
-				// }
-			}
+			// if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
+				// mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+			// }
 
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);

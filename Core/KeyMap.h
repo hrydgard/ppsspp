@@ -213,7 +213,6 @@ namespace KeyMap {
 	bool IsNvidiaShield(const std::string &name);
 	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
-	bool IsOuya(const std::string &name);
 	bool IsMOQII7S(const std::string &name);
 	bool IsRetroid(const std::string &name);
 	bool HasBuiltinController(const std::string &name);
