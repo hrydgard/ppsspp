@@ -82,11 +82,13 @@ private:
 	void runImDebugger();
 	void renderImDebugger();
 
-	void onVKey(int virtualKeyCode, bool down);
-	void onVKeyAnalog(int virtualKeyCode, float value);
+	void onVKey(VirtKey virtualKeyCode, bool down);
+	void onVKeyAnalog(VirtKey virtualKeyCode, float value);
 
 	void autoLoad();
 	bool checkPowerDown();
+
+	void ProcessQueuedVKeys();
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
@@ -144,6 +146,8 @@ private:
 	bool keyAltRight_ = false;
 
 	bool lastImguiEnabled_ = false;
+
+	VirtKey queuedVirtKey_ = (VirtKey)0;
 };
 
 bool MustRunBehind();

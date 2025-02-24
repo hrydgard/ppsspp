@@ -690,7 +690,7 @@ static void ShowFpsLimitNotice() {
 	g_OSD.Show(OSDType::TRANSPARENT_STATUS, temp, "", "I_FASTFORWARD", 1.5f, "altspeed");
 }
 
-void EmuScreen::onVKey(int virtualKeyCode, bool down) {
+void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
@@ -953,13 +953,41 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
-	case VIRTKEY_EXIT_APP:
-		System_ExitApp();
+	default:
+		// To make sure we're not in an async context.
+		if (down) {
+			queuedVirtKey_ = virtualKeyCode;
+		}
 		break;
 	}
 }
 
-void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
+void EmuScreen::ProcessQueuedVKeys() {
+	switch (queuedVirtKey_) {
+	case VIRTKEY_EXIT_APP:
+	{
+		std::string confirmExitMessage = GetConfirmExitMessage();
+		if (!confirmExitMessage.empty()) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			confirmExitMessage += '\n';
+			confirmExitMessage += di->T("Are you sure you want to exit?");
+			screenManager()->push(new PromptScreen(gamePath_, confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+				if (result) {
+					System_ExitApp();
+				}
+			}));
+		} else {
+			System_ExitApp();
+		}
+		break;
+	}
+	default:
+		break;
+	}
+	queuedVirtKey_ = (VirtKey)0;
+}
+
+void EmuScreen::onVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	if (virtualKeyCode != VIRTKEY_SPEED_ANALOG) {
 		return;
 	}
@@ -1477,6 +1505,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	GamepadUpdateOpacity();
+
+	ProcessQueuedVKeys();
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
 

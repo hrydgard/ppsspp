@@ -147,8 +147,8 @@ void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 }
 
 void ControlMapper::SetCallbacks(
-	std::function<void(int, bool)> onVKey,
-	std::function<void(int, float)> onVKeyAnalog,
+	std::function<void(VirtKey, bool)> onVKey,
+	std::function<void(VirtKey, float)> onVKeyAnalog,
 	std::function<void(uint32_t, uint32_t)> updatePSPButtons,
 	std::function<void(int, float, float)> setPSPAnalog,
 	std::function<void(int, float, float)> setRawAnalog) {
@@ -421,7 +421,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
 	// Note that virtual keys include the analog directions, as they are driven by them.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
-		int vkId = i + VIRTKEY_FIRST;
+		VirtKey vkId = (VirtKey)(i + VIRTKEY_FIRST);
 
 		uint32_t idForMapping = vkId;
 		SwapMappingIfEnabled(&idForMapping);
@@ -578,7 +578,7 @@ void ControlMapper::ToggleSwapAxes() {
 
 	updatePSPButtons_(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
 
-	for (uint32_t vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey++) {
+	for (VirtKey vkey = VIRTKEY_FIRST; vkey < VIRTKEY_LAST; vkey = (VirtKey)(vkey + 1)) {
 		if (IsSwappableVKey(vkey)) {
 			if (virtKeyOn_[vkey - VIRTKEY_FIRST]) {
 				onVKey_(vkey, false);
@@ -668,13 +668,13 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 		int vk = pspKeyCode - VIRTKEY_FIRST;
 		if (flags & KEY_DOWN) {
 			virtKeys_[vk] = 1.0f;
-			onVKey(pspKeyCode, true);
-			onVKeyAnalog(deviceId, pspKeyCode, 1.0f);
+			onVKey((VirtKey)pspKeyCode, true);
+			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 1.0f);
 		}
 		if (flags & KEY_UP) {
 			virtKeys_[vk] = 0.0f;
-			onVKey(pspKeyCode, false);
-			onVKeyAnalog(deviceId, pspKeyCode, 0.0f);
+			onVKey((VirtKey)pspKeyCode, false);
+			onVKeyAnalog(deviceId, (VirtKey)pspKeyCode, 0.0f);
 		}
 	} else {
 		// INFO_LOG(Log::System, "pspKey %d %d", pspKeyCode, flags);
@@ -685,7 +685,7 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 	}
 }
 
-void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
+void ControlMapper::onVKeyAnalog(int deviceId, VirtKey vkey, float value) {
 	// Unfortunately, for digital->analog inputs to work sanely, we need to sum up
 	// with the opposite value too.
 	int stick = 0;
@@ -716,7 +716,7 @@ void ControlMapper::onVKeyAnalog(int deviceId, int vkey, float value) {
 	SetPSPAxis(deviceId, stick, axis, sign * value);
 }
 
-void ControlMapper::onVKey(int vkey, bool down) {
+void ControlMapper::onVKey(VirtKey vkey, bool down) {
 	switch (vkey) {
 	case VIRTKEY_ANALOG_ROTATE_CW:
 		if (down) {
@@ -745,7 +745,7 @@ void ControlMapper::onVKey(int vkey, bool down) {
 
 void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
 	std::stringstream str;
-	for (auto iter : curInput_) {
+	for (auto &iter : curInput_) {
 		char temp[256];
 		iter.first.FormatDebug(temp, sizeof(temp));
 		str << temp << ": " << iter.second.value << std::endl;
