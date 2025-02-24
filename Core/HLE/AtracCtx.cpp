@@ -726,16 +726,16 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 
 	// 3 seems to be the number of frames required to handle a loop.
 	if (secondBufferSize < desiredSize && secondBufferSize < (u32)track_.BytesPerFrame() * 3) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SIZE_TOO_SMALL, "too small");
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 	}
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED, "not needed");
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED;
 	}
 
 	second_.addr = secondBuffer;
 	second_.size = secondBufferSize;
 	second_.fileoffset = secondFileOffset;
-	return hleLogDebug(Log::ME, 0);
+	return 0;
 }
 
 int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {

@@ -612,7 +612,7 @@ static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBuff
 		return err;
 	}
 
-	return atrac->SetSecondBuffer(secondBuffer, secondBufferSize);
+	return hleLogDebugOrError(Log::ME, atrac->SetSecondBuffer(secondBuffer, secondBufferSize));
 }
 
 static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
