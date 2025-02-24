@@ -926,17 +926,17 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				ImGui::Text("State: %s", DLStateToString(list.state));
 				ImGui::TextUnformatted("PC:");
 				ImGui::SameLine();
-				ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
+				ImClickableValue("pc", list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
 				ImGui::Text("StartPC:");
 				ImGui::SameLine();
-				ImClickableAddress(list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
+				ImClickableValue("startpc", list.startpc, control, ImCmd::SHOW_IN_GE_DISASM);
 				if (list.pendingInterrupt) {
 					ImGui::TextUnformatted("(Pending interrupt)");
 				}
 				if (list.stall) {
 					ImGui::TextUnformatted("Stall addr:");
 					ImGui::SameLine();
-					ImClickableAddress(list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
+					ImClickableValue("stall", list.pc, control, ImCmd::SHOW_IN_GE_DISASM);
 				}
 				ImGui::Text("Stack depth: %d", (int)list.stackptr);
 				ImGui::Text("BBOX result: %d", (int)list.bboxResult);
@@ -1363,7 +1363,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 							// Special handling for pointer and pointer/width entries - create an address control
 							if (info.fmt == CMD_FMT_PTRWIDTH) {
 								const u32 val = (value & 0xFFFFFF) | (otherValue & 0x00FF0000) << 8;
-								ImClickableAddress(val, control, ImCmd::NONE);
+								ImClickableValue(info.uiName, val, control, ImCmd::NONE);
 								ImGui::SameLine();
 								ImGui::Text("w=%d", otherValue & 0xFFFF);
 							} else {

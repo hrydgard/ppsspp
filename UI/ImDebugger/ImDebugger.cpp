@@ -54,6 +54,7 @@
 #include "UI/ImDebugger/ImGe.h"
 
 extern bool g_TakeScreenshot;
+static ImVec4 g_normalTextColor;
 
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	if (ImGui::BeginMenu("Show in memory viewer")) {
@@ -96,14 +97,16 @@ void StatusBar(std::string_view status) {
 
 // TODO: Style it.
 // Left click performs the preferred action, if any. Right click opens a menu for more.
-void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
+void ImClickableValue(const char *id, uint32_t addr, ImControl &control, ImCmd cmd) {
+	ImGui::PushID(id);
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%08x", addr);
 	if (ImGui::SmallButton(temp)) {
 		control.command = { cmd, addr };
 	}
 
-	// Create a right-click popup menu
+	// Create a right-click popup menu. Restore the color while it's up. NOTE: can't query the theme, pushcolor modifies it!
+	ImGui::PushStyleColor(ImGuiCol_Text, g_normalTextColor);
 	if (ImGui::BeginPopupContextItem(temp)) {
 		if (ImGui::MenuItem("Copy address to clipboard")) {
 			System_CopyStringToClipboard(temp);
@@ -112,6 +115,8 @@ void ImClickableAddress(uint32_t addr, ImControl &control, ImCmd cmd) {
 		ShowInWindowMenuItems(addr, control);
 		ImGui::EndPopup();
 	}
+	ImGui::PopStyleColor();
+	ImGui::PopID();
 }
 
 void DrawSchedulerView(ImConfig &cfg) {
@@ -171,9 +176,7 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
 			}
 			if (Memory::IsValid4AlignedAddress(value)) {
-				ImGui::PushID(index);
-				ImClickableAddress(value, control, index == MIPS_REG_RA ? ImCmd::SHOW_IN_CPU_DISASM : ImCmd::SHOW_IN_MEMORY_VIEWER);
-				ImGui::PopID();
+				ImClickableValue(regname, value, control, index == MIPS_REG_RA ? ImCmd::SHOW_IN_CPU_DISASM : ImCmd::SHOW_IN_MEMORY_VIEWER);
 			} else {
 				ImGui::Text("%08x", value);
 			}
@@ -349,10 +352,10 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 		for (int i = 0; i < (int)info.size(); i++) {
 			const DebugThreadInfo &thread = info[i];
 			ImGui::TableNextRow();
+			ImGui::PushID(i);
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", thread.id);
 			ImGui::TableNextColumn();
-			ImGui::PushID(i);
 			if (ImGui::Selectable(thread.name, cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
 				cfg.selectedThread = i;
 			}
@@ -361,9 +364,9 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 				ImGui::OpenPopup("threadPopup");
 			}
 			ImGui::TableNextColumn();
-			ImClickableAddress(thread.curPC, control, ImCmd::SHOW_IN_CPU_DISASM);
+			ImClickableValue("curpc", thread.curPC, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableNextColumn();
-			ImClickableAddress(thread.entrypoint, control, ImCmd::SHOW_IN_CPU_DISASM);
+			ImClickableValue("entry", thread.entrypoint, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", thread.priority);
 			ImGui::TableNextColumn();
@@ -1287,6 +1290,7 @@ void DrawHLEModules(ImConfig &config) {
 ImDebugger::ImDebugger() {
 	reqToken_ = g_requestManager.GenerateRequesterToken();
 	cfg_.LoadConfig(ConfigPath());
+	g_normalTextColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 }
 
 ImDebugger::~ImDebugger() {
