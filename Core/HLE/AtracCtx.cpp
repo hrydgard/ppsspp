@@ -785,7 +785,7 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 	u32 readOffset;
 	CalculateStreamInfo(&readOffset);
 	if (bytesToAdd > first_.writableBytes)
-		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_ADD_DATA_IS_TOO_BIG, "too many bytes");
+		return SCE_ERROR_ATRAC_ADD_DATA_IS_TOO_BIG;
 
 	if (bytesToAdd > 0) {
 		first_.fileoffset = readOffset;
@@ -1136,7 +1136,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	}
 
 	WriteContextToPSPMem();
-	return 0;
+	return hleNoLog(0);
 }
 
 void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {

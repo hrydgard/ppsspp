@@ -246,10 +246,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	}
 
 	int ret = atrac->AddStreamData(bytesToAdd);
-	if (ret < 0) {
-		return ret;
-	}
-	return hleLogDebug(Log::ME, 0);
+	return hleLogDebugOrError(Log::ME, ret);
 }
 
 // Note that outAddr being null is completely valid here, used to skip data.
