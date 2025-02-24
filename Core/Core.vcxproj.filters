@@ -2163,6 +2163,9 @@
     <ClInclude Include="HLE\sceAac.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\ErrorCodes.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE.TXT" />
