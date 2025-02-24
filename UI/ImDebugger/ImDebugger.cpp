@@ -99,20 +99,25 @@ void StatusBar(std::string_view status) {
 // Left click performs the preferred action, if any. Right click opens a menu for more.
 void ImClickableValue(const char *id, uint32_t addr, ImControl &control, ImCmd cmd) {
 	ImGui::PushID(id);
+
+	bool validAddr = Memory::IsValidAddress(addr);
+
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%08x", addr);
-	if (ImGui::SmallButton(temp)) {
+	if (ImGui::Selectable(temp) && validAddr) {
 		control.command = { cmd, addr };
 	}
 
 	// Create a right-click popup menu. Restore the color while it's up. NOTE: can't query the theme, pushcolor modifies it!
 	ImGui::PushStyleColor(ImGuiCol_Text, g_normalTextColor);
 	if (ImGui::BeginPopupContextItem(temp)) {
-		if (ImGui::MenuItem("Copy address to clipboard")) {
+		if (ImGui::MenuItem(validAddr ? "Copy address to clipboard" : "Copy value to clipboard")) {
 			System_CopyStringToClipboard(temp);
 		}
-		ImGui::Separator();
-		ShowInWindowMenuItems(addr, control);
+		if (validAddr) {
+			ImGui::Separator();
+			ShowInWindowMenuItems(addr, control);
+		}
 		ImGui::EndPopup();
 	}
 	ImGui::PopStyleColor();
@@ -175,11 +180,8 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			} else if (disabled) {
 				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 128));
 			}
-			if (Memory::IsValid4AlignedAddress(value)) {
-				ImClickableValue(regname, value, control, index == MIPS_REG_RA ? ImCmd::SHOW_IN_CPU_DISASM : ImCmd::SHOW_IN_MEMORY_VIEWER);
-			} else {
-				ImGui::Text("%08x", value);
-			}
+			// TODO: Check if the address is in the code segment to decide default action.
+			ImClickableValue(regname, value, control, index == MIPS_REG_RA ? ImCmd::SHOW_IN_CPU_DISASM : ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
 			if (value >= -1000000 && value <= 1000000) {
 				ImGui::Text("%d", value);
