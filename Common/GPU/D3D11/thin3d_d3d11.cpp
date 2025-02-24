@@ -172,7 +172,6 @@ public:
 		case InfoField::DRIVER: return "-";
 		case InfoField::SHADELANGVERSION:
 			switch (featureLevel_) {
-			case D3D_FEATURE_LEVEL_1_0_CORE: return "Feature Level 1.0 Core";
 			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1";
 			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2";
 			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3";
@@ -182,7 +181,11 @@ public:
 			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1";
 			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0";
 			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1";
+#ifndef __LIBRETRO__
+			case D3D_FEATURE_LEVEL_1_0_CORE: return "Feature Level 1.0 Core";  // This is for compute-only devices. Useless for us.
 			case D3D_FEATURE_LEVEL_12_2: return "Feature Level 12.2";
+#endif
+			default: return "Feature Level X.X";
 			}
 			return "Unknown feature level";
 		case InfoField::APINAME: return "Direct3D 11";
