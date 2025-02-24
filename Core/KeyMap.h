@@ -31,7 +31,7 @@
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
 // Don't change any of these - it'll break backwards compatibility with configs.
-enum {
+enum VirtKey {
 	VIRTKEY_FIRST = 0x40000001,
 	VIRTKEY_AXIS_X_MIN = 0x40000001,
 	VIRTKEY_AXIS_Y_MIN = 0x40000002,

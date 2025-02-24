@@ -21,8 +21,8 @@ public:
 	// Required callbacks.
 	// TODO: These are so many now that a virtual interface might be more appropriate..
 	void SetCallbacks(
-		std::function<void(int, bool)> onVKey,
-		std::function<void(int, float)> onVKeyAnalog,
+		std::function<void(VirtKey, bool)> onVKey,
+		std::function<void(VirtKey, float)> onVKeyAnalog,
 		std::function<void(uint32_t, uint32_t)> updatePSPButtons,
 		std::function<void(int, float, float)> setPSPAnalog,
 		std::function<void(int, float, float)> setRawAnalog);
@@ -58,8 +58,8 @@ private:
 	void SetPSPAxis(int deviceId, int stick, char axis, float value);
 	void UpdateAnalogOutput(int stick);
 
-	void onVKey(int vkey, bool down);
-	void onVKeyAnalog(int deviceId, int vkey, float value);
+	void onVKey(VirtKey vkey, bool down);
+	void onVKeyAnalog(int deviceId, VirtKey vkey, float value);
 
 	void UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp);
 	float GetDeviceAxisThreshold(int device, const InputMapping &mapping);
@@ -93,8 +93,8 @@ private:
 	std::map<InputMapping, InputSample> curInput_;
 
 	// Callbacks
-	std::function<void(int, bool)> onVKey_;
-	std::function<void(int, float)> onVKeyAnalog_;
+	std::function<void(VirtKey, bool)> onVKey_;
+	std::function<void(VirtKey, float)> onVKeyAnalog_;
 	std::function<void(uint32_t, uint32_t)> updatePSPButtons_;
 	std::function<void(int, float, float)> setPSPAnalog_;
 	std::function<void(int, float, float)> setRawAnalog_;
