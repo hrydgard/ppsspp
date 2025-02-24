@@ -281,15 +281,6 @@ enum InputAxis {
 	JOYSTICK_AXIS_DISTANCE = 24,
 	JOYSTICK_AXIS_TILT = 25,
 
-	// Ouya axises. Just here for reference, they map straight to regular android axises
-	// and will be mapped the same way.
-	JOYSTICK_OUYA_AXIS_L2 = 17,
-	JOYSTICK_OUYA_AXIS_LS_X = 0,
-	JOYSTICK_OUYA_AXIS_LS_Y = 1,
-	JOYSTICK_OUYA_AXIS_R2 = 18,
-	JOYSTICK_OUYA_AXIS_RS_X = 11,
-	JOYSTICK_OUYA_AXIS_RS_Y = 14,
-
 	// Relative mouse axis for PC.
 	JOYSTICK_AXIS_MOUSE_REL_X = 26,
 	JOYSTICK_AXIS_MOUSE_REL_Y = 27,

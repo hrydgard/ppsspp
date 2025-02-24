@@ -89,6 +89,11 @@ enum BufferFilter {
 	SCALE_NEAREST = 2,
 };
 
+enum class ScreenshotMode {
+	FinalOutput = 0,
+	GameImage = 1,
+};
+
 // Software is not among these because it will have one of these perform the blit to display.
 enum class GPUBackend {
 	OPENGL = 0,

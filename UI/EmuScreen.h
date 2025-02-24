@@ -89,6 +89,7 @@ private:
 	bool checkPowerDown();
 
 	void ProcessQueuedVKeys();
+	void ProcessVKey(VirtKey vkey);
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;
@@ -147,7 +148,7 @@ private:
 
 	bool lastImguiEnabled_ = false;
 
-	VirtKey queuedVirtKey_ = (VirtKey)0;
+	std::vector<VirtKey> queuedVirtKeys_;
 };
 
 bool MustRunBehind();

@@ -787,28 +787,6 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 		}
 		break;
 
-	case VIRTKEY_OPENCHAT:
-		if (down && g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
-			UI::EventParams e{};
-			OnChatMenu.Trigger(e);
-			controlMapper_.ForceReleaseVKey(virtualKeyCode);
-		}
-		break;
-
-	case VIRTKEY_AXIS_SWAP:
-		if (down) {
-			controlMapper_.ToggleSwapAxes();
-			g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
-		}
-		break;
-
-	case VIRTKEY_DEVMENU:
-		if (down) {
-			UI::EventParams e{};
-			OnDevMenu.Trigger(e);
-		}
-		break;
-
 	case VIRTKEY_RESET_EMULATION:
 		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 		break;
@@ -866,85 +844,97 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}
 		break;
-	case VIRTKEY_TOGGLE_FULLSCREEN:
-		if (down)
-			System_ToggleFullscreenState("");
-		break;
-	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
-		if (down) {
-			if (g_Config.bShowTouchControls) {
-				// This just messes with opacity if enabled, so you can touch the screen again to bring them back.
-				if (GamepadGetOpacity() < 0.01f) {
-					GamepadTouch();
-				} else {
-					// Reset.
-					GamepadTouch(true);
-				}
-			} else {
-				// If touch controls are disabled though, they'll get enabled.
-				g_Config.bShowTouchControls = true;
-				RecreateViews();
-				GamepadTouch();
-			}
-		}
-		break;
-	case VIRTKEY_TOGGLE_MOUSE:
-		if (down) {
-			g_Config.bMouseControl = !g_Config.bMouseControl;
-		}
-		break;
 	case VIRTKEY_SCREENSHOT:
 		if (down)
 			g_TakeScreenshot = true;
 		break;
-
-	case VIRTKEY_TEXTURE_DUMP:
-		if (down) {
-			g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
-			if (g_Config.bSaveNewTextures) {
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-			} else {
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0, "savetexturechanged");
-			}
-		}
-		break;
-	case VIRTKEY_TEXTURE_REPLACE:
-		if (down) {
-			g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
-			if (g_Config.bReplaceTextures)
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
-			else
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures are no longer being replaced"), 2.0, "replacetexturechanged");
-			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-		}
-		break;
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
-	case VIRTKEY_MUTE_TOGGLE:
-		if (down)
-			g_Config.bEnableSound = !g_Config.bEnableSound;
+	default:
+		// To make sure we're not in an async context.
+		if (down) {
+			queuedVirtKeys_.push_back(virtualKeyCode);
+		}
 		break;
+	}
+}
+
+void EmuScreen::ProcessQueuedVKeys() {
+	for (auto iter : queuedVirtKeys_) {
+		ProcessVKey(iter);
+	}
+	queuedVirtKeys_.clear();
+}
+
+void EmuScreen::ProcessVKey(VirtKey virtKey) {
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
+
+	switch (virtKey) {
+	case VIRTKEY_OPENCHAT:
+		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
+			controlMapper_.ForceReleaseVKey(VIRTKEY_OPENCHAT);
+		}
+		break;
+
+	case VIRTKEY_AXIS_SWAP:
+		controlMapper_.ToggleSwapAxes();
+		g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
+		break;
+
+	case VIRTKEY_DEVMENU:
+		{
+			UI::EventParams e{};
+			OnDevMenu.Trigger(e);
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_MOUSE:
+		g_Config.bMouseControl = !g_Config.bMouseControl;
+		break;
+
+	case VIRTKEY_TEXTURE_DUMP:
+		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
+		if (g_Config.bSaveNewTextures) {
+			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0, "savetexturechanged");
+		}
+		break;
+
+	case VIRTKEY_TEXTURE_REPLACE:
+		g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
+		if (g_Config.bReplaceTextures)
+			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
+		else
+			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures are no longer being replaced"), 2.0, "replacetexturechanged");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+		break;
+
+	case VIRTKEY_MUTE_TOGGLE:
+		g_Config.bEnableSound = !g_Config.bEnableSound;
+		break;
+
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
-		if (down)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
 		break;
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
-		if (down)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
 		break;
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
-		if (down)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
 		break;
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
-		if (down)
-			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
+		g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
+
 	case VIRTKEY_TOGGLE_WLAN:
 		// Let's not allow the user to toggle wlan while connected, could get confusing.
-		if (down && !g_netInited) {
+		if (!g_netInited) {
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			g_Config.bEnableWlan = !g_Config.bEnableWlan;
@@ -953,17 +943,28 @@ void EmuScreen::onVKey(VirtKey virtualKeyCode, bool down) {
 				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
-	default:
-		// To make sure we're not in an async context.
-		if (down) {
-			queuedVirtKey_ = virtualKeyCode;
+
+	case VIRTKEY_TOGGLE_FULLSCREEN:
+		System_ToggleFullscreenState("");
+		break;
+
+	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
+		if (g_Config.bShowTouchControls) {
+			// This just messes with opacity if enabled, so you can touch the screen again to bring them back.
+			if (GamepadGetOpacity() < 0.01f) {
+				GamepadTouch();
+			} else {
+				// Reset.
+				GamepadTouch(true);
+			}
+		} else {
+			// If touch controls are disabled though, they'll get enabled.
+			g_Config.bShowTouchControls = true;
+			RecreateViews();
+			GamepadTouch();
 		}
 		break;
-	}
-}
 
-void EmuScreen::ProcessQueuedVKeys() {
-	switch (queuedVirtKey_) {
 	case VIRTKEY_EXIT_APP:
 	{
 		std::string confirmExitMessage = GetConfirmExitMessage();
@@ -981,10 +982,10 @@ void EmuScreen::ProcessQueuedVKeys() {
 		}
 		break;
 	}
+
 	default:
 		break;
 	}
-	queuedVirtKey_ = (VirtKey)0;
 }
 
 void EmuScreen::onVKeyAnalog(VirtKey virtualKeyCode, float value) {

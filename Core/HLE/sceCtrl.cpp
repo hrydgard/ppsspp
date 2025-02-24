@@ -238,8 +238,7 @@ void __CtrlSetAnalogY(int stick, float y) {
 	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
 }
 
-void __CtrlSetRapidFire(bool state, int interval)
-{
+void __CtrlSetRapidFire(bool state, int interval) {
 	emuRapidFire = state;
 	emuRapidFireToggle = true;
 	emuRapidFireInterval = interval;
