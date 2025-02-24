@@ -900,7 +900,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 	ImGui::End();
 }
 
-void DrawAudioDecodersView(ImConfig &cfg) {
+void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Audio decoding contexts", &cfg.audioDecodersOpen)) {
 		ImGui::End();
 		return;
@@ -1159,8 +1159,8 @@ void DrawSasAudio(ImConfig &cfg) {
 	ImGui::End();
 }
 
-static void DrawCallStacks(const MIPSDebugInterface *debug, bool *open) {
-	if (!ImGui::Begin("Callstacks", open)) {
+static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, ImControl &control) {
+	if (!ImGui::Begin("Callstacks", &config.callstackOpen)) {
 		ImGui::End();
 		return;
 	}
@@ -1197,25 +1197,24 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, bool *open) {
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextUnformatted(entrySym.c_str());
 			ImGui::TableSetColumnIndex(1);
-			ImGui::Text("%08x", frame.entry);
+			ImClickableValue("frameentry", frame.entry, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableSetColumnIndex(2);
-			ImGui::Text("%08x", frame.pc);
+			ImClickableValue("framepc", frame.pc, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableSetColumnIndex(3);
 			ImGui::TextUnformatted("N/A");  // opcode, see the old debugger
 			ImGui::TableSetColumnIndex(4);
-			ImGui::Text("%08x", frame.sp);
+			ImClickableValue("framepc", frame.sp, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableSetColumnIndex(5);
 			ImGui::Text("%d", frame.stackSize);
 			ImGui::TableNextRow();
 			// TODO: More fields?
 		}
-
 		ImGui::EndTable();
 	}
 	ImGui::End();
 }
 
-static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg) {
+static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Modules", &cfg.modulesOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
@@ -1239,7 +1238,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg) {
 				cfg.selectedModule = i;
 			}
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", module.address);
+			ImClickableValue("addr", module.address, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", module.size);
 			ImGui::TableNextColumn();
@@ -1512,15 +1511,15 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.callstackOpen) {
-		DrawCallStacks(mipsDebug, &cfg_.callstackOpen);
+		DrawCallStacks(mipsDebug, cfg_, control);
 	}
 
 	if (cfg_.modulesOpen) {
-		DrawModules(mipsDebug, cfg_);
+		DrawModules(mipsDebug, cfg_, control);
 	}
 
 	if (cfg_.audioDecodersOpen) {
-		DrawAudioDecodersView(cfg_);
+		DrawAudioDecodersView(cfg_, control);
 	}
 
 	if (cfg_.hleModulesOpen) {
