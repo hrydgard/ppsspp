@@ -605,6 +605,11 @@ std::string GetConfirmExitMessage() {
 		confirmMessage += nw->T("Network connected");
 		confirmMessage += '\n';
 	} else if (g_Config.iAskForExitConfirmationAfterSeconds > 0 && unsavedSeconds > g_Config.iAskForExitConfirmationAfterSeconds) {
+		if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+			// No need to ask for this type of confirmation for dumps.
+			return confirmMessage;
+		}
+
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
 		confirmMessage += '\n';
