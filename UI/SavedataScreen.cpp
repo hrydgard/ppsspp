@@ -632,7 +632,7 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	using namespace UI;
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
-	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL);
+	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
 	sortStrip->AddChoice(sa->T("Date"));
