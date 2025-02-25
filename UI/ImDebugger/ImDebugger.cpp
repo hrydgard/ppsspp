@@ -95,17 +95,17 @@ void StatusBar(std::string_view status) {
 	}
 }
 
-// TODO: Style it.
+// TODO: Style it more
 // Left click performs the preferred action, if any. Right click opens a menu for more.
-void ImClickableValue(const char *id, uint32_t addr, ImControl &control, ImCmd cmd) {
+void ImClickableValue(const char *id, uint32_t value, ImControl &control, ImCmd cmd) {
 	ImGui::PushID(id);
 
-	bool validAddr = Memory::IsValidAddress(addr);
+	bool validAddr = Memory::IsValidAddress(value);
 
 	char temp[32];
-	snprintf(temp, sizeof(temp), "%08x", addr);
+	snprintf(temp, sizeof(temp), "%08x", value);
 	if (ImGui::Selectable(temp) && validAddr) {
-		control.command = { cmd, addr };
+		control.command = { cmd, value };
 	}
 
 	// Create a right-click popup menu. Restore the color while it's up. NOTE: can't query the theme, pushcolor modifies it!
@@ -116,7 +116,27 @@ void ImClickableValue(const char *id, uint32_t addr, ImControl &control, ImCmd c
 		}
 		if (validAddr) {
 			ImGui::Separator();
-			ShowInWindowMenuItems(addr, control);
+			ShowInWindowMenuItems(value, control);
+		}
+		ImGui::EndPopup();
+	}
+	ImGui::PopStyleColor();
+	ImGui::PopID();
+}
+
+// Left click performs the preferred action, if any. Right click opens a menu for more.
+void ImClickableValueFloat(const char *id, float value) {
+	ImGui::PushID(id);
+
+	char temp[32];
+	snprintf(temp, sizeof(temp), "%0.7f", value);
+	if (ImGui::Selectable(temp)) {}
+
+	// Create a right-click popup menu. Restore the color while it's up. NOTE: can't query the theme, pushcolor modifies it!
+	ImGui::PushStyleColor(ImGuiCol_Text, g_normalTextColor);
+	if (ImGui::BeginPopupContextItem(temp)) {
+		if (ImGui::MenuItem("Copy value to clipboard")) {
+			System_CopyStringToClipboard(temp);
 		}
 		ImGui::EndPopup();
 	}
@@ -246,7 +266,7 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			}
 			ImGui::TextUnformatted(mipsDebug->GetRegName(1, i).c_str());
 			ImGui::TableNextColumn();
-			ImGui::Text("%0.7f", fvalue);
+			ImClickableValueFloat(mipsDebug->GetRegName(1, i).c_str(), fvalue);
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", fivalue);
 			if (diff) {
@@ -1001,7 +1021,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
-void DrawAudioChannels(ImConfig &cfg) {
+void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Raw audio channels", &cfg.audioChannelsOpen)) {
 		ImGui::End();
 		return;
@@ -1030,7 +1050,9 @@ void DrawAudioChannels(ImConfig &cfg) {
 				ImGui::Text("%d", i);
 			}
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", chans[i].sampleAddress);
+			char id[2]{};
+			id[0] = i + 1;
+			ImClickableValue(id, chans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
 			ImGui::Text("%08x", chans[i].sampleCount);
 			ImGui::TableNextColumn();
@@ -1188,14 +1210,15 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthStretch);
 
 		ImGui::TableHeadersRow();
-		ImGui::TableNextRow();
 
 		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(debug->GetPC(), debug->GetRegValue(0, 31), debug->GetRegValue(0, 29), entry, stackTop);
 
 		// TODO: Add context menu and clickability
+		int i = 0;
 		for (auto &frame : frames) {
 			const std::string entrySym = g_symbolMap->GetLabelString(frame.entry);
-
+			ImGui::PushID(i);
+			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextUnformatted(entrySym.c_str());
 			ImGui::TableSetColumnIndex(1);
@@ -1208,8 +1231,9 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 			ImClickableValue("framepc", frame.sp, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableSetColumnIndex(5);
 			ImGui::Text("%d", frame.stackSize);
-			ImGui::TableNextRow();
 			// TODO: More fields?
+			ImGui::PopID();
+			i++;
 		}
 		ImGui::EndTable();
 	}
@@ -1234,6 +1258,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 		// TODO: Add context menu and clickability
 		for (int i = 0; i < (int)modules.size(); i++) {
 			auto &module = modules[i];
+			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			if (ImGui::Selectable(module.name.c_str(), cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
@@ -1245,6 +1270,7 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::Text("%08x", module.size);
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(module.active ? "yes" : "no");
+			ImGui::PopID();
 		}
 
 		ImGui::EndTable();
@@ -1497,7 +1523,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 	}
 
 	if (cfg_.audioChannelsOpen) {
-		DrawAudioChannels(cfg_);
+		DrawAudioChannels(cfg_, control);
 	}
 
 	if (cfg_.sasAudioOpen) {

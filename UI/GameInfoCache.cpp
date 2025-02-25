@@ -677,8 +677,6 @@ handleELF:
 				Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
 				if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
-				} else {
-					ERROR_LOG(Log::G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 				}
 			}
 			break;
