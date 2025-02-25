@@ -233,7 +233,8 @@ private:
 };
 
 // Simple custom controls and utilities.
-void ImClickableValue(const char *id, uint32_t addr, ImControl &control, ImCmd cmd);
+void ImClickableValue(const char *id, uint32_t value, ImControl &control, ImCmd cmd);
+void ImClickableValueFloat(const char *id, float value);
 void ShowInWindowMenuItems(uint32_t addr, ImControl &control);
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control);
 void ShowInMemoryDumperMenuItem(uint32_t addr, uint32_t size, MemDumpMode mode, ImControl &control);
