@@ -658,8 +658,10 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	if (!(g_Config.bShowImDebugger && imguiInited_)) {
-		GamepadTouch();
+	if (touch.flags & TOUCH_DOWN) {
+		if (!(g_Config.bShowImDebugger && imguiInited_)) {
+			GamepadTouch();
+		}
 	}
 
 	if (root_) {
