@@ -31,32 +31,77 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	return 1;
 }
 
+// Custom error handler
+void pngErrorHandler(png_structp png_ptr, png_const_charp error_msg) {
+	ERROR_LOG(Log::System, "libpng error: %s\n", error_msg);
+	longjmp(png_jmpbuf(png_ptr), 1);
+}
+
 int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
-	png_image png{};
-	png.version = PNG_IMAGE_VERSION;
-
-	png_image_begin_read_from_memory(&png, input_ptr, input_len);
-
-	if (PNG_IMAGE_FAILED(png)) {
-		WARN_LOG(Log::IO, "pngLoad: %s", png.message);
-		*image_data_ptr = nullptr;
+	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, NULL);
+	if (!png) {
 		return 0;
 	}
-	*pwidth = png.width;
-	*pheight = png.height;
-	png.format = PNG_FORMAT_RGBA;
 
-	int stride = PNG_IMAGE_ROW_STRIDE(png);
+	// Ignore incorrect sRGB profiles
+	png_set_option(png, PNG_SKIP_sRGB_CHECK_PROFILE, PNG_OPTION_ON);
 
-	size_t size = PNG_IMAGE_SIZE(png);
-	if (!size) {
-		ERROR_LOG(Log::IO, "pngLoad: empty image");
-		*image_data_ptr = nullptr;
+	png_infop info = png_create_info_struct(png);
+	if (!info) {
+		png_destroy_read_struct(&png, NULL, NULL);
 		return 0;
 	}
+
+	if (setjmp(png_jmpbuf(png))) {
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
+
+	png_set_read_fn(png, (png_voidp)&input_ptr, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+		const unsigned char **input = (const unsigned char **)png_get_io_ptr(png_ptr);
+		memcpy(outBytes, *input, byteCountToRead);
+		*input += byteCountToRead;
+	});
+
+	png_read_info(png, info);
+
+	*pwidth = png_get_image_width(png, info);
+	*pheight = png_get_image_height(png, info);
+
+	png_set_strip_16(png);
+	png_set_packing(png);
+	png_set_palette_to_rgb(png);
+	png_set_tRNS_to_alpha(png);
+	// Expand grayscale to RGB
+	if (png_get_color_type(png, info) == PNG_COLOR_TYPE_GRAY || png_get_color_type(png, info) == PNG_COLOR_TYPE_GRAY_ALPHA) {
+		png_set_gray_to_rgb(png);
+	}
+	// Force 8-bit RGBA format
+	png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
+
+	// Ignore the file's gamma correction
+	png_set_gamma(png, 1.0, 1.0);
+
+	png_read_update_info(png, info);
+
+	size_t row_bytes = png_get_rowbytes(png, info);
+	size_t size = row_bytes * (*pheight);
 
 	*image_data_ptr = (unsigned char *)malloc(size);
-	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
+	if (!*image_data_ptr) {
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
+
+	png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * (*pheight));
+	for (int y = 0; y < *pheight; y++) {
+		row_pointers[y] = *image_data_ptr + y * row_bytes;
+	}
+
+	png_read_image(png, row_pointers);
+	free(row_pointers);
+	png_destroy_read_struct(&png, &info, NULL);
+
 	return 1;
 }
 
