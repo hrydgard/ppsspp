@@ -214,6 +214,7 @@ enum class SkipGPUReadbackMode : int {
 	NO_SKIP,
 	SKIP,
 	COPY_TO_TEXTURE,
+	HALF_SKIP,
 };
 
 enum class RemoteISOShareType : int {
