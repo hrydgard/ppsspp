@@ -116,6 +116,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 			}
 		} else {
 			ERROR_LOG(Log::IO, "PNG load failed");
+			_dbg_assert_(!levels[0]);
 			return false;
 		}
 		break;

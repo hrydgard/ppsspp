@@ -42,6 +42,9 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	if (!png) {
 		return 0;
 	}
+	if (input_len == 0) {
+		return 0;
+	}
 
 	// Ignore incorrect sRGB profiles
 	png_set_option(png, PNG_SKIP_sRGB_CHECK_PROFILE, PNG_OPTION_ON);
@@ -54,6 +57,10 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	if (setjmp(png_jmpbuf(png))) {
 		png_destroy_read_struct(&png, &info, NULL);
+		if (*image_data_ptr) {
+			free(*image_data_ptr);
+			*image_data_ptr = NULL;
+		}
 		return 0;
 	}
 
@@ -68,17 +75,22 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	*pwidth = png_get_image_width(png, info);
 	*pheight = png_get_image_height(png, info);
 
+	const int color_type = png_get_color_type(png, info);
 	png_set_strip_16(png);
 	png_set_packing(png);
-	png_set_palette_to_rgb(png);
-	png_set_tRNS_to_alpha(png);
-	// Expand grayscale to RGB
-	if (png_get_color_type(png, info) == PNG_COLOR_TYPE_GRAY || png_get_color_type(png, info) == PNG_COLOR_TYPE_GRAY_ALPHA) {
+	if (color_type == PNG_COLOR_TYPE_GRAY)
+		png_set_expand_gray_1_2_4_to_8(png);
+	if (color_type == PNG_COLOR_TYPE_PALETTE) {
+		png_set_palette_to_rgb(png);
+	} else if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
 		png_set_gray_to_rgb(png);
 	}
+
+	if (png_get_valid(png, info, PNG_INFO_tRNS))
+		png_set_tRNS_to_alpha(png);
 	// Force 8-bit RGBA format
 	png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
-
+	png_set_interlace_handling(png);
 	// Ignore the file's gamma correction
 	png_set_gamma(png, 1.0, 1.0);
 
@@ -101,7 +113,6 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	png_read_image(png, row_pointers);
 	free(row_pointers);
 	png_destroy_read_struct(&png, &info, NULL);
-
 	return 1;
 }
 
