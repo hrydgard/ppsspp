@@ -89,7 +89,7 @@ bool GenericLogEnabled(LogLevel level, Log type);
 #if defined(_DEBUG) || (!PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS))
 
 // Needs to be an int (and not use the enum) because it's used by the preprocessor!
-#define MAX_LOGLEVEL DEBUG_LEVEL
+#define MAX_LOGLEVEL VERBOSE_LEVEL
 
 #else
 

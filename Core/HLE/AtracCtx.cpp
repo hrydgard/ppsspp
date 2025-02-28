@@ -935,6 +935,36 @@ void Atrac::ConsumeFrame() {
 	}
 }
 
+#if defined(_DEBUG) || (!PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS))
+static std::string FormatHexLine(uint32_t addr, const uint8_t* data, size_t size) {
+	std::stringstream ss;
+	// Address in 8-digit hex
+	ss << std::hex << std::setfill('0') << std::setw(8) << addr << " ";
+	// Hex values (16 bytes per line)
+	for (size_t i = 0; i < 16; ++i) {
+		if (i < size) {
+			ss << " " << std::setw(2) << std::uppercase << static_cast<int>(data[i]);
+		}
+		else {
+			ss << "   "; // Padding for incomplete lines
+		}
+	}
+	ss << "  >";
+	// ASCII representation
+	for (size_t i = 0; i < 16; ++i) {
+		if (i < size) {
+			char c = data[i];
+			ss << (c >= 32 && c <= 126 ? c : '.'); // Printable chars or '.'
+		}
+		else {
+			ss << ' '; // Padding
+		}
+	}
+	ss << "<";
+	return ss.str();
+}
+#endif
+
 u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	int loopNum = loopNum_;
 	if (bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
@@ -994,6 +1024,20 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		numSamples = std::min(maxSamples, numSamples);
 
 		outSamples = numSamples;
+
+#if defined(_DEBUG) || (!PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS))
+		if (track_.bytesPerFrame > 0) {
+			uint32_t expectedOutSamples = track_.SamplesPerFrame(); // e.g., 0x800 for Atrac3+
+				DEBUG_LOG(Log::ME, "decodeData from 0x%08X(0x%X) to 0x%08X(0x%X), skippedSamples=0x%X, currentSample=0x%X, outputChannels=%d",
+					packetAddr, track_.bytesPerFrame, outbufPtr, expectedOutSamples, skipSamples, currentSample_, outputChannels_);
+				size_t logBytes = track_.bytesPerFrame;
+				for (size_t offset = 0; offset < logBytes; offset += 16) {
+					size_t lineSize = std::min<size_t>(16, logBytes - offset);
+					std::string line = FormatHexLine(packetAddr + offset, indata + offset, lineSize);
+					VERBOSE_LOG(Log::ME, "%s", line.c_str());
+				}
+		}
+#endif
 		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamples)) {
 			// Decode failed.
 			*SamplesNum = 0;
