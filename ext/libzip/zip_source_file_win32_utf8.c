@@ -31,6 +31,7 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <stdlib.h>
 #include "zip_source_file_win32.h"
 
 ZIP_EXTERN zip_source_t *
