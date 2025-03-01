@@ -51,6 +51,7 @@ void TimeInit() {
 	QpcPerSecond = frequency.QuadPart;
 	frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
 
+	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
 #if !PPSSPP_PLATFORM(UWP)
 	TIMECAPS caps;
@@ -264,11 +265,13 @@ void sleep_ms(int ms, const char *reason) {
 #endif
 }
 
-// Precise Windows sleep function from: https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
-// Described in: https://blog.bearcats.nl/perfect-sleep-function/
-
 void sleep_precise(double seconds) {
+	if (seconds <= 0.0) {
+		return;
+	}
 #ifdef _WIN32
+	// Precise Windows sleep function from: https://github.com/blat-blatnik/Snippets/blob/main/precise_sleep.c
+	// Described in: https://blog.bearcats.nl/perfect-sleep-function/
 	LARGE_INTEGER qpc;
 	QueryPerformanceCounter(&qpc);
 	INT64 targetQpc = (INT64)(qpc.QuadPart + seconds * QpcPerSecond);
@@ -302,14 +305,13 @@ void sleep_precise(double seconds) {
 		YieldProcessor();
 		QueryPerformanceCounter(&qpc);
 	}
-#else
-#if defined(HAVE_LIBNX)
+	// On other platforms, we just do a conversion with more input precision than in sleep_ms which is restricted to whole milliseconds.
+#elif defined(HAVE_LIBNX)
 	svcSleepThread((int64_t)(seconds * 1000000000.0));
 #elif defined(__EMSCRIPTEN__)
 	emscripten_sleep(seconds * 1000.0);
 #else
 	usleep(seconds * 1000000.0);
-#endif
 #endif
 }
 
