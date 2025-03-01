@@ -37,8 +37,12 @@ void pngErrorHandler(png_structp png_ptr, png_const_charp error_msg) {
 	longjmp(png_jmpbuf(png_ptr), 1);
 }
 
+void pngWarningHandler(png_structp png_ptr, png_const_charp warning_msg) {
+	DEBUG_LOG(Log::System, "libpng warning: %s\n", warning_msg);
+}
+
 int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
-	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, NULL);
+	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
 	if (!png) {
 		return 0;
 	}
@@ -48,6 +52,7 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	// Ignore incorrect sRGB profiles
 	png_set_option(png, PNG_SKIP_sRGB_CHECK_PROFILE, PNG_OPTION_ON);
+	png_set_benign_errors(png, PNG_OPTION_ON);
 
 	png_infop info = png_create_info_struct(png);
 	if (!info) {
