@@ -3,6 +3,7 @@
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
@@ -402,11 +403,18 @@ Invalid / Unknown (%d)
 
 	ctx->PopScissor();
 
-	// Draw some additional stuff to the right.
+	// Draw some additional stuff to the right, explaining why the background is purple, if it is.
+	// Should try to be in sync with Reporting::IsSupported().
 
 	std::string tips;
 	if (CheatsInEffect()) {
 		tips += "* Turn off cheats.\n";
+	}
+	if (HLEPlugins::HasEnabled()) {
+		tips += "* Turn off plugins.\n";
+	}
+	if (g_Config.uJitDisableFlags) {
+		tips += StringFromFormat("* Don't use JitDisableFlags: %08x\n", g_Config.uJitDisableFlags);
 	}
 	if (GetLockedCPUSpeedMhz()) {
 		tips += "* Set CPU clock to default (0)\n";
@@ -415,6 +423,9 @@ Invalid / Unknown (%d)
 		tips += "* (waiting for CRC...)\n";
 	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
 		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
+	}
+	if (g_paramSFO.GetValueString("DISC_VERSION").empty()) {
+		tips += "\n(DISC_VERSION is empty)\n";
 	}
 	if (!tips.empty()) {
 		tips = "Things to try:\n" + tips;
