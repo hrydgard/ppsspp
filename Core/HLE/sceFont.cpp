@@ -874,11 +874,11 @@ static LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 			return fontMap[handle];
 		} else {
 			ERROR_LOG(Log::sceFont, "Font exists but is closed, which was not allowed in this call.");
-			return 0;
+			return nullptr;
 		}
 	} else {
 		ERROR_LOG(Log::sceFont, "No font with handle %08x", handle);
-		return 0;
+		return nullptr;
 	}
 }
 
@@ -1260,20 +1260,20 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFindFont(%x, %x, %x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
-		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
+		return hleNoLog(SCE_KERNEL_ERROR_INVALID_ARGUMENT);
 	}
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFindFont(%08x, %08x, %08x): invalid font lib", libHandle, fontStylePtr, errorCodePtr);
 		*errorCode = ERROR_FONT_INVALID_LIBID;
-		return 0;
+		return hleNoLog(0);
 	}
 
 	if (!Memory::IsValidAddress(fontStylePtr)) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFindFont(%08x, %08x, %08x): invalid style address", libHandle, fontStylePtr, errorCodePtr);
 		*errorCode = ERROR_FONT_INVALID_PARAMETER;
-		return 0;
+		return hleNoLog(0);
 	}
 
 	DEBUG_LOG(Log::sceFont, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
@@ -1425,12 +1425,11 @@ static int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectP
 		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid rect pointer");
 	}
 
-	DEBUG_LOG(Log::sceFont, "sceFontGetShadowImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
 	PGFCharInfo charInfo;
 	font->GetCharInfo(charCode, &charInfo, FONT_PGF_SHADOWGLYPH);
 	charRect->width = charInfo.bitmapWidth;
 	charRect->height = charInfo.bitmapHeight;
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
@@ -1444,28 +1443,24 @@ static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImage
 		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
 	}
 
-	DEBUG_LOG(Log::sceFont, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	font->DrawCharacter(glyph, -1, -1, -1, -1, charCode, FONT_PGF_CHARGLYPH);
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 static int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
-		ERROR_LOG(Log::sceFont, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad glyphImage pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
 	}
 
-	DEBUG_LOG(Log::sceFont, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	font->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, FONT_PGF_CHARGLYPH);
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
@@ -1473,7 +1468,7 @@ static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontSetAltCharacterCode(%08x, %08x): invalid font lib", fontLibHandle, charCode);
-		return ERROR_FONT_INVALID_LIBID;
+		return hleNoLog(ERROR_FONT_INVALID_LIBID);
 	}
 
 	fl->SetAltCharCode(charCode & 0xFFFF);
@@ -1481,18 +1476,16 @@ static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
 }
 
 static int sceFontFlush(u32 fontHandle) {
-	INFO_LOG(Log::sceFont, "sceFontFlush(%i)", fontHandle);
-	
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFlush(%08x): bad font", fontHandle);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
 	}
 
 	if (font->GetFontLib()) {
 		font->GetFontLib()->flushFont();
 	}
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 // One would think that this should loop through the fonts loaded in the fontLibHandle,
@@ -1541,9 +1534,8 @@ static int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
 	if (hRes <= 0.0f || vRes <= 0.0f) {
 		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "negative value in hRes %f or vRes %f", hRes, vRes);
 	}
-	INFO_LOG(Log::sceFont, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
 	fl->SetResolution(hRes, vRes);
-	return 0;
+	return hleLogInfo(Log::sceFont, 0);
 }
 
 static float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 errorCodePtr) {
@@ -1616,43 +1608,41 @@ static float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 erro
 
 static int sceFontCalcMemorySize() {
 	ERROR_LOG_REPORT(Log::sceFont, "UNIMPL sceFontCalcMemorySize()");
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(Log::sceFont, "sceFontGetShadowGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetShadowGlyphImage(%x, %x, %x): bad font", fontHandle, charCode, glyphImagePtr);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
 	}
 
-	DEBUG_LOG(Log::sceFont, "sceFontGetShadowGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	font->DrawCharacter(glyph, -1, -1, -1, -1, charCode, FONT_PGF_SHADOWGLYPH);
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 static int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(Log::sceFont, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
 	}
 
-	DEBUG_LOG(Log::sceFont, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
 	font->DrawCharacter(glyph, clipXPos, clipYPos, clipWidth, clipHeight, charCode, FONT_PGF_SHADOWGLYPH);
-	return 0;
+	return hleLogDebug(Log::sceFont, 0);
 }
 
 // sceLibFont is a user level library so it can touch the stack. Some games appear to rely a bit of stack

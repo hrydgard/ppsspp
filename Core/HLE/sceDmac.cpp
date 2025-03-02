@@ -84,7 +84,7 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 
 	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
-		WARN_LOG_REPORT_ONCE(overlapDmacMemcpy, Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
+		WARN_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
 	}

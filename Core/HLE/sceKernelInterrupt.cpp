@@ -510,7 +510,8 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 			return hleLogDebug(Log::sceIntc, error);
 		}
 	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
-		return hleReportError(Log::sceIntc, error, "duplicate handler");
+		// Pretty common. Used to report here, but not useful.
+		return hleLogError(Log::sceIntc, error, "duplicate handler");
 	}
 	return hleReportError(Log::sceIntc, error);
 }

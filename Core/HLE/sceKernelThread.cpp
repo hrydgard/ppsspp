@@ -2636,11 +2636,12 @@ int sceKernelCancelWakeupThread(SceUID uid) {
 	}
 }
 
+// Logs like a HLE func
 static int __KernelSleepThread(bool doCallbacks) {
 	PSPThread *thread = __GetCurrentThread();
 	if (!thread) {
 		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSleepThread*(): bad current thread");
-		return -1;
+		return hleNoLog(-1);
 	}
 
 	if (thread->nt.wakeupCount > 0) {
@@ -2650,7 +2651,7 @@ static int __KernelSleepThread(bool doCallbacks) {
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 		return hleLogVerbose(Log::sceKernel, 0, "sleeping");
 	}
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelSleepThread() {
@@ -2804,24 +2805,21 @@ int sceKernelSuspendThread(SceUID threadID)
 	}
 }
 
-int sceKernelResumeThread(SceUID threadID)
-{
+int sceKernelResumeThread(SceUID threadID) {
 	// TODO: What about interrupts/callbacks?
-	if (threadID == 0 || threadID == currentThread)
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelResumeThread(%d): cannot suspend current thread", threadID);
-		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	if (threadID == 0 || threadID == currentThread)	{
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_THID, "cannot suspend current thread");
 	}
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
-	if (t)
-	{
-		if (!t->isSuspended())
-		{
-			ERROR_LOG(Log::sceKernel, "sceKernelResumeThread(%d): thread not suspended", threadID);
-			return SCE_KERNEL_ERROR_NOT_SUSPEND;
+	if (!t) {
+		return hleLogError(Log::sceKernel, error, "bad thread");
+	} else {
+		if (!t->isSuspended()) {
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOT_SUSPEND, "sceKernelResumeThread(%d): thread not suspended", threadID);
 		}
+
 		DEBUG_LOG(Log::sceKernel, "sceKernelResumeThread(%d)", threadID);
 		t->nt.status &= ~THREADSTATUS_SUSPEND;
 
@@ -2829,16 +2827,9 @@ int sceKernelResumeThread(SceUID threadID)
 		if (t->nt.status == 0)
 			__KernelChangeReadyState(t, threadID, true);
 		hleReSchedule("resume thread from suspend");
-		return 0;
-	}
-	else
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelResumeThread(%d): bad thread", threadID);
-		return error;
+		return hleNoLog(0);
 	}
 }
-
-
 
 //////////////////////////////////////////////////////////////////////////
 // CALLBACKS

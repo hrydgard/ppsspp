@@ -1300,7 +1300,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	if (reportNoPos) {
 		char temp[256]{};
 		ToString(temp, true);
-		ERROR_LOG_REPORT(Log::G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
+		ERROR_LOG(Log::G3D, "Vertices without position found (and ignored): (%08x) %s", fmt_, temp);
 	}
 
 	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");

@@ -431,21 +431,21 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	return replay_ ? (size_t)ReplayApplyDisk64(ReplayAction::FILE_SEEK, result, CoreTiming::GetGlobalTimeUs()) : result;
 }
 
-void DirectoryFileHandle::Close()
-{
+void DirectoryFileHandle::Close() {
 	if (needsTrunc_ != -1) {
 #ifdef _WIN32
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
+			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file to %d bytes", needsTrunc_);
 		}
 #elif !PPSSPP_PLATFORM(SWITCH)
 		// Note: it's not great that Switch cannot truncate appropriately...
 		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file.");
+			ERROR_LOG_REPORT(Log::FileSystem, "Failed to truncate file to %d bytes", needsTrunc_);
 		}
 #endif
 	}
+
 #ifdef _WIN32
 	if (hFile != (HANDLE)-1)
 		CloseHandle(hFile);
@@ -648,7 +648,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &use
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
+			ERROR_LOG(Log::FileSystem, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
 			return 0;
 		}
 
