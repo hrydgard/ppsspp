@@ -831,6 +831,7 @@ namespace MIPSInt
 			// move from interrupt controller, not implemented
 			// See related report https://report.ppsspp.org/logs/kind/316 for possible locations.
 			// Also see https://forums.ps2dev.org/viewtopic.php?p=32700#p32700 .
+			// TODO: Should we actually implement this?
 			if (!reported) {
 				WARN_LOG(Log::CPU, "MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
