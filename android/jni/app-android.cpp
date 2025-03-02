@@ -221,7 +221,7 @@ void Android_AttachThreadToJNI() {
 
 		if (status < 0) {
 			// bad, but what can we do other than report..
-			ERROR_LOG_REPORT_ONCE(threadAttachFail, Log::System, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
+			ERROR_LOG(Log::System, "Failed to attach thread %s to JNI.", GetCurrentThreadName());
 		}
 	} else {
 		WARN_LOG(Log::System, "Thread %s was already attached to JNI.", GetCurrentThreadName());
