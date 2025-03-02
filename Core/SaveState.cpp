@@ -334,7 +334,10 @@ double g_lastSaveTime = -1.0;
 	static std::string saveStateInitialGitVersion = "";
 
 	// TODO: Should this be configurable?
-	static const int SCREENSHOT_FAILURE_RETRIES = 15;
+	// Should only fail if the game hasn't created a framebuffer yet. Some games play video without a framebuffer,
+	// we should probably just read back memory then instead (GTA for example). But this is a really unimportant edge case,
+	// when in-game it's just not an issue.
+	static const int SCREENSHOT_FAILURE_RETRIES = 6;
 	static StateRingbuffer rewindStates;
 
 	void SaveStart::DoState(PointerWrap &p)
@@ -463,8 +466,8 @@ double g_lastSaveTime = -1.0;
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 
-	void SaveScreenshot(const Path &filename, Callback callback, void *cbUserData)
-	{
+	void SaveScreenshot(const Path &filename, Callback callback, void *cbUserData) {
+		screenshotFailures = 0;
 		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, callback, cbUserData));
 	}
 
@@ -1094,9 +1097,9 @@ double g_lastSaveTime = -1.0;
 				tempResult = TakeGameScreenshot(nullptr, op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxResMultiplier);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
-					ERROR_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
-					if (screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
-						// Requeue for next frame.
+					WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", op.filename.c_str());
+					if (coreState != CORE_STEPPING_CPU && screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
+						// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
 						SaveScreenshot(op.filename, op.callback, op.cbUserData);
 					}
 				} else {

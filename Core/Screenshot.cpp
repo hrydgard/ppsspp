@@ -355,7 +355,6 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 	}
 
 	if (!success) {
-		ERROR_LOG(Log::G3D, "Failed to obtain screenshot data.");
 		return false;
 	}
 

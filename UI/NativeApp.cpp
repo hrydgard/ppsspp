@@ -982,6 +982,7 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 	} else {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+		WARN_LOG(Log::System, "Failed to take screenshot.");
 	}
 }
 
