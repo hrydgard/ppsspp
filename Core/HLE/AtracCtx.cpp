@@ -681,7 +681,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	if (allocatedAddr == 0) {
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_NO_MEMORY, "Failed to allocate memory for Atrac buffer");
 	}
-
+	Memory::Memset(allocatedAddr, 0, bufferSize, "AtracSetData");
 	Memory::Memcpy(allocatedAddr, buffer, readSize, "AtracSetData");
 	first_.addr = allocatedAddr;
 	first_.size = readSize;
@@ -721,15 +721,6 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	const char *codecName = track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = track_.channels == 1 ? "mono" : "stereo";
 
-	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
-	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
-	// architecture that has the largest pages (M1).
-	dataBuf_ = new u8[track_.fileSize + overAllocBytes];
-	memset(dataBuf_, 0, track_.fileSize + overAllocBytes);
-	if (!ignoreDataBuf_) {
-		u32 copybytes = std::min(bufferSize, track_.fileSize);
-		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
-	}
 	CreateDecoder();
 	return hleLogInfo(Log::ME, successCode, "%s %s (%d channels) audio", codecName, channelName, track_.channels);
 }
