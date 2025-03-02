@@ -977,11 +977,13 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (!iostat.IsValid())
 		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
-	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
+	ERROR_LOG(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
 		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
-	if (changebits & SCE_CST_ATTR)
+	if (changebits & SCE_CST_ATTR) {
+		// These are pretty much all of the reported calls: https://report.ppsspp.org/logs/kind/1115
 		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
+	}
 	if (changebits & SCE_CST_SIZE)
 		ERROR_LOG(Log::sceIo, "sceIoChstat: change size requested");
 	if (changebits & SCE_CST_CT)

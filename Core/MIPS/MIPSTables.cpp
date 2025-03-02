@@ -913,7 +913,9 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 		if (info & OUT_EAT_PREFIX)
 			jit->EatPrefix();
 	} else {
-		ERROR_LOG_REPORT(Log::CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
+		// Used to _REPORT this, but I'm confident we have all instructions now, any caught here
+		// are due to games crashing, due to cheats or bugs.
+		ERROR_LOG(Log::CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
 }
 
