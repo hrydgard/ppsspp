@@ -497,9 +497,7 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
-			}
+			System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			break;
 
 		case ID_EMULATION_STOP:

@@ -100,6 +100,9 @@ enum class SystemRequestType {
 	RUN_CALLBACK_IN_WNDPROC,
 };
 
+// Run a closure on the main thread. Used to safely implement UI that runs on another thread.
+void System_RunOnMainThread(std::function<void()> func);
+
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
 // This is not to be used directly by applications, instead use the g_RequestManager to make the requests.
 // This can return false if it's known that the platform doesn't support the request, the app is supposed to handle

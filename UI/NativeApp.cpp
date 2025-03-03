@@ -177,7 +177,7 @@ struct PendingMessage {
 	std::string value;
 };
 
-static std::mutex pendingMutex;
+static std::mutex g_pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
@@ -185,6 +185,7 @@ static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static int g_restartGraphics;
 static bool g_windowHidden = false;
+std::vector<std::function<void()>> g_pendingClosures;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -345,6 +346,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
+	g_pendingClosures.clear();
 	g_requestManager.Clear();
 
 	// external_dir has all kinds of meanings depending on platform.
@@ -1047,19 +1049,28 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->update();
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
-	std::vector<PendingMessage> toProcess;
 	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.message, item.value)) {
-			// TODO: Add a to-string thingy.
-			INFO_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+		std::vector<PendingMessage> toProcess;
+		std::vector<std::function<void()>> toRun;
+		{
+			std::lock_guard<std::mutex> lock(g_pendingMutex);
+			toProcess = std::move(pendingMessages);
+			toRun = std::move(g_pendingClosures);
+			pendingMessages.clear();
+			g_pendingClosures.clear();
 		}
-		g_screenManager->sendMessage(item.message, item.value.c_str());
+
+		for (auto &item : toRun) {
+			item();
+		}
+
+		for (const auto &item : toProcess) {
+			if (HandleGlobalMessage(item.message, item.value)) {
+				// TODO: Add a to-string thingy.
+				INFO_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+			}
+			g_screenManager->sendMessage(item.message, item.value.c_str());
+		}
 	}
 
 	g_requestManager.ProcessRequests();
@@ -1404,11 +1415,16 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 }
 
 void System_PostUIMessage(UIMessage message, const std::string &value) {
-	std::lock_guard<std::mutex> lock(pendingMutex);
+	std::lock_guard<std::mutex> lock(g_pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.message = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
+}
+
+void System_RunOnMainThread(std::function<void()> func) {
+	std::lock_guard<std::mutex> lock(g_pendingMutex);
+	g_pendingClosures.push_back(std::move(func));
 }
 
 void NativeResized() {
