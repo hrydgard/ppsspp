@@ -6,6 +6,7 @@
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/RetroAchievements.h"
@@ -180,6 +181,20 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 	}
 
 	bool noDiff = coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_GE;
+
+	if (ImGui::Button("Copy all to clipboard")) {
+		char *buffer = new char[20000];
+		StringWriter w(buffer);
+		for (int i = 0; i < 32; i++) {
+			u32 value = mipsDebug->GetGPR32Value(i);
+			w.F("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value).endl();
+		}
+		w.F("hi: %08x", mipsDebug->GetHi()).endl();
+		w.F("lo: %08x", mipsDebug->GetLo()).endl();
+		w.F("pc: %08x", mipsDebug->GetPC()).endl();
+		System_CopyStringToClipboard(buffer);
+		delete[] buffer;
+	}
 
 	if (ImGui::BeginTable("gpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Reg", ImGuiTableColumnFlags_WidthFixed);

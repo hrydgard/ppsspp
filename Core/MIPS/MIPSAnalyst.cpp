@@ -514,6 +514,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x7624dde603717640, 288, "ZZT3_select_hack", }, // Zettai Zetsumei Toshi 3 - bypasses softlock on character select screen #4901
 	{ 0x0dc5ca84f707863c, 452, "blitz_fps_hack", }, // Blitz: Overtime
 	{ 0xf93d3cd093595a6c, 856, "brian_lara_fps_hack", }, // Brian Lara 2007: Pressure Play
+	{ 0xc1d4af42a4c8860f, 964, "persona1_download_frame", },  // Persona 1 (issue #13079)
 };
 
 namespace MIPSAnalyst {
