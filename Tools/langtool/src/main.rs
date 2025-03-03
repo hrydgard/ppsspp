@@ -13,6 +13,8 @@ struct Args {
     cmd: Command,
     #[arg(short, long)]
     dry_run: bool,
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -59,6 +61,7 @@ enum Command {
         section: String,
         key: String,
     },
+    GetNewKeys,
 }
 
 fn copy_missing_lines(
@@ -99,6 +102,25 @@ fn deal_with_unknown_lines(
                 target_section.remove_lines_if_not_in(reference_section);
             } else {
                 target_section.comment_out_lines_if_not_in(reference_section);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn print_keys_if_not_in(
+    reference_ini: &IniFile,
+    target_ini: &mut IniFile,
+    header: &str,
+) -> io::Result<()> {
+    for reference_section in &reference_ini.sections {
+        if let Some(target_section) = target_ini.get_section_mut(&reference_section.name) {
+            let keys = target_section.get_keys_if_not_in(reference_section);
+            if !keys.is_empty() {
+                println!("{} ({})", reference_section.name, header);
+                for key in &keys {
+                    println!("- {}", key);
+                }
             }
         }
     }
@@ -222,7 +244,9 @@ fn main() {
             continue;
         }
         let target_ini_filename = format!("{}/{}", root, filename);
-        println!("Langtool processing {}", target_ini_filename);
+        if opt.verbose {
+            println!("Langtool processing {}", target_ini_filename);
+        }
 
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
 
@@ -237,6 +261,9 @@ fn main() {
             }
             Command::RemoveUnknownLines {} => {
                 deal_with_unknown_lines(reference_ini, &mut target_ini, true).unwrap();
+            }
+            Command::GetNewKeys {} => {
+                print_keys_if_not_in(reference_ini, &mut target_ini, &target_ini_filename).unwrap();
             }
             Command::SortSection { ref section } => sort_section(&mut target_ini, section).unwrap(),
             Command::RenameKey {
