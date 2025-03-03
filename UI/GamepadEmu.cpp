@@ -457,7 +457,12 @@ void PSPStick::Draw(UIContext &dc) {
 	float stickY = centerY_;
 
 	float dx, dy;
-	__CtrlPeekAnalog(stick_, &dx, &dy);
+	if (dragPointerId_ == -1) {
+		__CtrlPeekAnalog(stick_, &dx, &dy);
+	} else {
+		dx = posX_;
+		dy = posY_;
+	}
 
 	if (!g_Config.bHideStickBackground)
 		dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
@@ -474,6 +479,8 @@ bool PSPStick::Touch(const TouchInput &input) {
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
 		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
+		posX_ = 0.0f;
+		posY_ = 0.0f;
 		usedPointerMask = 0;
 		analogPointerMask = 0;
 		return retval;
@@ -521,22 +528,27 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 
 		float dx = (x - centerX_) * inv_stick_size;
 		float dy = (y - centerY_) * inv_stick_size;
-		// Do not clamp to a circle! The PSP has nearly square range!
 
-		// Old code to clamp to a circle
-		// float len = sqrtf(dx * dx + dy * dy);
-		// if (len > 1.0f) {
-		//	dx /= len;
-		//	dy /= len;
-		//}
+		if (g_Config.bAnalogIsCircular) {
+			float len = sqrtf(dx * dx + dy * dy);
+			if (len > 1.0f) {
+				dx /= len;
+				dy /= len;
+			}
+		} else {
+			dx = std::min(1.0f, std::max(-1.0f, dx));
+			dy = std::min(1.0f, std::max(-1.0f, dy));
+		}
 
-		// Still need to clamp to a square
-		dx = std::min(1.0f, std::max(-1.0f, dx));
-		dy = std::min(1.0f, std::max(-1.0f, dy));
+		posX_ = dx;
+		posY_ = -dy;
 
+		ConvertAnalogStick(dx, dy);
 		__CtrlSetAnalogXY(stick_, dx, -dy);
 	} else {
 		__CtrlSetAnalogXY(stick_, 0.0f, 0.0f);
+		posX_ = 0.0f;
+		posY_ = 0.0f;
 	}
 }
 
@@ -711,8 +723,20 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		float dx = (x - centerX_) * inv_stick_size;
 		float dy = (y - centerY_) * inv_stick_size;
 
-		dx = std::min(1.0f, std::max(-1.0f, dx));
-		dy = std::min(1.0f, std::max(-1.0f, dy));
+		if (g_Config.bAnalogIsCircular) {
+			float len = sqrtf(dx * dx + dy * dy);
+			if (len > 1.0f) {
+				dx /= len;
+				dy /= len;
+			}
+		} else {
+			dx = std::min(1.0f, std::max(-1.0f, dx));
+			dy = std::min(1.0f, std::max(-1.0f, dy));
+		}
+
+		posX_ = dx;
+		posY_ = dy;
+		ConvertAnalogStick(dx, dy);
 
 		toggle(g_Config.iRightAnalogRight, dx > 0.5f, fabs(dx) > fabs(dy));
 		toggle(g_Config.iRightAnalogLeft, dx < -0.5f, fabs(dx) > fabs(dy));
@@ -721,9 +745,6 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		toggle(g_Config.iRightAnalogPress, true);
 
 		analog(dx, dy);
-
-		posX_ = dx;
-		posY_ = dy;
 
 	} else {
 		toggle(g_Config.iRightAnalogRight, false);
