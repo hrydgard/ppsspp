@@ -1923,7 +1923,7 @@ void DeveloperToolsScreen::CreateViews() {
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		auto driverChoice = list->Add(new Choice(gr->T("Adreno Driver Manager")));
+		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {
 			screenManager()->push(new DriverManagerScreen(gamePath_));
 			return UI::EVENT_DONE;
