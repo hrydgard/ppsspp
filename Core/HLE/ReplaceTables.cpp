@@ -1280,8 +1280,9 @@ static int Hook_omertachinmokunookitethelegacy_download_frame() {
 	return 0;
 }
 
-// Function at 0886665C in US version
-static int Hook_persona1_download_frame() {
+// Function at 0886665C in US version (Persona 1)
+// Function at 08807DC4 in EU version (Persona 2)
+static int Hook_persona_download_frame() {
 	const u32 fb_address = 0x04088000;  // hardcoded at 088666D8
 	// const u32 dest_address = currentMIPS->r[MIPS_REG_A1];   // not relevant
 	if (Memory::IsVRAMAddress(fb_address)) {
@@ -1606,7 +1607,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOKENTER, 0xC4 },
 	{ "blitz_fps_hack", &Hook_blitz_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{ "brian_lara_fps_hack", &Hook_brian_lara_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
-	{ "persona1_download_frame", &Hook_persona1_download_frame, 0, REPFLAG_HOOKENTER, 0 },
+	{ "persona1_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
+	{ "persona2_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{}
 };
 
