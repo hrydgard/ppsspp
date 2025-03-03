@@ -2140,6 +2140,10 @@ void GPUCommon::NotifyFlush() {
 		if (primAfterDraw_) {
 			NOTICE_LOG(Log::GeDebugger, "Flush detected, breaking at next PRIM");
 			primAfterDraw_ = false;
+
+			// We've got one to rewind.
+			primsThisFrame_--;
+
 			// Switch to PRIM mode.
 			SetBreakNext(BreakNext::PRIM);
 		}
