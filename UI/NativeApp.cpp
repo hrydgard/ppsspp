@@ -89,6 +89,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FrameTiming.h"
 #include "Core/KeyMap.h"
@@ -1074,6 +1075,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	g_requestManager.ProcessRequests();
+
+	g_breakpoints.Frame();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);

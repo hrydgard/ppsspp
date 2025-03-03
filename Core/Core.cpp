@@ -108,7 +108,6 @@ const char *BreakReasonToString(BreakReason reason) {
 	case BreakReason::SavestateCrash: return "savestate.crash";
 	case BreakReason::MemoryBreakpoint: return "memory.breakpoint";
 	case BreakReason::CpuBreakpoint: return "cpu.breakpoint";
-	case BreakReason::BreakpointUpdate: return "cpu.breakpoint.update";
 	case BreakReason::MemoryAccess: return "memory.access";  // ???
 	case BreakReason::JitBranchDebug: return "jit.branchdebug";
 	case BreakReason::RABreak: return "ra.break";
