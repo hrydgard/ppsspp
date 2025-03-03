@@ -157,11 +157,17 @@ void Atrac::ResetData() {
 	delete decoder_;
 	decoder_ = nullptr;
 
-	if (dataBuf_)
+	// Free the allocated memory if we used it
+	if (ignoreDataBuf_ && first_.addr != 0) {
+		kernelMemory.Free(first_.addr);
+		first_.addr = 0;
+	}
+
+	// Free dataBuf_ if it was allocated (e.g., loaded from an old savestate)
+	if (dataBuf_ != nullptr) {
 		delete[] dataBuf_;
-	dataBuf_ = 0;
-	ignoreDataBuf_ = false;
-	bufferState_ = ATRAC_STATUS_NO_DATA;
+		dataBuf_ = nullptr;
+	}
 
 	if (context_.IsValid())
 		kernelMemory.Free(context_.ptr);
@@ -671,11 +677,17 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 		WARN_LOG(Log::ME, "outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
 	}
 
-	first_.addr = buffer;
+	u32 allocatedAddr = kernelMemory.Alloc(bufferSize, false, "AtracBuffer");
+	if (allocatedAddr == 0) {
+		return hleReportError(Log::ME, SCE_KERNEL_ERROR_NO_MEMORY, "Failed to allocate memory for Atrac buffer");
+	}
+	Memory::Memset(allocatedAddr, 0, bufferSize, "AtracSetData");
+	Memory::Memcpy(allocatedAddr, buffer, readSize, "AtracSetData");
+	first_.addr = allocatedAddr;
 	first_.size = readSize;
-
-	if (first_.size > track_.fileSize)
+	if (first_.size > track_.fileSize) {
 		first_.size = track_.fileSize;
+	}
 	first_.fileoffset = first_.size;
 
 	// got the size of temp buf, and calculate offset
@@ -689,16 +701,18 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
+		kernelMemory.Free(allocatedAddr);
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "unexpected codec type in set data");
 	}
 
-	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED || bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
-		// This says, don't use the dataBuf_ array, use the PSP RAM.
-		// This way, games can load data async into the buffer, and it still works.
-		// TODO: Support this always, even for streaming.
-		ignoreDataBuf_ = true;
-	}
-	if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+	// This says, don't use the dataBuf_ array, use the PSP RAM.
+	// This way, games can load data async into the buffer, and it still works.
+	// Support this always, even for streaming.
+	ignoreDataBuf_ = true;
+
+	if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP ||
+		bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END ||
+		bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		bufferHeaderSize_ = track_.dataByteOffset;
 		bufferPos_ = track_.dataByteOffset + track_.bytesPerFrame;
 		bufferValidBytes_ = first_.size - bufferPos_;
@@ -707,15 +721,6 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	const char *codecName = track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = track_.channels == 1 ? "mono" : "stereo";
 
-	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
-	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
-	// architecture that has the largest pages (M1).
-	dataBuf_ = new u8[track_.fileSize + overAllocBytes];
-	memset(dataBuf_, 0, track_.fileSize + overAllocBytes);
-	if (!ignoreDataBuf_) {
-		u32 copybytes = std::min(bufferSize, track_.fileSize);
-		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
-	}
 	CreateDecoder();
 	return hleLogInfo(Log::ME, successCode, "%s %s (%d channels) audio", codecName, channelName, track_.channels);
 }
@@ -793,6 +798,10 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 		if (!ignoreDataBuf_) {
 			Memory::Memcpy(dataBuf_ + first_.fileoffset, first_.addr + first_.offset, addbytes, "AtracAddStreamData");
 		}
+		else {
+			u32 destAddr = first_.addr + first_.offset;
+			Memory::Memcpy(destAddr, first_.addr + first_.offset, addbytes, "AtracAddStreamData");
+		}
 		first_.fileoffset += addbytes;
 	}
 	first_.size += bytesToAdd;
@@ -816,7 +825,13 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 
 u32 Atrac::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 	int addbytes = std::min(bytesToAdd, track_.fileSize - first_.fileoffset - track_.FirstOffsetExtra());
-	Memory::Memcpy(dataBuf_ + first_.fileoffset + track_.FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
+	if (!ignoreDataBuf_) {
+		Memory::Memcpy(dataBuf_ + first_.fileoffset + track_.FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
+	}
+	else {
+		u32 destAddr = first_.addr + first_.fileoffset + track_.FirstOffsetExtra();
+		Memory::Memcpy(destAddr, bufPtr, addbytes, "AtracAddStreamData");
+	}
 	first_.size += bytesToAdd;
 	if (first_.size >= track_.fileSize) {
 		first_.size = track_.fileSize;
@@ -1098,6 +1113,9 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		if (bytesWrittenFirstBuf != 0) {
 			if (!ignoreDataBuf_) {
 				Memory::Memcpy(dataBuf_ + first_.size, first_.addr + first_.size, bytesWrittenFirstBuf, "AtracResetPlayPosition");
+			} else {
+				u32 destAddr = first_.addr + first_.size;
+				Memory::Memcpy(destAddr, first_.addr + first_.size, bytesWrittenFirstBuf, "AtracResetPlayPosition");
 			}
 			first_.fileoffset += bytesWrittenFirstBuf;
 			first_.size += bytesWrittenFirstBuf;
@@ -1120,6 +1138,9 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		if (bytesWrittenFirstBuf != 0) {
 			if (!ignoreDataBuf_) {
 				Memory::Memcpy(dataBuf_ + first_.fileoffset, first_.addr, bytesWrittenFirstBuf, "AtracResetPlayPosition");
+			} else {
+				u32 destAddr = first_.addr + first_.fileoffset;
+				Memory::Memcpy(destAddr, first_.addr, bytesWrittenFirstBuf, "AtracResetPlayPosition");
 			}
 			first_.fileoffset += bytesWrittenFirstBuf;
 		}
