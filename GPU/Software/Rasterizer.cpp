@@ -1694,7 +1694,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
-	const bool interpolateColor = !state.shadeGouraud || (v0.color0 == v1.color0 && v0.color1 == v1.color1);
+	const bool interpolateColor = state.shadeGouraud && !(v0.color0 == v1.color0 && v0.color1 == v1.color1);
 	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
 	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
 	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
