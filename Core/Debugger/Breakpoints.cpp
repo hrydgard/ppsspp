@@ -32,7 +32,7 @@
 
 BreakpointManager g_breakpoints;
 
-void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) {
+void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) const {
 	if (result & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
@@ -71,11 +71,9 @@ BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char 
 }
 
 // Note: must lock while calling this.
-size_t BreakpointManager::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
-{
+size_t BreakpointManager::FindBreakpoint(u32 addr, bool matchTemp, bool temp) {
 	size_t found = INVALID_BREAKPOINT;
-	for (size_t i = 0; i < breakPoints_.size(); ++i)
-	{
+	for (size_t i = 0; i < breakPoints_.size(); ++i) {
 		const auto &bp = breakPoints_[i];
 		if (bp.addr == addr && (!matchTemp || bp.temporary == temp))
 		{
@@ -90,10 +88,8 @@ size_t BreakpointManager::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
 	return found;
 }
 
-size_t BreakpointManager::FindMemCheck(u32 start, u32 end)
-{
-	for (size_t i = 0; i < memChecks_.size(); ++i)
-	{
+size_t BreakpointManager::FindMemCheck(u32 start, u32 end) {
+	for (size_t i = 0; i < memChecks_.size(); ++i) {
 		if (memChecks_[i].start == start && memChecks_[i].end == end)
 			return i;
 	}
@@ -155,14 +151,11 @@ int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 
 		breakPoints_.push_back(pt);
 		anyBreakPoints_ = true;
-		guard.unlock();
 		Update(addr);
-
 		return (int)breakPoints_.size() - 1;
 	} else if (!breakPoints_[bp].IsEnabled()) {
 		breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
-		guard.unlock();
 		Update(addr);
 		return (int)bp;
 	} else {
@@ -183,7 +176,6 @@ void BreakpointManager::RemoveBreakPoint(u32 addr) {
 			breakPoints_.erase(breakPoints_.begin() + bp);
 
 		anyBreakPoints_ = !breakPoints_.empty();
-		guard.unlock();
 		Update(addr);
 	}
 }
@@ -196,8 +188,6 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, bool status) {
 			breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
 		else
 			breakPoints_[bp].result = BreakAction(breakPoints_[bp].result & ~BREAK_ACTION_PAUSE);
-
-		guard.unlock();
 		Update(addr);
 	}
 }
@@ -207,7 +197,6 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction result) {
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].result = result;
-		guard.unlock();
 		Update(addr);
 	}
 }
@@ -220,7 +209,6 @@ void BreakpointManager::ClearAllBreakPoints()
 	if (!breakPoints_.empty())
 	{
 		breakPoints_.clear();
-		guard.unlock();
 		Update();
 	}
 }
@@ -230,20 +218,14 @@ void BreakpointManager::ClearTemporaryBreakPoints()
 	if (!anyBreakPoints_)
 		return;
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-
-	bool update = false;
 	for (int i = (int)breakPoints_.size()-1; i >= 0; --i)
 	{
 		if (breakPoints_[i].temporary)
 		{
 			breakPoints_.erase(breakPoints_.begin() + i);
-			update = true;
+			Update();
 		}
 	}
-
-	guard.unlock();
-	if (update)
-		Update();
 }
 
 void BreakpointManager::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
@@ -254,30 +236,25 @@ void BreakpointManager::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &
 	{
 		breakPoints_[bp].hasCond = true;
 		breakPoints_[bp].cond = cond;
-		guard.unlock();
 		Update(addr);
 	}
 }
 
-void BreakpointManager::ChangeBreakPointRemoveCond(u32 addr)
-{
+void BreakpointManager::ChangeBreakPointRemoveCond(u32 addr) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
-	if (bp != INVALID_BREAKPOINT)
-	{
+	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].hasCond = false;
-		guard.unlock();
 		Update(addr);
 	}
 }
 
-BreakPointCond *BreakpointManager::GetBreakPointCondition(u32 addr)
-{
+BreakPointCond *BreakpointManager::GetBreakPointCondition(u32 addr) {
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
 		return &breakPoints_[bp].cond;
-	return NULL;
+	return nullptr;
 }
 
 void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &fmt) {
@@ -285,7 +262,6 @@ void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &f
 	size_t bp = FindBreakpoint(addr, true, false);
 	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].logFormat = fmt;
-		guard.unlock();
 		Update(addr);
 	}
 }
@@ -338,18 +314,18 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 
 		memChecks_.push_back(check);
 		bool hadAny = anyMemChecks_.exchange(true);
-		if (!hadAny)
+		if (!hadAny) {
 			MemBlockOverrideDetailed();
-		guard.unlock();
+		}
 		Update();
 		return (int)memChecks_.size() - 1;
 	} else {
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
 		memChecks_[mc].result = (BreakAction)(memChecks_[mc].result | result);
 		bool hadAny = anyMemChecks_.exchange(true);
-		if (!hadAny)
+		if (!hadAny) {
 			MemBlockOverrideDetailed();
-		guard.unlock();
+		}
 		Update();
 		return (int)mc;
 	}
@@ -366,7 +342,6 @@ void BreakpointManager::RemoveMemCheck(u32 start, u32 end)
 		bool hadAny = anyMemChecks_.exchange(!memChecks_.empty());
 		if (hadAny)
 			MemBlockReleaseDetailed();
-		guard.unlock();
 		Update();
 	}
 }
@@ -379,7 +354,6 @@ void BreakpointManager::ChangeMemCheck(u32 start, u32 end, MemCheckCondition con
 	{
 		memChecks_[mc].cond = cond;
 		memChecks_[mc].result = result;
-		guard.unlock();
 		Update();
 	}
 }
@@ -394,7 +368,6 @@ void BreakpointManager::ClearAllMemChecks()
 		bool hadAny = anyMemChecks_.exchange(false);
 		if (hadAny)
 			MemBlockReleaseDetailed();
-		guard.unlock();
 		Update();
 	}
 }
@@ -406,7 +379,6 @@ void BreakpointManager::ChangeMemCheckAddCond(u32 start, u32 end, const BreakPoi
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].hasCondition = true;
 		memChecks_[mc].condition = cond;
-		guard.unlock();
 		// No need to update jit for a condition add/remove, they're not baked in.
 		Update(-1);
 	}
@@ -417,7 +389,6 @@ void BreakpointManager::ChangeMemCheckRemoveCond(u32 start, u32 end) {
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].hasCondition = false;
-		guard.unlock();
 		// No need to update jit for a condition add/remove, they're not baked in.
 		Update(-1);
 	}
@@ -436,7 +407,6 @@ void BreakpointManager::ChangeMemCheckLogFormat(u32 start, u32 end, const std::s
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].logFormat = fmt;
-		guard.unlock();
 		Update();
 	}
 }
@@ -620,30 +590,27 @@ std::vector<BreakPoint> BreakpointManager::GetBreakpoints() {
 	return breakPoints_;
 }
 
-void BreakpointManager::Update(u32 addr) {
-	if (MIPSComp::jit && addr != -1) {
-		bool resume = false;
-		if (Core_IsStepping() == false) {
-			Core_Break(BreakReason::BreakpointUpdate, addr);
-			Core_WaitInactive();
-			resume = true;
-		}
-
-		// In case this is a delay slot, clear the previous instruction too.
-		if (addr != 0)
-			mipsr4k.InvalidateICache(addr - 4, 8);
-		else
-			mipsr4k.ClearJitCache();
-
-		if (resume)
-			Core_Resume();
+void BreakpointManager::Frame() {
+	// outside the lock here, should be ok.
+	if (!needsUpdate_) {
+		return;
 	}
 
-	if (anyMemChecks_ && addr != -1)
+	std::lock_guard<std::mutex> guard(breakPointsMutex_);
+	if (MIPSComp::jit && updateAddr_ != -1) {
+		// In case this is a delay slot, clear the previous instruction too.
+		if (updateAddr_ != 0)
+			mipsr4k.InvalidateICache(updateAddr_ - 4, 8);
+		else
+			mipsr4k.ClearJitCache();
+	}
+
+	if (anyMemChecks_ && updateAddr_ != -1)
 		UpdateCachedMemCheckRanges();
 
 	// Redraw in order to show the breakpoint.
 	System_Notify(SystemNotification::DISASSEMBLY);
+	needsUpdate_ = false;
 }
 
 bool BreakpointManager::ValidateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt) {

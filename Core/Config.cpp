@@ -2015,7 +2015,7 @@ void Config::ResetControlLayout() {
 	g_Config.fRightStickHeadScale = 1.0f;
 }
 
-void Config::GetReportingInfo(UrlEncoder &data) {
+void Config::GetReportingInfo(UrlEncoder &data) const {
 	for (size_t i = 0; i < numSections; ++i) {
 		const std::string prefix = std::string("config.") + sections[i].section;
 		for (size_t j = 0; j < sections[i].settingsCount; j++) {

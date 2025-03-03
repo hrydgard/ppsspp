@@ -156,7 +156,7 @@ public:
 	void CheckDisplayResized() override;
 	void CheckConfigChanged() override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) const override {
 		primaryInfo = "Software";
 		fullInfo = "Software";
 	}

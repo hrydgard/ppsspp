@@ -205,7 +205,7 @@ struct GPUDebugVertex {
 
 class GPUDebugInterface {
 public:
-	virtual ~GPUDebugInterface() {}
+	virtual ~GPUDebugInterface() = default;
 	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
 	virtual int GetCurrentPrimCount() = 0;
 	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;

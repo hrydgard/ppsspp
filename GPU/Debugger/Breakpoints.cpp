@@ -42,7 +42,7 @@ const static u8 textureRelatedCmds[] = {
 	GE_CMD_TEXFLUSH, GE_CMD_TEXSYNC,
 };
 
-void GPUBreakpoints::Init() {
+GPUBreakpoints::GPUBreakpoints() {
 	ClearAllBreakpoints();
 
 	nonTextureCmds.clear();
@@ -268,20 +268,20 @@ bool GPUBreakpoints::IsRenderTargetBreakpoint(u32 addr) {
 	return breakRenderTargets.find(addr) != breakRenderTargets.end();
 }
 
-bool GPUBreakpoints::IsOpBreakpoint(u32 op, bool &temp) {
+bool GPUBreakpoints::IsOpBreakpoint(u32 op, bool &temp) const {
 	return IsCmdBreakpoint(op >> 24, temp);
 }
 
-bool GPUBreakpoints::IsOpBreakpoint(u32 op) {
+bool GPUBreakpoints::IsOpBreakpoint(u32 op) const {
 	return IsCmdBreakpoint(op >> 24);
 }
 
-bool GPUBreakpoints::IsCmdBreakpoint(u8 cmd, bool &temp) {
+bool GPUBreakpoints::IsCmdBreakpoint(u8 cmd, bool &temp) const {
 	temp = breakCmdsTemp[cmd];
 	return breakCmds[cmd];
 }
 
-bool GPUBreakpoints::IsCmdBreakpoint(u8 cmd) {
+bool GPUBreakpoints::IsCmdBreakpoint(u8 cmd) const {
 	return breakCmds[cmd];
 }
 

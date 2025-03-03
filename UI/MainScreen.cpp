@@ -1691,7 +1691,7 @@ void UmdReplaceScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
-			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [&](const std::string &value, int) {
+			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](const std::string &value, int) {
 				__UmdReplace(Path(value));
 				TriggerFinish(DR_OK);
 			});

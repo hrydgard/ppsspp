@@ -370,6 +370,7 @@ namespace MainWindow {
 	static void UmdSwitchAction(RequesterToken token) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});
 	}
@@ -383,17 +384,24 @@ namespace MainWindow {
 
 	// not static
 	void setTexScalingMultiplier(int level) {
-		g_Config.iTexScalingLevel = level;
+		System_RunOnMainThread([level]() {
+			g_Config.iTexScalingLevel = level;
+		});
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setTexScalingType(int type) {
-		g_Config.iTexScalingType = type;
+		System_RunOnMainThread([type]() {
+			g_Config.iTexScalingType = type;
+		});
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setSkipBufferEffects(bool skip) {
-		g_Config.bSkipBufferEffects = skip;
+		System_RunOnMainThread([skip]() {
+			g_Config.bSkipBufferEffects = skip;
+		});
+		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
@@ -497,23 +505,15 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
-			}
+			System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			break;
 
 		case ID_EMULATION_STOP:
-			if (Core_IsStepping())
-				Core_Resume();
-
-			Core_Stop();
 			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
-			Core_WaitInactive();
 			break;
 
 		case ID_EMULATION_RESET:
 			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			Core_Resume();
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
@@ -662,14 +662,13 @@ namespace MainWindow {
 
 		case ID_OPTIONS_VSYNC:
 			g_Config.bVSync = !g_Config.bVSync;
-			NativeResized();
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			break;
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-				g_Config.bSkipBufferEffects = false;
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+				setSkipBufferEffects(false);
 			}
 			break;
 
@@ -714,8 +713,7 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
-			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
+			setSkipBufferEffects(!g_Config.bSkipBufferEffects);
 			g_OSD.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
@@ -731,9 +729,12 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
-			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-			g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
+			System_RunOnMainThread([]() {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+				g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
+			});
 			break;
 
 		case ID_OPTIONS_DISPLAY_LAYOUT:

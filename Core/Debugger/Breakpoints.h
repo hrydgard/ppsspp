@@ -103,7 +103,7 @@ struct MemCheck {
 	// Called on a copy.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
 
-	void Log(u32 addr, bool write, int size, u32 pc, const char *reason);
+	void Log(u32 addr, bool write, int size, u32 pc, const char *reason) const;
 
 	bool IsEnabled() const {
 		return (result & BREAK_ACTION_PAUSE) != 0;
@@ -183,12 +183,17 @@ public:
 		return anyMemChecks_;
 	}
 
-	void Update(u32 addr = 0);
+	void Frame();
 
 	bool ValidateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt);
 	bool EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result);
 
 private:
+	// Should be called under lock.
+	void Update(u32 addr = 0) {
+		needsUpdate_ = true;
+		updateAddr_ = addr;
+	}
 	size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.
 	size_t FindMemCheck(u32 start, u32 end);
@@ -208,6 +213,9 @@ private:
 	std::vector<MemCheck> memChecks_;
 	std::vector<MemCheck> memCheckRangesRead_;
 	std::vector<MemCheck> memCheckRangesWrite_;
+
+	bool needsUpdate_ = true;
+	u32 updateAddr_ = 0;
 };
 
 extern BreakpointManager g_breakpoints;
