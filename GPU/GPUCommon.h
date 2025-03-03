@@ -370,7 +370,7 @@ public:
 		return -1;
 	}
 
-	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) const {
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}

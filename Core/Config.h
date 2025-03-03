@@ -632,7 +632,7 @@ public:
 
 	void ResetControlLayout();
 
-	void GetReportingInfo(UrlEncoder &data);
+	void GetReportingInfo(UrlEncoder &data) const;
 
 	bool IsPortrait() const;
 	int NextValidBackend();

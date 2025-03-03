@@ -29,17 +29,16 @@ struct GECmdInfo;
 
 class GPUBreakpoints {
 public:
-	GPUBreakpoints() {
-		Init();
-	}
-	void Init();
+	GPUBreakpoints();
 
 	bool IsBreakpoint(u32 pc, u32 op);
 
 	bool IsAddressBreakpoint(u32 addr, bool &temp);
 	bool IsAddressBreakpoint(u32 addr);
-	bool IsCmdBreakpoint(u8 cmd, bool &temp);
-	bool IsCmdBreakpoint(u8 cmd);
+	bool IsCmdBreakpoint(u8 cmd, bool &temp) const;
+	bool IsCmdBreakpoint(u8 cmd) const;
+	bool IsOpBreakpoint(u32 op, bool &temp) const;
+	bool IsOpBreakpoint(u32 op) const;
 	bool IsTextureBreakpoint(u32 addr, bool &temp);
 	bool IsTextureBreakpoint(u32 addr);
 	bool IsRenderTargetBreakpoint(u32 addr, bool &temp);
@@ -68,10 +67,6 @@ public:
 
 	void ClearAllBreakpoints();
 	void ClearTempBreakpoints();
-
-	bool IsOpBreakpoint(u32 op, bool &temp);
-
-	bool IsOpBreakpoint(u32 op);
 
 	bool HasBreakpoints() const {
 		return hasBreakpoints_;
