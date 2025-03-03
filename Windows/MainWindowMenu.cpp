@@ -502,17 +502,11 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_STOP:
-			if (Core_IsStepping())
-				Core_Resume();
-
-			Core_Stop();
 			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
-			Core_WaitInactive();
 			break;
 
 		case ID_EMULATION_RESET:
 			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			Core_Resume();
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
