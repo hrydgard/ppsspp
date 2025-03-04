@@ -276,31 +276,26 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr) {
 	}
 }
 
-int sceKernelSignalSema(SceUID id, int signal)
-{
+int sceKernelSignalSema(SceUID id, int signal) {
 	u32 error;
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(id, error);
-	if (s)
-	{
-		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount)
-		{
-			VERBOSE_LOG(Log::sceKernel, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
-			return SCE_KERNEL_ERROR_SEMA_OVF;
+	if (!s) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
+		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount) {
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_SEMA_OVF, "overflow at %d", s->ns.currentCount);
 		}
 
 		int oldval = s->ns.currentCount;
 		s->ns.currentCount += signal;
-		DEBUG_LOG(Log::sceKernel, "sceKernelSignalSema(%i, %i) (count: %i -> %i)", id, signal, oldval, s->ns.currentCount);
 
 		if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
 			std::stable_sort(s->waitingThreads.begin(), s->waitingThreads.end(), __KernelThreadSortPriority);
 
 		bool wokeThreads = false;
 retry:
-		for (auto iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
-		{
-			if (__KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads))
-			{
+		for (auto iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter) {
+			if (__KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads)) {
 				s->waitingThreads.erase(iter);
 				goto retry;
 			}
@@ -310,17 +305,11 @@ retry:
 			hleReSchedule("semaphore signaled");
 
 		hleEatCycles(900);
-		return 0;
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelSignalSema(%i, %i): invalid semaphore", id, signal);
-		return error;
+		return hleLogDebug(Log::sceKernel, 0, "sceKernelSignalSema(%i, %i) (count: %i -> %i)", id, signal, oldval, s->ns.currentCount);
 	}
 }
 
-void __KernelSemaTimeout(u64 userdata, int cycleslate)
-{
+void __KernelSemaTimeout(u64 userdata, int cycleslate) {
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
 	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
@@ -356,8 +345,7 @@ static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
 }
 
-static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks)
-{
+static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks) {
 	hleEatCycles(900);
 
 	if (wantedCount <= 0)
@@ -392,59 +380,33 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 		return error;
 }
 
-int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
-{
+int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
-	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(Log::sceKernel, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
-	else if (result == 0)
-		DEBUG_LOG(Log::sceKernel, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
-	else
-		DEBUG_LOG(Log::sceKernel, "%08x=sceKernelWaitSema(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
-	return result;
+	return hleLogDebugOrError(Log::sceKernel, result);
 }
 
-int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
-{
+int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr) {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
-	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(Log::sceKernel, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
-	else if (result == 0)
-		DEBUG_LOG(Log::sceKernel, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
-	else
-		DEBUG_LOG(Log::sceKernel, "%08x=sceKernelWaitSemaCB(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
-	return result;
+	return hleLogDebugOrError(Log::sceKernel, result);
 }
 
 // Should be same as WaitSema but without the wait, instead returning SCE_KERNEL_ERROR_SEMA_ZERO
-int sceKernelPollSema(SceUID id, int wantedCount)
-{
-	if (wantedCount <= 0)
-	{
-		DEBUG_LOG(Log::sceKernel, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelPollSema(%i, %i)", id, wantedCount);
-		return (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+int sceKernelPollSema(SceUID id, int wantedCount) {
+	if (wantedCount <= 0) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	}
 
 	u32 error;
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(id, error);
-	if (s)
-	{
-		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0)
-		{
-			DEBUG_LOG(Log::sceKernel, "0=sceKernelPollSema(%i, %i)", id, wantedCount);
-			s->ns.currentCount -= wantedCount;
-			return 0;
-		}
-		else
-		{
-			DEBUG_LOG(Log::sceKernel, "SCE_KERNEL_ERROR_SEMA_ZERO=sceKernelPollSema(%i, %i)", id, wantedCount);
-			return SCE_KERNEL_ERROR_SEMA_ZERO;
-		}
+	if (!s) {
+		return hleLogError(Log::sceKernel, error, "invalid semaphore");
 	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelPollSema(%i, %i): invalid semaphore", id, wantedCount);
-		return error;
+
+	if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0) {
+		s->ns.currentCount -= wantedCount;
+		return hleLogDebug(Log::sceKernel, 0);
+	} else {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_SEMA_ZERO);
 	}
 }
 
@@ -452,23 +414,21 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 // exposed through the confusingly named "sceUtilsBufferCopyWithRange" name, which Sony placed in the
 // not-at-all-suspicious "semaphore" library, which has nothing to do with semaphores.
 
-static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd)
-{
+static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
 	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
 	int temp = kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd);
 	if (temp != 0) {
 		ERROR_LOG(Log::sceKernel, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
 	}
-	return 0;
+	return hleNoLog(0);
 }
 
 // Note sure what difference there is between this and sceUtilsBufferCopyWithRange.
-static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd)
-{
+static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
 	const u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerUnchecked(inAddr) : nullptr;
-	return kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd);
+	return hleNoLog(kirk_sceUtilsBufferCopyWithRange(outAddress, outSize, inAddress, inSize, cmd));
 }
 
 const HLEFunction semaphore[] = {

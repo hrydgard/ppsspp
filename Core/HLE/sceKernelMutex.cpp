@@ -676,23 +676,19 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
-{
-	if (!name)
-	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
+int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr) {
+	if (!name) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
-	if (attr >= 0x400)
-	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	if (attr >= 0x400) {
+		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	}
-
-	if (initialCount < 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	if (initialCount < 0) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+	}
+	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+	}
 
 	LwMutex *mutex = new LwMutex();
 	SceUID id = kernelObjects.Create(mutex);
@@ -713,8 +709,6 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	workarea->attr = attr;
 	workarea->uid = id;
 
-	DEBUG_LOG(Log::sceKernel, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
-
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
@@ -724,7 +718,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 template <typename T>
@@ -752,19 +746,19 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	return true;
 }
 
-int sceKernelDeleteLwMutex(u32 workareaPtr)
-{
+int sceKernelDeleteLwMutex(u32 workareaPtr) {
 	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteLwMutex(%08x)", workareaPtr);
 
 	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error;
 	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -776,10 +770,8 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 		if (wokeThreads)
 			hleReSchedule("lwmutex deleted");
 
-		return kernelObjects.Destroy<LwMutex>(mutex->GetUID());
+		return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<LwMutex>(mutex->GetUID()));
 	}
-	else
-		return error;
 }
 
 static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 &error)
