@@ -464,7 +464,13 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
 	}
 
-	return hleLogDebugOrError(Log::ME, atrac->GetSecondBufferInfo(fileOffset, desiredSize));
+	int result = atrac->GetSecondBufferInfo(fileOffset, desiredSize);
+	switch (result) {
+	case SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED:
+		return hleLogDebug(Log::ME, result);
+	default:
+		return hleLogDebugOrError(Log::ME, result);
+	}
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {

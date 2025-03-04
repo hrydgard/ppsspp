@@ -346,8 +346,9 @@ int sceKernelDeleteMutex(SceUID id)
 {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteMutex(%i)", id);
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
@@ -361,12 +362,7 @@ int sceKernelDeleteMutex(SceUID id)
 		if (wokeThreads)
 			hleReSchedule("mutex deleted");
 
-		return kernelObjects.Destroy<PSPMutex>(id);
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteMutex(%i): invalid mutex", id);
-		return error;
+		return hleLogDebug(Log::sceKernel, kernelObjects.Destroy<PSPMutex>(id));
 	}
 }
 
@@ -496,16 +492,15 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(uid, error);
-	if (mutex)
-	{
+	if (!mutex) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
 		bool lockable = count <= 0 || __KernelLockMutexCheck(mutex, count, error);
 		if (!lockable)
 		{
 			// May still be okay.  As long as the count/etc. are valid.
-			if (error != 0 && error != PSP_MUTEX_ERROR_LOCK_OVERFLOW && error != PSP_MUTEX_ERROR_ALREADY_LOCKED)
-			{
-				DEBUG_LOG(Log::sceKernel, "sceKernelCancelMutex(%i, %d, %08x): invalid count", uid, count, numWaitThreadsPtr);
-				return error;
+			if (error != 0 && error != PSP_MUTEX_ERROR_LOCK_OVERFLOW && error != PSP_MUTEX_ERROR_ALREADY_LOCKED) {
+				return hleLogWarning(Log::sceKernel, error, "invalid count");
 			}
 		}
 
@@ -536,26 +531,20 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 		if (wokeThreads)
 			hleReSchedule("mutex canceled");
 
-		return 0;
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
-		return error;
+		return hleNoLog(0);
 	}
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogError(Log::sceKernel, error);
 	else
 	{
 		SceUID threadID = __KernelGetCurThread();
@@ -566,21 +555,20 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
 
 		// Return value will be overwritten by wait.
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 }
 
 // int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (!__KernelLockMutexCheck(mutex, count, error))
 	{
 		if (error)
-			return error;
+			return hleLogError(Log::sceKernel, error);
 
 		SceUID threadID = __KernelGetCurThread();
 		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
@@ -590,7 +578,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true, "mutex waited");
 
 		// Return value will be overwritten by wait.
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 	else
 	{
@@ -605,42 +593,42 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		else
 			__KernelLockMutex(mutex, count, error);
 
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	}
 }
 
 // int sceKernelTryLockMutex(SceUID id, int count)
-int sceKernelTryLockMutex(SceUID id, int count)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelTryLockMutex(%i, %i)", id, count);
+int sceKernelTryLockMutex(SceUID id, int count) {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
-		return 0;
+		return hleLogDebug(Log::sceKernel, 0);
 	else if (error)
-		return error;
+		return hleLogError(Log::sceKernel, error);
 	else
-		return PSP_MUTEX_ERROR_TRYLOCK_FAILED;
+		return hleLogDebug(Log::sceKernel, PSP_MUTEX_ERROR_TRYLOCK_FAILED);
 }
 
 // int sceKernelUnlockMutex(SceUID id, int count)
 int sceKernelUnlockMutex(SceUID id, int count)
 {
-	DEBUG_LOG(Log::sceKernel, "sceKernelUnlockMutex(%i, %i)", id, count);
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
 	if (error)
-		return error;
+		return hleLogError(Log::sceKernel, error);
 	if (count <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	if (mutex->nm.lockLevel == 0 || mutex->nm.lockThread != __KernelGetCurThread())
-		return PSP_MUTEX_ERROR_NOT_LOCKED;
+		return hleLogDebug(Log::sceKernel, PSP_MUTEX_ERROR_NOT_LOCKED);
 	if (mutex->nm.lockLevel < count)
-		return PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
+		return hleLogWarning(Log::sceKernel, PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW);
+
+	// To log before the reschedule.
+	DEBUG_LOG(Log::sceKernel, "0=sceKernelUnlockMutex(%i, %i)", id, count);
 
 	mutex->nm.lockLevel -= count;
 
@@ -650,7 +638,7 @@ int sceKernelUnlockMutex(SceUID id, int count)
 			hleReSchedule("mutex unlocked");
 	}
 
-	return 0;
+	return hleNoLog(0);
 }
 
 int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
