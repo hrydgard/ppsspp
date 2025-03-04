@@ -1598,8 +1598,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
 				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
-			if (vpl)
-			{
+			if (vpl) {
 				SceUID threadID = __KernelGetCurThread();
 				HLEKernel::RemoveWaitingThread(vpl->waitingThreads, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
@@ -1613,7 +1612,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		else if (error == 0 && !vpl->waitingThreads.empty())
 			return hleDelayResult(hleLogDebug(Log::sceKernel, error), "vpl allocated", 50);
 	}
-	return error;
+	return hleLogDebugOrError(Log::sceKernel, error);
 }
 
 int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
@@ -1644,7 +1643,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		else if (error == 0 && !vpl->waitingThreads.empty())
 			return hleDelayResult(hleLogDebug(Log::sceKernel, error), "vpl allocated", 50);
 	}
-	return error;
+	return hleLogDebugOrError(Log::sceKernel, error);
 }
 
 int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
@@ -1662,7 +1661,9 @@ int sceKernelFreeVpl(SceUID uid, u32 addr) {
 	VERBOSE_LOG(Log::sceKernel, "sceKernelFreeVpl(%i, %08x)", uid, addr);
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
-	if (vpl) {
+	if (!vpl) {
+		return hleLogError(Log::sceKernel, error, "invalid vpl");
+	} else {
 		bool freed;
 		// Free using the header for newer vpls (not old savestates.)
 		if (vpl->header.IsValid()) {
@@ -1690,13 +1691,10 @@ retry:
 				hleReSchedule("vpl freed");
 			}
 
-			return 0;
+			return hleNoLog(0);
 		} else {
-			WARN_LOG(Log::sceKernel, "%08x=sceKernelFreeVpl(%i, %08x): Unable to free", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK, uid, addr);
-			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
+			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK, "unable to free");
 		}
-	} else {
-		return error;
 	}
 }
 
@@ -1704,8 +1702,9 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 {
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
-	if (vpl)
-	{
+	if (!vpl) {
+		return hleLogError(Log::sceKernel, error, "invalid vpl");
+	} else {
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
@@ -1715,11 +1714,6 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 			hleReSchedule("vpl canceled");
 
 		return hleLogDebug(Log::sceKernel, 0);
-	}
-	else
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelCancelVpl(%i, %08x): invalid vpl", uid, numWaitThreadsPtr);
-		return error;
 	}
 }
 
@@ -1745,22 +1739,23 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 	}
 }
 
+// this is an unnamed hle function
 static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
 		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
 		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): unsupported type %d", pname, type);
-		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE);
 	}
 	if (size == 0) {
 		WARN_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(%s): invalid size %x", pname, size);
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		return hleNoLog(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
-	if (pname == NULL) {
+	if (!pname) {
 		ERROR_LOG_REPORT(Log::sceKernel, "AllocMemoryBlock(): NULL name");
-		return SCE_KERNEL_ERROR_ERROR;
+		return hleNoLog(SCE_KERNEL_ERROR_ERROR);
 	}
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, pname, size, (MemblockType)type, 0);
@@ -1769,47 +1764,41 @@ static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAdd
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "allocation failed");
 	}
 	SceUID uid = kernelObjects.Create(block);
-
-	INFO_LOG(Log::sceKernel,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", uid, pname, type, size, paramsAddr);
-	return uid;
+	return hleLogDebugOrError(Log::sceKernel, uid, "SysMemUserForUser_FE707FDF");
 }
 
+// this is an unnamed hle function
 static u32 FreeMemoryBlock(u32 uid) {
-	INFO_LOG(Log::sceKernel, "FreeMemoryBlock(%08x)", uid);
-	return kernelObjects.Destroy<PartitionMemoryBlock>(uid);
+	return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<PartitionMemoryBlock>(uid));
 }
 
+// this is an unnamed hle function
 static u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
-	if (block)
-	{
-		INFO_LOG(Log::sceKernel, "GetMemoryBlockPtr(%08x, %08x) = %08x", uid, addr, block->address);
+	if (block) {
 		Memory::Write_U32(block->address, addr);
-		return 0;
-	}
-	else
-	{
-		ERROR_LOG(Log::sceKernel, "GetMemoryBlockPtr(%08x, %08x) failed", uid, addr);
-		return 0;
+		return hleLogInfo(Log::sceKernel, 0, "block address: %08x", block->address);
+	} else {
+		return hleLogError(Log::sceKernel, 0, "failed");
 	}
 }
 
+// this is an unnamed hle function
 static u32 SysMemUserForUser_D8DE5C1E() {
 	// Called by Evangelion Jo and return 0 here to go in-game.
-	ERROR_LOG(Log::sceKernel,"UNIMPL SysMemUserForUser_D8DE5C1E()");
-	return 0; 
+	return hleLogError(Log::sceKernel, 0, "UNIMPL");
 }
 
 static u32 SysMemUserForUser_ACBD88CA() {
 	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, Log::sceKernel, "UNIMPL SysMemUserForUser_ACBD88CA()");
-	return 0; 
+	return hleNoLog(0);
 }
 
 static u32 SysMemUserForUser_945E45DA() {
 	// Called by Evangelion Jo and expected return 0 here.
 	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, Log::sceKernel, "UNIMPL SysMemUserForUser_945E45DA()");
-	return 0; 
+	return hleNoLog(0);
 }
 
 enum

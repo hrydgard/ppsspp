@@ -426,7 +426,7 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		break;
 	}
 
-	return error;
+	return hleNoLog(error);
 }
 
 

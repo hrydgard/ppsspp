@@ -480,7 +480,7 @@ static u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	} else {
 		__SasDrain();
 		if (sas->voices[voiceNum].paused || !sas->voices[voiceNum].on) {
-			return ERROR_SAS_VOICE_PAUSED;
+			return hleLogDebug(Log::sceSas, ERROR_SAS_VOICE_PAUSED);  // this is ok
 		}
 
 		SasVoice &v = sas->voices[voiceNum];
@@ -509,11 +509,10 @@ static u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 		return hleLogWarning(Log::sceSas, ERROR_SAS_INVALID_VOICE, "invalid voiceNum");
 	}
 
-	DEBUG_LOG(Log::sceSas, "sceSasSetSL(%08x, %i, %08x)", core, voiceNum, level);
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSustainLevel(level);
-	return 0;
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
@@ -524,15 +523,13 @@ static u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, 
 	int invalid = (a < 0 ? 0x1 : 0) | (d < 0 ? 0x2 : 0) | (s < 0 ? 0x4 : 0) | (r < 0 ? 0x8 : 0);
 	if (invalid & flag) {
 		WARN_LOG_REPORT(Log::sceSas, "sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid value", core, voiceNum, flag, a, d, s, r);
-		return ERROR_SAS_INVALID_ADSR_RATE;
+		return hleNoLog(ERROR_SAS_INVALID_ADSR_RATE);
 	}
-
-	DEBUG_LOG(Log::sceSas, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
 
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetRate(flag, a, d, s, r);
-	return 0;
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
@@ -563,18 +560,17 @@ static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int
 	if (invalid & flag) {
 		if (a == 5 && d == 5 && s == 5 && r == 5) {
 			// Some games do this right at init.  It seems to fail even on a PSP, but let's not report it.
-			DEBUG_LOG(Log::sceSas, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+			return hleLogDebug(Log::sceSas, ERROR_SAS_INVALID_ADSR_CURVE_MODE, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
 		} else {
 			WARN_LOG_REPORT(Log::sceSas, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+			return hleNoLog(ERROR_SAS_INVALID_ADSR_CURVE_MODE);
 		}
-		return ERROR_SAS_INVALID_ADSR_CURVE_MODE;
 	}
 
-	DEBUG_LOG(Log::sceSas, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetEnvelope(flag, a, d, s, r);
-	return 0;
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 
