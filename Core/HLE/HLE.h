@@ -293,8 +293,8 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 #define hleLogVerbose(t, res, ...) hleLogReturnHelper(t, HLE_LOG_LVERBOSE, res, ##__VA_ARGS__)
 
 // If res is negative, log warn/error, otherwise log debug.
-#define hleLogDebugOrWarn(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LWARNING : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
-#define hleLogDebugOrError(t, res, ...) hleLogReturnHelper(t, ((int)res < 0 ? LogLevel::LERROR : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
+#define hleLogDebugOrWarn(t, res, ...) hleLogReturnHelper(t, ((int)(res) < 0 ? LogLevel::LWARNING : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
+#define hleLogDebugOrError(t, res, ...) hleLogReturnHelper(t, ((int)(res) < 0 ? LogLevel::LERROR : HLE_LOG_LDEBUG), res, ##__VA_ARGS__)
 
 #define hleReportError(t, res, ...) hleDoLog<true>(t, LogLevel::LERROR, res, __FILE__, __LINE__, "", ##__VA_ARGS__)
 #define hleReportWarning(t, res, ...) hleDoLog<true>(t, LogLevel::LWARNING, res, __FILE__, __LINE__, "", ##__VA_ARGS__)
