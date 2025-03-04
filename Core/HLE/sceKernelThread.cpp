@@ -2127,31 +2127,26 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr) {
 	return hleLogDebugOrError(Log::sceKernel, retval);
 }
 
-int sceKernelGetThreadStackFreeSize(SceUID threadID)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelGetThreadStackFreeSize(%i)", threadID);
-
+int sceKernelGetThreadStackFreeSize(SceUID threadID) {
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
 	u32 error;
 	PSPThread *thread = kernelObjects.Get<PSPThread>(threadID, error);
-	if (thread == nullptr) {
-		ERROR_LOG(Log::sceKernel, "sceKernelGetThreadStackFreeSize: invalid thread id %i", threadID);
-		return error;
+	if (!thread) {
+		return hleLogError(Log::sceKernel, error, "invalid thread id");
 	}
 
 	// Scan the stack for 0xFF, starting after 0x10 (the thread id is written there.)
 	// Obviously this doesn't work great if PSP_THREAD_ATTR_NO_FILLSTACK is used.
 	int sz = 0;
-	for (u32 offset = 0x10; offset < thread->nt.stackSize; ++offset)
-	{
+	for (u32 offset = 0x10; offset < thread->nt.stackSize; ++offset) {
 		if (Memory::Read_U8(thread->currentStack.start + offset) != 0xFF)
 			break;
 		sz++;
 	}
 
-	return sz & ~3;
+	return hleLogDebug(Log::sceKernel, sz & ~3);
 }
 
 void __KernelReturnFromThread()
@@ -2171,6 +2166,7 @@ void __KernelReturnFromThread()
 	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 
 	// The stack will be deallocated when the thread is deleted.
+	return hleNoLogVoid();
 }
 
 int sceKernelExitThread(int exitStatus) {
@@ -2191,7 +2187,7 @@ int sceKernelExitThread(int exitStatus) {
 	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 
 	// The stack will be deallocated when the thread is deleted.
-	return 0;
+	return hleNoLog(0);
 }
 
 void _sceKernelExitThread(int exitStatus) {
@@ -2207,6 +2203,7 @@ void _sceKernelExitThread(int exitStatus) {
 	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 
 	// The stack will be deallocated when the thread is deleted.
+	hleNoLogVoid();
 }
 
 int sceKernelExitDeleteThread(int exitStatus) {
@@ -2225,33 +2222,26 @@ int sceKernelExitDeleteThread(int exitStatus) {
 
 		// TODO: This should trigger ON the thread when it exits.
 		__KernelThreadTriggerEvent((thread_attr & PSP_THREAD_ATTR_KERNEL) != 0, uid, THREADEVENT_EXIT);
-	}
-	else
+	} else {
 		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
+	}
 	return hleNoLog(0);
 }
 
-u32 sceKernelSuspendDispatchThread()
-{
-	if (!__InterruptsEnabled())
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelSuspendDispatchThread(): interrupts disabled");
-		return SCE_KERNEL_ERROR_CPUDI;
+u32 sceKernelSuspendDispatchThread() {
+	if (!__InterruptsEnabled()) {
+		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_CPUDI, "interrupts disabled");
 	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
-	DEBUG_LOG(Log::sceKernel, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
 	hleEatCycles(940);
-	return oldDispatchEnabled;
+	return hleLogDebug(Log::sceKernel, oldDispatchEnabled);
 }
 
-u32 sceKernelResumeDispatchThread(u32 enabled)
-{
-	if (!__InterruptsEnabled())
-	{
-		DEBUG_LOG(Log::sceKernel, "sceKernelResumeDispatchThread(%i): interrupts disabled", enabled);
-		return SCE_KERNEL_ERROR_CPUDI;
+u32 sceKernelResumeDispatchThread(u32 enabled) {
+	if (!__InterruptsEnabled()) {
+		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_CPUDI, "interrupts disabled");
 	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
@@ -2259,11 +2249,10 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 	DEBUG_LOG(Log::sceKernel, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
 	hleEatCycles(940);
-	return 0;
+	return hleNoLog(0);
 }
 
-bool __KernelIsDispatchEnabled()
-{
+bool __KernelIsDispatchEnabled() {
 	// Dispatch can never be enabled when interrupts are disabled.
 	return dispatchEnabled && __InterruptsEnabled();
 }
@@ -2303,40 +2292,35 @@ int sceKernelRotateThreadReadyQueue(int priority) {
 
 int sceKernelDeleteThread(int threadID) {
 	if (threadID == 0 || threadID == currentThread) {
-		ERROR_LOG(Log::sceKernel, "sceKernelDeleteThread(%i): cannot delete current thread", threadID);
-		return SCE_KERNEL_ERROR_NOT_DORMANT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT, "cannot delete current thread");
 	}
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
-	if (t) {
+	if (!t) {
+		return hleLogError(Log::sceKernel, error, "bad thread id");
+	} else {
 		if (!t->isStopped()) {
-			ERROR_LOG(Log::sceKernel, "sceKernelDeleteThread(%i): thread not dormant", threadID);
-			return SCE_KERNEL_ERROR_NOT_DORMANT;
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT);
 		}
 
-		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteThread(%i)", threadID);
-		return __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted");
-	} else {
-		ERROR_LOG(Log::sceKernel, "sceKernelDeleteThread(%i): thread doesn't exist", threadID);
-		return error;
+		return hleLogDebug(Log::sceKernel, __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted"));
 	}
 }
 
-int sceKernelTerminateDeleteThread(int threadID)
-{
-	if (threadID == 0 || threadID == currentThread)
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelTerminateDeleteThread(%i): cannot terminate current thread", threadID);
-		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+int sceKernelTerminateDeleteThread(int threadID) {
+	if (threadID == 0 || threadID == currentThread) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_THID, "cannot terminate current thread");
 	}
-	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000)
+	if (!__KernelIsDispatchEnabled() && sceKernelGetCompiledSdkVersion() >= 0x03080000) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+	}
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
-	if (t)
-	{
+	if (!t) {
+		return hleLogError(Log::sceKernel, error, "bad thread id");
+	} else {
 		bool wasStopped = t->isStopped();
 		uint32_t attr = t->nt.attr;
 		uint32_t uid = t->GetUID();
@@ -2350,12 +2334,7 @@ int sceKernelTerminateDeleteThread(int threadID)
 			__KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, uid, THREADEVENT_EXIT);
 		}
 
-		return error;
-	}
-	else
-	{
-		ERROR_LOG(Log::sceKernel, "sceKernelTerminateDeleteThread(%i): thread doesn't exist", threadID);
-		return error;
+		return hleNoLog(error);
 	}
 }
 
