@@ -1476,16 +1476,16 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
 	}
 
-	return id;
+	return hleNoLog(id);
 }
 
-int sceKernelDeleteVpl(SceUID uid)
-{
-	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteVpl(%i)", uid);
+int sceKernelDeleteVpl(SceUID uid) {
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
-	if (vpl)
-	{
+	if (!vpl) {
+		return hleLogError(Log::sceKernel, error);
+	} else {
+		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteVpl(%i)", uid);
 		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_DELETE);
 		if (wokeThreads)
 			hleReSchedule("vpl deleted");
@@ -1495,10 +1495,8 @@ int sceKernelDeleteVpl(SceUID uid)
 		if (alloc)
 			alloc->Free(vpl->address);
 		kernelObjects.Destroy<VPL>(uid);
-		return 0;
+		return hleNoLog(0);
 	}
-	else
-		return error;
 }
 
 // Returns false for invalid parameters (e.g. don't check callbacks, etc.)
@@ -1650,7 +1648,7 @@ int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
 {
 	u32 error;
 	__KernelAllocateVpl(uid, size, addrPtr, error, true, __FUNCTION__);
-	return error;
+	return hleLogDebug(Log::sceKernel, error);
 }
 
 int sceKernelFreeVpl(SceUID uid, u32 addr) {

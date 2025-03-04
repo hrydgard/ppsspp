@@ -507,11 +507,8 @@ static u32 sceGeSetCallback(u32 structAddr) {
 }
 
 static int sceGeUnsetCallback(u32 cbID) {
-	DEBUG_LOG(Log::sceGe, "sceGeUnsetCallback(cbid=%08x)", cbID);
-
 	if (cbID >= ARRAY_SIZE(ge_used_callbacks)) {
-		WARN_LOG(Log::sceGe, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
-		return SCE_KERNEL_ERROR_INVALID_ID;
+		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_INVALID_ID, "invalid callback id");
 	}
 
 	if (ge_used_callbacks[cbID]) {
@@ -525,18 +522,15 @@ static int sceGeUnsetCallback(u32 cbID) {
 	}
 
 	ge_used_callbacks[cbID] = false;
-	return 0;
+	return hleLogDebug(Log::sceGe, 0);
 }
 
 // Points to 512 32-bit words, where we can probably layout the context however we want
 // unless some insane game pokes it and relies on it...
 u32 sceGeSaveContext(u32 ctxAddr) {
-	DEBUG_LOG(Log::sceGe, "sceGeSaveContext(%08x)", ctxAddr);
-
 	if (gpu->BusyDrawing()) {
-		WARN_LOG(Log::sceGe, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
 		// Real error code.
-		return -1;
+		return hleLogWarning(Log::sceGe, -1, "lists in process, aborting");
 	}
 
 	// Let's just dump gstate.
@@ -546,15 +540,12 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 
 	// This action should probably be pushed to the end of the queue of the display thread -
 	// when we have one.
-	return 0;
+	return hleLogDebug(Log::sceGe, 0);
 }
 
 u32 sceGeRestoreContext(u32 ctxAddr) {
-	DEBUG_LOG(Log::sceGe, "sceGeRestoreContext(%08x)", ctxAddr);
-
 	if (gpu->BusyDrawing()) {
-		WARN_LOG(Log::sceGe, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);
-		return SCE_KERNEL_ERROR_BUSY;
+		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_BUSY, "lists in process, aborting");
 	}
 
 	if (Memory::IsValidAddress(ctxAddr)) {
@@ -562,7 +553,7 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 	}
 
 	gpu->ReapplyGfxState();
-	return 0;
+	return hleLogDebug(Log::sceGe, 0);
 }
 
 static int sceGeGetMtx(int type, u32 matrixPtr) {

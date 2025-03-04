@@ -1305,15 +1305,12 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
-	if (!t)
-	{
-		ERROR_LOG(Log::sceKernel,"sceKernelReferThreadRunStatus Error %08x", error);
-		return error;
+	if (!t) {
+		return hleLogError(Log::sceKernel, error, "bad thread");
 	}
 
-	DEBUG_LOG(Log::sceKernel,"sceKernelReferThreadRunStatus(%i, %08x)", threadID, statusPtr);
 	if (!Memory::IsValidAddress(statusPtr))
-		return -1;
+		return hleLogError(Log::sceKernel, -1);
 
 	auto runStatus = PSPPointer<SceKernelThreadRunStatus>::Create(statusPtr);
 
@@ -1329,7 +1326,7 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	runStatus->numThreadPreempts = t->nt.numThreadPreempts;
 	runStatus->numReleases = t->nt.numReleases;
 
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int __KernelGetThreadExitStatus(SceUID threadID) {
@@ -1350,23 +1347,20 @@ int sceKernelGetThreadExitStatus(SceUID threadID) {
 	u32 status = __KernelGetThreadExitStatus(threadID);
 	// Seems this is called in a tight-ish loop, maybe awaiting an interrupt - issue #13698
 	hleEatCycles(330);
-	return status;
+	return hleNoLog(status);
 }
 
 u32 sceKernelGetThreadmanIdType(u32 uid) {
 	int type;
 	if (kernelObjects.GetIDType(uid, &type)) {
 		if (type < 0x1000) {
-			DEBUG_LOG(Log::sceKernel, "%i=sceKernelGetThreadmanIdType(%i)", type, uid);
-			return type;
+			return hleLogDebug(Log::sceKernel, type);
 		} else {
 			// This means a partition memory block or module, etc.
-			ERROR_LOG(Log::sceKernel, "sceKernelGetThreadmanIdType(%i): invalid object type %i", uid, type);
-			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid object type %i", type);
 		}
 	} else {
-		ERROR_LOG(Log::sceKernel, "sceKernelGetThreadmanIdType(%i) - FAILED", uid);
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
 	}
 }
 
@@ -1449,7 +1443,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 
 // Saves the current CPU context
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
-	// r and f are immediately next to each other and must be.
+	// r and f are immediately next to each other and must be. Ignore static analyzer warnings here!
 	memcpy((void *)ctx->r, (void *)currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled) {
@@ -1462,7 +1456,7 @@ void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 
 // Loads a CPU context
 void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled) {
-	// r and f are immediately next to each other and must be.
+	// r and f are immediately next to each other and must be. Ignore static analyzer warnings here!
 	memcpy((void *)currentMIPS->r, (void *)ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled) {
@@ -2694,7 +2688,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr) {
 		else
 			hleCheckCurrentCallbacks();
 
-		return t->nt.exitStatus;
+		return hleLogDebug(Log::sceKernel, t->nt.exitStatus);
 	}
 }
 

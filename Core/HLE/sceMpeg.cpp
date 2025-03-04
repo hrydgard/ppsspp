@@ -606,7 +606,7 @@ static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 	} else {
 		ERROR_LOG(Log::ME, "sceMpegAvcDecodeMode(%i, %i): unknown pixelMode ", mode, pixelMode);
 	}
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)

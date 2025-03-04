@@ -2380,15 +2380,15 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 			hleEatMicro(200);
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 
 		// Generic Error
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
@@ -2430,7 +2430,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	}
 
 	// The id to return is the number of handlers currently registered
-	return retval;
+	return hleNoLog(retval);
 }
 
 u32 NetAdhocctl_Disconnect() {
@@ -2532,12 +2532,10 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		INFO_LOG(Log::sceNet, "sceNetAdhocctlDelHandler(%d) at %08x", handlerID, currentMIPS->pc);
+		return hleLogInfo(Log::sceNet, 0);
 	} else {
-		WARN_LOG(Log::sceNet, "sceNetAdhocctlDelHandler(%d): Invalid Handler ID", handlerID);
+		return hleLogWarning(Log::sceNet, 0, "Invalid Handler ID");
 	}
-
-	return 0;
 }
 
 int NetAdhocctl_Term() {
@@ -2592,13 +2590,12 @@ int NetAdhocctl_Term() {
 
 int sceNetAdhocctlTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	INFO_LOG(Log::sceNet, "sceNetAdhocctlTerm() at %08x", currentMIPS->pc);
 
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
 	int retval = NetAdhocctl_Term();
 
 	hleEatMicro(adhocDefaultDelay);
-	return retval;
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
@@ -2648,24 +2645,23 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 					DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetNameByAddr - [PeerName:%s]", (char*)nickname);
 
 					// Return Success
-					return 0;
+					return hleLogDebug(Log::sceNet, 0);
 				}
 			}
 
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetNameByAddr - PlayerName not found");
 			// Player not found
-			return ERROR_NET_ADHOC_NO_ENTRY;
+			return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_NO_ENTRY, "PlayerName not found");
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_INVALID_ARG);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
@@ -2728,11 +2724,11 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			peerlock.unlock();
 		}
 		hleEatMicro(50);
-		return retval;
+		return hleNoLog(retval);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 int NetAdhocctl_Create(const char *groupName) {

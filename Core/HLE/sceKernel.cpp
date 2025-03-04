@@ -650,7 +650,6 @@ struct SystemStatus {
 };
 
 static int sceKernelReferSystemStatus(u32 statusPtr) {
-	DEBUG_LOG(Log::sceKernel, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	auto status = PSPPointer<SystemStatus>::Create(statusPtr);
 	if (status.IsValid()) {
 		memset((SystemStatus *)status, 0, sizeof(SystemStatus));
@@ -658,7 +657,7 @@ static int sceKernelReferSystemStatus(u32 statusPtr) {
 		// TODO: Fill in the struct!
 		status.NotifyWrite("SystemStatus");
 	}
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // Unused - believed to be the returned struct from sceKernelReferThreadProfiler.
