@@ -265,7 +265,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	int retval = AnalyzeAtracTrack(addr, size, &track_);
 	first_._filesize_dontuse = track_.fileSize;
 	track_.DebugLog();
-	return retval;
+	return hleLogDebugOrError(Log::ME, retval);
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
@@ -286,17 +286,19 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		// Round the chunk size up to the nearest 2.
 		offset += chunk + (chunk & 1);
 		if (offset + 12 > size) {
-			return hleReportError(Log::ME, SCE_ERROR_ATRAC_SIZE_TOO_SMALL, "too small for WAVE chunk at %d", offset);
+			ERROR_LOG(Log::ME, "AnalyzeAtracTrack(%08x, %d): too small for WAVE chunk at offset %d", addr, size, offset);
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		if (Memory::Read_U32(addr + offset) != RIFF_CHUNK_MAGIC) {
-			return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "RIFF chunk did not contain WAVE");
+			ERROR_LOG(Log::ME, "AnalyzeAtracTrack(%08x, %d): RIFF chunk did not contain WAVE", addr, size);
+			return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 		}
 		offset += 8;
 	}
 	offset += 4;
 
 	if (offset != 12) {
-		WARN_LOG_REPORT(Log::ME, "RIFF chunk at offset: %d", offset);
+		WARN_LOG(Log::ME, "RIFF chunk at offset: %d", offset);
 	}
 
 	// RIFF size excluding chunk header.
@@ -324,12 +326,14 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		case FMT_CHUNK_MAGIC:
 		{
 			if (track->codecType != 0) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "multiple fmt definitions");
+				ERROR_LOG(Log::ME, "AnalyzeTrack: multiple fmt chunks is not valid");
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 
 			auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(addr + offset);
 			if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
+				ERROR_LOG(Log::ME, "AnalyzeTrack: fmt definition too small(%d)", chunkSize);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 
 			if (at3fmt->fmtTag == AT3_MAGIC)
@@ -337,19 +341,23 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
 				track->codecType = PSP_MODE_AT_3_PLUS;
 			else {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
+				ERROR_LOG(Log::ME, "AnalyzeTrack: invalid fmt magic: %04x", at3fmt->fmtTag);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			track->channels = at3fmt->channels;
 			if (track->channels != 1 && track->channels != 2) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "invalid channel count: %d", track->channels);
+				ERROR_LOG_REPORT(Log::ME, "AnalyzeTrack: unsupported channel count %d", track->channels);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			if (at3fmt->samplerate != 44100) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
+				ERROR_LOG_REPORT(Log::ME, "AnalyzeTrack: unsupported sample rate %d", at3fmt->samplerate);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			track->bitrate = at3fmt->avgBytesPerSec * 8;
 			track->bytesPerFrame = at3fmt->blockAlign;
 			if (track->bytesPerFrame == 0) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "invalid bytes per frame: %d", track->bytesPerFrame);
+				ERROR_LOG_REPORT(Log::ME, "invalid bytes per frame: %d", track->bytesPerFrame);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 
 			// TODO: There are some format specific bytes here which seem to have fixed values?
@@ -360,19 +368,10 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				track->jointStereo = Memory::Read_U32(addr + offset + 24);
 			}
 			if (chunkSize > 16) {
-				std::stringstream restChunkStream;
-
 				// Read and format extra bytes as hexadecimal
-				for (int i = 16; i < chunkSize; ++i) {
-					unsigned char byte = Memory::Read_U8(addr + offset + i);
-					restChunkStream << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (int)byte;
-				}
-
-				std::string restChunk = restChunkStream.str();
-				if (!restChunk.empty()) {
-					DEBUG_LOG(Log::ME, "Additional chunk data:%s", restChunk.c_str());
-				}
-
+				std::string hex;
+				DataToHexString(Memory::GetPointer(addr + offset + 16), chunkSize - 16, &hex, false);
+				DEBUG_LOG(Log::ME, "Additional chunk data (beyond 16 bytes): %s", hex.c_str());
 			}
 			break;
 		}
@@ -391,14 +390,17 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		case SMPL_CHUNK_MAGIC:
 		{
 			if (chunkSize < 32) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
+				ERROR_LOG(Log::ME, "AnalyzeTrack: smpl chunk too small (%d)", chunkSize);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			int checkNumLoops = Memory::Read_U32(addr + offset + 28);
 			if (checkNumLoops != 0 && chunkSize < 36 + 20) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
+				ERROR_LOG(Log::ME, "AnalyzeTrack: smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			if (checkNumLoops < 0) {
-				return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "bad checkNumLoops (%d)", checkNumLoops);
+				ERROR_LOG(Log::ME, "bad checkNumLoops (%d)", checkNumLoops);
+				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 
 			track->loopinfo.resize(checkNumLoops);
@@ -414,7 +416,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				track->loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
 				if (track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
-					return hleReportError(Log::ME, SCE_ERROR_ATRAC_BAD_CODEC_PARAMS, "loop starts after it ends");
+					ERROR_LOG(Log::ME, "AnalyzeTrack: loop starts after it ends");
+					return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 				}
 			}
 			break;
@@ -435,11 +438,13 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	}
 
 	if (track->codecType == 0) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "could not detect codec");
+		ERROR_LOG(Log::ME, "AnalyzeTrack: Could not detect codec");
+		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	if (!bfoundData) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SIZE_TOO_SMALL, "no data chunk");
+		ERROR_LOG(Log::ME, "AnalyzeTrack: No data chunk found");
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 	}
 
 	// set the loopStartSample_ and loopEndSample_ by loopinfo_
@@ -459,7 +464,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	track->endSample -= 1;
 
 	if (track->loopEndSample != -1 && track->loopEndSample > track->endSample + track->FirstSampleOffsetFull()) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_BAD_CODEC_PARAMS, "loop after end of data");
+		ERROR_LOG(Log::ME, "AnalyzeTrack: loop after end of data");
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 	}
 
 	return 0;

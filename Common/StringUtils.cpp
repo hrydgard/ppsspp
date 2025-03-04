@@ -238,10 +238,10 @@ void SkipSpace(const char **ptr) {
 	}
 }
 
-void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
+void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool lineBreaks) {
 	Buffer buffer;
 	for (size_t i = 0; i < size; i++) {
-		if (i && !(i & 15))
+		if (i && !(i & 15) && lineBreaks)
 			buffer.Printf("\n");
 		buffer.Printf("%02x ", data[i]);
 	}
