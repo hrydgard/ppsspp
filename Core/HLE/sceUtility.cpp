@@ -1152,16 +1152,12 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	return hleLogInfo(Log::sceUtility, 0, "param: %08x", param);
 }
 
-static u32 sceUtilityLoadNetModule(u32 module)
-{
-	DEBUG_LOG(Log::sceUtility,"FAKE: sceUtilityLoadNetModule(%i)", module);
-	return 0;
+static u32 sceUtilityLoadNetModule(u32 module) {
+	return hleLogInfo(Log::sceUtility, 0, "FAKE");
 }
 
-static u32 sceUtilityUnloadNetModule(u32 module)
-{
-	DEBUG_LOG(Log::sceUtility,"FAKE: sceUtilityUnloadNetModule(%i)", module);
-	return 0;
+static u32 sceUtilityUnloadNetModule(u32 module) {
+	return hleLogInfo(Log::sceUtility, 0, "FAKE");
 }
 
 static int sceUtilityNpSigninInitStart(u32 paramsPtr) {
@@ -1204,55 +1200,44 @@ static int sceUtilityNpSigninGetStatus() {
 	return hleLogVerbose(Log::sceUtility, status);
 }
 
-static void sceUtilityInstallInitStart(u32 unknown)
-{
+static void sceUtilityInstallInitStart(u32 unknown) {
 	WARN_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityInstallInitStart()");
+	return hleNoLogVoid();
 }
 
-static int sceUtilityStoreCheckoutShutdownStart()
-{
-	ERROR_LOG(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
-	return 0;
+static int sceUtilityStoreCheckoutShutdownStart() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
-{
-	ERROR_LOG(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
-	return 0;
+static int sceUtilityStoreCheckoutInitStart(u32 paramsPtr) {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static int sceUtilityStoreCheckoutUpdate(int drawSpeed)
-{
-	ERROR_LOG(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
-	return 0;
+static int sceUtilityStoreCheckoutUpdate(int drawSpeed) {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static int sceUtilityStoreCheckoutGetStatus()
-{
-	ERROR_LOG(Log::sceUtility,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
-	return 0;
+static int sceUtilityStoreCheckoutGetStatus() {
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static int sceUtilityGameSharingShutdownStart() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(Log::sceUtility, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 	
 	DeactivateDialog();
-	ERROR_LOG(Log::sceUtility, "UNIMPL sceUtilityGameSharingShutdownStart()");
-	return 0;
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static int sceUtilityGameSharingInitStart(u32 paramsPtr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::GAMESHARING) {
-		WARN_LOG(Log::sceUtility, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE);
 	}
-	
+
 	ActivateDialog(UtilityDialogType::GAMESHARING);
 	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
-	return 0;
+	return hleNoLog(0);
 }
 
 static int sceUtilityGameSharingUpdate(int animSpeed) {
@@ -1280,7 +1265,7 @@ static u32 sceUtilityLoadUsbModule(u32 module)
 	}
 
 	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
-	return 0;
+	return hleNoLog(0);
 }
 
 static u32 sceUtilityUnloadUsbModule(u32 module)
@@ -1291,7 +1276,7 @@ static u32 sceUtilityUnloadUsbModule(u32 module)
 	}
 
 	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
-	return 0;
+	return hleNoLog(0);
 }
 
 const HLEFunction sceUtility[] = 

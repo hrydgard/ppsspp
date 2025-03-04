@@ -74,7 +74,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	VERBOSE_LOG(Log::sceKernel, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
 	hleReSchedule("system time");
-	return 0;
+	return hleNoLog(0);
 }
 
 u32 sceKernelGetSystemTimeLow()
