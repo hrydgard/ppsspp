@@ -83,6 +83,7 @@ std::string NiceTimeFormat(int seconds);
 // Not a parser, needs a better location.
 // Simplified version of ShaderWriter. Would like to have that inherit from this but can't figure out how
 // due to the return value chaining.
+// TODO: We actually also have Buffer, with .Printf(), which is almost as convenient. Should maybe improve that instead?
 class StringWriter {
 public:
 	explicit StringWriter(char *buffer) : p_(buffer) {

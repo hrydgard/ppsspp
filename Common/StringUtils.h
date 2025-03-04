@@ -83,7 +83,7 @@ enum class StringRestriction {
 
 std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength, int maxLength);
 
-void DataToHexString(const uint8_t *data, size_t size, std::string *output);
+void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool lineBreaks = true);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
 
 std::string StringFromFormat(const char* format, ...);
