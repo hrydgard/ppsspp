@@ -563,7 +563,7 @@ static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, 
 	// SetData logs like a hle function.
 	int ret = atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
 	// not sure the real delay time
-	return hleDelayResult(ret, "atrac set data", 100);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {

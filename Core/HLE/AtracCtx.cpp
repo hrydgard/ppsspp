@@ -678,7 +678,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	outputChannels_ = outputChannels;
 
 	if (outputChannels != track_.channels) {
-		WARN_LOG(Log::ME, "outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
+		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
 	}
 
 	first_.addr = buffer;
@@ -699,7 +699,8 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "unexpected codec type in set data");
+		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track_.codecType);
+		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED || bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
@@ -727,7 +728,8 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder();
-	return hleLogInfo(Log::ME, successCode, "%s %s (%d channels) audio", codecName, channelName, track_.channels);
+	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+	return successCode;
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
