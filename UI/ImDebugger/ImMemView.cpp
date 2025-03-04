@@ -517,7 +517,7 @@ void ImMemView::updateStatusBarText() {
 	snprintf(text, sizeof(text), "%08x", curAddress_);
 	// There should only be one.
 	for (MemBlockInfo info : memRangeInfo) {
-		snprintf(text, sizeof(text), "%08x - %s %08x-%08x (PC %08x / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, info.ticks);
+		snprintf(text, sizeof(text), "%08x - %s %08x-%08x (PC %08x / %lld ticks)", curAddress_, info.tag.c_str(), info.start, info.start + info.size, info.pc, (long long)info.ticks);
 	}
 	statusMessage_ = text;
 }

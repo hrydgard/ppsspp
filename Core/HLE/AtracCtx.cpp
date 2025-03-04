@@ -743,12 +743,12 @@ int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
 		*desiredSize = 0;
-		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED, "not needed");
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED;
 	}
 
 	*fileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	*desiredSize = track_.fileSize - *fileOffset;
-	return hleLogDebug(Log::ME, 0);
+	return 0;
 }
 
 void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {

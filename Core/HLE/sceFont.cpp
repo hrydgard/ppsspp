@@ -735,7 +735,7 @@ public:
 
 	u32 GetAltCharCode() const { return altCharCode_; }
 
-	u32 GetOpenAllocatedAddress(int index) const { 
+	u32 GetOpenAllocatedAddress(int index) const {
 		if(index < numFonts())
 			return openAllocatedAddresses_[index];
 		return 0;
@@ -1206,7 +1206,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	Font *optimumFont = 0;
 	Font *nearestFont = 0;
 	float nearestDist = std::numeric_limits<float>::infinity();
-	
+
 	if (PSP_CoreParameter().compat.flags().Fontltn12Hack && requestedStyle->fontLanguage == 2) {
 		for (size_t j = 0; j < internalFonts.size(); j++) {
 			const auto &tempmatchStyle = internalFonts[j]->GetFontStyle();
@@ -1248,10 +1248,10 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	}
 	if (optimumFont) {
 		*errorCode = 0;
-		return hleLogInfo(Log::sceFont, GetInternalFontIndex(optimumFont) ,"");
+		return hleLogInfo(Log::sceFont, GetInternalFontIndex(optimumFont));
 	} else {
 		*errorCode = 0;
-		return hleLogInfo(Log::sceFont, 0, "");
+		return hleLogInfo(Log::sceFont, 0);
 	}
 }
 
