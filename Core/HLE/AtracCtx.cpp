@@ -249,23 +249,24 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SIZE_TOO_SMALL, "buffer too small");
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 	}
 
 	// TODO: Check the range (addr, size) instead.
 	if (!Memory::IsValidAddress(addr)) {
-		return hleReportWarning(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
 	// TODO: Validate stuff.
 	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_UNKNOWN_FORMAT, "invalid RIFF header");
+		ERROR_LOG(Log::ME, "Couldn't find RIFF header");
+		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	int retval = AnalyzeAtracTrack(addr, size, &track_);
 	first_._filesize_dontuse = track_.fileSize;
 	track_.DebugLog();
-	return hleLogDebugOrError(Log::ME, retval);
+	return retval;
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
