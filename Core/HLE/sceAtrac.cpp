@@ -550,7 +550,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return res;
 	}
 
-	return hleDelayResult(hleLogInfo(Log::ME, 0), "reset play pos", 3000);
+	return hleDelayResult(0, "reset play pos", 3000);
 }
 
 // Allowed to log like a HLE function, only called at the end of some.
