@@ -471,39 +471,30 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	return 0;
 }
 
-int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
-	first_.addr = addr;
-	first_.size = size;
-	first_._filesize_dontuse = fileSize;
-
-	AnalyzeReset();
-
-	return AnalyzeAA3Track(addr, size, fileSize, &track_);
-}
-
 int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	if (size < 10) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL, "buffer too small");
+		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 	// TODO: Make sure this validation is correct, more testing.
 
 	const u8 *buffer = Memory::GetPointer(addr);
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_INVALID_DATA, "invalid ea3 magic bytes");
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
 	}
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
 	if (size < tagSize + 36) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL, "truncated before id3 end");
+		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 
 	// EA3 header starts at id3 header (10) + tagSize.
 	buffer = Memory::GetPointer(addr + 10 + tagSize);
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_INVALID_DATA, "invalid EA3 magic bytes");
+		ERROR_LOG(Log::ME, "AnalyzeAA3Track: Invalid EA3 magic bytes");
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
 	}
-	
+
 	track->fileSize = fileSize;
 
 	// Based on FFmpeg's code.
@@ -527,9 +518,11 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	case 3:
 	case 4:
 	case 5:
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_INVALID_DATA, "unsupported codec type %d", buffer[32]);
+		ERROR_LOG(Log::ME, "AnalyzeAA3Track: unsupported codec type %d", buffer[32]);
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
 	default:
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_AA3_INVALID_DATA, "invalid codec type %d", buffer[32]);
+		ERROR_LOG(Log::ME, "AnalyzeAA3Track: invalid codec type %d", buffer[32]);
+		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
 	}
 
 	track->dataByteOffset = 10 + tagSize + 96;
@@ -539,6 +532,16 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	}
 	track->endSample -= 1;
 	return 0;
+}
+
+int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
+	first_.addr = addr;
+	first_.size = size;
+	first_._filesize_dontuse = fileSize;
+
+	AnalyzeReset();
+
+	return AnalyzeAA3Track(addr, size, fileSize, &track_);
 }
 
 void Atrac::CalculateStreamInfo(u32 *outReadOffset) {

@@ -79,19 +79,11 @@ void Atrac2::WriteContextToPSPMem() {
 }
 
 int Atrac2::Analyze(u32 addr, u32 size) {
-	int retval = AnalyzeAtracTrack(addr, size, &track_);
-	if (retval < 0) {
-		return retval;
-	}
-	return 0;
+	return AnalyzeAtracTrack(addr, size, &track_);
 }
-int Atrac2::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
-	int retval = AnalyzeAA3Track(addr, size, filesize, &track_);
-	if (retval < 0) {
-		return retval;
-	}
 
-	return 0;
+int Atrac2::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
+	return AnalyzeAA3Track(addr, size, filesize, &track_);
 }
 
 int Atrac2::RemainingFrames() const {

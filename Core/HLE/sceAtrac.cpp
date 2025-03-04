@@ -849,9 +849,8 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, bufferSize, fileSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -973,9 +972,8 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, readSize, fileSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
