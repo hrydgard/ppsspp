@@ -1087,7 +1087,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterfa
 				TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
 				if (tex) {
 					ImGui::Text("Texture: ");
-					texcache->ApplyTexture();
+					texcache->ApplyTexture(false);
 
 					void *nativeView = texcache->GetNativeTextureView(tex, true);
 					ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
