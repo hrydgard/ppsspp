@@ -270,7 +270,7 @@ u64 sceKernelGetVTimerBaseWide(SceUID uid) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
-		return hleLogError(Log::sceKernel, error, "bad timer ID");
+		return hleLogError(Log::sceKernel, -1, "bad timer ID");
 	}
 
 	return hleLogDebug(Log::sceKernel, vt->nvt.base);
@@ -294,7 +294,8 @@ u64 sceKernelGetVTimerTimeWide(SceUID uid) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
-		return hleLogError(Log::sceKernel, error, "bad timer ID");
+		// Strange error code! But, it matches tests.
+		return hleLogError(Log::sceKernel, -1, "bad timer ID. error=%08x", error);
 	}
 
 	u64 time = __getVTimerCurrentTime(vt);
@@ -333,7 +334,8 @@ u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
-		return hleLogError(Log::sceKernel, error, "bad timer ID");
+		// Strange error code! But, it matches tests.
+		return hleLogError(Log::sceKernel, -1, "bad timer ID. error=%08x", error);
 	}
 
 	return hleLogDebug(Log::sceKernel, __KernelSetVTimer(vt, timeClock));
@@ -359,7 +361,7 @@ u32 sceKernelStartVTimer(SceUID uid) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	if (vt->nvt.active != 0) {
+	if (vt->nvt.active) {
 		return hleLogDebug(Log::sceKernel, 1);
 	}
 

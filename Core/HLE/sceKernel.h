@@ -181,16 +181,16 @@ public:
 				WARN_LOG(Log::sceKernel, "Kernel: Bad %s handle %d (%08x)", T::GetStaticTypeName(), handle, handle);
 			}
 			outError = T::GetMissingErrorCode();
-			return 0;
+			return nullptr;
 		} else {
 			// Previously we had a dynamic_cast here, but since RTTI was disabled traditionally,
 			// it just acted as a static cast and everything worked. This means that we will never
 			// see the Wrong type object error below, but we'll just have to live with that danger.
-			T* t = static_cast<T*>(pool[handle - handleOffset]);
+			T *t = static_cast<T *>(pool[handle - handleOffset]);
 			if (t == nullptr || t->GetIDType() != T::GetStaticIDType()) {
 				WARN_LOG(Log::sceKernel, "Kernel: Wrong object type for %d (%08x), was %s, should have been %s", handle, handle, t ? t->GetTypeName() : "null", T::GetStaticTypeName());
 				outError = T::GetMissingErrorCode();
-				return 0;
+				return nullptr;
 			}
 			outError = SCE_KERNEL_ERROR_OK;
 			return t;
