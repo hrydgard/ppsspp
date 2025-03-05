@@ -75,8 +75,9 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 static int sceKernelAllocHeapMemory(int heapId, int size) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
-	if (!heap)
+	if (!heap) {
 		return hleLogError(Log::sceKernel, error, "invalid heapId");
+	}
 
 	// There's 8 bytes at the end of every block, reserved.
 	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
