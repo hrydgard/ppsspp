@@ -46,7 +46,10 @@ struct FRect {
 	float h;
 };
 
+struct Bounds;  // from geom2d
+
 FRect GetScreenFrame(float pixelWidth, float pixelHeight);
+void SetOverrideScreenFrame(const Bounds *bounds);
 void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
