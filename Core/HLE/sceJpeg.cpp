@@ -94,11 +94,19 @@ static u32 convertYCbCrToABGR(int y, int cb, int cr) {
 	int g = y - ((cb >> 2) + (cb >> 4) + (cb >> 5)) - ((cr >> 1) + (cr >> 3) + (cr >> 4) + (cr >> 5));
 	int b = y + cb + (cb >> 1) + (cb >> 2) + (cb >> 6);
 
-	// check rgb value.
-	if (r > 0xFF) r = 0xFF; if(r < 0) r = 0;
-	if (g > 0xFF) g = 0xFF; if(g < 0) g = 0;
-	if (b > 0xFF) b = 0xFF; if(b < 0) b = 0;
-
+	// clamp rgb value.
+	if (r > 0xFF)
+		r = 0xFF;
+	else if(r < 0)
+		r = 0;
+	if (g > 0xFF)
+		g = 0xFF;
+	else if (g < 0)
+		g = 0;
+	if (b > 0xFF)
+		b = 0xFF;
+	else if (b < 0)
+		b = 0;
 	return (b << 16) | (g << 8) | (r << 0);
 }
 
@@ -246,7 +254,7 @@ static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bu
 
 	int usec = 0;
 	int result = JpegMJpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth, usec);
-	
+
 	int width = (widthHeight >> 16) & 0xFFF;
 	int height = widthHeight & 0xFFF;
 	if (result >= 0)
@@ -385,10 +393,10 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	}
 
 	free(jpegBuf);
-	
+
 	// Buffer to store info about the color space in use.
 	// - Bits 24 to 32 (Always empty): 0x00
-	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr) 
+	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr)
 	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
 	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
 	if (Memory::IsValidAddress(colourInfoAddr)) {
@@ -433,11 +441,20 @@ static u32 convertRGBToYCbCr(u32 rgb) {
 	int cb = -0.169f * r - 0.331f * g + 0.499f * b + 128.0f;
 	int cr = 0.499f * r - 0.418f * g - 0.0813f * b + 128.0f;
 
-	// check yCbCr value
-	if ( y > 0xFF)  y = 0xFF; if ( y < 0)  y = 0;
-	if (cb > 0xFF) cb = 0xFF; if (cb < 0) cb = 0;
-	if (cr > 0xFF) cr = 0xFF; if (cr < 0) cr = 0;
-
+	// clamp yCbCr values
+	if (y > 0xFF)
+		y = 0xFF;
+	else if (y < 0)
+		y = 0;
+	if (cb > 0xFF)
+		cb = 0xFF;
+	else if (cb < 0)
+		cb = 0;
+	if (cr > 0xFF)
+		cr = 0xFF;
+	else if (cr < 0)
+		cr = 0;
+	// TODO: No real need to pack here, we immediately unpack in the caller.
 	return (y << 16) | (cb << 8) | cr;
 }
 
@@ -543,7 +560,7 @@ static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, in
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
 	if (!Memory::IsValidRange(jpegAddr, jpegSize))
 		return hleLogError(Log::ME, ERROR_JPEG_INVALID_VALUE, "invalid jpeg address");
-	
+
 	int usec = 300;
 	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);
 	return hleDelayResult(result, "jpeg decode", usec);
@@ -554,7 +571,7 @@ static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 y
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid jpeg address");
 	if ((yCbCrAddr | yCbCrSize | (yCbCrAddr + yCbCrSize)) & 0x80000000)
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_PRIV_REQUIRED, "invalid output address");
-	
+
 	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
 	int usec = 300;
 	int result = JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, usec);

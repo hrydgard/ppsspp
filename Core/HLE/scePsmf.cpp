@@ -1367,20 +1367,20 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	if (psmfplayer->totalAudioStreams > 0) {
 		if (playerData->audioCodec != 0x0F && playerData->audioCodec != 0x01) {
 			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid audio codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->audioCodec);
-			return ERROR_PSMFPLAYER_INVALID_STREAM;
+			return hleNoLog(ERROR_PSMFPLAYER_INVALID_STREAM);
 		}
 		if (playerData->audioStreamNum >= psmfplayer->totalAudioStreams) {
 			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change audio stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->audioStreamNum);
-			return ERROR_PSMFPLAYER_INVALID_CONFIG;
+			return hleNoLog(ERROR_PSMFPLAYER_INVALID_CONFIG);
 		}
 	}
 	if (playerData->videoCodec != 0x0E && playerData->videoCodec != 0x00) {
 		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid video codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->videoCodec);
-		return ERROR_PSMFPLAYER_INVALID_STREAM;
+		return hleNoLog(ERROR_PSMFPLAYER_INVALID_STREAM);
 	}
 	if (playerData->videoStreamNum < 0 || playerData->videoStreamNum >= psmfplayer->totalVideoStreams) {
 		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change video stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->videoStreamNum);
-		return ERROR_PSMFPLAYER_INVALID_CONFIG;
+		return hleNoLog(ERROR_PSMFPLAYER_INVALID_CONFIG);
 	}
 
 	switch ((PsmfPlayerMode)(s32)playerData->playMode) {

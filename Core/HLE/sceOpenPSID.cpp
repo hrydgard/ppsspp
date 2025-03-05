@@ -31,32 +31,25 @@ void __OpenPSIDInit() {
 }
 
 void __OpenPSIDShutdown() {
-
 	return;
 }
 
-static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
-{
-	WARN_LOG(Log::HLE, "UNTESTED %s(%08x)", __FUNCTION__, OpenPSIDPtr);
-
+static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr) {
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
 		*ptr = dummyOpenPSID;
 		ptr.NotifyWrite("OpenPSIDGetOpenPSID");
 	}
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNTESTED");
 }
 
-static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr,u32 unknown)
-{
-	WARN_LOG(Log::HLE, "UNTESTED %s(%08x, %08x)", __FUNCTION__, OpenPSIDPtr, unknown);
-
+static int sceOpenPSIDGetPSID(u32 OpenPSIDPtr, u32 unknown) {
 	auto ptr = PSPPointer<SceOpenPSID>::Create(OpenPSIDPtr);
 	if (ptr.IsValid()) {
 		*ptr = dummyOpenPSID;
 		ptr.NotifyWrite("OpenPSIDGetPSID");
 	}
-	return 0;
+	return hleLogWarning(Log::HLE, 0, "UNTESTED");
 }
 
 /*
@@ -74,21 +67,15 @@ Returns:
 	0 on success, otherwise < 0.
 */
 static s32 sceDdrdb_F013F8BF(u32 pDataPtr, u32 pSigPtr) {
-	ERROR_LOG(Log::HLE, "UNIMPL %s(%08x, %08x)", __FUNCTION__, pDataPtr, pSigPtr);
-
-	return 0;
+	return hleLogError(Log::HLE, 0, "UNIMPL");
 }
 
 // unkPtr might be a pointer to OpenPSID
 static s32 sceOpenPSIDGetProductCode(u32 unkPtr) {
-	ERROR_LOG_REPORT(Log::HLE, "UNIMPL %s(%08x)", __FUNCTION__, unkPtr);
-
-	return 0;
+	return hleLogError(Log::HLE, 0, "UNIMPL");
 }
 
-
-const HLEFunction sceOpenPSID[] = 
-{
+const HLEFunction sceOpenPSID[] = {
 	{0xC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,    "sceOpenPSIDGetOpenPSID",      'i', "x" },
 	{0xB29330DE, &WrapI_U<sceOpenPSIDGetProductCode>, "sceOpenPSIDGetProductCode",   'i', "x" },
 };

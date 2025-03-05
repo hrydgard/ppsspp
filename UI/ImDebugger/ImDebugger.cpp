@@ -1724,7 +1724,7 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 		}
 	}
 	ImGui::EndChild();
-	
+
 	ImGui::SameLine();
 	if (ImGui::BeginChild("memview", size)) {
 		memView_.Draw(ImGui::GetWindowDrawList());

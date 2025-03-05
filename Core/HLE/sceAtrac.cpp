@@ -270,7 +270,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		if (ret == 0 && Memory::IsValidAddress(remainAddr))
 			Memory::WriteUnchecked_U32(remains, remainAddr);
 	}
-	DEBUG_LOG(Log::ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
+	DEBUG_LOG(Log::ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr,
 			  numSamplesAddr, numSamples,
 			  finishFlagAddr, finish,
 			  remainAddr, remains);
@@ -464,7 +464,13 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
 	}
 
-	return atrac->GetSecondBufferInfo(fileOffset, desiredSize);
+	int result = atrac->GetSecondBufferInfo(fileOffset, desiredSize);
+	switch (result) {
+	case (int)SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED:
+		return hleLogDebug(Log::ME, result);
+	default:
+		return hleLogDebugOrError(Log::ME, result);
+	}
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
@@ -550,7 +556,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return res;
 	}
 
-	return hleDelayResult(hleLogInfo(Log::ME, 0), "reset play pos", 3000);
+	return hleDelayResult(0, "reset play pos", 3000);
 }
 
 // Allowed to log like a HLE function, only called at the end of some.
@@ -563,7 +569,7 @@ static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, 
 	// SetData logs like a hle function.
 	int ret = atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
 	// not sure the real delay time
-	return hleDelayResult(ret, "atrac set data", 100);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
@@ -579,8 +585,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
-		// Already logged.
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 
 	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, false);
@@ -604,8 +609,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
-		// Already logged.
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 
 	if (atrac->GetTrack().codecType != atracContextTypes[atracID]) {
@@ -627,9 +631,8 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -647,9 +650,8 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -686,8 +688,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
 		if (atracContexts[i] != nullptr) {
-			ERROR_LOG_REPORT(Log::ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
-			return SCE_KERNEL_ERROR_BUSY;
+			return hleReportError(Log::ME, SCE_KERNEL_ERROR_BUSY, "cannot reinit while IDs in use");
 		}
 	}
 
@@ -765,8 +766,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
-		// Already logged.
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
@@ -787,8 +787,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
-		// Already logged.
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
@@ -804,9 +803,8 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
@@ -828,9 +826,8 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
@@ -849,9 +846,8 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, bufferSize, fileSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -865,9 +861,9 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 static u32 _sceAtracGetContextAddress(int atracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(Log::ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
-		return 0;
+		return hleLogError(Log::ME, 0, "bad atrac id");
 	}
+
 	if (!atrac->context_.IsValid()) {
 		// allocate a new context_
 		u32 contextSize = sizeof(SceAtracContext);
@@ -876,11 +872,12 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		if (atrac->context_.IsValid())
 			Memory::Memset(atrac->context_.ptr, 0, contextSize, "AtracContextClear");
 		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
-	}
-	else
+	} else {
 		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
+	}
+
 	atrac->WriteContextToPSPMem();
-	return atrac->context_.ptr;
+	return hleLogDebug(Log::ME, atrac->context_.ptr);
 }
 
 struct At3HeaderMap {
@@ -973,9 +970,8 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, readSize, fileSize);
 	if (ret < 0) {
-		// Already logged.
 		delete atrac;
-		return ret;
+		return hleLogError(Log::ME, ret);
 	}
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -991,14 +987,14 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac)
-		return 0;
+		return hleLogWarning(Log::ME, 0, "bad atrac ID");
 	return atrac->AddStreamDataSas(bufPtr, bytesToAdd);
 }
 
 u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac)
-		return 0;
+		return hleLogWarning(Log::ME, 0, "bad atrac ID");
 	return atrac->DecodeData(outbuf, outbufPtr, SamplesNum, finish, remains);
 }
 

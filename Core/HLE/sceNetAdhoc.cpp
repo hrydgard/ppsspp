@@ -128,7 +128,7 @@ void __NetAdhocShutdown() {
 	}
 
 	NetAdhocctl_Term();
-	
+
 	if (netAdhocInited) {
 		NetAdhoc_Term();
 	}
@@ -164,7 +164,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 					__KernelResumeThreadFromWait(threadID, gameModeSocket);
 					return;
 				}
-				else 
+				else
 					INFO_LOG(Log::sceNet, "GameMode: Synchronizer (%d, %d) has started", gameModeSocket, gameModeBuffSize);
 			}
 			if (gameModeSocket < 0) {
@@ -191,7 +191,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 						auto it = gameModePeerPorts.find(gma.mac);
 						if (it != gameModePeerPorts.end())
 							port = it->second;
-							
+
 						int sent = hleCall(sceNetAdhoc, int, sceNetAdhocPdpSend, gameModeSocket, (const char*)&gma.mac, port, masterGameModeArea.data, masterGameModeArea.size, 0, ADHOC_F_NONBLOCK);
 						if (sent != ERROR_NET_ADHOC_WOULD_BLOCK) {
 							gma.dataSent = 1;
@@ -201,7 +201,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 					}
 					else if (gma.dataSent) sentcount++;
 				}
-				if (sentcount == replicaGameModeAreas.size()) 
+				if (sentcount == replicaGameModeAreas.size())
 					masterGameModeArea.dataUpdated = 0;
 			}
 			// Need to sync (send + recv) all players initial data (data from CreateMaster) after Master + All Replicas are created, and before the first UpdateMaster / UpdateReplica is called for Star Wars The Force Unleashed to show the correct players color on minimap (also prevent Starting issue on other GameMode games)
@@ -397,7 +397,7 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
 		adhocctlState = waitVal;
-		// FIXME: It seems Adhocctl is still busy within the Adhocctl Handler function (ie. during callbacks), 
+		// FIXME: It seems Adhocctl is still busy within the Adhocctl Handler function (ie. during callbacks),
 		// so we should probably set isAdhocctlBusy to false after mispscall are fully executed (ie. in afterAction).
 		// But since Adhocctl Handler is optional, there might be cases where there are no handler thus no callback/mipcall being triggered,
 		// so we should probably need to set isAdhocctlBusy to false here too as a workaround (or may be there is internal handler by default?)
@@ -477,9 +477,9 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	sockerr = socket_errno;
 
 	// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
-	// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
+	// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself,
 	//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
-	//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game 
+	//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
 	//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
 	if (ret != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
 		// Remove the packet from socket buffer
@@ -920,7 +920,7 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 		else
 			result = ERROR_NET_ADHOC_TIMEOUT;
 	}
-	
+
 	if (sockerr != 0) {
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpFlush[%i]: Socket Error (%i)", req.id, sockerr);
 	}
@@ -1178,7 +1178,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		netAdhocGameModeEntered = false;
 		netAdhocEnterGameModeTimeout = 15000000;
 	}
-	
+
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
 		adhocctlEvents.clear();
@@ -1187,7 +1187,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		sendTargetPeers.clear();
 		deleteAllAdhocSockets();
 		deleteMatchingEvents();
-		
+
 		// Let's not change "Inited" value when Loading SaveState to prevent memory & port leaks
 		RestoreNetAdhocMatchingInited();
 
@@ -1292,7 +1292,7 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	if (!friendFinderRunning) {
 		friendFinderThread = std::thread(friendFinder);
 	}
-	
+
 	// Need to make sure to be connected to Adhoc Server (indicated by networkInited) before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
 	int us = adhocDefaultDelay;
 	if (g_Config.bEnableWlan && !g_adhocServerConnected) {
@@ -1350,7 +1350,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 	if (netAdhocInited) {
 		// Valid Arguments are supplied
 		if (mac != NULL && bufferSize > 0) {
-			// Port is in use by another PDP Socket. 
+			// Port is in use by another PDP Socket.
 			if (isPDPPortInUse(port)) {
 				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 				return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_PORT_IN_USE, "port in use");
@@ -1403,7 +1403,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 						WARN_LOG(Log::sceNet, "sceNetAdhocPdpCreate - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
 					}
 					addr.sin_port = htons(requestedport);
-					
+
 					// Bound Socket to local Port
 					int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -1428,7 +1428,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 						if (internal != NULL) {
 							// Find Free Translator Index
 							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
-							int i = 0; 
+							int i = 0;
 							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
 
 							// Found Free Translator Index
@@ -1453,14 +1453,14 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 								// Forward Port on Router
 								//sceNetPortOpen("UDP", port);
 								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
-								
+
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(usocket, 1);
 
 								// Success
 								INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate - PSP Socket id: %i, Host Socket id: %i", i + 1, usocket);
 								return i + 1;
-							} 
+							}
 
 							// Free Memory for Internal Data
 							free(internal);
@@ -1475,7 +1475,7 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
 						auto n = GetI18NCategory(I18NCat::NETWORKING);
 						g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
-						
+
 						return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_PORT_NOT_AVAIL, "port not available");
 					}
 				}
@@ -1545,7 +1545,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 	}
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
 	uint16_t dport = (uint16_t)port;
-	
+
 	//if (dport < 7) dport += 1341;
 
 	// Really should flatten this with early outs, all this indentation is making me dizzy.
@@ -1572,7 +1572,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 							//if (flag) timeout = 0;
 
 							// Apply Send Timeout Settings to Socket
-							if (timeout > 0) 
+							if (timeout > 0)
 								setSockTimeout(pdpsocket.id, SO_SNDTIMEO, timeout);
 
 							if (socket->flags & ADHOC_F_ALERTSEND) {
@@ -1633,7 +1633,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									}
 
 									// Non-Blocking
-									if (flag) 
+									if (flag)
 										return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
@@ -1656,7 +1656,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								//	target.sin_family = AF_INET;
 								//	sceNetInetInetAton(info.ip, &target.sin_addr);
 								//	target.sin_port = sceNetHtons(dport);
-								//	
+								//
 								//	// Send Data
 								//	sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
 								//}
@@ -1763,7 +1763,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 	} else {
 		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpRecv(%i, %p, %p, %p, %p, %i, %i) at %08x", id, addr, port, buf, dataLength, timeout, flag, currentMIPS->pc);
 	}
- 
+
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1);
 	}
@@ -1780,7 +1780,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 			socket->nonblocking = flag;
 
 			// Valid Arguments
-			if (saddr != NULL && port != NULL && buf != NULL && len != NULL) { 
+			if (saddr != NULL && port != NULL && buf != NULL && len != NULL) {
 #ifndef PDP_DIRTY_MAGIC
 				// Schedule Timeout Removal
 				//if (flag == 1) timeout = 0;
@@ -1805,7 +1805,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 #endif
 
 				// Apply Receive Timeout Settings to Socket. Let's not wait forever (0 = indefinitely)
-				if (timeout > 0) 
+				if (timeout > 0)
 					setSockTimeout(pdpsocket.id, SO_RCVTIMEO, timeout);
 
 				if (socket->flags & ADHOC_F_ALERTRECV) {
@@ -1824,7 +1824,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				SceNetEtherAddr mac;
 				int received = 0;
 				int error;
-				
+
 				int disCnt = 16;
 				while (--disCnt > 0)
 				{
@@ -1836,9 +1836,9 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 					error = socket_errno;
 					// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
-					// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself, 
+					// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself,
 					//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
-					//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game 
+					//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
 					//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
 					// Note: Looping to check too many packets (ie. contiguous) to discard per one non-blocking PdpRecv syscall may cause a slow down
 					if (received != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
@@ -1900,7 +1900,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					VERBOSE_LOG(Log::sceNet, "%08x=sceNetAdhocPdpRecv: would block", ERROR_NET_ADHOC_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
 					return ERROR_NET_ADHOC_WOULD_BLOCK; // hleLogSuccessVerboseX(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
 				}
-				
+
 				hleEatMicro(50);
 				// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
 				if (received >= 0) {
@@ -1985,7 +1985,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
  	WARN_LOG_REPORT_ONCE(sceNetAdhocSetSocketAlert, Log::sceNet, "UNTESTED sceNetAdhocSetSocketAlert(%d, %08x) at %08x", id, flag, currentMIPS->pc);
 
 	int retval = NetAdhoc_SetSocketAlert(id, flag);
-	return hleDelayResult(hleLogDebug(Log::sceNet, retval, ""), "set socket alert delay", 1000);
+	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "set socket alert delay", 1000);
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
@@ -1994,7 +1994,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	int fd;
 	int maxfd = 0;
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
-	
+
 	for (int i = 0; i < count; i++) {
 		sds[i].revents = 0;
 		// Fill in Socket ID
@@ -2010,7 +2010,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				fd = sock->data.pdp.id;
 			}
 			if (fd > maxfd) maxfd = fd;
-			FD_SET(fd, &readfds); 
+			FD_SET(fd, &readfds);
 			FD_SET(fd, &writefds);
 			FD_SET(fd, &exceptfds);
 		}
@@ -2025,7 +2025,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 				auto sock = adhocSockets[sds[i].id - 1];
 				if (sock->type == SOCK_PTP) {
-					fd = sock->data.ptp.id;					
+					fd = sock->data.ptp.id;
 				}
 				else {
 					fd = sock->data.pdp.id;
@@ -2033,12 +2033,12 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				if ((sds[i].events & ADHOC_EV_RECV) && FD_ISSET(fd, &readfds))
 					sds[i].revents |= ADHOC_EV_RECV;
 				if ((sds[i].events & ADHOC_EV_SEND) && FD_ISSET(fd, &writefds))
-					sds[i].revents |= ADHOC_EV_SEND;				
+					sds[i].revents |= ADHOC_EV_SEND;
 				if (sock->alerted_flags)
 					sds[i].revents |= ADHOC_EV_ALERT;
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
-				
+
 				if (sock->type == SOCK_PTP) {
 					// FIXME: Should we also make use "retry_interval" for ADHOC_EV_ACCEPT, similar to ADHOC_EV_CONNECT ?
 					if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN && (sds[i].events & ADHOC_EV_ACCEPT) && FD_ISSET(fd, &readfds)) {
@@ -2105,7 +2105,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			if (nonblock)
 				timeout = 0;
 
-			if (count > (int)FD_SETSIZE) 
+			if (count > (int)FD_SETSIZE)
 				count = FD_SETSIZE; // return 0; //ERROR_NET_ADHOC_INVALID_ARG
 
 			// Acquire Network Lock
@@ -2223,7 +2223,7 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 
 static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetAdhocId(%08x) at %08x", productStructAddr, currentMIPS->pc);
-	
+
 	if (!netAdhocctlInited)
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED, "not initialized");
 
@@ -2282,7 +2282,7 @@ int sceNetAdhocctlScan() {
 			// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlScan switching to a different thread for at least 100ms after returning success and before executing the next line?
 			return hleDelayResult(hleLogDebug(Log::sceNet, 0), "scan delay", adhocEventPollDelay);
 		}
-		
+
 		// FIXME: Returning BUSY when previous adhocctl handler's callback is not fully executed yet, But returning success and notifying handler's callback with error (ie. ALREADY_CONNECTED) when previous adhocctl handler's callback is fully executed? Is there a case where error = BUSY sent through handler's callback?
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_BUSY, "busy");
 	}
@@ -2316,7 +2316,7 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 			peerlock.lock();
 
 			// FIXME: When already connected to a group GetScanInfo will return size = 0 ? or may be only hides the group created by it's self?
-			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) { 
+			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) {
 				*buflen = 0;
 				DEBUG_LOG(Log::sceNet, "NetworkList [Available: 0] Already in a Group");
 			}
@@ -2380,15 +2380,15 @@ int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 
 			hleEatMicro(200);
 			// Return Success
-			return 0;
+			return hleLogDebug(Log::sceNet, 0);
 		}
 
 		// Generic Error
-		return -1;
+		return hleLogError(Log::sceNet, -1);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
@@ -2430,7 +2430,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	}
 
 	// The id to return is the number of handlers currently registered
-	return retval;
+	return hleNoLog(retval);
 }
 
 u32 NetAdhocctl_Disconnect() {
@@ -2445,7 +2445,7 @@ u32 NetAdhocctl_Disconnect() {
 		}
 
 		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) { 
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) {
 			isAdhocctlBusy = true;
 
 			// Clear Network Name
@@ -2470,7 +2470,7 @@ u32 NetAdhocctl_Disconnect() {
 					ERROR_LOG(Log::sceNet, "Socket error (%i) when sending", error);
 					// Set Disconnected State
 					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-				} 
+				}
 				else if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
 					WaitBlockingAdhocctlSocket(req, 0, "adhocctl disconnect");
@@ -2532,12 +2532,10 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		INFO_LOG(Log::sceNet, "sceNetAdhocctlDelHandler(%d) at %08x", handlerID, currentMIPS->pc);
+		return hleLogInfo(Log::sceNet, 0);
 	} else {
-		WARN_LOG(Log::sceNet, "sceNetAdhocctlDelHandler(%d): Invalid Handler ID", handlerID);
+		return hleLogWarning(Log::sceNet, 0, "Invalid Handler ID");
 	}
-
-	return 0;
 }
 
 int NetAdhocctl_Term() {
@@ -2575,7 +2573,7 @@ int NetAdhocctl_Term() {
 		shutdown((int)metasocket, SD_BOTH);
 		closesocket((int)metasocket);
 		metasocket = (int)INVALID_SOCKET;
-		// Delete fake PSP Thread. 
+		// Delete fake PSP Thread.
 		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
 		if (threadAdhocID > 0 && strcmp(__KernelGetThreadName(threadAdhocID), "ERROR") != 0) {
 			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
@@ -2592,18 +2590,17 @@ int NetAdhocctl_Term() {
 
 int sceNetAdhocctlTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	INFO_LOG(Log::sceNet, "sceNetAdhocctlTerm() at %08x", currentMIPS->pc);
 
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
 	int retval = NetAdhocctl_Term();
 
 	hleEatMicro(adhocDefaultDelay);
-	return retval;
+	return hleLogInfo(Log::sceNet, retval);
 }
 
 static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlGetNameByAddr(%s, %08x) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), nameAddr, currentMIPS->pc);
-	
+
 	// Library initialized
 	if (netAdhocctlInited)
 	{
@@ -2612,7 +2609,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 		{
 			SceNetAdhocctlNickname * nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
 			// Get Local MAC Address
-			SceNetEtherAddr localmac; 
+			SceNetEtherAddr localmac;
 			getLocalMac(&localmac);
 
 			// Local MAC Matches
@@ -2628,7 +2625,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 			}
 
 			// Multithreading Lock
-			peerlock.lock(); 
+			peerlock.lock();
 
 			// Peer Reference
 			SceNetAdhocctlPeerInfo * peer = friends;
@@ -2643,29 +2640,28 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 					*nickname = peer->nickname;
 
 					// Multithreading Unlock
-					peerlock.unlock(); 
+					peerlock.unlock();
 
 					DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetNameByAddr - [PeerName:%s]", (char*)nickname);
 
 					// Return Success
-					return 0;
+					return hleLogDebug(Log::sceNet, 0);
 				}
 			}
 
 			// Multithreading Unlock
-			peerlock.unlock(); 
+			peerlock.unlock();
 
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetNameByAddr - PlayerName not found");
 			// Player not found
-			return ERROR_NET_ADHOC_NO_ENTRY;
+			return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_NO_ENTRY, "PlayerName not found");
 		}
 
 		// Invalid Arguments
-		return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_INVALID_ARG);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
@@ -2682,7 +2678,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		if ((size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
-		
+
 		int retval = ERROR_NET_ADHOC_NO_ENTRY; // -1;
 
 		// Local MAC
@@ -2702,7 +2698,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			retval = 0;
 		}
 		// Find Peer by MAC
-		else 
+		else
 		{
 			// Multithreading Lock
 			peerlock.lock();
@@ -2728,11 +2724,11 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			peerlock.unlock();
 		}
 		hleEatMicro(50);
-		return retval;
+		return hleNoLog(retval);
 	}
 
 	// Library uninitialized
-	return ERROR_NET_ADHOCCTL_NOT_INITIALIZED;
+	return hleLogError(Log::sceNet, ERROR_NET_ADHOCCTL_NOT_INITIALIZED);
 }
 
 int NetAdhocctl_Create(const char *groupName) {
@@ -2780,7 +2776,7 @@ int NetAdhocctl_Create(const char *groupName) {
 						adhocctlState = ADHOCCTL_STATE_CONNECTED;
 						// Notify Event Handlers, Needed for the Nickname to be shown on the screen when success is faked
 						// Connected Event's mipscall need be executed before returning from sceNetAdhocctlCreate (or before the next sceNet function?)
-						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); 
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0); //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0));
 					}
 				}
 
@@ -2817,7 +2813,7 @@ int sceNetAdhocctlCreate(const char *groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CREATE;
-	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName), "");
+	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName));
 }
 
 int sceNetAdhocctlConnect(const char* groupName) {
@@ -2831,7 +2827,7 @@ int sceNetAdhocctlConnect(const char* groupName) {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 	adhocConnectionType = ADHOC_CONNECT;
-	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName), "");
+	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(groupName));
 }
 
 int sceNetAdhocctlJoin(u32 scanInfoAddr) {
@@ -2855,7 +2851,7 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 			// TODO: Adhoc Server may need to be changed to differentiate between Host/Create and Join, otherwise it can't support multiple Host using the same Group name, thus causing one of the Host to be confused being treated as Join.
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
 			adhocConnectionType = ADHOC_JOIN;
-			return hleLogDebug(Log::sceNet, NetAdhocctl_Create(grpName), "");
+			return hleLogDebug(Log::sceNet, NetAdhocctl_Create(grpName));
 		}
 
 		// Invalid Argument
@@ -2924,7 +2920,7 @@ static int sceNetAdhocctlCreateEnterGameMode(const char * group_name, int game_t
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameMode, Log::sceNet, "UNTESTED sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i) at %08x", grpName, game_type, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 
-	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag), "");
+	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag));
 }
 
 /**
@@ -2965,7 +2961,7 @@ static int sceNetAdhocctlJoinEnterGameMode(const char * group_name, const char *
 	adhocConnectionType = ADHOC_JOIN;
 	netAdhocGameModeEntered = true;
 	netAdhocEnterGameModeTimeout = timeout;
-	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(group_name), "");
+	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(group_name));
 }
 
 /**
@@ -2985,7 +2981,7 @@ int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, 
 		memcpy(grpName, group_name, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 	WARN_LOG_REPORT_ONCE(sceNetAdhocctlCreateEnterGameModeMin, Log::sceNet, "UNTESTED sceNetAdhocctlCreateEnterGameModeMin(%s, %i, %i, %i, %08x, %d, %i) at %08x", grpName, game_type, min_members, num_members, membersAddr, timeout, flag, currentMIPS->pc);
 	// We don't really need the Minimum User Check
-	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag), "");
+	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag));
 }
 
 int NetAdhoc_Term() {
@@ -3029,7 +3025,7 @@ int sceNetAdhocTerm() {
 
 static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 	VERBOSE_LOG(Log::sceNet, "sceNetAdhocGetPdpStat(%08x, %08x) at %08x", structSize, structAddr, currentMIPS->pc);
-	
+
 	// Library is initialized
 	if (netAdhocInited)
 	{
@@ -3095,7 +3091,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					buf[i].next = 0;
 
 					// Link Previous Element
-					if (i > 0) 
+					if (i > 0)
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPdpStat));
 
 					VERBOSE_LOG(Log::sceNet, "Stat PDP Socket Id: %d (%d), LPort: %d, RecvSbCC: %d", buf[i].id, sock->data.pdp.id, buf[i].lport, buf[i].rcv_sb_cc);
@@ -3129,7 +3125,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED
  */
 static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
-	// Spams a lot 
+	// Spams a lot
 	VERBOSE_LOG(Log::sceNet,"sceNetAdhocGetPtpStat(%08x, %08x) at %08x",structSize,structAddr,currentMIPS->pc);
 
 	s32_le *buflen = NULL;
@@ -3147,26 +3143,26 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 			// Return Required Size
 			*buflen = sizeof(SceNetAdhocPtpStat) * socketcount;
 			VERBOSE_LOG(Log::sceNet, "Stat PTP Socket Count: %d", socketcount);
-			
+
 			// Success
 			return 0;
 		}
-		
+
 		// Status Returner Mode
 		else if (buflen != NULL && buf != NULL) {
 			// Figure out how many Sockets we will return
 			int count = *buflen / sizeof(SceNetAdhocPtpStat);
 			if (count > socketcount) count = socketcount;
-			
+
 			// Copy Counter
 			int i = 0;
-			
+
 			// Iterate Sockets
 			for (int j = 0; j < MAX_SOCKET && i < count; j++) {
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if ( sock != NULL && sock->type == SOCK_PTP) {
-					// Update connection state. 
+					// Update connection state.
 					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
 					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
@@ -3195,36 +3191,36 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
-					
+
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
 
 					// Write End of List Reference
 					buf[i].next = 0;
-					
+
 					// Link previous Element to this one
 					if (i > 0)
 						buf[i - 1].next = structAddr + (i * sizeof(SceNetAdhocPtpStat));
 
 					VERBOSE_LOG(Log::sceNet, "Stat PTP Socket Id: %d (%d), LPort: %d, RecvSbCC: %d, State: %d", buf[i].id, sock->data.ptp.id, buf[i].lport, buf[i].rcv_sb_cc, buf[i].state);
-					
+
 					// Increment Counter
 					i++;
 				}
 			}
-			
+
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPtpStat);
-			
+
 			hleEatMicro(50); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
 			// Success
 			return 0;
 		}
-		
+
 		// Invalid Arguments
 		return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg, at %08x", currentMIPS->pc);
 	}
-	
+
 	// Library is uninitialized
 	return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized, at %08x", currentMIPS->pc);
 }
@@ -3360,7 +3356,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 				sport = -static_cast<int>(portOffset);
 			}
-			
+
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 				// Create Infrastructure Socket (?)
@@ -3458,7 +3454,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
 								//sceNetPortOpen("TCP", sport);
 								if (!isClient)
-									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset); 
+									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(tcpsocket, 1);
@@ -3500,11 +3496,11 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			// Invalid Arguments
 			return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 		}
-		
+
 		// Invalid Addresses
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address"); // ERROR_NET_ADHOC_INVALID_ARG;
 	}
-	
+
 	// Library is uninitialized
 	return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "adhoc not initialized");
 }
@@ -3554,7 +3550,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Inherits some of Listening socket's properties
 					// Socket Type
 					internal->type = SOCK_PTP;
-					internal->nonblocking = socket->nonblocking; 
+					internal->nonblocking = socket->nonblocking;
 					internal->attemptCount = 1; // Used to differentiate between closed state of disconnected socket and not connected yet.
 					internal->retry_interval = socket->retry_interval;
 					internal->retry_count = socket->retry_count;
@@ -3586,9 +3582,9 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 
 					// Return Peer Address & Port Information
-					if (addr != NULL) 
+					if (addr != NULL)
 						*addr = internal->data.ptp.paddr;
-					if (port != NULL) 
+					if (port != NULL)
 						*port = internal->data.ptp.pport;
 
 					// Link PTP Socket
@@ -3717,7 +3713,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 		// Invalid Arguments
 		return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 	}
-	
+
 	// Library is uninitialized
 	return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
@@ -3915,7 +3911,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 	/*if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}*/
-	
+
 	return NetAdhocPtp_Close(id, unknown);
 }
 
@@ -3958,7 +3954,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
 				sport = -static_cast<int>(portOffset);
 			}
-			
+
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
 			{
@@ -4096,11 +4092,11 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 			// Invalid Arguments
 			return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 		}
-		
+
 		// Invalid Addresses
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_INVALID_ADDR, "invalid address");
 	}
-	
+
 	// Library is uninitialized
 	return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "adhoc not initialized");
 }
@@ -4127,16 +4123,16 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 			auto socket = adhocSockets[id - 1];
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = flag;
-			
+
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
 				// Valid Arguments
 				if (data != NULL && len != NULL && *len > 0) {
 					// Schedule Timeout Removal
 					//if (flag) timeout = 0; // JPCSP seems to always Send PTP as blocking, also a possibility to send to multiple destination?
-					
+
 					// Apply Send Timeout Settings to Socket
-					if (timeout > 0) 
+					if (timeout > 0)
 						setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
 
 					if (socket->flags & ADHOC_F_ALERTSEND) {
@@ -4144,17 +4140,17 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 						return hleLogError(Log::sceNet, ERROR_NET_ADHOC_SOCKET_ALERTED, "socket alerted");
 					}
-					
+
 					// Acquire Network Lock
 					// _acquireNetworkLock();
-					
+
 					// Send Data
 					int sent = send(ptpsocket.id, data, *len, MSG_NOSIGNAL);
 					int error = socket_errno;
-					
+
 					// Free Network Lock
 					// _freeNetworkLock();
-					
+
 					// Success
 					if (sent > 0) {
 						hleEatMicro(50); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
@@ -4162,7 +4158,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						*len = sent;
 
 						DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, ptpsocket.lport, sent, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
-						
+
 						// Set to Established on successful Send when an attempt to Connect was initiated
 						if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
 							ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
@@ -4170,39 +4166,39 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 						// Return Success
 						return 0;
 					}
-					
+
 					// Non-Critical Error
 					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 						// Non-Blocking
-						if (flag) 
+						if (flag)
 							return hleLogVerbose(Log::sceNet, ERROR_NET_ADHOC_WOULD_BLOCK, "would block");
-						
+
 						// Simulate blocking behaviour with non-blocking socket
 						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
 						return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void*)data, len, timeout, nullptr, nullptr, "ptp send");
 					}
 
 					DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u -> %s:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport, sent, error);
-					
+
 					// Change Socket State
 					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-					
+
 					// Disconnected
 					return hleLogError(Log::sceNet, ERROR_NET_ADHOC_DISCONNECTED, "disconnected");
 				}
-				
+
 				// Invalid Arguments
 				return hleLogError(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid arg");
 			}
-			
+
 			// Not Connected
 			return hleLogError(Log::sceNet, ERROR_NET_ADHOC_NOT_CONNECTED, "not connected");
 		}
-		
+
 		// Invalid Socket
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
-	
+
 	// Library is uninitialized
 	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
@@ -4270,7 +4266,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					// Free Network Lock
 					// _freeNetworkLock();
 
-					hleEatMicro(50); 
+					hleEatMicro(50);
 
 					// Received Data
 					if (received > 0) {
@@ -4316,7 +4312,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 		// Invalid Arguments
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_INVALID_ARG, "invalid socket arg");
 	}
-	
+
 	// Library is uninitialized
 	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_NOT_INITIALIZED, "not initialized");
 }
@@ -4391,7 +4387,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 			// Dummy Result, Always success?
 			return 0;
 		}
-		
+
 		// Invalid Socket
 		return hleLogError(Log::sceNet, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 	}
@@ -4447,7 +4443,7 @@ static int sceNetAdhocGameModeCreateMaster(u32 dataAddr, int size) {
 		}
 		return hleLogDebug(Log::sceNet, 0, "success"); // returned an id just like CreateReplica? always return 0?
 	}
-	
+
 	return hleLogError(Log::sceNet, ERROR_NET_ADHOC_NOT_CREATED, "not created");
 }
 
@@ -4533,7 +4529,7 @@ static int sceNetAdhocGameModeUpdateMaster() {
 		for (auto& gma : replicaGameModeAreas)
 			gma.dataSent = 0;
 	}
-	
+
 	hleEatMicro(100);
 	return 0;
 }
@@ -4601,7 +4597,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 				if (gmuinfo != NULL) {
 					gmuinfo->length = sizeof(GameModeUpdateInfo);
 					gmuinfo->updated = 1;
-					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);				
+					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 				}
 			}
 			else {
@@ -4651,7 +4647,7 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 	if (id < 1 || id > MAX_SOCKET || adhocSockets[id - 1] == NULL)
 		return hleLogDebug(Log::sceNet, ERROR_NET_ADHOC_INVALID_SOCKET_ID, "invalid socket id");
 
-	s32_le flg = adhocSockets[id - 1]->flags;	
+	s32_le flg = adhocSockets[id - 1]->flags;
 	Memory::Write_U32(flg, flagPtr);
 
 	return hleLogDebug(Log::sceNet, 0, "flags = %08x", flg);
@@ -4777,7 +4773,7 @@ const HLEFunction sceNetAdhoc[] = {
 	{0X7A662D6B, &WrapI_UIII<sceNetAdhocPollSocket>,                   "sceNetAdhocPollSocket",                  'i', "xiii"     },
 	// Fake function for PPSSPP's use.
 	{0X756E6E6F, &WrapV_V<__NetTriggerCallbacks>,                      "__NetTriggerCallbacks",                  'v', ""         },
-};							
+};
 
 int NetAdhocctl_ExitGameMode() {
 	if (gameModeSocket > 0) {
@@ -4795,7 +4791,7 @@ int NetAdhocctl_ExitGameMode() {
 
 static int sceNetAdhocctlExitGameMode() {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocctlExitGameMode() at %08x", currentMIPS->pc);
-	
+
 	return NetAdhocctl_ExitGameMode();
 }
 
@@ -4814,7 +4810,7 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 	for (auto& mac : gameModeMacs) {
 		VERBOSE_LOG(Log::sceNet, "GameMode macAddress#%d=%s", i, mac2str(&mac).c_str());
 		gmInfo->members[i++] = mac;
-		if (i >= ADHOCCTL_GAMEMODE_MAX_MEMBERS) 
+		if (i >= ADHOCCTL_GAMEMODE_MAX_MEMBERS)
 			break;
 	}
 
@@ -4872,7 +4868,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 						// Exclude Soon to be timedout peers?
 						if (!excludeTimedout || peer->last_recv != 0) {
 							// Faking Last Receive Time
-							if (peer->last_recv != 0) 
+							if (peer->last_recv != 0)
 								peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
 							// Copy Peer Info
@@ -4927,9 +4923,9 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	char nckName[ADHOCCTL_NICKNAME_LEN];
 	memcpy(nckName, nickName, ADHOCCTL_NICKNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	nckName[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	
+
 	WARN_LOG_REPORT_ONCE(sceNetAdhocctlGetAddrByName, Log::sceNet, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x) at %08x", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr, currentMIPS->pc);
-	
+
 	// Library initialized
 	if (netAdhocctlInited)
 	{
@@ -5083,14 +5079,14 @@ int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
 		return hleLogError(Log::sceNet, -1, "invalid param?");
 	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first
 	//*((int*)Memory::GetPointer(0x000010D8)) = paramAddr;
-	
-	// Based on Legend Of The Dragon: 
+
+	// Based on Legend Of The Dragon:
 	// The 1st 24 x 32bit(addr) seems to be pointers to subroutine containings sceNetAdhocctlCreate/sceNetAdhocctlJoin/sceNetAdhocctlDisconnect/sceNetAdhocctlScan/sceNetRand/sceKernelGetSystemTimeWide/etc.
-	// Offset 0x60: 10 00 06 06 
+	// Offset 0x60: 10 00 06 06
 	// Offset 0x70: FF FF FF FF (before Init) -> 00 00 00 00 (after Init) -> FF FF FF FF (after Term) // Seems to be value returned from sceNetAdhocctl_lib_F8BABD85, and the address (0x000010A0) seems to be the lowest one for storing data
 	// Offset 0x80: 00 -> 0B/0C/0D/13 -> 00 // This seems to be (current step?) at address at 0x000010B0 (ie. *((int *) 0x000010B0) = 0x0000000B), something todo with param->unknown1(sleep mode?)
-	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?) 
-	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?) 
+	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?)
+	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?)
 	// Offset 0xA0: WLAN channel from sceUtilityGetSystemParamInt (ie. sceUtilityGetSystemParamInt(0x00000002, 0x000010D0) on decompiled prx, but on JPCSP+prx Logs it's sceUtilityGetSystemParamInt(0x00000002, 0x09F43FD0))
 	// Offset 0xA4: Seems to be at 0x000010D4 and related to RequestSuspend
 	// Offset 0xA8: paramAddr // This seems to be a fixed address at 0x000010D8 (ie. *((int *) 0x000010D8) = paramAddr)

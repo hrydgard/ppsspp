@@ -292,7 +292,7 @@ inline R hleCallImpl(std::string_view module, std::string_view funcName, F func,
 // called by them. Use regular ERROR_LOG etc for those.
 
 #define hleLogReturnHelper(convert, t, level, res, ...) \
-	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true, convert>(t, level, (res), __FILE__, __LINE__, nullptr, ##__VA_ARGS__) : (res))
+	(((int)level <= MAX_LOGLEVEL) ? hleDoLog<true, convert>(t, level, (res), __FILE__, __LINE__, nullptr, ##__VA_ARGS__) : hleNoLog(res))
 
 #define hleLogError(t, res, ...) hleLogReturnHelper(false, t, LogLevel::LERROR, res, ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogReturnHelper(false, t, LogLevel::LWARNING, res, ##__VA_ARGS__)

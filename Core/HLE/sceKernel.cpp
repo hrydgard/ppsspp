@@ -365,15 +365,15 @@ int sceKernelRegisterDefaultExceptionHandler() {
 	return hleLogError(Log::sceKernel, 0, "UNIMPL");
 }
 
-void sceKernelSetGPO(u32 ledBits)
-{
+void sceKernelSetGPO(u32 ledBits) {
 	// Sets debug LEDs. Some games do interesting stuff with this, like a metronome in Parappa.
 	// Shows up as a vertical strip of LEDs at the side of the screen, if enabled.
 	g_GPOBits = ledBits;
+	DEBUG_LOG(Log::sceKernel, "sceKernelSetGPO: %08x", ledBits);
+	return hleNoLogVoid();
 }
 
-u32 sceKernelGetGPI()
-{
+u32 sceKernelGetGPI() {
 	// Always returns 0 on production systems.
 	// On developer systems, there are 8 switches that control the lower 8 bits of the return value.
 	return hleLogDebug(Log::sceKernel, g_GPIBits);
@@ -650,7 +650,6 @@ struct SystemStatus {
 };
 
 static int sceKernelReferSystemStatus(u32 statusPtr) {
-	DEBUG_LOG(Log::sceKernel, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	auto status = PSPPointer<SystemStatus>::Create(statusPtr);
 	if (status.IsValid()) {
 		memset((SystemStatus *)status, 0, sizeof(SystemStatus));
@@ -658,7 +657,7 @@ static int sceKernelReferSystemStatus(u32 statusPtr) {
 		// TODO: Fill in the struct!
 		status.NotifyWrite("SystemStatus");
 	}
-	return 0;
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 // Unused - believed to be the returned struct from sceKernelReferThreadProfiler.
