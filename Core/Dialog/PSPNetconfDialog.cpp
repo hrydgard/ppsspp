@@ -77,6 +77,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	scanInfosAddr = 0;
 	scanStep = 0;
 	startTime = (u64)(time_now_d() * 1000000.0);
+	showNoWlanNotice_ = !g_Config.bEnableWlan;
 
 	StartFade(true);
 	return 0;
@@ -128,16 +129,12 @@ int PSPNetconfDialog::Update(int animSpeed) {
 
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
 	if (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET || request.netAction == NETCONF_CONNECT_APNET_LAST) {
-		int state = NetApctl_GetState();
-
 		UpdateFade(animSpeed);
 		StartDraw();
 
 		// This disables the notice that we don't support the internet below.
 		// Keeping the code in case we need it for something later.
-		hideNotice = true;
-
-		if (!hideNotice) {
+		if (showNoWlanNotice_) {
 			auto err = GetI18NCategory(I18NCat::ERRORS);
 			const float WRAP_WIDTH = 254.0f;
 			const int confirmBtn = GetConfirmButton();
@@ -150,9 +147,9 @@ int PSPNetconfDialog::Update(int animSpeed) {
 
 			PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 			DrawBanner();
-			PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates.\nContinuing may cause unexpected behavior or freezes."), 241, 132, WRAP_WIDTH, 0, textStyle);
-			PPGeDrawImage(confirmBtnImage, 185, 240, 20, 20, buttonStyle);
-			PPGeDrawText(di->T("OK"), 215, 243, buttonStyle);
+			PPGeDrawTextWrapped(err->T("WirelessSwitchOffError", "A connection error has occurred.\nThe Wireless switch on the PSP system is off (network is disabled)."), 241, 132, WRAP_WIDTH, 0, textStyle);
+			// PPGeDrawImage(confirmBtnImage, 185, 240, 20, 20, buttonStyle);
+			// PPGeDrawText(di->T("OK"), 215, 243, buttonStyle);
 			PPGeDrawImage(cancelBtnImage, 255, 240, 20, 20, buttonStyle);
 			PPGeDrawText(di->T("Cancel"), 285, 243, buttonStyle);
 
@@ -164,11 +161,8 @@ int PSPNetconfDialog::Update(int animSpeed) {
 				// It seems to make Phantasy Star Portable 2 happy, so it should be okay for now.
 				request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 			}
-			else if (IsButtonPressed(confirmBtn)) {
-				hideNotice = true;
-				StartFade(true);
-			}
 		} else {
+			int state = NetApctl_GetState();
 			PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0xC0C8B2AC));
 			DrawBanner();
 			DrawIndicator();

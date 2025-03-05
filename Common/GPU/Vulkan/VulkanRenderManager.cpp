@@ -869,21 +869,26 @@ void VulkanRenderManager::EndCurRenderStep() {
 
 	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
-	compileQueueMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline) {
 			// Not good, but let's try not to crash.
 			continue;
 		}
-		std::lock_guard<std::mutex> lock(pipeline->mutex_);
+		std::unique_lock<std::mutex> lock(pipeline->mutex_);
 		if (!pipeline->pipeline[(size_t)rpType]) {
 			pipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
+			lock.unlock();
+
 			_assert_(renderPass);
+			compileQueueMutex_.lock();
 			compileQueue_.emplace_back(pipeline, renderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+			compileQueueMutex_.unlock();
 			needsCompile = true;
 		}
 	}
+
+	compileQueueMutex_.lock();
 	if (needsCompile)
 		compileCond_.notify_one();
 	compileQueueMutex_.unlock();

@@ -517,11 +517,11 @@ static u32 scePowerGetCpuClockFrequencyInt() {
 }
 
 static u32 scePowerGetPllClockFrequencyInt() {
-	return hleLogInfo(Log::sceMisc, pllFreq / 1000000);
+	return hleLogDebug(Log::sceMisc, pllFreq / 1000000);
 }
 
 static u32 scePowerGetBusClockFrequencyInt() {
-	return hleLogInfo(Log::sceMisc, busFreq / 1000000);
+	return hleLogDebug(Log::sceMisc, busFreq / 1000000);
 }
 
 static float scePowerGetCpuClockFrequencyFloat() {

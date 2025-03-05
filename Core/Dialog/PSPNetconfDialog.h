@@ -56,11 +56,11 @@ private:
 	SceUtilityNetconfParam request = {};
 	u32 requestAddr = 0;
 	int connResult = -1;
-	bool hideNotice = false;
 
 	u32 scanInfosAddr = 0;
 	int scanStep = 0;
 	u64 startTime = 0;
 
+	bool showNoWlanNotice_ = false;
 	bool jsonReady_ = false;
 };

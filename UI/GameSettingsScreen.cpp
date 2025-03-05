@@ -689,7 +689,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	audioSettings->Add(new ItemHeader(a->T("UI sound")));
 
 	audioSettings->Add(new CheckBox(&g_Config.bUISound, a->T("UI sound")));
-	PopupSliderChoice *uiVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, VOLUMEHI_FULL, ac->T("UI volume"), screenManager()));
+	PopupSliderChoice *uiVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, VOLUMEHI_FULL, a->T("UI volume"), screenManager()));
 	uiVolume->SetFormat("%d%%");
 	uiVolume->SetZeroLabel(a->T("Mute"));
 	uiVolume->SetLiveUpdate(true);
