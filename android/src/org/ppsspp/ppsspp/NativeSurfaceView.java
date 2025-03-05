@@ -114,10 +114,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	public boolean onTouchEvent(final MotionEvent ev) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1 && isFromSource(ev, InputDevice.SOURCE_MOUSE)) {
 			// This is where workable mouse support arrived.
-			// Also, skip processing if useModernMouseEvents is on.
-			if (NativeActivity.useModernMouseEvents) {
-				return true;
-			}
 			onMouseEventMotion(ev);
 			return true;
 		}

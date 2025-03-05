@@ -134,7 +134,14 @@ public abstract class NativeActivity extends Activity {
 	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
 	public static final int REQUEST_CODE_MICROPHONE_PERMISSION = 4;
 
+	// Once we received a "modern" mouse event, we stop listening to old style mouse
+	// button events.
 	public static boolean useModernMouseEvents = false;
+
+	// Workaround for bizarre behavior on Pocophone where we get modern events
+	// for the left mouse button, but wacky BACK keyboard event with source == mouse
+	// for the right mouse button.
+	public static boolean useModernMouseEventsB2 = false;
 
 	// Functions for the app activity to override to change behaviour.
 
@@ -985,8 +992,9 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
 			Log.i(TAG, "key event" + event.getSource());
 			if (NativeSurfaceView.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
-				Log.i(TAG, "Forwarding key event from mouse");
-				if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !useModernMouseEvents) {
+				Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode());
+				Log.i(TAG, "usemodernb2: " + useModernMouseEventsB2);
+				if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !useModernMouseEventsB2) {
 					// Probably a right click
 					switch (event.getAction()) {
 						case KeyEvent.ACTION_DOWN:
@@ -1094,6 +1102,9 @@ public abstract class NativeActivity extends Activity {
 					sendMouseDelta(dx, dy);
 				}
 				switch (event.getAction()) {
+					case MotionEvent.ACTION_MOVE:
+						Log.i(TAG, "Erroneous move event"); // should be in touch events
+						return true;
 					case MotionEvent.ACTION_HOVER_MOVE:
 						Log.i(TAG, "Action Hover Move");
 						// process the mouse hover movement...
@@ -1115,6 +1126,9 @@ public abstract class NativeActivity extends Activity {
 				case MotionEvent.ACTION_BUTTON_PRESS: {
 					Log.i(TAG, "action button press: button: " + button);
 					useModernMouseEvents = true;
+					if (button > 1) {
+						useModernMouseEventsB2 = true;
+					}
 					NativeApp.mouse(event.getX(), event.getY(), button, 1);
 					return true;
 				}

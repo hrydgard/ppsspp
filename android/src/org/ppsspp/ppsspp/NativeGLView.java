@@ -61,7 +61,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		return ev.getToolType(pointer);
 	}
 
-
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
 	private void onMouseEventMotion(final MotionEvent ev) {
 		switch (ev.getActionMasked()) {
