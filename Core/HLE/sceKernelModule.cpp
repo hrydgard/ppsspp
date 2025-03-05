@@ -2173,10 +2173,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	return hleDelayResult(hleNoLog(module->GetUID()), "module loaded", 500);
 }
 
-static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
-{
-	// TODO: Handle recursive syscall properly
-	return hleLogDebugOrError(Log::Loader, sceKernelLoadModule(name, flags, optionAddr));
+static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr) {
+	// Just forward it, same parameters so the logging will make sense.
+	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {

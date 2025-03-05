@@ -1173,6 +1173,15 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
+void SanitizeControlChars(std::string &buf) {
+	for (auto &c : buf) {
+		// Eat BEL characters and other bad ones before echoing.
+		if (c < 32 && c != 10 && c != 13) {
+			c = ' ';
+		}
+	}
+}
+
 static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the WriteFile result.
@@ -1187,7 +1196,10 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		const char *str = (const char *) data_ptr;
 		const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-		INFO_LOG(Log::Printf, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
+		// buffer so we can edit the string.
+		std::string buf(str, str_size);
+		SanitizeControlChars(buf);
+		INFO_LOG(Log::Printf, "%s: %.*s", id == 1 ? "stdout" : "stderr", (int)buf.size(), buf.data());
 		result = validSize;
 		return true;
 	}
@@ -1213,7 +1225,9 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		if (f->isTTY) {
 			const char *str = (const char *)data_ptr;
 			const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-			INFO_LOG(Log::Printf, "%s: %.*s", "tty", str_size, str);
+			std::string buf(str, str_size);
+			SanitizeControlChars(buf);
+			INFO_LOG(Log::Printf, "%s: %.*s", "tty", (int)buf.size(), buf.data());
 			result = validSize;
 			return true;
 		}
