@@ -327,6 +327,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
 		{ ImageID::invalid(), VIRTKEY_PREVIOUS_SLOT },
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_TOUCH_CONTROLS },
+		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 	};
 	static_assert(ARRAY_SIZE(customKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
@@ -370,6 +371,7 @@ namespace GestureKey {
 		VIRTKEY_AXIS_Y_MIN,
 		VIRTKEY_AXIS_X_MAX,
 		VIRTKEY_AXIS_Y_MAX,
+		VIRTKEY_TOGGLE_DEBUGGER,
 	};
 }
 

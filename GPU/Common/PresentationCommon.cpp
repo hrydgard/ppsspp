@@ -44,7 +44,15 @@ struct Vertex {
 	uint32_t rgba;
 };
 
-extern Bounds g_imguiCentralNodeBounds;
+static bool g_overrideScreenBounds;
+static Bounds g_screenBounds;
+
+void SetOverrideScreenFrame(const Bounds *bounds) {
+	g_overrideScreenBounds = bounds != nullptr;
+	if (bounds) {
+		g_screenBounds = *bounds;
+	}
+}
 
 FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
@@ -70,12 +78,12 @@ FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 		rc.h -= (top + bottom);
 	}
 
-	if (g_Config.bShowImDebugger) {
+	if (g_overrideScreenBounds) {
 		// Set rectangle to match central node. Here we ignore bIgnoreScreenInsets.
-		rc.x = g_imguiCentralNodeBounds.x;
-		rc.y = g_imguiCentralNodeBounds.y;
-		rc.w = g_imguiCentralNodeBounds.w;
-		rc.h = g_imguiCentralNodeBounds.h;
+		rc.x = g_screenBounds.x;
+		rc.y = g_screenBounds.y;
+		rc.w = g_screenBounds.w;
+		rc.h = g_screenBounds.h;
 	}
 
 	return rc;

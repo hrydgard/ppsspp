@@ -29,6 +29,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "UI/GamepadEmu.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
@@ -609,13 +610,23 @@ UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 void TouchControlLayoutScreen::update() {
 	UIDialogScreenWithGameBackground::update();
 
+	if (!layoutView_) {
+		return;
+	}
+
 	// TODO: We really, really need a cleaner solution for creating sub-views
 	// of custom compound controls.
-	if (layoutView_) {
-		if (!layoutView_->HasCreatedViews()) {
-			layoutView_->CreateViews();
-		}
+	if (!layoutView_->HasCreatedViews()) {
+		layoutView_->CreateViews();
 	}
+
+	Bounds bounds = layoutView_->GetBounds();
+	// Convert virtual pixels to real pixels.
+	bounds.x /= g_display.dpi_scale;
+	bounds.y /= g_display.dpi_scale;
+	bounds.w /= g_display.dpi_scale;
+	bounds.h /= g_display.dpi_scale;
+	SetOverrideScreenFrame(&bounds);
 }
 
 void TouchControlLayoutScreen::CreateViews() {

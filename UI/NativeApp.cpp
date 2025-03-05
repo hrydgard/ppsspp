@@ -112,6 +112,7 @@
 #include "Core/ThreadPools.h"
 
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
@@ -1024,6 +1025,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
+
+	SetOverrideScreenFrame(nullptr);
 
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();

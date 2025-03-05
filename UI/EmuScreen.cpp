@@ -57,6 +57,7 @@ using namespace std::placeholders;
 #include "Core/MemFault.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
@@ -1787,7 +1788,8 @@ void EmuScreen::runImDebugger() {
 			ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
 
 			// Not elegant! But don't know how else to pass through the bounds, without making a mess.
-			g_imguiCentralNodeBounds = Bounds(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
+			Bounds centralNode(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
+			SetOverrideScreenFrame(&centralNode);
 
 			if (!io.WantCaptureKeyboard) {
 				// Draw a focus rectangle to indicate inputs will be passed through.
