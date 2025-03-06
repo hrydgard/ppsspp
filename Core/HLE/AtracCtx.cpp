@@ -156,6 +156,7 @@ void Atrac::DoState(PointerWrap &p) {
 void Atrac::ResetData() {
 	delete decoder_;
 	decoder_ = nullptr;
+	loopNum_ = -99;
 
 	if (dataBuf_)
 		delete[] dataBuf_;
@@ -919,7 +920,12 @@ int Atrac::RemainingFrames() const {
 
 	if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
 		// Since we're streaming, the remaining frames are what's valid in the buffer.
-		return bufferValidBytes_ / track_.bytesPerFrame;
+		int RemainingFramesValue = bufferValidBytes_ / track_.bytesPerFrame;
+		if (loopNum_ == -99) {
+			loopNum_ == -1;
+			RemainingFramesValue--;
+		}
+		return RemainingFramesValue;
 	}
 
 	// Since the first frame is shorter by this offset, add to round up at this offset.
