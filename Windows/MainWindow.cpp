@@ -113,7 +113,8 @@ struct VerySleepy_AddrInfo {
 	wchar_t name[256];
 };
 
-static std::wstring windowTitle;
+static std::mutex g_windowTitleLock;
+static std::wstring g_windowTitle;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -469,7 +470,11 @@ namespace MainWindow
 	}
 
 	void UpdateWindowTitle() {
-		std::wstring title = windowTitle;
+		std::wstring title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			title = g_windowTitle;
+		}
 		if (PPSSPP_ID >= 1 && GetInstancePeerCount() > 1) {
 			title.append(ConvertUTF8ToWString(StringFromFormat(" (instance: %d)", (int)PPSSPP_ID)));
 		}
@@ -477,7 +482,11 @@ namespace MainWindow
 	}
 
 	void SetWindowTitle(const wchar_t *title) {
-		windowTitle = title;
+		{
+			std::lock_guard<std::mutex> lock(g_windowTitleLock);
+			g_windowTitle = title;
+		}
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 	}
 
 	BOOL Show(HINSTANCE hInstance) {

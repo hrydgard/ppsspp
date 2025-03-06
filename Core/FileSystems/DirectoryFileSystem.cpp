@@ -69,16 +69,17 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &
 	static const std::string_view upperCase = "WJPCZSBNNZFXSGOS";
 
 	// Check for case sensitivity
+	bool checkSucceeded = false;
 	File::CreateEmptyFile(basePath / mixedCase);
 	if (File::Exists(basePath / mixedCase)) {
-		INFO_LOG(Log::IO, "File system probably writable, so case sensitivity check should be reliable.");
+		checkSucceeded = true;
 		if (!File::Exists(basePath / upperCase)) {
 			flags |= FileSystemFlags::CASE_SENSITIVE;
 		}
 	}
 	File::Delete(basePath / mixedCase);
 
-	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: %s)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str());
+	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
 
 	hAlloc = _hAlloc;
 }

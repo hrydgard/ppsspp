@@ -581,7 +581,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		winTitle.append(L" (debug)");
 #endif
 		MainWindow::SetWindowTitle(winTitle.c_str());
-		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 		return true;
 	}
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:

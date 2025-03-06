@@ -29,6 +29,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -842,6 +843,9 @@ static u32 LoadReplay(const std::string &filename) {
 	size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
 	if (gameIDLength != 0) {
 		g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
+		System_SetWindowTitle(g_paramSFO.GetValueString("DISC_ID"));
+	} else {
+		System_SetWindowTitle("(old dump: missing DISC_ID)");
 	}
 
 	u32 sz = 0;
