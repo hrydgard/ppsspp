@@ -100,6 +100,7 @@ static bool Run(GraphicsContext *ctx) {
 				return true;
 			}
 			break;
+		case CORE_POWERUP:
 		case CORE_POWERDOWN:
 			// Need to step the loop.
 			NativeFrame(ctx);
@@ -110,7 +111,6 @@ static bool Run(GraphicsContext *ctx) {
 			NativeFrame(ctx);
 			break;
 
-		case CORE_POWERUP:
 		case CORE_BOOT_ERROR:
 			// Exit loop!!
 			return true;

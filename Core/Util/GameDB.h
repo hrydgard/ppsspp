@@ -19,6 +19,8 @@ struct GameDBInfo {
 class GameDB {
 public:
 	// Warning: Linear search. Don't call it every frame if possible.
+	// If this returns true, there is at least 1 entry in infos, so it's safe to go
+	// look up element 0 for a quick guess.
 	bool GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos);
 
 private:

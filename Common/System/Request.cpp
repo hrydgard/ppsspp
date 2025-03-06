@@ -72,11 +72,11 @@ void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
 	}
 }
 
-void RequestManager::PostSystemSuccess(int requestId, const char *responseString, int responseValue) {
+void RequestManager::PostSystemSuccess(int requestId, std::string_view responseString, int responseValue) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%s)", requestId, responseString);
+		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%.*s)", requestId, (int)responseString.size(), responseString.data());
 		return;
 	}
 
@@ -86,7 +86,7 @@ void RequestManager::PostSystemSuccess(int requestId, const char *responseString
 	response.responseString = responseString;
 	response.responseValue = responseValue;
 	pendingSuccesses_.push_back(response);
-	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%s, %d)", requestId, responseString, responseValue);
+	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%.*s, %d)", requestId, (int)responseString.size(), responseString.data(), responseValue);
 	callbackMap_.erase(iter);
 }
 

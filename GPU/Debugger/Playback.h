@@ -30,6 +30,6 @@ enum class ReplayResult {
 
 void WriteRunDumpCode(u32 addr);
 ReplayResult RunMountedReplay(const std::string &filename);
-void ReplayShutdown();
+void Replay_Unload();
 
 }  // namespace GPURecord

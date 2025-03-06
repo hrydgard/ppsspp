@@ -63,6 +63,7 @@
 #include "Core/SaveState.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Debugger/Playback.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 
@@ -326,6 +327,8 @@ void CPU_Shutdown() {
 	PSP_LoadingLock lock;
 	PSPLoaders_Shutdown();
 
+	GPURecord::Replay_Unload();
+
 	if (g_Config.bAutoSaveSymbolMap) {
 		SaveSymbolMapIfSupported();
 	}
@@ -409,7 +412,15 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
-		loadedFile = new RamCachingFileLoader(loadedFile);
+		switch (coreParam.fileType) {
+		case IdentifiedFileType::PSP_ISO:
+		case IdentifiedFileType::PSP_ISO_NP:
+			loadedFile = new RamCachingFileLoader(loadedFile);
+			break;
+		default:
+			INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+			break;
+		}
 	}
 #endif
 

@@ -29,6 +29,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -42,6 +43,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/System.h"
+#include "Core/Util/GameDB.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -72,6 +74,8 @@ static uint32_t lastExecVersion;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
 
+// This thread is restarted every frame (dump execution) for simplicity. TODO: Make persistent?
+// Alternatively, get rid of it, but the code is written in a way that makes it difficult (you'll see if you try).
 static std::thread replayThread;
 
 static std::mutex opStartLock;
@@ -79,6 +83,7 @@ static std::condition_variable opStartWait;
 
 static std::mutex opFinishLock;
 static std::condition_variable opFinishWait;
+
 static Operation g_opToExec;
 static u32 g_retVal;
 static bool g_opDone = true;
@@ -824,6 +829,9 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 
 static u32 LoadReplay(const std::string &filename) {
 	PROFILE_THIS_SCOPE("ReplayLoad");
+
+	NOTICE_LOG(Log::GeDebugger, "LoadReplay %s", filename.c_str());
+
 	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 	Header header;
 	pspFileSystem.ReadFile(fp, (u8 *)&header, sizeof(header));
@@ -842,6 +850,17 @@ static u32 LoadReplay(const std::string &filename) {
 	size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
 	if (gameIDLength != 0) {
 		g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
+		std::vector<GameDBInfo> info;
+		std::string gameTitle = "(unknown title)";
+#if !defined(__LIBRETRO__)
+		if (g_gameDB.GetGameInfos(header.gameID, &info)) {
+			gameTitle = info[0].title;
+			g_paramSFO.SetValue("TITLE", gameTitle, (int)gameTitle.size());
+		}
+#endif
+		System_SetWindowTitle(g_paramSFO.GetValueString("DISC_ID") + " : " + gameTitle + " (GE frame dump)");
+	} else {
+		System_SetWindowTitle("(GE frame dump: old format, missing DISC_ID)");
 	}
 
 	u32 sz = 0;
@@ -866,6 +885,18 @@ static u32 LoadReplay(const std::string &filename) {
 	lastExecFilename = filename;
 	lastExecVersion = version;
 	return version;
+}
+
+void Replay_Unload() {
+	_dbg_assert_(!replayThread.joinable());
+
+	lastExecFilename.clear();
+	lastExecVersion = 0;
+	lastExecCommands.clear();
+	lastExecPushbuf.clear();
+
+	g_opDone = true;
+	g_retVal = 0;
 }
 
 void WriteRunDumpCode(u32 codeStart) {

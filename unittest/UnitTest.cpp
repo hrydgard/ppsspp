@@ -1099,7 +1099,7 @@ bool TestBuffer() {
 	return true;
 }
 
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#if PPSSPP_ARCH(SSE2) && (defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER))
 [[gnu::target("sse4.1")]]
 #endif
 bool TestSIMD() {
