@@ -409,7 +409,15 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
-		loadedFile = new RamCachingFileLoader(loadedFile);
+		switch (coreParam.fileType) {
+		case IdentifiedFileType::PSP_ISO:
+		case IdentifiedFileType::PSP_ISO_NP:
+			loadedFile = new RamCachingFileLoader(loadedFile);
+			break;
+		default:
+			INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+			break;
+		}
 	}
 #endif
 
