@@ -1008,6 +1008,20 @@ int AtracSasGetIDByContext(u32 contextAddr) {
 	return atracID;
 }
 
+const char *AtracStatusToString(AtracStatus status) {
+	switch (status) {
+	case ATRAC_STATUS_NO_DATA: return "NO_DATA";
+	case ATRAC_STATUS_ALL_DATA_LOADED: return "ALL_DATA_LOADED";
+	case ATRAC_STATUS_HALFWAY_BUFFER: return "HALFWAY_BUFFER";
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP: return "STREAMED_WITHOUT_LOOP";
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END: return "STREAMED_LOOP_FROM_END";
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER: return "STREAMED_LOOP_WITH_TRAILER";
+	case ATRAC_STATUS_LOW_LEVEL: return "LOW_LEVEL";
+	case ATRAC_STATUS_FOR_SCESAS: return "FOR_SCESAS";
+	default: return "(unknown!)";
+	}
+}
+
 const HLEFunction sceAtrac3plus[] = {
 	{0X7DB31251, &WrapU_IU<sceAtracAddStreamData>,                 "sceAtracAddStreamData",                'x', "ix"   },
 	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixppp"},

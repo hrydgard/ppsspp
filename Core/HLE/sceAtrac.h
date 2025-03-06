@@ -43,6 +43,8 @@ enum AtracStatus : u8 {
 	ATRAC_STATUS_STREAMED_MASK = 4,
 };
 
+const char *AtracStatusToString(AtracStatus status);
+
 #if COMMON_LITTLE_ENDIAN
 typedef AtracStatus AtracStatus_le;
 #else
