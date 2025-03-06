@@ -310,6 +310,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_ERROR] = ScreenEdgePosition::CENTER;
 	typeEdges[(size_t)OSDType::TRANSPARENT_STATUS] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::PROGRESS_BAR] = ScreenEdgePosition::TOP_CENTER;  // These only function at the top currently, needs fixing.
 
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);

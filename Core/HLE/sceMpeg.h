@@ -68,7 +68,7 @@ struct SceMpegRingBuffer {
 	u32_le callback_addr; // see sceMpegRingbufferPut
 	s32_le callback_args;
 	s32_le dataUpperBound;
-	s32_le semaID; // unused?
+	s32_le semaID; // unused? No, probably not, see #20084. Though when should we signal it?
 	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 	// Note: not available in all versions.
 	u32_le gp;
