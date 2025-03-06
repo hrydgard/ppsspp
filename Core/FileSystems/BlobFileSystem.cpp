@@ -19,6 +19,7 @@
 
 BlobFileSystem::BlobFileSystem(IHandleAllocator *hAlloc, FileLoader *fileLoader, std::string alias)
 : alloc_(hAlloc), fileLoader_(fileLoader), alias_(alias) {
+	NOTICE_LOG(Log::FileSystem, "%s", fileLoader->GetPath().c_str());
 }
 
 BlobFileSystem::~BlobFileSystem() {

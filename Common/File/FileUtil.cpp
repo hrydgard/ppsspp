@@ -88,7 +88,7 @@ constexpr bool SIMULATE_SLOW_IO = false;
 #else
 constexpr bool SIMULATE_SLOW_IO = false;
 #endif
-constexpr bool LOG_IO = false;
+constexpr bool LOG_IO = true;
 
 #ifndef S_ISDIR
 #define S_ISDIR(m)  (((m)&S_IFMT) == S_IFDIR)

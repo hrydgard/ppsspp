@@ -63,6 +63,7 @@
 #include "Core/SaveState.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Debugger/Playback.h"
 #include "GPU/Debugger/RecordFormat.h"
 #include "Core/RetroAchievements.h"
 
@@ -325,6 +326,8 @@ void CPU_Shutdown() {
 	// Since we load on a background thread, wait for startup to complete.
 	PSP_LoadingLock lock;
 	PSPLoaders_Shutdown();
+
+	GPURecord::Replay_Unload();
 
 	if (g_Config.bAutoSaveSymbolMap) {
 		SaveSymbolMapIfSupported();
