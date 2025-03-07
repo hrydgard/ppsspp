@@ -334,9 +334,8 @@ void GameScreen::CallbackDeleteConfig(bool yes) {
 UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto ga = GetI18NCategory(I18NCat::GAME);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), di->T("Delete"), di->T("Cancel"),
 		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;
@@ -537,9 +536,8 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		// Check that there's any savedata to delete
 		if (info->saveDataSize) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
-			auto ga = GetI18NCategory(I18NCat::GAME);
 			screenManager()->push(
-				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), di->T("Delete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
@@ -560,12 +558,11 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto ga = GetI18NCategory(I18NCat::GAME);
 		std::string prompt;
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
 		screenManager()->push(
-			new PromptScreen(gamePath_, prompt, ga->T("ConfirmDelete"), di->T("Cancel"),
+			new PromptScreen(gamePath_, prompt, di->T("Delete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;
