@@ -188,6 +188,8 @@ void AtracBase::UpdateContextFromPSPMem() {
 
 	// Read in any changes from the game to the context.
 	// TODO: Might be better to just always track in RAM.
+	// TODO: It's possible that there are more changes we should read. Who knows,
+	// problem games like FlatOut might poke stuff into the context?
 	bufferState_ = context_->info.state;
 	// This value is actually abused by games to store the SAS voice number.
 	loopNum_ = context_->info.loopNum;
@@ -765,7 +767,6 @@ int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 
 void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {
 	u32 calculatedReadOffset;
-	// TODO: Feels like this should already have been computed?
 	CalculateStreamInfo(&calculatedReadOffset);
 
 	*writePtr = first_.addr + first_.offset;
@@ -776,7 +777,7 @@ void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset
 void Atrac::UpdateBufferState() {
 	if (bufferMaxSize_ >= track_.fileSize) {
 		if (first_.size < track_.fileSize) {
-			// The buffer is big enough, but we don't have all the data yet.
+			// The buffer is big enough in RAM, but we don't have all the data yet.
 			bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 		} else {
 			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
@@ -793,6 +794,8 @@ void Atrac::UpdateBufferState() {
 	}
 }
 
+// The game calls this after actually writing data to the buffer, as specified by the return values from GetStreamDataInfo.
+// So, we should not have to call CalculateStreamInfo again here (although, might not be a bad idea for safety).
 int Atrac::AddStreamData(u32 bytesToAdd) {
 	u32 readOffset;
 	CalculateStreamInfo(&readOffset);
@@ -963,7 +966,6 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
-	// TODO: This isn't at all right, but at least it makes the music "last" some time.
 	u32 numSamples = 0;
 
 	// It seems like the PSP aligns the sample position to 0x800...?
@@ -1081,6 +1083,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 void AtracBase::SetLoopNum(int loopNum) {
 	// Spammed in MHU
 	loopNum_ = loopNum;
+	// Logic here looks wacky?
 	if (loopNum != 0 && track_.loopinfo.size() == 0) {
 		// Just loop the whole audio
 		// This is a rare modification of track_ after the fact.
