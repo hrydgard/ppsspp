@@ -128,7 +128,7 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 
 class SavedataPopupScreen : public PopupScreen {
 public:
-	SavedataPopupScreen(Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath) { }
+	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) { }
 
 	const char *tag() const override { return "SavedataPopup"; }
 	void update() override {
@@ -159,22 +159,40 @@ public:
 		savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		buttons->SetSpacing(0);
-		Margins buttonMargins(5, 5);
 
-		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
-		parent->Add(buttons);
+		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		buttonRow->SetSpacing(0);
+		Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
+
+		buttonRow->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		buttonRow->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
+			std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
+			screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Delete"), di->T("Cancel"), [=](bool result) {
+				if (result) {
+					ginfo->Delete();
+					TriggerFinish(DR_NO);
+				}
+			}));
+			return UI::EVENT_DONE;
+		});
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			buttonRow->Add(new Button(di->T("Show in folder"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+				System_ShowFileInFolder(savePath_);
+				return UI::EVENT_DONE;
+			});
+		}
+		parent->Add(buttonRow);
 	}
 
 protected:
-	UI::Size PopupWidth() const override { return 500; }
+	UI::Size PopupWidth() const override { return 600; }
 
 private:
-	UI::EventReturn OnDeleteButtonClick(UI::EventParams &e);
 	SavedataView *savedataView_ = nullptr;
 	Path savePath_;
+	Path gamePath_;
 };
 
 class SortedLinearLayout : public UI::LinearLayoutList {
@@ -252,13 +270,6 @@ void SavedataButton::UpdateDateSeconds() {
 	}
 
 	hasDateSeconds_ = true;
-}
-
-UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
-	ginfo->Delete();
-	TriggerFinish(DR_NO);
-	return UI::EVENT_DONE;
 }
 
 static std::string CleanSaveString(std::string_view str) {
@@ -686,7 +697,7 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_DONE;
 	}
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(Path(e.s), ginfo->GetTitle());
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}

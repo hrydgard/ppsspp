@@ -59,7 +59,6 @@ private:
 	UI::EventReturn OnDeleteGame(UI::EventParams &e);
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
 	UI::EventReturn OnRemoveFromRecent(UI::EventParams &e);
-	UI::EventReturn OnShowInFolder(UI::EventParams &e);
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
