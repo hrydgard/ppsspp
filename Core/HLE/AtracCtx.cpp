@@ -499,7 +499,7 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	track->fileSize = fileSize;
 
 	// Based on FFmpeg's code.
-	u32 codecParams = buffer[35] | (buffer[34] << 8) | (buffer[35] << 16);
+	u32 codecParams = buffer[33] | (buffer[34] << 8) | (buffer[35] << 16);
 	const u32 at3SampleRates[8] = { 32000, 44100, 48000, 88200, 96000, 0 };
 
 	switch (buffer[32]) {
