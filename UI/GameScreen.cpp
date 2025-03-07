@@ -274,9 +274,13 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-#if (defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)) && !PPSSPP_PLATFORM(UWP)
-	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
-#endif
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		rightColumnItems->Add(AddOtherChoice(new Choice(di->T("Show in folder"))))->OnClick.Add([this](UI::EventParams &e) {
+			System_ShowFileInFolder(gamePath_);
+			return UI::EVENT_DONE;
+		});
+	}
+
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
 		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
@@ -489,11 +493,6 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		}
 	}
 	return flags;
-}
-
-UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
-	System_ShowFileInFolder(gamePath_);
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
