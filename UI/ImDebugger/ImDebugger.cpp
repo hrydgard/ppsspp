@@ -996,12 +996,12 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 
 		if (cfg.selectedAtracCtx >= 0 && cfg.selectedAtracCtx < PSP_NUM_ATRAC_IDS) {
 			u32 type = 0;
-			const AtracCtx *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
+			const AtracBase *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
 			// Show details about the selected atrac context here.
 			char header[32];
 			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);
 			if (ctx && ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::ProgressBar((float)ctx->CurrentSample() / ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
+				ImGui::ProgressBar((float)ctx->CurrentSample() / (float)ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
 				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
 				ImGui::Text("cur/end sample: %d/%d", ctx->CurrentSample(), ctx->GetTrack().endSample);
 				ImGui::Text("ctx addr: "); ImGui::SameLine(); ImClickableValue("addr", ctx->Decoder()->GetCtxPtr(), control, ImCmd::SHOW_IN_MEMORY_VIEWER);
