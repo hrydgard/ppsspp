@@ -356,6 +356,5 @@ private:
 	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
 
-	// Refactor?
 	int atracID_ = -1;
 };

@@ -4,10 +4,10 @@
 
 #include "Core/HLE/AtracCtx.h"
 
-
 class Atrac2 : public AtracBase {
 public:
 	Atrac2(int atracID, u32 contextAddr, int codecType);
+
 	void DoState(PointerWrap &p) override;
 
 	int GetID() const override { return 0; }

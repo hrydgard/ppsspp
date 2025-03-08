@@ -234,6 +234,14 @@ void Track::DebugLog() {
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
+	// 72 is about the size of the minimum required data to even be valid.
+
+	// TODO: Validate stuff more.
+	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
+		ERROR_LOG(Log::ME, "Couldn't find RIFF header");
+		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+	}
+
 	struct RIFFFmtChunk {
 		u16_le fmtTag;
 		u16_le channels;

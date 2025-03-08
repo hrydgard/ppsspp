@@ -79,7 +79,8 @@ struct SceAtracIdInfo {
     u32_le bufferByte; // 64
     u32_le secondBufferByte; // 68
     // make sure the size is 128
-	u8 unk[56];
+    u8 unk[52];
+    u32_le atracID;
 };
 
 struct SceAtracContext {

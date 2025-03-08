@@ -9,31 +9,6 @@
 // Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --timeout=30 --graphics=software pspautotests/tests/audio/atrac/... --ignore pspautotests/tests/audio/atrac/second/resetting.prx --ignore pspautotests/tests/audio/atrac/second/replay.prx
 //
 // See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
-//
-// Test cases
-//
-// Halfway buffer
-//
-// * None found yet
-//
-// All-data-loaded
-//
-// * MotoGP (menu music with specified loop). Simple repeated calls to sceAtracDecodeData
-// * Archer MacLean's Mercury (in-game, not menu)
-// * Crisis Core
-//
-// Streaming
-//
-// - Good ones (early)
-//   * Everybody's Golf 2 (0x2000 buffer size, loop from end)
-//   * Burnout Legends (no loop, 0x1800 buffer size)
-//   * Suicide Barbie
-// - Others
-//   * Bleach
-//   * God of War: Chains of Olympus
-//   * Ape Academy 2 (bufsize 8192)
-//   * Half Minute Hero (bufsize 65536)
-//   * Flatout (tricky! needs investigation)
 
 
 Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
@@ -85,7 +60,7 @@ int Atrac2::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize
 	} else {
 		bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 	}
-	return hleLogDebug(Log::ME, 0);
+	return 0;
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
