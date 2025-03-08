@@ -860,6 +860,7 @@ u32 Atrac::GetNextSamples() {
 	if (numSamples > track_.SamplesPerFrame())
 		numSamples = track_.SamplesPerFrame();
 	if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + currentSample_ > track_.endSample) {
+		// This probably only happens in PPSSPP due to our internal buffer, which needs to go away.
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
 	return numSamples;

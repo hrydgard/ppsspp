@@ -160,7 +160,7 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
-	int selectedAtracCtx = -1;
+	int selectedAtracCtx = 0;
 	uint64_t selectedTexAddr = 0;
 
 	bool realtimePixelPreview = false;

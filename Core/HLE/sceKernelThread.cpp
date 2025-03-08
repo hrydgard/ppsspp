@@ -1347,7 +1347,14 @@ int sceKernelGetThreadExitStatus(SceUID threadID) {
 	int status = __KernelGetThreadExitStatus(threadID);
 	// Seems this is called in a tight-ish loop, maybe awaiting an interrupt - issue #13698
 	hleEatCycles(330);
-	return hleLogDebugOrError(Log::sceKernel, status);
+
+	// Some return values don't deserve to be considered errors for logging.
+	switch (status) {
+	case SCE_KERNEL_ERROR_NOT_DORMANT:
+		return hleLogDebug(Log::sceKernel, status);
+	default:
+		return hleLogDebugOrError(Log::sceKernel, status);
+	}
 }
 
 u32 sceKernelGetThreadmanIdType(u32 uid) {

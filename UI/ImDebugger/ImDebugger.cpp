@@ -1000,7 +1000,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			// Show details about the selected atrac context here.
 			char header[32];
 			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);
-			if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (ctx && ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
 				ImGui::ProgressBar((float)ctx->CurrentSample() / ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
 				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
 				ImGui::Text("cur/end sample: %d/%d", ctx->CurrentSample(), ctx->GetTrack().endSample);
