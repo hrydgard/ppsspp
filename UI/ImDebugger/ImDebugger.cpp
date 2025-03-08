@@ -7,6 +7,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Log/LogManager.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/RetroAchievements.h"
@@ -944,9 +945,10 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 	}
 
 	if (ImGui::CollapsingHeader("sceAtrac", ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (ImGui::BeginTable("atracs", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		if (ImGui::BeginTable("atracs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("OutChans", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
@@ -955,14 +957,18 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 
 			for (int i = 0; i < PSP_NUM_ATRAC_IDS; i++) {
 				u32 type = 0;
-				const AtracBase *atracBase = __AtracGetCtx(i, &type);
-				if (!atracBase) {
+				const AtracBase *ctx = __AtracGetCtx(i, &type);
+				if (!ctx) {
 					continue;
 				}
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", i);
+				char temp[16];
+				snprintf(temp, sizeof(temp), "%d", i);
+				if (ImGui::Selectable(temp, i == cfg.selectedAtracCtx, ImGuiSelectableFlags_SpanAllColumns)) {
+					cfg.selectedAtracCtx = i;
+				}
 				ImGui::TableNextColumn();
 				switch (type) {
 				case PSP_MODE_AT_3_PLUS:
@@ -976,15 +982,31 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 					break;
 				}
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", atracBase->GetOutputChannels());
+				ImGui::TextUnformatted(AtracStatusToString(ctx->BufferState()));
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", atracBase->CurrentSample());
+				ImGui::Text("%d", ctx->GetOutputChannels());
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", atracBase->RemainingFrames());
-				// TODO: Add more.
+				ImGui::Text("%d", ctx->CurrentSample());
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", ctx->RemainingFrames());
 			}
 
 			ImGui::EndTable();
+		}
+
+		if (cfg.selectedAtracCtx >= 0 && cfg.selectedAtracCtx < PSP_NUM_ATRAC_IDS) {
+			u32 type = 0;
+			const AtracBase *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
+			// Show details about the selected atrac context here.
+			char header[32];
+			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);
+			if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::ProgressBar((float)ctx->CurrentSample() / ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
+				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
+				ImGui::Text("cur/end sample: %d/%d", ctx->CurrentSample(), ctx->GetTrack().endSample);
+				ImGui::Text("ctx addr: "); ImGui::SameLine(); ImClickableValue("addr", ctx->Decoder()->GetCtxPtr(), control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+				ImGui::Text("loop: %d", ctx->LoopNum());
+			}
 		}
 	}
 
@@ -1098,6 +1120,60 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 	ImGui::End();
 }
 
+void DrawLogConfig(ImConfig &cfg) {
+	if (!ImGui::Begin("Logs", &cfg.logConfigOpen)) {
+		ImGui::End();
+		return;
+	}
+
+	static const char *logLevels[] = {
+		"N/A",
+		"Notice",  // starts at 1 for some reason
+		"Error",
+		"Warn",
+		"Info",
+		"Debug",
+		"Verb."
+	};
+	_dbg_assert_(ARRAY_SIZE(logLevels) == (int)LogLevel::LVERBOSE + 1);
+
+	if (ImGui::BeginTable("logs", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Log", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+		ImGui::TableHeadersRow();
+		for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
+			LogChannel *chan = g_logManager.GetLogChannel((Log)i);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			const char *logName = LogManager::GetLogTypeName((Log)i);
+
+			ImGui::PushID(logName);
+
+			ImGui::Checkbox(logName, &chan->enabled);
+			ImGui::TableNextColumn();
+
+			if (ImGui::BeginCombo("-", logLevels[(int)chan->level])) {
+				for (int i = 1; i < ARRAY_SIZE(logLevels); ++i) {
+					LogLevel current = static_cast<LogLevel>(i);
+					bool isSelected = (chan->level == current);
+					if (ImGui::Selectable(logLevels[(int)current], isSelected)) {
+						chan->level = current;
+					}
+					if (isSelected) {
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+	}
+
+	ImGui::End();
+}
+
 static const char *VoiceTypeToString(VoiceType type) {
 	switch (type) {
 	case VOICETYPE_OFF: return "OFF";
@@ -1205,7 +1281,7 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	// TODO: Add dropdown for thread choice.
+	// TODO: Add dropdown for thread choice, so you can check the callstacks of other threads.
 	u32 entry = 0;
 	u32 stackTop = 0;
 	for (auto &thread : info) {
@@ -1491,6 +1567,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		if (ImGui::BeginMenu("Tools")) {
 			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
+			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Misc")) {
@@ -1575,6 +1652,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.texturesOpen) {
 		DrawTexturesWindow(cfg_, gpuDebug->GetTextureCacheCommon());
+	}
+
+	if (cfg_.logConfigOpen) {
+		DrawLogConfig(cfg_);
 	}
 
 	if (cfg_.displayOpen) {
@@ -2012,6 +2093,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("pixelViewerOpen", &pixelViewerOpen, false);
 	sync.Sync("internalsOpen", &internalsOpen, false);
 	sync.Sync("sasAudioOpen", &sasAudioOpen, false);
+	sync.Sync("logConfigOpen", &logConfigOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

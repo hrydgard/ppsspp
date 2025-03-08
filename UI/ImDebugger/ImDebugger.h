@@ -148,6 +148,7 @@ struct ImConfig {
 	bool memDumpOpen;
 	bool internalsOpen;
 	bool sasAudioOpen;
+	bool logConfigOpen;
 	bool memViewOpen[4];
 
 	// HLE explorer settings
@@ -159,6 +160,7 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
+	int selectedAtracCtx = -1;
 	uint64_t selectedTexAddr = 0;
 
 	bool realtimePixelPreview = false;
