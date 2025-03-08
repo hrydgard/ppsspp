@@ -996,7 +996,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 
 		if (cfg.selectedAtracCtx >= 0 && cfg.selectedAtracCtx < PSP_NUM_ATRAC_IDS) {
 			u32 type = 0;
-			const AtracBase *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
+			const AtracCtx *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
 			// Show details about the selected atrac context here.
 			char header[32];
 			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);

@@ -2442,8 +2442,7 @@ static u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u3
 	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
 }
 
-void __KernelReturnFromModuleFunc()
-{
+void __KernelReturnFromModuleFunc() {
 	// Return from the thread as normal.
 	hleSkipDeadbeef();
 	__KernelReturnFromThread();
@@ -2451,6 +2450,10 @@ void __KernelReturnFromModuleFunc()
 	SceUID leftModuleID = __KernelGetCurThreadModuleId();
 	SceUID leftThreadID = __KernelGetCurThread();
 	int exitStatus = __KernelGetThreadExitStatus(leftThreadID);
+	if (exitStatus < 0) {
+		ERROR_LOG(Log::sceModule, "%s=GetThreadExitStatus(%d)", KernelErrorToString(exitStatus), leftThreadID);
+	}
+	// What else should happen with the exit status?
 
 	// Reschedule immediately (to leave the thread) and delete it and its stack.
 	__KernelReSchedule("returned from module");
