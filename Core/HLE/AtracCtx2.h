@@ -19,7 +19,7 @@ public:
 
 	int GetID() const override { return context_->info.atracID; }
 
-	int GetNextDecodePosition(int *pos) const override { return context_->info.decodePos; }
+	int GetNextDecodePosition(int *pos) const override;
 
 	int RemainingFrames() const override;
 	int LoopStatus() const override { return 0; }
@@ -52,6 +52,8 @@ public:
 	void NotifyGetContextAddress() override {}
 
 private:
+	void SeekToSample(int sample);
+
 	// Just the current decoded frame, in order to be able to cut off the first part of it
 	// to write the initial partial frame.
 	// Does not need to be saved.

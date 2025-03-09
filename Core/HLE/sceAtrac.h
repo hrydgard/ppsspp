@@ -46,6 +46,16 @@ enum AtracStatus : u8 {
 };
 
 const char *AtracStatusToString(AtracStatus status);
+inline bool AtracStatusIsStreaming(AtracStatus status) {
+	switch (status) {
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+		return true;
+	default:
+		return false;
+	}
+}
 
 typedef AtracStatus AtracStatus_le;
 
