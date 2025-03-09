@@ -240,7 +240,7 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-if(NOT ANDROID AND NOT WIN32 AND (NOT APPLE OR IOS))
+if(NOT ANDROID AND NOT WIN32 AND (NOT APPLE OR IOS) AND NOT LINUX)
 	set(HTTPS_NOT_AVAILABLE ON)
 endif()
 
@@ -2489,6 +2489,9 @@ endif()
 
 if(NOT HTTPS_NOT_AVAILABLE)
 	target_link_libraries(${CoreLibName} naett)
+	if(LINUX AND NOT ANDROID)
+		target_link_libraries(${CoreLibName} curl)
+	endif()
 endif()
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
