@@ -68,22 +68,6 @@ protected:
 	retro_hw_render_callback hw_render_ = {};
 };
 
-#ifdef _WIN32
-class LibretroD3D9Context : public LibretroHWRenderContext {
-public:
-	LibretroD3D9Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 9) {}
-	bool Init() override { return false; }
-
-	void CreateDrawContext() override {
-		draw_ = Draw::T3DCreateDX9Context(nullptr, nullptr, 0, nullptr, nullptr);
-		draw_->CreatePresets();
-	}
-
-	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX9; }
-	const char *Ident() override { return "DirectX 9"; }
-};
-#endif
-
 class LibretroSoftwareContext : public LibretroGraphicsContext {
 public:
 	LibretroSoftwareContext() {}

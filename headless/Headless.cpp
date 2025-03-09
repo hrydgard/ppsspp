@@ -400,8 +400,6 @@ int main(int argc, const char* argv[])
 			// There used to be a separate "null" rendering core - just use software.
 			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_SOFTWARE;
-			else if (!strcasecmp(gpuName, "directx9"))
-				gpuCore = GPUCORE_DIRECTX9;
 			else if (!strcasecmp(gpuName, "directx11"))
 				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))

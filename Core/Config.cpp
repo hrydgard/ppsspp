@@ -89,8 +89,6 @@ std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
 	case GPUBackend::OPENGL:
 		return "OPENGL";
-	case GPUBackend::DIRECT3D9:
-		return "DIRECT3D9";
 	case GPUBackend::DIRECT3D11:
 		return "DIRECT3D11";
 	case GPUBackend::VULKAN:
@@ -103,8 +101,6 @@ std::string GPUBackendToString(GPUBackend backend) {
 GPUBackend GPUBackendFromString(std::string_view backend) {
 	if (!equalsNoCase(backend, "OPENGL") || backend == "0")
 		return GPUBackend::OPENGL;
-	if (!equalsNoCase(backend, "DIRECT3D9") || backend == "1")
-		return GPUBackend::DIRECT3D9;
 	if (!equalsNoCase(backend, "DIRECT3D11") || backend == "2")
 		return GPUBackend::DIRECT3D11;
 	if (!equalsNoCase(backend, "VULKAN") || backend == "3")
@@ -537,11 +533,6 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-#if PPSSPP_API(D3D9)
-		if (!failed.count(GPUBackend::DIRECT3D9)) {
-			return (int)GPUBackend::DIRECT3D9;
-		}
-#endif
 
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		sFailedGPUBackends += ",ALL";
@@ -578,7 +569,7 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	if (backend == GPUBackend::DIRECT3D11 && !IsVistaOrHigher())
 		return false;
 #else
-	if (backend == GPUBackend::DIRECT3D11 || backend == GPUBackend::DIRECT3D9)
+	if (backend == GPUBackend::DIRECT3D11)
 		return false;
 #endif
 
@@ -1266,6 +1257,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			WARN_LOG(Log::Loader, "Forcing JIT off due to unavailablility");
 			iCpuCore = (int)CPUCore::IR_INTERPRETER;
 		}
+	}
+
+	if (iGPUBackend == 1) {  // d3d9, no longer supported
+		iGPUBackend = 2;  // d3d11
 	}
 
 	if (iMaxRecent > 0) {
