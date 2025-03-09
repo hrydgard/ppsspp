@@ -283,45 +283,53 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOffset) {
 	SceAtracIdInfo &info = context_->info;
 
-	// TODO: Take care of looping.
-	// Compute some helper variables.
-	int fileOffset = (int)info.curOff + (int)info.streamDataByte;
-	int bytesLeft = (int)info.dataEnd - fileOffset;
-	int bufferSpace = (int)info.bufferByte - (int)info.streamDataByte;
+	*writePtr = info.buffer;
+	switch (info.state) {
+	case ATRAC_STATUS_ALL_DATA_LOADED:
+		*bytesToRead = 0;
+		*readFileOffset = 0;
+		break;
 
-	_dbg_assert_(bytesLeft >= 0);
+	case ATRAC_STATUS_HALFWAY_BUFFER:
+		*readFileOffset = info.curOff + (int)info.streamDataByte;
+		*bytesToRead = info.dataEnd + 1 - *readFileOffset;
+		break;
 
-	if (bytesLeft == 0) {
-		switch (info.state) {
-		case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
-			// We have all the data up to the end buffered, no more streaming is needed.
+	default:
+	{
+		// Streaming
+		//
+		// TODO: Take care of looping.
+		// Compute some helper variables.
+		int fileOffset = (int)info.curOff + (int)info.streamDataByte;
+		int bytesLeft = (int)info.dataEnd - fileOffset;
+		int bufferSpace = (int)info.bufferByte - (int)info.streamDataByte;
+
+		_dbg_assert_(bytesLeft >= 0);
+
+		if (bytesLeft == 0) {
+			// We've got all the data up to the end buffered, no more streaming is needed.
 			// Signalling this by setting everything to zero.
 			*writePtr = info.buffer;
 			*bytesToRead = 0;
 			*readFileOffset = 0;
 			return;
-		default:
-			ERROR_LOG(Log::ME, "Unhandled case of end of stream");
-			*writePtr = info.buffer;
-			*bytesToRead = 0;
-			*readFileOffset = 0;
-			return;
 		}
-	}
 
-	// If on the first lap, we need some special handling to handle the cut packet.
-	if (info.curOff < info.bufferByte) {
-		int cutLen = (info.bufferByte - info.curOff) % info.sampleSize;
-		*writePtr = info.buffer + cutLen;
-		*bytesToRead = std::min(bytesLeft, bufferSpace - cutLen);
-	} else {
-		*writePtr = info.buffer + info.dataOff;
-		*bytesToRead = std::min(bytesLeft, bufferSpace);
+		// Clamp to both available space in the buffer, and end-of-file.
+		if (info.curOff < info.bufferByte) {
+			// If on the first lap, we need some special handling to handle the cut packet.
+			int cutLen = (info.bufferByte - info.curOff) % info.sampleSize;
+			*writePtr = info.buffer + cutLen;
+			*bytesToRead = std::min(bytesLeft, bufferSpace - cutLen);
+		} else {
+			*writePtr = info.buffer + info.dataOff;
+			*bytesToRead = std::min(bytesLeft, bufferSpace);
+		}
+		*readFileOffset = fileOffset;
+		break;
 	}
-	*readFileOffset = fileOffset;
-
-	// Probably we treat
-	INFO_LOG(Log::Audio, "asdf");
+	}
 }
 
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
@@ -362,8 +370,10 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		memcpy(outbuf, decodeTemp_, samplesToWrite * outputChannels_ * sizeof(int16_t));
 	}
 
-	info.streamDataByte -= info.sampleSize;
-	info.streamOff += info.sampleSize;
+	if (AtracStatusIsStreaming(info.state)) {
+		info.streamDataByte -= info.sampleSize;
+		info.streamOff += info.sampleSize;
+	}
 	info.curOff += info.sampleSize;
 	info.decodePos += samplesToWrite;
 
@@ -468,8 +478,10 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
 		}
 		info.curOff += track_.bytesPerFrame;
-		info.streamOff += track_.bytesPerFrame;
-		info.streamDataByte -= info.sampleSize;
+		if (AtracStatusIsStreaming(info.state)) {
+			info.streamOff += track_.bytesPerFrame;
+			info.streamDataByte -= info.sampleSize;
+		}
 		discardedSamples_ -= outSamples;
 	}
 
