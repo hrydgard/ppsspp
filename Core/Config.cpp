@@ -2047,7 +2047,7 @@ void PlayTimeTracker::Start(const std::string &gameId) {
 	if (gameId.empty()) {
 		return;
 	}
-	INFO_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Start(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
@@ -2070,7 +2070,7 @@ void PlayTimeTracker::Stop(const std::string &gameId) {
 		return;
 	}
 
-	INFO_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	VERBOSE_LOG(Log::System, "GameTimeTracker::Stop(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {

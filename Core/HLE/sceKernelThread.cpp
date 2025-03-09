@@ -1333,21 +1333,28 @@ int __KernelGetThreadExitStatus(SceUID threadID) {
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(threadID, error);
 	if (!t) {
-		return hleLogError(Log::sceKernel, error);
+		return error;
 	}
 
 	// __KernelResetThread and __KernelCreateThread set exitStatus in case it's DORMANT.
 	if (t->nt.status == THREADSTATUS_DORMANT) {
-		return hleLogDebug(Log::sceKernel, t->nt.exitStatus);
+		return t->nt.exitStatus;
 	}
-	return hleLogVerbose(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT, "not dormant");
+	return SCE_KERNEL_ERROR_NOT_DORMANT;
 }
 
 int sceKernelGetThreadExitStatus(SceUID threadID) {
-	u32 status = __KernelGetThreadExitStatus(threadID);
+	int status = __KernelGetThreadExitStatus(threadID);
 	// Seems this is called in a tight-ish loop, maybe awaiting an interrupt - issue #13698
 	hleEatCycles(330);
-	return hleNoLog(status);
+
+	// Some return values don't deserve to be considered errors for logging.
+	switch ((PSPErrorCode)status) {
+	case SCE_KERNEL_ERROR_NOT_DORMANT:
+		return hleLogDebug(Log::sceKernel, status);
+	default:
+		return hleLogDebugOrError(Log::sceKernel, status);
+	}
 }
 
 u32 sceKernelGetThreadmanIdType(u32 uid) {

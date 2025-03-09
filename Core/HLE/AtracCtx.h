@@ -51,6 +51,7 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 
 // This is not a PSP-native struct.
 // But, it's stored in its entirety in savestates, which makes it awkward to change it.
+// This is used for both first_ and second_, but the latter doesn't use all the fields.
 struct InputBuffer {
 	// Address of the buffer.
 	u32 addr;
@@ -79,6 +80,7 @@ struct AtracLoopInfo {
 
 class AudioDecoder;
 
+// This is (mostly) constant info, once a track has been loaded.
 struct Track {
 	// This both does and doesn't belong in Track - it's fixed for an Atrac instance. Oh well.
 	u32 codecType = 0;
@@ -86,10 +88,11 @@ struct Track {
 	// Size of the full track being streamed or played. Can be a lot larger than the in-memory buffer in the streaming modes.
 	u32 fileSize = 0;
 
-	// Not really used for much except queries, this keeps track of the bitrate of the track.
+	// Not really used for much except queries, this keeps track of the bitrate of the track (kbps).
 	u32 bitrate = 64;
 
-	// Signifies whether to use a more efficient coding mode with less stereo separation. For our purposes, just metadata.
+	// Signifies whether to use a more efficient coding mode with less stereo separation. For our purposes, just metadata,
+	// not actually used in decoding.
 	int jointStereo = 0;
 
 	// Number of audio channels in the track.
@@ -108,10 +111,11 @@ struct Track {
 	// sometimes not.
 	int firstSampleOffset = 0;
 
-	// Last sample number. Though, we made it so in Analyze, it's exclusive in the file.
+	// Last sample number. Inclusive. Though, we made it so that in Analyze, it's exclusive in the file.
 	// Does not take firstSampleOffset into account.
 	int endSample = 0;
 
+	// NOTE: The below CAN be written.
 	// Loop configuration. The PSP only supports one loop but we store them all.
 	std::vector<AtracLoopInfo> loopinfo;
 	// The actual used loop offsets. These appear to be raw offsets, not taking FirstSampleOffset2() into account.
@@ -195,6 +199,7 @@ public:
 		outputChannels_ = channels;
 	}
 
+	// Refactor?
 	int atracID_ = -1;
 
 	PSPPointer<SceAtracContext> context_{};
@@ -280,7 +285,9 @@ public:
 		return second_.size;
 	}
 
+	// Ask where in memory new data should be written.
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
+	// Notify the player that the user has written some new data.
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
@@ -288,6 +295,7 @@ public:
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
+	// Returns how many samples the next DecodeData will write.
 	u32 GetNextSamples() override;
 	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
 

@@ -40,14 +40,14 @@
 
 // Notes about sceAtrac buffer management
 //
-// sceAtrac decodes from a buffer the game fills, where this buffer is one of:
-//   * Not yet initialized (state NO DATA = 1)
-//   * The entire size of the audio data, and filled with audio data (state ALL DATA LOADED = 2)
-//   * The entire size, but only partially filled so far (state HALFWAY BUFFER = 3)
-//   * Smaller than the audio, sliding without any loop (state STREAMED WITHOUT LOOP = 4)
-//   * Smaller than the audio, sliding with a loop at the end (state STREAMED WITH LOOP AT END = 5)
-//   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
-//   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
+// sceAtrac decodes from a buffer the game fills, where this buffer has a status, one of:
+//   * Not yet initialized (state NO_DATA = 1)
+//   * The entire size of the audio data, and filled with audio data (state ALL_DATA_LOADED = 2)
+//   * The entire size, but only partially filled so far (state HALFWAY_BUFFER = 3)
+//   * Smaller than the audio, sliding without any loop (state STREAMED_WITHOUT_LOOP = 4)
+//   * Smaller than the audio, sliding with a loop at the end (state STREAMED_WITH_LOOP_AT_END = 5)
+//   * Smaller with a second buffer to help with a loop in the middle (state STREAMED_WITH_SECOND_BUF = 6)
+//   * Not managed, decoding using "low level" manual looping etc. (LOW_LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
 //
 // This buffer is generally filled by sceAtracAddStreamData, and where to fill it is given by
@@ -59,6 +59,7 @@
 // the buffer it will call sceAtracSetSecondBuffer.
 // The second buffer will just contain the data for the end of loop.  The "first" buffer may manage
 // only the looped portion, or some of the part after the loop (depending on second buf size.)
+// TODO: What games use this?
 //
 // Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
 // ultimately this will share the same buffer - it's just offset a bit more.

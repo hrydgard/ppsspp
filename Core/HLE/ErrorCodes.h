@@ -2,7 +2,7 @@
 
 #include "Common/CommonTypes.h"
 
-enum : u32 {
+enum PSPErrorCode : u32 {
 	SCE_KERNEL_ERROR_OK                               = 0,
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
