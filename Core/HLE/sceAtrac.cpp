@@ -168,7 +168,7 @@ static int createAtrac(AtracBase *atrac) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
 		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
 			atracContexts[i] = atrac;
-			atrac->atracID_ = i;
+			atrac->SetAtracID(i);
 			return i;
 		}
 	}
@@ -261,7 +261,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	int ret = atrac->DecodeData(Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
+	int ret = atrac->DecodeData(outAddr ? Memory::GetPointerWrite(outAddr) : nullptr, outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::WriteUnchecked_U32(numSamples, numSamplesAddr);
@@ -384,7 +384,8 @@ static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
 	}
 
 	if (Memory::IsValidAddress(maxSamplesAddr)) {
-		Memory::WriteUnchecked_U32(atrac->GetTrack().SamplesPerFrame(), maxSamplesAddr);
+		int maxSamples = atrac->GetTrack().SamplesPerFrame();
+		Memory::WriteUnchecked_U32(maxSamples, maxSamplesAddr);
 		return hleLogDebug(Log::ME, 0);
 	} else {
 		return hleLogError(Log::ME, 0, "invalid address");
@@ -399,11 +400,12 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	}
 
 	if (Memory::IsValidAddress(outposAddr)) {
-		if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
+		const int currentSample = atrac->CurrentSample();
+		if (currentSample >= atrac->GetTrack().endSample) {
 			Memory::WriteUnchecked_U32(0, outposAddr);
 			return hleLogDebug(Log::ME, SCE_ERROR_ATRAC_ALL_DATA_DECODED, "all data decoded - beyond endSample");
 		} else {
-			Memory::WriteUnchecked_U32(atrac->CurrentSample(), outposAddr);
+			Memory::WriteUnchecked_U32(currentSample, outposAddr);
 			return hleLogDebug(Log::ME, 0);
 		}
 	} else {
@@ -433,20 +435,19 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 // Obtains the number of frames remaining in the buffer which can be decoded.
 // When no more data would be needed, this returns a negative number.
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
-	auto remainingFrames = PSPPointer<u32_le>::Create(remainAddr);
-
 	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
 
-	if (!remainingFrames.IsValid()) {
+	if (!Memory::IsValidAddress(remainAddr)) {
 		// Would crash.
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	}
 
-	*remainingFrames = atrac->RemainingFrames();
+	u32 remaining = atrac->RemainingFrames();
+	Memory::WriteUnchecked_U32(remaining, remainAddr);
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -615,7 +616,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 
 	if (atrac->GetTrack().codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
 	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, false);
@@ -673,17 +674,13 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	if (atrac->GetTrack().loopinfo.size() == 0) {
-		if (loopNum == -1) {
-			// This is very common and not really a problem.
-			return hleLogDebug(Log::ME, SCE_ERROR_ATRAC_NO_LOOP_INFORMATION, "no loop information to write to!");
-		} else {
-			return hleLogError(Log::ME, SCE_ERROR_ATRAC_NO_LOOP_INFORMATION, "no loop information to write to!");
-		}
-	}
 
-	atrac->SetLoopNum(loopNum);
-	return hleLogDebug(Log::ME, 0);
+	int retval = atrac->SetLoopNum(loopNum);
+	if (retval < 0 && loopNum == -1) {
+		return hleLogDebug(Log::ME, retval);
+	} else {
+		return hleLogError(Log::ME, retval);
+	}
 }
 
 static int sceAtracReinit(int at3Count, int at3plusCount) {
@@ -865,18 +862,7 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		return hleLogError(Log::ME, 0, "bad atrac id");
 	}
 
-	if (!atrac->context_.IsValid()) {
-		// allocate a new context_
-		u32 contextSize = sizeof(SceAtracContext);
-		// Note that Alloc can increase contextSize to the "grain" size.
-		atrac->context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
-		if (atrac->context_.IsValid())
-			Memory::Memset(atrac->context_.ptr, 0, contextSize, "AtracContextClear");
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
-	} else {
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
-	}
-
+	atrac->EnsureContext(atracID);
 	atrac->WriteContextToPSPMem();
 	return hleLogDebug(Log::ME, atrac->context_.ptr);
 }
@@ -928,7 +914,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		}
 	}
 
-	atrac->InitLowLevel(paramsAddr, jointStereo);
+	atrac->InitLowLevel(paramsAddr, jointStereo, atracID);
 
 	const char *codecName = atrac->GetTrack().codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";

@@ -333,6 +333,11 @@ std::string ResolvePath(const std::string &path) {
 	}
 
 #ifdef _WIN32
+	// Network paths. Ignore document aliases and stuff.
+	if (startsWith(path, "//")) {
+		return path;
+	}
+
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE] {};
 

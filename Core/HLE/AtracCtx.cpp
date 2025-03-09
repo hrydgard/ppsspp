@@ -181,7 +181,20 @@ u8 *Atrac::BufferStart() {
 	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
 }
 
-void AtracBase::UpdateContextFromPSPMem() {
+void AtracBase::EnsureContext(int atracID) {
+	if (!context_.IsValid()) {
+		// allocate a new context_
+		u32 contextSize = sizeof(SceAtracContext);
+		// Note that Alloc can increase contextSize to the "grain" size.
+		context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
+		if (context_.IsValid())
+			Memory::Memset(context_.ptr, 0, contextSize, "AtracContextClear");
+		context_->info.atracID = atracID;
+		WARN_LOG(Log::ME, "AtracBase::EnsureContext(): allocated new context", context_.ptr, atracID);
+	}
+}
+
+void Atrac::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
 	}
@@ -249,6 +262,17 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 	AnalyzeReset();
 
+	int retval = AnalyzeAtracTrack(addr, size, &track_);
+	if (retval < 0) {
+		return retval;
+	}
+
+	first_._filesize_dontuse = track_.fileSize;
+	track_.DebugLog();
+	return 0;
+}
+
+int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	// 72 is about the size of the minimum required data to even be valid.
 	if (size < 72) {
 		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
@@ -265,13 +289,6 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
-	int retval = AnalyzeAtracTrack(addr, size, &track_);
-	first_._filesize_dontuse = track_.fileSize;
-	track_.DebugLog();
-	return retval;
-}
-
-int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 	struct RIFFFmtChunk {
 		u16_le fmtTag;
 		u16_le channels;
@@ -1081,7 +1098,11 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	return 0;
 }
 
-void AtracBase::SetLoopNum(int loopNum) {
+int Atrac::SetLoopNum(int loopNum) {
+	if (track_.loopinfo.size() == 0) {
+		return SCE_ERROR_ATRAC_NO_LOOP_INFORMATION;
+	}
+
 	// Spammed in MHU
 	loopNum_ = loopNum;
 	// Logic here looks wacky?
@@ -1093,6 +1114,7 @@ void AtracBase::SetLoopNum(int loopNum) {
 		track_.loopEndSample = track_.endSample + track_.FirstSampleOffsetFull();
 	}
 	WriteContextToPSPMem();
+	return 0;
 }
 
 u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
@@ -1155,7 +1177,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	return hleNoLog(0);
 }
 
-void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
+void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int atracID) {
 	track_.channels = Memory::Read_U32(paramsAddr);
 	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
 	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);

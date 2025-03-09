@@ -791,7 +791,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioMixWithOthers", &g_Config.bAudioMixWithOthers, true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioRespectSilentMode", &g_Config.bAudioRespectSilentMode, false, CfgFlag::DEFAULT),
-	ConfigSetting("UseExperimentalAtrac", &g_Config.bUseExperimentalAtrac, false, CfgFlag::DONT_SAVE),
+	ConfigSetting("UseExperimentalAtrac", &g_Config.bUseExperimentalAtrac, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultShowTouchControls() {
@@ -1690,15 +1690,20 @@ void Config::CleanRecent() {
 
 		double startTime = time_now_d();
 
-		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+		std::vector<std::string> recent;
+		{
+			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
+			recent = recentIsos;
+		}
+		
 		std::vector<std::string> cleanedRecent;
 		if (recentIsos.empty()) {
 			INFO_LOG(Log::Loader, "No recents list found.");
 		}
 
-		for (size_t i = 0; i < recentIsos.size(); i++) {
+		for (size_t i = 0; i < recent.size(); i++) {
 			bool exists = false;
-			Path path = Path(recentIsos[i]);
+			Path path = Path(recent[i]);
 			switch (path.Type()) {
 			case PathType::CONTENT_URI:
 			case PathType::NATIVE:
@@ -1733,6 +1738,8 @@ void Config::CleanRecent() {
 		if (recentTime > 0.1) {
 			INFO_LOG(Log::System, "CleanRecent took %0.2f", recentTime);
 		}
+
+		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 		recentIsos = cleanedRecent;
 	});
 }

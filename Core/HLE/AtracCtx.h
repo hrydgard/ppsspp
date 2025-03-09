@@ -199,14 +199,14 @@ public:
 		outputChannels_ = channels;
 	}
 
-	// Refactor?
-	int atracID_ = -1;
+	virtual void SetAtracID(int atracID) = 0;
+	virtual int GetAtracID() const = 0;
+
+	void EnsureContext(int atracID);
 
 	PSPPointer<SceAtracContext> context_{};
 
-	AtracStatus BufferState() const {
-		return bufferState_;
-	}
+	virtual AtracStatus BufferState() const = 0;
 
 	int LoopNum() const {
 		return loopNum_;
@@ -227,13 +227,13 @@ public:
 	virtual int Analyze(u32 addr, u32 size) = 0;
 	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
 
-	void UpdateContextFromPSPMem();
+	virtual void UpdateContextFromPSPMem() = 0;
 	virtual void WriteContextToPSPMem() = 0;
 
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
-	virtual void SetLoopNum(int loopNum);
+	virtual int SetLoopNum(int loopNum) = 0;
 	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
 	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
@@ -242,7 +242,7 @@ public:
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual u32 GetNextSamples() = 0;
-	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
+	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo, int atracID) = 0;
 
 protected:
 	Track track_{};
@@ -251,7 +251,6 @@ protected:
 
 	// TODO: Save the internal state of this, now technically possible.
 	AudioDecoder *decoder_ = nullptr;
-	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 };
 
 class Atrac : public AtracBase {
@@ -270,6 +269,10 @@ public:
 	}
 
 	u8 *BufferStart();
+
+	AtracStatus BufferState() const {
+		return bufferState_;
+	}
 
 	void DoState(PointerWrap &p) override;
 	void WriteContextToPSPMem() override;
@@ -297,7 +300,16 @@ public:
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	// Returns how many samples the next DecodeData will write.
 	u32 GetNextSamples() override;
-	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
+	int SetLoopNum(int loopNum) override;
+	void InitLowLevel(u32 paramsAddr, bool jointStereo, int atracID) override;
+	void UpdateContextFromPSPMem() override;
+
+	void SetAtracID(int atracID) override {
+		atracID_ = atracID;
+	}
+	int GetAtracID() const override {
+		return atracID_;
+	}
 
 protected:
 	void AnalyzeReset();
@@ -316,6 +328,8 @@ private:
 	void ConsumeFrame();
 	void CalculateStreamInfo(u32 *readOffset);
 
+	int atracID_;
+
 	InputBuffer first_{};
 	InputBuffer second_{};  // only addr, size, fileoffset are used (incomplete)
 
@@ -331,4 +345,5 @@ private:
 	u32 bufferPos_ = 0;
 	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
+	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 };
