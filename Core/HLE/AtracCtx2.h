@@ -25,7 +25,7 @@ public:
 	int LoopStatus() const override { return 0; }
 	int Bitrate() const override;
 	int LoopNum() const override { return context_->info.loopNum; }
-	int SamplesPerFrame() const override { return 0; }
+	int SamplesPerFrame() const override { return context_->info.codec == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES; }
 	int Channels() const override { return context_->info.numChan; }
 	int BytesPerFrame() const override { return context_->info.sampleSize; }
 	int SetLoopNum(int loopNum) override;
@@ -56,4 +56,8 @@ private:
 	// to write the initial partial frame.
 	// Does not need to be saved.
 	int16_t *decodeTemp_ = nullptr;
+
+	// We skip some samples at the start.
+	// TODO: This is ugly, I want a stateless solution..
+	int discardedSamples_;
 };

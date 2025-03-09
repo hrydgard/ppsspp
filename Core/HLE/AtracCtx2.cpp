@@ -33,7 +33,15 @@ int Atrac2::RemainingFrames() const {
 
 	const bool isStreaming = (info.state & ATRAC_STATUS_STREAMED_MASK) != 0;
 
-	if (info.decodePos >= track_.endSample) {
+	int fileOffset = (int)info.curOff + (int)info.streamDataByte;
+	int bytesLeft = (int)info.dataEnd - fileOffset;
+	if (bytesLeft == 0) {
+		if (info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+		}
+	}
+
+	if ((int)info.decodePos >= track_.endSample) {
 		if (info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 		}
@@ -53,7 +61,7 @@ int Atrac2::RemainingFrames() const {
 		return info.streamDataByte / info.sampleSize;
 	}
 
-	// Fallback
+	// Fallback. probably wrong
 	return info.dataEnd / info.sampleSize;
 }
 
@@ -94,24 +102,13 @@ int Atrac2::SetLoopNum(int loopNum) {
 }
 
 u32 Atrac2::GetNextSamples() {
-	// This has to be possible to do in an easier way, from the existing state.
-
-	int currentSample = context_->info.decodePos;
-	// It seems like the PSP aligns the sample position to 0x800...?
-	u32 skipSamples = track_.FirstSampleOffsetFull();
-	u32 firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
-	u32 numSamples = track_.endSample + 1 - currentSample;
-	if (currentSample == 0 && firstSamples != 0) {
-		numSamples = firstSamples;
+	SceAtracIdInfo &info = context_->info;
+	// TODO: Handle end-of-track short block.
+	int samples = track_.SamplesPerFrame();
+	if (discardedSamples_ > 0) {
+		samples -= discardedSamples_;
 	}
-	u32 unalignedSamples = (skipSamples + currentSample) % track_.SamplesPerFrame();
-	if (unalignedSamples != 0) {
-		// We're off alignment, possibly due to a loop.  Force it back on.
-		numSamples = track_.SamplesPerFrame() - unalignedSamples;
-	}
-	if (numSamples > track_.SamplesPerFrame())
-		numSamples = track_.SamplesPerFrame();
-	return numSamples;
+	return samples;
 }
 
 int Atrac2::AddStreamData(u32 bytesToAdd) {
@@ -122,44 +119,102 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 	return 0;
 }
 
-void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {
+void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOffset) {
 	SceAtracIdInfo &info = context_->info;
-	
-	*readOffset = info.bufferByte;
-	*writePtr = context_->codec.inBuf + info.curOff;
 
-	*writableBytes = 0;
+	// TODO: Take care of looping.
+	// Compute some helper variables.
+	int fileOffset = (int)info.curOff + (int)info.streamDataByte;
+	int bytesLeft = (int)info.dataEnd - fileOffset;
+	int bufferSpace = (int)info.bufferByte - (int)info.streamDataByte;
+
+	_dbg_assert_(bytesLeft >= 0);
+
+	if (bytesLeft == 0) {
+		switch (info.state) {
+		case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+			// We have all the data up to the end buffered, no more streaming is needed.
+			// Signalling this by setting everything to zero.
+			*writePtr = info.buffer;
+			*bytesToRead = 0;
+			*readFileOffset = 0;
+			return;
+		default:
+			ERROR_LOG(Log::ME, "Unhandled case of end of stream");
+			*writePtr = info.buffer;
+			*bytesToRead = 0;
+			*readFileOffset = 0;
+			return;
+		}
+	}
+
+	// If on the first lap, we need some special handling to handle the cut packet.
+	if (info.curOff < info.bufferByte) {
+		int cutLen = (info.bufferByte - info.curOff) % info.sampleSize;
+		*writePtr = info.buffer + cutLen;
+		*bytesToRead = std::min(bytesLeft, bufferSpace - cutLen);
+	} else {
+		*writePtr = info.buffer + info.dataOff;
+		*bytesToRead = std::min(bytesLeft, bufferSpace);
+	}
+	*readFileOffset = fileOffset;
+
 	// Probably we treat
+	INFO_LOG(Log::Audio, "asdf");
 }
 
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	SceAtracIdInfo &info = context_->info;
 
-	if (!decodeTemp_) {
-		decodeTemp_ = new int16_t[track_.SamplesPerFrame() * track_.channels];
+	int samplesToWrite = track_.SamplesPerFrame();
+	if (discardedSamples_) {
+		samplesToWrite -= discardedSamples_;
+		discardedSamples_ = 0;
 	}
 
-	/*
-	const uint8_t *indata = Memory::GetPointer(context_->codec.inBuf + info.curOff);
+	// Try to handle the end, too.
+	if (info.decodePos + samplesToWrite > info.endSample + 1) {
+		int samples = info.endSample + 1 - info.decodePos;
+		if (samples < track_.SamplesPerFrame()) {
+			samplesToWrite = samples;
+		} else {
+			ERROR_LOG(Log::ME, "Too many samples left: %08x", samples);
+		}
+	}
+
+	u32 inAddr = info.buffer + info.streamOff;
+	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
+	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
 		// Decode failed.
 		*SamplesNum = 0;
 		*finish = 1;
 		// Is this the right error code? Needs testing.
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
-	*/
 
 	info.streamDataByte -= info.sampleSize;
+	info.streamOff += info.sampleSize;
 	info.curOff += info.sampleSize;
-	info.decodePos += track_.SamplesPerFrame();
+	info.decodePos += samplesToWrite;
 
-	// This one starts out being the same as curOff but sometimes gets reset??
-	info.unk48 += info.sampleSize;
+	// If we reached the end of the buffer, move the cursor back to the start.
+	// SetData takes care of any split packet.
+	if (info.streamOff + info.sampleSize > info.bufferByte) {
+		// Check that we're on the first lap. Should only happen on the first lap around.
+		_dbg_assert_(info.curOff - info.sampleSize < info.bufferByte);
+		INFO_LOG(Log::ME, "Hit the buffer wrap.");
+		info.streamOff = 0;
+	}
 
+	*SamplesNum = samplesToWrite;
 	*remains = RemainingFrames();
+
+	// detect the end.
+	if (info.curOff >= info.dataEnd) {
+		*finish = 1;
+	}
 	return 0;
 }
 
@@ -182,16 +237,14 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	context_->codec.inBuf = bufferAddr;
 
 	// Copied from the old implementation, let's see where they are useful.
-	int bufOff = track_.dataByteOffset + track_.bytesPerFrame;
-	int skipSamples = track_.FirstSampleOffsetFull();
 	int firstExtra = track_.FirstOffsetExtra();
 
 	SceAtracIdInfo &info = context_->info;
 	// Copy parameters into struct.
 	info.buffer = bufferAddr;
 	info.bufferByte = bufferSize;
-	info.samplesPerChan = track_.FirstSampleOffsetFull();   // TODO: Where does 970 come from?
-	info.endSample = track_.endSample + info.samplesPerChan;
+	info.firstValidSample = track_.FirstSampleOffsetFull();
+	info.endSample = track_.endSample + info.firstValidSample;
 	if (track_.loopStartSample != 0xFFFFFFFF) {
 		info.loopStart = track_.loopStartSample;
 		info.loopEnd = track_.loopEndSample;
@@ -201,10 +254,12 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	info.numChan = track_.channels;
 	info.numFrame = 0;
 	info.dataOff = track_.dataByteOffset;
-	info.curOff = 0x1D8;  // 472
-	info.unk48 = info.curOff;
+	info.curOff = track_.dataByteOffset;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by a frame.
+	info.streamOff = info.curOff;
 	info.streamDataByte = readSize - info.curOff;
 	info.dataEnd = track_.fileSize;
+	info.decodePos = track_.FirstSampleOffsetFull();
+	discardedSamples_ = track_.FirstSampleOffsetFull();
 
 	if (readSize > track_.fileSize) {
 		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track_.fileSize);
@@ -231,6 +286,35 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	}
 
 	CreateDecoder();
+
+	if (!decodeTemp_) {
+		decodeTemp_ = new int16_t[track_.SamplesPerFrame() * track_.channels];
+	}
+
+	// TODO: Decode the first dummy frame to the temp buffer. This initializes the decoder.
+	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
+	// Alternatively, the dummy frame is just there to leave space for wrapping...
+	if (track_.FirstSampleOffsetFull() >= track_.SamplesPerFrame()) {
+		int bytesConsumed;
+		int outSamples;
+		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, track_.channels, decodeTemp_, &outSamples)) {
+			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
+		}
+		info.curOff += track_.bytesPerFrame;
+		info.streamOff += track_.bytesPerFrame;
+		info.streamDataByte -= info.sampleSize;
+		discardedSamples_ -= outSamples;
+	}
+
+	// We need to handle wrapping the overshot partial packet at the end. Let's start by computing it.
+	int cutLen = (info.bufferByte - info.curOff) % info.sampleSize;
+	int cutRest = info.sampleSize - cutLen;
+
+	// Then, let's copy it.
+	if (cutLen > 0) {
+		INFO_LOG(Log::ME, "Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.", cutLen, cutRest, cutLen, cutRest, info.sampleSize);
+		Memory::Memcpy(info.buffer, info.buffer + info.bufferByte - cutLen, cutLen);
+	}
 
 	return 0;
 }

@@ -33,6 +33,8 @@ std::map<u32, AudioDecoder *> g_audioDecoderContexts;
 
 static bool oldStateLoaded = false;
 
+static_assert(sizeof(SceAudiocodecCodec) == 128);
+
 // find the audio decoder for corresponding ctxPtr in audioList
 static AudioDecoder *findDecoder(u32 ctxPtr) {
 	auto it = g_audioDecoderContexts.find(ctxPtr);

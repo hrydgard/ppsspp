@@ -207,9 +207,9 @@ void Atrac::WriteContextToPSPMem() {
 	// TODO: Should we just keep this in PSP ram then, or something?
 	context->info.state = bufferState_;
 	if (track_.firstSampleOffset != 0) {
-		context->info.samplesPerChan = track_.FirstSampleOffsetFull();
+		context->info.firstValidSample = track_.FirstSampleOffsetFull();
 	} else {
-		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		context->info.firstValidSample = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = track_.channels;
