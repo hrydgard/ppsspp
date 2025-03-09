@@ -58,7 +58,7 @@ struct SceAtracIdInfo {
     u32_le endSample; // 4
     u32_le loopStart; // 8
     u32_le loopEnd; // 12
-    s32_le samplesPerChan; // 16
+    s32_le samplesPerChan; // 16   // This rather seems to be the number of skipped samples at the start. (plus one frame?)
     char numFrame; // 20
     // 2: all the stream data on the buffer
     // 6: looping -> second buffer needed
@@ -79,7 +79,7 @@ struct SceAtracIdInfo {
     u32_le bufferByte; // 64
     u32_le secondBufferByte; // 68
     // make sure the size is 128
-    u8 unk[52];
+    u32_le unk[13];
     u32_le atracID;
 };
 

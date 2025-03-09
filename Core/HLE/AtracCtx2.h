@@ -7,20 +7,28 @@
 class Atrac2 : public AtracBase {
 public:
 	Atrac2(int atracID, u32 contextAddr, int codecType);
+	~Atrac2() {
+		delete[] decodeTemp_;
+	}
+
+	AtracStatus BufferState() const {
+		return context_->info.state;
+	}
 
 	void DoState(PointerWrap &p) override;
 
-	int GetID() const override { return 0; }
+	int GetID() const override { return context_->info.atracID; }
 
-	int GetNextDecodePosition(int *pos) const { return 0; }
+	int GetNextDecodePosition(int *pos) const override { return context_->info.decodePos; }
+
 	int RemainingFrames() const override;
 	int LoopStatus() const override { return 0; }
-	int Bitrate() const override { return 0; }
-	int LoopNum() const override { return 0; }
+	int Bitrate() const override;
+	int LoopNum() const override { return context_->info.loopNum; }
 	int SamplesPerFrame() const override { return 0; }
-	int Channels() const override { return 2; }
-	int BytesPerFrame() const override { return 0; }
-	int SetLoopNum(int loopNum) override { return 0; }
+	int Channels() const override { return context_->info.numChan; }
+	int BytesPerFrame() const override { return context_->info.sampleSize; }
+	int SetLoopNum(int loopNum) override;
 
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int AddStreamData(u32 bytesToAdd) override;
@@ -34,6 +42,7 @@ public:
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	u32 GetNextSamples() override;
+
 	void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
@@ -43,5 +52,8 @@ public:
 	void NotifyGetContextAddress() override {}
 
 private:
-	int currentSample_ = 0;
+	// Just the current decoded frame, in order to be able to cut off the first part of it
+	// to write the initial partial frame.
+	// Does not need to be saved.
+	int16_t *decodeTemp_ = nullptr;
 };

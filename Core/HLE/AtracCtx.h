@@ -192,9 +192,7 @@ public:
 
 	PSPPointer<SceAtracContext> context_{};
 
-	AtracStatus BufferState() const {
-		return bufferState_;
-	}
+	virtual AtracStatus BufferState() const = 0;
 
 	virtual int SetLoopNum(int loopNum) = 0;
 	virtual int LoopNum() const = 0;
@@ -241,7 +239,6 @@ protected:
 
 	// TODO: Save the internal state of this, now technically possible.
 	AudioDecoder *decoder_ = nullptr;
-	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 };
 
 class Atrac : public AtracBase {
@@ -263,6 +260,10 @@ public:
 	}
 
 	u8 *BufferStart();
+
+	AtracStatus BufferState() const {
+		return bufferState_;
+	}
 
 	void DoState(PointerWrap &p) override;
 
@@ -357,4 +358,5 @@ private:
 	u32 bufferHeaderSize_ = 0;
 
 	int atracID_ = -1;
+	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 };
