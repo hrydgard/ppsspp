@@ -25,10 +25,10 @@ typedef struct {
 	s32_le unk0;
 	s32_le unk4;
 	s32_le err; // 8
-	s32_le edramAddr; // 12
-	s32_le neededMem; // 16
+	s32_le edramAddr; // 12  // presumably in ME memory?
+	s32_le neededMem; // 16  // 0x102400 for Atrac3+
 	s32_le unk20;
-	u32_le inBuf; // 24
+	u32_le inBuf; // 24  // This is updated for every frame that's decoded, to point to the start of the frame.
 	s32_le unk28;
 	u32_le outBuf; // 32
 	s32_le unk36;

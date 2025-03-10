@@ -44,22 +44,26 @@ enum AtracStatus : u8 {
 };
 
 const char *AtracStatusToString(AtracStatus status);
+inline bool AtracStatusIsStreaming(AtracStatus status) {
+	switch (status) {
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+		return true;
+	default:
+		return false;
+	}
+}
 
-#if COMMON_LITTLE_ENDIAN
 typedef AtracStatus AtracStatus_le;
-#else
-typedef swap_struct_t<AtracStatus, swap_32_t<AtracStatus> > AtracStatus_le;
-#endif
 
 struct SceAtracIdInfo {
     u32_le decodePos; // 0
     u32_le endSample; // 4
     u32_le loopStart; // 8
     u32_le loopEnd; // 12
-    s32_le samplesPerChan; // 16
-    char numFrame; // 20
-    // 2: all the stream data on the buffer
-    // 6: looping -> second buffer needed
+    s32_le samplesPerChan; // 16   // This rather seems to be the number of skipped samples at the start. (plus one frame?)
+    char numFrame; // 20  // This seems to just stay at zero.
     AtracStatus_le state; // 21
     char unk22;
     char numChan; // 23
@@ -69,15 +73,16 @@ struct SceAtracIdInfo {
     u32_le curOff; // 32
     u32_le dataEnd; // 36
     s32_le loopNum; // 40
-    u32_le streamDataByte; // 44
-    u32_le unk48;
+    u32_le streamDataByte; // 44  // Amount of queued data.
+    u32_le streamOff;  // Previously unk48. this appears to possibly be the offset inside the buffer for streaming.
     u32_le unk52;
     u32_le buffer; // 56
     u32_le secondBuffer; // 60
     u32_le bufferByte; // 64
     u32_le secondBufferByte; // 68
     // make sure the size is 128
-	u8 unk[56];
+    u32_le unk[13];
+    u32_le atracID;
 };
 
 struct SceAtracContext {

@@ -85,7 +85,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 
 	if (allFilesSize == 0) {
 		ERROR_LOG_REPORT(Log::sceUtility, "Game install with no files / data");
-		// TODO: What happens here?
+		// Getting a lot of reports of this from patched football games. Can probably ignore. https://report.ppsspp.org/logs/kind/793
 		return -1;
 	}
 

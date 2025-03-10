@@ -398,12 +398,17 @@ void EmuScreen::bootComplete() {
 	}
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
 		g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("PressESC", "Press ESC to open the pause menu"));
 	}
 #endif
+
+	if (g_Config.bUseExperimentalAtrac) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, dev->T("Use experimental sceAtrac"));
+	}
 
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
