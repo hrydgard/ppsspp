@@ -6,9 +6,26 @@
 #include "Core/HW/Atrac3Standalone.h"
 
 // Convenient command line:
-// Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --timeout=30 --graphics=software pspautotests/tests/audio/atrac/... --ignore pspautotests/tests/audio/atrac/second/resetting.prx --ignore pspautotests/tests/audio/atrac/second/replay.prx
+// Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --new-atrac --timeout=30 --graphics=software pspautotests/tests/audio/atrac/stream.prx
 //
 // See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
+//
+// Tests left to fix:
+// - resetpos
+// - resetting
+// - second/resetting
+// - second/setbuffer
+// - decode
+// - getremainframe  (requires seek)
+
+// To run on the real PSP, without gentest.py:
+// cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac> make
+// cmd2> C:\dev\ppsspp\pspautotests> usbhostfs_pc -b 4000
+// cmd3> C:\dev\ppsspp\pspautotests> pspsh -p 4000
+// cmd3> > cd host0:/test/audio/atrac
+// cmd3> stream.prx
+// cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac>copy /Y ..\..\..\__testoutput.txt stream.expected
+// Then run the test, see above.
 
 Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
 	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
@@ -188,6 +205,7 @@ void Atrac2::SeekToSample(int sample) {
 	info.decodePos = sample;
 }
 
+// This is basically sceAtracGetBufferInfoForResetting.
 int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	// This was mostly copied straight from the old impl.
 
@@ -199,17 +217,9 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		bufferInfo->first.minWriteBytes = 0;
 		bufferInfo->first.filePos = 0;
 	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
-		// Here the message is: you need to read at least this many bytes to get to that position.
-		// This is because we're filling the buffer start to finish, not streaming.
-		bufferInfo->first.writePosPtr = info.buffer + info.curOff;
-		bufferInfo->first.writableBytes = track_.fileSize - info.curOff;
-		int minWriteBytes = track_.FileOffsetBySample(sample) - info.curOff;
-		if (minWriteBytes > 0) {
-			bufferInfo->first.minWriteBytes = minWriteBytes;
-		} else {
-			bufferInfo->first.minWriteBytes = 0;
-		}
-		bufferInfo->first.filePos = info.curOff;
+		// The old logic here was busted. This, instead, appears to just replicate GetStreamDataInfo.
+		GetStreamDataInfo(&bufferInfo->first.writePosPtr, &bufferInfo->first.writableBytes, &bufferInfo->first.filePos);
+		bufferInfo->first.minWriteBytes = 0;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
 		int sampleFileOffset = track_.FileOffsetBySample(sample - track_.firstSampleOffset - track_.SamplesPerFrame());
@@ -238,9 +248,9 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		}
 	}
 
-	// It seems like this is always the same as the first buffer's pos, weirdly.
-	bufferInfo->second.writePosPtr = info.buffer;
 	// Reset never needs a second buffer write, since the loop is in a fixed place.
+	// It seems like second.writePosPtr is always the same as the first buffer's pos, weirdly (doesn't make sense).
+	bufferInfo->second.writePosPtr = info.buffer;
 	bufferInfo->second.writableBytes = 0;
 	bufferInfo->second.minWriteBytes = 0;
 	bufferInfo->second.filePos = 0;
@@ -335,7 +345,7 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 	default:
 	{
 		// Streaming
-		// 
+		//
 		// This really is the core logic of sceAtrac. It looks simple, and is pretty simple, but figuring it out
 		// from just logs of variables wasn't all that easy... Initially I had it more complicated, but boiled it
 		// all down to fairly simple logic.
@@ -410,6 +420,28 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		}
 	}
 
+	if (info.decodePos >= info.endSample) {
+		_dbg_assert_(info.curOff >= info.dataEnd);
+		ERROR_LOG(Log::ME, "DecodeData: Reached the end, nothing to decode");
+		*finish = 1;
+		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+	}
+
+	// Check that there's enough data to decode.
+	if (AtracStatusIsStreaming(info.state)) {
+		if (info.streamDataByte < track_.bytesPerFrame) {
+			// Seems some games actually check for this in order to refill, instead of relying on remainFrame. Pretty dumb. See #5564
+			ERROR_LOG(Log::ME, "Half-way: Ran out of data to decode from");
+			return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
+		}
+	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
+		const int fileOffset = info.streamDataByte + info.dataOff;
+		if (info.curOff + track_.bytesPerFrame > fileOffset) {
+			ERROR_LOG(Log::ME, "Half-way: Ran out of data to decode from");
+			return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
+		}
+	}
+
 	u32 inAddr = info.buffer + info.streamOff;
 	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
@@ -419,7 +451,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		*SamplesNum = 0;
 		*finish = 1;
 		// Is this the right error code? Needs testing.
-		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	// Write the decoded samples to memory.
@@ -447,6 +479,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	*remains = RemainingFrames();
 
 	// detect the end.
+	// We can do this either with curOff/dataEnd or decodePos/endSample, not sure which makes more sense.
 	if (info.curOff >= info.dataEnd) {
 		*finish = 1;
 	}
