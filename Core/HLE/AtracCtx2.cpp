@@ -449,9 +449,8 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
 		// Decode failed.
 		*SamplesNum = 0;
-		*finish = 1;
-		// Is this the right error code? Needs testing.
-		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+		*finish = 0;
+		return SCE_ERROR_ATRAC_API_FAIL;  // tested.
 	}
 
 	// Write the decoded samples to memory.
