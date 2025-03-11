@@ -134,11 +134,13 @@ int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 	SceAtracIdInfo &info = context_->info;
 	if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
 		// Always adds zero bytes.
+		// But we still need to reinit the context with the sample offset (but keeping the streamDataByte size).
+		InitContext(0, info.buffer, info.bufferByte, info.bufferByte, sample);
 	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
 		// Just reinitialize the context at the start.
 		_dbg_assert_(info.dataOff + info.streamDataByte == bufferInfo.first.filePos);
 		int readSize = info.dataOff + info.streamDataByte + bytesWrittenFirstBuf;
-		InitContext(0, info.buffer, readSize, info.bufferByte);
+		InitContext(0, info.buffer, readSize, info.bufferByte, sample);
 		if (readSize == info.dataEnd) {
 			// Now, it's possible we'll transition to a full buffer here, if all the bytes were written. Let's do it.
 			info.state = ATRAC_STATUS_ALL_DATA_LOADED;
@@ -149,43 +151,10 @@ int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 			return SCE_ERROR_ATRAC_API_FAIL;
 		}
 
-		InitContext((bufferInfo.first.writePosPtr - info.buffer) + info.dataOff, info.buffer, bytesWrittenFirstBuf, info.bufferByte);
+		InitContext((bufferInfo.first.writePosPtr - info.buffer) + info.dataOff, info.buffer, bytesWrittenFirstBuf, info.bufferByte, sample);
 	}
 
 	return 0;
-}
-
-void Atrac2::SeekToSample(int sample) {
-	// This was mostly copied straight from the old impl.
-
-	SceAtracIdInfo &info = context_->info;
-
-	// It seems like the PSP aligns the sample position to 0x800...?
-	const u32 offsetSamples = track_.FirstSampleOffsetFull();
-	const u32 unalignedSamples = (offsetSamples + sample) % track_.SamplesPerFrame();
-	int seekFrame = sample + offsetSamples - unalignedSamples;
-
-	if ((sample != info.decodePos || sample == 0) && decoder_ != nullptr) {
-		// Prefill the decode buffer with packets before the first sample offset.
-		decoder_->FlushBuffers();
-
-		int adjust = 0;
-		if (sample == 0) {
-			int offsetSamples = track_.FirstSampleOffsetFull();
-			adjust = -(int)(offsetSamples % track_.SamplesPerFrame());
-		}
-		const u32 off = track_.FileOffsetBySample(sample + adjust);
-		const u32 backfill = track_.bytesPerFrame * 2;
-		const u32 start = off - track_.dataByteOffset < backfill ? track_.dataByteOffset : off - backfill;
-
-		for (u32 pos = start; pos < off; pos += track_.bytesPerFrame) {
-			decoder_->Decode(Memory::GetPointer(info.buffer + pos), track_.bytesPerFrame, nullptr, 2, nullptr, nullptr);
-			_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
-		}
-	}
-
-	// Probably more stuff that needs updating!
-	info.decodePos = sample;
 }
 
 // This is basically sceAtracGetBufferInfoForResetting.
@@ -550,11 +519,11 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	INFO_LOG(Log::ME, "Atrac streaming mode setup: %s", AtracStatusToString(info.state));
 
-	InitContext(0, bufferAddr, readSize, bufferSize);
+	InitContext(0, bufferAddr, readSize, bufferSize, 0);
 	return 0;
 }
 
-void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSize) {
+void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSize, int sampleOffset) {
 	SceAtracIdInfo &info = context_->info;
 	// Copy parameters into struct.
 	info.buffer = bufferAddr;
@@ -570,11 +539,15 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	info.numChan = track_.channels;
 	info.numFrame = 0;
 	info.dataOff = track_.dataByteOffset;
-	info.curOff = track_.dataByteOffset;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by skipping frames.
+	info.curOff = track_.dataByteOffset + (sampleOffset / track_.SamplesPerFrame()) * info.sampleSize;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by skipping frames.
 	info.streamOff = track_.dataByteOffset - offset;
-	info.streamDataByte = readSize - info.streamOff;
+	if (AtracStatusIsStreaming(info.state)) {
+		info.streamDataByte = readSize - info.streamOff;
+	} else {
+		info.streamDataByte = readSize - info.dataOff;
+	}
 	info.dataEnd = track_.fileSize;
-	info.decodePos = track_.FirstSampleOffsetFull();
+	info.decodePos = track_.FirstSampleOffsetFull() + sampleOffset;
 	discardedSamples_ = track_.FirstSampleOffsetFull();
 
 	// TODO: Decode/discard any first dummy frames to the temp buffer. This initializes the decoder.
