@@ -51,6 +51,8 @@ public:
 	void UpdateContextFromPSPMem() override {}
 	void NotifyGetContextAddress() override {}
 
+	bool IsNewAtracImpl() const override { return true; }
+
 private:
 	void SeekToSample(int sample);
 
@@ -61,5 +63,5 @@ private:
 
 	// We skip some samples at the start.
 	// TODO: This is ugly, I want a stateless solution..
-	int discardedSamples_;
+	int discardedSamples_ = 0;
 };

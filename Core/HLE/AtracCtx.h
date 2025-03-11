@@ -232,6 +232,8 @@ public:
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
+	virtual bool IsNewAtracImpl() const { return false; }
+
 protected:
 	Track track_{};
 	u16 outputChannels_ = 2;
