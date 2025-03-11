@@ -75,7 +75,7 @@ struct SceAtracIdInfo {
     u32_le curOff; // 32
     u32_le dataEnd; // 36
     s32_le loopNum; // 40
-    u32_le streamDataByte; // 44  // Amount of queued data.
+    u32_le streamDataByte; // 44  // Amount of queued data. In half-way mode, this isn't decremented per block.
     u32_le streamOff;  // Previously unk48. this appears to possibly be the offset inside the buffer for streaming.
     u32_le unk52;
     u32_le buffer; // 56
