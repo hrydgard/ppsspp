@@ -171,7 +171,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track);
 
 class AtracBase {
 public:
-	virtual ~AtracBase() {}
+	virtual ~AtracBase();
 
 	virtual void DoState(PointerWrap &p) = 0;
 

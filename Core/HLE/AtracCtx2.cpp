@@ -438,7 +438,15 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		}
 	}
 
-	u32 inAddr = info.buffer + info.streamOff;
+	u32 inAddr;
+	switch (info.state) {
+	case ATRAC_STATUS_ALL_DATA_LOADED:
+		inAddr = info.buffer + info.curOff;
+		break;
+	default:
+		inAddr = info.buffer + info.streamOff;
+		break;
+	}
 	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
 	int outSamples = 0;

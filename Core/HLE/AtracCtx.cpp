@@ -175,6 +175,10 @@ u8 *Atrac::BufferStart() {
 	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
 }
 
+AtracBase::~AtracBase() {
+	delete decoder_;
+}
+
 void Atrac::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
