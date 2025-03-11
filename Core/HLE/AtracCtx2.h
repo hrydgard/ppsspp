@@ -56,6 +56,8 @@ public:
 	u32 GetInternalCodecError() const override;
 
 private:
+	void SkipFramesAfterReset();
+
 	void SeekToSample(int sample);
 
 	// Just the current decoded frame, in order to be able to cut off the first part of it
