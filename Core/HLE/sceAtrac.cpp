@@ -393,13 +393,16 @@ static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	u32 errorCode = atrac->GetInternalCodecError();
-	if (Memory::IsValidAddress(errorAddr))
+
+	const u32 errorCode = atrac->GetInternalCodecError();
+	if (Memory::IsValidAddress(errorAddr)) {
 		Memory::WriteUnchecked_U32(errorCode, errorAddr);
+	}
+
 	if (errorCode) {
-		return hleLogError(Log::ME, 0, "code: %08x", errorCode);
+		return hleLogWarning(Log::ME, 0, "code: %08x", errorCode);
 	} else {
-		return hleLogInfo(Log::ME, 0);
+		return hleLogDebug(Log::ME, 0);
 	}
 }
 
@@ -710,6 +713,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
+
 	int ret = atrac->SetLoopNum(loopNum);
 	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && loopNum == -1) {
 		// Not really an issue

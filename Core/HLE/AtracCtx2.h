@@ -22,9 +22,9 @@ public:
 	int GetNextDecodePosition(int *pos) const override;
 
 	int RemainingFrames() const override;
-	int LoopStatus() const override { return 0; }
+	int LoopStatus() const override;
 	int Bitrate() const override;
-	int LoopNum() const override { return context_->info.loopNum; }
+	int LoopNum() const override;
 	int SamplesPerFrame() const override { return context_->info.codec == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES; }
 	int Channels() const override { return context_->info.numChan; }
 	int BytesPerFrame() const override { return context_->info.sampleSize; }

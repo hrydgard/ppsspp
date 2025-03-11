@@ -239,7 +239,6 @@ public:
 protected:
 	Track track_{};
 	u16 outputChannels_ = 2;
-	int loopNum_ = 0;
 
 	// TODO: Save the internal state of this, now technically possible.
 	AudioDecoder *decoder_ = nullptr;
@@ -288,6 +287,7 @@ public:
 		return loopNum_;
 	}
 	int LoopStatus() const override {
+		// This doesn't match tests.
 		if (track_.loopinfo.size() > 0)
 			return 1;
 		else
@@ -355,6 +355,7 @@ private:
 	int currentSample_ = 0;
 	u32 decodePos_ = 0;
 	u32 bufferMaxSize_ = 0;
+	int loopNum_ = 0;
 
 	// Used to track streaming.
 	u32 bufferPos_ = 0;
