@@ -180,7 +180,7 @@ void Atrac2::SeekToSample(int sample) {
 
 		for (u32 pos = start; pos < off; pos += track_.bytesPerFrame) {
 			decoder_->Decode(Memory::GetPointer(info.buffer + pos), track_.bytesPerFrame, nullptr, 2, nullptr, nullptr);
-			_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * track_.channels] == 1337);  // Sentinel
+			_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
 		}
 	}
 
@@ -450,7 +450,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * track_.channels] == 1337);  // Sentinel
+	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
 	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
 		// Decode failed.
 		*SamplesNum = 0;
@@ -461,7 +461,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	if (bytesConsumed != info.sampleSize) {
 		WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
 	}
-	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * track_.channels] == 1337);  // Sentinel
+	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
 
 	// Write the decoded samples to memory.
 	// TODO: We can detect cases where we can safely just decode directly into output (full samplesToWrite, outbuf != nullptr)
@@ -509,16 +509,17 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	}
 
 	if (outputChannels != track_.channels) {
-		// TODO: Figure out what this means
-		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
+		INFO_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track_.channels);
 	}
+
+	outputChannels_ = outputChannels;
 
 	CreateDecoder();
 
 	if (!decodeTemp_) {
 		_dbg_assert_(track_.channels <= 2);
-		decodeTemp_ = new int16_t[track_.SamplesPerFrame() * track_.channels + 1];
-		decodeTemp_[track_.SamplesPerFrame() * track_.channels] = 1337;  // Sentinel
+		decodeTemp_ = new int16_t[track_.SamplesPerFrame() * outputChannels + 1];
+		decodeTemp_[track_.SamplesPerFrame() * outputChannels] = 1337;  // Sentinel
 	}
 
 	context_->codec.inBuf = bufferAddr;
@@ -580,15 +581,16 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
 	// Alternatively, the dummy frame is just there to leave space for wrapping...
 	while (discardedSamples_ >= track_.SamplesPerFrame()) {
-		int bytesConsumed;
+		int bytesConsumed = info.sampleSize;
 		int outSamples;
-		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, track_.channels, decodeTemp_, &outSamples)) {
+		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
 			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
 		}
+		outSamples = track_.SamplesPerFrame();
 		if (bytesConsumed != info.sampleSize) {
 			WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
 		}
-		_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * track_.channels] == 1337);  // Sentinel
+		_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
 
 		info.curOff += track_.bytesPerFrame;
 		if (AtracStatusIsStreaming(info.state)) {
