@@ -207,9 +207,15 @@ void Atrac2::SeekToSample(int sample) {
 
 // This is basically sceAtracGetBufferInfoForResetting.
 int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
-	// This was mostly copied straight from the old impl.
-
 	const SceAtracIdInfo &info = context_->info;
+
+	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
+		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED, "no second buffer");
+	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
+		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
+		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE, "invalid sample position");
+	}
+
 	if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
 		bufferInfo->first.writePosPtr = info.buffer;
 		// Everything is loaded, so nothing needs to be read.

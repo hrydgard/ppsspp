@@ -325,6 +325,13 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
 	}
 
+	/*
+	DEBUG_LOG(Log::ME, "GetBufferInfoForResetting: First: %08x %08x %08x %08x", bufferInfo->first.writePosPtr, bufferInfo->first.writableBytes, bufferInfo->first.minWriteBytes, bufferInfo->first.filePos);
+	if (bufferInfo->second.filePos) {
+		DEBUG_LOG(Log::ME, "GetBufferInfoForResetting: Second: %08x %08x %08x %08x", bufferInfo->second.writePosPtr, bufferInfo->second.writableBytes, bufferInfo->second.minWriteBytes, bufferInfo->second.filePos);
+	}
+	*/
+
 	int ret = atrac->GetResetBufferInfo(bufferInfo, sample);
 	return hleLogDebugOrError(Log::ME, ret);
 }
