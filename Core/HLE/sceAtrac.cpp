@@ -304,6 +304,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	return hleNoLog(ret);
 }
 
+// Likely a bogus brute-forced name?
 static u32 sceAtracEndEntry() {
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAtracEndEntry()");
 	return hleNoLog(0);
@@ -385,10 +386,14 @@ static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	ERROR_LOG(Log::ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
+	u32 errorCode = atrac->GetInternalCodecError();
 	if (Memory::IsValidAddress(errorAddr))
-		Memory::WriteUnchecked_U32(0, errorAddr);
-	return 0;
+		Memory::WriteUnchecked_U32(errorCode, errorAddr);
+	if (errorCode) {
+		return hleLogError(Log::ME, 0, "code: %08x", errorCode);
+	} else {
+		return hleLogInfo(Log::ME, 0);
+	}
 }
 
 static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {

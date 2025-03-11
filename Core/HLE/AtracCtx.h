@@ -190,6 +190,8 @@ public:
 
 	virtual int GetID() const = 0;
 
+	virtual u32 GetInternalCodecError() const { return 0; }
+
 	PSPPointer<SceAtracContext> context_{};
 
 	virtual AtracStatus BufferState() const = 0;

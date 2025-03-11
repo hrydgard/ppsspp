@@ -450,6 +450,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		// Decode failed.
 		*SamplesNum = 0;
 		*finish = 0;
+		context_->codec.err = 0x20b;  // checked on hardware for 0xFF corruption. it's possible that there are more codes.
 		return SCE_ERROR_ATRAC_API_FAIL;  // tested.
 	}
 
@@ -482,6 +483,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	if (info.curOff >= info.dataEnd) {
 		*finish = 1;
 	}
+	context_->codec.err = 0;
 	return 0;
 }
 
@@ -588,6 +590,14 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	}
 
 	return 0;
+}
+
+u32 Atrac2::GetInternalCodecError() const {
+	if (context_.IsValid()) {
+		return context_->codec.err;
+	} else {
+		return 0;
+	}
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
