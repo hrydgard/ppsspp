@@ -257,6 +257,8 @@ int Atrac2::GetNextDecodePosition(int *pos) const {
 int Atrac2::AddStreamData(u32 bytesToAdd) {
 	SceAtracIdInfo &info = context_->info;
 
+	// WARNING: bytesToAdd might not be sampleSize aligned, even though we gave it an aligned value
+	// int GetStreamDataInfo, so other parts of the code still has to handle unaligned data amounts.
 	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
 		const int newFileOffset = info.streamDataByte + info.dataOff + bytesToAdd;
 		if (newFileOffset == info.dataEnd) {
@@ -311,7 +313,7 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 		//
 		// This really is the core logic of sceAtrac. It looks simple, and is pretty simple, but figuring it out
 		// from just logs of variables wasn't all that easy... Initially I had it more complicated, but boiled it
-		// all down to fairly simple logic.
+		// all down to fairly simple logic. And then boiled it down further and fixed bugs.
 		//
 		// TODO: Take care of loop points.
 
@@ -329,35 +331,24 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 			return;
 		}
 
-		// Last allowed offset where a packet can start.
-		const int lastPacketStart = info.bufferByte - info.sampleSize;  // Last possible place in the buffer to put the next packet
-
-		// writePos is where the next write should be done in order to append to the circular buffer.
-		// First frame after SetData, this will be equal to the buffer size, and the partial packet at the end
-		// will actually be located at the start of the buffer (see the end of SetData for how it gets moved).
-		const int writePos = info.streamOff + info.streamDataByte;
-		if (writePos > lastPacketStart) {
-			// The buffered data wraps around. This also applies at the first frame after SetData (SetData wraps the partial packet at the end).
-			// Figure out how much space we are using at the end, rounded down to even packets.
-			const int firstPart = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
+		// NOTE: writePos might not actually be packet aligned!
+		// However, we can rely on being packet aligned at streamOff.
+		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
+		if (info.streamDataByte < distanceToEnd) {
+			// There's space left without wrapping.
+			const int writeOffset = info.streamOff + info.streamDataByte;
+			*writePtr = info.buffer + writeOffset;
+			*bytesToRead = std::min(distanceToEnd - (int)info.streamDataByte, bytesLeftInFile);
+			*readFileOffset = *bytesToRead == 0 ? 0 : fileOffset;  // Seems this behavior (which isn't important) only happens on this path?
+		} else {
+			// Wraps around.
+			const int firstPart = distanceToEnd;
 			const int secondPart = info.streamDataByte - firstPart;
-			// OK, now to compute how much space we have left to fill.
-			_dbg_assert_(secondPart <= info.streamOff);
 			const int spaceLeft = info.streamOff - secondPart;
-
 			*writePtr = info.buffer + secondPart;
 			*bytesToRead = std::min(spaceLeft, bytesLeftInFile);
-		} else {
-			// In case the buffer is only partially filled at the start, we can be off packet alignment here!
-			// But otherwise, we normally are actually on alignment.
-			int size = info.streamOff + RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
-			const int spaceLeft = size - writePos;
-
-			*writePtr = info.buffer + writePos;
-			*bytesToRead = std::min(spaceLeft, bytesLeftInFile);
+			*readFileOffset = fileOffset;
 		}
-
-		*readFileOffset = fileOffset;
 		break;
 	}
 	}
@@ -421,6 +412,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		inAddr = info.buffer + info.streamOff;
 		break;
 	}
+
 	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
 	int outSamples = 0;
@@ -582,20 +574,22 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	// We need to handle wrapping the overshot partial packet at the end.
 	if (AtracStatusIsStreaming(info.state)) {
 		// This logic is similar to GetStreamDataInfo.
-		const int lastPacketStart = info.bufferByte - info.sampleSize;  // Last possible place in the buffer to put the next packet
-		const int writePos = info.streamOff + info.streamDataByte;
-		if (writePos > lastPacketStart) {
-			// curOff also works (instead of streamOff) of course since it's also packet aligned, unlike the buffer size.
-			const int cutLen = (info.bufferByte - info.streamOff) % info.sampleSize;
-			const int cutRest = info.sampleSize - cutLen;
-			_dbg_assert_(cutLen > 0);
-			// Then, let's copy it.
-			INFO_LOG(Log::ME, "Streaming: Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.", cutLen, cutRest, cutLen, cutRest, info.sampleSize);
-			Memory::Memcpy(info.buffer, info.buffer + info.bufferByte - cutLen, cutLen);
-		} else {
+		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
+		if (info.streamDataByte < distanceToEnd) {
+			// There's space left without wrapping. Don't do anything.
 			INFO_LOG(Log::ME, "Streaming: Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
-			// In this case, seems we need to zero some bytes. In testing, this seems to be 336.
+			// In this case, seems we need to zero some bytes. In one test, this seems to be 336.
+			// Maybe there's a logical bug and the copy happens even when not needed, it's just that it'll
+			// copy zeroes. Either way, let's just copy some bytes to make our sanity check hexdump pass.
 			Memory::Memset(info.buffer, 0, 128);
+		} else {
+			// Wraps around.
+			const int copyStart = info.streamOff + distanceToEnd;
+			const int copyLen = info.bufferByte - copyStart;
+			// Then, let's copy it.
+			INFO_LOG(Log::ME, "Streaming: Packets didn't fit evenly. Last packet got split into %d/%d (sum=%d). Copying to start of buffer.",
+				copyLen, info.sampleSize - copyLen, info.sampleSize);
+			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 		}
 	}
 }
