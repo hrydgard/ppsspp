@@ -64,8 +64,4 @@ private:
 	// to write the initial partial frame.
 	// Does not need to be saved.
 	int16_t *decodeTemp_ = nullptr;
-
-	// We skip some samples at the start.
-	// TODO: This is ugly, I want a stateless solution..
-	int discardedSamples_ = 0;
 };

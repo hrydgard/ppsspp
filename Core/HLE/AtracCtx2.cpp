@@ -236,12 +236,11 @@ int Atrac2::LoopStatus() const {
 
 u32 Atrac2::GetNextSamples() {
 	SceAtracIdInfo &info = context_->info;
+	int samplesToWrite = track_.SamplesPerFrame();
+	int sampleRemainder = info.decodePos % track_.SamplesPerFrame();
+
 	// TODO: Handle end-of-track short block.
-	int samples = track_.SamplesPerFrame();
-	if (discardedSamples_ > 0) {
-		samples -= discardedSamples_;
-	}
-	return samples;
+	return samplesToWrite - sampleRemainder;
 }
 
 int Atrac2::GetNextDecodePosition(int *pos) const {
@@ -367,29 +366,35 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	SceAtracIdInfo &info = context_->info;
 
+	if (info.decodePos >= info.endSample) {
+		//_dbg_assert_(info.curOff >= info.dataEnd);
+		ERROR_LOG(Log::ME, "DecodeData: Reached the end, nothing to decode");
+		*finish = 1;
+		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+	}
+
 	int samplesToWrite = track_.SamplesPerFrame();
-	if (discardedSamples_) {
-		_dbg_assert_(samplesToWrite >= discardedSamples_);
-		samplesToWrite -= discardedSamples_;
-		discardedSamples_ = 0;
+	int decodePosAdvance = samplesToWrite;
+
+	// Handle mid-buffer seeks by discarding samples.
+	int sampleRemainder = info.decodePos % track_.SamplesPerFrame();
+	if (sampleRemainder != 0) {
+		int discardedSamples = sampleRemainder;
+		_dbg_assert_(samplesToWrite >= discardedSamples);
+		samplesToWrite -= discardedSamples;
+		info.decodePos -= sampleRemainder;
 	}
 
 	// Try to handle the end, too.
 	// NOTE: This should match GetNextSamples().
-	if (info.decodePos + samplesToWrite > info.endSample + 1) {
+	if (info.decodePos + sampleRemainder + samplesToWrite > info.endSample + 1) {
 		int samples = info.endSample + 1 - info.decodePos;
 		if (samples < track_.SamplesPerFrame()) {
 			samplesToWrite = samples;
+			decodePosAdvance = samples;
 		} else {
 			ERROR_LOG(Log::ME, "Too many samples left: %08x", samples);
 		}
-	}
-
-	if (info.decodePos >= info.endSample) {
-		_dbg_assert_(info.curOff >= info.dataEnd);
-		ERROR_LOG(Log::ME, "DecodeData: Reached the end, nothing to decode");
-		*finish = 1;
-		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
 	// Check that there's enough data to decode.
@@ -444,8 +449,13 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		info.streamOff += info.sampleSize;
 	}
 	info.curOff += info.sampleSize;
-	info.decodePos += samplesToWrite;
+	info.decodePos += decodePosAdvance;
 
+	int retval = 0;
+	// detect the end.
+	if (info.decodePos >= info.endSample) {
+		*finish = 1;
+	}
 	// If we reached the end of the buffer, move the cursor back to the start.
 	// SetData takes care of any split packet on the first lap (On other laps, no split packets
 	// happen).
@@ -457,13 +467,8 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 	*SamplesNum = samplesToWrite;
 	*remains = RemainingFrames();
 
-	// detect the end.
-	// We can do this either with curOff/dataEnd or decodePos/endSample, not sure which makes more sense.
-	if (info.curOff >= info.dataEnd) {
-		*finish = 1;
-	}
 	context_->codec.err = 0;
-	return 0;
+	return retval;
 }
 
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, int outputChannels) {
@@ -539,7 +544,7 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	info.numChan = track_.channels;
 	info.numFrame = 0;
 	info.dataOff = track_.dataByteOffset;
-	info.curOff = track_.dataByteOffset + (sampleOffset / track_.SamplesPerFrame()) * info.sampleSize;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by skipping frames.
+	info.curOff = track_.dataByteOffset + ((sampleOffset + track_.FirstOffsetExtra()) / track_.SamplesPerFrame()) * info.sampleSize;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by skipping frames.
 	info.streamOff = track_.dataByteOffset - offset;
 	if (AtracStatusIsStreaming(info.state)) {
 		info.streamDataByte = readSize - info.streamOff;
@@ -548,12 +553,13 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	}
 	info.dataEnd = track_.fileSize;
 	info.decodePos = track_.FirstSampleOffsetFull() + sampleOffset;
-	discardedSamples_ = track_.FirstSampleOffsetFull();
+
+	int discardedSamples = track_.FirstSampleOffsetFull();
 
 	// TODO: Decode/discard any first dummy frames to the temp buffer. This initializes the decoder.
 	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
 	// Alternatively, the dummy frame is just there to leave space for wrapping...
-	while (discardedSamples_ >= track_.SamplesPerFrame()) {
+	while (discardedSamples >= track_.SamplesPerFrame()) {
 		int bytesConsumed = info.sampleSize;
 		int outSamples;
 		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
@@ -570,7 +576,7 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 			info.streamOff += track_.bytesPerFrame;
 			info.streamDataByte -= info.sampleSize;
 		}
-		discardedSamples_ -= outSamples;
+		discardedSamples -= outSamples;
 	}
 
 	// We need to handle wrapping the overshot partial packet at the end.
