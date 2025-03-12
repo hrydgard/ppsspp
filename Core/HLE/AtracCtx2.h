@@ -37,7 +37,7 @@ public:
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
-	u32 SecondBufferSize() const override;
+	bool HasSecondBuffer() const override;
 
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;

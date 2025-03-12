@@ -71,10 +71,8 @@ int Atrac2::RemainingFrames() const {
 
 	const int fileOffset = (int)info.curOff + (int)info.streamDataByte;
 	const int bytesLeft = (int)info.dataEnd - fileOffset;
-	if (bytesLeft == 0) {
-		if (info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
-		}
+	if (bytesLeft == 0 && info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+		return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 	}
 
 	if ((int)info.decodePos >= track_.endSample) {
@@ -96,14 +94,9 @@ int Atrac2::RemainingFrames() const {
 	return info.streamDataByte / info.sampleSize;
 }
 
-u32 Atrac2::SecondBufferSize() const {
+bool Atrac2::HasSecondBuffer() const {
 	const SceAtracIdInfo &info = context_->info;
-	return info.secondBufferByte;
-}
-
-u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
-	_dbg_assert_(false);
-	return 0;
+	return info.secondBufferByte != 0;
 }
 
 int Atrac2::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
@@ -118,7 +111,7 @@ int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 
 	// This was mostly copied straight from the old impl.
 
-	// Reuse the same calculation as before, for input validation.
+	// Redo the same calculation as before, for input validation.
 
 	AtracResetBufferInfo bufferInfo;
 	GetResetBufferInfo(&bufferInfo, sample);
@@ -150,7 +143,6 @@ int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 			*delay = true;
 			return SCE_ERROR_ATRAC_API_FAIL;
 		}
-
 		InitContext((bufferInfo.first.writePosPtr - info.buffer) + info.dataOff, info.buffer, bytesWrittenFirstBuf, info.bufferByte, sample);
 	}
 
@@ -230,7 +222,8 @@ int Atrac2::LoopNum() const {
 }
 
 int Atrac2::LoopStatus() const {
-	// ????
+	// Seems to be 1 while looping, until the last finish where it flips to 0.
+	// I can't find this represented in the state. Well actually, maybe it's just status, the loop variants of streams?
 	return context_->info.loopEnd > 0;
 }
 
@@ -270,6 +263,14 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 	} else {
 		info.streamDataByte += bytesToAdd;
 	}
+	return 0;
+}
+
+u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
+	// Internal API, seems like a combination of GetStreamDataInfo and AddStreamData, for use when
+	// an Atrac context is bound to an sceSas channel.
+	// Sol Trigger is the only game I know that uses this.
+	_dbg_assert_(false);
 	return 0;
 }
 
@@ -594,16 +595,16 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	}
 }
 
+u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
+	return 0;
+}
+
 u32 Atrac2::GetInternalCodecError() const {
 	if (context_.IsValid()) {
 		return context_->codec.err;
 	} else {
 		return 0;
 	}
-}
-
-u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
-	return 0;	
 }
 
 int Atrac2::Bitrate() const {

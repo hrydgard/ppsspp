@@ -603,7 +603,7 @@ void AtracBase::CreateDecoder() {
 }
 
 int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
-	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
@@ -1122,7 +1122,7 @@ int Atrac::SetLoopNum(int loopNum) {
 
 int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
 	*delay = false;
-	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.

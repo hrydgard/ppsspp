@@ -213,7 +213,7 @@ public:
 
 	virtual int GetNextDecodePosition(int *pos) const = 0;
 	virtual int RemainingFrames() const = 0;
-	virtual u32 SecondBufferSize() const = 0;
+	virtual bool HasSecondBuffer() const = 0;
 	virtual int Bitrate() const = 0;
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
@@ -277,8 +277,8 @@ public:
 		return atracID_;
 	}
 
-	u32 SecondBufferSize() const override {
-		return second_.size;
+	bool HasSecondBuffer() const override {
+		return second_.size != 0;
 	}
 	int Channels() const override {
 		return track_.channels;
