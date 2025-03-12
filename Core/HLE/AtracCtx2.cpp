@@ -27,6 +27,8 @@
 // cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac>copy /Y ..\..\..\__testoutput.txt stream.expected
 // Then run the test, see above.
 
+// TODO: Add an AT3 dumping facility (and/or replacement?). Although the old implementation could do it more easily...
+
 // Needs to support negative numbers, and to handle non-powers-of-two.
 static int RoundDownToMultiple(int x, int n) {
 	return (x % n == 0) ? x : x - (x % n) - (n * (x < 0));
@@ -221,10 +223,22 @@ int Atrac2::LoopNum() const {
 	return context_->info.loopNum;
 }
 
+// Seems to be 1 while looping, until the last finish (where loopnum == 0) where it flips to 0.
 int Atrac2::LoopStatus() const {
-	// Seems to be 1 while looping, until the last finish where it flips to 0.
-	// I can't find this represented in the state. Well actually, maybe it's just status, the loop variants of streams?
-	return context_->info.loopEnd > 0;
+	const SceAtracIdInfo &info = context_->info;
+	switch (info.state) {
+	case ATRAC_STATUS_ALL_DATA_LOADED:
+		// Heuristics from logs. Not sure if there's a hidden bit somewhere.
+		if (info.loopNum == -1 || info.loopNum >= 1) {
+			return 1;
+		}
+		return info.decodePos < info.endSample + 1;
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+		return 1;
+	default:
+		return 0;
+	}
 }
 
 u32 Atrac2::GetNextSamples() {
@@ -377,9 +391,17 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		info.decodePos -= sampleRemainder;
 	}
 
+	int decodeEnd = info.endSample + 1;
+	bool hitLoopEnd = false;
+	if (info.loopNum != 0 && info.decodePos + sampleRemainder + samplesToWrite > info.loopEnd + 1) {
+		decodeEnd = info.loopEnd + 1;
+		hitLoopEnd = true;
+		info.numFrame = 1;
+	}
+
 	// Try to handle the end, too.
 	// NOTE: This should match GetNextSamples().
-	if (info.decodePos + sampleRemainder + samplesToWrite > info.endSample + 1) {
+	if (info.decodePos + sampleRemainder + samplesToWrite > decodeEnd) {
 		int samples = info.endSample + 1 - info.decodePos;
 		if (samples < track_.SamplesPerFrame()) {
 			samplesToWrite = samples;
@@ -422,7 +444,9 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		// Decode failed.
 		*SamplesNum = 0;
 		*finish = 0;
-		context_->codec.err = 0x20b;  // checked on hardware for 0xFF corruption. it's possible that there are more codes.
+		// TODO: The error code here varies based on what the problem is, but not sure of the right values.
+		// 0000020b and 0000020c have been observed for 0xFF and/or garbage data, there may be more codes.
+		context_->codec.err = 0x20b;
 		return SCE_ERROR_ATRAC_API_FAIL;  // tested.
 	}
 	if (bytesConsumed != info.sampleSize) {
@@ -441,8 +465,26 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		info.streamDataByte -= info.sampleSize;
 		info.streamOff += info.sampleSize;
 	}
-	info.curOff += info.sampleSize;
-	info.decodePos += decodePosAdvance;
+
+	info.numFrame = 0;
+	if (!hitLoopEnd) {
+		info.curOff += info.sampleSize;
+		info.decodePos += decodePosAdvance;
+	} else {
+		// Handle looping differently depending on state.
+		if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
+			info.decodePos = info.loopStart;
+			info.curOff = info.dataOff + (info.loopStart / track_.SamplesPerFrame()) * info.sampleSize;  // for some reason??? Not the same as the first frame after SetData.
+			info.numFrame = 1;  // not sure what this is about, but in testing it's there.
+			if (info.loopNum > 0) {
+				info.loopNum--;
+			}
+		} else {
+			// Fallback to just ending.
+			info.curOff += info.sampleSize;
+			info.decodePos += decodePosAdvance;
+		}
+	}
 
 	int retval = 0;
 	// detect the end.
@@ -479,9 +521,19 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		INFO_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track_.channels);
 	}
 
+	CreateDecoder();
+
 	outputChannels_ = outputChannels;
 
-	CreateDecoder();
+	if (!track_.loopinfo.empty()) {
+		info.loopNum = track_.loopinfo[0].playCount;
+		info.loopStart = track_.loopStartSample;
+		info.loopEnd = track_.loopEndSample;
+	} else {
+		info.loopNum = 0;
+		info.loopStart = 0;
+		info.loopEnd = 0;
+	}
 
 	if (!decodeTemp_) {
 		_dbg_assert_(track_.channels <= 2);
@@ -492,6 +544,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	context_->codec.inBuf = bufferAddr;
 
 	if (readSize > track_.fileSize) {
+		// This is seen in Tekken 6.
 		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track_.fileSize);
 		readSize = track_.fileSize;
 	}
@@ -547,30 +600,7 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	info.dataEnd = track_.fileSize;
 	info.decodePos = track_.FirstSampleOffsetFull() + sampleOffset;
 
-	int discardedSamples = track_.FirstSampleOffsetFull();
-
-	// TODO: Decode/discard any first dummy frames to the temp buffer. This initializes the decoder.
-	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
-	// Alternatively, the dummy frame is just there to leave space for wrapping...
-	while (discardedSamples >= track_.SamplesPerFrame()) {
-		int bytesConsumed = info.sampleSize;
-		int outSamples;
-		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
-			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
-		}
-		outSamples = track_.SamplesPerFrame();
-		if (bytesConsumed != info.sampleSize) {
-			WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
-		}
-		_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
-
-		info.curOff += track_.bytesPerFrame;
-		if (AtracStatusIsStreaming(info.state)) {
-			info.streamOff += track_.bytesPerFrame;
-			info.streamDataByte -= info.sampleSize;
-		}
-		discardedSamples -= outSamples;
-	}
+	FastForwardDummyFrames(track_.FirstSampleOffsetFull());
 
 	// We need to handle wrapping the overshot partial packet at the end.
 	if (AtracStatusIsStreaming(info.state)) {
@@ -592,6 +622,32 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 				copyLen, info.sampleSize - copyLen, info.sampleSize);
 			Memory::Memcpy(info.buffer, info.buffer + copyStart, copyLen);
 		}
+	}
+}
+
+void Atrac2::FastForwardDummyFrames(int discardedSamples) {
+	SceAtracIdInfo &info = context_->info;
+	// TODO: Decode/discard any first dummy frames to the temp buffer. This initializes the decoder.
+	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
+	// Alternatively, the dummy frame is just there to leave space for wrapping...
+	while (discardedSamples >= track_.SamplesPerFrame()) {
+		int bytesConsumed = info.sampleSize;
+		int outSamples;
+		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
+			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
+		}
+		outSamples = track_.SamplesPerFrame();
+		if (bytesConsumed != info.sampleSize) {
+			WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
+		}
+		_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
+
+		info.curOff += track_.bytesPerFrame;
+		if (AtracStatusIsStreaming(info.state)) {
+			info.streamOff += track_.bytesPerFrame;
+			info.streamDataByte -= info.sampleSize;
+		}
+		discardedSamples -= outSamples;
 	}
 }
 

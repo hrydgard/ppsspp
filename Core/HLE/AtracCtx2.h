@@ -57,6 +57,7 @@ public:
 
 private:
 	void InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSize, int sampleOffset);
+	void FastForwardDummyFrames(int discardedSamples);
 
 	void SeekToSample(int sample);
 
