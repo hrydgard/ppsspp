@@ -141,7 +141,17 @@ void SetCleanExitOnAssert();
 		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
 	}
 
+#define _dbg_assert_or_log_(_a_) \
+	if (!(_a_)) {\
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assert!\n")) Crash(); \
+	}
+
 #define _dbg_assert_msg_(_a_, ...) \
+	if (!(_a_)) { \
+		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
+	}
+
+#define _dbg_assert_msg_or_log_(_a_, log, ...) \
 	if (!(_a_)) { \
 		if (!HandleAssert(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__)) Crash(); \
 	}
@@ -150,7 +160,16 @@ void SetCleanExitOnAssert();
 
 #ifndef _dbg_assert_
 #define _dbg_assert_(_a_) {}
+#define _dbg_assert_or_log_(_a_) \
+	if (!(_a_)) { \
+		ERROR_LOG(Log::System, "Assert! " ## #_a_); \
+	}
 #define _dbg_assert_msg_(_a_, _desc_, ...) {}
+#define _dbg_assert_msg_or_log_(_a_, log, ...) \
+	if (!(_a_)) { \
+		ERROR_LOG(log, __VA_ARGS__); \
+	}
+
 #endif // dbg_assert
 
 #endif // MAX_LOGLEVEL DEBUG
