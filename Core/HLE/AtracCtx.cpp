@@ -219,8 +219,8 @@ void Atrac::WriteContextToPSPMem() {
 	context->info.numChan = track_.channels;
 	context->info.dataOff = track_.dataByteOffset;
 	context->info.endSample = track_.endSample + track_.FirstSampleOffsetFull();
-	context->info.dataEnd = track_.fileSize;
-	context->info.curOff = first_.fileoffset;
+	context->info.fileDataEnd = track_.fileSize;
+	context->info.curFileOff = first_.fileoffset;
 	context->info.decodePos = track_.DecodePosBySample(currentSample_);
 	context->info.streamDataByte = first_.size - track_.dataByteOffset;
 
@@ -867,13 +867,13 @@ u32 Atrac::GetNextSamples() {
 	}
 
 	// It seems like the PSP aligns the sample position to 0x800...?
-	u32 skipSamples = track_.FirstSampleOffsetFull();
-	u32 firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
-	u32 numSamples = track_.endSample + 1 - currentSample_;
+	int skipSamples = track_.FirstSampleOffsetFull();
+	int firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
+	int numSamples = track_.endSample + 1 - currentSample_;
 	if (currentSample_ == 0 && firstSamples != 0) {
 		numSamples = firstSamples;
 	}
-	u32 unalignedSamples = (skipSamples + currentSample_) % track_.SamplesPerFrame();
+	int unalignedSamples = (skipSamples + currentSample_) % track_.SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
 		numSamples = track_.SamplesPerFrame() - unalignedSamples;
@@ -988,12 +988,12 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
-	u32 numSamples = 0;
+	int numSamples = 0;
 
 	// It seems like the PSP aligns the sample position to 0x800...?
 	int offsetSamples = track_.FirstSampleOffsetFull();
 	int skipSamples = 0;
-	u32 maxSamples = track_.endSample + 1 - currentSample_;
+	int maxSamples = track_.endSample + 1 - currentSample_;
 	u32 unalignedSamples = (offsetSamples + currentSample_) % track_.SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
@@ -1023,7 +1023,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		numSamples = outSamples;
 		uint32_t packetAddr = CurBufferAddress(-skipSamples);
 		// got a frame
-		int skipped = std::min((u32)skipSamples, numSamples);
+		int skipped = std::min(skipSamples, numSamples);
 		skipSamples -= skipped;
 		numSamples = numSamples - skipped;
 		// If we're at the end, clamp to samples we want.  It always returns a full chunk.

@@ -137,7 +137,7 @@ struct Track {
 	}
 
 	// Output frame size, different between the two supported codecs.
-	u32 SamplesPerFrame() const {
+	int SamplesPerFrame() const {
 		return codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
 	}
 
@@ -152,12 +152,12 @@ struct Track {
 
 	// This appears to be buggy, should probably include FirstOffsetExtra?
 	// Actually the units don't even make sense here.
-	u32 DecodePosBySample(int sample) const {
+	int DecodePosBySample(int sample) const {
 		return (u32)(firstSampleOffset + sample / (int)SamplesPerFrame() * bytesPerFrame);
 	}
 
 	// This appears to be buggy, should probably include FirstOffsetExtra?
-	u32 FileOffsetBySample(int sample) const {
+	int FileOffsetBySample(int sample) const {
 		int offsetSample = sample + firstSampleOffset;
 		int frameOffset = offsetSample / (int)SamplesPerFrame();
 		return (u32)(dataByteOffset + bytesPerFrame + frameOffset * bytesPerFrame);

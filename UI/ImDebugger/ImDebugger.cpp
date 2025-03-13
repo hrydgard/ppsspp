@@ -1041,11 +1041,11 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 						ImGui::SameLine();
 						ImClickableValue("second", info.secondBuffer, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 					}
-					ImGui::Text("Data: %d/%d", info.dataOff, info.dataEnd);
+					ImGui::Text("Data: %d/%d", info.dataOff, info.fileDataEnd);
 					if (info.state != ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 						ImGui::Text("LoopNum: %d (%d-%d)", info.loopNum, info.loopStart, info.loopEnd);
 					}
-					ImGui::Text("DecodePos: %d EndSample: %d", info.decodePos, info.dataEnd);
+					ImGui::Text("DecodePos: %d EndSample: %d", info.decodePos, info.fileDataEnd);
 					if (AtracStatusIsStreaming(info.state)) {
 						ImGui::Text("Stream: offset %d, streamDataBytes: %d", info.streamOff, info.streamDataByte);
 					}
