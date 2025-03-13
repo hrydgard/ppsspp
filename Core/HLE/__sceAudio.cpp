@@ -227,13 +227,18 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		return ret;
 	}
 
+	// NOTE: The below is WRONG! See issue #20095.
+	//
+	// What we should be queueing here is just the sampleAddress and sampleCount. Then when dequeuing is when we should
+	// read the actual data.
+
 	int leftVol = chan.leftVolume;
 	int rightVol = chan.rightVolume;
 
 	if (leftVol == (1 << 15) && rightVol == (1 << 15) && chan.format == PSP_AUDIO_FORMAT_STEREO && IS_LITTLE_ENDIAN) {
 		// TODO: Add mono->stereo conversion to this path.
 
-		// Good news: the volume doesn't affect the values at all.
+		// Good news: the volume (1 << 15), specifically, doesn't affect the values at all.
 		// We can just do a direct memory copy.
 		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
 		s16 *buf1 = 0, *buf2 = 0;
