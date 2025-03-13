@@ -38,7 +38,7 @@
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/System.h"
 
-// Notes about sceAtrac buffer management
+// (Old) notes about sceAtrac buffer management
 //
 // sceAtrac decodes from a buffer the game fills, where this buffer has a status, one of:
 //   * Not yet initialized (state NO_DATA = 1)
@@ -50,14 +50,15 @@
 //   * Not managed, decoding using "low level" manual looping etc. (LOW_LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
 //
-// This buffer is generally filled by sceAtracAddStreamData, and where to fill it is given by
+// A game will call sceAtracAddStreamData after filling data, and where it filled it was given by
 // either sceAtracGetStreamDataInfo when continuing to move forwards in the stream of audio data,
 // or sceAtracGetBufferInfoForResetting when seeking to a specific location in the audio stream.
 //
 // State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
 // To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
 // the buffer it will call sceAtracSetSecondBuffer.
-// The second buffer will just contain the data for the end of loop.  The "first" buffer may manage
+//
+// The second buffer will just contain the data for the end of loop. The "first" buffer may manage
 // only the looped portion, or some of the part after the loop (depending on second buf size.)
 // TODO: What games use this?
 //
@@ -72,7 +73,7 @@
 //
 // Note that this buffer is THE view of the audio stream.  On a PSP, the firmware does not manage
 // any cache or separate version of the buffer - at most it manages decode state from earlier in
-// the buffer.
+// the buffer. Also, our Atrac2 context implementation works like this.
 
 // TODO: We should add checks that the utility module is loaded.
 
@@ -1030,7 +1031,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
-// External interface used by sceSas' AT3 integration.
+// These three are the external interface used by sceSas' AT3 integration.
 
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);

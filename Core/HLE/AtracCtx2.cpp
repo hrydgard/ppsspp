@@ -11,12 +11,10 @@
 // See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
 //
 // Tests left to fix:
-// - resetpos
-// - resetting
+// - resetting  (almost there, just the minimum read size is mysteriously big)
 // - second/resetting
 // - second/setbuffer
-// - decode
-// - getremainframe  (requires seek)
+// - getremainframe  (error code problems, otherwise good)
 
 // To run on the real PSP, without gentest.py:
 // cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac> make
@@ -264,8 +262,9 @@ int Atrac2::GetNextDecodePosition(int *pos) const {
 int Atrac2::AddStreamData(u32 bytesToAdd) {
 	SceAtracIdInfo &info = context_->info;
 
-	// WARNING: bytesToAdd might not be sampleSize aligned, even though we gave it an aligned value
-	// int GetStreamDataInfo, so other parts of the code still has to handle unaligned data amounts.
+	// WARNING: bytesToAdd might not be sampleSize aligned, even though we return a sampleSize-aligned size
+	// in GetStreamDataInfo, so other parts of the code still has to handle unaligned data amounts.
+
 	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
 		const int newFileOffset = info.streamDataByte + info.dataOff + bytesToAdd;
 		if (newFileOffset == info.dataEnd) {
@@ -275,6 +274,7 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 		}
 		info.streamDataByte += bytesToAdd;
 	} else {
+		// TODO: Check for SCE_ERROR_ATRAC_ADD_DATA_IS_TOO_BIG in the other modes too.
 		info.streamDataByte += bytesToAdd;
 	}
 	return 0;
@@ -584,6 +584,9 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	if (track_.loopStartSample != 0xFFFFFFFF) {
 		info.loopStart = track_.loopStartSample;
 		info.loopEnd = track_.loopEndSample;
+		// Sanity check the loop points, useful for testing.
+		_dbg_assert_or_log_(info.loopStart >= info.firstValidSample);
+		_dbg_assert_or_log_(info.loopEnd <= info.endSample);
 	}
 	info.codec = track_.codecType;
 	info.sampleSize = track_.bytesPerFrame;

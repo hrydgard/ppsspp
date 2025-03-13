@@ -360,6 +360,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			}
 			if (chunkSize >= 12) {
 				u32 largerOffset = Memory::Read_U32(addr + offset + 8);
+				// Works, but "largerOffset"??
 				sampleOffsetAdjust = track->firstSampleOffset - largerOffset;
 			}
 			break;
