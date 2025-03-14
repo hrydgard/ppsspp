@@ -281,6 +281,10 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::ME, err);
 	}
 
+	if (outAddr & 1) {
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ALIGNMENT);
+	}
+
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
@@ -914,6 +918,8 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set aa3 data", 100);
 }
 
+// TODO: Should see if these are stored contiguously in memory somewhere, or if there really are
+// individual allocations being used.
 static u32 _sceAtracGetContextAddress(int atracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {

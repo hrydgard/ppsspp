@@ -128,7 +128,8 @@ struct Track {
 	}
 
 	inline int FirstOffsetExtra() const {
-		return codecType == PSP_MODE_AT_3_PLUS ? 368 : 69;
+		// These first samples are skipped, after first possibly skipping 0-2 full frames, it seems.
+		return codecType == PSP_MODE_AT_3_PLUS ? 0x170 : 0x45;
 	}
 
 	// Includes the extra offset. See firstSampleOffset comment above.

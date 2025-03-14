@@ -70,9 +70,9 @@ struct SceAtracIdInfo {
 	s32 loopStart;        // Start of the loop (sample index)
 	s32 loopEnd;          // End of the loop (sample index)
 	s32 firstValidSample; // Seems to be the number of skipped samples at the start. After SetID, decodePos will match this. Was previously misnamed 'samplesPerChan'.
-	u8 numFrame;          // This is 1 for a single frame when a loop is triggered, otherwise seems to stay at 0. Likely mis-named.
+	u8 framesToSkip;      // This is 1 for a single frame when a loop is triggered, otherwise seems to stay at 0. Likely mis-named.
 	AtracStatus state;    // State enum, see AtracStatus.
-	u8 unk22;             // UNKNOWN: Always zero?
+	u8 curBuffer;         // Current buffer (1 == second, 2 == done?) Previously unk
 	u8 numChan;           // Number of audio channels, usually 2 but 1 is possible.
 	u16 sampleSize;       // Size in bytes of an encoded audio frame.
 	u16 codec;            // Codec. 0x1000 is Atrac3+, 0x1001 is Atrac3. See the PSP_CODEC_ enum (only these two are supported).
@@ -82,7 +82,7 @@ struct SceAtracIdInfo {
 	s32 loopNum;          // Current loop counter. If 0, will not loop. -1 loops for ever, positive numbers get decremented on the loop end. So to play a song 3 times and then end, set this to 2.
 	s32 streamDataByte;   // Number of bytes of queued/buffered/uploaded data. In full and half-way modes, this isn't decremented as you decode.
 	s32 streamOff;        // Streaming modes only: The byte offset inside the RAM buffer where sceAtracDecodeData will read from next. ONLY points to even packet boundaries.
-	u32 unk52;            // UNKNOWN: Always zero?
+	u32 secondStreamOff;  // Secondary streamoff? previously unk.
 	u32 buffer;           // Address in RAM of the main buffer.
 	u32 secondBuffer;     // Address in RAM of the second buffer, or 0 if not used.
 	u32 bufferByte;       // Size in bytes of the main buffer.

@@ -382,6 +382,7 @@ tests_next = [
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
   "audio/atrac/replay",
+  "audio/atrac/stream",
   "audio/atrac/second/resetting",
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",

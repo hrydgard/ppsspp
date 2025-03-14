@@ -91,6 +91,7 @@ int Atrac2::RemainingFrames() const {
 	}
 
 	// Since we're streaming, the remaining frames are what's valid in the buffer.
+	// NOTE: If read wraps around the buffer, we need to decrement by one, it seems.
 	return info.streamDataByte / info.sampleSize;
 }
 
@@ -329,14 +330,69 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 		// from just logs of variables wasn't all that easy... Initially I had it more complicated, but boiled it
 		// all down to fairly simple logic. And then boiled it down further and fixed bugs.
 		//
-		// TODO: Take care of loop points.
+		// And then had to make it complicated again to support looping... Sigh.
 
-		const int fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
-		const int bytesLeftInFile = (int)info.fileDataEnd - fileOffset;
+		auto LoopPointToFileOffset = [&](int loop, bool roundUp) -> int {
+			if (roundUp) {
+				loop += info.sampleSize - 1;
+			}
+			return info.dataOff + (loop / track_.SamplesPerFrame()) * info.sampleSize;
+		};
+		
 
-		_dbg_assert_(bytesLeftInFile >= 0);
+		// These are mutable so the looping code can make another decision.
+		int fileOffset = -1;
+		int bytesLeftToRead = -1;
 
-		if (bytesLeftInFile == 0) {
+		bool looped = info.loopNum != 0;
+		if (looped) {
+			// We rewind back to one frame before the loopstart.
+			// Not sure about this math but it works for the test so can fix it later!
+			const int loopStartFileOffset = LoopPointToFileOffset(info.loopStart, false) - info.sampleSize;
+			const int loopEndFileOffset = LoopPointToFileOffset(info.firstValidSample + info.loopEnd, true);
+
+			// We also need to loop the streaming.
+			switch (info.state) {
+			case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+			case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+			{
+				// Let's ignore the tail for now, and just get some logic to work.
+				// The playback logic has to match this.
+				fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
+				int streamFirstPart = 0;
+				if (fileOffset == loopEndFileOffset) {
+					INFO_LOG(Log::ME, "Atrac: Hit the stream buffer wrap point (buffering)");
+				}
+				if (fileOffset >= loopEndFileOffset) {
+					// We have the data up to the loop already, so wrap the read around.
+					int secondPart = fileOffset - loopEndFileOffset;
+					int firstPart = info.streamDataByte - secondPart;
+					_dbg_assert_(firstPart >= 0);
+					_dbg_assert_(secondPart >= 0);
+					bytesLeftToRead = loopEndFileOffset - secondPart;
+					fileOffset = loopStartFileOffset + secondPart;
+				} else {
+					bytesLeftToRead = loopEndFileOffset - fileOffset;
+				}
+				_dbg_assert_(bytesLeftToRead >= 0);
+				break;
+			}
+			case ATRAC_STATUS_ALL_DATA_LOADED:
+			case ATRAC_STATUS_HALFWAY_BUFFER:
+			default:
+				// TODO
+				_dbg_assert_(false);
+				break;
+			}
+		} else {
+			// Non-looped. Basic math.
+			fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
+			bytesLeftToRead = (int)info.fileDataEnd - fileOffset;
+			_dbg_assert_(bytesLeftToRead >= 0);
+		}
+
+		_dbg_assert_(bytesLeftToRead >= 0 && fileOffset >= 0);
+		if (bytesLeftToRead == 0) {
 			// We've got all the data up to the end buffered, no more streaming is needed.
 			// Signalling this by setting everything to default.
 			*writePtr = info.buffer;
@@ -352,7 +408,7 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 			// There's space left without wrapping.
 			const int writeOffset = info.streamOff + info.streamDataByte;
 			*writePtr = info.buffer + writeOffset;
-			*bytesToRead = std::min(distanceToEnd - (int)info.streamDataByte, bytesLeftInFile);
+			*bytesToRead = std::min(distanceToEnd - (int)info.streamDataByte, bytesLeftToRead);
 			*readFileOffset = *bytesToRead == 0 ? 0 : fileOffset;  // Seems this behavior (which isn't important) only happens on this path?
 		} else {
 			// Wraps around.
@@ -360,7 +416,7 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 			const int secondPart = info.streamDataByte - firstPart;
 			const int spaceLeft = info.streamOff - secondPart;
 			*writePtr = info.buffer + secondPart;
-			*bytesToRead = std::min(spaceLeft, bytesLeftInFile);
+			*bytesToRead = std::min(spaceLeft, bytesLeftToRead);
 			*readFileOffset = fileOffset;
 		}
 		break;
@@ -470,18 +526,29 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 		info.curFileOff += info.sampleSize;
 		info.decodePos += decodePosAdvance;
 	} else {
-		// Handle looping differently depending on state.
-		if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
+		// Handle looping differently depending on state (actually seems pretty similar...)
+		switch (info.state) {
+		case ATRAC_STATUS_ALL_DATA_LOADED:
+		case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+			// Curiously this is exactly the same.
 			info.decodePos = info.loopStart;
 			info.curFileOff = info.dataOff + (info.loopStart / track_.SamplesPerFrame()) * info.sampleSize;  // for some reason??? Not the same as the first frame after SetData.
 			info.numFrame = 1;  // not sure what this is about, but in testing it's there.
 			if (info.loopNum > 0) {
 				info.loopNum--;
 			}
-		} else {
+			break;
+		case ATRAC_STATUS_LOW_LEVEL:
+		case ATRAC_STATUS_FOR_SCESAS:
+		case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+			_dbg_assert_msg_or_log_(false, Log::ME, "Hit a loop end, but is in state %s. This shouldn't happen.", AtracStatusToString(info.state));
+			break;
+		default:
+			ERROR_LOG(Log::ME, "Looping in state %s not yet supported", AtracStatusToString(info.state));
 			// Fallback to just ending.
 			info.curFileOff += info.sampleSize;
 			info.decodePos += decodePosAdvance;
+			break;
 		}
 	}
 

@@ -32,7 +32,7 @@ struct SceAudiocodecCodec {
 	s32 srcFrameSize; // 1c
 	u32 outBuf; // 20  // This is where the decoded data is written.
 	s32 dstBytesWritten; // 24
-	s8 unk40;  // 28  format or looping related
+	s8 unk40;  // 28  format or looping related   // Probably, from here on out is a union with different fields for different codecs.
 	s8 unk41;  // 29  format or looping related
 	s16 unk42; // 2a
 	s8 unk44;
