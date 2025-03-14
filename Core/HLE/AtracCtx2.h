@@ -56,8 +56,13 @@ public:
 	u32 GetInternalCodecError() const override;
 
 private:
-	void InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSize, int sampleOffset);
-	void FastForwardDummyFrames(int discardedSamples);
+	u32 DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish);
+	void GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int sample);
+	u32 ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf);
+
+	u32 InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize);
+	u32 SkipFrames();
+	void WrapLastPacket();
 
 	void SeekToSample(int sample);
 

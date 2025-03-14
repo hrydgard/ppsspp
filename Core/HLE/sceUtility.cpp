@@ -84,7 +84,7 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == 1) {
 		// We try to imitate a recent version of the prx.
 		// Let's just give it a piece of the space.
-		constexpr int version = 0x103;
+		constexpr int version = 0x105;  // latest.
 		constexpr int bssSize = 0x67C;
 		_dbg_assert_(bssSize <= totalSize);
 		__AtracNotifyLoadModule(version, 0, loadAddr, bssSize);
@@ -115,9 +115,10 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x202, 0x00000000, "usb_gps"),
 	ModuleLoadInfo(0x203, 0x00000000, "usb_unk_0x203"),
 	ModuleLoadInfo(0x2ff, 0x00000000, "unk_0x2ff"),
-	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),
+	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),  // AudioCodec
 	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
-	ModuleLoadInfo(0x302, 0x00004000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),  // TODO: 0x8000 is likely too large.
+	// TODO: We should put the Atrac contexts inside the allocated bss space. Also, current actual full size (including text, on latest fw) seems to be 0x45C0.
+	ModuleLoadInfo(0x302, 0x00004000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Common/Log.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
@@ -9,12 +10,6 @@
 // Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ -o --compare --new-atrac --timeout=30 --graphics=software pspautotests/tests/audio/atrac/stream.prx
 //
 // See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
-//
-// Tests left to fix:
-// - resetting  (almost there, just the minimum read size is mysteriously big)
-// - second/resetting
-// - second/setbuffer
-// - getremainframe  (error code problems, otherwise good)
 
 // To run on the real PSP, without gentest.py:
 // cmd1> C:\dev\ppsspp\pspautotests\tests\audio\atrac> make
@@ -28,8 +23,142 @@
 // TODO: Add an AT3 dumping facility (and/or replacement?). Although the old implementation could do it more easily...
 
 // Needs to support negative numbers, and to handle non-powers-of-two.
-static int RoundDownToMultiple(int x, int n) {
-	return (x % n == 0) ? x : x - (x % n) - (n * (x < 0));
+static int RoundDownToMultiple(int size, int grain) {
+	return size - (size % grain);
+}
+
+static int RoundDownToMultipleWithOffset(int offset, int size, int grain) {
+	if (size > offset) {
+		return ((size - offset) / grain) * grain + offset;
+	} else {
+		return size;
+	}
+}
+
+static int ComputeSkipFrames(const SceAtracIdInfo &info, int seekPos) {
+	// No idea why this is the rule, but this is the rule.
+	return (seekPos & info.SamplesFrameMask()) < info.SkipSamples() ? 2 : 1;
+}
+
+static int ComputeFileOffset(const SceAtracIdInfo &info, int seekPos) {
+	int frameOffset = ((seekPos / info.SamplesPerFrame()) - 1) * info.sampleSize;
+	if ((seekPos & info.SamplesFrameMask()) < info.SkipSamples() && (frameOffset != 0)) {
+		frameOffset -= info.sampleSize;
+	}
+	return frameOffset + info.dataOff;
+}
+
+// Unlike the above, this one need to be inclusive.
+static int ComputeLoopEndFileOffset(const SceAtracIdInfo &info, int seekPos) {
+	return (seekPos / info.SamplesPerFrame() + 1) * info.sampleSize + info.dataOff;
+}
+
+static int ComputeSpaceUsed(const SceAtracIdInfo &info) {
+	// The odd case: If streaming from the second buffer, and we're past the loop end (we're in the tail)...
+	if (info.decodePos > info.loopEnd && info.curBuffer == 1) {
+		int space = info.secondBufferByte;
+		if (info.secondStreamOff < space) {
+			space = RoundDownToMultipleWithOffset(info.secondStreamOff, info.secondBufferByte, info.sampleSize);
+		}
+		if ((info.secondStreamOff <= space) && (space - info.secondStreamOff < info.streamDataByte)) {
+			return info.streamDataByte - (space - info.secondStreamOff);
+		}
+		return 0;
+	}
+
+	// The normal case.
+	return info.streamDataByte;
+}
+
+static int ComputeRemainFrameStream(const SceAtracIdInfo &info) {
+	if (info.streamDataByte >= info.fileDataEnd - info.curFileOff) {
+		// Already done.
+		return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+	}
+	// Since we're streaming, the remaining frames are what's valid in the buffer.
+	return std::max(0, info.streamDataByte / info.sampleSize - (int)info.numSkipFrames);
+}
+
+// This got so complicated!
+static int ComputeRemainFrameLooped(const SceAtracIdInfo &info) {
+	const int loopStartFileOffset = ComputeFileOffset(info, info.loopStart);
+	const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
+	const int writeFileOff = info.curFileOff + info.streamDataByte;
+	const int leftToRead = writeFileOff - loopEndFileOffset;
+
+	int remainFrames;
+	if (writeFileOff <= loopEndFileOffset) {
+		// Simple case - just divide to find the number of frames remaining in the buffer.
+		remainFrames = info.streamDataByte / info.sampleSize;
+	} else {
+		// Darn, we need to take looping into account...
+		const int skipFramesAtLoopStart = ComputeSkipFrames(info, info.loopStart);
+		const int firstPartLength = loopEndFileOffset - loopStartFileOffset;
+		const int secondPartLength = leftToRead % firstPartLength;
+		// Sum up all the parts (the buffered, the space remaining before the loop point
+		// and the space after the loop point), each divided by sample size, need to take skipped frames into account.
+		remainFrames = (loopEndFileOffset - info.curFileOff) / info.sampleSize +
+			(leftToRead / firstPartLength) * (firstPartLength / info.sampleSize - skipFramesAtLoopStart);
+		if (secondPartLength > skipFramesAtLoopStart * info.sampleSize) {
+			remainFrames += secondPartLength / info.sampleSize - skipFramesAtLoopStart;
+		}
+	}
+
+	// Clamp to zero.
+	remainFrames = std::max(0, remainFrames - (int)info.numSkipFrames);
+	if (info.loopNum < 0) {
+		// Infinite looping while streaming, we never return that we're done reading data.
+		return remainFrames;
+	}
+
+	// Additional check for distance to end of playback if we're looping a finite amount of times.
+	const int streamBufferEndFileOffset = info.curFileOff + info.streamDataByte;
+	if (streamBufferEndFileOffset >= loopEndFileOffset) {
+		const int numBufferedLoops = (streamBufferEndFileOffset - loopEndFileOffset) / (loopEndFileOffset - loopStartFileOffset);
+		if (info.loopNum <= numBufferedLoops) {
+			return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
+		}
+	}
+	return remainFrames;
+}
+
+int Atrac2::RemainingFrames() const {
+	const SceAtracIdInfo &info = context_->info;
+
+	// Handle the easy cases first.
+	switch (info.state) {
+	case 0:
+	case ATRAC_STATUS_NO_DATA:
+		return 0;
+	case ATRAC_STATUS_ALL_DATA_LOADED:
+		return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;  // Not sure about no data.
+	case ATRAC_STATUS_HALFWAY_BUFFER:
+	{
+		// Pretty simple - compute the remaining space, and divide by the sample size, adjusting for frames-to-skip.
+		const int writeFileOff = info.dataOff + info.streamDataByte;
+		if (info.curFileOff < writeFileOff) {
+			return std::max(0, (writeFileOff - info.curFileOff) / info.sampleSize - (int)info.numSkipFrames);
+		}
+		return 0;
+	}
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+		return ComputeRemainFrameStream(info);
+
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+		return ComputeRemainFrameLooped(info);
+
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+		if (info.decodePos <= info.loopEnd) {
+			// If before the tail, just treat it as looped.
+			return ComputeRemainFrameLooped(info);
+		} else {
+			// If in tail, treat is as unlooped.
+			return ComputeRemainFrameStream(info);
+		}
+		break;
+	default:
+		return SCE_ERROR_ATRAC_BAD_ATRACID;
+	}
 }
 
 Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
@@ -44,78 +173,48 @@ void Atrac2::DoState(PointerWrap &p) {
 	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
 }
 
-int Atrac2::RemainingFrames() const {
-	const SceAtracIdInfo &info = context_->info;
-
-	// Handle the easy cases first.
-	switch (info.state) {
-	case ATRAC_STATUS_NO_DATA:
-	case ATRAC_STATUS_ALL_DATA_LOADED:
-		return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;  // Not sure about no data.
-	case ATRAC_STATUS_HALFWAY_BUFFER:
-	{
-		const int fileOffset = info.streamDataByte + info.dataOff;
-		if (fileOffset >= info.fileDataEnd) {
-			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		}
-		return (fileOffset - info.curFileOff) / info.sampleSize;
-	}
-	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
-	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
-	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
-		// Below logic.
-		break;
-	default:
-		return SCE_ERROR_ATRAC_BAD_ATRACID;
-	}
-
-	const int fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
-	const int bytesLeft = (int)info.fileDataEnd - fileOffset;
-	if (bytesLeft == 0 && info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-		return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
-	}
-
-	if ((int)info.decodePos >= track_.endSample) {
-		if (info.state == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
-		}
-		int loopEndAdjusted = track_.loopEndSample - track_.FirstOffsetExtra() - track_.firstSampleOffset;
-		if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.decodePos > loopEndAdjusted) {
-			// No longer looping in this case, outside the loop.
-			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
-		}
-		if (info.loopNum == 0) {
-			return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
-		}
-		return info.streamDataByte / info.sampleSize;
-	}
-
-	// Since we're streaming, the remaining frames are what's valid in the buffer.
-	// NOTE: If read wraps around the buffer, we need to decrement by one, it seems.
-	return info.streamDataByte / info.sampleSize;
-}
-
 bool Atrac2::HasSecondBuffer() const {
 	const SceAtracIdInfo &info = context_->info;
 	return info.secondBufferByte != 0;
 }
 
-int Atrac2::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
-	*endSample = track_.endSample;
-	*loopStartSample = track_.loopStartSample == -1 ? -1 : track_.loopStartSample - track_.FirstSampleOffsetFull();
-	*loopEndSample = track_.loopEndSample == -1 ? -1 : track_.loopEndSample - track_.FirstSampleOffsetFull();
+int Atrac2::GetSoundSample(int *outEndSample, int *outLoopStartSample, int *outLoopEndSample) const {
+	const SceAtracIdInfo &info = context_->info;
+	*outEndSample = info.endSample - info.firstValidSample;
+	int loopEnd = -1;
+	if (info.loopEnd == 0) {
+		*outLoopStartSample = -1;
+		*outLoopEndSample = -1;
+	} else {
+		*outLoopStartSample = info.loopStart - info.firstValidSample;
+		*outLoopEndSample = info.loopEnd - info.firstValidSample;
+	}
 	return 0;
 }
 
-int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
+int Atrac2::ResetPlayPosition(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
 	*delay = false;
 
 	// This was mostly copied straight from the old impl.
+	SceAtracIdInfo &info = context_->info;
+	seekPos += info.firstValidSample;
 
+	if ((u32)seekPos > (u32)info.endSample) {
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE);
+	}
+
+	int result = ResetPlayPositionInternal(seekPos, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+	if (result >= 0) {
+		result = SkipFrames();
+	}
+	return hleLogDebugOrError(Log::ME, result);
+}
+
+u32 Atrac2::ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	// Redo the same calculation as before, for input validation.
 
 	AtracResetBufferInfo bufferInfo;
-	GetResetBufferInfo(&bufferInfo, sample);
+	GetResetBufferInfoInternal(&bufferInfo, seekPos);
 
 	// Input validation.
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
@@ -126,77 +225,151 @@ int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 	}
 
 	SceAtracIdInfo &info = context_->info;
-	if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
-		// Always adds zero bytes.
-		// But we still need to reinit the context with the sample offset (but keeping the streamDataByte size).
-		InitContext(0, info.buffer, info.bufferByte, info.bufferByte, sample);
-	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
-		// Just reinitialize the context at the start.
-		_dbg_assert_(info.dataOff + info.streamDataByte == bufferInfo.first.filePos);
-		int readSize = info.dataOff + info.streamDataByte + bytesWrittenFirstBuf;
-		InitContext(0, info.buffer, readSize, info.bufferByte, sample);
-		if (readSize == info.fileDataEnd) {
-			// Now, it's possible we'll transition to a full buffer here, if all the bytes were written. Let's do it.
+	info.decodePos = seekPos;
+	info.numSkipFrames = ComputeSkipFrames(info, seekPos);
+	info.loopNum = 0;
+	info.curFileOff = ComputeFileOffset(info, seekPos);
+
+	context_->codec.err = 0x20b; // wtf? testing shows it.
+
+	switch (info.state) {
+	case ATRAC_STATUS_ALL_DATA_LOADED:
+		// We're done.
+		return 0;
+
+	case ATRAC_STATUS_HALFWAY_BUFFER:
+		info.streamDataByte += bytesWrittenFirstBuf;
+		if (info.dataOff + info.streamDataByte >= info.fileDataEnd) {
+			// Buffer full, we can transition to a full buffer here, if all the bytes were written. Let's do it.
 			info.state = ATRAC_STATUS_ALL_DATA_LOADED;
 		}
-	} else {
-		if (bufferInfo.first.filePos > track_.fileSize) {
-			*delay = true;
-			return SCE_ERROR_ATRAC_API_FAIL;
-		}
-		InitContext((bufferInfo.first.writePosPtr - info.buffer) + info.dataOff, info.buffer, bytesWrittenFirstBuf, info.bufferByte, sample);
-	}
+		return 0;
 
-	return 0;
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+		// We just adopt the bytes that were written as our stream data, no math needed.
+		info.streamDataByte = bytesWrittenFirstBuf;
+		info.curBuffer = 0;
+		info.streamOff = 0;
+		return 0;
+
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+	{
+		// As usual with the second buffer and trailer, things get tricky here.
+		const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
+		if (info.curFileOff >= loopEndFileOffset) {
+			const int secondBufferSizeRounded = RoundDownToMultiple(info.secondBufferByte, info.sampleSize);
+			if (info.curFileOff < loopEndFileOffset + secondBufferSizeRounded) {
+				info.streamDataByte = ((loopEndFileOffset + secondBufferSizeRounded) - info.curFileOff) + bytesWrittenFirstBuf;
+				info.curBuffer = 1;
+				info.secondStreamOff = info.curFileOff - loopEndFileOffset;
+			} else {
+				info.streamDataByte = bytesWrittenFirstBuf;
+				info.curBuffer = 2;  // Temporary value! Will immediately switch back to 0.
+				info.streamOff = 0;
+			}
+		} else {
+			info.streamDataByte = bytesWrittenFirstBuf;
+			info.curBuffer = 0;
+			info.streamOff = 0;
+		}
+		return 0;
+	}
+	default:
+		_dbg_assert_(false);
+		return 0;
+	}
 }
 
 // This is basically sceAtracGetBufferInfoForResetting.
-int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos) {
 	const SceAtracIdInfo &info = context_->info;
 
 	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
+	} else if ((u32)seekPos + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE, "invalid sample position");
 	}
 
-	if (info.state == ATRAC_STATUS_ALL_DATA_LOADED) {
-		bufferInfo->first.writePosPtr = info.buffer;
+	GetResetBufferInfoInternal(bufferInfo, seekPos + info.firstValidSample);
+	// Yes, this happens here! If there are any frames to skip, they get skipped!
+	// Even though this looks like a function that shouldn't change the state.
+	return SkipFrames();
+}
+
+// This is basically sceAtracGetBufferInfoForResetting.
+void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) {
+	const SceAtracIdInfo &info = context_->info;
+
+	switch (info.state) {
+	case ATRAC_STATUS_ALL_DATA_LOADED:
 		// Everything is loaded, so nothing needs to be read.
+		bufferInfo->first.writePosPtr = info.buffer;
 		bufferInfo->first.writableBytes = 0;
 		bufferInfo->first.minWriteBytes = 0;
 		bufferInfo->first.filePos = 0;
-	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
-		// The old logic here was busted. This, instead, appears to just replicate GetStreamDataInfo.
-		GetStreamDataInfo(&bufferInfo->first.writePosPtr, &bufferInfo->first.writableBytes, &bufferInfo->first.filePos);
-		bufferInfo->first.minWriteBytes = 0;
-	} else {
-		// This is without the sample offset.  The file offset also includes the previous batch of samples?
-		int sampleFileOffset = track_.FileOffsetBySample(sample - track_.firstSampleOffset - track_.SamplesPerFrame());
+		break;
+	case ATRAC_STATUS_HALFWAY_BUFFER:
+	{
+		// Not too hard, we just ask to fill up the missing part of the buffer.
+		const int streamPos = info.dataOff + info.streamDataByte;
+		const int fileOff = info.dataOff + (seekPos / info.SamplesPerFrame() + 1) * info.sampleSize;
+		bufferInfo->first.writePosPtr = info.buffer + streamPos;
+		bufferInfo->first.writableBytes = info.fileDataEnd - streamPos;
+		bufferInfo->first.filePos = streamPos;
+		bufferInfo->first.minWriteBytes = std::max(0, fileOff - streamPos);
+		break;
+	}
 
-		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
-		const u32 bufSizeAligned = RoundDownToMultiple(info.bufferByte, track_.bytesPerFrame);
-		const int needsMoreFrames = track_.FirstOffsetExtra();  // ?
-
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+	{
+		// Relatively easy, just can't forget those skipped frames.
+		const int curFileOffset = ComputeFileOffset(info, seekPos);
+		const int bufferEnd = RoundDownToMultiple(info.bufferByte, info.sampleSize);
 		bufferInfo->first.writePosPtr = info.buffer;
-		bufferInfo->first.writableBytes = std::min(track_.fileSize - sampleFileOffset, bufSizeAligned);
-		if (((sample + track_.firstSampleOffset) % (int)track_.SamplesPerFrame()) >= (int)track_.SamplesPerFrame() - needsMoreFrames) {
-			// Not clear why, but it seems it wants a bit extra in case the sample is late?
-			bufferInfo->first.minWriteBytes = track_.bytesPerFrame * 3;
+		bufferInfo->first.writableBytes = std::min(info.fileDataEnd - curFileOffset, bufferEnd);
+		bufferInfo->first.minWriteBytes = (ComputeSkipFrames(info, seekPos) + 1) * info.sampleSize;
+		bufferInfo->first.filePos = curFileOffset;
+		break;
+	}
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+	{
+		// As usual, with the second buffer, things get crazy complicated...
+		const int seekFileOffset = ComputeFileOffset(info, seekPos);
+		const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd) - 1;
+		const int bufferEnd = RoundDownToMultiple(info.bufferByte, info.sampleSize);
+		const int skipBytes = (ComputeSkipFrames(info, seekPos) + 1) * info.sampleSize;
+		const int secondBufferEnd = RoundDownToMultiple(info.secondBufferByte, info.sampleSize);
+		if (seekFileOffset < loopEndFileOffset) {
+			const int remainingBeforeLoop = (loopEndFileOffset - seekFileOffset) + 1;
+			bufferInfo->first.writePosPtr = info.buffer;
+			bufferInfo->first.writableBytes = std::min(bufferEnd, remainingBeforeLoop);
+			bufferInfo->first.minWriteBytes = std::min(skipBytes, remainingBeforeLoop);
+			bufferInfo->first.filePos = seekFileOffset;
+		} else if (loopEndFileOffset + secondBufferEnd <= seekFileOffset) {
+			bufferInfo->first.writePosPtr = info.buffer;
+			bufferInfo->first.writableBytes = std::min(info.fileDataEnd - seekFileOffset, bufferEnd);
+			bufferInfo->first.minWriteBytes = skipBytes;
+			bufferInfo->first.filePos = seekFileOffset;
+		} else if (loopEndFileOffset + (int)info.secondBufferByte + 1 < info.fileDataEnd) {
+			const int endOffset = loopEndFileOffset + secondBufferEnd + 1;
+			bufferInfo->first.writePosPtr = info.buffer;
+			bufferInfo->first.writableBytes = std::min(info.fileDataEnd - endOffset, bufferEnd);
+			bufferInfo->first.minWriteBytes = std::max(0, seekFileOffset + skipBytes - endOffset);
+			bufferInfo->first.filePos = endOffset;
 		} else {
-			bufferInfo->first.minWriteBytes = track_.bytesPerFrame * 2;
+			bufferInfo->first.writePosPtr = info.buffer;
+			bufferInfo->first.writableBytes = 0;
+			bufferInfo->first.minWriteBytes = 0;
+			bufferInfo->first.filePos = 0;
 		}
-		if ((u32)sample < (u32)track_.firstSampleOffset && sampleFileOffset != track_.dataByteOffset) {
-			sampleFileOffset -= track_.bytesPerFrame;
-		}
-		bufferInfo->first.filePos = sampleFileOffset;
-
-		if (info.secondBufferByte != 0) {
-			// TODO: We have a second buffer.  Within it, minWriteBytes should be zero.
-			// The filePos should be after the end of the second buffer (or zero.)
-			// We actually need to ensure we READ from the second buffer before implementing that.
-		}
+		break;
+	}
+	default:
+		_dbg_assert_(false);
+		break;
 	}
 
 	// Reset never needs a second buffer write, since the loop is in a fixed place.
@@ -205,15 +378,15 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	bufferInfo->second.writableBytes = 0;
 	bufferInfo->second.minWriteBytes = 0;
 	bufferInfo->second.filePos = 0;
-
-	return 0;
 }
 
 int Atrac2::SetLoopNum(int loopNum) {
 	SceAtracIdInfo &info = context_->info;
 	if (info.loopEnd <= 0) {
+		// File doesn't contain loop information, looping isn't allowed.
 		return SCE_ERROR_ATRAC_NO_LOOP_INFORMATION;
 	}
+	// Just override the current loop counter.
 	info.loopNum = loopNum;
 	return 0;
 }
@@ -222,30 +395,27 @@ int Atrac2::LoopNum() const {
 	return context_->info.loopNum;
 }
 
-// Seems to be 1 while looping, until the last finish (where loopnum == 0) where it flips to 0.
 int Atrac2::LoopStatus() const {
 	const SceAtracIdInfo &info = context_->info;
-	switch (info.state) {
-	case ATRAC_STATUS_ALL_DATA_LOADED:
-		// Heuristics from logs. Not sure if there's a hidden bit somewhere.
-		if (info.loopNum == -1 || info.loopNum >= 1) {
-			return 1;
-		}
-		return info.decodePos < info.endSample + 1;
-	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
-	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
-		return 1;
-	default:
+	if (info.loopEnd == 0) {
+		// No loop available.
 		return 0;
+	} else if (info.loopNum != 0) {
+		// We've got at least one loop to go.
+		return 1;
+	} else {
+		// Return 1 if we haven't passed the loop point.
+		return info.decodePos <= info.loopEnd ? 1 : 0;
 	}
 }
 
 u32 Atrac2::GetNextSamples() {
 	SceAtracIdInfo &info = context_->info;
-	int samplesToWrite = track_.SamplesPerFrame();
-	int sampleRemainder = info.decodePos % track_.SamplesPerFrame();
-	// TODO: Handle end-of-track short block, and also looping.
-	return samplesToWrite - sampleRemainder;
+	// TODO: Need to reformulate this.
+	const int endOfCurrentFrame = info.decodePos | info.SamplesFrameMask();  // bit trick!
+	const int remainder = std::max(0, endOfCurrentFrame - info.endSample);
+	const int adjusted = (info.decodePos & info.SamplesFrameMask()) + remainder;
+	return std::max(0, info.SamplesPerFrame() - adjusted);
 }
 
 int Atrac2::GetNextDecodePosition(int *pos) const {
@@ -264,7 +434,6 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 
 	// WARNING: bytesToAdd might not be sampleSize aligned, even though we return a sampleSize-aligned size
 	// in GetStreamDataInfo, so other parts of the code still has to handle unaligned data amounts.
-
 	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
 		const int newFileOffset = info.streamDataByte + info.dataOff + bytesToAdd;
 		if (newFileOffset == info.fileDataEnd) {
@@ -285,17 +454,120 @@ u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 	// an Atrac context is bound to an sceSas channel.
 	// Sol Trigger is the only game I know that uses this.
 	_dbg_assert_(false);
+
+	// SceAtracIdInfo &info = context_->info;
+	// info.streamDataByte += bytesToAdd;
+	AddStreamData(bytesToAdd);
 	return 0;
 }
 
-void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOffset) {
+static int ComputeLoopedStreamWritableBytes(const SceAtracIdInfo &info, const int loopStartFileOffset, const u32 loopEndFileOffset) {
+	const u32 writeOffset = info.curFileOff + info.streamDataByte;
+	if (writeOffset >= loopEndFileOffset) {
+		const int loopLength = loopEndFileOffset - loopStartFileOffset;
+		return loopLength - ((info.curFileOff + info.streamDataByte) - loopEndFileOffset) % loopLength;
+	} else {
+		return loopEndFileOffset - writeOffset;
+	}
+}
+
+static int IncrementAndLoop(int curOffset, int increment, int loopStart, int loopEnd) {
+	const int sum = curOffset + increment;
+	if (sum >= loopEnd) {
+		return loopStart + (sum - loopEnd) % (loopEnd - loopStart);
+	} else {
+		return sum;
+	}
+}
+
+static int WrapAroundRoundedBufferSize(int offset, int bufferSize, int addend, int grainSize) {
+	bufferSize = RoundDownToMultipleWithOffset(offset, bufferSize, grainSize);
+	const int sum = offset + addend;
+	if (bufferSize <= sum) {
+		return sum - bufferSize;
+	} else {
+		return sum;
+	}
+}
+
+static void ComputeStreamBufferDataInfo(const SceAtracIdInfo &info, u32 *writePtr, u32 *bytesToWrite, u32 *readFileOffset) {
+	// Streaming data info
+	//
+	// This really is the core logic of sceAtrac. Initially I had it quite complicated, but boiled it
+	// all down to fairly simple logic. And then boiled it down further and fixed bugs.
+	// And then had to make it WAY complicated again to support looping... Sigh.
+	const u32 streamOff = info.curBuffer != 1 ? info.streamOff : 0;
+	const int spaceUsed = ComputeSpaceUsed(info);
+	const int spaceLeftAfterStreamOff = RoundDownToMultipleWithOffset(streamOff, info.bufferByte, info.sampleSize);
+	const int streamPos = streamOff + spaceUsed;
+	int spaceLeftInBuffer;
+	if (streamPos >= spaceLeftAfterStreamOff) {
+		spaceLeftInBuffer = spaceLeftAfterStreamOff - spaceUsed;
+	} else {
+		spaceLeftInBuffer = spaceLeftAfterStreamOff - streamPos;
+	}
+	const int loopStartFileOffset = ComputeFileOffset(info, info.loopStart);
+	const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
+
+	switch (info.state) {
+	case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
+	{
+		*bytesToWrite = std::clamp(info.fileDataEnd - (info.curFileOff + info.streamDataByte), 0, spaceLeftInBuffer);
+		const int streamFileOff = info.curFileOff + info.streamDataByte;
+		if (streamFileOff < info.fileDataEnd) {
+			*readFileOffset = streamFileOff;
+			*writePtr = info.buffer + WrapAroundRoundedBufferSize(info.streamOff, info.bufferByte, info.streamDataByte, info.sampleSize);
+		} else {
+			*readFileOffset = 0;
+			*writePtr = info.buffer;
+		}
+		break;
+	}
+
+	case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
+		*bytesToWrite = std::min(ComputeLoopedStreamWritableBytes(info, loopStartFileOffset, loopEndFileOffset), spaceLeftInBuffer);
+		*readFileOffset = IncrementAndLoop(info.curFileOff, info.streamDataByte, loopStartFileOffset, loopEndFileOffset);
+		*writePtr = info.buffer + WrapAroundRoundedBufferSize(info.streamOff, info.bufferByte, info.streamDataByte, info.sampleSize);
+		break;
+
+	case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
+	{
+		// Behaves like WITHOUT_LOOP or STREAMED_LOOP_FROM_END depending on the decode position.
+		if (info.decodePos <= info.loopEnd) {
+			*bytesToWrite = std::min(ComputeLoopedStreamWritableBytes(info, loopStartFileOffset, loopEndFileOffset), spaceLeftInBuffer);
+			*readFileOffset = IncrementAndLoop(info.curFileOff, info.streamDataByte, loopStartFileOffset, loopEndFileOffset);
+		} else {
+			const int streamFileOff = info.curFileOff + info.streamDataByte;
+			*bytesToWrite = std::clamp(info.fileDataEnd - streamFileOff, 0, spaceLeftInBuffer);
+			if (streamFileOff < info.fileDataEnd) {
+				*readFileOffset = streamFileOff;
+			} else {
+				*readFileOffset = 0;
+			}
+		}
+		if (info.decodePos <= info.loopEnd || info.curBuffer != 1) {
+			*writePtr = info.buffer + WrapAroundRoundedBufferSize(info.streamOff, info.bufferByte, info.streamDataByte, info.sampleSize);
+		} else {
+			*writePtr = info.buffer + WrapAroundRoundedBufferSize(0, info.bufferByte, spaceUsed, info.sampleSize);
+		}
+		break;
+	}
+
+	default:
+		// unreachable
+		_dbg_assert_(false);
+		break;
+	}
+}
+
+void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToWrite, u32 *readFileOffset) {
 	const SceAtracIdInfo &info = context_->info;
 
 	switch (info.state) {
 	case ATRAC_STATUS_ALL_DATA_LOADED:
 		// Nothing to do, the whole track is loaded already.
 		*writePtr = info.buffer;
-		*bytesToRead = 0;
+		*bytesToWrite = 0;
 		*readFileOffset = 0;
 		break;
 
@@ -305,271 +577,171 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToRead, u32 *readFileOff
 		// in this mode (no wrapping or any other trickery).
 		const int fileOffset = (int)info.dataOff + (int)info.streamDataByte;
 		const int bytesLeftInFile = (int)info.fileDataEnd - fileOffset;
-
-		if (bytesLeftInFile == 0) {
-			// We've got all the data, no more loading is needed.
-			// Signalling this by setting everything to default.
-			*writePtr = info.buffer;
-			*bytesToRead = 0;
-			*readFileOffset = 0;
-			return;
-		}
-
 		// Just ask for the rest of the data. The game can supply as much of it as it wants at a time.
 		*writePtr = info.buffer + fileOffset;
+		*bytesToWrite = bytesLeftInFile;
 		*readFileOffset = fileOffset;
-		*bytesToRead = bytesLeftInFile;
 		break;
 	}
 
 	default:
-	{
-		// Streaming
-		//
-		// This really is the core logic of sceAtrac. It looks simple, and is pretty simple, but figuring it out
-		// from just logs of variables wasn't all that easy... Initially I had it more complicated, but boiled it
-		// all down to fairly simple logic. And then boiled it down further and fixed bugs.
-		//
-		// And then had to make it complicated again to support looping... Sigh.
-
-		auto LoopPointToFileOffset = [&](int loop, bool roundUp) -> int {
-			if (roundUp) {
-				loop += info.sampleSize - 1;
-			}
-			return info.dataOff + (loop / track_.SamplesPerFrame()) * info.sampleSize;
-		};
-		
-
-		// These are mutable so the looping code can make another decision.
-		int fileOffset = -1;
-		int bytesLeftToRead = -1;
-
-		bool looped = info.loopNum != 0;
-		if (looped) {
-			// We rewind back to one frame before the loopstart.
-			// Not sure about this math but it works for the test so can fix it later!
-			const int loopStartFileOffset = LoopPointToFileOffset(info.loopStart, false) - info.sampleSize;
-			const int loopEndFileOffset = LoopPointToFileOffset(info.firstValidSample + info.loopEnd, true);
-
-			// We also need to loop the streaming.
-			switch (info.state) {
-			case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
-			case ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER:
-			{
-				// Let's ignore the tail for now, and just get some logic to work.
-				// The playback logic has to match this.
-				fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
-				int streamFirstPart = 0;
-				if (fileOffset == loopEndFileOffset) {
-					INFO_LOG(Log::ME, "Atrac: Hit the stream buffer wrap point (buffering)");
-				}
-				if (fileOffset >= loopEndFileOffset) {
-					// We have the data up to the loop already, so wrap the read around.
-					int secondPart = fileOffset - loopEndFileOffset;
-					int firstPart = info.streamDataByte - secondPart;
-					_dbg_assert_(firstPart >= 0);
-					_dbg_assert_(secondPart >= 0);
-					bytesLeftToRead = loopEndFileOffset - secondPart;
-					fileOffset = loopStartFileOffset + secondPart;
-				} else {
-					bytesLeftToRead = loopEndFileOffset - fileOffset;
-				}
-				_dbg_assert_(bytesLeftToRead >= 0);
-				break;
-			}
-			case ATRAC_STATUS_ALL_DATA_LOADED:
-			case ATRAC_STATUS_HALFWAY_BUFFER:
-			default:
-				// TODO
-				_dbg_assert_(false);
-				break;
-			}
-		} else {
-			// Non-looped. Basic math.
-			fileOffset = (int)info.curFileOff + (int)info.streamDataByte;
-			bytesLeftToRead = (int)info.fileDataEnd - fileOffset;
-			_dbg_assert_(bytesLeftToRead >= 0);
-		}
-
-		_dbg_assert_(bytesLeftToRead >= 0 && fileOffset >= 0);
-		if (bytesLeftToRead == 0) {
-			// We've got all the data up to the end buffered, no more streaming is needed.
-			// Signalling this by setting everything to default.
-			*writePtr = info.buffer;
-			*bytesToRead = 0;
-			*readFileOffset = 0;
-			return;
-		}
-
-		// NOTE: writePos might not actually be packet aligned!
-		// However, we can rely on being packet aligned at streamOff.
-		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
-		if (info.streamDataByte < distanceToEnd) {
-			// There's space left without wrapping.
-			const int writeOffset = info.streamOff + info.streamDataByte;
-			*writePtr = info.buffer + writeOffset;
-			*bytesToRead = std::min(distanceToEnd - (int)info.streamDataByte, bytesLeftToRead);
-			*readFileOffset = *bytesToRead == 0 ? 0 : fileOffset;  // Seems this behavior (which isn't important) only happens on this path?
-		} else {
-			// Wraps around.
-			const int firstPart = distanceToEnd;
-			const int secondPart = info.streamDataByte - firstPart;
-			const int spaceLeft = info.streamOff - secondPart;
-			*writePtr = info.buffer + secondPart;
-			*bytesToRead = std::min(spaceLeft, bytesLeftToRead);
-			*readFileOffset = fileOffset;
-		}
+		ComputeStreamBufferDataInfo(info, writePtr, bytesToWrite, readFileOffset);
 		break;
-	}
 	}
 }
 
-u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
+u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufAddr, u32 *SamplesNum, u32 *finish, int *remains) {
 	SceAtracIdInfo &info = context_->info;
 
-	if (info.decodePos >= info.endSample) {
-		//_dbg_assert_(info.curOff >= info.fileDataEnd);
-		ERROR_LOG(Log::ME, "DecodeData: Reached the end, nothing to decode");
+	const int tries = info.numSkipFrames + 1;
+	for (int i = 0; i < tries; i++) {
+		u32 result = DecodeInternal(outbufAddr, SamplesNum, finish);
+		if (result != 0) {
+			*SamplesNum = 0;
+			return result;
+		}
+	}
+
+	*remains = RemainingFrames();
+	return 0;
+}
+
+u32 Atrac2::DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish) {
+	SceAtracIdInfo &info = context_->info;
+
+	// Check that there's enough data to decode.
+
+	// Check for end of file.
+	const int samplesToDecode = GetNextSamples();
+	const int nextFileOff = info.curFileOff + info.sampleSize;
+	if (nextFileOff > info.fileDataEnd || info.decodePos > info.endSample) {
 		*finish = 1;
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
-	int samplesToWrite = track_.SamplesPerFrame();
-	int decodePosAdvance = samplesToWrite;
-
-	// Handle mid-buffer seeks by discarding samples.
-	int sampleRemainder = info.decodePos % track_.SamplesPerFrame();
-	if (sampleRemainder != 0) {
-		int discardedSamples = sampleRemainder;
-		_dbg_assert_(samplesToWrite >= discardedSamples);
-		samplesToWrite -= discardedSamples;
-		info.decodePos -= sampleRemainder;
+	// Check for streaming buffer run-out.
+	if (AtracStatusIsStreaming(info.state) && info.streamDataByte < info.sampleSize) {
+		*finish = 0;
+		return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
 	}
 
-	int decodeEnd = info.endSample + 1;
-	bool hitLoopEnd = false;
-	if (info.loopNum != 0 && info.decodePos + sampleRemainder + samplesToWrite > info.loopEnd + 1) {
-		decodeEnd = info.loopEnd + 1;
-		hitLoopEnd = true;
-		info.numFrame = 1;
+	// Check for halfway buffer end.
+	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER && info.dataOff + info.streamDataByte < nextFileOff) {
+		*finish = 0;
+		return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
 	}
 
-	// Try to handle the end, too.
-	// NOTE: This should match GetNextSamples().
-	if (info.decodePos + sampleRemainder + samplesToWrite > decodeEnd) {
-		int samples = info.endSample + 1 - info.decodePos;
-		if (samples < track_.SamplesPerFrame()) {
-			samplesToWrite = samples;
-			decodePosAdvance = samples;
-		} else {
-			ERROR_LOG(Log::ME, "Too many samples left: %08x", samples);
-		}
+	u32 streamOff;
+	u32 bufferPtr;
+	if (!AtracStatusIsStreaming(info.state)) {
+		bufferPtr = info.buffer;
+		streamOff = info.curFileOff;
+	} else {
+		const int bufferIndex = info.curBuffer & 1;
+		bufferPtr = bufferIndex == 0 ? info.buffer : info.secondBuffer;
+		streamOff = bufferIndex == 0 ? info.streamOff : info.secondStreamOff;
 	}
 
-	// Check that there's enough data to decode.
-	if (AtracStatusIsStreaming(info.state)) {
-		if (info.streamDataByte < track_.bytesPerFrame) {
-			// Seems some games actually check for this in order to refill, instead of relying on remainFrame. Pretty dumb. See #5564
-			ERROR_LOG(Log::ME, "Half-way: Ran out of data to decode from");
-			return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
-		}
-	} else if (info.state == ATRAC_STATUS_HALFWAY_BUFFER) {
-		const int fileOffset = info.streamDataByte + info.dataOff;
-		if (info.curFileOff + track_.bytesPerFrame > fileOffset) {
-			ERROR_LOG(Log::ME, "Half-way: Ran out of data to decode from");
-			return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
-		}
+	u32 inAddr = bufferPtr + streamOff;
+	int16_t *outPtr;
+
+	if (samplesToDecode != info.SamplesPerFrame()) {
+		outPtr = decodeTemp_;
+	} else {
+		outPtr = (int16_t *)Memory::GetPointer(outbufAddr);
 	}
 
-	u32 inAddr;
-	switch (info.state) {
-	case ATRAC_STATUS_ALL_DATA_LOADED:
-		inAddr = info.buffer + info.curFileOff;
-		break;
-	default:
-		inAddr = info.buffer + info.streamOff;
-		break;
-	}
+	context_->codec.inBuf = inAddr;
+	context_->codec.outBuf = outbufAddr;
 
-	context_->codec.inBuf = inAddr;  // just because.
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
-	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
+	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
 		// Decode failed.
-		*SamplesNum = 0;
 		*finish = 0;
 		// TODO: The error code here varies based on what the problem is, but not sure of the right values.
 		// 0000020b and 0000020c have been observed for 0xFF and/or garbage data, there may be more codes.
 		context_->codec.err = 0x20b;
 		return SCE_ERROR_ATRAC_API_FAIL;  // tested.
-	}
-	if (bytesConsumed != info.sampleSize) {
-		WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
-	}
-	_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
-
-	// Write the decoded samples to memory.
-	// TODO: We can detect cases where we can safely just decode directly into output (full samplesToWrite, outbuf != nullptr)
-	if (outbuf) {
-		_dbg_assert_(samplesToWrite <= track_.SamplesPerFrame());
-		memcpy(outbuf, decodeTemp_, samplesToWrite * outputChannels_ * sizeof(int16_t));
-	}
-
-	if (AtracStatusIsStreaming(info.state)) {
-		info.streamDataByte -= info.sampleSize;
-		info.streamOff += info.sampleSize;
-	}
-
-	info.numFrame = 0;
-	if (!hitLoopEnd) {
-		info.curFileOff += info.sampleSize;
-		info.decodePos += decodePosAdvance;
 	} else {
-		// Handle looping differently depending on state (actually seems pretty similar...)
-		switch (info.state) {
-		case ATRAC_STATUS_ALL_DATA_LOADED:
-		case ATRAC_STATUS_STREAMED_LOOP_FROM_END:
-			// Curiously this is exactly the same.
+		context_->codec.err = 0;
+	}
+
+	_dbg_assert_(bytesConsumed == info.sampleSize);
+
+	// Advance the file offset.
+	info.curFileOff += info.sampleSize;
+
+	if (info.numSkipFrames == 0) {
+		*SamplesNum = samplesToDecode;
+		if (info.endSample < info.decodePos + samplesToDecode) {
+			*finish = info.loopNum == 0;
+		} else {
+			*finish = 0;
+		}
+		u8 *outBuf = outbufAddr ? Memory::GetPointerWrite(outbufAddr) : nullptr;
+		if (samplesToDecode != info.SamplesPerFrame() && samplesToDecode != 0 && outBuf) {
+			memcpy(outBuf, decodeTemp_, samplesToDecode * outputChannels_ * sizeof(int16_t));
+		}
+
+		// Handle increments and looping.
+		info.decodePos += samplesToDecode;
+		if (info.loopEnd != 0 && info.loopNum != 0 && info.decodePos > info.loopEnd) {
+			info.curFileOff = ComputeFileOffset(info, info.loopStart);
+			info.numSkipFrames = ComputeSkipFrames(info, info.loopStart);
 			info.decodePos = info.loopStart;
-			info.curFileOff = info.dataOff + (info.loopStart / track_.SamplesPerFrame()) * info.sampleSize;  // for some reason??? Not the same as the first frame after SetData.
-			info.numFrame = 1;  // not sure what this is about, but in testing it's there.
 			if (info.loopNum > 0) {
 				info.loopNum--;
 			}
-			break;
-		case ATRAC_STATUS_LOW_LEVEL:
-		case ATRAC_STATUS_FOR_SCESAS:
-		case ATRAC_STATUS_STREAMED_WITHOUT_LOOP:
-			_dbg_assert_msg_or_log_(false, Log::ME, "Hit a loop end, but is in state %s. This shouldn't happen.", AtracStatusToString(info.state));
-			break;
-		default:
-			ERROR_LOG(Log::ME, "Looping in state %s not yet supported", AtracStatusToString(info.state));
-			// Fallback to just ending.
-			info.curFileOff += info.sampleSize;
-			info.decodePos += decodePosAdvance;
-			break;
+		}
+	} else {
+		info.numSkipFrames--;
+	}
+
+	// Handle streaming special cases.
+	if (AtracStatusIsStreaming(info.state)) {
+		info.streamDataByte -= info.sampleSize;
+		if (info.curBuffer == 1) {
+			// If currently streaming from the second buffer...
+			int nextStreamOff = info.secondStreamOff + info.sampleSize;
+			if ((int)info.secondBufferByte < nextStreamOff + info.sampleSize) {
+				// Done/ran out
+				info.streamOff = 0;
+				info.secondStreamOff = 0;
+				info.curBuffer = 2;
+			} else {
+				info.secondStreamOff = nextStreamOff;
+			}
+		} else {
+			// Normal streaming from the main buffer. Let's first look at wrapping around the end...
+			const int nextStreamOff = info.streamOff + info.sampleSize;
+			if (nextStreamOff + info.sampleSize > (int)info.bufferByte) {
+				info.streamOff = 0;
+			} else {
+				info.streamOff = nextStreamOff;
+			}
+
+			// OK, that's the simple stuff done. Moving on to second buffer streaming...
+			// This is quite a condition!
+			// Basically, if we're in state LOOP_WITH_TRAILER and currently streaming from the main buffer,
+			// and either there's no loop or we're just done with the final loop and haven't reached the loop point yet...
+			if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.curBuffer == 0 &&
+				(info.loopEnd == 0 || (info.loopNum == 0 && info.loopEnd < info.decodePos))) {
+				// If, at that point, our file streaming offset has indeed reached the loop point...
+				if (info.curFileOff >= ComputeLoopEndFileOffset(info, info.loopEnd)) {
+					// Then we switch to streaming from the secondary buffer, and also let's copy the last partial
+					// packet from the second buffer back to the start of the main buffer...
+					info.curBuffer = 1;
+					info.streamDataByte = info.secondBufferByte;
+					info.secondStreamOff = 0;
+					memcpy(Memory::GetPointerWrite(info.buffer),
+						Memory::GetPointer(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
+						info.secondBufferByte % info.sampleSize);
+				}
+			}
 		}
 	}
-
-	int retval = 0;
-	// detect the end.
-	if (info.decodePos >= info.endSample) {
-		*finish = 1;
-	}
-	// If we reached the end of the buffer, move the cursor back to the start.
-	// SetData takes care of any split packet on the first lap (On other laps, no split packets
-	// happen).
-	if (AtracStatusIsStreaming(info.state) && (u32)(info.streamOff + info.sampleSize) > info.bufferByte) {
-		DEBUG_LOG(Log::ME, "Atrac2::DecodeData: Hit the stream buffer wrap point (decoding).");
-		info.streamOff = 0;
-	}
-
-	*SamplesNum = samplesToWrite;
-	*remains = RemainingFrames();
-
-	context_->codec.err = 0;
-	return retval;
+	return 0;
 }
 
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, int outputChannels) {
@@ -636,13 +808,20 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	INFO_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
 
-	InitContext(0, bufferAddr, readSize, bufferSize, 0);
+	int retval = InitContext(bufferAddr, readSize, bufferSize);
+	if (retval != 0) {
+		ERROR_LOG(Log::ME, "InitContext failed, bad data?");
+		return retval;
+	}
 	return 0;
 }
 
-void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSize, int sampleOffset) {
+u32 Atrac2::InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize) {
 	SceAtracIdInfo &info = context_->info;
 	// Copy parameters into struct.
+	info.codec = track_.codecType;
+	info.numChan = track_.channels;
+	info.sampleSize = track_.bytesPerFrame;
 	info.buffer = bufferAddr;
 	info.bufferByte = bufferSize;
 	info.firstValidSample = track_.FirstSampleOffsetFull();
@@ -651,25 +830,27 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 		info.loopStart = track_.loopStartSample;
 		info.loopEnd = track_.loopEndSample;
 		// Sanity check the loop points, useful for testing.
-		_dbg_assert_or_log_(info.loopStart >= info.firstValidSample);
-		_dbg_assert_or_log_(info.loopEnd <= info.endSample);
 	}
-	info.codec = track_.codecType;
-	info.sampleSize = track_.bytesPerFrame;
-	info.numChan = track_.channels;
-	info.numFrame = 0;
 	info.dataOff = track_.dataByteOffset;
-	info.curFileOff = track_.dataByteOffset + ((sampleOffset + track_.FirstOffsetExtra()) / track_.SamplesPerFrame()) * info.sampleSize;  // Note: This and streamOff get incremented by bytesPerFrame before the return from this function by skipping frames.
-	info.streamOff = track_.dataByteOffset - offset;
-	if (AtracStatusIsStreaming(info.state)) {
-		info.streamDataByte = readSize - info.streamOff;
-	} else {
-		info.streamDataByte = readSize - info.dataOff;
-	}
+	info.curFileOff = track_.dataByteOffset;
+	info.streamOff = track_.dataByteOffset;
+	info.streamDataByte = readSize - info.dataOff;
 	info.fileDataEnd = track_.fileSize;
-	info.decodePos = track_.FirstSampleOffsetFull() + sampleOffset;
+	info.decodePos = track_.FirstSampleOffsetFull();
+	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
+	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
-	FastForwardDummyFrames(track_.FirstSampleOffsetFull());
+	u32 retval = SkipFrames();
+	if (retval != 0) {
+		ERROR_LOG(Log::ME, "SkipFrames during InitContext returned an error: %08x", retval);
+	}
+
+	WrapLastPacket();
+	return retval;
+}
+
+void Atrac2::WrapLastPacket() {
+	SceAtracIdInfo &info = context_->info;
 
 	// We need to handle wrapping the overshot partial packet at the end.
 	if (AtracStatusIsStreaming(info.state)) {
@@ -677,7 +858,7 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 		int distanceToEnd = RoundDownToMultiple(info.bufferByte - info.streamOff, info.sampleSize);
 		if (info.streamDataByte < distanceToEnd) {
 			// There's space left without wrapping. Don't do anything.
-			INFO_LOG(Log::ME, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
+			// INFO_LOG(Log::ME, "Packets fit into the buffer fully. %08x < %08x", readSize, bufferSize);
 			// In this case, seems we need to zero some bytes. In one test, this seems to be 336.
 			// Maybe there's a logical bug and the copy happens even when not needed, it's just that it'll
 			// copy zeroes. Either way, let's just copy some bytes to make our sanity check hexdump pass.
@@ -694,34 +875,35 @@ void Atrac2::InitContext(int offset, u32 bufferAddr, u32 readSize, u32 bufferSiz
 	}
 }
 
-void Atrac2::FastForwardDummyFrames(int discardedSamples) {
+u32 Atrac2::SkipFrames() {
 	SceAtracIdInfo &info = context_->info;
-	// TODO: Decode/discard any first dummy frames to the temp buffer. This initializes the decoder.
-	// It really does seem to be what's happening here, as evidenced by inBuf in the codec struct - it gets initialized.
-	// Alternatively, the dummy frame is just there to leave space for wrapping...
-	while (discardedSamples >= track_.SamplesPerFrame()) {
-		int bytesConsumed = info.sampleSize;
-		int outSamples;
-		if (!decoder_->Decode(Memory::GetPointer(info.buffer + info.streamOff), info.sampleSize, &bytesConsumed, outputChannels_, decodeTemp_, &outSamples)) {
-			ERROR_LOG(Log::ME, "Error decoding the 'dummy' buffer at offset %d in the buffer", info.streamOff);
+	u32 temp;
+	while (true) {
+		if (info.numSkipFrames == 0) {
+			return 0;
 		}
-		outSamples = track_.SamplesPerFrame();
-		if (bytesConsumed != info.sampleSize) {
-			WARN_LOG(Log::ME, "bytesConsumed mismatch: %d vs %d", bytesConsumed, info.sampleSize);
+		u32 retval = DecodeInternal(0, 0, &temp);
+		if (retval != 0) {
+			return retval;
 		}
-		_dbg_assert_(decodeTemp_[track_.SamplesPerFrame() * outputChannels_] == 1337);  // Sentinel
-
-		info.curFileOff += track_.bytesPerFrame;
-		if (AtracStatusIsStreaming(info.state)) {
-			info.streamOff += track_.bytesPerFrame;
-			info.streamDataByte -= info.sampleSize;
-		}
-		discardedSamples -= outSamples;
 	}
+	return 0;
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
-	return 0;
+	SceAtracIdInfo &info = context_->info;
+
+	u32 loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
+	u32 retval = 0x80630011;
+	if ((info.sampleSize * 3 <= (int)secondBufferSize ||
+		(info.fileDataEnd - loopEndFileOffset) <= (int)secondBufferSize) &&
+		(retval = 0x80630022, info.state == 6)) {
+		info.secondBuffer = secondBuffer;
+		retval = 0;
+		info.secondBufferByte = secondBufferSize;
+		info.secondStreamOff = 0;
+	}
+	return retval;
 }
 
 u32 Atrac2::GetInternalCodecError() const {
@@ -744,6 +926,8 @@ int Atrac2::Bitrate() const {
 }
 
 void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
+	// TODO: We shouldn't need to look at track_ later, so we shouldn't need to init it here.
+	// Not true yet.
 	track_ = Track();
 	track_.codecType = codecType;
 	track_.channels = Memory::Read_U32(paramsAddr);
@@ -762,6 +946,9 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 
 	context_->info.decodePos = 0;
 	context_->info.state = ATRAC_STATUS_LOW_LEVEL;
+	context_->info.sampleSize = track_.BytesPerFrame();
+	context_->info.numChan = track_.channels;
+
 	CreateDecoder();
 }
 

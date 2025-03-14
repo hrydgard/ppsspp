@@ -38,9 +38,10 @@
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/System.h"
 
-// (Old) notes about sceAtrac buffer management
+// Notes about sceAtrac buffer management
 //
 // sceAtrac decodes from a buffer the game fills, where this buffer has a status, one of:
+//
 //   * Not yet initialized (state NO_DATA = 1)
 //   * The entire size of the audio data, and filled with audio data (state ALL_DATA_LOADED = 2)
 //   * The entire size, but only partially filled so far (state HALFWAY_BUFFER = 3)
@@ -50,9 +51,11 @@
 //   * Not managed, decoding using "low level" manual looping etc. (LOW_LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
 //
-// A game will call sceAtracAddStreamData after filling data, and where it filled it was given by
-// either sceAtracGetStreamDataInfo when continuing to move forwards in the stream of audio data,
-// or sceAtracGetBufferInfoForResetting when seeking to a specific location in the audio stream.
+// When streaming (modes 3-6), a game will call sceAtracGetStreamDataInfo to figure out what data
+// to read and where to place it, and after doing that it'll call sceAtracAddStreamData with the amount
+// of data it actually read. This will move the various pointers forward.
+// Similarly, for a game to seek, it'll call sceAtracGetBufferInfoForResetting with a sample offset,
+// and read that data into the buffer.
 //
 // State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
 // To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
@@ -60,10 +63,11 @@
 //
 // The second buffer will just contain the data for the end of loop. The "first" buffer may manage
 // only the looped portion, or some of the part after the loop (depending on second buf size.)
+//
 // TODO: What games use this?
 //
 // Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
-// ultimately this will share the same buffer - it's just offset a bit more.
+// ultimately this works the same, just the loading process is a little different.
 //
 // Low level decoding doesn't use the buffer, and decodes only a single packet at a time.
 //
@@ -302,7 +306,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 			  numSamplesAddr, numSamples,
 			  finishFlagAddr, finish,
 			  remainAddr, remains);
-	if (ret == 0) {
+	if (ret == 0 || ret == SCE_ERROR_ATRAC_API_FAIL) {
 		// decode data successfully, delay thread
 		return hleDelayResult(hleNoLog(ret), "atrac decode data", atracDecodeDelay);
 	}
@@ -337,6 +341,8 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	}
 	*/
 
+	// Note: If we error here, it's because of the internal SkipFrames.
+	// Note again: We should probably delayresult if we skipframes..
 	int ret = atrac->GetResetBufferInfo(bufferInfo, sample);
 	return hleLogDebugOrError(Log::ME, ret);
 }
@@ -586,7 +592,8 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			return hleLogError(Log::ME, res);
 		}
 	}
-	return hleDelayResult(hleLogDebug(Log::ME, res), "reset play pos", 3000);
+
+	return hleDelayResult(res, "reset play pos", 3000);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {

@@ -29,6 +29,9 @@ void __AtracShutdown();
 void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize);
 void __AtracNotifyUnloadModule();
 
+constexpr u32 ATRAC3_MAX_SAMPLES = 0x400;  // 1024
+constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
+
 // The "state" member of SceAtracIdInfo.
 enum AtracStatus : u8 {
 	ATRAC_STATUS_NO_DATA = 1,
@@ -70,7 +73,7 @@ struct SceAtracIdInfo {
 	s32 loopStart;        // Start of the loop (sample index)
 	s32 loopEnd;          // End of the loop (sample index)
 	s32 firstValidSample; // Seems to be the number of skipped samples at the start. After SetID, decodePos will match this. Was previously misnamed 'samplesPerChan'.
-	u8 framesToSkip;      // This is 1 for a single frame when a loop is triggered, otherwise seems to stay at 0. Likely mis-named.
+	u8 numSkipFrames;      // This is 1 for a single frame when a loop is triggered, otherwise seems to stay at 0. Likely mis-named.
 	AtracStatus state;    // State enum, see AtracStatus.
 	u8 curBuffer;         // Current buffer (1 == second, 2 == done?) Previously unk
 	u8 numChan;           // Number of audio channels, usually 2 but 1 is possible.
@@ -82,7 +85,7 @@ struct SceAtracIdInfo {
 	s32 loopNum;          // Current loop counter. If 0, will not loop. -1 loops for ever, positive numbers get decremented on the loop end. So to play a song 3 times and then end, set this to 2.
 	s32 streamDataByte;   // Number of bytes of queued/buffered/uploaded data. In full and half-way modes, this isn't decremented as you decode.
 	s32 streamOff;        // Streaming modes only: The byte offset inside the RAM buffer where sceAtracDecodeData will read from next. ONLY points to even packet boundaries.
-	u32 secondStreamOff;  // Secondary streamoff? previously unk.
+	s32 secondStreamOff;  // A kind of stream position in the secondary buffer.
 	u32 buffer;           // Address in RAM of the main buffer.
 	u32 secondBuffer;     // Address in RAM of the second buffer, or 0 if not used.
 	u32 bufferByte;       // Size in bytes of the main buffer.
@@ -91,6 +94,19 @@ struct SceAtracIdInfo {
 	// make sure the size is 128
 	u32 unk[13];
 	u32 atracID;          // The atrac context number is stored here, for some reason.
+
+	// Simple helpers. Similar ones are on track_, but we shouldn't need track_ anymore when playing back.
+
+	int SamplesPerFrame() const {
+		return codec == 0x1000 ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+	}
+	int SamplesFrameMask() const {
+		return SamplesPerFrame() - 1;
+	}
+	int SkipSamples() const {
+		// These first samples are skipped, after first possibly skipping 0-2 full frames, it seems.
+		return codec == 0x1000 ? 0x170 : 0x45;
+	}
 };
 
 // One of these structs is allocated for each Atrac context.
@@ -108,6 +124,7 @@ constexpr int PSP_MAX_ATRAC_IDS = 6;
 
 class AtracBase;
 
+// For debugger use ONLY.
 const AtracBase *__AtracGetCtx(int i, u32 *type);
 
 // External interface used by sceSas, see ATRAC_STATUS_FOR_SCESAS.

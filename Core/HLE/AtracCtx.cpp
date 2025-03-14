@@ -342,7 +342,10 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 
 			if (at3fmt->fmtTag == AT3_MAGIC) {
 				// This is the offset to the jointStereo_ field.
-				track->jointStereo = Memory::Read_U32(addr + offset + 24);
+				track->jointStereo = Memory::Read_U16(addr + offset + 24);
+				// Then there are more fields here.
+				u16 unknown1_2 = Memory::Read_U16(addr + offset + 30);
+
 			}
 			if (chunkSize > 16) {
 				// Read and format extra bytes as hexadecimal
@@ -393,7 +396,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				track->loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 				track->loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
-				if (track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
+				if (i == 0 && track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
 					ERROR_LOG(Log::ME, "AnalyzeTrack: loop starts after it ends");
 					return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 				}

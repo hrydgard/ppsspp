@@ -1050,7 +1050,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 						ImGui::Text("Stream: offset %d, streamDataBytes: %d", info.streamOff, info.streamDataByte);
 					}
 					// Display unknown vars.
-					ImGui::Text("numFrame: %d unk22: %d unk52: %d", info.numFrame, info.unk22, info.unk52);
+					ImGui::Text("numFrame: %d curBuffer: %d streamOff2: %d", info.numSkipFrames, info.curBuffer, info.secondStreamOff);
 				} else {
 					ImGui::Text("loop: %d", ctx->LoopNum());
 				}
