@@ -277,8 +277,9 @@ public:
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "Module"; }
 	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "%sname=%s gp=%08x entry=%08x",
+		snprintf(ptr, size, "%s %d.%d name=%s gp=%08x entry=%08x",
 			isFake ? "faked " : "",
+			nm.version[0], nm.version[1],
 			nm.name,
 			nm.gp_value,
 			nm.entry_addr);
@@ -480,7 +481,8 @@ public:
 
 void PSPModule::GetLongInfo(char *ptr, int bufSize) const {
 	StringWriter w(ptr, bufSize);
-	w.F("%s: Version %d.%d. %d segments", nm.name, nm.version[0], nm.version[1], nm.nsegment).endl();
+	w.F("%s: Version %d.%d. %d segments", nm.name, nm.version[1], nm.version[0], nm.nsegment).endl();
+	w.F("Memory block: %08x (%08x/%d bytes)", memoryBlockAddr, memoryBlockSize, memoryBlockSize).endl();
 	for (int i = 0; i < nm.nsegment; i++) {
 		w.F("  %08x (%08x bytes)\n", nm.segmentaddr[i], nm.segmentsize[i]);
 	}
@@ -1340,7 +1342,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
-			module->nm.bss_size = head->bss_size;
 
 			// Let's still try to allocate it.  It may use user memory.
 			u32 totalSize = 0;
@@ -1367,6 +1368,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			module->memoryBlockAddr = addr;
 			module->memoryBlockSize = totalSize;
 			module->nm.text_addr = addr;
+			module->nm.bss_size = head->bss_size;
+			module->nm.nsegment = head->nsegments;
 			module->nm.version[0] = head->module_ver_hi;
 			module->nm.version[1] = head->module_ver_lo;
 
@@ -1389,7 +1392,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				__PsmfPlayerLoadModule(devkitVersion, module->crc);
 			}
 			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
-				__AtracLoadModule(ver, module->crc, module->GetBSSAddr(), head->bss_size);
+				__AtracNotifyLoadModule(ver, module->crc, module->GetBSSAddr(), head->bss_size);
 			}
 
 			return module;
@@ -1775,7 +1778,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
-			__AtracLoadModule(modinfo->moduleVersion, module->crc, module->GetBSSAddr(), module->nm.bss_size);
+			__AtracNotifyLoadModule(modinfo->moduleVersion, module->crc, module->GetBSSAddr(), module->nm.bss_size);
 		}
 	}
 

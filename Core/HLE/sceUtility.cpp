@@ -87,7 +87,10 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 		constexpr int version = 0x103;
 		constexpr int bssSize = 0x67C;
 		_dbg_assert_(bssSize <= totalSize);
-		__AtracLoadModule(version, 0, loadAddr, bssSize);
+		__AtracNotifyLoadModule(version, 0, loadAddr, bssSize);
+	} else if (state == -1) {
+		// Unload.
+		__AtracNotifyUnloadModule();
 	}
 }
 
@@ -508,6 +511,9 @@ bool __UtilityModuleGetMemoryRange(int moduleID, u32 *startPtr, u32 *sizePtr) {
 	return true;
 }
 
+static int LoadModuleInternal(u32 module);
+static int UnloadModuleInternal(u32 module);
+
 // Same as sceUtilityLoadModule, just limited in categories.
 // It seems this just loads module 0x300 + module & 0xFF..
 static u32 sceUtilityLoadAvModule(u32 module) {
@@ -516,30 +522,54 @@ static u32 sceUtilityLoadAvModule(u32 module) {
 		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
 	}
 
-	if (module == 0)
-		JpegNotifyLoadStatus(1);
-	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module loaded", 25000);
+	int result = LoadModuleInternal(0x300 | module);
+	return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module) {
-	if (module == 0)
-		JpegNotifyLoadStatus(-1);
-	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module unloaded", 800);
+	if (module > 7) {
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
+	}
+
+	int result = UnloadModuleInternal(0x300 | module);
+	return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility av module unloaded", 800);
 }
 
 static u32 sceUtilityLoadModule(u32 module) {
+	int result = LoadModuleInternal(module);
+	// TODO: Each module has its own timing, technically, but this is a low-end.
+	if (module == 0x3FF) {
+		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 130);
+	} else {
+		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 25000);
+	}
+}
+
+static u32 sceUtilityUnloadModule(u32 module) {
+	int result = UnloadModuleInternal(module);
+	// TODO: Each module has its own timing, technically, but this is a low-end.
+	if (module == 0x3FF) {
+		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module unloaded", 110);
+	} else {
+		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module unloaded", 400);
+	}
+}
+
+static int LoadModuleInternal(u32 module) {
 	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
 	if (!info) {
-		return hleReportError(Log::sceUtility, SCE_ERROR_MODULE_BAD_ID, "invalid module id");
+		return SCE_ERROR_MODULE_BAD_ID;
 	}
+
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end()) {
-		return hleLogError(Log::sceUtility, SCE_ERROR_MODULE_ALREADY_LOADED, "already loaded");
+		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 
 	// Some games, like Kamen Rider Climax Heroes OOO, require an error if dependencies aren't loaded yet.
 	for (const int *dep = info->dependencies; *dep != 0; ++dep) {
 		if (currentlyLoadedModules.find(*dep) == currentlyLoadedModules.end()) {
-			return hleDelayResult(hleLogError(Log::sceUtility, SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "dependent module %04x not loaded", *dep), "utility module load attempt", 25000);
+			return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND;
 		}
 	}
 
@@ -554,36 +584,28 @@ static u32 sceUtilityLoadModule(u32 module) {
 	if (info->notify) {
 		info->notify(1, address, allocSize);
 	}
-
-	// TODO: Each module has its own timing, technically, but this is a low-end.
-	if (module == 0x3FF)
-		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module loaded", 130);
-	else
-		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module loaded", 25000);
+	return 0;
 }
 
-static u32 sceUtilityUnloadModule(u32 module) {
+static int UnloadModuleInternal(u32 module) {
 	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
 	if (!info) {
-		return hleReportError(Log::sceUtility, SCE_ERROR_MODULE_BAD_ID, "invalid module id");
+		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
-	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end()) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_MODULE_NOT_LOADED, "not yet loaded");
+	auto iter = currentlyLoadedModules.find(module);
+	if (iter == currentlyLoadedModules.end()) {
+		return SCE_ERROR_MODULE_NOT_LOADED;
 	}
-	if (currentlyLoadedModules[module] != 0) {
-		userMemory.Free(currentlyLoadedModules[module]);
+	if (iter->second != 0) {
+		userMemory.Free(iter->second);
 	}
 	currentlyLoadedModules.erase(module);
 
-	if (info->notify)
+	if (info->notify) {
 		info->notify(-1, 0, 0);
-
-	// TODO: Each module has its own timing, technically, but this is a low-end.
-	if (module == 0x3FF)
-		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module unloaded", 110);
-	else
-		return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility module unloaded", 400);
+	}
+	return 0;
 }
 
 static int sceUtilityMsgDialogInitStart(u32 paramAddr) {
