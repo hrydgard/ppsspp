@@ -185,7 +185,7 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 
 	if (ImGui::Button("Copy all to clipboard")) {
 		char *buffer = new char[20000];
-		StringWriter w(buffer);
+		StringWriter w(buffer, 20000);
 		for (int i = 0; i < 32; i++) {
 			u32 value = mipsDebug->GetGPR32Value(i);
 			w.F("%s: %08x (%d)", mipsDebug->GetRegName(0, i).c_str(), value, value).endl();
@@ -531,8 +531,8 @@ static void DrawKernelObjects(ImConfig &cfg) {
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(i);
-			if (ImGui::Selectable("", cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
-				cfg.selectedThread = i;
+			if (ImGui::Selectable("", cfg.selectedKernelObject == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedKernelObject = id;
 			}
 			ImGui::SameLine();
 			/*
@@ -554,6 +554,19 @@ static void DrawKernelObjects(ImConfig &cfg) {
 		}
 
 		ImGui::EndTable();
+	}
+
+	if (kernelObjects.IsValid(cfg.selectedKernelObject)) {
+		const int id = cfg.selectedKernelObject;
+		KernelObject *obj = kernelObjects.GetFast<KernelObject>(id);
+		if (obj) {
+			ImGui::Text("%08x: %s", id, obj->GetTypeName());
+			char longInfo[4096];
+			obj->GetLongInfo(longInfo, sizeof(longInfo));
+			ImGui::TextUnformatted(longInfo);
+		}
+
+		// TODO: Show details
 	}
 	ImGui::End();
 }
@@ -1331,12 +1344,58 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 	ImGui::End();
 }
 
+static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
+	if (!ImGui::Begin("Utility Modules", &cfg.utilityModulesOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::TextUnformatted("These are fake module representations loaded by sceUtilityLoadModule");
+
+	const std::map<int, u32> &modules = __UtilityGetLoadedModules();
+	if (ImGui::BeginTable("modules", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Load Address", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Load Size", ImGuiTableColumnFlags_WidthFixed);
+
+		ImGui::TableHeadersRow();
+
+		// TODO: Add context menu and clickability
+		int i = 0;
+		for (const auto &iter : modules) {
+			u32 loadedAddr = iter.second;
+			const ModuleLoadInfo *info = __UtilityModuleInfo(iter.first);
+
+			ImGui::PushID(i);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (ImGui::Selectable(info->name, cfg.selectedModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+				cfg.selectedModule = i;
+			}
+			ImGui::TableNextColumn();
+			if (loadedAddr) {
+				ImClickableValue("addr", loadedAddr, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			} else {
+				ImGui::TextUnformatted("-");
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x", info->size);
+			ImGui::PopID();
+			i++;
+		}
+
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("Modules", &cfg.modulesOpen) || !g_symbolMap) {
 		ImGui::End();
 		return;
 	}
 
+	// Hm, this reads from the symbol map.
 	std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 	if (ImGui::BeginTable("modules", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
@@ -1368,7 +1427,6 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	}
 
 	if (cfg.selectedModule >= 0 && cfg.selectedModule < (int)modules.size()) {
-		auto &module = modules[cfg.selectedModule];
 		// TODO: Show details
 	}
 	ImGui::End();
@@ -1538,7 +1596,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
 			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
 			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
-			ImGui::MenuItem("Modules",nullptr,  &cfg_.modulesOpen);
+			ImGui::MenuItem("Modules", nullptr, &cfg_.modulesOpen);
+			ImGui::MenuItem("Utility Modules",nullptr, &cfg_.utilityModulesOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Graphics")) {
@@ -1636,6 +1695,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.modulesOpen) {
 		DrawModules(mipsDebug, cfg_, control);
+	}
+
+	if (cfg_.utilityModulesOpen) {
+		DrawUtilityModules(cfg_, control);
 	}
 
 	if (cfg_.audioDecodersOpen) {
@@ -2094,6 +2157,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("internalsOpen", &internalsOpen, false);
 	sync.Sync("sasAudioOpen", &sasAudioOpen, false);
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
+	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

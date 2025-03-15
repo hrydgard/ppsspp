@@ -28,10 +28,10 @@ struct SceAudiocodecCodec {
 	s32 edramAddr; // c  // presumably in ME memory?
 	s32 neededMem; // 10  // 0x102400 for Atrac3+
 	s32 inited;  // 14
-	u32 inBuf; // 18  // This is updated for every frame that's decoded, to point to the start of the frame.
+	u32 inBuf; // 18  // Before decoding, set this to the start of the raw frame.
 	s32 srcFrameSize; // 1c
-	u32 outBuf; // 20
-	s32 dstBytesWritten; // 24  
+	u32 outBuf; // 20  // This is where the decoded data is written.
+	s32 dstBytesWritten; // 24
 	s8 unk40;  // 28  format or looping related
 	s8 unk41;  // 29  format or looping related
 	s16 unk42; // 2a

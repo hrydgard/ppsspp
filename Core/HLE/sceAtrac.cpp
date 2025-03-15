@@ -74,6 +74,8 @@
 // any cache or separate version of the buffer - at most it manages decode state from earlier in
 // the buffer.
 
+// TODO: We should add checks that the utility module is loaded.
+
 static const int atracDecodeDelay = 2300;
 
 static bool atracInited = true;
@@ -112,10 +114,11 @@ void __AtracShutdown() {
 	}
 }
 
-void __AtracLoadModule(int version, u32 crc) {
+void __AtracLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
 	atracLibVersion = version;
 	atracLibCrc = crc;
-	INFO_LOG(Log::ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
+	INFO_LOG(Log::ME, "Atrac module loaded: atracLibVersion 0x%0x, atracLibcrc %x, bss: %x (%x bytes)", atracLibVersion, atracLibCrc, bssAddr, bssSize);
+	// Later, save bssAddr/bssSize and use them to return context addresses.
 }
 
 void __AtracDoState(PointerWrap &p) {

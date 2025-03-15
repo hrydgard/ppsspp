@@ -40,6 +40,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/scePower.h"
+#include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
 
@@ -75,55 +76,60 @@ static const int atrac3PlusModuleDeps[] = {0x0300, 0};
 static const int mpegBaseModuleDeps[] = {0x0300, 0};
 static const int mp4ModuleDeps[] = {0x0300, 0};
 
-struct ModuleLoadInfo {
-	ModuleLoadInfo(int m, u32 s, void(*n)(int) = nullptr) : mod(m), size(s), dependencies(noDeps), notify(n) {
-	}
-	ModuleLoadInfo(int m, u32 s, const int *d, void(*n)(int) = nullptr) : mod(m), size(s), dependencies(d), notify(n) {
-	}
-
-	const int mod;
-	const u32 size;
-	const int *const dependencies;
-	void (*notify)(int state);
-};
-
-static void NotifyLoadStatusAvcodec(int state) {
+static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 	JpegNotifyLoadStatus(state);
 }
 
+static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
+	if (state == 1) {
+		// We try to imitate a recent version of the prx.
+		// Let's just give it a piece of the space.
+		constexpr int version = 0x103;
+		constexpr int bssSize = 0x67C;
+		_dbg_assert_(bssSize <= totalSize);
+		__AtracLoadModule(version, 0, loadAddr, bssSize);
+	}
+}
+
+ModuleLoadInfo::ModuleLoadInfo(int m, u32 s, const char *_name, ModuleLoadCallback n)
+	: name(_name), mod(m), size(s), dependencies(noDeps), notify(n) {}
+ModuleLoadInfo::ModuleLoadInfo(int m, u32 s, const char *_name, const int *d, ModuleLoadCallback n)
+	: name(_name), mod(m), size(s), dependencies(d), notify(n) {}
+
+// Not sure if these have official names, or if there's a mapping exactly to HLE modules.
 static const ModuleLoadInfo moduleLoadInfo[] = {
-	ModuleLoadInfo(0x0100, 0x00014000),
-	ModuleLoadInfo(0x0101, 0x00020000),
-	ModuleLoadInfo(0x0102, 0x00058000),
-	ModuleLoadInfo(0x0103, 0x00006000),
-	ModuleLoadInfo(0x0104, 0x00002000),
-	ModuleLoadInfo(0x0105, 0x00028000, httpModuleDeps),
-	ModuleLoadInfo(0x0106, 0x00044000, sslModuleDeps),
-	ModuleLoadInfo(0x0107, 0x00010000),
-	ModuleLoadInfo(0x0108, 0x00008000, httpStorageModuleDeps),
-	ModuleLoadInfo(0x0200, 0x00000000),
-	ModuleLoadInfo(0x0201, 0x00000000),
-	ModuleLoadInfo(0x0202, 0x00000000),
-	ModuleLoadInfo(0x0203, 0x00000000),
-	ModuleLoadInfo(0x02ff, 0x00000000),
-	ModuleLoadInfo(0x0300, 0x00000000, &NotifyLoadStatusAvcodec),
-	ModuleLoadInfo(0x0301, 0x00000000),
-	ModuleLoadInfo(0x0302, 0x00008000, atrac3PlusModuleDeps),
-	ModuleLoadInfo(0x0303, 0x0000c000, mpegBaseModuleDeps),
-	ModuleLoadInfo(0x0304, 0x00004000),
-	ModuleLoadInfo(0x0305, 0x0000a300),
-	ModuleLoadInfo(0x0306, 0x00004000),
-	ModuleLoadInfo(0x0307, 0x00000000),
-	ModuleLoadInfo(0x0308, 0x0003c000, mp4ModuleDeps),
-	ModuleLoadInfo(0x03fe, 0x00000000),
-	ModuleLoadInfo(0x03ff, 0x00000000),
-	ModuleLoadInfo(0x0400, 0x0000c000),
-	ModuleLoadInfo(0x0401, 0x00018000),
-	ModuleLoadInfo(0x0402, 0x00048000),
-	ModuleLoadInfo(0x0403, 0x0000e000),
-	ModuleLoadInfo(0x0500, 0x00000000),
-	ModuleLoadInfo(0x0600, 0x00000000),
-	ModuleLoadInfo(0x0601, 0x00000000),
+	ModuleLoadInfo(0x100, 0x00014000, "net_common"),
+	ModuleLoadInfo(0x101, 0x00020000, "net_adhoc"),
+	ModuleLoadInfo(0x102, 0x00058000, "net_inet"),
+	ModuleLoadInfo(0x103, 0x00006000, "net_parse_uri"),
+	ModuleLoadInfo(0x104, 0x00002000, "net_parse_http"),
+	ModuleLoadInfo(0x105, 0x00028000, "net_http", httpModuleDeps),
+	ModuleLoadInfo(0x106, 0x00044000, "net_ssl", sslModuleDeps),
+	ModuleLoadInfo(0x107, 0x00010000, "0x107"),
+	ModuleLoadInfo(0x108, 0x00008000, "usb_pspcm", httpStorageModuleDeps),
+	ModuleLoadInfo(0x200, 0x00000000, "usb_mic"),
+	ModuleLoadInfo(0x201, 0x00000000, "usb_cam"),
+	ModuleLoadInfo(0x202, 0x00000000, "usb_gps"),
+	ModuleLoadInfo(0x203, 0x00000000, "0x203"),
+	ModuleLoadInfo(0x2ff, 0x00000000, "0x2ff"),
+	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),
+	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
+	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),  // TODO: 0x8000 is likely too large.
+	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
+	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
+	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
+	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
+	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
+	ModuleLoadInfo(0x308, 0x0003c000, "av_", mp4ModuleDeps),
+	ModuleLoadInfo(0x3fe, 0x00000000, "me_stuff"),
+	ModuleLoadInfo(0x3ff, 0x00000000, "me_core"),  // ME Core?
+	ModuleLoadInfo(0x400, 0x0000c000, "np_common"),
+	ModuleLoadInfo(0x401, 0x00018000, "np_service"),
+	ModuleLoadInfo(0x402, 0x00048000, "np_matching2"),
+	ModuleLoadInfo(0x403, 0x0000e000, "0x403"),
+	ModuleLoadInfo(0x500, 0x00000000, "np_drm"),
+	ModuleLoadInfo(0x600, 0x00000000, "irda"),
+	ModuleLoadInfo(0x601, 0x00000000, "0x601"),
 };
 
 // Only a single dialog is allowed at a time.
@@ -473,12 +479,43 @@ static int sceUtilitySavedataUpdate(int animSpeed) {
 	return result;
 }
 
+const ModuleLoadInfo *__UtilityModuleInfo(int module) {
+	const ModuleLoadInfo *info = 0;
+	for (size_t i = 0; i < ARRAY_SIZE(moduleLoadInfo); ++i) {
+		if (moduleLoadInfo[i].mod == module) {
+			info = &moduleLoadInfo[i];
+			break;
+		}
+	}
+	return info;
+}
+
+const std::map<int, u32> &__UtilityGetLoadedModules() {
+	return currentlyLoadedModules;
+}
+
+bool __UtilityModuleGetMemoryRange(int moduleID, u32 *startPtr, u32 *sizePtr) {
+	const ModuleLoadInfo *info = __UtilityModuleInfo(moduleID);
+	if (!info) {
+		return false;
+	}
+	*sizePtr = info->size;
+	auto iter = currentlyLoadedModules.find(moduleID);
+	if (iter == currentlyLoadedModules.end()) {
+		return false;
+	}
+	*startPtr = iter->second;
+	return true;
+}
+
+// Same as sceUtilityLoadModule, just limited in categories.
+// It seems this just loads module 0x300 + module & 0xFF..
 static u32 sceUtilityLoadAvModule(u32 module) {
 	if (module > 7) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
 	}
-	
+
 	if (module == 0)
 		JpegNotifyLoadStatus(1);
 	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module loaded", 25000);
@@ -488,17 +525,6 @@ static u32 sceUtilityUnloadAvModule(u32 module) {
 	if (module == 0)
 		JpegNotifyLoadStatus(-1);
 	return hleDelayResult(hleLogInfo(Log::sceUtility, 0), "utility av module unloaded", 800);
-}
-
-static const ModuleLoadInfo *__UtilityModuleInfo(int module) {
-	const ModuleLoadInfo *info = 0;
-	for (size_t i = 0; i < ARRAY_SIZE(moduleLoadInfo); ++i) {
-		if (moduleLoadInfo[i].mod == module) {
-			info = &moduleLoadInfo[i];
-			break;
-		}
-	}
-	return info;
 }
 
 static u32 sceUtilityLoadModule(u32 module) {
@@ -518,16 +544,16 @@ static u32 sceUtilityLoadModule(u32 module) {
 	}
 
 	u32 allocSize = info->size;
+	u32 address = 0;
 	char name[128];
 	snprintf(name, sizeof(name), "UtilityModule/%x", module);
 	if (allocSize != 0) {
-		currentlyLoadedModules[module] = userMemory.Alloc(allocSize, false, name);
-	} else {
-		currentlyLoadedModules[module] = 0;
+		address = userMemory.Alloc(allocSize, false, name);
 	}
-
-	if (info->notify)
-		info->notify(1);
+	currentlyLoadedModules[module] = address;
+	if (info->notify) {
+		info->notify(1, address, allocSize);
+	}
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
@@ -551,7 +577,7 @@ static u32 sceUtilityUnloadModule(u32 module) {
 	currentlyLoadedModules.erase(module);
 
 	if (info->notify)
-		info->notify(-1);
+		info->notify(-1, 0, 0);
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)

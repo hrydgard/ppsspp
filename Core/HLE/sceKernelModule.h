@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "Core/HLE/sceKernel.h"
 
 struct PspModuleInfo {

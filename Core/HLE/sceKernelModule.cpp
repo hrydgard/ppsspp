@@ -21,6 +21,7 @@
 #include "zlib.h"
 
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -282,9 +283,17 @@ public:
 			nm.gp_value,
 			nm.entry_addr);
 	}
+	void GetLongInfo(char *ptr, int bufSize) const override;
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_Module; }
+
+	u32 GetDataAddr() const {
+		return nm.text_addr + nm.text_size;
+	}
+	u32 GetBSSAddr() const {
+		return nm.text_addr + nm.text_size + nm.data_size;
+	}
 
 	void DoState(PointerWrap &p) override
 	{
@@ -468,6 +477,19 @@ public:
 	PSPPointer<NativeModule> modulePtr;
 	bool isFake = false;
 };
+
+void PSPModule::GetLongInfo(char *ptr, int bufSize) const {
+	StringWriter w(ptr, bufSize);
+	w.F("%s: Version %d.%d. %d segments", nm.name, nm.version[0], nm.version[1], nm.nsegment).endl();
+	for (int i = 0; i < nm.nsegment; i++) {
+		w.F("  %08x (%08x bytes)\n", nm.segmentaddr[i], nm.segmentsize[i]);
+	}
+	w.F("Text: %08x (%08x bytes)\n", nm.text_addr, nm.text_size);
+	w.F("Data: %08x (%08x bytes)\n", GetDataAddr(), nm.data_size);
+	w.F("BSS: % 08x(% 08x bytes)\n", GetBSSAddr(), nm.bss_size);
+	w.F("Entry: %08x GP: %08x\n", nm.entry_addr, nm.gp_value);
+	w.F("Status: %08x\n", nm.status);
+}
 
 KernelObject *__KernelModuleObject()
 {
@@ -1286,17 +1308,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
 			reportedModule = true;
-
-			if (!strcmp(head->modname, "sceMpeg_library")) {
-				__MpegLoadModule(ver, module->crc);
-			}
-			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer") || !strcmp(head->modname, "libpsmfplayer") || !strcmp(head->modname, "psmf_jk") || !strcmp(head->modname, "jkPsmfP_library")) {
-				__PsmfPlayerLoadModule(devkitVersion, module->crc);
-			}
-			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
-				__AtracLoadModule(ver, module->crc);
-			}
-
 		}
 
 		const u8 *in = ptr;
@@ -1329,11 +1340,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
+			module->nm.bss_size = head->bss_size;
 
 			// Let's still try to allocate it.  It may use user memory.
 			u32 totalSize = 0;
 			for (int i = 0; i < 4; ++i) {
 				if (head->seg_size[i]) {
+					module->nm.segmentsize[i] = head->seg_size[i];
 					const u32 align = head->seg_align[i] - 1;
 					totalSize = ((totalSize + align) & ~align) + head->seg_size[i];
 				}
@@ -1347,10 +1360,36 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				error = SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 				module->Cleanup();
 				kernelObjects.Destroy<PSPModule>(module->GetUID());
-			} else {
-				error = 0;
-				module->memoryBlockAddr = addr;
-				module->memoryBlockSize = totalSize;
+				return nullptr;
+			}
+
+			error = 0;
+			module->memoryBlockAddr = addr;
+			module->memoryBlockSize = totalSize;
+			module->nm.text_addr = addr;
+			module->nm.version[0] = head->module_ver_hi;
+			module->nm.version[1] = head->module_ver_lo;
+
+			u32 seg_addr = addr;
+			for (int i = 0; i < 4; ++i) {
+				if (module->nm.segmentsize[i]) {
+					module->nm.segmentaddr[i] = seg_addr;
+					seg_addr += module->nm.segmentsize[i];
+				}
+			}
+
+			// TODO: Now that we can decrypt, we could/should actually let the ELF loader run!
+			// But at least here we have a usable address.
+
+			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
+			if (!strcmp(head->modname, "sceMpeg_library")) {
+				__MpegLoadModule(ver, module->crc);
+			}
+			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer") || !strcmp(head->modname, "libpsmfplayer") || !strcmp(head->modname, "psmf_jk") || !strcmp(head->modname, "jkPsmfP_library")) {
+				__PsmfPlayerLoadModule(devkitVersion, module->crc);
+			}
+			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
+				__AtracLoadModule(ver, module->crc, module->GetBSSAddr(), head->bss_size);
 			}
 
 			return module;
@@ -1736,9 +1775,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
-			__AtracLoadModule(modinfo->moduleVersion, module->crc);
+			__AtracLoadModule(modinfo->moduleVersion, module->crc, module->GetBSSAddr(), module->nm.bss_size);
 		}
-
 	}
 
 	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);
@@ -2723,7 +2761,7 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 				resultBufferOffset += 4;
 			}
 			idCount++;
-		}
+		}  // Actually, should we return fake modules too? They wouldn't be fake on the real hardware. Not like any games use this function though.
 	}
 
 	Memory::Write_U32(idCount, idCountAddr);

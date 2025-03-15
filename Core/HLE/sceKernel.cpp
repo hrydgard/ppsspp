@@ -489,6 +489,10 @@ void KernelObject::GetQuickInfo(char *ptr, int size) {
 	strcpy(ptr, "-");
 }
 
+void KernelObject::GetLongInfo(char *ptr, int size) const {
+	strcpy(ptr, "-");
+}
+
 KernelObjectPool::KernelObjectPool() {
 	memset(occupied, 0, sizeof(bool)*maxCount);
 	nextID = initialNextID;
