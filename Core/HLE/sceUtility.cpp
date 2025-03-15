@@ -117,7 +117,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x2ff, 0x00000000, "unk_0x2ff"),
 	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),
 	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
-	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),  // TODO: 0x8000 is likely too large.
+	ModuleLoadInfo(0x302, 0x00004000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),  // TODO: 0x8000 is likely too large.
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
