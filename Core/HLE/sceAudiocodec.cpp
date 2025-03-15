@@ -27,14 +27,6 @@
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
-struct AudioCodecContext {
-	u32_le unknown[6];
-	u32_le inDataPtr;   // 6
-	u32_le inDataSize;  // 7
-	u32_le outDataPtr;  // 8
-	u32_le audioSamplesPerFrame;  // 9
-	u32_le inDataSizeAgain;  // 10  ??
-};
 
 // g_audioDecoderContexts is to store current playing audios.
 std::map<u32, AudioDecoder *> g_audioDecoderContexts;
@@ -77,9 +69,16 @@ void __AudioCodecShutdown() {
 	clearDecoders();
 }
 
-static int sceAudiocodecInit(u32 ctxPtr, int codec) {
+// TODO: Actually support mono output.
+static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	PSPAudioType audioType = (PSPAudioType)codec;
 	if (IsValidCodec(audioType)) {
+		// Initialize the codec memory.
+		auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
+		ctx->unk_init = 0x5100601;  // Firmware version indicator?
+		ctx->err = 0;
+		// The rest of the initialization is done by the driver.
+
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
 			WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
@@ -93,6 +92,14 @@ static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	}
 	ERROR_LOG_REPORT(Log::ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
 	return 0;
+}
+
+static int sceAudiocodecInit(u32 ctxPtr, int codec) {
+	return __AudioCodecInitCommon(ctxPtr, codec, false);
+}
+
+static int sceAudiocodecInitMono(u32 ctxPtr, int codec) {
+	return __AudioCodecInitCommon(ctxPtr, codec, true);
 }
 
 static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
@@ -116,11 +123,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 
 		if (decoder != NULL) {
 			// Use SimpleAudioDec to decode audio
-			auto ctx = PSPPointer<AudioCodecContext>::Create(ctxPtr);  // On stack, no need to allocate.
+			auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
 			// Decode audio
 			int inDataConsumed = 0;
 			int outSamples = 0;
-			decoder->Decode(Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &inDataConsumed, 2, (int16_t *)Memory::GetPointerWrite(ctx->outDataPtr), &outSamples);
+			decoder->Decode(Memory::GetPointer(ctx->inBuf), ctx->srcFrameSize, &inDataConsumed, 2, (int16_t *)Memory::GetPointerWrite(ctx->outBuf), &outSamples);
 		}
 		DEBUG_LOG(Log::ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;
@@ -160,11 +167,11 @@ const HLEFunction sceAudiocodec[] = {
 	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,     "sceAudiocodecGetEDRAM",     'i', "xi"},
 	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM", 'i', "xi"},
 	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem", 'i', "xi"},
-	{0X59176A0F, nullptr,                              "sceAudiocodecAlcExtendParameter", '?', ""  },
+	{0X59176A0F, nullptr,                              "sceAudiocodec_59176A0F_GetBlockSizeMaybe", 'i', "xxx" },  // params are context, codec, outptr
+	{0X3DD7EE1A, &WrapI_UI<sceAudiocodecInitMono>,     "sceAudiocodecInitMono",     'i', "xi"},  // Used by sceAtrac for MOut* functions.
 };
 
-void Register_sceAudiocodec()
-{
+void Register_sceAudiocodec() {
 	RegisterModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
 }
 

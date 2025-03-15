@@ -86,7 +86,7 @@ std::string NiceTimeFormat(int seconds);
 // TODO: We actually also have Buffer, with .Printf(), which is almost as convenient. Should maybe improve that instead?
 class StringWriter {
 public:
-	explicit StringWriter(char *buffer) : p_(buffer) {
+	explicit StringWriter(char *buffer, size_t bufSize) : start_(buffer), p_(buffer), bufSize_(bufSize) {
 		buffer[0] = '\0';
 	}
 	StringWriter(const StringWriter &) = delete;
@@ -95,12 +95,18 @@ public:
 	// C: Copies a string literal (which always are zero-terminated, the count includes the zero) directly to the stream.
 	template<size_t T>
 	StringWriter &C(const char(&text)[T]) {
+		const size_t remainder = bufSize_ - (p_ - start_);
+		if (remainder <= T)
+			return *this;
 		memcpy(p_, text, T);
 		p_ += T - 1;
 		return *this;
 	}
 	// W: Writes a string_view to the stream.
 	StringWriter &W(std::string_view text) {
+		const size_t remainder = bufSize_ - (p_ - start_);
+		if (remainder <= text.length())
+			return *this;
 		memcpy(p_, text.data(), text.length());
 		p_ += text.length();
 		*p_ = '\0';
@@ -109,12 +115,20 @@ public:
 
 	// F: Formats into the buffer.
 	StringWriter &F(const char *format, ...);
-	StringWriter &endl() { return C("\n"); }
+	StringWriter &endl() {
+		const size_t remainder = bufSize_ - (p_ - start_);
+		if (remainder <= 2)
+			return *this;
+
+		return C("\n");
+	}
 
 	void Rewind(size_t offset) {
 		p_ -= offset;
 	}
 
 private:
+	char *start_;
 	char *p_;
+	size_t bufSize_;
 };

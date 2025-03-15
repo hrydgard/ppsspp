@@ -25,7 +25,7 @@ void Register_sceAtrac3plus();
 void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
-void __AtracLoadModule(int version, u32 crc);
+void __AtracLoadModule(int version, u32 crc, u32 bssAddr, int bssSize);
 
 enum AtracStatus : u8 {
 	ATRAC_STATUS_NO_DATA = 1,

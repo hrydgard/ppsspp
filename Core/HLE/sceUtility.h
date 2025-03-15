@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 class PointerWrap;
 
 // Valid values for PSP_SYSTEMPARAM_ID_INT_LANGUAGE
@@ -122,5 +124,21 @@ void __UtilityShutdown();
 
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority);
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority);
+
+typedef void (*ModuleLoadCallback)(int state, u32 loadAddr, u32 loadSize);
+
+struct ModuleLoadInfo {
+	ModuleLoadInfo(int m, u32 s, const char *name, ModuleLoadCallback cb = nullptr);
+	ModuleLoadInfo(int m, u32 s, const char *name, const int *d, ModuleLoadCallback cb = nullptr);
+	const char *name;
+	const int mod;
+	const u32 size;
+	const int *const dependencies;
+	ModuleLoadCallback notify;
+};
+
+const std::map<int, u32> &__UtilityGetLoadedModules();  // ->first gets the module ID, for use in the following two functions.
+const ModuleLoadInfo *__UtilityModuleInfo(int moduleID);
+bool __UtilityModuleGetMemoryRange(int moduleID, u32 *startPtr, u32 *sizePtr);
 
 void Register_sceUtility();

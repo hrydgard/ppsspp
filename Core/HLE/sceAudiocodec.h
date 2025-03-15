@@ -21,43 +21,42 @@
 
 class PointerWrap;
 
-typedef struct {
-	s32_le unk0;
-	s32_le unk4;
-	s32_le err; // 8
-	s32_le edramAddr; // 12
-	s32_le neededMem; // 16
-	s32_le unk20;
-	u32_le inBuf; // 24
-	s32_le unk28;
-	u32_le outBuf; // 32
-	s32_le unk36;
-	s8 unk40;
-	s8 unk41;
-	s8 unk42;
-	s8 unk43;
+struct SceAudiocodecCodec {
+	s32 unk_init;
+	s32 unk4;
+	s32 err; // 8
+	s32 edramAddr; // c  // presumably in ME memory?
+	s32 neededMem; // 10  // 0x102400 for Atrac3+
+	s32 inited;  // 14
+	u32 inBuf; // 18  // Before decoding, set this to the start of the raw frame.
+	s32 srcFrameSize; // 1c
+	u32 outBuf; // 20  // This is where the decoded data is written.
+	s32 dstBytesWritten; // 24
+	s8 unk40;  // 28  format or looping related
+	s8 unk41;  // 29  format or looping related
+	s16 unk42; // 2a
 	s8 unk44;
 	s8 unk45;
 	s8 unk46;
 	s8 unk47;
-	s32_le unk48;
-	s32_le unk52;
-	s32_le unk56;
-	s32_le unk60;
-	s32_le unk64;
-	s32_le unk68;
-	s32_le unk72;
-	s32_le unk76;
-	s32_le unk80;
-	s32_le unk84;
-	s32_le unk88;
-	s32_le unk92;
-	s32_le unk96;
-	s32_le unk100;
-	u32_le allocMem; // 104
+	s32 unk48;  // 30 Atrac3 (non-+) related. Zero with Atrac3+.
+	s32 unk52;  // 34
+	s32 unk56;
+	s32 unk60;
+	s32 unk64;
+	s32 unk68;
+	s32 unk72;
+	s32 unk76;
+	s32 unk80;
+	s32 unk84;
+	s32 unk88;
+	s32 unk92;
+	s32 unk96;
+	s32 unk100;
+	u32 allocMem; // 104
 	// make sure the size is 128
 	u8 unk[20];
-} SceAudiocodecCodec;
+};
 
 void __AudioCodecInit();
 void __AudioCodecShutdown();

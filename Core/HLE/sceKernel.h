@@ -29,7 +29,7 @@
 class PointerWrap;
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
-enum TMIDPurpose {
+enum TMIDType : int {
 	SCE_KERNEL_TMID_Thread             = 1,
 	SCE_KERNEL_TMID_Semaphore          = 2,
 	SCE_KERNEL_TMID_EventFlag          = 3,
@@ -131,6 +131,7 @@ public:
 	virtual const char *GetName() {return "[UNKNOWN KERNEL OBJECT]";}
 	virtual int GetIDType() const = 0;
 	virtual void GetQuickInfo(char *ptr, int size);
+	virtual void GetLongInfo(char *ptr, int bufSize) const;
 
 	// Implement the following in all subclasses:
 	// static u32 GetMissingErrorCode()

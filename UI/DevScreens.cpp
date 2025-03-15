@@ -481,7 +481,7 @@ UI::EventReturn SystemInfoScreen::CopySummaryToClipboard(UI::EventParams &e) {
 	auto si = GetI18NCategory(I18NCat::DIALOG);
 
 	char *summary = new char[100000];
-	StringWriter w(summary);
+	StringWriter w(summary, 100000);
 
 	std::string_view build = "Release";
 #ifdef _DEBUG
