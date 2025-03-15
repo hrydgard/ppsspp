@@ -164,6 +164,7 @@ struct ImConfig {
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
 	int selectedAtracCtx = 0;
+	u32 selectedMemoryBlock = 0;
 	uint64_t selectedTexAddr = 0;
 
 	bool realtimePixelPreview = false;

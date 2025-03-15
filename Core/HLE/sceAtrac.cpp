@@ -95,7 +95,11 @@ const AtracBase *__AtracGetCtx(int i, u32 *type) {
 void __AtracInit() {
 	_assert_(sizeof(SceAtracContext) == 256);
 
-	atracInited = true;
+	atracLibVersion = 0;
+	atracLibCrc = 0;
+
+	atracInited = true;  // TODO: This should probably only happen in __AtracNotifyLoadModule.
+
 	memset(atracContexts, 0, sizeof(atracContexts));
 
 	// Start with 2 of each in this order.
@@ -114,11 +118,16 @@ void __AtracShutdown() {
 	}
 }
 
-void __AtracLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
+void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
 	atracLibVersion = version;
 	atracLibCrc = crc;
 	INFO_LOG(Log::ME, "Atrac module loaded: atracLibVersion 0x%0x, atracLibcrc %x, bss: %x (%x bytes)", atracLibVersion, atracLibCrc, bssAddr, bssSize);
 	// Later, save bssAddr/bssSize and use them to return context addresses.
+}
+
+void __AtracNotifyUnloadModule() {
+	atracLibVersion = 0;
+	atracLibCrc = 0;
 }
 
 void __AtracDoState(PointerWrap &p) {
