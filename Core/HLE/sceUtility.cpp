@@ -108,13 +108,13 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x104, 0x00002000, "net_parse_http"),
 	ModuleLoadInfo(0x105, 0x00028000, "net_http", httpModuleDeps),
 	ModuleLoadInfo(0x106, 0x00044000, "net_ssl", sslModuleDeps),
-	ModuleLoadInfo(0x107, 0x00010000, "0x107"),
+	ModuleLoadInfo(0x107, 0x00010000, "unk_0x107"),
 	ModuleLoadInfo(0x108, 0x00008000, "usb_pspcm", httpStorageModuleDeps),
 	ModuleLoadInfo(0x200, 0x00000000, "usb_mic"),
 	ModuleLoadInfo(0x201, 0x00000000, "usb_cam"),
 	ModuleLoadInfo(0x202, 0x00000000, "usb_gps"),
-	ModuleLoadInfo(0x203, 0x00000000, "0x203"),
-	ModuleLoadInfo(0x2ff, 0x00000000, "0x2ff"),
+	ModuleLoadInfo(0x203, 0x00000000, "usb_unk_0x203"),
+	ModuleLoadInfo(0x2ff, 0x00000000, "unk_0x2ff"),
 	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),
 	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
 	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),  // TODO: 0x8000 is likely too large.
@@ -123,16 +123,16 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
 	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
 	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
-	ModuleLoadInfo(0x308, 0x0003c000, "av_", mp4ModuleDeps),
+	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps),
 	ModuleLoadInfo(0x3fe, 0x00000000, "me_stuff"),
 	ModuleLoadInfo(0x3ff, 0x00000000, "me_core"),  // ME Core?
 	ModuleLoadInfo(0x400, 0x0000c000, "np_common"),
 	ModuleLoadInfo(0x401, 0x00018000, "np_service"),
 	ModuleLoadInfo(0x402, 0x00048000, "np_matching2"),
-	ModuleLoadInfo(0x403, 0x0000e000, "0x403"),
+	ModuleLoadInfo(0x403, 0x0000e000, "np_unk_0x403"),
 	ModuleLoadInfo(0x500, 0x00000000, "np_drm"),
 	ModuleLoadInfo(0x600, 0x00000000, "irda"),
-	ModuleLoadInfo(0x601, 0x00000000, "0x601"),
+	ModuleLoadInfo(0x601, 0x00000000, "unk_0x601"),
 };
 
 // Only a single dialog is allowed at a time.
@@ -576,7 +576,7 @@ static int LoadModuleInternal(u32 module) {
 	u32 allocSize = info->size;
 	u32 address = 0;
 	char name[128];
-	snprintf(name, sizeof(name), "UtilityModule/%x", module);
+	snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 	if (allocSize != 0) {
 		address = userMemory.Alloc(allocSize, false, name);
 	}

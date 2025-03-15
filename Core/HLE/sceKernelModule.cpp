@@ -277,9 +277,9 @@ public:
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "Module"; }
 	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "%s %d.%d name=%s gp=%08x entry=%08x",
-			isFake ? "faked " : "",
-			nm.version[0], nm.version[1],
+		snprintf(ptr, size, "%d.%d %sname=%s gp=%08x entry=%08x",
+			nm.version[1], nm.version[0],
+			isFake ? "(faked) " : "",
 			nm.name,
 			nm.gp_value,
 			nm.entry_addr);

@@ -1575,6 +1575,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			}
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Core")) {
+			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::EndMenu();
+		}
 		if (ImGui::BeginMenu("CPU")) {
 			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
 			ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
@@ -1582,8 +1586,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
-			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
-			ImGui::Separator();
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Memory")) {
 			for (int i = 0; i < 4; i++) {
 				char title[64];
 				snprintf(title, sizeof(title), "Memory %d", i + 1);
@@ -1592,7 +1597,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("HLE")) {
+		if (ImGui::BeginMenu("OS HLE")) {
 			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
 			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
 			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
