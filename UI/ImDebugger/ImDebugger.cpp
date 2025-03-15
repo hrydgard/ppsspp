@@ -10,6 +10,7 @@
 #include "Common/Log/LogManager.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -21,7 +22,6 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
-#include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/NetInetConstants.h"
@@ -1852,21 +1852,38 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 
 	ImVec2 size(0, -ImGui::GetFrameHeightWithSpacing());
 
+	auto node = [&](const char *title, uint32_t start, uint32_t len) {
+		if (ImGui::TreeNode(title)) {
+			if (ImGui::Selectable("(start)", cfg.selectedMemoryBlock == start)) {
+				cfg.selectedMemoryBlock = start;
+				GotoAddr(start);
+			}
+			const std::vector<MemBlockInfo> info = FindMemInfo(start, len);
+			for (auto &iter : info) {
+				ImGui::PushID(iter.start);
+				if (ImGui::Selectable(iter.tag.c_str(), cfg.selectedMemoryBlock == iter.start)) {
+					cfg.selectedMemoryBlock = iter.start;
+					GotoAddr(iter.start);
+				}
+				ImGui::PopID();
+			}
+			const u32 end = start + len;
+			if (ImGui::Selectable("(end)", cfg.selectedMemoryBlock == end)) {
+				cfg.selectedMemoryBlock = end;
+				GotoAddr(end);
+			}
+			ImGui::TreePop();
+		}
+	};
+
 	// Main views - list of interesting addresses to the left, memory view to the right.
 	if (ImGui::BeginChild("addr_list", ImVec2(200.0f, size.y), ImGuiChildFlags_ResizeX)) {
-		if (ImGui::Selectable("Scratch")) {
-			GotoAddr(0x00010000);
-		}
-		if (ImGui::Selectable("Kernel RAM")) {
-			GotoAddr(0x08000000);
-		}
-		if (ImGui::Selectable("User RAM")) {
-			GotoAddr(0x08800000);
-		}
-		if (ImGui::Selectable("VRAM")) {
-			GotoAddr(0x04000000);
-		}
+		node("Scratch",    0x00010000, 0x00004000);
+		node("Kernel RAM", 0x08000000, 0x00800000);
+		node("User RAM"  , 0x08800000, 0x01800000);
+		node("VRAM",       0x04000000, 0x00200000);
 	}
+
 	ImGui::EndChild();
 
 	ImGui::SameLine();
