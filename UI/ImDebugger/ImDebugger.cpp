@@ -999,7 +999,9 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", ctx->GetOutputChannels());
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", ctx->CurrentSample());
+				int pos;
+				ctx->GetNextDecodePosition(&pos);
+				ImGui::Text("%d", pos);
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", ctx->RemainingFrames());
 			}
@@ -1014,9 +1016,13 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			char header[32];
 			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);
 			if (ctx && ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::ProgressBar((float)ctx->CurrentSample() / (float)ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
+				int pos;
+				ctx->GetNextDecodePosition(&pos);
+				int endSample, loopStart, loopEnd;
+				ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
+				ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
 				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
-				ImGui::Text("cur/end sample: %d/%d", ctx->CurrentSample(), ctx->GetTrack().endSample);
+				ImGui::Text("cur/end sample: %d/%d", pos, endSample);
 				ImGui::Text("ctx addr: "); ImGui::SameLine(); ImClickableValue("addr", ctx->Decoder()->GetCtxPtr(), control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 				ImGui::Text("loop: %d", ctx->LoopNum());
 			}
