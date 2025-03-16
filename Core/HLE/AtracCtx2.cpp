@@ -46,11 +46,7 @@ void Atrac2::DoState(PointerWrap &p) {
 void Atrac2::WriteContextToPSPMem() {
 }
 
-int Atrac2::Analyze(const Track &track, u32 addr, u32 size) {
-	return 0;
-}
-
-int Atrac2::AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 filesize) {
+int Atrac2::Analyze(const Track &track, u32 addr, u32 size, u32 filesize) {
 	return 0;
 }
 

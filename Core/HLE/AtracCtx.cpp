@@ -241,7 +241,7 @@ void Track::DebugLog() {
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 }
 
-int Atrac::Analyze(const Track &track, u32 addr, u32 size) {
+int Atrac::Analyze(const Track &track, u32 addr, u32 size, u32 fileSize) {
 	first_ = {};
 	first_.addr = addr;
 	first_.size = size;
@@ -258,14 +258,16 @@ int Atrac::Analyze(const Track &track, u32 addr, u32 size) {
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
+	bool aa3 = fileSize != 0;
+
 	// TODO: Validate stuff.
-	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
+	if (!aa3 && Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
 		ERROR_LOG(Log::ME, "Couldn't find RIFF header");
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
 	track_ = track;
-	first_._filesize_dontuse = track_.fileSize;
+	first_._filesize_dontuse = aa3 ? fileSize : track_.fileSize;
 	track_.DebugLog();
 	return 0;
 }
@@ -533,17 +535,6 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 		track->endSample = ((track->fileSize - track->dataByteOffset) / track->bytesPerFrame) * track->SamplesPerFrame();
 	}
 	track->endSample -= 1;
-	return 0;
-}
-
-int Atrac::AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 fileSize) {
-	first_.addr = addr;
-	first_.size = size;
-	first_._filesize_dontuse = fileSize;
-
-	AnalyzeReset();
-
-	track_ = track;
 	return 0;
 }
 

@@ -581,7 +581,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize, 0);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -616,7 +616,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize, 0);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -639,7 +639,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize, 0);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -671,7 +671,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize, 0);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -795,7 +795,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize, 0);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -819,7 +819,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize, 0);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -840,7 +840,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize, 0);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -874,7 +874,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize, 0);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -902,7 +902,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->AnalyzeAA3(track, buffer, bufferSize, fileSize);
+	ret = atrac->Analyze(track, buffer, bufferSize, fileSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -1035,7 +1035,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->AnalyzeAA3(track, buffer, readSize, fileSize);
+	ret = atrac->Analyze(track, buffer, readSize, fileSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
