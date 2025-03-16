@@ -35,13 +35,11 @@
 //   * Half Minute Hero (bufsize 65536)
 //   * Flatout (tricky! needs investigation)
 
-Atrac2::Atrac2(int codecType) {
-	track_.codecType = codecType;
-}
 
-void Atrac2::SetIDAndAddr(int atracID, u32 contextAddr) {
-	// Note: We don't allocate a context, we use memory directly from the loaded atrac binary (even if it's otherwise unused).
+Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
 	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
+	track_.codecType = codecType;
+	context_->info.codec = codecType;
 }
 
 void Atrac2::DoState(PointerWrap &p) {

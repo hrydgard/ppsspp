@@ -7,10 +7,9 @@
 
 class Atrac2 : public AtracBase {
 public:
-	Atrac2(int codecType);
+	Atrac2(int atracID, u32 contextAddr, int codecType);
 	void DoState(PointerWrap &p) override;
 
-	void SetIDAndAddr(int atracID, u32 contextAddr) override;
 	int GetID() const override { return 0; }
 
 	int GetNextDecodePosition(int *pos) const { return 0; }
