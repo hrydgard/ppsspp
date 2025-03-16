@@ -253,6 +253,8 @@ public:
 	virtual u32 GetNextSamples() = 0;
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
+	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample);
+
 protected:
 	Track track_{};
 	u16 outputChannels_ = 2;

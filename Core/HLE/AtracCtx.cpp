@@ -547,6 +547,13 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
 	return AnalyzeAA3Track(addr, size, fileSize, &track_);
 }
 
+int AtracBase::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) {
+	*endSample = GetTrack().endSample;
+	*loopStartSample = GetTrack().loopStartSample == -1 ? -1 : GetTrack().loopStartSample - GetTrack().FirstSampleOffsetFull();
+	*loopEndSample = GetTrack().loopEndSample == -1 ? -1 : GetTrack().loopEndSample - GetTrack().FirstSampleOffsetFull();
+	return 0;
+}
+
 void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	u32 readOffset = first_.fileoffset;
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {

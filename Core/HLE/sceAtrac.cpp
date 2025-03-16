@@ -482,20 +482,20 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		return hleLogError(Log::ME, err);
 	}
 
-	auto outEndSample = PSPPointer<u32_le>::Create(outEndSampleAddr);
-	if (outEndSample.IsValid())
-		*outEndSample = atrac->GetTrack().endSample;
-	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
-	if (outLoopStart.IsValid())
-		*outLoopStart = atrac->GetTrack().loopStartSample == -1 ? -1 : atrac->GetTrack().loopStartSample - atrac->GetTrack().FirstSampleOffsetFull();
-	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
-	if (outLoopEnd.IsValid())
-		*outLoopEnd = atrac->GetTrack().loopEndSample == -1 ? -1 : atrac->GetTrack().loopEndSample - atrac->GetTrack().FirstSampleOffsetFull();
-
-	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
-		return hleReportError(Log::ME, 0, "invalid address");
+	int endSample;
+	int loopStart;
+	int loopEnd;
+	int retval = atrac->GetSoundSample(&endSample, &loopStart, &loopEnd);
+	if (Memory::IsValidAddress(outEndSampleAddr)) {
+		Memory::WriteUnchecked_U32(endSample, outEndSampleAddr);
 	}
-	return hleLogDebug(Log::ME, 0);
+	if (Memory::IsValidAddress(outLoopStartSampleAddr)) {
+		Memory::WriteUnchecked_U32(loopStart, outLoopStartSampleAddr);
+	}
+	if (Memory::IsValidAddress(outLoopEndSampleAddr)) {
+		Memory::WriteUnchecked_U32(loopEnd, outLoopEndSampleAddr);
+	}
+	return hleLogDebug(Log::ME, retval);
 }
 
 // Games call this function to get some info for add more stream data,
