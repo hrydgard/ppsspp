@@ -194,8 +194,8 @@ public:
 		outputChannels_ = channels;
 	}
 
-	// Refactor?
-	int atracID_ = -1;
+	virtual void SetID(int id) = 0;
+	virtual int GetID() const = 0;
 
 	PSPPointer<SceAtracContext> context_{};
 
@@ -223,8 +223,8 @@ public:
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
 
-	virtual int Analyze(u32 addr, u32 size) = 0;
-	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
+	// Set filesize to 0 for autodetect, unless you are using aa3.
+	virtual int Analyze(const Track &track, u32 addr, u32 size, u32 filesize) = 0;
 
 	void UpdateContextFromPSPMem();
 	virtual void WriteContextToPSPMem() = 0;
@@ -275,11 +275,18 @@ public:
 	void DoState(PointerWrap &p) override;
 	void WriteContextToPSPMem() override;
 
-	int Analyze(u32 addr, u32 size) override;
-	int AnalyzeAA3(u32 addr, u32 size, u32 filesize) override;
+	int Analyze(const Track &track, u32 addr, u32 size, u32 filesize) override;
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
+
+	void SetID(int id) override {
+		atracID_ = id;
+	}
+	int GetID() const override {
+		return atracID_;
+	}
+
 	u32 SecondBufferSize() const override {
 		return second_.size;
 	}
@@ -361,4 +368,7 @@ private:
 	u32 bufferPos_ = 0;
 	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
+
+	// Refactor?
+	int atracID_ = -1;
 };

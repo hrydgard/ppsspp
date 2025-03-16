@@ -241,8 +241,7 @@ void Track::DebugLog() {
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 }
 
-int Atrac::Analyze(u32 addr, u32 size) {
-	track_ = {};
+int Atrac::Analyze(const Track &track, u32 addr, u32 size, u32 fileSize) {
 	first_ = {};
 	first_.addr = addr;
 	first_.size = size;
@@ -259,16 +258,18 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
+	bool aa3 = fileSize != 0;
+
 	// TODO: Validate stuff.
-	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
+	if (!aa3 && Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
 		ERROR_LOG(Log::ME, "Couldn't find RIFF header");
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
-	int retval = AnalyzeAtracTrack(addr, size, &track_);
-	first_._filesize_dontuse = track_.fileSize;
+	track_ = track;
+	first_._filesize_dontuse = aa3 ? fileSize : track_.fileSize;
 	track_.DebugLog();
-	return retval;
+	return 0;
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
@@ -537,16 +538,6 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	return 0;
 }
 
-int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
-	first_.addr = addr;
-	first_.size = size;
-	first_._filesize_dontuse = fileSize;
-
-	AnalyzeReset();
-
-	return AnalyzeAA3Track(addr, size, fileSize, &track_);
-}
-
 int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
 	*endSample = track_.endSample;
 	*loopStartSample = track_.loopStartSample == -1 ? -1 : track_.loopStartSample - track_.FirstSampleOffsetFull();
@@ -756,6 +747,11 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels)
 	}
 	CreateDecoder();
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+
+	if (track_.channels == 2 && outputChannels == 1) {
+		// We still do all the tasks, we just return this error.
+		return SCE_ERROR_ATRAC_NOT_MONO;
+	}
 	return 0;
 }
 
