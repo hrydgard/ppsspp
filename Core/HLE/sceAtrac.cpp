@@ -581,14 +581,14 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize, 0);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
 
 	// not sure the real delay time
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
@@ -616,12 +616,13 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
+
+	return hleDelayResult(hleLogDebug(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
@@ -639,12 +640,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -671,12 +667,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -795,11 +786,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -819,11 +806,11 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -840,12 +827,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -874,12 +856,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -902,12 +879,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, fileSize);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -975,6 +947,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleReportError(Log::ME, 0, "invalid pointers");
 	}
 
+	int codecType = atracContextTypes[atracID];
+
 	bool jointStereo = false;
 	if (atrac->CodecType() == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
@@ -991,7 +965,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		}
 	}
 
-	atrac->InitLowLevel(paramsAddr, jointStereo);
+	atrac->InitLowLevel(paramsAddr, jointStereo, codecType);
 
 	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";
@@ -1035,12 +1009,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, fileSize);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);

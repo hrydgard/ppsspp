@@ -46,10 +46,6 @@ void Atrac2::DoState(PointerWrap &p) {
 void Atrac2::WriteContextToPSPMem() {
 }
 
-int Atrac2::Analyze(const Track &track, u32 addr, u32 size, u32 filesize) {
-	return 0;
-}
-
 int Atrac2::RemainingFrames() const {
 	return 0;
 }
@@ -83,7 +79,7 @@ int Atrac2::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSam
 	return 0;
 }
 
-int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
+int Atrac2::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
 	if (readSize == bufferSize) {
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	} else {
@@ -105,25 +101,7 @@ u32 Atrac2::GetNextSamples() {
 	return 0;
 }
 
-void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo) {
-	track_.AnalyzeReset();
-	track_.channels = Memory::Read_U32(paramsAddr);
-	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
-	track_.bytesPerFrame = Memory::Read_U32(paramsAddr + 8);
-	if (track_.codecType == PSP_MODE_AT_3) {
-		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
-		track_.bitrate = (track_.bitrate + 511) >> 10;
-		track_.jointStereo = false;
-	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
-		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
-		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
-		track_.jointStereo = false;
-	}
-	track_.dataByteOffset = 0;
-	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
-	currentSample_ = 0;
-	CreateDecoder();
-	WriteContextToPSPMem();
+void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
