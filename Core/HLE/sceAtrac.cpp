@@ -153,7 +153,7 @@ void __AtracDoState(PointerWrap &p) {
 		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
-			DoSubClass<AtracBase, Atrac>(p, atracContexts[i]);
+			DoSubClass<AtracBase, Atrac>(p, atracContexts[i], i);
 		} else {
 			delete atracContexts[i];
 			atracContexts[i] = nullptr;
@@ -170,17 +170,6 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
-static AtracBase *allocAtrac(int codecType = 0) {
-	if (g_Config.bUseExperimentalAtrac) {
-		// Note: This assert isn't really valid until we savestate the new contexts.
-		_dbg_assert_(g_atracBSS != 0);
-		return new Atrac2(codecType);
-	} else {
-		Atrac *atrac = new Atrac(codecType);
-		return atrac;
-	}
-}
-
 static AtracBase *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_MAX_ATRAC_IDS) {
 		return nullptr;
@@ -192,22 +181,23 @@ static AtracBase *getAtrac(int atracID) {
 	return atrac;
 }
 
-static int RegisterAtrac(AtracBase *atrac) {
+static int AllocAndRegisterAtrac(int codecType) {
 	for (int i = 0; i < g_atracMaxContexts; ++i) {
-		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
-			atracContexts[i] = atrac;
+		if (atracContextTypes[i] == codecType && atracContexts[i] == 0) {
 			if (g_Config.bUseExperimentalAtrac) {
 				// Note: This assert isn't really valid until we savestate the new contexts.
 				_dbg_assert_(g_atracBSS != 0);
+				atracContexts[i] = new Atrac2(i, GetAtracContextAddress(i), codecType);
+			} else {
+				atracContexts[i] = new Atrac(i, codecType);
 			}
-			atrac->SetIDAndAddr(i, GetAtracContextAddress(i));
 			return i;
 		}
 	}
 	return SCE_ERROR_ATRAC_NO_ATRACID;
 }
 
-static int deleteAtrac(int atracID) {
+static int UnregisterAndDeleteAtrac(int atracID) {
 	if (atracID >= 0 && atracID < PSP_MAX_ATRAC_IDS) {
 		if (atracContexts[atracID] != nullptr) {
 			delete atracContexts[atracID];
@@ -225,10 +215,8 @@ static u32 sceAtracGetAtracID(int codecType) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_INVALID_CODECTYPE, "invalid codecType");
 	}
 
-	AtracBase *atrac = allocAtrac(codecType);
-	int atracID = RegisterAtrac(atrac);
+	int atracID = AllocAndRegisterAtrac(codecType);
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -543,7 +531,7 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 }
 
 static u32 sceAtracReleaseAtracID(int atracID) {
-	int result = deleteAtrac(atracID);
+	int result = UnregisterAndDeleteAtrac(atracID);
 	if (result < 0) {
 		if (atracID >= 0) {
 			return hleLogError(Log::ME, result, "did not exist");
@@ -655,17 +643,15 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return hleLogError(Log::ME, ret);
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	int atracID = RegisterAtrac(atrac);
-	if (atracID < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, atracID, "no free ID");
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 2);
+	if (ret < 0) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
@@ -682,17 +668,15 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 		return hleLogError(Log::ME, ret);
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	int atracID = RegisterAtrac(atrac);
-	if (atracID < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, atracID, "no free ID");
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
+	if (ret < 0) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
@@ -803,6 +787,10 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 	}
 
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
+	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
+		// Must not delay.
+		return hleLogError(Log::ME, ret);
+	}
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -823,10 +811,11 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	}
 
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
-	if (ret < 0) {
+	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
+	// It's OK if this fails, at least with NO_MONO...
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -842,17 +831,15 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	int atracID = RegisterAtrac(atrac);
-	if (atracID < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, atracID, "no free ID");
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 1);
+	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
 	}
 	return hleDelayResult(hleLogDebugOrError(Log::ME, atracID), "atrac set data", 100);
 }
@@ -871,19 +858,16 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-
-	int atracID = RegisterAtrac(atrac);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 1);
+	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
+	}
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
@@ -894,17 +878,15 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return hleLogError(Log::ME, ret);
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	int atracID = RegisterAtrac(atrac);
-	if (atracID < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, atracID, "no free ID");
+	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 2);
+	if (ret < 0) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set aa3 data", 100);
@@ -1013,18 +995,17 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(Log::ME, ret);
 	}
 
-	AtracBase *atrac = allocAtrac();
-	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
+	}
+
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
-		delete atrac;
+		UnregisterAndDeleteAtrac(atracID);
 		return hleLogError(Log::ME, ret);
 	}
 
-	int atracID = RegisterAtrac(atrac);
-	if (atracID < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, atracID, "no free ID");
-	}
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 

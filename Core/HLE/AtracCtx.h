@@ -188,7 +188,6 @@ public:
 		outputChannels_ = channels;
 	}
 
-	virtual void SetIDAndAddr(int atracID, u32 contextAddr) = 0;
 	virtual int GetID() const = 0;
 
 	PSPPointer<SceAtracContext> context_{};
@@ -247,7 +246,7 @@ protected:
 
 class Atrac : public AtracBase {
 public:
-	Atrac(int codecType = 0) {
+	Atrac(int atracID, int codecType = 0) : atracID_(atracID) {
 		if (codecType) {
 			track_.codecType = codecType;
 		}
@@ -270,9 +269,6 @@ public:
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
 
-	void SetIDAndAddr(int atracID, u32 contextAddr) override {
-		atracID_ = atracID;
-	}
 	int GetID() const override {
 		return atracID_;
 	}

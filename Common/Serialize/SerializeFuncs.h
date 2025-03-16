@@ -70,16 +70,15 @@ void DoClass(PointerWrap &p, T *&x) {
 	x->DoState(p);
 }
 
-template<class T, class S>
-void DoSubClass(PointerWrap &p, T *&x) {
+template<class T, class S, typename... Args>
+void DoSubClass(PointerWrap &p, T *&x, Args... args) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		if (x != nullptr)
 			delete x;
-		x = new S();
+		x = new S(args...);
 	}
 	x->DoState(p);
 }
-
 
 template<class T>
 void DoArray(PointerWrap &p, T *x, int count) {
