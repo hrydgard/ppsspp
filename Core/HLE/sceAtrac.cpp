@@ -550,7 +550,14 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 	bool delay = false;
 	int res = atrac->ResetPlayPosition(sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf, &delay);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, res), "reset play pos", 3000 + delay ? 200 : 0);
+	if (res < 0) {
+		if (delay) {
+			return hleDelayResult(hleLogError(Log::ME, res), "reset play pos", 200);
+		} else {
+			return hleLogError(Log::ME, res);
+		}
+	}
+	return hleDelayResult(hleLogDebug(Log::ME, res), "reset play pos", 3000);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
