@@ -666,17 +666,13 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	if (atrac->GetTrack().loopinfo.size() == 0) {
-		if (loopNum == -1) {
-			// This is very common and not really a problem.
-			return hleLogDebug(Log::ME, SCE_ERROR_ATRAC_NO_LOOP_INFORMATION, "no loop information to write to!");
-		} else {
-			return hleLogError(Log::ME, SCE_ERROR_ATRAC_NO_LOOP_INFORMATION, "no loop information to write to!");
-		}
-	}
 
-	atrac->SetLoopNum(loopNum);
-	return hleLogDebug(Log::ME, 0);
+	int ret = atrac->SetLoopNum(loopNum);
+	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && loopNum == -1) {
+		// Not really an issue
+		return hleLogDebug(Log::ME, ret);
+	}
+	return hleLogDebugOrError(Log::ME, ret);
 }
 
 static int sceAtracReinit(int at3Count, int at3plusCount) {
@@ -762,7 +758,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->GetTrack().channels != 1) {
+	if (atrac->Channels() != 1) {
 		// It seems it still sets the data.
 		atrac->SetData(buffer, readSize, bufferSize, 2);
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
@@ -784,7 +780,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->GetTrack().channels != 1) {
+	if (atrac->Channels() != 1) {
 		// It seems it still sets the data.
 		atrac->SetData(buffer, bufferSize, bufferSize, 2);
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
@@ -802,7 +798,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->GetTrack().channels != 1) {
+	if (atrac->Channels() != 1) {
 		delete atrac;
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
@@ -826,7 +822,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->GetTrack().channels != 1) {
+	if (atrac->Channels() != 1) {
 		delete atrac;
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
@@ -885,7 +881,7 @@ struct At3HeaderMap {
 	u8 jointStereo;
 
 	bool Matches(const AtracBase *at) const {
-		return bytes == at->GetTrack().BytesPerFrame() && channels == at->GetTrack().channels;
+		return bytes == at->BytesPerFrame() && channels == at->Channels();
 	}
 };
 
@@ -921,7 +917,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			WARN_LOG_REPORT_ONCE(at3headermap, Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
+			WARN_LOG_REPORT_ONCE(at3headermap, Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->BytesPerFrame(), atrac->Channels());
 			// TODO: Should we return an error code for these values?
 		}
 	}
@@ -929,7 +925,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
 	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";
+	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";
 	return hleLogInfo(Log::ME, 0, "%s %s audio", codecName, channelName);
 }
 

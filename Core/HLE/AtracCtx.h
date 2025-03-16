@@ -184,13 +184,7 @@ public:
 
 	virtual void DoState(PointerWrap &p) = 0;
 
-	const Track &GetTrack() const {
-		return track_;
-	}
-
-	int Channels() const {
-		return track_.channels;
-	}
+	virtual int Channels() const = 0;
 
 	int GetOutputChannels() const {
 		return outputChannels_;
@@ -209,8 +203,10 @@ public:
 		return bufferState_;
 	}
 
+	virtual int SetLoopNum(int loopNum) = 0;
 	virtual int LoopNum() const = 0;
 	virtual int LoopStatus() const = 0;
+
 	u32 CodecType() const {
 		return track_.codecType;
 	}
@@ -224,6 +220,7 @@ public:
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
 	virtual int Bitrate() const = 0;
+	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
 
 	virtual int Analyze(u32 addr, u32 size) = 0;
@@ -235,7 +232,6 @@ public:
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
-	virtual void SetLoopNum(int loopNum);
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
 	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
@@ -287,6 +283,9 @@ public:
 	u32 SecondBufferSize() const override {
 		return second_.size;
 	}
+	int Channels() const override {
+		return track_.channels;
+	}
 	int LoopNum() const override {
 		return loopNum_;
 	}
@@ -299,6 +298,9 @@ public:
 	int Bitrate() const override {
 		return track_.Bitrate();
 	}
+	int BytesPerFrame() const override {
+		return track_.BytesPerFrame();
+	}
 	int SamplesPerFrame() const override {
 		return track_.SamplesPerFrame();
 	}
@@ -307,6 +309,8 @@ public:
 	Track &GetTrackMut() {
 		return track_;
 	}
+
+	int SetLoopNum(int loopNum) override;
 
 	// Ask where in memory new data should be written.
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;

@@ -20,6 +20,9 @@ public:
 	int Bitrate() const override { return 0; }
 	int LoopNum() const override { return 0; }
 	int SamplesPerFrame() const override { return 0; }
+	int Channels() const override { return 2; }
+	int BytesPerFrame() const override { return 0; }
+	int SetLoopNum(int loopNum) override { return 0; }
 
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int AddStreamData(u32 bytesToAdd) override;

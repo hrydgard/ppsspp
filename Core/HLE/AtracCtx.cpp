@@ -548,9 +548,9 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
 }
 
 int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
-	*endSample = GetTrack().endSample;
-	*loopStartSample = GetTrack().loopStartSample == -1 ? -1 : GetTrack().loopStartSample - GetTrack().FirstSampleOffsetFull();
-	*loopEndSample = GetTrack().loopEndSample == -1 ? -1 : GetTrack().loopEndSample - GetTrack().FirstSampleOffsetFull();
+	*endSample = track_.endSample;
+	*loopStartSample = track_.loopStartSample == -1 ? -1 : track_.loopStartSample - track_.FirstSampleOffsetFull();
+	*loopEndSample = track_.loopEndSample == -1 ? -1 : track_.loopEndSample - track_.FirstSampleOffsetFull();
 	return 0;
 }
 
@@ -1110,7 +1110,11 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	return 0;
 }
 
-void AtracBase::SetLoopNum(int loopNum) {
+int Atrac::SetLoopNum(int loopNum) {
+	if (track_.loopinfo.size() == 0) {
+		return SCE_ERROR_ATRAC_NO_LOOP_INFORMATION;
+	}
+
 	// Spammed in MHU
 	loopNum_ = loopNum;
 	// Logic here looks wacky?
@@ -1122,13 +1126,14 @@ void AtracBase::SetLoopNum(int loopNum) {
 		track_.loopEndSample = track_.endSample + track_.FirstSampleOffsetFull();
 	}
 	WriteContextToPSPMem();
+	return 0;
 }
 
 int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
 	*delay = false;
 	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
-	} else if ((u32)sample + GetTrack().firstSampleOffset > (u32)GetTrack().endSample + GetTrack().firstSampleOffset) {
+	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return SCE_ERROR_ATRAC_BAD_SAMPLE;
 	}

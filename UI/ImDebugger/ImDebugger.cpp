@@ -1018,9 +1018,11 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			if (ctx && ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
 				int pos;
 				ctx->GetNextDecodePosition(&pos);
-				ImGui::ProgressBar((float)pos / (float)ctx->GetTrack().endSample, ImVec2(200.0f, 0.0f));
+				int endSample, loopStart, loopEnd;
+				ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
+				ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
 				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
-				ImGui::Text("cur/end sample: %d/%d", pos, ctx->GetTrack().endSample);
+				ImGui::Text("cur/end sample: %d/%d", pos, endSample);
 				ImGui::Text("ctx addr: "); ImGui::SameLine(); ImClickableValue("addr", ctx->Decoder()->GetCtxPtr(), control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 				ImGui::Text("loop: %d", ctx->LoopNum());
 			}
