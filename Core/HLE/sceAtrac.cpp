@@ -702,7 +702,6 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-
 	int ret = atrac->SetLoopNum(loopNum);
 	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && loopNum == -1) {
 		// Not really an issue
@@ -800,14 +799,8 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->Channels() != 1) {
-		// It seems it still sets the data.
-		atrac->SetData(buffer, readSize, bufferSize, 2);
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
-	} else {
-		ret = atrac->SetData(buffer, readSize, bufferSize, 1);
-		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
-	}
+	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
@@ -830,14 +823,8 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->Channels() != 1) {
-		// It seems it still sets the data.
-		atrac->SetData(buffer, bufferSize, bufferSize, 2);
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
-	} else {
-		ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
-		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
-	}
+	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.

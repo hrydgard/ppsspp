@@ -757,6 +757,10 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels)
 	CreateDecoder();
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
 
+	if (track_.channels == 2 && outputChannels == 1) {
+		// We still do all the tasks, we just return this error.
+		return SCE_ERROR_ATRAC_NOT_MONO;
+	}
 	return 0;
 }
 
