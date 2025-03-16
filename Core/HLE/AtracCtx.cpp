@@ -39,6 +39,10 @@ const int DATA_CHUNK_MAGIC = 0x61746164;
 const int SMPL_CHUNK_MAGIC = 0x6C706D73;
 const int FACT_CHUNK_MAGIC = 0x74636166;
 
+Atrac::~Atrac() {
+	ResetData();
+}
+
 void Atrac::DoState(PointerWrap &p) {
 	auto s = p.Section("Atrac", 1, 9);
 	if (!s)
@@ -167,29 +171,17 @@ void Atrac::ResetData() {
 		kernelMemory.Free(context_.ptr);
 }
 
-void Atrac::AnalyzeReset() {
-	// Reset some values.
-	track_.AnalyzeReset();
-
-	currentSample_ = 0;
-	loopNum_ = 0;
-	decodePos_ = 0;
-	bufferPos_ = 0;
-}
-
 u8 *Atrac::BufferStart() {
 	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
 }
 
-void AtracBase::UpdateContextFromPSPMem() {
+void Atrac::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
 	}
 
 	// Read in any changes from the game to the context.
-	// TODO: Might be better to just always track in RAM.
-	// TODO: It's possible that there are more changes we should read. Who knows,
-	// problem games like FlatOut might poke stuff into the context?
+	// TODO: Might be better to just always track in RAM. Actually, Atrac2 will do that.
 	bufferState_ = context_->info.state;
 	// This value is actually abused by games to store the SAS voice number.
 	loopNum_ = context_->info.loopNum;
@@ -239,37 +231,6 @@ void Track::DebugLog() {
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
 	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
-}
-
-int Atrac::Analyze(const Track &track, u32 addr, u32 size, u32 fileSize) {
-	first_ = {};
-	first_.addr = addr;
-	first_.size = size;
-
-	AnalyzeReset();
-
-	// 72 is about the size of the minimum required data to even be valid.
-	if (size < 72) {
-		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
-	}
-
-	// TODO: Check the range (addr, size) instead.
-	if (!Memory::IsValidAddress(addr)) {
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
-	}
-
-	bool aa3 = fileSize != 0;
-
-	// TODO: Validate stuff.
-	if (!aa3 && Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
-		ERROR_LOG(Log::ME, "Couldn't find RIFF header");
-		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
-	}
-
-	track_ = track;
-	first_._filesize_dontuse = aa3 ? fileSize : track_.fileSize;
-	track_.DebugLog();
-	return 0;
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
@@ -692,8 +653,30 @@ int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	return 0;
 }
 
-int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
+int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
+	// 72 is about the size of the minimum required data to even be valid.
+	if (readSize < 72) {
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+	}
+
+	// TODO: Check the range (addr, size) instead.
+	if (!Memory::IsValidAddress(buffer)) {
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+
+	first_ = {};
+	first_.addr = buffer;
+	first_.size = readSize;
+
+	currentSample_ = 0;
+	loopNum_ = 0;
+	decodePos_ = 0;
+	bufferPos_ = 0;
 	outputChannels_ = outputChannels;
+
+	track_ = track;
+	first_._filesize_dontuse = track_.fileSize;
+	track_.DebugLog();
 
 	if (outputChannels != track_.channels) {
 		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
@@ -1195,7 +1178,10 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	return 0;
 }
 
-void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
+void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
+	track_ = Track();
+	track_.codecType = codecType;
+	track_.endSample = 0;
 	track_.channels = Memory::Read_U32(paramsAddr);
 	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
 	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
@@ -1203,14 +1189,16 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	first_.writableBytes = track_.bytesPerFrame;
 	ResetData();
 
-	if (track_.codecType == PSP_MODE_AT_3) {
+	if (codecType == PSP_MODE_AT_3) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = (track_.bitrate + 511) >> 10;
 		track_.jointStereo = false;
-	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
+	} else if (codecType == PSP_MODE_AT_3_PLUS) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
 		track_.jointStereo = false;
+	} else {
+		_dbg_assert_msg_(false, "bad codec type %08x", codecType);
 	}
 
 	track_.dataByteOffset = 0;
@@ -1229,4 +1217,19 @@ int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, i
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
 	return 0;
+}
+
+void Atrac::NotifyGetContextAddress() {
+	if (!context_.IsValid()) {
+		// allocate a new context_
+		u32 contextSize = sizeof(SceAtracContext);
+		// Note that Alloc can increase contextSize to the "grain" size.
+		context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID_).c_str());
+		if (context_.IsValid())
+			Memory::Memset(context_.ptr, 0, contextSize, "AtracContextClear");
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
+	} else {
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
+	}
+	WriteContextToPSPMem();
 }

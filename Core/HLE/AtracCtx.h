@@ -96,7 +96,7 @@ struct Track {
 	int jointStereo = 0;
 
 	// Number of audio channels in the track.
-	u16 channels = 0;
+	u16 channels = 2;
 
 	// The size of an encoded frame in bytes.
 	u16 bytesPerFrame = 0;
@@ -113,7 +113,7 @@ struct Track {
 
 	// Last sample number. Inclusive. Though, we made it so that in Analyze, it's exclusive in the file.
 	// Does not take firstSampleOffset into account.
-	int endSample = 0;
+	int endSample = -1;
 
 	// NOTE: The below CAN be written.
 	// Loop configuration. The PSP only supports one loop but we store them all.
@@ -163,15 +163,6 @@ struct Track {
 		return (u32)(dataByteOffset + bytesPerFrame + frameOffset * bytesPerFrame);
 	}
 
-	void AnalyzeReset() {
-		endSample = -1;
-		loopinfo.clear();
-		loopStartSample = -1;
-		loopEndSample = -1;
-		channels = 2;
-		// TODO: Could probably reset more.
-	}
-
 	void DebugLog();
 };
 
@@ -184,6 +175,9 @@ public:
 
 	virtual void DoState(PointerWrap &p) = 0;
 
+	// TODO: Find a way to get rid of this from the base class.
+	virtual void UpdateContextFromPSPMem() = 0;
+
 	virtual int Channels() const = 0;
 
 	int GetOutputChannels() const {
@@ -194,7 +188,7 @@ public:
 		outputChannels_ = channels;
 	}
 
-	virtual void SetID(int id) = 0;
+	virtual void SetIDAndAddr(int atracID, u32 contextAddr) = 0;
 	virtual int GetID() const = 0;
 
 	PSPPointer<SceAtracContext> context_{};
@@ -216,6 +210,8 @@ public:
 
 	void CreateDecoder();
 
+	virtual void NotifyGetContextAddress() = 0;
+
 	virtual int GetNextDecodePosition(int *pos) const = 0;
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
@@ -223,25 +219,19 @@ public:
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
 
-	// Set filesize to 0 for autodetect, unless you are using aa3.
-	virtual int Analyze(const Track &track, u32 addr, u32 size, u32 filesize) = 0;
-
-	void UpdateContextFromPSPMem();
-	virtual void WriteContextToPSPMem() = 0;
-
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
 	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
-	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
+	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) = 0;
 	virtual u32 GetNextSamples() = 0;
-	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
+	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) = 0;
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
@@ -257,9 +247,12 @@ protected:
 
 class Atrac : public AtracBase {
 public:
-	~Atrac() {
-		ResetData();
+	Atrac(int codecType = 0) {
+		if (codecType) {
+			track_.codecType = codecType;
+		}
 	}
+	~Atrac();
 
 	uint32_t CurBufferAddress(int adjust = 0) const {
 		u32 off = track_.FileOffsetBySample(currentSample_ + adjust);
@@ -273,15 +266,12 @@ public:
 	u8 *BufferStart();
 
 	void DoState(PointerWrap &p) override;
-	void WriteContextToPSPMem() override;
-
-	int Analyze(const Track &track, u32 addr, u32 size, u32 filesize) override;
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
 
-	void SetID(int id) override {
-		atracID_ = id;
+	void SetIDAndAddr(int atracID, u32 contextAddr) override {
+		atracID_ = atracID;
 	}
 	int GetID() const override {
 		return atracID_;
@@ -326,18 +316,19 @@ public:
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
-	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
+	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	// Returns how many samples the next DecodeData will write.
 	u32 GetNextSamples() override;
-	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
+	void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
 
-protected:
-	void AnalyzeReset();
+	void NotifyGetContextAddress() override;
+	void UpdateContextFromPSPMem() override;
+	void WriteContextToPSPMem();
 
 private:
 	void UpdateBufferState();

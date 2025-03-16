@@ -79,10 +79,12 @@
 static const int atracDecodeDelay = 2300;
 
 static bool atracInited = true;
-static AtracBase *atracContexts[PSP_NUM_ATRAC_IDS];
-static u32 atracContextTypes[PSP_NUM_ATRAC_IDS];
+static AtracBase *atracContexts[PSP_MAX_ATRAC_IDS];
+static u32 atracContextTypes[PSP_MAX_ATRAC_IDS];
 static int atracLibVersion = 0;
 static u32 atracLibCrc = 0;
+static int g_atracMaxContexts = 6;
+static int g_atracBSS = 0;
 
 // For debugger only.
 const AtracBase *__AtracGetCtx(int i, u32 *type) {
@@ -97,6 +99,8 @@ void __AtracInit() {
 
 	atracLibVersion = 0;
 	atracLibCrc = 0;
+	g_atracMaxContexts = 6;
+	g_atracBSS = 0;
 
 	atracInited = true;  // TODO: This should probably only happen in __AtracNotifyLoadModule.
 
@@ -122,12 +126,21 @@ void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
 	atracLibVersion = version;
 	atracLibCrc = crc;
 	INFO_LOG(Log::ME, "Atrac module loaded: atracLibVersion 0x%0x, atracLibcrc %x, bss: %x (%x bytes)", atracLibVersion, atracLibCrc, bssAddr, bssSize);
-	// Later, save bssAddr/bssSize and use them to return context addresses.
+	g_atracBSS = bssAddr;
+	g_atracMaxContexts = atracLibVersion <= 0x101 ? 4 : 6;  // Need to figure out where the cutoff is.
+	_dbg_assert_(bssSize >= g_atracMaxContexts * sizeof(SceAtracContext));
 }
 
 void __AtracNotifyUnloadModule() {
 	atracLibVersion = 0;
 	atracLibCrc = 0;
+	INFO_LOG(Log::ME, "Atrac module unloaded.");
+	g_atracBSS = 0;
+	g_atracMaxContexts = 6;  // TODO: We should make this zero here.
+}
+
+static u32 GetAtracContextAddress(int atracID) {
+	return g_atracBSS + atracID * sizeof(SceAtracContext);
 }
 
 void __AtracDoState(PointerWrap &p) {
@@ -136,7 +149,7 @@ void __AtracDoState(PointerWrap &p) {
 		return;
 
 	Do(p, atracInited);
-	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
+	for (int i = 0; i < PSP_MAX_ATRAC_IDS; ++i) {
 		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
@@ -146,7 +159,7 @@ void __AtracDoState(PointerWrap &p) {
 			atracContexts[i] = nullptr;
 		}
 	}
-	DoArray(p, atracContextTypes, PSP_NUM_ATRAC_IDS);
+	DoArray(p, atracContextTypes, PSP_MAX_ATRAC_IDS);
 	if (s < 2) {
 		atracLibVersion = 0;
 		atracLibCrc = 0;
@@ -159,18 +172,17 @@ void __AtracDoState(PointerWrap &p) {
 
 static AtracBase *allocAtrac(int codecType = 0) {
 	if (g_Config.bUseExperimentalAtrac) {
+		// Note: This assert isn't really valid until we savestate the new contexts.
+		_dbg_assert_(g_atracBSS != 0);
 		return new Atrac2(codecType);
 	} else {
-		Atrac *atrac = new Atrac();
-		if (codecType) {
-			atrac->GetTrackMut().codecType = codecType;
-		}
+		Atrac *atrac = new Atrac(codecType);
 		return atrac;
 	}
 }
 
 static AtracBase *getAtrac(int atracID) {
-	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
+	if (atracID < 0 || atracID >= PSP_MAX_ATRAC_IDS) {
 		return nullptr;
 	}
 	AtracBase *atrac = atracContexts[atracID];
@@ -181,10 +193,14 @@ static AtracBase *getAtrac(int atracID) {
 }
 
 static int RegisterAtrac(AtracBase *atrac) {
-	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
+	for (int i = 0; i < g_atracMaxContexts; ++i) {
 		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
 			atracContexts[i] = atrac;
-			atrac->SetID(i);
+			if (g_Config.bUseExperimentalAtrac) {
+				// Note: This assert isn't really valid until we savestate the new contexts.
+				_dbg_assert_(g_atracBSS != 0);
+			}
+			atrac->SetIDAndAddr(i, GetAtracContextAddress(i));
 			return i;
 		}
 	}
@@ -192,7 +208,7 @@ static int RegisterAtrac(AtracBase *atrac) {
 }
 
 static int deleteAtrac(int atracID) {
-	if (atracID >= 0 && atracID < PSP_NUM_ATRAC_IDS) {
+	if (atracID >= 0 && atracID < PSP_MAX_ATRAC_IDS) {
 		if (atracContexts[atracID] != nullptr) {
 			delete atracContexts[atracID];
 			atracContexts[atracID] = nullptr;
@@ -581,14 +597,14 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize, 0);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
 
 	// not sure the real delay time
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
@@ -616,12 +632,13 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
+
+	return hleDelayResult(hleLogDebug(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
@@ -639,12 +656,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -671,12 +683,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -711,7 +718,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 }
 
 static int sceAtracReinit(int at3Count, int at3plusCount) {
-	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
+	for (int i = 0; i < PSP_MAX_ATRAC_IDS; ++i) {
 		if (atracContexts[i] != nullptr) {
 			return hleReportError(Log::ME, SCE_KERNEL_ERROR_BUSY, "cannot reinit while IDs in use");
 		}
@@ -719,7 +726,7 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 
 	memset(atracContextTypes, 0, sizeof(atracContextTypes));
 	int next = 0;
-	int space = PSP_NUM_ATRAC_IDS;
+	int space = g_atracMaxContexts;
 
 	// This seems to deinit things.  Mostly, it cause a reschedule on next deinit (but -1, -1 does not.)
 	if (at3Count == 0 && at3plusCount == 0) {
@@ -795,11 +802,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -819,11 +822,11 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, ret);
 	}
 
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
 	if (ret < 0) {
+		// Must not delay.
 		return hleLogError(Log::ME, ret);
 	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 }
 
@@ -840,12 +843,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -874,12 +872,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, 0);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -902,12 +895,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, bufferSize, fileSize);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -928,19 +916,8 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 		return hleLogError(Log::ME, 0, "bad atrac id");
 	}
 
-	if (!atrac->context_.IsValid()) {
-		// allocate a new context_
-		u32 contextSize = sizeof(SceAtracContext);
-		// Note that Alloc can increase contextSize to the "grain" size.
-		atrac->context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
-		if (atrac->context_.IsValid())
-			Memory::Memset(atrac->context_.ptr, 0, contextSize, "AtracContextClear");
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
-	} else {
-		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
-	}
-
-	atrac->WriteContextToPSPMem();
+	// Only the old context needs this. The new one will always have a context pointer.
+	atrac->NotifyGetContextAddress();
 	return hleLogDebug(Log::ME, atrac->context_.ptr);
 }
 
@@ -975,6 +952,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleReportError(Log::ME, 0, "invalid pointers");
 	}
 
+	int codecType = atracContextTypes[atracID];
+
 	bool jointStereo = false;
 	if (atrac->CodecType() == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
@@ -991,7 +970,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		}
 	}
 
-	atrac->InitLowLevel(paramsAddr, jointStereo);
+	atrac->InitLowLevel(paramsAddr, jointStereo, codecType);
 
 	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";
@@ -1035,12 +1014,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	}
 
 	AtracBase *atrac = allocAtrac();
-	ret = atrac->Analyze(track, buffer, readSize, fileSize);
-	if (ret < 0) {
-		delete atrac;
-		return hleLogError(Log::ME, ret);
-	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	ret = atrac->SetData(track, buffer, readSize, bufferSize, 2);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);

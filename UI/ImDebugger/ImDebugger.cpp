@@ -968,7 +968,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 
 			ImGui::TableHeadersRow();
 
-			for (int i = 0; i < PSP_NUM_ATRAC_IDS; i++) {
+			for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
 				u32 type = 0;
 				const AtracBase *ctx = __AtracGetCtx(i, &type);
 				if (!ctx) {
@@ -1009,7 +1009,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::EndTable();
 		}
 
-		if (cfg.selectedAtracCtx >= 0 && cfg.selectedAtracCtx < PSP_NUM_ATRAC_IDS) {
+		if (cfg.selectedAtracCtx >= 0 && cfg.selectedAtracCtx < PSP_MAX_ATRAC_IDS) {
 			u32 type = 0;
 			const AtracBase *ctx = __AtracGetCtx(cfg.selectedAtracCtx, &type);
 			// Show details about the selected atrac context here.
