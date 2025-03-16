@@ -110,17 +110,17 @@ u32 Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 	return 0;
 }
 
-void Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
-
+int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+	return 0;
 }
 
-int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) {
+int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
 	if (readSize == bufferSize) {
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	} else {
 		bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 	}
-	return hleLogDebug(Log::ME, successCode);
+	return hleLogDebug(Log::ME, 0);
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
@@ -155,4 +155,8 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	currentSample_ = 0;
 	CreateDecoder();
 	WriteContextToPSPMem();
+}
+
+int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
+	return 0;
 }
