@@ -167,6 +167,7 @@ Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
 	context_->info.codec = codecType;
 	context_->info.atracID = atracID;
 	context_->info.state = ATRAC_STATUS_NO_DATA;
+	context_->info.curBuffer = 0;
 }
 
 void Atrac2::DoState(PointerWrap &p) {
@@ -200,14 +201,18 @@ int Atrac2::ResetPlayPosition(int seekPos, int bytesWrittenFirstBuf, int bytesWr
 	seekPos += info.firstValidSample;
 
 	if ((u32)seekPos > (u32)info.endSample) {
-		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE);
+		return SCE_ERROR_ATRAC_BAD_SAMPLE;
 	}
 
 	int result = ResetPlayPositionInternal(seekPos, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 	if (result >= 0) {
-		result = SkipFrames();
+		int skipCount = 0;
+		result = SkipFrames(&skipCount);
+		if (skipCount) {
+			*delay = true;
+		}
 	}
-	return hleLogDebugOrError(Log::ME, result);
+	return result;
 }
 
 u32 Atrac2::ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
@@ -282,7 +287,7 @@ u32 Atrac2::ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int
 }
 
 // This is basically sceAtracGetBufferInfoForResetting.
-int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos) {
+int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bool *delay) {
 	const SceAtracIdInfo &info = context_->info;
 
 	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
@@ -295,14 +300,16 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos) {
 	GetResetBufferInfoInternal(bufferInfo, seekPos + info.firstValidSample);
 	// Yes, this happens here! If there are any frames to skip, they get skipped!
 	// Even though this looks like a function that shouldn't change the state.
-	return SkipFrames();
+	int skipCount = 0;
+	int retval = SkipFrames(&skipCount);
+	return retval;
 }
 
-// This is basically sceAtracGetBufferInfoForResetting.
 void Atrac2::GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int seekPos) {
 	const SceAtracIdInfo &info = context_->info;
 
 	switch (info.state) {
+	case ATRAC_STATUS_NO_DATA:
 	case ATRAC_STATUS_ALL_DATA_LOADED:
 		// Everything is loaded, so nothing needs to be read.
 		bufferInfo->first.writePosPtr = info.buffer;
@@ -422,7 +429,9 @@ int Atrac2::GetNextDecodePosition(int *pos) const {
 	const SceAtracIdInfo &info = context_->info;
 	const int currentSample = info.decodePos - track_.FirstSampleOffsetFull();
 	if (currentSample >= track_.endSample) {
-		*pos = 0;
+		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+	}
+	if (info.fileDataEnd - info.curFileOff < info.sampleSize) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 	*pos = currentSample;
@@ -840,11 +849,11 @@ u32 Atrac2::InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize) {
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
-	u32 retval = SkipFrames();
+	int skipCount = 0;  // TODO: use for delay
+	u32 retval = SkipFrames(&skipCount);
 	if (retval != 0) {
 		ERROR_LOG(Log::ME, "SkipFrames during InitContext returned an error: %08x", retval);
 	}
-
 	WrapLastPacket();
 	return retval;
 }
@@ -875,8 +884,9 @@ void Atrac2::WrapLastPacket() {
 	}
 }
 
-u32 Atrac2::SkipFrames() {
+u32 Atrac2::SkipFrames(int *skipCount) {
 	SceAtracIdInfo &info = context_->info;
+	*skipCount = 0;
 	u32 temp;
 	while (true) {
 		if (info.numSkipFrames == 0) {
@@ -884,8 +894,12 @@ u32 Atrac2::SkipFrames() {
 		}
 		u32 retval = DecodeInternal(0, 0, &temp);
 		if (retval != 0) {
+			if (retval == SCE_ERROR_ATRAC_API_FAIL) {
+				(*skipCount)++;
+			}
 			return retval;
 		}
+		(*skipCount)++;
 	}
 	return 0;
 }
@@ -953,5 +967,10 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
+	const int channels = outputChannels_;
+	int outSamples = 0;
+	decoder_->Decode(srcData, track_.BytesPerFrame(), bytesConsumed, channels, dstData, &outSamples);
+	*bytesWritten = outSamples * channels * sizeof(int16_t);
+	// TODO: Possibly return a decode error on bad data.
 	return 0;
 }

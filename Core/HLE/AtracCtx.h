@@ -220,7 +220,7 @@ public:
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
-	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
+	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;
 	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
@@ -314,7 +314,7 @@ public:
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
-	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
+	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;

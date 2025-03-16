@@ -342,9 +342,14 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	*/
 
 	// Note: If we error here, it's because of the internal SkipFrames.
-	// Note again: We should probably delayresult if we skipframes..
-	int ret = atrac->GetResetBufferInfo(bufferInfo, sample);
-	return hleLogDebugOrError(Log::ME, ret);
+	// We delayresult if we skip frames, which indeed can happen.
+	bool delay = false;
+	int ret = atrac->GetResetBufferInfo(bufferInfo, sample, &delay);
+	if (delay) {
+		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "getreset_frameskip", 300);
+	} else {
+		return hleLogDebugOrError(Log::ME, ret);
+	}
 }
 
 static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {

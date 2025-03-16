@@ -25,7 +25,7 @@ public:
 	int LoopStatus() const override;
 	int Bitrate() const override;
 	int LoopNum() const override;
-	int SamplesPerFrame() const override { return context_->info.codec == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES; }
+	int SamplesPerFrame() const override { return context_->info.SamplesPerFrame(); }
 	int Channels() const override { return context_->info.numChan; }
 	int BytesPerFrame() const override { return context_->info.sampleSize; }
 	int SetLoopNum(int loopNum) override;
@@ -34,7 +34,7 @@ public:
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
-	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
+	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	bool HasSecondBuffer() const override;
@@ -61,10 +61,8 @@ private:
 	u32 ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf);
 
 	u32 InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize);
-	u32 SkipFrames();
+	u32 SkipFrames(int *skippedCount);
 	void WrapLastPacket();
-
-	void SeekToSample(int sample);
 
 	// Just the current decoded frame, in order to be able to cut off the first part of it
 	// to write the initial partial frame.

@@ -606,7 +606,8 @@ void AtracBase::CreateDecoder() {
 	}
 }
 
-int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) {
+	*delay = false;
 	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
@@ -1126,6 +1127,7 @@ int Atrac::SetLoopNum(int loopNum) {
 
 int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
 	*delay = false;
+
 	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
@@ -1135,7 +1137,8 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 
 	// Reuse the same calculation as before.
 	AtracResetBufferInfo bufferInfo;
-	GetResetBufferInfo(&bufferInfo, sample);
+	bool ignored;
+	GetResetBufferInfo(&bufferInfo, sample, &ignored);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
 		return SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE;
