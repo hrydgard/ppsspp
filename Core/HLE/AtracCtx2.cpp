@@ -35,6 +35,10 @@
 //   * Half Minute Hero (bufsize 65536)
 //   * Flatout (tricky! needs investigation)
 
+Atrac2::Atrac2(int codecType) {
+	track_.codecType = codecType;
+}
+
 void Atrac2::DoState(PointerWrap &p) {
 	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
 }
@@ -111,6 +115,10 @@ u32 Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 }
 
 int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+	return 0;
+}
+
+int Atrac2::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
 	return 0;
 }
 

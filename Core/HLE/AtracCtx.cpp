@@ -547,7 +547,7 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
 	return AnalyzeAA3Track(addr, size, fileSize, &track_);
 }
 
-int AtracBase::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) {
+int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
 	*endSample = GetTrack().endSample;
 	*loopStartSample = GetTrack().loopStartSample == -1 ? -1 : GetTrack().loopStartSample - GetTrack().FirstSampleOffsetFull();
 	*loopEndSample = GetTrack().loopEndSample == -1 ? -1 : GetTrack().loopEndSample - GetTrack().FirstSampleOffsetFull();

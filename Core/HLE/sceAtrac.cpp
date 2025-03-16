@@ -157,11 +157,15 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
-static AtracBase *allocAtrac(bool forceOld = false) {
-	if (g_Config.bUseExperimentalAtrac && !forceOld) {
-		return new Atrac2();
+static AtracBase *allocAtrac(int codecType = 0) {
+	if (g_Config.bUseExperimentalAtrac) {
+		return new Atrac2(codecType);
 	} else {
-		return new Atrac();
+		Atrac *atrac = new Atrac();
+		if (codecType) {
+			atrac->GetTrackMut().codecType = codecType;
+		}
+		return atrac;
 	}
 }
 
@@ -205,8 +209,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_INVALID_CODECTYPE, "invalid codecType");
 	}
 
-	AtracBase *atrac = allocAtrac();
-	atrac->GetTrackMut().codecType = codecType;
+	AtracBase *atrac = allocAtrac(codecType);
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
@@ -325,10 +328,9 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 		return hleLogError(Log::ME, err);
 	}
 
-	atrac->GetTrackMut().UpdateBitrate();
-
+	int bitrate = atrac->Bitrate();
 	if (Memory::IsValidAddress(outBitrateAddr)) {
-		Memory::WriteUnchecked_U32(atrac->GetTrack().bitrate, outBitrateAddr);
+		Memory::WriteUnchecked_U32(atrac->Bitrate(), outBitrateAddr);
 		return hleLogDebug(Log::ME, 0);
 	} else {
 		return hleLogError(Log::ME, 0, "invalid address");

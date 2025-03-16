@@ -141,12 +141,13 @@ struct Track {
 		return codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
 	}
 
-	void UpdateBitrate() {
-		bitrate = (bytesPerFrame * 352800) / 1000;
+	int Bitrate() const {
+		int bitrate = (bytesPerFrame * 352800) / 1000;
 		if (codecType == PSP_MODE_AT_3_PLUS)
 			bitrate = ((bitrate >> 11) + 8) & 0xFFFFFFF0;
 		else
 			bitrate = (bitrate + 511) >> 10;
+		return bitrate;
 	}
 
 	// This appears to be buggy, should probably include FirstOffsetExtra?
@@ -186,16 +187,9 @@ public:
 	const Track &GetTrack() const {
 		return track_;
 	}
-	// This should be rare.
-	Track &GetTrackMut() {
-		return track_;
-	}
 
 	int Channels() const {
 		return track_.channels;
-	}
-	int SamplesPerFrame() const {
-		return track_.SamplesPerFrame();
 	}
 
 	int GetOutputChannels() const {
@@ -215,9 +209,7 @@ public:
 		return bufferState_;
 	}
 
-	int LoopNum() const {
-		return loopNum_;
-	}
+	virtual int LoopNum() const = 0;
 	virtual int LoopStatus() const = 0;
 	u32 CodecType() const {
 		return track_.codecType;
@@ -231,6 +223,8 @@ public:
 	virtual int CurrentSample() const = 0;
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
+	virtual int Bitrate() const = 0;
+	virtual int SamplesPerFrame() const = 0;
 
 	virtual int Analyze(u32 addr, u32 size) = 0;
 	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
@@ -253,7 +247,7 @@ public:
 	virtual u32 GetNextSamples() = 0;
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
-	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample);
+	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
 protected:
 	Track track_{};
@@ -295,11 +289,25 @@ public:
 	u32 SecondBufferSize() const override {
 		return second_.size;
 	}
+	int LoopNum() const override {
+		return loopNum_;
+	}
 	int LoopStatus() const override {
 		if (track_.loopinfo.size() > 0)
 			return 1;
 		else
 			return 0;
+	}
+	int Bitrate() const override {
+		return track_.Bitrate();
+	}
+	int SamplesPerFrame() const override {
+		return track_.SamplesPerFrame();
+	}
+
+	// This should be rare.
+	Track &GetTrackMut() {
+		return track_;
 	}
 
 	// Ask where in memory new data should be written.
@@ -316,6 +324,8 @@ public:
 	// Returns how many samples the next DecodeData will write.
 	u32 GetNextSamples() override;
 	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
+
+	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
 
 protected:
 	void AnalyzeReset();
