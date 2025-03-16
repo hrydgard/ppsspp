@@ -572,17 +572,14 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	return hleDelayResult(0, "reset play pos", 3000);
 }
 
-// Allowed to log like a HLE function, only called at the end of some.
 static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, bool needReturnAtracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
 	if (!atrac) {
-		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ATRACID, "invalid atrac ID");
+		return SCE_ERROR_ATRAC_BAD_ATRACID;
 	}
 	// SetData logs like a hle function.
-	int ret = atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
-	// not sure the real delay time
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
+	return atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
@@ -601,7 +598,9 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::ME, ret);
 	}
 
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, false);
+	ret = _AtracSetData(atracID, buffer, readSize, bufferSize, 2, false);
+	// not sure the real delay time
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
@@ -610,7 +609,6 @@ static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBuff
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-
 	return hleLogDebugOrError(Log::ME, atrac->SetSecondBuffer(secondBuffer, secondBufferSize));
 }
 
@@ -630,7 +628,8 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, false);
+	ret = _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, false);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
@@ -653,7 +652,8 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
+	ret = _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -671,7 +671,8 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
+	ret = _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 sceAtracStartEntry() {
@@ -786,7 +787,8 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		atrac->SetData(buffer, readSize, bufferSize, 2, 0);
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	} else {
-		return _AtracSetData(atracID, buffer, readSize, bufferSize, 1, false);
+		ret = _AtracSetData(atracID, buffer, readSize, bufferSize, 1, false);
+		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 	}
 }
 
@@ -807,7 +809,8 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		atrac->SetData(buffer, bufferSize, bufferSize, 2, 0);
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	} else {
-		return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, false);
+		ret = _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, false);
+		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data mono", 100);
 	}
 }
 
@@ -829,7 +832,8 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, true);
+	ret = _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -852,7 +856,8 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, 1, true);
+	ret = _AtracSetData(atracID, buffer, readSize, bufferSize, 1, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
@@ -868,7 +873,8 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
+	ret = _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -992,7 +998,8 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
+	ret = _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
 
 // External interface used by sceSas' AT3 integration.
