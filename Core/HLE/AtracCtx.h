@@ -194,8 +194,8 @@ public:
 		outputChannels_ = channels;
 	}
 
-	// Refactor?
-	int atracID_ = -1;
+	virtual void SetID(int id) = 0;
+	virtual int GetID() const = 0;
 
 	PSPPointer<SceAtracContext> context_{};
 
@@ -280,6 +280,14 @@ public:
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
+
+	void SetID(int id) override {
+		atracID_ = id;
+	}
+	int GetID() const override {
+		return atracID_;
+	}
+
 	u32 SecondBufferSize() const override {
 		return second_.size;
 	}
@@ -361,4 +369,7 @@ private:
 	u32 bufferPos_ = 0;
 	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
+
+	// Refactor?
+	int atracID_ = -1;
 };

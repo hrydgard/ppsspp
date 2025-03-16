@@ -14,6 +14,9 @@ public:
 	int Analyze(const Track &track, u32 addr, u32 size) override;
 	int AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 filesize) override;
 
+	void SetID(int id) override {}
+	int GetID() const override { return 0; }
+
 	int GetNextDecodePosition(int *pos) const { return 0; }
 	int RemainingFrames() const override;
 	int LoopStatus() const override { return 0; }

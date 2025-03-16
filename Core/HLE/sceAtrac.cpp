@@ -180,11 +180,11 @@ static AtracBase *getAtrac(int atracID) {
 	return atrac;
 }
 
-static int createAtrac(AtracBase *atrac) {
+static int RegisterAtrac(AtracBase *atrac) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
 		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
 			atracContexts[i] = atrac;
-			atrac->atracID_ = i;
+			atrac->SetID(i);
 			return i;
 		}
 	}
@@ -210,7 +210,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	}
 
 	AtracBase *atrac = allocAtrac(codecType);
-	int atracID = createAtrac(atrac);
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
@@ -576,17 +576,15 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
+	if (track.codecType != atracContextTypes[atracID]) {
+		// TODO: Should this not change the buffer size?
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
+	}
 
 	ret = atrac->Analyze(track, buffer, readSize);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-
-	if (atrac->CodecType() != atracContextTypes[atracID]) {
-		// TODO: Should this not change the buffer size?
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
-	}
-
 	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
 
 	// not sure the real delay time
@@ -613,17 +611,15 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
+	if (track.codecType != atracContextTypes[atracID]) {
+		// TODO: Should this not change the buffer size?
+		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
+	}
 
 	ret = atrac->Analyze(track, buffer, bufferSize);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-
-	if (atrac->CodecType() != atracContextTypes[atracID]) {
-		// TODO: Should this not change the buffer size?
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
-	}
-
 	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
@@ -648,14 +644,19 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	if (ret < 0) {
+		delete atrac;
+		return hleLogError(Log::ME, ret);
+	}
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -675,13 +676,19 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	if (ret < 0) {
+		delete atrac;
+		return hleLogError(Log::ME, ret);
+	}
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 static u32 sceAtracStartEntry() {
@@ -823,7 +830,6 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
-
 	if (atrac->Channels() != 1) {
 		// It seems it still sets the data.
 		atrac->SetData(buffer, bufferSize, bufferSize, 2);
@@ -842,6 +848,9 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
+	if (track.channels != 1) {
+		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+	}
 
 	AtracBase *atrac = allocAtrac();
 	ret = atrac->Analyze(track, buffer, bufferSize);
@@ -849,18 +858,18 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->Channels() != 1) {
+	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
+	if (ret < 0) {
 		delete atrac;
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
-
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 1);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, atracID), "atrac set data", 100);
 }
 
 static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -873,6 +882,9 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
+	if (track.channels != 1) {
+		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+	}
 
 	AtracBase *atrac = allocAtrac();
 	ret = atrac->Analyze(track, buffer, readSize);
@@ -880,18 +892,19 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	if (atrac->Channels() != 1) {
+	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
+	if (ret < 0) {
 		delete atrac;
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	ret = atrac->SetData(buffer, readSize, bufferSize, 1);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
@@ -907,14 +920,19 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
+	if (ret < 0) {
+		delete atrac;
+		return hleLogError(Log::ME, ret);
+	}
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
-	ret = atrac->SetData(buffer, bufferSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set aa3 data", 100);
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -1035,14 +1053,18 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		delete atrac;
 		return hleLogError(Log::ME, ret);
 	}
-	int atracID = createAtrac(atrac);
+	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+	if (ret < 0) {
+		delete atrac;
+		return hleLogError(Log::ME, ret);
+	}
+
+	int atracID = RegisterAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
-
-	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
-	return hleDelayResult(hleLogDebugOrError(Log::ME, ret == 0 ? atracID : ret), "atrac set data", 100);
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 // External interface used by sceSas' AT3 integration.

@@ -44,42 +44,6 @@ void Atrac2::DoState(PointerWrap &p) {
 }
 
 void Atrac2::WriteContextToPSPMem() {
-	if (!context_.IsValid()) {
-		return;
-	}
-	// context points into PSP memory.
-	SceAtracContext *context = context_;
-	context->info.buffer = 0; // bufferAddr_; // first_.addr;
-	context->info.bufferByte = 0; // bufferMaxSize_;
-	context->info.secondBuffer = 0;  // TODO
-	context->info.secondBufferByte = 0;  // TODO
-	context->info.codec = track_.codecType;
-	context->info.loopNum = loopNum_;
-	context->info.loopStart = track_.loopStartSample > 0 ? track_.loopStartSample : 0;
-	context->info.loopEnd = track_.loopEndSample > 0 ? track_.loopEndSample : 0;
-
-	// Note that we read in the state when loading the atrac object, so it's safe
-	// to update it back here all the time.  Some games, like Sol Trigger, change it.
-	// TODO: Should we just keep this in PSP ram then, or something?
-	context->info.state = bufferState_;
-	if (track_.firstSampleOffset != 0) {
-		context->info.samplesPerChan = track_.FirstSampleOffsetFull();
-	} else {
-		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-	}
-	context->info.sampleSize = track_.bytesPerFrame;
-	context->info.numChan = track_.channels;
-	context->info.dataOff = track_.dataByteOffset;
-	context->info.endSample = track_.endSample + track_.FirstSampleOffsetFull();
-	context->info.dataEnd = track_.fileSize;
-	context->info.curOff = 0; // first_.fileoffset;
-	context->info.decodePos = track_.DecodePosBySample(currentSample_);
-	context->info.streamDataByte = 0; // first_.size - track_.dataOff;
-
-	u8 *buf = (u8 *)context;
-	*(u32_le *)(buf + 0xfc) = atracID_;
-
-	NotifyMemInfo(MemBlockFlags::WRITE, context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
 int Atrac2::Analyze(const Track &track, u32 addr, u32 size) {

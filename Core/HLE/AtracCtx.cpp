@@ -756,6 +756,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels)
 	}
 	CreateDecoder();
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
+
 	return 0;
 }
 
