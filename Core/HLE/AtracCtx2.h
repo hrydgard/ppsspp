@@ -14,7 +14,7 @@ public:
 	int Analyze(u32 addr, u32 size) override;
 	int AnalyzeAA3(u32 addr, u32 size, u32 filesize) override;
 
-	int CurrentSample() const override { return currentSample_; }
+	int GetNextDecodePosition(int *pos) const { return 0; }
 	int RemainingFrames() const override;
 	int LoopStatus() const override { return 0; }
 	int Bitrate() const override { return 0; }
@@ -24,7 +24,7 @@ public:
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
-	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
+	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;

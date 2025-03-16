@@ -406,17 +406,18 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 		return hleLogError(Log::ME, err);
 	}
 
-	if (Memory::IsValidAddress(outposAddr)) {
-		if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
-			Memory::WriteUnchecked_U32(0, outposAddr);
-			return hleLogDebug(Log::ME, SCE_ERROR_ATRAC_ALL_DATA_DECODED, "all data decoded - beyond endSample");
-		} else {
-			Memory::WriteUnchecked_U32(atrac->CurrentSample(), outposAddr);
-			return hleLogDebug(Log::ME, 0);
-		}
-	} else {
+	int pos = 0;
+	int ret = atrac->GetNextDecodePosition(&pos);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
+	if (!Memory::IsValidAddress(outposAddr)) {
 		return hleLogError(Log::ME, 0, "invalid address");
 	}
+
+	Memory::WriteUnchecked_U32(pos, outposAddr);
+	return hleLogDebug(Log::ME, 0);
 }
 
 static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
@@ -547,20 +548,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return hleLogError(Log::ME, err);
 	}
 
-	if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->SecondBufferSize() == 0) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
-		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
-		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE, "invalid sample position");
-	}
-
-	u32 res = atrac->ResetPlayPosition(sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-	if (res != 0) {
-		// Already logged.
-		return res;
-	}
-
-	return hleDelayResult(0, "reset play pos", 3000);
+	bool delay = false;
+	int res = atrac->ResetPlayPosition(sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf, &delay);
+	return hleDelayResult(hleLogDebugOrError(Log::ME, res), "reset play pos", 3000 + delay ? 200 : 0);
 }
 
 static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {

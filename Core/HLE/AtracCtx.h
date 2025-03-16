@@ -220,7 +220,7 @@ public:
 
 	void CreateDecoder();
 
-	virtual int CurrentSample() const = 0;
+	virtual int GetNextDecodePosition(int *pos) const = 0;
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
 	virtual int Bitrate() const = 0;
@@ -236,7 +236,7 @@ public:
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
 	virtual void SetLoopNum(int loopNum);
-	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
+	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
 	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
@@ -282,9 +282,7 @@ public:
 	int Analyze(u32 addr, u32 size) override;
 	int AnalyzeAA3(u32 addr, u32 size, u32 filesize) override;
 
-	int CurrentSample() const override {
-		return currentSample_;
-	}
+	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
 	u32 SecondBufferSize() const override {
 		return second_.size;
@@ -315,7 +313,7 @@ public:
 	// Notify the player that the user has written some new data.
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
-	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
+	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;

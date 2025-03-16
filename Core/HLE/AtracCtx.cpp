@@ -554,6 +554,16 @@ int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSamp
 	return 0;
 }
 
+int Atrac::GetNextDecodePosition(int *pos) const {
+	if (currentSample_ >= track_.endSample) {
+		*pos = 0;
+		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+	} else {
+		*pos = currentSample_;
+		return 0;
+	}
+}
+
 void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	u32 readOffset = first_.fileoffset;
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
@@ -860,7 +870,7 @@ u32 Atrac::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 }
 
 u32 Atrac::GetNextSamples() {
-	if (CurrentSample() >= track_.endSample) {
+	if (currentSample_ >= track_.endSample) {
 		return 0;
 	}
 
@@ -1114,16 +1124,24 @@ void AtracBase::SetLoopNum(int loopNum) {
 	WriteContextToPSPMem();
 }
 
-u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
+int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
+	*delay = false;
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
+	} else if ((u32)sample + GetTrack().firstSampleOffset > (u32)GetTrack().endSample + GetTrack().firstSampleOffset) {
+		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
+		return SCE_ERROR_ATRAC_BAD_SAMPLE;
+	}
+
 	// Reuse the same calculation as before.
 	AtracResetBufferInfo bufferInfo;
 	GetResetBufferInfo(&bufferInfo, sample);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
-		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
+		return SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE;
 	}
 	if ((u32)bytesWrittenSecondBuf < bufferInfo.second.minWriteBytes || (u32)bytesWrittenSecondBuf > bufferInfo.second.writableBytes) {
-		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
+		return SCE_ERROR_ATRAC_BAD_SECOND_RESET_SIZE;
 	}
 
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
@@ -1146,7 +1164,9 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		}
 	} else {
 		if (bufferInfo.first.filePos > track_.fileSize) {
-			return hleDelayResult(hleLogError(Log::ME, SCE_ERROR_ATRAC_API_FAIL, "invalid file position"), "reset play pos", 200);
+			*delay = true;
+			// The decoder failed during skip-frame operation.
+			return SCE_ERROR_ATRAC_API_FAIL;
 		}
 
 		// Move the offset to the specified position.
@@ -1171,7 +1191,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	}
 
 	WriteContextToPSPMem();
-	return hleNoLog(0);
+	return 0;
 }
 
 void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {

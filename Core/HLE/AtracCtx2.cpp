@@ -110,7 +110,8 @@ u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 	return 0;
 }
 
-u32 Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
+int Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
+	*delay = false;
 	return 0;
 }
 
