@@ -191,6 +191,13 @@ public:
 		return track_;
 	}
 
+	int Channels() const {
+		return track_.channels;
+	}
+	int SamplesPerFrame() const {
+		return track_.SamplesPerFrame();
+	}
+
 	int GetOutputChannels() const {
 		return outputChannels_;
 	}

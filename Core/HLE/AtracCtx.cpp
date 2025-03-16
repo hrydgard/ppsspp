@@ -853,6 +853,10 @@ u32 Atrac::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 }
 
 u32 Atrac::GetNextSamples() {
+	if (CurrentSample() >= track_.endSample) {
+		return 0;
+	}
+
 	// It seems like the PSP aligns the sample position to 0x800...?
 	u32 skipSamples = track_.FirstSampleOffsetFull();
 	u32 firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();

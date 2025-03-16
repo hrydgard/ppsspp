@@ -343,7 +343,7 @@ static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	}
 
 	if (Memory::IsValidAddress(channelAddr)){
-		Memory::WriteUnchecked_U32(atrac->GetTrack().channels, channelAddr);
+		Memory::WriteUnchecked_U32(atrac->Channels(), channelAddr);
 		return hleLogDebug(Log::ME, 0);
 	} else {
 		return hleLogError(Log::ME, 0, "invalid address");
@@ -390,7 +390,7 @@ static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
 	}
 
 	if (Memory::IsValidAddress(maxSamplesAddr)) {
-		Memory::WriteUnchecked_U32(atrac->GetTrack().SamplesPerFrame(), maxSamplesAddr);
+		Memory::WriteUnchecked_U32(atrac->SamplesPerFrame(), maxSamplesAddr);
 		return hleLogDebug(Log::ME, 0);
 	} else {
 		return hleLogError(Log::ME, 0, "invalid address");
@@ -423,16 +423,11 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
-		if (Memory::IsValidAddress(outNAddr))
-			Memory::WriteUnchecked_U32(0, outNAddr);
-		return hleLogDebug(Log::ME, 0, "0 samples left");
-	}
 
-	u32 numSamples = atrac->GetNextSamples();
-
-	if (Memory::IsValidAddress(outNAddr))
+	int numSamples = atrac->GetNextSamples();
+	if (Memory::IsValidAddress(outNAddr)) {
 		Memory::WriteUnchecked_U32(numSamples, outNAddr);
+	}
 	return hleLogDebug(Log::ME, 0, "%d samples left", numSamples);
 }
 
