@@ -39,11 +39,13 @@ Atrac2::Atrac2(int codecType) {
 	track_.codecType = codecType;
 }
 
-void Atrac2::DoState(PointerWrap &p) {
-	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
+void Atrac2::SetIDAndAddr(int atracID, u32 contextAddr) {
+	// Note: We don't allocate a context, we use memory directly from the loaded atrac binary (even if it's otherwise unused).
+	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
 }
 
-void Atrac2::WriteContextToPSPMem() {
+void Atrac2::DoState(PointerWrap &p) {
+	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
 }
 
 int Atrac2::RemainingFrames() const {

@@ -89,7 +89,7 @@ struct SceAtracContext {
     SceAtracIdInfo info;
 };
 
-const int PSP_NUM_ATRAC_IDS = 6;
+const int PSP_MAX_ATRAC_IDS = 6;
 
 class AtracBase;
 

@@ -39,6 +39,10 @@ const int DATA_CHUNK_MAGIC = 0x61746164;
 const int SMPL_CHUNK_MAGIC = 0x6C706D73;
 const int FACT_CHUNK_MAGIC = 0x74636166;
 
+Atrac::~Atrac() {
+	ResetData();
+}
+
 void Atrac::DoState(PointerWrap &p) {
 	auto s = p.Section("Atrac", 1, 9);
 	if (!s)
@@ -171,15 +175,13 @@ u8 *Atrac::BufferStart() {
 	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
 }
 
-void AtracBase::UpdateContextFromPSPMem() {
+void Atrac::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
 	}
 
 	// Read in any changes from the game to the context.
-	// TODO: Might be better to just always track in RAM.
-	// TODO: It's possible that there are more changes we should read. Who knows,
-	// problem games like FlatOut might poke stuff into the context?
+	// TODO: Might be better to just always track in RAM. Actually, Atrac2 will do that.
 	bufferState_ = context_->info.state;
 	// This value is actually abused by games to store the SAS voice number.
 	loopNum_ = context_->info.loopNum;
@@ -1215,4 +1217,19 @@ int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, i
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
 	return 0;
+}
+
+void Atrac::NotifyGetContextAddress() {
+	if (!context_.IsValid()) {
+		// allocate a new context_
+		u32 contextSize = sizeof(SceAtracContext);
+		// Note that Alloc can increase contextSize to the "grain" size.
+		context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID_).c_str());
+		if (context_.IsValid())
+			Memory::Memset(context_.ptr, 0, contextSize, "AtracContextClear");
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", context_.ptr, atracID_);
+	} else {
+		WARN_LOG(Log::ME, "%08x=_sceAtracGetContextAddress(%i)", context_.ptr, atracID_);
+	}
+	WriteContextToPSPMem();
 }

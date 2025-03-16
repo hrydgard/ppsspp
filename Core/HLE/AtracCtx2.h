@@ -9,9 +9,8 @@ class Atrac2 : public AtracBase {
 public:
 	Atrac2(int codecType);
 	void DoState(PointerWrap &p) override;
-	void WriteContextToPSPMem() override;
 
-	void SetID(int id) override {}
+	void SetIDAndAddr(int atracID, u32 contextAddr) override;
 	int GetID() const override { return 0; }
 
 	int GetNextDecodePosition(int *pos) const { return 0; }
@@ -39,6 +38,10 @@ public:
 	void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
+
+	// These will not be used by the new implementation.
+	void UpdateContextFromPSPMem() override {}
+	void NotifyGetContextAddress() override {}
 
 private:
 	int currentSample_ = 0;

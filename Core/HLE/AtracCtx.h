@@ -175,6 +175,9 @@ public:
 
 	virtual void DoState(PointerWrap &p) = 0;
 
+	// TODO: Find a way to get rid of this from the base class.
+	virtual void UpdateContextFromPSPMem() = 0;
+
 	virtual int Channels() const = 0;
 
 	int GetOutputChannels() const {
@@ -185,7 +188,7 @@ public:
 		outputChannels_ = channels;
 	}
 
-	virtual void SetID(int id) = 0;
+	virtual void SetIDAndAddr(int atracID, u32 contextAddr) = 0;
 	virtual int GetID() const = 0;
 
 	PSPPointer<SceAtracContext> context_{};
@@ -207,15 +210,14 @@ public:
 
 	void CreateDecoder();
 
+	virtual void NotifyGetContextAddress() = 0;
+
 	virtual int GetNextDecodePosition(int *pos) const = 0;
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
 	virtual int Bitrate() const = 0;
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
-
-	void UpdateContextFromPSPMem();
-	virtual void WriteContextToPSPMem() = 0;
 
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
@@ -245,9 +247,12 @@ protected:
 
 class Atrac : public AtracBase {
 public:
-	~Atrac() {
-		ResetData();
+	Atrac(int codecType = 0) {
+		if (codecType) {
+			track_.codecType = codecType;
+		}
 	}
+	~Atrac();
 
 	uint32_t CurBufferAddress(int adjust = 0) const {
 		u32 off = track_.FileOffsetBySample(currentSample_ + adjust);
@@ -261,13 +266,12 @@ public:
 	u8 *BufferStart();
 
 	void DoState(PointerWrap &p) override;
-	void WriteContextToPSPMem() override;
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
 
-	void SetID(int id) override {
-		atracID_ = id;
+	void SetIDAndAddr(int atracID, u32 contextAddr) override {
+		atracID_ = atracID;
 	}
 	int GetID() const override {
 		return atracID_;
@@ -321,6 +325,10 @@ public:
 	void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
+
+	void NotifyGetContextAddress() override;
+	void UpdateContextFromPSPMem() override;
+	void WriteContextToPSPMem();
 
 private:
 	void UpdateBufferState();
