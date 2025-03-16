@@ -211,6 +211,7 @@ public:
 	int LoopNum() const {
 		return loopNum_;
 	}
+	virtual int LoopStatus() const = 0;
 	u32 CodecType() const {
 		return track_.codecType;
 	}
@@ -235,7 +236,7 @@ public:
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
 	virtual void SetLoopNum(int loopNum);
 	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
-	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
+	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
@@ -285,6 +286,12 @@ public:
 	u32 SecondBufferSize() const override {
 		return second_.size;
 	}
+	int LoopStatus() const override {
+		if (track_.loopinfo.size() > 0)
+			return 1;
+		else
+			return 0;
+	}
 
 	// Ask where in memory new data should be written.
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
@@ -292,7 +299,7 @@ public:
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
-	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
+	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;

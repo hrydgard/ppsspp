@@ -110,8 +110,8 @@ u32 Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWri
 	return 0;
 }
 
-void Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
-
+int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+	return 0;
 }
 
 int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {

@@ -311,16 +311,11 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	}
 
 	if (!bufferInfo.IsValid()) {
-		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
-	} else if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->SecondBufferSize() == 0) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
-		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
-		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE, "invalid sample position");
-	} else {
-		atrac->GetResetBufferInfo(bufferInfo, sample);
-		return hleLogInfo(Log::ME, 0);
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
 	}
+
+	int ret = atrac->GetResetBufferInfo(bufferInfo, sample);
+	return hleLogDebugOrError(Log::ME, ret);
 }
 
 static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
@@ -362,14 +357,13 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 		return hleLogError(Log::ME, err);
 	}
 
-	if (Memory::IsValidAddress(loopNumAddr))
+	if (Memory::IsValidAddress(loopNumAddr)) {
 		Memory::WriteUnchecked_U32(atrac->LoopNum(), loopNumAddr);
-	// return audio's loopinfo in at3 file
+	}
+
 	if (Memory::IsValidAddress(statusAddr)) {
-		if (atrac->GetTrack().loopinfo.size() > 0)
-			Memory::WriteUnchecked_U32(1, statusAddr);
-		else
-			Memory::WriteUnchecked_U32(0, statusAddr);
+		const int loopStatus = atrac->LoopStatus();
+		Memory::WriteUnchecked_U32(loopStatus, statusAddr);
 		return hleLogDebug(Log::ME, 0);
 	} else {
 		return hleLogError(Log::ME, 0, "invalid address");

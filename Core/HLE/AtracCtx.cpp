@@ -621,7 +621,14 @@ void AtracBase::CreateDecoder() {
 	}
 }
 
-void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
+	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
+		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
+		return SCE_ERROR_ATRAC_BAD_SAMPLE;
+	}
+
 	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
 		bufferInfo->first.writePosPtr = first_.addr;
 		// Everything is loaded, so nothing needs to be read.
@@ -674,6 +681,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	bufferInfo->second.writableBytes = 0;
 	bufferInfo->second.minWriteBytes = 0;
 	bufferInfo->second.filePos = 0;
+	return 0;
 }
 
 int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
