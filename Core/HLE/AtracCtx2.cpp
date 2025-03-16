@@ -156,3 +156,7 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	CreateDecoder();
 	WriteContextToPSPMem();
 }
+
+int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
+	return 0;
+}

@@ -1181,3 +1181,12 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	CreateDecoder();
 	WriteContextToPSPMem();
 }
+
+int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
+	const int channels = outputChannels_;
+	int outSamples = 0;
+	decoder_->Decode(srcData, track_.BytesPerFrame(), bytesConsumed, channels, dstData, &outSamples);
+	*bytesWritten = outSamples * channels * sizeof(int16_t);
+	// TODO: Possibly return a decode error on bad data.
+	return 0;
+}

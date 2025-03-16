@@ -622,7 +622,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, ret);
 	}
 
-	if (atrac->GetTrack().codecType != atracContextTypes[atracID]) {
+	if (atrac->CodecType() != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
@@ -930,7 +930,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	}
 
 	bool jointStereo = false;
-	if (atrac->GetTrack().codecType == PSP_MODE_AT_3) {
+	if (atrac->CodecType() == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
 		bool found = false;
 		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
@@ -947,7 +947,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
-	const char *codecName = atrac->GetTrack().codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";
 	return hleLogInfo(Log::ME, 0, "%s %s audio", codecName, channelName);
 }
@@ -969,15 +969,12 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	}
 
 	int bytesConsumed = 0;
-	int outSamples = 0;
-	int channels = atrac->GetOutputChannels();
-	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, channels, outp, &outSamples);
-	int bytesWritten = outSamples * channels * sizeof(int16_t);
-	*srcConsumed = bytesConsumed;
-	*outWritten = bytesWritten;
+	int bytesWritten = 0;
+
+	int retval = atrac->DecodeLowLevel(srcp, &bytesConsumed, outp, &bytesWritten);
 
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, bytesWritten, "AtracLowLevelDecode");
-	return hleDelayResult(hleLogDebug(Log::ME, 0), "low level atrac decode data", atracDecodeDelay);
+	return hleDelayResult(hleLogDebug(Log::ME, retval), "low level atrac decode data", atracDecodeDelay);
 }
 
 static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize) {

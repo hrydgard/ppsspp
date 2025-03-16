@@ -26,6 +26,7 @@ public:
 	u32 SecondBufferSize() const override;
 
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
+	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	u32 GetNextSamples() override;
 	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
 
