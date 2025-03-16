@@ -82,12 +82,12 @@ void Atrac2::WriteContextToPSPMem() {
 	NotifyMemInfo(MemBlockFlags::WRITE, context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
-int Atrac2::Analyze(u32 addr, u32 size) {
-	return AnalyzeAtracTrack(addr, size, &track_);
+int Atrac2::Analyze(const Track &track, u32 addr, u32 size) {
+	return 0;
 }
 
-int Atrac2::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
-	return AnalyzeAA3Track(addr, size, filesize, &track_);
+int Atrac2::AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 filesize) {
+	return 0;
 }
 
 int Atrac2::RemainingFrames() const {

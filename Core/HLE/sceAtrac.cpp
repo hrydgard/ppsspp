@@ -571,12 +571,24 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
 	}
 
-	int ret = atrac->Analyze(buffer, readSize);
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, readSize, &track);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
 
+	ret = atrac->Analyze(track, buffer, readSize);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
+	if (atrac->CodecType() != atracContextTypes[atracID]) {
+		// TODO: Should this not change the buffer size?
+		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
+	}
+
 	ret = atrac->SetData(buffer, readSize, bufferSize, 2);
+
 	// not sure the real delay time
 	return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "atrac set data", 100);
 }
@@ -596,7 +608,13 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ATRACID, "bad atrac ID");
 	}
 
-	int ret = atrac->Analyze(buffer, bufferSize);
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
+	ret = atrac->Analyze(track, buffer, bufferSize);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -618,8 +636,14 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		bufferSize = 0x10000000;
 	}
 
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->Analyze(buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -638,8 +662,15 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	if (readSize > bufferSize) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
 	}
+
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->Analyze(buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -752,7 +783,13 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
 	}
 
-	int ret = atrac->Analyze(buffer, readSize);
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
+	ret = atrac->Analyze(track, buffer, readSize);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
@@ -767,6 +804,8 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 }
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
+// So we should probably remove it?
+// HalfwayBuffer can fully replace it though, of course (just set readSize == bufferSize).
 static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidate* here.
@@ -774,10 +813,17 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ATRACID, "bad atrac ID");
 	}
 
-	int ret = atrac->Analyze(buffer, bufferSize);
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
 	}
+
+	ret = atrac->Analyze(track, buffer, bufferSize);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	if (atrac->Channels() != 1) {
 		// It seems it still sets the data.
 		atrac->SetData(buffer, bufferSize, bufferSize, 2);
@@ -789,9 +835,16 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 }
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
+// See note in above function.
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->Analyze(buffer, bufferSize);
+	ret = atrac->Analyze(track, buffer, bufferSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -814,8 +867,15 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	if (readSize > bufferSize) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
 	}
+
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->Analyze(buffer, readSize);
+	ret = atrac->Analyze(track, buffer, readSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -835,8 +895,14 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->AnalyzeAA3(buffer, bufferSize, fileSize);
+	ret = atrac->AnalyzeAA3(track, buffer, bufferSize, fileSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);
@@ -957,8 +1023,14 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
 	}
 
+	Track track;
+	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret);
+	}
+
 	AtracBase *atrac = allocAtrac();
-	int ret = atrac->AnalyzeAA3(buffer, readSize, fileSize);
+	ret = atrac->AnalyzeAA3(track, buffer, readSize, fileSize);
 	if (ret < 0) {
 		delete atrac;
 		return hleLogError(Log::ME, ret);

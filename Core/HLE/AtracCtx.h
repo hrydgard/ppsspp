@@ -223,8 +223,8 @@ public:
 	virtual int BytesPerFrame() const = 0;
 	virtual int SamplesPerFrame() const = 0;
 
-	virtual int Analyze(u32 addr, u32 size) = 0;
-	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
+	virtual int Analyze(const Track &track, u32 addr, u32 size) = 0;
+	virtual int AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 filesize) = 0;
 
 	void UpdateContextFromPSPMem();
 	virtual void WriteContextToPSPMem() = 0;
@@ -275,8 +275,8 @@ public:
 	void DoState(PointerWrap &p) override;
 	void WriteContextToPSPMem() override;
 
-	int Analyze(u32 addr, u32 size) override;
-	int AnalyzeAA3(u32 addr, u32 size, u32 filesize) override;
+	int Analyze(const Track &track, u32 addr, u32 size) override;
+	int AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 filesize) override;
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;

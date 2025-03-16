@@ -241,8 +241,7 @@ void Track::DebugLog() {
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
 }
 
-int Atrac::Analyze(u32 addr, u32 size) {
-	track_ = {};
+int Atrac::Analyze(const Track &track, u32 addr, u32 size) {
 	first_ = {};
 	first_.addr = addr;
 	first_.size = size;
@@ -265,10 +264,10 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
-	int retval = AnalyzeAtracTrack(addr, size, &track_);
+	track_ = track;
 	first_._filesize_dontuse = track_.fileSize;
 	track_.DebugLog();
-	return retval;
+	return 0;
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
@@ -537,14 +536,15 @@ int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	return 0;
 }
 
-int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
+int Atrac::AnalyzeAA3(const Track &track, u32 addr, u32 size, u32 fileSize) {
 	first_.addr = addr;
 	first_.size = size;
 	first_._filesize_dontuse = fileSize;
 
 	AnalyzeReset();
 
-	return AnalyzeAA3Track(addr, size, fileSize, &track_);
+	track_ = track;
+	return 0;
 }
 
 int Atrac::GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const {
