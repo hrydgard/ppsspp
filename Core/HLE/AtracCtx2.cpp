@@ -114,13 +114,13 @@ void Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 
 }
 
-int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) {
+int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
 	if (readSize == bufferSize) {
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	} else {
 		bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 	}
-	return hleLogDebug(Log::ME, successCode);
+	return hleLogDebug(Log::ME, 0);
 }
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {

@@ -676,7 +676,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	bufferInfo->second.filePos = 0;
 }
 
-int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) {
+int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) {
 	outputChannels_ = outputChannels;
 
 	if (outputChannels != track_.channels) {
@@ -731,7 +731,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 	}
 	CreateDecoder();
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
-	return successCode;
+	return 0;
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {

@@ -21,7 +21,7 @@ public:
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
-	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
+	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 SecondBufferSize() const override;
 
