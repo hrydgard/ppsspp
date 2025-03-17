@@ -119,6 +119,12 @@ struct SceAtracContext {
 	SceAtracIdInfo info;
 };
 
+struct Atrac3LowLevelParams {
+	int encodedChannels;
+	int outputChannels;
+	int bytesPerFrame;
+};
+
 constexpr int PSP_MAX_ATRAC_IDS = 6;
 
 class AtracBase;

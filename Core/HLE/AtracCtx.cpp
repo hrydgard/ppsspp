@@ -1197,13 +1197,13 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	return 0;
 }
 
-void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
+void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) {
 	track_ = Track();
 	track_.codecType = codecType;
 	track_.endSample = 0;
-	track_.channels = Memory::Read_U32(paramsAddr);
-	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
-	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
+	track_.channels = params.encodedChannels;
+	outputChannels_ = params.outputChannels;
+	bufferMaxSize_ = params.bytesPerFrame;
 	track_.bytesPerFrame = bufferMaxSize_;
 	first_.writableBytes = track_.bytesPerFrame;
 	ResetData();

@@ -117,7 +117,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x2ff, 0x00000000, "unk_0x2ff"),
 	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),  // AudioCodec
 	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
-	// TODO: We should put the Atrac contexts inside the allocated bss space. Also, current actual full size (including text, on latest fw) seems to be 0x45C0.
+	// The size varies a bit per version, from about 0x3C00 to 0x4500 bytes. We could make a lookup table...
 	ModuleLoadInfo(0x302, 0x00004000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),

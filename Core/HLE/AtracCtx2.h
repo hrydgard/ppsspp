@@ -43,7 +43,7 @@ public:
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	u32 GetNextSamples() override;
 
-	void InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) override;
+	void InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
 

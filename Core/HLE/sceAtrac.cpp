@@ -974,6 +974,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleReportError(Log::ME, 0, "invalid pointers");
 	}
 
+	auto params = PSPPointer<Atrac3LowLevelParams>::Create(paramsAddr);
+
 	int codecType = atracContextTypes[atracID];
 
 	bool jointStereo = false;
@@ -992,7 +994,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		}
 	}
 
-	atrac->InitLowLevel(paramsAddr, jointStereo, codecType);
+	atrac->InitLowLevel(*params, jointStereo, codecType);
 
 	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";

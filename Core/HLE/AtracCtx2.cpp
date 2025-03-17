@@ -966,12 +966,12 @@ int Atrac2::Bitrate() const {
 	return bitrate;
 }
 
-void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
+void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) {
 	SceAtracIdInfo &info = context_->info;
 	info.codec = codecType;
-	info.numChan = Memory::ReadUnchecked_U32(paramsAddr);
-	outputChannels_ = Memory::ReadUnchecked_U32(paramsAddr + 4);
-	info.sampleSize = Memory::ReadUnchecked_U32(paramsAddr + 8);
+	info.numChan = params.encodedChannels;
+	outputChannels_ = params.outputChannels;
+	info.sampleSize = params.bytesPerFrame;
 	info.dataOff = 0;
 	info.decodePos = 0;
 	info.state = ATRAC_STATUS_LOW_LEVEL;
