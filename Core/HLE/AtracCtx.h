@@ -198,14 +198,13 @@ public:
 	virtual int LoopNum() const = 0;
 	virtual int LoopStatus() const = 0;
 
-	u32 CodecType() const {
-		return track_.codecType;
-	}
+	virtual int CodecType() const = 0;
+
 	AudioDecoder *Decoder() const {
 		return decoder_;
 	}
 
-	void CreateDecoder();
+	void CreateDecoder(int codecType, int channels, int jointStereo, int bytesPerFrame);
 
 	virtual void NotifyGetContextAddress() = 0;
 
@@ -223,8 +222,8 @@ public:
 	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;
 	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
 
-	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
-	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
+	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) = 0;
+	virtual int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) = 0;
 	virtual u32 GetNextSamples() = 0;
@@ -235,7 +234,6 @@ public:
 	virtual bool IsNewAtracImpl() const { return false; }
 
 protected:
-	Track track_{};
 	u16 outputChannels_ = 2;
 
 	// TODO: Save the internal state of this, now technically possible.
@@ -275,6 +273,9 @@ public:
 		return atracID_;
 	}
 
+	int CodecType() const override {
+		return track_.codecType;
+	}
 	bool HasSecondBuffer() const override {
 		return second_.size != 0;
 	}
@@ -316,7 +317,8 @@ public:
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
-	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
+	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
+	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	// Returns how many samples the next DecodeData will write.
@@ -342,6 +344,8 @@ private:
 	}
 	void ConsumeFrame();
 	void CalculateStreamInfo(u32 *readOffset);
+
+	Track track_{};
 
 	InputBuffer first_{};
 	InputBuffer second_{};  // only addr, size, fileoffset are used (incomplete)

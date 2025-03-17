@@ -29,14 +29,16 @@ public:
 	int Channels() const override { return context_->info.numChan; }
 	int BytesPerFrame() const override { return context_->info.sampleSize; }
 	int SetLoopNum(int loopNum) override;
+	int CodecType() const override { return context_->info.codec; }
 
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
+	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
-	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
+	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	bool HasSecondBuffer() const override;
 
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;

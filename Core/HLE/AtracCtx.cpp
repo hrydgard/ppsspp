@@ -146,9 +146,9 @@ void Atrac::DoState(PointerWrap &p) {
 		bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 	}
 
-	// Make sure to do this late; it depends on things like bytesPerFrame_.
+	// Make sure to do this late; it depends on track parameters.
 	if (p.mode == p.MODE_READ && bufferState_ != ATRAC_STATUS_NO_DATA) {
-		CreateDecoder();
+		CreateDecoder(track_.codecType, track_.channels, track_.jointStereo, track_.bytesPerFrame);
 	}
 
 	if (s >= 2 && s < 9) {
@@ -585,24 +585,24 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	}
 }
 
-void AtracBase::CreateDecoder() {
+void AtracBase::CreateDecoder(int codecType, int channels, int jointStereo, int bytesPerFrame) {
 	if (decoder_) {
 		delete decoder_;
 	}
 
 	// First, init the standalone decoder.
-	if (track_.codecType == PSP_MODE_AT_3) {
+	if (codecType == PSP_MODE_AT_3) {
 		// We don't pull this from the RIFF so that we can support OMA also.
 		uint8_t extraData[14]{};
 		// The only thing that changes are the jointStereo_ values.
 		extraData[0] = 1;
-		extraData[3] = track_.channels << 3;
-		extraData[6] = track_.jointStereo;
-		extraData[8] = track_.jointStereo;
+		extraData[3] = channels << 3;
+		extraData[6] = jointStereo;
+		extraData[8] = jointStereo;
 		extraData[10] = 1;
-		decoder_ = CreateAtrac3Audio(track_.channels, track_.bytesPerFrame, extraData, sizeof(extraData));
+		decoder_ = CreateAtrac3Audio(channels, bytesPerFrame, extraData, sizeof(extraData));
 	} else {
-		decoder_ = CreateAtrac3PlusAudio(track_.channels, track_.bytesPerFrame);
+		decoder_ = CreateAtrac3PlusAudio(channels, bytesPerFrame);
 	}
 }
 
@@ -745,7 +745,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		u32 copybytes = std::min(bufferSize, track_.fileSize);
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
-	CreateDecoder();
+	CreateDecoder(track.codecType, track.channels, track.jointStereo, track.bytesPerFrame);
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
 
 	if (track_.channels == 2 && outputChannels == 1) {
@@ -755,7 +755,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	return 0;
 }
 
-u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
+int Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	u32 secondFileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	u32 desiredSize = track_.fileSize - secondFileOffset;
 
@@ -773,7 +773,7 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return 0;
 }
 
-int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
+int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
@@ -1055,7 +1055,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (!gotFrame && currentSample_ < track_.endSample) {
 		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-		if (track_.FileOffsetBySample(currentSample_) < track_.fileSize) {
+		if (track_.FileOffsetBySample(currentSample_) < (int)track_.fileSize) {
 			numSamples = std::min(maxSamples, track_.SamplesPerFrame());
 			u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
 			if (outbuf != nullptr) {
@@ -1225,7 +1225,7 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 	track_.fileSize = track_.bytesPerFrame;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
-	CreateDecoder();
+	CreateDecoder(codecType, track_.channels, track_.jointStereo, track_.bytesPerFrame);
 	WriteContextToPSPMem();
 }
 

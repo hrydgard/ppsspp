@@ -163,7 +163,6 @@ int Atrac2::RemainingFrames() const {
 
 Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
 	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
-	track_.codecType = codecType;
 	SceAtracIdInfo &info = context_->info;
 	info.codec = codecType;
 	info.atracID = atracID;
@@ -438,16 +437,14 @@ u32 Atrac2::GetNextSamples() {
 int Atrac2::GetNextDecodePosition(int *pos) const {
 	const SceAtracIdInfo &info = context_->info;
 	// Check if we reached the end.
-	int firstSampleOffsetFull = track_.FirstSampleOffsetFull();
-	const int currentSample = info.decodePos - info.firstValidSample;
-	if (currentSample >= track_.endSample) {
+	if (info.decodePos > info.endSample) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 	// Check if remaining data in the file is smaller than a frame.
 	if (info.fileDataEnd - info.curFileOff < info.sampleSize) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
-	*pos = currentSample;
+	*pos = info.decodePos - info.firstValidSample;
 	return 0;
 }
 
@@ -777,9 +774,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
 
-	// TODO: Remove track_.
 	track.DebugLog();
-	track_ = track;
 
 	SceAtracIdInfo &info = context_->info;
 
@@ -793,7 +788,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
 	}
 
-	CreateDecoder();
+	CreateDecoder(track.codecType, track.channels, track.jointStereo, track.bytesPerFrame);
 
 	outputChannels_ = outputChannels;
 
@@ -919,7 +914,23 @@ u32 Atrac2::SkipFrames(int *skipCount) {
 	return 0;
 }
 
-u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
+// Where to read from to fill the second buffer.
+int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *readSize) {
+	const SceAtracIdInfo &info = context_->info;
+	if (info.state != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		// No second buffer needed in this state.
+		*fileOffset = 0;
+		*readSize = 0;
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED;
+	}
+
+	const int loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
+	*fileOffset = loopEndFileOffset;
+	*readSize = info.fileDataEnd - loopEndFileOffset;
+	return 0;
+}
+
+int Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	SceAtracIdInfo &info = context_->info;
 
 	u32 loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
@@ -957,8 +968,6 @@ int Atrac2::Bitrate() const {
 }
 
 void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
-	// TODO: We shouldn't need to look at track_ later, so we shouldn't need to init it here.
-	// Not true yet.
 	SceAtracIdInfo &info = context_->info;
 	info.codec = codecType;
 	info.numChan = Memory::ReadUnchecked_U32(paramsAddr);
@@ -967,8 +976,7 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 	info.dataOff = 0;
 	info.decodePos = 0;
 	info.state = ATRAC_STATUS_LOW_LEVEL;
-	info.numChan = 2;
-	CreateDecoder();
+	CreateDecoder(codecType, info.numChan, jointStereo, info.sampleSize);
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
