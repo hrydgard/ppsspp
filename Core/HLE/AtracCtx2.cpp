@@ -787,7 +787,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
 	}
 
-	CreateDecoder(track.codecType, track.channels, track.jointStereo, track.bytesPerFrame);
+	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
 
 	outputChannels_ = outputChannels;
 
@@ -966,7 +966,7 @@ int Atrac2::Bitrate() const {
 	return bitrate;
 }
 
-void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) {
+void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	SceAtracIdInfo &info = context_->info;
 	info.codec = codecType;
 	info.numChan = params.encodedChannels;
@@ -975,7 +975,7 @@ void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, 
 	info.dataOff = 0;
 	info.decodePos = 0;
 	info.state = ATRAC_STATUS_LOW_LEVEL;
-	CreateDecoder(codecType, info.numChan, jointStereo, info.sampleSize);
+	CreateDecoder(codecType, info.sampleSize, info.numChan);
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {

@@ -132,6 +132,8 @@ class AtracBase;
 // For debugger use ONLY.
 const AtracBase *__AtracGetCtx(int i, u32 *type);
 
+bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels);
+
 // External interface used by sceSas, see ATRAC_STATUS_FOR_SCESAS.
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
 u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);

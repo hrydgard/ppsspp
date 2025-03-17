@@ -148,7 +148,7 @@ void Atrac::DoState(PointerWrap &p) {
 
 	// Make sure to do this late; it depends on track parameters.
 	if (p.mode == p.MODE_READ && bufferState_ != ATRAC_STATUS_NO_DATA) {
-		CreateDecoder(track_.codecType, track_.channels, track_.jointStereo, track_.bytesPerFrame);
+		CreateDecoder(track_.codecType, track_.bytesPerFrame, track_.channels);
 	}
 
 	if (s >= 2 && s < 9) {
@@ -585,13 +585,15 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	}
 }
 
-void AtracBase::CreateDecoder(int codecType, int channels, int jointStereo, int bytesPerFrame) {
+void AtracBase::CreateDecoder(int codecType, int bytesPerFrame, int channels) {
 	if (decoder_) {
 		delete decoder_;
 	}
 
 	// First, init the standalone decoder.
 	if (codecType == PSP_MODE_AT_3) {
+		bool jointStereo = IsAtrac3StreamJointStereo(codecType, bytesPerFrame, channels);
+
 		// We don't pull this from the RIFF so that we can support OMA also.
 		uint8_t extraData[14]{};
 		// The only thing that changes are the jointStereo_ values.
@@ -745,7 +747,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		u32 copybytes = std::min(bufferSize, track_.fileSize);
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
-	CreateDecoder(track.codecType, track.channels, track.jointStereo, track.bytesPerFrame);
+	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
 
 	if (track_.channels == 2 && outputChannels == 1) {
@@ -1197,7 +1199,7 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	return 0;
 }
 
-void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) {
+void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	track_ = Track();
 	track_.codecType = codecType;
 	track_.endSample = 0;
@@ -1211,7 +1213,7 @@ void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, i
 	if (codecType == PSP_MODE_AT_3) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = (track_.bitrate + 511) >> 10;
-		track_.jointStereo = false;
+		track_.jointStereo = IsAtrac3StreamJointStereo(codecType, params.bytesPerFrame, params.encodedChannels);
 	} else if (codecType == PSP_MODE_AT_3_PLUS) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
@@ -1225,7 +1227,7 @@ void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, i
 	track_.fileSize = track_.bytesPerFrame;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
-	CreateDecoder(codecType, track_.channels, track_.jointStereo, track_.bytesPerFrame);
+	CreateDecoder(codecType, track_.bytesPerFrame, track_.channels);
 	WriteContextToPSPMem();
 }
 

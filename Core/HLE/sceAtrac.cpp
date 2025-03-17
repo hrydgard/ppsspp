@@ -948,8 +948,8 @@ struct At3HeaderMap {
 	u16 channels;
 	u8 jointStereo;
 
-	bool Matches(const AtracBase *at) const {
-		return bytes == at->BytesPerFrame() && channels == at->Channels();
+	bool Matches(int bytesPerFrame, int encodedChannels) const {
+		return this->bytes == bytesPerFrame && this->channels == encodedChannels;
 	}
 };
 
@@ -963,6 +963,22 @@ static const At3HeaderMap at3HeaderMap[] = {
 	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
 
+bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
+	if (codecType != PSP_MODE_AT_3) {
+		// Well, might actually be, but it's not used in codec setup.
+		return false;
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+		if (at3HeaderMap[i].Matches(bytesPerFrame, channels)) {
+			return at3HeaderMap[i].jointStereo;
+		}
+	}
+
+	// Not found? Should we log?
+	return false;
+}
+
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
@@ -975,30 +991,14 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	}
 
 	auto params = PSPPointer<Atrac3LowLevelParams>::Create(paramsAddr);
+	const int codecType = atracContextTypes[atracID];
 
-	int codecType = atracContextTypes[atracID];
+	atrac->InitLowLevel(*params, codecType);
 
-	bool jointStereo = false;
-	if (atrac->CodecType() == PSP_MODE_AT_3) {
-		// See if we can match the actual jointStereo value.
-		bool found = false;
-		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
-			if (at3HeaderMap[i].Matches(atrac)) {
-				jointStereo = at3HeaderMap[i].jointStereo;
-				found = true;
-			}
-		}
-		if (!found) {
-			WARN_LOG_REPORT_ONCE(at3headermap, Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->BytesPerFrame(), atrac->Channels());
-			// TODO: Should we return an error code for these values?
-		}
-	}
-
-	atrac->InitLowLevel(*params, jointStereo, codecType);
-
-	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";
-	return hleLogInfo(Log::ME, 0, "%s %s audio", codecName, channelName);
+	const char *codecName = codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *encodedChannelName = params->encodedChannels == 1 ? "mono" : "stereo";
+	const char *outputChannelName = params->outputChannels == 1 ? "mono" : "stereo";
+	return hleLogInfo(Log::ME, 0, "%s %s->%s audio", codecName, encodedChannelName, outputChannelName);
 }
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {

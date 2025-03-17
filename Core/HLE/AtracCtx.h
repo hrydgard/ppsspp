@@ -202,7 +202,7 @@ public:
 		return decoder_;
 	}
 
-	void CreateDecoder(int codecType, int channels, int jointStereo, int bytesPerFrame);
+	void CreateDecoder(int codecType, int bytesPerFrame, int channels);
 
 	virtual void NotifyGetContextAddress() = 0;
 
@@ -225,7 +225,7 @@ public:
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) = 0;
 	virtual u32 GetNextSamples() = 0;
-	virtual void InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) = 0;
+	virtual void InitLowLevel(const Atrac3LowLevelParams &params, int codecType) = 0;
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
@@ -317,7 +317,7 @@ public:
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 	// Returns how many samples the next DecodeData will write.
 	u32 GetNextSamples() override;
-	void InitLowLevel(const Atrac3LowLevelParams &params, bool jointStereo, int codecType) override;
+	void InitLowLevel(const Atrac3LowLevelParams &params, int codecType) override;
 
 	int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const override;
 
