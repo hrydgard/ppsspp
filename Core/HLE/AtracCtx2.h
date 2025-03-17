@@ -6,7 +6,8 @@
 
 class Atrac2 : public AtracBase {
 public:
-	Atrac2(u32 contextAddr, int codecType);
+	// The default values are only used during save state load, in which case they get restored by DoState.
+	Atrac2(u32 contextAddr = 0, int codecType = 0);
 	~Atrac2() {
 		delete[] decodeTemp_;
 	}
@@ -51,7 +52,7 @@ public:
 	void UpdateContextFromPSPMem() override {}
 	void NotifyGetContextAddress() override {}
 
-	bool IsNewAtracImpl() const override { return true; }
+	int GetContextVersion() const override { return 2; }
 
 	u32 GetInternalCodecError() const override;
 

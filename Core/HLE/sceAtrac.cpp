@@ -152,29 +152,53 @@ static u32 GetAtracContextAddress(int atracID) {
 }
 
 void __AtracDoState(PointerWrap &p) {
-	auto s = p.Section("sceAtrac", 1, 2);
+	auto s = p.Section("sceAtrac", 1, 4);
 	if (!s)
 		return;
 
 	Do(p, atracInited);
+	if (s >= 4) {
+		Do(p, g_atracBSS);
+		Do(p, g_atracMaxContexts);
+		if (g_atracMaxContexts > PSP_MAX_ATRAC_IDS)  // paranoia
+			g_atracMaxContexts = PSP_MAX_ATRAC_IDS;
+	} else {
+		g_atracBSS = 0;
+		g_atracMaxContexts = 6;
+	}
 	for (int i = 0; i < PSP_MAX_ATRAC_IDS; ++i) {
 		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
-			DoSubClass<AtracBase, Atrac>(p, atracContexts[i], i);
+			int version = atracContexts[i] ? atracContexts[i]->GetContextVersion() : 0;
+			if (s >= 4) {
+				Do(p, version);
+				_dbg_assert_(version != 0);
+			} else {
+				// Old versions only support old contexts.
+				version = 1;
+			}
+			switch (version) {
+			case 1:
+				DoSubClass<AtracBase, Atrac>(p, atracContexts[i], i);
+				break;
+			case 2:
+				DoSubClass<AtracBase, Atrac2>(p, atracContexts[i]);
+				break;
+			}
 		} else {
 			delete atracContexts[i];
 			atracContexts[i] = nullptr;
 		}
 	}
 	DoArray(p, atracContextTypes, PSP_MAX_ATRAC_IDS);
-	if (s < 2) {
-		atracLibVersion = 0;
-		atracLibCrc = 0;
-	}
-	else {
+	if (s >= 2) {
 		Do(p, atracLibVersion);
 		Do(p, atracLibCrc);
+	}
+	else {
+		atracLibVersion = 0;
+		atracLibCrc = 0;
 	}
 }
 
@@ -192,9 +216,7 @@ static AtracBase *getAtrac(int atracID) {
 static int AllocAndRegisterAtrac(int codecType) {
 	for (int i = 0; i < g_atracMaxContexts; ++i) {
 		if (atracContextTypes[i] == codecType && atracContexts[i] == 0) {
-			if (g_Config.bUseExperimentalAtrac) {
-				// Note: This assert isn't really valid until we savestate the new contexts.
-				_dbg_assert_(g_atracBSS != 0);
+			if (g_Config.bUseExperimentalAtrac && g_atracBSS != 0) {
 				atracContexts[i] = new Atrac2(GetAtracContextAddress(i), codecType);
 			} else {
 				atracContexts[i] = new Atrac(i, codecType);

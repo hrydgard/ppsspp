@@ -1006,7 +1006,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", ctx->RemainingFrames());
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(ctx->IsNewAtracImpl() ? "NewImpl" : "Legacy");
+				ImGui::TextUnformatted(ctx->GetContextVersion() >= 2 ? "NewImpl" : "Legacy");
 			}
 
 			ImGui::EndTable();
@@ -1031,7 +1031,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 					ImGui::SameLine();
 					ImClickableValue("ctx", ctx->context_.ptr, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 				}
-				if (ctx->context_.IsValid() && ctx->IsNewAtracImpl()) {
+				if (ctx->context_.IsValid() && ctx->GetContextVersion() >= 2) {
 					const auto &info = ctx->context_->info;
 					ImGui::Text("Buffer: (size: %d / %08x) Frame: %d", info.bufferByte, info.bufferByte, info.sampleSize);
 					ImGui::SameLine();

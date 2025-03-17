@@ -229,7 +229,7 @@ public:
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
-	virtual bool IsNewAtracImpl() const { return false; }
+	virtual int GetContextVersion() const = 0;
 
 protected:
 	u16 outputChannels_ = 2;
@@ -324,6 +324,8 @@ public:
 	void NotifyGetContextAddress() override;
 	void UpdateContextFromPSPMem() override;
 	void WriteContextToPSPMem();
+
+	int GetContextVersion() const override { return 1; }
 
 private:
 	void UpdateBufferState();

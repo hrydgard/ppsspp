@@ -1,4 +1,7 @@
 #include <algorithm>
+
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Log.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
@@ -162,15 +165,32 @@ int Atrac2::RemainingFrames() const {
 }
 
 Atrac2::Atrac2(u32 contextAddr, int codecType) {
-	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
-	SceAtracIdInfo &info = context_->info;
-	info.codec = codecType;
-	info.state = ATRAC_STATUS_NO_DATA;
-	info.curBuffer = 0;
+	if (contextAddr) {
+		context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
+		// First-time initialization.
+		SceAtracIdInfo &info = context_->info;
+		info.codec = codecType;
+		info.state = ATRAC_STATUS_NO_DATA;
+		info.curBuffer = 0;
+	} else {
+		// We're loading state, we'll restore the context in DoState.
+	}
 }
 
 void Atrac2::DoState(PointerWrap &p) {
-	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
+	auto s = p.Section("Atrac2", 1, 1);
+	if (!s)
+		return;
+
+	Do(p, outputChannels_);
+	// The only thing we need to save now is the outputChannels_ and the context pointer. And technically, not even that since
+	// it can be computed. Still, for future proofing, let's save it.
+	Do(p, context_);
+
+	const SceAtracIdInfo &info = context_->info;
+	if (p.mode == p.MODE_READ && info.state != ATRAC_STATUS_NO_DATA) {
+		CreateDecoder(info.codec, info.sampleSize, info.numChan);
+	}
 }
 
 bool Atrac2::HasSecondBuffer() const {
@@ -299,7 +319,7 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bo
 
 	seekPos += info.firstValidSample;
 
-	if ((u32)seekPos > info.endSample) {
+	if ((u32)seekPos > (u32)info.endSample) {
 		return SCE_ERROR_ATRAC_BAD_SAMPLE;
 	}
 
@@ -935,7 +955,7 @@ int Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	u32 loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
 	if ((info.sampleSize * 3 <= (int)secondBufferSize ||
 		(info.fileDataEnd - loopEndFileOffset) <= (int)secondBufferSize)) {
-		if (info.state == 6) {
+		if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 			info.secondBuffer = secondBuffer;
 			info.secondBufferByte = secondBufferSize;
 			info.secondStreamOff = 0;
