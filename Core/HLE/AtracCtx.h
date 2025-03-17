@@ -186,8 +186,6 @@ public:
 		outputChannels_ = channels;
 	}
 
-	virtual int GetID() const = 0;
-
 	virtual u32 GetInternalCodecError() const { return 0; }
 
 	PSPPointer<SceAtracContext> context_{};
@@ -268,10 +266,6 @@ public:
 
 	int GetNextDecodePosition(int *pos) const override;
 	int RemainingFrames() const override;
-
-	int GetID() const override {
-		return atracID_;
-	}
 
 	int CodecType() const override {
 		return track_.codecType;

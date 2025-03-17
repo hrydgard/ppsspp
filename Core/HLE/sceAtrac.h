@@ -92,8 +92,7 @@ struct SceAtracIdInfo {
 	u32 secondBufferByte; // Size in bytes of the second buffer.
 	// Offset 72 here.
 	// make sure the size is 128
-	u32 unk[13];
-	u32 atracID;          // The atrac context number is stored here, for some reason.
+	u32 unk[14];
 
 	// Simple helpers. Similar ones are on track_, but we shouldn't need track_ anymore when playing back.
 

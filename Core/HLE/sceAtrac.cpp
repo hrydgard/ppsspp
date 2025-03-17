@@ -195,7 +195,7 @@ static int AllocAndRegisterAtrac(int codecType) {
 			if (g_Config.bUseExperimentalAtrac) {
 				// Note: This assert isn't really valid until we savestate the new contexts.
 				_dbg_assert_(g_atracBSS != 0);
-				atracContexts[i] = new Atrac2(i, GetAtracContextAddress(i), codecType);
+				atracContexts[i] = new Atrac2(GetAtracContextAddress(i), codecType);
 			} else {
 				atracContexts[i] = new Atrac(i, codecType);
 			}

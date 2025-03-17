@@ -161,11 +161,10 @@ int Atrac2::RemainingFrames() const {
 	}
 }
 
-Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
+Atrac2::Atrac2(u32 contextAddr, int codecType) {
 	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
 	SceAtracIdInfo &info = context_->info;
 	info.codec = codecType;
-	info.atracID = atracID;
 	info.state = ATRAC_STATUS_NO_DATA;
 	info.curBuffer = 0;
 }

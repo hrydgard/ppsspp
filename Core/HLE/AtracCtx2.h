@@ -6,7 +6,7 @@
 
 class Atrac2 : public AtracBase {
 public:
-	Atrac2(int atracID, u32 contextAddr, int codecType);
+	Atrac2(u32 contextAddr, int codecType);
 	~Atrac2() {
 		delete[] decodeTemp_;
 	}
@@ -16,8 +16,6 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override;
-
-	int GetID() const override { return context_->info.atracID; }
 
 	int GetNextDecodePosition(int *pos) const override;
 
