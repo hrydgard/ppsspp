@@ -962,7 +962,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("OutChans", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Channels", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("CurrentSample", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("RemainingFrames", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Impl", ImGuiTableColumnFlags_WidthFixed);
@@ -998,13 +998,21 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(AtracStatusToString(ctx->BufferState()));
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", ctx->GetOutputChannels());
+				ImGui::Text("in:%d out:%d", ctx->Channels(), ctx->GetOutputChannels());
 				ImGui::TableNextColumn();
-				int pos;
-				ctx->GetNextDecodePosition(&pos);
-				ImGui::Text("%d", pos);
+				if (ctx->BufferState() != ATRAC_STATUS_LOW_LEVEL) {
+					int pos;
+					ctx->GetNextDecodePosition(&pos);
+					ImGui::Text("%d", pos);
+				} else {
+					ImGui::TextUnformatted("N/A");
+				}
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", ctx->RemainingFrames());
+				if (ctx->BufferState() <= ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+					ImGui::Text("%d", ctx->RemainingFrames());
+				} else {
+					ImGui::TextUnformatted("N/A");
+				}
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(ctx->GetContextVersion() >= 2 ? "NewImpl" : "Legacy");
 			}
@@ -1025,7 +1033,9 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
 				ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
 				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
-				ImGui::Text("cur/end sample: %d/%d/%d", pos, endSample);
+				if (ctx->BufferState() <= ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+					ImGui::Text("cur/end sample: %d/%d/%d", pos, endSample);
+				}
 				if (ctx->context_.IsValid()) {
 					ImGui::Text("ctx addr: ");
 					ImGui::SameLine();
