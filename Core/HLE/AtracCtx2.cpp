@@ -164,10 +164,11 @@ int Atrac2::RemainingFrames() const {
 Atrac2::Atrac2(int atracID, u32 contextAddr, int codecType) {
 	context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
 	track_.codecType = codecType;
-	context_->info.codec = codecType;
-	context_->info.atracID = atracID;
-	context_->info.state = ATRAC_STATUS_NO_DATA;
-	context_->info.curBuffer = 0;
+	SceAtracIdInfo &info = context_->info;
+	info.codec = codecType;
+	info.atracID = atracID;
+	info.state = ATRAC_STATUS_NO_DATA;
+	info.curBuffer = 0;
 }
 
 void Atrac2::DoState(PointerWrap &p) {
@@ -198,6 +199,10 @@ int Atrac2::ResetPlayPosition(int seekPos, int bytesWrittenFirstBuf, int bytesWr
 
 	// This was mostly copied straight from the old impl.
 	SceAtracIdInfo &info = context_->info;
+	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
+	}
+
 	seekPos += info.firstValidSample;
 
 	if ((u32)seekPos > (u32)info.endSample) {
@@ -291,17 +296,22 @@ int Atrac2::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int seekPos, bo
 	const SceAtracIdInfo &info = context_->info;
 
 	if (info.state == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && info.secondBufferByte == 0) {
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)seekPos + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
-		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
-		return hleLogWarning(Log::ME, SCE_ERROR_ATRAC_BAD_SAMPLE, "invalid sample position");
+		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	}
 
-	GetResetBufferInfoInternal(bufferInfo, seekPos + info.firstValidSample);
+	seekPos += info.firstValidSample;
+
+	if ((u32)seekPos > info.endSample) {
+		return SCE_ERROR_ATRAC_BAD_SAMPLE;
+	}
+
+	GetResetBufferInfoInternal(bufferInfo, seekPos);
 	// Yes, this happens here! If there are any frames to skip, they get skipped!
 	// Even though this looks like a function that shouldn't change the state.
 	int skipCount = 0;
 	int retval = SkipFrames(&skipCount);
+	if (skipCount > 0)
+		*delay = true;
 	return retval;
 }
 
@@ -754,8 +764,20 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish) {
 }
 
 int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 bufferSize, int outputChannels) {
+	// 72 is about the size of the minimum required data to even be valid.
+	if (readSize < 72) {
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+	}
+
+	// TODO: Check the range (addr, size) instead.
+	if (!Memory::IsValidAddress(bufferAddr)) {
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+
 	// TODO: Remove track_.
 	track_ = track;
+	track_.DebugLog();
+
 	SceAtracIdInfo &info = context_->info;
 
 	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
@@ -908,16 +930,18 @@ u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	SceAtracIdInfo &info = context_->info;
 
 	u32 loopEndFileOffset = ComputeLoopEndFileOffset(info, info.loopEnd);
-	u32 retval = 0x80630011;
 	if ((info.sampleSize * 3 <= (int)secondBufferSize ||
-		(info.fileDataEnd - loopEndFileOffset) <= (int)secondBufferSize) &&
-		(retval = 0x80630022, info.state == 6)) {
-		info.secondBuffer = secondBuffer;
-		retval = 0;
-		info.secondBufferByte = secondBufferSize;
-		info.secondStreamOff = 0;
+		(info.fileDataEnd - loopEndFileOffset) <= (int)secondBufferSize)) {
+		if (info.state == 6) {
+			info.secondBuffer = secondBuffer;
+			info.secondBufferByte = secondBufferSize;
+			info.secondStreamOff = 0;
+			return 0;
+		} else {
+			return SCE_ERROR_ATRAC_SECOND_BUFFER_NOT_NEEDED;
+		}
 	}
-	return retval;
+	return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 }
 
 u32 Atrac2::GetInternalCodecError() const {
