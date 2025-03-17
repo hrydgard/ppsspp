@@ -161,7 +161,7 @@ struct Track {
 		return (u32)(dataByteOffset + bytesPerFrame + frameOffset * bytesPerFrame);
 	}
 
-	void DebugLog();
+	void DebugLog() const;
 };
 
 int AnalyzeAA3Track(u32 addr, u32 size, u32 filesize, Track *track);

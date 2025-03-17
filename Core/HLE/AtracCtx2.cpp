@@ -437,10 +437,13 @@ u32 Atrac2::GetNextSamples() {
 
 int Atrac2::GetNextDecodePosition(int *pos) const {
 	const SceAtracIdInfo &info = context_->info;
-	const int currentSample = info.decodePos - track_.FirstSampleOffsetFull();
+	// Check if we reached the end.
+	int firstSampleOffsetFull = track_.FirstSampleOffsetFull();
+	const int currentSample = info.decodePos - info.firstValidSample;
 	if (currentSample >= track_.endSample) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
+	// Check if remaining data in the file is smaller than a frame.
 	if (info.fileDataEnd - info.curFileOff < info.sampleSize) {
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
@@ -675,7 +678,7 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish) {
 
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	if (!decoder_->Decode(Memory::GetPointer(inAddr), track_.bytesPerFrame, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
+	if (!decoder_->Decode(Memory::GetPointer(inAddr), info.sampleSize, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
 		// Decode failed.
 		*finish = 0;
 		// TODO: The error code here varies based on what the problem is, but not sure of the right values.
@@ -775,29 +778,29 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	}
 
 	// TODO: Remove track_.
+	track.DebugLog();
 	track_ = track;
-	track_.DebugLog();
 
 	SceAtracIdInfo &info = context_->info;
 
-	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
+	if (track.codecType != PSP_MODE_AT_3 && track.codecType != PSP_MODE_AT_3_PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
-		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track_.codecType);
+		ERROR_LOG(Log::ME, "unexpected codec type %d in set data", track.codecType);
 		return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 	}
 
-	if (outputChannels != track_.channels) {
-		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track_.channels);
+	if (outputChannels != track.channels) {
+		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
 	}
 
 	CreateDecoder();
 
 	outputChannels_ = outputChannels;
 
-	if (!track_.loopinfo.empty()) {
-		info.loopNum = track_.loopinfo[0].playCount;
-		info.loopStart = track_.loopStartSample;
-		info.loopEnd = track_.loopEndSample;
+	if (!track.loopinfo.empty()) {
+		info.loopNum = track.loopinfo[0].playCount;
+		info.loopStart = track.loopStartSample;
+		info.loopEnd = track.loopEndSample;
 	} else {
 		info.loopNum = 0;
 		info.loopStart = 0;
@@ -805,20 +808,20 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	}
 
 	if (!decodeTemp_) {
-		_dbg_assert_(track_.channels <= 2);
-		decodeTemp_ = new int16_t[track_.SamplesPerFrame() * outputChannels + 1];
-		decodeTemp_[track_.SamplesPerFrame() * outputChannels] = 1337;  // Sentinel
+		_dbg_assert_(track.channels <= 2);
+		decodeTemp_ = new int16_t[track.SamplesPerFrame() * outputChannels + 1];
+		decodeTemp_[track.SamplesPerFrame() * outputChannels] = 1337;  // Sentinel
 	}
 
 	context_->codec.inBuf = bufferAddr;
 
-	if (readSize > track_.fileSize) {
+	if (readSize > track.fileSize) {
 		// This is seen in Tekken 6.
-		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track_.fileSize);
-		readSize = track_.fileSize;
+		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track.fileSize);
+		readSize = track.fileSize;
 	}
 
-	if (bufferSize >= track_.fileSize) {
+	if (bufferSize >= track.fileSize) {
 		// Buffer is big enough to fit the whole track.
 		if (readSize < bufferSize) {
 			info.state = ATRAC_STATUS_HALFWAY_BUFFER;
@@ -827,10 +830,10 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		}
 	} else {
 		// Streaming cases with various looping types.
-		if (track_.loopEndSample <= 0) {
+		if (track.loopEndSample <= 0) {
 			// There's no looping, but we need to stream the data in our buffer.
 			info.state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-		} else if (track_.loopEndSample == track_.endSample + track_.FirstSampleOffsetFull()) {
+		} else if (track.loopEndSample == track.endSample + track.FirstSampleOffsetFull()) {
 			info.state = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 		} else {
 			info.state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
@@ -839,35 +842,25 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	INFO_LOG(Log::ME, "Atrac mode setup: %s", AtracStatusToString(info.state));
 
-	int retval = InitContext(bufferAddr, readSize, bufferSize);
-	if (retval != 0) {
-		ERROR_LOG(Log::ME, "InitContext failed, bad data?");
-		return retval;
-	}
-	return 0;
-}
-
-u32 Atrac2::InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize) {
-	SceAtracIdInfo &info = context_->info;
-	// Copy parameters into struct.
-	info.codec = track_.codecType;
-	info.numChan = track_.channels;
-	info.sampleSize = track_.bytesPerFrame;
+	// Copy parameters into state struct.
+	info.codec = track.codecType;
+	info.numChan = track.channels;
+	info.sampleSize = track.bytesPerFrame;
 	info.buffer = bufferAddr;
 	info.bufferByte = bufferSize;
-	info.firstValidSample = track_.FirstSampleOffsetFull();
-	info.endSample = track_.endSample + info.firstValidSample;
-	if (track_.loopStartSample != 0xFFFFFFFF) {
-		info.loopStart = track_.loopStartSample;
-		info.loopEnd = track_.loopEndSample;
+	info.firstValidSample = track.FirstSampleOffsetFull();
+	info.endSample = track.endSample + info.firstValidSample;
+	if (track.loopStartSample != 0xFFFFFFFF) {
+		info.loopStart = track.loopStartSample;
+		info.loopEnd = track.loopEndSample;
 		// Sanity check the loop points, useful for testing.
 	}
-	info.dataOff = track_.dataByteOffset;
-	info.curFileOff = track_.dataByteOffset;
-	info.streamOff = track_.dataByteOffset;
+	info.dataOff = track.dataByteOffset;
+	info.curFileOff = track.dataByteOffset;
+	info.streamOff = track.dataByteOffset;
 	info.streamDataByte = readSize - info.dataOff;
-	info.fileDataEnd = track_.fileSize;
-	info.decodePos = track_.FirstSampleOffsetFull();
+	info.fileDataEnd = track.fileSize;
+	info.decodePos = track.FirstSampleOffsetFull();
 	info.numSkipFrames = info.firstValidSample / info.SamplesPerFrame();
 	// NOTE: we do not write into secondBuffer/secondBufferByte! they linger...
 
@@ -966,34 +959,24 @@ int Atrac2::Bitrate() const {
 void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 	// TODO: We shouldn't need to look at track_ later, so we shouldn't need to init it here.
 	// Not true yet.
-	track_ = Track();
-	track_.codecType = codecType;
-	track_.channels = Memory::Read_U32(paramsAddr);
-	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
-	track_.bytesPerFrame = Memory::Read_U32(paramsAddr + 8);
-	if (track_.codecType == PSP_MODE_AT_3) {
-		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
-		track_.bitrate = (track_.bitrate + 511) >> 10;
-		track_.jointStereo = false;
-	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
-		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
-		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
-		track_.jointStereo = false;
-	}
-	track_.dataByteOffset = 0;
-
-	context_->info.decodePos = 0;
-	context_->info.state = ATRAC_STATUS_LOW_LEVEL;
-	context_->info.sampleSize = track_.BytesPerFrame();
-	context_->info.numChan = track_.channels;
-
+	SceAtracIdInfo &info = context_->info;
+	info.codec = codecType;
+	info.numChan = Memory::ReadUnchecked_U32(paramsAddr);
+	outputChannels_ = Memory::ReadUnchecked_U32(paramsAddr + 4);
+	info.sampleSize = Memory::ReadUnchecked_U32(paramsAddr + 8);
+	info.dataOff = 0;
+	info.decodePos = 0;
+	info.state = ATRAC_STATUS_LOW_LEVEL;
+	info.numChan = 2;
 	CreateDecoder();
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
+	SceAtracIdInfo &info = context_->info;
+
 	const int channels = outputChannels_;
 	int outSamples = 0;
-	decoder_->Decode(srcData, track_.BytesPerFrame(), bytesConsumed, channels, dstData, &outSamples);
+	decoder_->Decode(srcData, info.sampleSize, bytesConsumed, channels, dstData, &outSamples);
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
 	return 0;

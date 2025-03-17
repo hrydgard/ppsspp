@@ -60,7 +60,6 @@ private:
 	void GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int sample);
 	u32 ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf);
 
-	u32 InitContext(u32 bufferAddr, u32 readSize, u32 bufferSize);
 	u32 SkipFrames(int *skippedCount);
 	void WrapLastPacket();
 

@@ -969,8 +969,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ATRACID, "bad atrac ID");
 	}
 
-	if (!Memory::IsValidAddress(paramsAddr)) {
-		// TODO: Returning zero as code was before.  Needs testing.
+	if (!Memory::IsValidRange(paramsAddr, 12)) {
+		// The real library will probably just crash here.
 		return hleReportError(Log::ME, 0, "invalid pointers");
 	}
 

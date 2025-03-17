@@ -230,7 +230,7 @@ void Atrac::WriteContextToPSPMem() {
 	NotifyMemInfo(MemBlockFlags::WRITE, context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
-void Track::DebugLog() {
+void Track::DebugLog() const {
 	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
 	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
@@ -691,9 +691,9 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	bufferPos_ = 0;
 	outputChannels_ = outputChannels;
 
+	track.DebugLog();
 	track_ = track;
 	first_._filesize_dontuse = track_.fileSize;
-	track_.DebugLog();
 
 	if (outputChannels != track_.channels) {
 		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
