@@ -330,7 +330,9 @@ int main(int argc, const char* argv[])
 	PROFILE_INIT();
 	TimeInit();
 #if PPSSPP_PLATFORM(WINDOWS)
-	SetCleanExitOnAssert();
+	if (!IsDebuggerPresent()) {
+		SetCleanExitOnAssert();
+	}
 #else
 	// Ignore sigpipe.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {

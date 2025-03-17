@@ -129,6 +129,7 @@ void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
 	g_atracBSS = bssAddr;
 	g_atracMaxContexts = atracLibVersion <= 0x101 ? 4 : 6;  // Need to figure out where the cutoff is.
 	_dbg_assert_(bssSize >= g_atracMaxContexts * sizeof(SceAtracContext));
+	NotifyMemInfo(MemBlockFlags::ALLOC, g_atracBSS, g_atracMaxContexts * sizeof(SceAtracContext), "AtracContext");
 }
 
 void __AtracNotifyUnloadModule() {
@@ -137,6 +138,7 @@ void __AtracNotifyUnloadModule() {
 	INFO_LOG(Log::ME, "Atrac module unloaded.");
 	g_atracBSS = 0;
 	g_atracMaxContexts = 6;  // TODO: We should make this zero here.
+	NotifyMemInfo(MemBlockFlags::FREE, g_atracBSS, g_atracMaxContexts * sizeof(SceAtracContext), "AtracContext");
 }
 
 static u32 GetAtracContextAddress(int atracID) {
