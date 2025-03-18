@@ -1753,10 +1753,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 void EmuScreen::runImDebugger() {
 	if (!lastImguiEnabled_ && g_Config.bShowImDebugger) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
-		INFO_LOG(Log::System, "activating keyboard");
+		VERBOSE_LOG(Log::System, "activating keyboard");
 	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
-		INFO_LOG(Log::System, "deactivating keyboard");
+		VERBOSE_LOG(Log::System, "deactivating keyboard");
 	}
 	lastImguiEnabled_ = g_Config.bShowImDebugger;
 	if (g_Config.bShowImDebugger) {

@@ -2194,7 +2194,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	FileNode *f = __IoOpen(error, filename, flags, mode);
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
-	if (f == nullptr) {
+	if (!f) {
 		_assert_(error != 0);
 		if (error == SCE_KERNEL_ERROR_NODEV)
 			return hleLogError(Log::sceIo, error, "device not found");
@@ -2223,7 +2223,8 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 
 	if (error != 0) {
 		f->asyncResult = (s64)error;
-		return hleLogError(Log::sceIo, fd, "file not found");
+		// This is not necessarily an error, a lot of games check for the presence of files and are fine with no.
+		return hleLogWarning(Log::sceIo, fd, "file not found");
 	}
 
 	f->asyncResult = fd;

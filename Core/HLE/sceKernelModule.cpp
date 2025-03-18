@@ -2283,7 +2283,7 @@ static u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 retu
 	} else if (module->isFake) {
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
-		return hleLogInfo(Log::sceModule, moduleId, "Faked (undecryptable module)");
+		return hleLogInfo(Log::sceModule, moduleId, "Faked module");
 	} else if (module->nm.status == MODULE_STATUS_STARTED) {
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
 		// But I also get crashes...
