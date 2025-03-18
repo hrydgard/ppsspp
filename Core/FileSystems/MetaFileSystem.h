@@ -43,7 +43,7 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
-	std::recursive_mutex lock;  // must be recursive. TODO: fix that
+	mutable std::recursive_mutex lock;  // must be recursive. TODO: fix that
 
 	// Assumes the lock is held
 	void Reset() {
@@ -73,7 +73,7 @@ public:
 	// The pointer returned from these are for temporary usage only. Do not store.
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
-	IFileSystem *GetHandleOwner(u32 handle);
+	IFileSystem *GetHandleOwner(u32 handle) const;
 	FileSystemFlags FlagsFromFilename(const std::string &filename) {
 		IFileSystem *sys = GetSystemFromFilename(filename);
 		return sys ? sys->Flags() : FileSystemFlags::NONE;
@@ -118,6 +118,7 @@ public:
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
+	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override { return false; }
 	inline size_t GetSeekPos(u32 handle) {
 		return SeekFile(handle, 0, FILEMOVE_CURRENT);

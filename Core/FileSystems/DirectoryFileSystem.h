@@ -74,6 +74,7 @@ public:
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
+	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;
@@ -121,6 +122,7 @@ public:
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
+	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	PSPDevType DevType(u32 handle) override;

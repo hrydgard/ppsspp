@@ -727,6 +727,11 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 }
 
+PSPFileInfo DirectoryFileSystem::GetFileInfoByHandle(u32 handle) {
+	WARN_LOG(Log::FileSystem, "GetFileInfoByHandle not yet implemented for DirectoryFileSystem");
+	return PSPFileInfo();
+}
+
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
@@ -1064,6 +1069,11 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	}
 	return x;
 }
+
+PSPFileInfo VFSFileSystem::GetFileInfoByHandle(u32 handle) {
+	return PSPFileInfo();
+}
+
 
 void VFSFileSystem::CloseFile(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);

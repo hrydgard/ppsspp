@@ -638,6 +638,23 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 	return x;
 }
 
+PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
+	auto iter = entries.find(handle);
+	PSPFileInfo x;
+	if (iter != entries.end()) {
+		const TreeEntry *entry = iter->second.file;
+		x.name = entry->name;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
+		x.size = entry->size;
+		x.exists = true;
+		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+		x.isOnSectorSystem = true;
+		x.startSector = entry->startingPosition / 2048;
+	}
+	return x;
+}
+
 std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, bool *exists) {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);

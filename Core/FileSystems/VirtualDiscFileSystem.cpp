@@ -641,6 +641,11 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	return x;
 }
 
+PSPFileInfo VirtualDiscFileSystem::GetFileInfoByHandle(u32 handle) {
+	WARN_LOG(Log::FileSystem, "GetFileInfoByHandle not yet implemented for VirtualDiscFileSystem");
+	return PSPFileInfo();
+}
+
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
