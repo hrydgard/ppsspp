@@ -1071,7 +1071,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		for (const auto &item : toProcess) {
 			if (HandleGlobalMessage(item.message, item.value)) {
 				// TODO: Add a to-string thingy.
-				INFO_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 			}
 			g_screenManager->sendMessage(item.message, item.value.c_str());
 		}
