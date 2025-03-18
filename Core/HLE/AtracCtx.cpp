@@ -146,9 +146,9 @@ void Atrac::DoState(PointerWrap &p) {
 		bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 	}
 
-	// Make sure to do this late; it depends on things like bytesPerFrame_.
+	// Make sure to do this late; it depends on track parameters.
 	if (p.mode == p.MODE_READ && bufferState_ != ATRAC_STATUS_NO_DATA) {
-		CreateDecoder();
+		CreateDecoder(track_.codecType, track_.bytesPerFrame, track_.channels);
 	}
 
 	if (s >= 2 && s < 9) {
@@ -173,6 +173,10 @@ void Atrac::ResetData() {
 
 u8 *Atrac::BufferStart() {
 	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
+}
+
+AtracBase::~AtracBase() {
+	delete decoder_;
 }
 
 void Atrac::UpdateContextFromPSPMem() {
@@ -207,16 +211,16 @@ void Atrac::WriteContextToPSPMem() {
 	// TODO: Should we just keep this in PSP ram then, or something?
 	context->info.state = bufferState_;
 	if (track_.firstSampleOffset != 0) {
-		context->info.samplesPerChan = track_.FirstSampleOffsetFull();
+		context->info.firstValidSample = track_.FirstSampleOffsetFull();
 	} else {
-		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		context->info.firstValidSample = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = track_.channels;
 	context->info.dataOff = track_.dataByteOffset;
 	context->info.endSample = track_.endSample + track_.FirstSampleOffsetFull();
-	context->info.dataEnd = track_.fileSize;
-	context->info.curOff = first_.fileoffset;
+	context->info.fileDataEnd = track_.fileSize;
+	context->info.curFileOff = first_.fileoffset;
 	context->info.decodePos = track_.DecodePosBySample(currentSample_);
 	context->info.streamDataByte = first_.size - track_.dataByteOffset;
 
@@ -226,7 +230,7 @@ void Atrac::WriteContextToPSPMem() {
 	NotifyMemInfo(MemBlockFlags::WRITE, context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
-void Track::DebugLog() {
+void Track::DebugLog() const {
 	DEBUG_LOG(Log::ME, "ATRAC analyzed: %s channels: %d filesize: %d bitrate: %d kbps jointStereo: %d",
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
 	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
@@ -338,7 +342,10 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 
 			if (at3fmt->fmtTag == AT3_MAGIC) {
 				// This is the offset to the jointStereo_ field.
-				track->jointStereo = Memory::Read_U32(addr + offset + 24);
+				track->jointStereo = Memory::Read_U16(addr + offset + 24);
+				// Then there are more fields here.
+				u16 unknown1_2 = Memory::Read_U16(addr + offset + 30);
+
 			}
 			if (chunkSize > 16) {
 				// Read and format extra bytes as hexadecimal
@@ -356,6 +363,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 			}
 			if (chunkSize >= 12) {
 				u32 largerOffset = Memory::Read_U32(addr + offset + 8);
+				// Works, but "largerOffset"??
 				sampleOffsetAdjust = track->firstSampleOffset - largerOffset;
 			}
 			break;
@@ -388,7 +396,7 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 				track->loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 				track->loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
-				if (track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
+				if (i == 0 && track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
 					ERROR_LOG(Log::ME, "AnalyzeTrack: loop starts after it ends");
 					return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 				}
@@ -577,29 +585,32 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	}
 }
 
-void AtracBase::CreateDecoder() {
+void AtracBase::CreateDecoder(int codecType, int bytesPerFrame, int channels) {
 	if (decoder_) {
 		delete decoder_;
 	}
 
 	// First, init the standalone decoder.
-	if (track_.codecType == PSP_MODE_AT_3) {
+	if (codecType == PSP_MODE_AT_3) {
+		bool jointStereo = IsAtrac3StreamJointStereo(codecType, bytesPerFrame, channels);
+
 		// We don't pull this from the RIFF so that we can support OMA also.
 		uint8_t extraData[14]{};
 		// The only thing that changes are the jointStereo_ values.
 		extraData[0] = 1;
-		extraData[3] = track_.channels << 3;
-		extraData[6] = track_.jointStereo;
-		extraData[8] = track_.jointStereo;
+		extraData[3] = channels << 3;
+		extraData[6] = jointStereo;
+		extraData[8] = jointStereo;
 		extraData[10] = 1;
-		decoder_ = CreateAtrac3Audio(track_.channels, track_.bytesPerFrame, extraData, sizeof(extraData));
+		decoder_ = CreateAtrac3Audio(channels, bytesPerFrame, extraData, sizeof(extraData));
 	} else {
-		decoder_ = CreateAtrac3PlusAudio(track_.channels, track_.bytesPerFrame);
+		decoder_ = CreateAtrac3PlusAudio(channels, bytesPerFrame);
 	}
 }
 
-int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
-	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+int Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) {
+	*delay = false;
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
@@ -682,9 +693,9 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	bufferPos_ = 0;
 	outputChannels_ = outputChannels;
 
+	track.DebugLog();
 	track_ = track;
 	first_._filesize_dontuse = track_.fileSize;
-	track_.DebugLog();
 
 	if (outputChannels != track_.channels) {
 		WARN_LOG(Log::ME, "Atrac::SetData: outputChannels %d doesn't match track_.channels %d", outputChannels, track_.channels);
@@ -736,7 +747,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 		u32 copybytes = std::min(bufferSize, track_.fileSize);
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
-	CreateDecoder();
+	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
 	INFO_LOG(Log::ME, "Atrac::SetData (buffer=%08x, readSize=%d, bufferSize=%d): %s %s (%d channels) audio", buffer, readSize, bufferSize, codecName, channelName, track_.channels);
 
 	if (track_.channels == 2 && outputChannels == 1) {
@@ -746,7 +757,7 @@ int Atrac::SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize,
 	return 0;
 }
 
-u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
+int Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	u32 secondFileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	u32 desiredSize = track_.fileSize - secondFileOffset;
 
@@ -764,7 +775,7 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return 0;
 }
 
-int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
+int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
@@ -862,13 +873,13 @@ u32 Atrac::GetNextSamples() {
 	}
 
 	// It seems like the PSP aligns the sample position to 0x800...?
-	u32 skipSamples = track_.FirstSampleOffsetFull();
-	u32 firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
-	u32 numSamples = track_.endSample + 1 - currentSample_;
+	int skipSamples = track_.FirstSampleOffsetFull();
+	int firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
+	int numSamples = track_.endSample + 1 - currentSample_;
 	if (currentSample_ == 0 && firstSamples != 0) {
 		numSamples = firstSamples;
 	}
-	u32 unalignedSamples = (skipSamples + currentSample_) % track_.SamplesPerFrame();
+	int unalignedSamples = (skipSamples + currentSample_) % track_.SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
 		numSamples = track_.SamplesPerFrame() - unalignedSamples;
@@ -983,12 +994,12 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
 	}
 
-	u32 numSamples = 0;
+	int numSamples = 0;
 
 	// It seems like the PSP aligns the sample position to 0x800...?
 	int offsetSamples = track_.FirstSampleOffsetFull();
 	int skipSamples = 0;
-	u32 maxSamples = track_.endSample + 1 - currentSample_;
+	int maxSamples = track_.endSample + 1 - currentSample_;
 	u32 unalignedSamples = (offsetSamples + currentSample_) % track_.SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
@@ -1018,7 +1029,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		numSamples = outSamples;
 		uint32_t packetAddr = CurBufferAddress(-skipSamples);
 		// got a frame
-		int skipped = std::min((u32)skipSamples, numSamples);
+		int skipped = std::min(skipSamples, numSamples);
 		skipSamples -= skipped;
 		numSamples = numSamples - skipped;
 		// If we're at the end, clamp to samples we want.  It always returns a full chunk.
@@ -1046,7 +1057,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (!gotFrame && currentSample_ < track_.endSample) {
 		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-		if (track_.FileOffsetBySample(currentSample_) < track_.fileSize) {
+		if (track_.FileOffsetBySample(currentSample_) < (int)track_.fileSize) {
 			numSamples = std::min(maxSamples, track_.SamplesPerFrame());
 			u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
 			if (outbuf != nullptr) {
@@ -1118,7 +1129,8 @@ int Atrac::SetLoopNum(int loopNum) {
 
 int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) {
 	*delay = false;
-	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && SecondBufferSize() == 0) {
+
+	if (BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && !HasSecondBuffer()) {
 		return SCE_ERROR_ATRAC_SECOND_BUFFER_NEEDED;
 	} else if ((u32)sample + track_.firstSampleOffset > (u32)track_.endSample + track_.firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
@@ -1127,7 +1139,8 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 
 	// Reuse the same calculation as before.
 	AtracResetBufferInfo bufferInfo;
-	GetResetBufferInfo(&bufferInfo, sample);
+	bool ignored;
+	GetResetBufferInfo(&bufferInfo, sample, &ignored);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
 		return SCE_ERROR_ATRAC_BAD_FIRST_RESET_SIZE;
@@ -1186,13 +1199,13 @@ int Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 	return 0;
 }
 
-void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
+void Atrac::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	track_ = Track();
 	track_.codecType = codecType;
 	track_.endSample = 0;
-	track_.channels = Memory::Read_U32(paramsAddr);
-	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
-	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
+	track_.channels = params.encodedChannels;
+	outputChannels_ = params.outputChannels;
+	bufferMaxSize_ = params.bytesPerFrame;
 	track_.bytesPerFrame = bufferMaxSize_;
 	first_.writableBytes = track_.bytesPerFrame;
 	ResetData();
@@ -1200,7 +1213,7 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 	if (codecType == PSP_MODE_AT_3) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = (track_.bitrate + 511) >> 10;
-		track_.jointStereo = false;
+		track_.jointStereo = IsAtrac3StreamJointStereo(codecType, params.bytesPerFrame, params.encodedChannels);
 	} else if (codecType == PSP_MODE_AT_3_PLUS) {
 		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
@@ -1214,7 +1227,7 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo, int codecType) {
 	track_.fileSize = track_.bytesPerFrame;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
-	CreateDecoder();
+	CreateDecoder(codecType, track_.bytesPerFrame, track_.channels);
 	WriteContextToPSPMem();
 }
 

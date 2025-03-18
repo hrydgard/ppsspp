@@ -3450,7 +3450,14 @@ bool __KernelCheckCallbacks() {
 	}
 
 	if (processed) {
-		return __KernelExecutePendingMipsCalls(__GetCurrentThread(), true);
+		PSPThread *thread = __GetCurrentThread();
+		if (thread) {
+			return __KernelExecutePendingMipsCalls(thread, true);
+		} else {
+			ERROR_LOG(Log::sceKernel, "No current thread in __KernelCheckCallbacks!");
+			// stumble along?
+			return true;
+		}
 	}
 	return false;
 }

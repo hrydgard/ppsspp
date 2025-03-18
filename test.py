@@ -85,6 +85,10 @@ tests_good = [
   "audio/atrac/ids",
   "audio/atrac/resetpos",
   "audio/atrac/resetting",
+  "audio/atrac/replay",
+  "audio/atrac/stream",
+  "audio/atrac/reset2",
+  "audio/atrac/second/resetting",
   "audio/atrac/second/getinfo",
   "audio/atrac/second/needed",
   "audio/atrac/second/setbuffer",
@@ -381,8 +385,6 @@ tests_next = [
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
-  "audio/atrac/replay",
-  "audio/atrac/second/resetting",
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",
   "audio/sceaudio/reserve",
@@ -550,7 +552,7 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout=' + str(TIMEOUT), '@-']
+    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--new-atrac', '--timeout=' + str(TIMEOUT), '@-']
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b']])
 
     c = Command(cmdline, '\n'.join(test_filenames))

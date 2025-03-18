@@ -537,6 +537,10 @@ struct PSPPointer
 		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
 	}
 
+	bool Equals(u32 addr) const {
+		return ptr == addr;
+	}
+
 	T *PtrOrNull() {
 		if (IsValid())
 			return (T *)*this;

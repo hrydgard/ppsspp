@@ -41,6 +41,7 @@
 // Notes about sceAtrac buffer management
 //
 // sceAtrac decodes from a buffer the game fills, where this buffer has a status, one of:
+//
 //   * Not yet initialized (state NO_DATA = 1)
 //   * The entire size of the audio data, and filled with audio data (state ALL_DATA_LOADED = 2)
 //   * The entire size, but only partially filled so far (state HALFWAY_BUFFER = 3)
@@ -50,19 +51,23 @@
 //   * Not managed, decoding using "low level" manual looping etc. (LOW_LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
 //
-// This buffer is generally filled by sceAtracAddStreamData, and where to fill it is given by
-// either sceAtracGetStreamDataInfo when continuing to move forwards in the stream of audio data,
-// or sceAtracGetBufferInfoForResetting when seeking to a specific location in the audio stream.
+// When streaming (modes 3-6), a game will call sceAtracGetStreamDataInfo to figure out what data
+// to read and where to place it, and after doing that it'll call sceAtracAddStreamData with the amount
+// of data it actually read. This will move the various pointers forward.
+// Similarly, for a game to seek, it'll call sceAtracGetBufferInfoForResetting with a sample offset,
+// and read that data into the buffer.
 //
 // State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
 // To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
 // the buffer it will call sceAtracSetSecondBuffer.
-// The second buffer will just contain the data for the end of loop.  The "first" buffer may manage
+//
+// The second buffer will just contain the data for the end of loop. The "first" buffer may manage
 // only the looped portion, or some of the part after the loop (depending on second buf size.)
+//
 // TODO: What games use this?
 //
 // Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
-// ultimately this will share the same buffer - it's just offset a bit more.
+// ultimately this works the same, just the loading process is a little different.
 //
 // Low level decoding doesn't use the buffer, and decodes only a single packet at a time.
 //
@@ -72,7 +77,7 @@
 //
 // Note that this buffer is THE view of the audio stream.  On a PSP, the firmware does not manage
 // any cache or separate version of the buffer - at most it manages decode state from earlier in
-// the buffer.
+// the buffer. Also, our Atrac2 context implementation works like this.
 
 // TODO: We should add checks that the utility module is loaded.
 
@@ -129,6 +134,7 @@ void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize) {
 	g_atracBSS = bssAddr;
 	g_atracMaxContexts = atracLibVersion <= 0x101 ? 4 : 6;  // Need to figure out where the cutoff is.
 	_dbg_assert_(bssSize >= g_atracMaxContexts * sizeof(SceAtracContext));
+	Memory::Memset(g_atracBSS, 0, g_atracMaxContexts * sizeof(SceAtracContext));
 	NotifyMemInfo(MemBlockFlags::ALLOC, g_atracBSS, g_atracMaxContexts * sizeof(SceAtracContext), "AtracContext");
 }
 
@@ -146,29 +152,53 @@ static u32 GetAtracContextAddress(int atracID) {
 }
 
 void __AtracDoState(PointerWrap &p) {
-	auto s = p.Section("sceAtrac", 1, 2);
+	auto s = p.Section("sceAtrac", 1, 4);
 	if (!s)
 		return;
 
 	Do(p, atracInited);
+	if (s >= 4) {
+		Do(p, g_atracBSS);
+		Do(p, g_atracMaxContexts);
+		if (g_atracMaxContexts > PSP_MAX_ATRAC_IDS)  // paranoia
+			g_atracMaxContexts = PSP_MAX_ATRAC_IDS;
+	} else {
+		g_atracBSS = 0;
+		g_atracMaxContexts = 6;
+	}
 	for (int i = 0; i < PSP_MAX_ATRAC_IDS; ++i) {
 		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
-			DoSubClass<AtracBase, Atrac>(p, atracContexts[i], i);
+			int version = atracContexts[i] ? atracContexts[i]->GetContextVersion() : 0;
+			if (s >= 4) {
+				Do(p, version);
+				_dbg_assert_(version != 0);
+			} else {
+				// Old versions only support old contexts.
+				version = 1;
+			}
+			switch (version) {
+			case 1:
+				DoSubClass<AtracBase, Atrac>(p, atracContexts[i], i);
+				break;
+			case 2:
+				DoSubClass<AtracBase, Atrac2>(p, atracContexts[i]);
+				break;
+			}
 		} else {
 			delete atracContexts[i];
 			atracContexts[i] = nullptr;
 		}
 	}
 	DoArray(p, atracContextTypes, PSP_MAX_ATRAC_IDS);
-	if (s < 2) {
-		atracLibVersion = 0;
-		atracLibCrc = 0;
-	}
-	else {
+	if (s >= 2) {
 		Do(p, atracLibVersion);
 		Do(p, atracLibCrc);
+	}
+	else {
+		atracLibVersion = 0;
+		atracLibCrc = 0;
 	}
 }
 
@@ -186,10 +216,8 @@ static AtracBase *getAtrac(int atracID) {
 static int AllocAndRegisterAtrac(int codecType) {
 	for (int i = 0; i < g_atracMaxContexts; ++i) {
 		if (atracContextTypes[i] == codecType && atracContexts[i] == 0) {
-			if (g_Config.bUseExperimentalAtrac) {
-				// Note: This assert isn't really valid until we savestate the new contexts.
-				_dbg_assert_(g_atracBSS != 0);
-				atracContexts[i] = new Atrac2(i, GetAtracContextAddress(i), codecType);
+			if (g_Config.bUseExperimentalAtrac && g_atracBSS != 0) {
+				atracContexts[i] = new Atrac2(GetAtracContextAddress(i), codecType);
 			} else {
 				atracContexts[i] = new Atrac(i, codecType);
 			}
@@ -279,10 +307,14 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::ME, err);
 	}
 
+	if (outAddr & 1) {
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ALIGNMENT);
+	}
+
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	int ret = atrac->DecodeData(Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
+	int ret = atrac->DecodeData(outAddr ? Memory::GetPointerWrite(outAddr) : nullptr, outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::WriteUnchecked_U32(numSamples, numSamplesAddr);
@@ -296,13 +328,14 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 			  numSamplesAddr, numSamples,
 			  finishFlagAddr, finish,
 			  remainAddr, remains);
-	if (ret == 0) {
+	if (ret == 0 || ret == SCE_ERROR_ATRAC_API_FAIL) {
 		// decode data successfully, delay thread
 		return hleDelayResult(hleNoLog(ret), "atrac decode data", atracDecodeDelay);
 	}
 	return hleNoLog(ret);
 }
 
+// Likely a bogus brute-forced name?
 static u32 sceAtracEndEntry() {
 	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceAtracEndEntry()");
 	return hleNoLog(0);
@@ -323,8 +356,22 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
 	}
 
-	int ret = atrac->GetResetBufferInfo(bufferInfo, sample);
-	return hleLogDebugOrError(Log::ME, ret);
+	/*
+	DEBUG_LOG(Log::ME, "GetBufferInfoForResetting: First: %08x %08x %08x %08x", bufferInfo->first.writePosPtr, bufferInfo->first.writableBytes, bufferInfo->first.minWriteBytes, bufferInfo->first.filePos);
+	if (bufferInfo->second.filePos) {
+		DEBUG_LOG(Log::ME, "GetBufferInfoForResetting: Second: %08x %08x %08x %08x", bufferInfo->second.writePosPtr, bufferInfo->second.writableBytes, bufferInfo->second.minWriteBytes, bufferInfo->second.filePos);
+	}
+	*/
+
+	// Note: If we error here, it's because of the internal SkipFrames.
+	// We delayresult if we skip frames, which indeed can happen.
+	bool delay = false;
+	int ret = atrac->GetResetBufferInfo(bufferInfo, sample, &delay);
+	if (delay) {
+		return hleDelayResult(hleLogDebugOrError(Log::ME, ret), "getreset_frameskip", 300);
+	} else {
+		return hleLogDebugOrError(Log::ME, ret);
+	}
 }
 
 static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
@@ -384,10 +431,17 @@ static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
-	ERROR_LOG(Log::ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
-	if (Memory::IsValidAddress(errorAddr))
-		Memory::WriteUnchecked_U32(0, errorAddr);
-	return 0;
+
+	const u32 errorCode = atrac->GetInternalCodecError();
+	if (Memory::IsValidAddress(errorAddr)) {
+		Memory::WriteUnchecked_U32(errorCode, errorAddr);
+	}
+
+	if (errorCode) {
+		return hleLogWarning(Log::ME, 0, "code: %08x", errorCode);
+	} else {
+		return hleLogDebug(Log::ME, 0);
+	}
 }
 
 static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
@@ -412,14 +466,14 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 		return hleLogError(Log::ME, err);
 	}
 
+	if (!Memory::IsValidAddress(outposAddr)) {
+		return hleLogError(Log::ME, 0, "invalid address");
+	}
+
 	int pos = 0;
 	int ret = atrac->GetNextDecodePosition(&pos);
 	if (ret < 0) {
 		return hleLogError(Log::ME, ret);
-	}
-
-	if (!Memory::IsValidAddress(outposAddr)) {
-		return hleLogError(Log::ME, 0, "invalid address");
 	}
 
 	Memory::WriteUnchecked_U32(pos, outposAddr);
@@ -443,20 +497,19 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 // Obtains the number of frames remaining in the buffer which can be decoded.
 // When no more data would be needed, this returns a negative number.
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
-	auto remainingFrames = PSPPointer<u32_le>::Create(remainAddr);
-
 	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
 
-	if (!remainingFrames.IsValid()) {
+	if (!Memory::IsValidAddress(remainAddr)) {
 		// Would crash.
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	}
 
-	*remainingFrames = atrac->RemainingFrames();
+	u32 remaining = atrac->RemainingFrames();
+	Memory::WriteUnchecked_U32(remaining, remainAddr);
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -491,10 +544,13 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		return hleLogError(Log::ME, err);
 	}
 
-	int endSample;
-	int loopStart;
-	int loopEnd;
+	int endSample = -1;
+	int loopStart = -1;
+	int loopEnd = -1;
 	int retval = atrac->GetSoundSample(&endSample, &loopStart, &loopEnd);
+	if (retval < 0) {
+		return hleLogError(Log::ME, retval);
+	}
 	if (Memory::IsValidAddress(outEndSampleAddr)) {
 		Memory::WriteUnchecked_U32(endSample, outEndSampleAddr);
 	}
@@ -563,7 +619,8 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			return hleLogError(Log::ME, res);
 		}
 	}
-	return hleDelayResult(hleLogDebug(Log::ME, res), "reset play pos", 3000);
+
+	return hleDelayResult(res, "reset play pos", 3000);
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
@@ -619,7 +676,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 	}
 	if (track.codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
-		return hleReportError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 2);
@@ -695,6 +752,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (err != 0) {
 		return hleLogError(Log::ME, err);
 	}
+
 	int ret = atrac->SetLoopNum(loopNum);
 	if (ret == SCE_ERROR_ATRAC_NO_LOOP_INFORMATION && loopNum == -1) {
 		// Not really an issue
@@ -894,6 +952,8 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set aa3 data", 100);
 }
 
+// TODO: Should see if these are stored contiguously in memory somewhere, or if there really are
+// individual allocations being used.
 static u32 _sceAtracGetContextAddress(int atracID) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
@@ -910,8 +970,8 @@ struct At3HeaderMap {
 	u16 channels;
 	u8 jointStereo;
 
-	bool Matches(const AtracBase *at) const {
-		return bytes == at->BytesPerFrame() && channels == at->Channels();
+	bool Matches(int bytesPerFrame, int encodedChannels) const {
+		return this->bytes == bytesPerFrame && this->channels == encodedChannels;
 	}
 };
 
@@ -925,40 +985,42 @@ static const At3HeaderMap at3HeaderMap[] = {
 	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
 
+bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
+	if (codecType != PSP_MODE_AT_3) {
+		// Well, might actually be, but it's not used in codec setup.
+		return false;
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+		if (at3HeaderMap[i].Matches(bytesPerFrame, channels)) {
+			return at3HeaderMap[i].jointStereo;
+		}
+	}
+
+	// Not found? Should we log?
+	return false;
+}
+
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ATRACID, "bad atrac ID");
 	}
 
-	if (!Memory::IsValidAddress(paramsAddr)) {
-		// TODO: Returning zero as code was before.  Needs testing.
+	if (!Memory::IsValidRange(paramsAddr, 12)) {
+		// The real library will probably just crash here.
 		return hleReportError(Log::ME, 0, "invalid pointers");
 	}
 
-	int codecType = atracContextTypes[atracID];
+	auto params = PSPPointer<Atrac3LowLevelParams>::Create(paramsAddr);
+	const int codecType = atracContextTypes[atracID];
 
-	bool jointStereo = false;
-	if (atrac->CodecType() == PSP_MODE_AT_3) {
-		// See if we can match the actual jointStereo value.
-		bool found = false;
-		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
-			if (at3HeaderMap[i].Matches(atrac)) {
-				jointStereo = at3HeaderMap[i].jointStereo;
-				found = true;
-			}
-		}
-		if (!found) {
-			WARN_LOG_REPORT_ONCE(at3headermap, Log::ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->BytesPerFrame(), atrac->Channels());
-			// TODO: Should we return an error code for these values?
-		}
-	}
+	atrac->InitLowLevel(*params, codecType);
 
-	atrac->InitLowLevel(paramsAddr, jointStereo, codecType);
-
-	const char *codecName = atrac->CodecType() == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = atrac->Channels() == 1 ? "mono" : "stereo";
-	return hleLogInfo(Log::ME, 0, "%s %s audio", codecName, channelName);
+	const char *codecName = codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *encodedChannelName = params->encodedChannels == 1 ? "mono" : "stereo";
+	const char *outputChannelName = params->outputChannels == 1 ? "mono" : "stereo";
+	return hleLogInfo(Log::ME, 0, "%s %s->%s audio", codecName, encodedChannelName, outputChannelName);
 }
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
@@ -1011,7 +1073,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
-// External interface used by sceSas' AT3 integration.
+// These three are the external interface used by sceSas' AT3 integration.
 
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
@@ -1027,8 +1089,24 @@ u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, 
 	return atrac->DecodeData(outbuf, outbufPtr, SamplesNum, finish, remains);
 }
 
+// Ugly hack, but needed to support both old and new contexts.
 int AtracSasGetIDByContext(u32 contextAddr) {
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
+	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID]->GetContextVersion() == 1) {
+		// We can assume the old atracID hack was used, and atracID is valid.
+	} else {
+		// Let's just loop around the contexts and find it.
+		atracID = -1;
+		for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
+			if (atracContexts[i]) {
+				if (atracContexts[i]->GetContextVersion() == 2 && atracContexts[i]->context_.Equals(contextAddr)) {
+					atracID = i;
+					break;
+				}
+			}
+		}
+		_dbg_assert_(atracID != -1);
+	}
 	// Restored old hack here that forces outputChannels_ to 1, since sceSas expects mono output, unlike normal usage.
 	// This is for savestate compatibility.
 	// I think it would be better to simply pass in a 1 as a parameter to atrac->DecodeData in AtracSasDecodeData above.

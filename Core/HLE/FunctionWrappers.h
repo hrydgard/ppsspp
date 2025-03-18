@@ -204,7 +204,7 @@ template<int func(u32, u32)> void WrapI_UU() {
 template<int func(u32, float, float)> void WrapI_UFF() {
 	// Not sure about the float arguments.
 	int retval = func(PARAM(0), PARAMF(0), PARAMF(1));
-	RETURN(retval);
+	RETURN(retval);	
 }
 
 template<int func(u32, u32, u32)> void WrapI_UUU() {
