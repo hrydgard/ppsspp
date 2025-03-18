@@ -1092,17 +1092,18 @@ u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, 
 // Ugly hack, but needed to support both old and new contexts.
 int AtracSasGetIDByContext(u32 contextAddr) {
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
-	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID]->GetContextVersion() == 1) {
+	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
 	} else {
 		// Let's just loop around the contexts and find it.
 		atracID = -1;
 		for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
-			if (atracContexts[i]) {
-				if (atracContexts[i]->GetContextVersion() == 2 && atracContexts[i]->context_.Equals(contextAddr)) {
-					atracID = i;
-					break;
-				}
+			if (!atracContexts[i]) {
+				continue;
+			}
+			if (atracContexts[i]->GetContextVersion() == 2 && atracContexts[i]->context_.Equals(contextAddr)) {
+				atracID = i;
+				break;
 			}
 		}
 		_dbg_assert_(atracID != -1);
