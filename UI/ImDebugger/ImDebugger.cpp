@@ -1395,7 +1395,9 @@ static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	ImGui::TextUnformatted("These are fake module representations loaded by sceUtilityLoadModule");
+	ImGui::TextUnformatted(
+		"These are fake module representations loaded by sceUtilityLoadModule\n"
+		"On a real PSP, these would be loaded from the BIOS.\n");
 
 	const std::map<int, u32> &modules = __UtilityGetLoadedModules();
 	if (ImGui::BeginTable("modules", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {

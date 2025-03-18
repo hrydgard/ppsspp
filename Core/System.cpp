@@ -739,7 +739,10 @@ const char *DumpFileTypeToFileExtension(DumpFileType type) {
 	}
 }
 
-void DumpFile(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type) {
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type) {
+	if (!(g_Config.iDumpFileTypes & (int)type)) {
+		return;
+	}
 	if (!dataPtr) {
 		ERROR_LOG(Log::System, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
@@ -768,7 +771,7 @@ void DumpFile(const u8 *dataPtr, const u32 length, const char *name, DumpFileTyp
 		char *path = new char[strlen(fullPath.c_str()) + 1];
 		strcpy(path, fullPath.c_str());
 
-		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f, "file_dumped");
+		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f);
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			g_OSD.SetClickCallback("file_dumped", [](bool clicked, void *userdata) {
 				char *path = (char *)userdata;

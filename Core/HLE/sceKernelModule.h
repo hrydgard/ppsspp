@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include "Core/HLE/sceKernel.h"
 
@@ -42,7 +43,7 @@ void __KernelModuleShutdown();
 
 u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
-bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string);
+bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string);
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();

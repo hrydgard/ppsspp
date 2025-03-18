@@ -113,4 +113,4 @@ inline CoreParameter &PSP_CoreParameter() {
 }
 
 // Centralized place for dumping useful files, also takes care of checking for dupes and creating a clickable UI popup.
-void DumpFile(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type);
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type);
