@@ -329,7 +329,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("PauseExitsEmulator", &g_Config.bPauseExitsEmulator, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("PauseMenuExitsEmulator", &g_Config.bPauseMenuExitsEmulator, false, CfgFlag::DONT_SAVE),
 
-	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, CfgFlag::PER_GAME),
+	ConfigSetting("DumpFileTypes", &g_Config.iDumpFileTypes, 0, CfgFlag::PER_GAME),
+
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("ShowMenuBar", &g_Config.bShowMenuBar, true, CfgFlag::DEFAULT),
 
