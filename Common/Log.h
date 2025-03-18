@@ -85,19 +85,9 @@ void GenericLog(LogLevel level, Log type, const char *file, int line, const char
 		;
 bool GenericLogEnabled(LogLevel level, Log type);
 
-// We only disable DEBUG and VERBOSE on Android/iOS now.
-#if defined(_DEBUG) || (!PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS))
+// If you want to see verbose logs, change this to VERBOSE_LEVEL.
 
-// Needs to be an int (and not use the enum) because it's used by the preprocessor!
 #define MAX_LOGLEVEL DEBUG_LEVEL
-
-#else
-
-#ifndef MAX_LOGLEVEL
-#define MAX_LOGLEVEL INFO_LEVEL
-#endif // loglevel
-
-#endif // logging
 
 // Let the compiler optimize this out.
 // TODO: Compute a dynamic max level as well that can be checked here.
