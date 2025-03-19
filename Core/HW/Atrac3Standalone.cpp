@@ -166,7 +166,6 @@ private:
 	int channels_ = 0;
 	int blockAlign_ = 0;
 
-	int srcPos_ = 0;
 	float *buffers_[2]{};
 
 	bool codecOpen_ = false;

@@ -101,6 +101,10 @@ PSPFileInfo BlobFileSystem::GetFileInfo(std::string filename) {
 	return info;
 }
 
+PSPFileInfo BlobFileSystem::GetFileInfoByHandle(u32 handle) {
+	return GetFileInfo("");
+}
+
 bool BlobFileSystem::OwnsHandle(u32 handle) {
 	auto entry = entries_.find(handle);
 	return entry != entries_.end();

@@ -12,7 +12,7 @@ public:
 		delete[] decodeTemp_;
 	}
 
-	AtracStatus BufferState() const {
+	AtracStatus BufferState() const override {
 		return context_->info.state;
 	}
 

@@ -165,6 +165,13 @@ enum class ShowStatusFlags {
 	BATTERY_PERCENT = 1 << 3,
 };
 
+enum class DumpFileType {
+	EBOOT = (1 << 0),
+	PRX = (1 << 1),
+	Atrac3 = (1 << 2),
+};
+ENUM_CLASS_BITOPS(DumpFileType);
+
 // for iTiltInputType
 enum TiltTypes {
 	TILT_NULL = 0,

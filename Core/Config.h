@@ -86,7 +86,7 @@ public:
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
 	bool bEnableLogging;
-	bool bDumpDecryptedEboot;
+	int iDumpFileTypes;  // DumpFileType bitflag enum
 	bool bFullscreenOnDoubleclick;
 
 	// These four are Win UI only

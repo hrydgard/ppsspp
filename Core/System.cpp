@@ -33,6 +33,8 @@
 
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -61,6 +63,8 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
+#include "Common/File/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Playback.h"
@@ -714,5 +718,107 @@ const char *CoreStateToString(CoreState state) {
 	case CORE_STEPPING_GE: return "STEPPING_GE";
 	case CORE_RUNNING_GE: return "RUNNING_GE";
 	default: return "N/A";
+	}
+}
+
+const char *DumpFileTypeToString(DumpFileType type) {
+	switch (type) {
+	case DumpFileType::EBOOT: return "EBOOT";
+	case DumpFileType::PRX: return "PRX";
+	case DumpFileType::Atrac3: return "AT3";
+	default: return "N/A";
+	}
+}
+
+const char *DumpFileTypeToFileExtension(DumpFileType type) {
+	switch (type) {
+	case DumpFileType::EBOOT: return ".BIN";
+	case DumpFileType::PRX: return ".prx";
+	case DumpFileType::Atrac3: return ".at3";
+	default: return "N/A";
+	}
+}
+
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type) {
+	if (!(g_Config.iDumpFileTypes & (int)type)) {
+		return;
+	}
+	if (!dataPtr) {
+		ERROR_LOG(Log::System, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
+		return;
+	}
+	if (length == 0) {
+		ERROR_LOG(Log::System, "Error dumping %s: invalid length", DumpFileTypeToString(DumpFileType::EBOOT));
+		return;
+	}
+
+	const char *extension = DumpFileTypeToFileExtension(type);
+	const std::string filenameToDumpTo = StringFromFormat("%s_%s%s", g_paramSFO.GetDiscID().c_str(), name, extension);
+	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
+	const Path fullPath = dumpDirectory / filenameToDumpTo;
+
+	auto s = GetI18NCategory(I18NCat::SYSTEM);
+
+	std::string_view titleStr = "Dump Decrypted Eboot";
+	if (type != DumpFileType::EBOOT) {
+		titleStr = s->T(DumpFileTypeToString(type));
+	}
+
+	// If the file already exists, don't dump it again.
+	if (File::Exists(fullPath)) {
+		INFO_LOG(Log::sceModule, "%s already exists for this game, skipping dump.", filenameToDumpTo.c_str());
+
+		char *path = new char[strlen(fullPath.c_str()) + 1];
+		strcpy(path, fullPath.c_str());
+
+		g_OSD.Show(OSDType::MESSAGE_INFO, titleStr, fullPath.ToVisualString(), 5.0f);
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			g_OSD.SetClickCallback("file_dumped", [](bool clicked, void *userdata) {
+				char *path = (char *)userdata;
+				if (clicked) {
+					System_ShowFileInFolder(Path(path));
+				} else {
+					delete[] path;
+				}
+			}, path);
+		}
+		return;
+	}
+
+	// Make sure the dump directory exists before continuing.
+	if (!File::Exists(dumpDirectory)) {
+		if (!File::CreateDir(dumpDirectory)) {
+			ERROR_LOG(Log::sceModule, "Unable to create directory for EBOOT dumping, aborting.");
+			return;
+		}
+	}
+
+	FILE *file = File::OpenCFile(fullPath, "wb");
+	if (!file) {
+		ERROR_LOG(Log::sceModule, "Unable to write decrypted EBOOT.");
+		return;
+	}
+
+	const size_t lengthToWrite = length;
+
+	fwrite(dataPtr, sizeof(u8), lengthToWrite, file);
+	fclose(file);
+
+	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.c_str());
+
+	char *path = new char[strlen(fullPath.c_str()) + 1];
+	strcpy(path, fullPath.c_str());
+
+	// Re-suing the translation string here.
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f, "decr");
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
+			char *path = (char *)userdata;
+			if (clicked) {
+				System_ShowFileInFolder(Path(path));
+			} else {
+				delete[] path;
+			}
+		}, path);
 	}
 }

@@ -1075,6 +1075,8 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 
 // These three are the external interface used by sceSas' AT3 integration.
 
+// NOTE: There are special rules.
+
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac)

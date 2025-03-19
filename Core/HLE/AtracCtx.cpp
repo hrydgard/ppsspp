@@ -592,6 +592,8 @@ void AtracBase::CreateDecoder(int codecType, int bytesPerFrame, int channels) {
 
 	// First, init the standalone decoder.
 	if (codecType == PSP_MODE_AT_3) {
+		// TODO: This is maybe not entirely reliable? Mui Mui house in LocoRoco 2 fails. Although also fails
+		// when I override this, so maybe the issue is something different...
 		bool jointStereo = IsAtrac3StreamJointStereo(codecType, bytesPerFrame, channels);
 
 		// We don't pull this from the RIFF so that we can support OMA also.

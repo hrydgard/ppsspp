@@ -6,6 +6,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/HW/Atrac3Standalone.h"
 
@@ -130,7 +131,7 @@ int Atrac2::RemainingFrames() const {
 
 	// Handle the easy cases first.
 	switch (info.state) {
-	case 0:
+	case ATRAC_STATUS_UNINITIALIZED:
 	case ATRAC_STATUS_NO_DATA:
 		return 0;
 	case ATRAC_STATUS_ALL_DATA_LOADED:
@@ -807,6 +808,13 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		INFO_LOG(Log::ME, "Atrac2::SetData: outputChannels %d doesn't match track_.channels %d, decoder will expand.", outputChannels, track.channels);
 	}
 
+	if (readSize >= track.fileSize) {
+		INFO_LOG(Log::ME, "The full file was set directly - we can dump it.");
+		char filename[512];
+		snprintf(filename, sizeof(filename), "%s_%d%s", track.codecType == PSP_MODE_AT_3 ? "at3" : "at3plus", track.endSample, track.channels == 1 ? "_mono" : "");
+		DumpFileIfEnabled(Memory::GetPointer(bufferAddr), readSize, filename, DumpFileType::Atrac3);
+	}
+
 	CreateDecoder(track.codecType, track.bytesPerFrame, track.channels);
 
 	outputChannels_ = outputChannels;
@@ -830,9 +838,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	context_->codec.inBuf = bufferAddr;
 
 	if (readSize > track.fileSize) {
-		// This is seen in Tekken 6.
-		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track.fileSize);
-		readSize = track.fileSize;
+		INFO_LOG(Log::ME, "readSize (%d) > track_.fileSize (%d)", readSize, track.fileSize);
 	}
 
 	if (bufferSize >= track.fileSize) {
@@ -916,12 +922,12 @@ void Atrac2::WrapLastPacket() {
 u32 Atrac2::SkipFrames(int *skipCount) {
 	SceAtracIdInfo &info = context_->info;
 	*skipCount = 0;
-	u32 temp;
+	u32 finishIgnored;
 	while (true) {
 		if (info.numSkipFrames == 0) {
 			return 0;
 		}
-		u32 retval = DecodeInternal(0, 0, &temp);
+		u32 retval = DecodeInternal(0, 0, &finishIgnored);
 		if (retval != 0) {
 			if (retval == SCE_ERROR_ATRAC_API_FAIL) {
 				(*skipCount)++;

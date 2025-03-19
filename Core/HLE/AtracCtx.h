@@ -258,7 +258,7 @@ public:
 
 	u8 *BufferStart();
 
-	AtracStatus BufferState() const {
+	AtracStatus BufferState() const override {
 		return bufferState_;
 	}
 

@@ -915,81 +915,6 @@ void PSPModule::Cleanup() {
 	}
 }
 
-static void SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length, const char *name) {
-	if (!decryptedEbootDataPtr) {
-		ERROR_LOG(Log::sceModule, "Error saving decrypted EBOOT.BIN: invalid pointer");
-		return;
-	}
-
-	if (length == 0) {
-		ERROR_LOG(Log::sceModule, "Error saving decrypted EBOOT.BIN: invalid length");
-		return;
-	}
-
-	const std::string filenameToDumpTo = StringFromFormat("%s_%s.BIN", g_paramSFO.GetDiscID().c_str(), name);
-	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
-	const Path fullPath = dumpDirectory / filenameToDumpTo;
-
-	auto s = GetI18NCategory(I18NCat::SYSTEM);
-
-	// If the file already exists, don't dump it again.
-	if (File::Exists(fullPath)) {
-		INFO_LOG(Log::sceModule, "Decrypted EBOOT.BIN already exists for this game, skipping dump.");
-
-		char *path = new char[strlen(fullPath.c_str()) + 1];
-		strcpy(path, fullPath.c_str());
-
-		g_OSD.Show(OSDType::MESSAGE_INFO, s->T("Dump Decrypted Eboot"), fullPath.ToVisualString(), 5.0f, "decr");
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
-				char *path = (char *)userdata;
-				if (clicked) {
-					System_ShowFileInFolder(Path(path));
-				} else {
-					delete[] path;
-				}
-			}, path);
-		}
-		return;
-	}
-
-	// Make sure the dump directory exists before continuing.
-	if (!File::Exists(dumpDirectory)) {
-		if (!File::CreateDir(dumpDirectory)) {
-			ERROR_LOG(Log::sceModule, "Unable to create directory for EBOOT dumping, aborting.");
-			return;
-		}
-	}
-
-	FILE *decryptedEbootFile = File::OpenCFile(fullPath, "wb");
-	if (!decryptedEbootFile) {
-		ERROR_LOG(Log::sceModule, "Unable to write decrypted EBOOT.");
-		return;
-	}
-
-	const size_t lengthToWrite = length;
-
-	fwrite(decryptedEbootDataPtr, sizeof(u8), lengthToWrite, decryptedEbootFile);
-	fclose(decryptedEbootFile);
-	INFO_LOG(Log::sceModule, "Successfully wrote decrypted EBOOT to %s", fullPath.c_str());
-
-	char *path = new char[strlen(fullPath.c_str()) + 1];
-	strcpy(path, fullPath.c_str());
-
-	// Re-suing the translation string here.
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, s->T("Dump Decrypted Eboot"), fullPath.ToVisualString(), 5.0f, "decr");
-	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		g_OSD.SetClickCallback("decr", [](bool clicked, void *userdata) {
-			char *path = (char *)userdata;
-			if (clicked) {
-				System_ShowFileInFolder(Path(path));
-			} else {
-				delete[] path;
-			}
-		}, path);
-	}
-}
-
 static bool IsHLEVersionedModule(const char *name) {
 	// TODO: Only some of these are currently known to be versioned.
 	// Potentially only sceMpeg_library matters.
@@ -1271,7 +1196,8 @@ static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
 	INFO_LOG(Log::sceModule, "~SCE module: Lib-PSP %s (SDK %s)", nameBuffer, versionBuffer);
 }
 
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
+// filename is only used for dumping/metadata.
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1334,7 +1260,28 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			ret = head->psp_size - 0x150;
 			memcpy(newptr, in + 0x150, ret);
 		}
+
+		// decompress if required.
+		if (isGzip) {
+			auto temp = new u8[ret];
+			memcpy(temp, ptr, ret);
+			gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			delete[] temp;
+		}
+
 		if (reportedModule) {
+			// Opportunity to dump the decrypted elf, even if we choose to fake it.
+			std::string elfFilename(filename);
+			if (elfFilename.empty()) {
+				// Use the name from the header.
+				elfFilename = head->modname;
+			}
+			DumpFileIfEnabled(ptr, head->psp_size, elfFilename.c_str(), DumpFileType::PRX);
+
+			if (isGzip) {
+				INFO_LOG(Log::sceModule, "gzip is enabled in 'reported' module");
+			}
+
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
@@ -1404,22 +1351,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// TODO: Is this right?
 			module->nm.bss_size = head->bss_size;
 
-			// decompress if required
-			if (isGzip)
-			{
-				auto temp = new u8[ret];
-				memcpy(temp, ptr, ret);
-				gzipDecompress((u8 *)ptr, maxElfSize, temp);
-				delete[] temp;
-			}
-
 			// If we've made it this far, it should be safe to dump.
-			if (g_Config.bDumpDecryptedEboot) {
-				// Copy the name to ensure it's null terminated.
-				char name[32]{};
-				strncpy(name, head->modname, ARRAY_SIZE(head->modname));
-				SaveDecryptedEbootToStorageMedia(ptr, (u32)elfSize, name);
-			}
+			// Copy the name to ensure it's null terminated.
+			char name[32]{};
+			strncpy(name, head->modname, ARRAY_SIZE(head->modname));
+			DumpFileIfEnabled(ptr, (u32)elfSize, name, DumpFileType::EBOOT);
 		}
 	}
 
@@ -1806,14 +1742,15 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string) 
 
 	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	u32 magic;
-	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, error);
+	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, filename, error);
 
 	if (module == nullptr)
 		return error;
 	return module->GetUID();
 }
 
-static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string *error_string) {
+// filename is only used for dumping etc.
+static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string) {
 	PSPModule *module = nullptr;
 	// Check for PBP
 	if (fileSize >= sizeof(PSP_Header) && memcmp(fileptr, "\0PBP", 4) == 0) {
@@ -1850,13 +1787,13 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		}
 
 		u32 error;
-		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], elfSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], elfSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error);
 
 		delete [] temp;
 	} else if (fileSize > sizeof(PSP_Header)) {
 		u32 error;
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr, fileSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(fileptr, fileSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error);
 	} else {
 		*error_string = "ELF file truncated - can't load";
 		return nullptr;
@@ -1969,7 +1906,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	}
 
 	size_t size = fileData.size();
-	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, error_string);
+	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string);
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -2022,7 +1959,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	return true;
 }
 
-bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
+bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
 	const u32 codeStartAddr = PSP_GetUserMemoryBase();
@@ -2179,7 +2116,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -2600,8 +2537,8 @@ u32 sceKernelFindModuleByName(const char *name)
 	return hleLogWarning(Log::sceModule, 0, "Module Not Found");
 }
 
-static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
-{
+// The id in question here is a file handle.
+static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	u32 error;
 	u32 handle = __IoGetFileHandleFromId(id, error);
 	if (handle == (u32)-1) {
@@ -2615,15 +2552,16 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
-	u32 pos = (u32) pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
+	u32 pos = (u32)pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
 	size_t size = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
 	std::string error_string;
 	pspFileSystem.SeekFile(handle, pos, FILEMOVE_BEGIN);
 	PSPModule *module = nullptr;
 	u8 *temp = new u8[size - pos];
 	pspFileSystem.ReadFile(handle, temp, size - pos);
+
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, "", error);
 	delete [] temp;
 
 	if (!module) {
@@ -2679,7 +2617,12 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 	PSPModule *module = nullptr;
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
+
+	// For dumping only.
+	char fakeDebugFilename[512];
+	snprintf(fakeDebugFilename, sizeof(fakeDebugFilename), "moduleByPtr_%08x_%d", bufPtr, (int)size);
+
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.

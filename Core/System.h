@@ -20,6 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
 #include "Core/CoreParameter.h"
+#include "Core/ConfigValues.h"
 
 class MetaFileSystem;
 class ParamSFOData;
@@ -110,3 +111,6 @@ inline CoreParameter &PSP_CoreParameter() {
 	extern CoreParameter g_CoreParameter;
 	return g_CoreParameter;
 }
+
+// Centralized place for dumping useful files, also takes care of checking for dupes and creating a clickable UI popup.
+void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, const char *name, DumpFileType type);
