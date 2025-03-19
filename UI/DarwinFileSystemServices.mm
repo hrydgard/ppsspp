@@ -90,6 +90,9 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		case BrowseFileType::SOUND_EFFECT:
 			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"wav"]];
 			break;
+		case BrowseFileType::ATRAC3:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"at3"]];
+			break;
 		default:
 			break;
 		}

@@ -326,6 +326,9 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 		case BrowseFileType::ZIP:
 			filter = "ZIP files (*.zip)";
 			break;
+		case BrowseFileType::ATRAC3:
+			filter = "AT3 files (*.at3)";
+			break;
 		case BrowseFileType::ANY:
 			break;
 		}

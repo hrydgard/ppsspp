@@ -1235,6 +1235,9 @@
     <ClCompile Include="..\..\Core\HLE\SocketManager.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Util\AtracTrack.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1953,6 +1956,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\SocketManager.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Util\AtracTrack.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

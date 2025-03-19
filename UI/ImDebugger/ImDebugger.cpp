@@ -33,6 +33,7 @@
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Common/System/Request.h"
 
+#include "Core/Util/AtracTrack.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceAudiocodec.h"
@@ -1000,7 +1001,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::TableNextColumn();
 				ImGui::Text("in:%d out:%d", ctx->Channels(), ctx->GetOutputChannels());
 				ImGui::TableNextColumn();
-				if (ctx->BufferState() != ATRAC_STATUS_LOW_LEVEL) {
+				if (AtracStatusIsNormal(ctx->BufferState())) {
 					int pos;
 					ctx->GetNextDecodePosition(&pos);
 					ImGui::Text("%d", pos);
@@ -1008,7 +1009,7 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 					ImGui::TextUnformatted("N/A");
 				}
 				ImGui::TableNextColumn();
-				if (ctx->BufferState() <= ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+				if (AtracStatusIsNormal(ctx->BufferState())) {
 					ImGui::Text("%d", ctx->RemainingFrames());
 				} else {
 					ImGui::TextUnformatted("N/A");
@@ -1479,6 +1480,44 @@ static void DrawModules(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	ImGui::End();
 }
 
+void ImAtracToolWindow::Draw(ImConfig &cfg) {
+	if (!ImGui::Begin("Atrac Tool", &cfg.atracToolOpen) || !g_symbolMap) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::InputText("File", atracPath_, sizeof(atracPath_));
+	ImGui::SameLine();
+	if (ImGui::Button("Choose...")) {
+		System_BrowseForFile(cfg.requesterToken, "Choose AT3 file", BrowseFileType::ATRAC3, [&](const std::string &filename, int) {
+			truncate_cpy(atracPath_, filename);
+		}, nullptr);
+	}
+
+	if (strlen(atracPath_) > 0) {
+		if (ImGui::Button("Load")) {
+			track_.reset(new Track());
+			std::string data;
+			if (File::ReadBinaryFileToString(Path(atracPath_), &data)) {
+				AnalyzeAtracTrack((const u8 *)data.data(), (u32)data.size(), track_.get(), &error_);
+			}
+		}
+	}
+
+	if (track_.get() != 0) {
+		ImGui::Text("Codec: %s", track_->codecType != PSP_CODEC_AT3 ? "at3+" : "at3");
+		ImGui::Text("Bitrate: %d kbps Channels: %d", track_->Bitrate(), track_->channels);
+		ImGui::Text("Frame size in bytes: %d Output frame in samples: %d", track_->BytesPerFrame(), track_->SamplesPerFrame());
+		ImGui::Text("First valid sample: %08x", track_->FirstSampleOffsetFull());
+	}
+
+	if (!error_.empty()) {
+		ImGui::TextUnformatted(error_.c_str());
+	}
+
+	ImGui::End();
+}
+
 void DrawHLEModules(ImConfig &config) {
 	if (!ImGui::Begin("HLE Modules", &config.hleModulesOpen)) {
 		ImGui::End();
@@ -1679,6 +1718,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
+			ImGui::MenuItem("Atrac Tool", nullptr, &cfg_.atracToolOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Misc")) {
@@ -1761,6 +1801,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawHLEModules(cfg_);
 	}
 
+	if (cfg_.atracToolOpen) {
+		atracToolWindow_.Draw(cfg_);
+	}
+
 	if (cfg_.framebuffersOpen) {
 		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
 	}
@@ -1829,6 +1873,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.internalsOpen) {
 		DrawInternals(cfg_);
+	}
+
+	if (externalCommand_.cmd != ImCmd::NONE) {
+		control.command = externalCommand_;
+		externalCommand_.cmd = ImCmd::NONE;
 	}
 
 	// Process UI commands

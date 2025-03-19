@@ -41,6 +41,8 @@ static std::mutex g_extraAssertInfoMutex;
 static std::string g_extraAssertInfo = "menu";
 static double g_assertInfoTime = 0.0;
 static bool g_exitOnAssert;
+static AssertNoCallbackFunc g_assertNoCallback = 0;
+static void *g_assertNoCallbackUserData = 0;
 
 void SetExtraAssertInfo(const char *info) {
 	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
@@ -48,8 +50,19 @@ void SetExtraAssertInfo(const char *info) {
 	g_assertInfoTime = time_now_d();
 }
 
+void SetAssertNoCallback(AssertNoCallbackFunc callback, void *userdata) {
+	g_assertNoCallback = callback;
+	g_assertNoCallbackUserData = userdata;
+}
+
 void SetCleanExitOnAssert() {
 	g_exitOnAssert = true;
+}
+
+void BreakIntoPSPDebugger(const char *reason) {
+	if (g_assertNoCallback) {
+		g_assertNoCallback(reason, g_assertNoCallbackUserData);
+	}
 }
 
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
@@ -79,20 +92,33 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 #if defined(USING_WIN_UI)
 	// Avoid hanging on CI.
 	if (!getenv("CI")) {
-		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
-		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
+		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNOCANCEL;
+		std::string text = formatted;
+		text += "\n\nTry to continue?";
+		text += "\n\nNo: skip and break into PPSSPP debugger";
+		if (IsDebuggerPresent()) {
+			msgBoxStyle ;
+			text += "\n\nCancel: break directly into the native debugger";
+		} else {
+			msgBoxStyle |= MB_YESNO;
+			text += "\n\nCancel: Exit";
+		}
 		const char *threadName = GetCurrentThreadName();
-		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
-		OutputDebugString(wtext.c_str());
+		OutputDebugStringA(formatted);
 		printf("%s\n", formatted);
-		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
-			if (g_exitOnAssert) {
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
+		switch (MessageBox(0, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
+		case IDYES:
+			return true;
+		case IDNO:
+			g_assertNoCallback(formatted, g_assertNoCallbackUserData);
+			return true;  // don't crash!
+		case IDCANCEL:
+			if (g_exitOnAssert || !IsDebuggerPresent()) {
 				// Hard exit.
 				ExitProcess(1);
-				return false;
 			}
-		} else {
-			return true;
+			return false;  // Break into the native debugger.
 		}
 	}
 	return false;

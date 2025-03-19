@@ -113,7 +113,10 @@ __attribute__((format(printf, 5, 6)))
 bool HitAnyAsserts();
 void ResetHitAnyAsserts();
 void SetExtraAssertInfo(const char *info);
+typedef void (*AssertNoCallbackFunc)(const char *message, void *userdata);
+void SetAssertNoCallback(AssertNoCallbackFunc callback, void *userdata);
 void SetCleanExitOnAssert();
+void BreakIntoPSPDebugger(const char *reason = "(userbreak)");
 
 #if defined(__ANDROID__)
 // Tricky macro to get the basename, that also works if *built* on Win32.

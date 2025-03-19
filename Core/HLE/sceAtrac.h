@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "sceAudiocodec.h"
+#include "Core/HLE/sceAudiocodec.h"
+#include "Core/Util/AtracTrack.h"
 
 class PointerWrap;
 
@@ -28,9 +29,6 @@ void __AtracShutdown();
 
 void __AtracNotifyLoadModule(int version, u32 crc, u32 bssAddr, int bssSize);
 void __AtracNotifyUnloadModule();
-
-constexpr u32 ATRAC3_MAX_SAMPLES = 0x400;  // 1024
-constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
 
 // The "state" member of SceAtracIdInfo.
 enum AtracStatus : u8 {
@@ -67,6 +65,9 @@ const char *AtracStatusToString(AtracStatus status);
 
 inline bool AtracStatusIsStreaming(AtracStatus status) {
 	return (status & ATRAC_STATUS_STREAMED_MASK) != 0;
+}
+inline bool AtracStatusIsNormal(AtracStatus status) {
+	return (int)status >= ATRAC_STATUS_ALL_DATA_LOADED && (int)status <= ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
 }
 
 struct SceAtracIdInfo {
