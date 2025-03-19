@@ -131,7 +131,7 @@ int Atrac2::RemainingFrames() const {
 
 	// Handle the easy cases first.
 	switch (info.state) {
-	case 0:
+	case ATRAC_STATUS_UNINITIALIZED:
 	case ATRAC_STATUS_NO_DATA:
 		return 0;
 	case ATRAC_STATUS_ALL_DATA_LOADED:
@@ -838,9 +838,7 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	context_->codec.inBuf = bufferAddr;
 
 	if (readSize > track.fileSize) {
-		// This is seen in Tekken 6.
-		WARN_LOG(Log::ME, "readSize %d > track_.fileSize", readSize, track.fileSize);
-		readSize = track.fileSize;
+		INFO_LOG(Log::ME, "readSize (%d) > track_.fileSize (%d)", readSize, track.fileSize);
 	}
 
 	if (bufferSize >= track.fileSize) {

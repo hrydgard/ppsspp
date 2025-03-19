@@ -34,6 +34,8 @@ constexpr u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;   // 2048
 
 // The "state" member of SceAtracIdInfo.
 enum AtracStatus : u8 {
+	ATRAC_STATUS_UNINITIALIZED = 0,  // bad state
+
 	ATRAC_STATUS_NO_DATA = 1,
 
 	// The entire file is loaded into memory, no further file access needed.
