@@ -1831,6 +1831,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		DrawInternals(cfg_);
 	}
 
+	if (externalCommand_.cmd != ImCmd::NONE) {
+		control.command = externalCommand_;
+		externalCommand_.cmd = ImCmd::NONE;
+	}
+
 	// Process UI commands
 	switch (control.command.cmd) {
 	case ImCmd::SHOW_IN_CPU_DISASM:

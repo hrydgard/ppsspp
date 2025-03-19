@@ -63,6 +63,10 @@ public:
 	void deviceLost() override;
 	void deviceRestored(Draw::DrawContext *draw) override;
 
+	void SendImDebuggerCommand(const ImCommand &command) {
+		imCmd_ = command;
+	}
+
 protected:
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
@@ -136,6 +140,7 @@ private:
 	ControlMapper controlMapper_;
 
 	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
+	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 
 	bool imguiInited_ = false;
 	// For ImGui modifier tracking

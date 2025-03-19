@@ -216,6 +216,11 @@ public:
 	void Snapshot(MIPSState *mips);
 	void SnapshotGPU(GPUDebugInterface *mips);
 
+	// Call from the outside.
+	void PostCmd(ImCommand cmd) {
+		externalCommand_ = cmd;
+	}
+
 private:
 	Path ConfigPath();
 
@@ -237,6 +242,8 @@ private:
 
 	// Open variables.
 	ImConfig cfg_{};
+
+	ImCommand externalCommand_;
 };
 
 // Simple custom controls and utilities.

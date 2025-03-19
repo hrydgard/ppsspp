@@ -117,6 +117,15 @@ static bool startDumping;
 
 extern bool g_TakeScreenshot;
 
+static void AssertNoCallback(const char *message, void *userdata) {
+	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
+	Core_Break(BreakReason::AssertChoice);
+	g_Config.bShowImDebugger = true;
+
+	EmuScreen *emuScreen = (EmuScreen *)userdata;
+	emuScreen->SendImDebuggerCommand(ImCommand{ ImCmd::SHOW_IN_CPU_DISASM, currentMIPS->pc });
+}
+
 static void __EmuScreenVblank()
 {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -299,6 +308,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
+	SetAssertNoCallback(&AssertNoCallback, this);
 
 	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id, info->GetTitle());
@@ -470,6 +480,7 @@ EmuScreen::~EmuScreen() {
 	g_OSD.ClearAchievementStuff();
 
 	SetExtraAssertInfo(nullptr);
+	SetAssertNoCallback(nullptr, nullptr);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping)
@@ -1781,6 +1792,11 @@ void EmuScreen::runImDebugger() {
 			ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
 
 			ImGui::NewFrame();
+
+			if (imCmd_.cmd != ImCmd::NONE) {
+				imDebugger_->PostCmd(imCmd_);
+				imCmd_.cmd = ImCmd::NONE;
+			}
 
 			// Update keyboard modifiers.
 			auto &io = ImGui::GetIO();

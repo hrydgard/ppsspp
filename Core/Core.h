@@ -47,6 +47,7 @@ enum class CPUStepType {
 // Must be set when breaking.
 enum class BreakReason {
 	None,
+	AssertChoice,
 	DebugBreak,
 	DebugStep,
 	DebugStepInto,

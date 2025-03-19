@@ -94,6 +94,7 @@ BreakReason Core_BreakReason() {
 const char *BreakReasonToString(BreakReason reason) {
 	switch (reason) {
 	case BreakReason::None: return "None";
+	case BreakReason::AssertChoice: return "cpu.assert";
 	case BreakReason::DebugBreak: return "cpu.debugbreak";
 	case BreakReason::DebugStep: return "cpu.stepping";
 	case BreakReason::DebugStepInto: return "cpu.stepInto";
