@@ -537,6 +537,8 @@ static std::wstring MakeWindowsFilter(BrowseFileType type) {
 		return FinalizeFilter(L"Sound effect files (*.wav *.mp3)|*.wav;*.mp3|All files (*.*)|*.*||");
 	case BrowseFileType::SYMBOL_MAP:
 		return FinalizeFilter(L"Symbol map files (*.ppmap)|*.ppmap|All files (*.*)|*.*||");
+	case BrowseFileType::ATRAC3:
+		return FinalizeFilter(L"ATRAC3/3+ files (*.at3)|*.at3|All files (*.*)|*.*||");
 	case BrowseFileType::ANY:
 		return FinalizeFilter(L"All files (*.*)|*.*||");
 	default:

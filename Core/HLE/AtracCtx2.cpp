@@ -503,7 +503,7 @@ u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 	// Sol Trigger is the only game I know that uses this.
 	_dbg_assert_(false);
 
-	u8 *dest = Memory::GetPointerWrite(info.buffer);
+	u8 *dest = Memory::GetPointerWrite(sasBasePtr_ + sasReadOffset_);
 	memcpy(dest, Memory::GetPointer(bufPtr), bytesToAdd);
 	info.buffer += bytesToAdd;
 	info.streamDataByte += bytesToAdd;

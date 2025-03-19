@@ -690,8 +690,8 @@ SOURCES_CXX += \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
-		   $(COREDIR)/HLE/NetInetConstants.cpp \
-		   $(COREDIR)/HLE/SocketManager.cpp \
+	       $(COREDIR)/HLE/NetInetConstants.cpp \
+	       $(COREDIR)/HLE/SocketManager.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceSircs.cpp \
@@ -826,6 +826,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/ThreadPools.cpp \
+	       $(COREDIR)/Util/AtracTrack.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \

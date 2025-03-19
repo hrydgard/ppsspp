@@ -333,6 +333,7 @@
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
+    <ClInclude Include="..\..\Core\Util\AtracTrack.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
     <ClInclude Include="..\..\Core\Util\MemStick.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
@@ -632,6 +633,7 @@
     <ClCompile Include="..\..\Core\System.cpp" />
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
+    <ClCompile Include="..\..\Core\Util\AtracTrack.cpp" />
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
     <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />

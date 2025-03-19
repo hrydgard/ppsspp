@@ -517,13 +517,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			supportedExtensions = { ".zip" };
 			break;
 		case BrowseFileType::SYMBOL_MAP:
-			supportedExtensions = { ".map" };
+			supportedExtensions = { ".ppmap" };
 			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
 		case BrowseFileType::SOUND_EFFECT:
 			supportedExtensions = { ".wav", ".mp3" };
+			break;
+		case BrowseFileType::ATRAC3:
+			supportedExtensions = { ".at3" };
 			break;
 		case BrowseFileType::ANY:
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned

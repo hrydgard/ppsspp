@@ -635,9 +635,10 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, readSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), readSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 	if (track.codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
@@ -670,9 +671,10 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), bufferSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 	if (track.codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
@@ -697,9 +699,10 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), bufferSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 
 	int atracID = AllocAndRegisterAtrac(track.codecType);
@@ -722,9 +725,10 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), readSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 
 	int atracID = AllocAndRegisterAtrac(track.codecType);
@@ -841,9 +845,10 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), readSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 1);
@@ -865,9 +870,10 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), bufferSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 1);
@@ -883,10 +889,12 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 // See note in above function.
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), bufferSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
+
 	if (track.channels != 1) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
@@ -910,10 +918,12 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	}
 
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), readSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
+
 	if (track.channels != 1) {
 		return hleReportError(Log::ME, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
@@ -933,9 +943,10 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
 	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), bufferSize, &track, &error);
 	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
 	}
 
 	int atracID = AllocAndRegisterAtrac(track.codecType);
@@ -950,6 +961,32 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	}
 
 	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set aa3 data", 100);
+}
+
+static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize) {
+	if (readSize > bufferSize) {
+		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
+	}
+
+	Track track;
+	std::string error;
+	int ret = AnalyzeAtracTrack(Memory::GetPointer(buffer), readSize, &track, &error);
+	if (ret < 0) {
+		return hleLogError(Log::ME, ret, "%s", error.c_str());
+	}
+
+	int atracID = AllocAndRegisterAtrac(track.codecType);
+	if (atracID < 0) {
+		return hleLogError(Log::ME, atracID, "no free ID");
+	}
+
+	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
+	if (ret < 0) {
+		UnregisterAndDeleteAtrac(atracID);
+		return hleLogError(Log::ME, ret);
+	}
+
+	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 // TODO: Should see if these are stored contiguously in memory somewhere, or if there really are
@@ -1046,31 +1083,6 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, bytesWritten, "AtracLowLevelDecode");
 	return hleDelayResult(hleLogDebug(Log::ME, retval), "low level atrac decode data", atracDecodeDelay);
-}
-
-static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize) {
-	if (readSize > bufferSize) {
-		return hleLogError(Log::ME, SCE_ERROR_ATRAC_INCORRECT_READ_SIZE, "read size too large");
-	}
-
-	Track track;
-	int ret = AnalyzeAtracTrack(buffer, bufferSize, &track);
-	if (ret < 0) {
-		return hleLogError(Log::ME, ret);
-	}
-
-	int atracID = AllocAndRegisterAtrac(track.codecType);
-	if (atracID < 0) {
-		return hleLogError(Log::ME, atracID, "no free ID");
-	}
-
-	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 2);
-	if (ret < 0) {
-		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::ME, ret);
-	}
-
-	return hleDelayResult(hleLogDebug(Log::ME, atracID), "atrac set data", 100);
 }
 
 // These three are the external interface used by sceSas' AT3 integration.

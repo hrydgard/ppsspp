@@ -2413,6 +2413,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/System.h
 	Core/ThreadPools.cpp
 	Core/ThreadPools.h
+	Core/Util/AtracTrack.cpp
+	Core/Util/AtracTrack.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
