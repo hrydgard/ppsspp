@@ -235,6 +235,7 @@ void Track::DebugLog() const {
 		codecType == PSP_MODE_AT_3 ? "AT3" : "AT3Plus", channels, fileSize, bitrate / 1024, jointStereo);
 	DEBUG_LOG(Log::ME, "dataoff: %d firstSampleOffset: %d endSample: %d", dataByteOffset, firstSampleOffset, endSample);
 	DEBUG_LOG(Log::ME, "loopStartSample: %d loopEndSample: %d", loopStartSample, loopEndSample);
+	DEBUG_LOG(Log::ME, "sampleSize: %d (%03x", bytesPerFrame, bytesPerFrame);
 }
 
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
@@ -980,7 +981,7 @@ void Atrac::ConsumeFrame() {
 	}
 }
 
-u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
+u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) {
 	int loopNum = loopNum_;
 	if (bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
 		// TODO: Might need more testing.
@@ -1104,7 +1105,9 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	}
 
 	*finish = finishFlag;
-	*remains = RemainingFrames();
+	if (remains) {
+		*remains = RemainingFrames();
+	}
 	// refresh context_
 	WriteContextToPSPMem();
 	return 0;
@@ -1240,6 +1243,12 @@ int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, i
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
 	return 0;
+}
+
+void Atrac::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
+	// Hack, but works.
+	int samplesNum;
+	DecodeData((u8 *)dstData, 0, &samplesNum, finish, nullptr);
 }
 
 void Atrac::NotifyGetContextAddress() {
