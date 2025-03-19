@@ -284,23 +284,6 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 	return res;
 }
 
-static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
-	buf->packets = packets;
-	buf->packetsRead = 0;
-	buf->packetsWritePos = 0;
-	buf->packetsAvail = 0;
-	buf->packetSize = 2048;
-	buf->data = data;
-	buf->callback_addr = callback_addr;
-	buf->callback_args = callback_args;
-	buf->dataUpperBound = data + packets * 2048;
-	buf->semaID = 0;
-	buf->mpeg = 0;
-	// This isn't in ver 0104, but it is in 0105.
-	if (mpegLibVersion >= 0x0105)
-		buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
-}
-
 static u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
@@ -497,7 +480,25 @@ static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 da
 	}
 
 	auto ring = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
-	InitRingbuffer(ring, numPackets, data, size, callbackAddr, callbackArg);
+
+	ring->packets = numPackets;
+	ring->packetsRead = 0;
+	ring->packetsWritePos = 0;
+	ring->packetsAvail = 0;
+	ring->packetSize = 2048;
+	ring->data = data;
+	ring->callback_addr = callbackAddr;
+	ring->callback_args = callbackArg;
+	ring->dataUpperBound = data + numPackets * 2048;
+	if (ring->semaID != 0) {
+		// I'm starting to think this is just padding or something.
+		// It's not written by this function.
+		WARN_LOG(Log::ME, "Detected semaID %d", ring->semaID);
+	}
+	ring->mpeg = 0;
+	// This isn't in ver 0104, but it is in 0105.
+	if (mpegLibVersion >= 0x0105)
+		ring->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 	return hleLogDebug(Log::ME, 0);
 }
 

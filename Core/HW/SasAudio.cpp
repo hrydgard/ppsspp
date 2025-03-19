@@ -190,7 +190,8 @@ void VagDecoder::DoState(PointerWrap &p) {
 
 int SasAtrac3::setContext(u32 contextAddr) {
 	contextAddr_ = contextAddr;
-	atracID_ = AtracSasGetIDByContext(contextAddr);
+	// Note: This atracID_ is also stored in the loopNum member of the context.
+	atracID_ = AtracSasBindContextAndGetID(contextAddr);
 	if (!sampleQueue_)
 		sampleQueue_ = new BufferQueue();
 	sampleQueue_->clear();
@@ -203,13 +204,12 @@ void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
 		end_ = true;
 		return;
 	}
-	u32 finish = 0;
+	int finish = 0;
 	int wantedbytes = wantedSamples * sizeof(s16);
 	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
-		u32 numSamples = 0;
-		int remains = 0;
+		int numSamples = 0;
 		static s16 buf[0x800];
-		AtracSasDecodeData(atracID_, (u8*)buf, 0, &numSamples, &finish, &remains);
+		AtracSasDecodeData(atracID_, (u8*)buf, &numSamples, &finish);
 		if (numSamples > 0)
 			sampleQueue_->push((u8*)buf, numSamples * sizeof(s16));
 		else

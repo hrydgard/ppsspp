@@ -93,6 +93,7 @@ tests_good = [
   "audio/atrac/second/needed",
   "audio/atrac/second/setbuffer",
   "audio/atrac/setdata",
+  "audio/atrac/sas",
   "audio/mp3/checkneeded",
   "audio/mp3/getbitrate",
   "audio/mp3/getchannel",

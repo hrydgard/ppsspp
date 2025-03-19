@@ -311,8 +311,8 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::ME, SCE_ERROR_ATRAC_BAD_ALIGNMENT);
 	}
 
-	u32 numSamples = 0;
-	u32 finish = 0;
+	int numSamples = 0;
+	int finish = 0;
 	int remains = 0;
 	int ret = atrac->DecodeData(outAddr ? Memory::GetPointerWrite(outAddr) : nullptr, outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
@@ -1077,22 +1077,27 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 
 // NOTE: There are special rules.
 
+
+// This is __sceSasConcatenateATRAC3.
+// The context's fileOff is incremented by the caller, but we need to bump the other pointers.
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
-	if (!atrac)
-		return hleLogWarning(Log::ME, 0, "bad atrac ID");
+	if (!atrac) {
+		WARN_LOG(Log::ME, "bad atrac ID");
+	}
 	return atrac->AddStreamDataSas(bufPtr, bytesToAdd);
 }
 
-u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains) {
+void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 	AtracBase *atrac = getAtrac(atracID);
-	if (!atrac)
-		return hleLogWarning(Log::ME, 0, "bad atrac ID");
-	return atrac->DecodeData(outbuf, outbufPtr, SamplesNum, finish, remains);
+	if (!atrac) {
+		WARN_LOG(Log::ME, "bad atrac ID");
+	}
+	atrac->DecodeForSas((s16 *)outbuf, SamplesNum, finish);
 }
 
 // Ugly hack, but needed to support both old and new contexts.
-int AtracSasGetIDByContext(u32 contextAddr) {
+int AtracSasBindContextAndGetID(u32 contextAddr) {
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
 	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
@@ -1110,9 +1115,8 @@ int AtracSasGetIDByContext(u32 contextAddr) {
 		}
 		_dbg_assert_(atracID != -1);
 	}
-	// Restored old hack here that forces outputChannels_ to 1, since sceSas expects mono output, unlike normal usage.
-	// This is for savestate compatibility.
-	// I think it would be better to simply pass in a 1 as a parameter to atrac->DecodeData in AtracSasDecodeData above.
+
+	// Not actually a hack, this happens.
 	AtracBase *atrac = getAtrac(atracID);
 	atrac->SetOutputChannels(1);
 	return atracID;

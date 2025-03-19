@@ -168,18 +168,21 @@ int Atrac2::RemainingFrames() const {
 Atrac2::Atrac2(u32 contextAddr, int codecType) {
 	if (contextAddr) {
 		context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
-		// First-time initialization.
+		// First-time initialization. The rest is initialized in SetData.
 		SceAtracIdInfo &info = context_->info;
 		info.codec = codecType;
 		info.state = ATRAC_STATUS_NO_DATA;
 		info.curBuffer = 0;
+
+		sasReadOffset_ = 0;
+		sasBasePtr_ = 0;
 	} else {
 		// We're loading state, we'll restore the context in DoState.
 	}
 }
 
 void Atrac2::DoState(PointerWrap &p) {
-	auto s = p.Section("Atrac2", 1, 1);
+	auto s = p.Section("Atrac2", 1, 2);
 	if (!s)
 		return;
 
@@ -187,6 +190,11 @@ void Atrac2::DoState(PointerWrap &p) {
 	// The only thing we need to save now is the outputChannels_ and the context pointer. And technically, not even that since
 	// it can be computed. Still, for future proofing, let's save it.
 	Do(p, context_);
+	// Actually, now we also need to save sas state. I guess this could also be saved on the Sas side, but this is easier.
+	if (s >= 2) {
+		Do(p, sasReadOffset_);
+		Do(p, sasBasePtr_);
+	}
 
 	const SceAtracIdInfo &info = context_->info;
 	if (p.mode == p.MODE_READ && info.state != ATRAC_STATUS_NO_DATA) {
@@ -489,14 +497,16 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 }
 
 u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
+	SceAtracIdInfo &info = context_->info;
 	// Internal API, seems like a combination of GetStreamDataInfo and AddStreamData, for use when
 	// an Atrac context is bound to an sceSas channel.
 	// Sol Trigger is the only game I know that uses this.
 	_dbg_assert_(false);
 
-	// SceAtracIdInfo &info = context_->info;
-	// info.streamDataByte += bytesToAdd;
-	AddStreamData(bytesToAdd);
+	u8 *dest = Memory::GetPointerWrite(info.buffer);
+	memcpy(dest, Memory::GetPointer(bufPtr), bytesToAdd);
+	info.buffer += bytesToAdd;
+	info.streamDataByte += bytesToAdd;
 	return 0;
 }
 
@@ -629,7 +639,7 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *bytesToWrite, u32 *readFileOf
 	}
 }
 
-u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufAddr, u32 *SamplesNum, u32 *finish, int *remains) {
+u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufAddr, int *SamplesNum, int *finish, int *remains) {
 	SceAtracIdInfo &info = context_->info;
 
 	const int tries = info.numSkipFrames + 1;
@@ -645,7 +655,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufAddr, u32 *SamplesNum, u32 *finish,
 	return 0;
 }
 
-u32 Atrac2::DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish) {
+u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	SceAtracIdInfo &info = context_->info;
 
 	// Check that there's enough data to decode.
@@ -886,7 +896,11 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	int skipCount = 0;  // TODO: use for delay
 	u32 retval = SkipFrames(&skipCount);
-	if (retval != 0) {
+
+	// Seen in Mui Mui house. Things go very wrong after this..
+	if (retval == SCE_ERROR_ATRAC_API_FAIL) {
+		ERROR_LOG(Log::ME, "Bad frame during initial skip");
+	} else if (retval != 0) {
 		ERROR_LOG(Log::ME, "SkipFrames during InitContext returned an error: %08x", retval);
 	}
 	WrapLastPacket();
@@ -922,7 +936,7 @@ void Atrac2::WrapLastPacket() {
 u32 Atrac2::SkipFrames(int *skipCount) {
 	SceAtracIdInfo &info = context_->info;
 	*skipCount = 0;
-	u32 finishIgnored;
+	int finishIgnored;
 	while (true) {
 		if (info.numSkipFrames == 0) {
 			return 0;
@@ -1013,4 +1027,29 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 	*bytesWritten = outSamples * channels * sizeof(int16_t);
 	// TODO: Possibly return a decode error on bad data.
 	return 0;
+}
+
+void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
+	SceAtracIdInfo &info = context_->info;
+
+	if (info.buffer) {
+		// Adopt it then zero it.
+		sasBasePtr_ = info.buffer;
+		sasReadOffset_ = 0;
+		info.buffer = 0;
+	}
+
+	const u8 *srcData = Memory::GetPointer(sasBasePtr_ + sasReadOffset_);
+
+	int outSamples = 0;
+	int bytesConsumed = 0;
+	decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+
+	sasReadOffset_ += bytesConsumed;
+
+	if (sasReadOffset_ + info.dataOff >= info.fileDataEnd) {
+		*finish = 1;
+	} else {
+		*finish = 0;
+	}
 }

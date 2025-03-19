@@ -40,8 +40,10 @@ public:
 	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	bool HasSecondBuffer() const override;
 
-	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
+	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
+	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish);
+
 	u32 GetNextSamples() override;
 
 	void InitLowLevel(const Atrac3LowLevelParams &params, int codecType) override;
@@ -57,7 +59,7 @@ public:
 	u32 GetInternalCodecError() const override;
 
 private:
-	u32 DecodeInternal(u32 outbufAddr, u32 *SamplesNum, u32 *finish);
+	u32 DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish);
 	void GetResetBufferInfoInternal(AtracResetBufferInfo *bufferInfo, int sample);
 	u32 ResetPlayPositionInternal(int seekPos, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf);
 
@@ -68,4 +70,9 @@ private:
 	// to write the initial partial frame.
 	// Does not need to be saved.
 	int16_t *decodeTemp_ = nullptr;
+
+	// This is hidden state inside sceSas, really. Not visible in the context.
+	// But it doesn't really matter whether it's here or there.
+	u32 sasBasePtr_ = 0;
+	int sasReadOffset_ = 0;
 };
