@@ -694,10 +694,11 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	u32 inAddr = bufferPtr + streamOff;
 	int16_t *outPtr;
 
+	_dbg_assert_(samplesToDecode <= info.SamplesPerFrame());
 	if (samplesToDecode != info.SamplesPerFrame()) {
 		outPtr = decodeTemp_;
 	} else {
-		outPtr = (int16_t *)Memory::GetPointer(outbufAddr);
+		outPtr = outbufAddr ? (int16_t *)Memory::GetPointer(outbufAddr) : 0;  // outbufAddr can be 0 during skip!
 	}
 
 	context_->codec.inBuf = inAddr;
