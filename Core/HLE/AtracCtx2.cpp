@@ -168,7 +168,7 @@ int Atrac2::RemainingFrames() const {
 Atrac2::Atrac2(u32 contextAddr, int codecType) {
 	if (contextAddr) {
 		context_ = PSPPointer<SceAtracContext>::Create(contextAddr);
-		// First-time initialization.
+		// First-time initialization. The rest is initialized in SetData.
 		SceAtracIdInfo &info = context_->info;
 		info.codec = codecType;
 		info.state = ATRAC_STATUS_NO_DATA;

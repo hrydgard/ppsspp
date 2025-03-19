@@ -1680,7 +1680,7 @@ static u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	if (Memory::IsValidAddress(currentPtsAddr)) {
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
 	}
-	return hleLogDebug(Log::ME, 0);
+	return hleLogDebug(Log::ME, 0, "pts: %d", psmfplayer->psmfPlayerAvcAu.pts);
 }
 
 static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthAddr, u32 heightAddr) {
