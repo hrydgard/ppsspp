@@ -715,7 +715,7 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 		return hleLogWarning(Log::sceSas, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
 
-	DEBUG_LOG_REPORT(Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
+	DEBUG_LOG_REPORT_ONCE(concatAtrac3, Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
