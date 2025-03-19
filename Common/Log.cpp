@@ -59,6 +59,12 @@ void SetCleanExitOnAssert() {
 	g_exitOnAssert = true;
 }
 
+void BreakIntoPSPDebugger(const char *reason) {
+	if (g_assertNoCallback) {
+		g_assertNoCallback(reason, g_assertNoCallbackUserData);
+	}
+}
+
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[LOG_BUF_SIZE];
