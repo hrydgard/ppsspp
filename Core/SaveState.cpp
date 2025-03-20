@@ -466,9 +466,9 @@ double g_lastSaveTime = -1.0;
 		Enqueue(Operation(SAVESTATE_REWIND, Path(), -1, callback, cbUserData));
 	}
 
-	void SaveScreenshot(const Path &filename, Callback callback, void *cbUserData) {
+	static void SaveScreenshot(const Path &filename) {
 		screenshotFailures = 0;
-		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, nullptr, nullptr));
 	}
 
 	bool CanRewind()
@@ -690,7 +690,7 @@ double g_lastSaveTime = -1.0;
 				DeleteIfExists(shotUndo);
 				RenameIfExists(shot, shotUndo);
 			}
-			SaveScreenshot(shot, Callback(), 0);
+			SaveScreenshot(shot);
 			Save(fn.WithExtraExtension(".tmp"), slot, renameCallback, cbUserData);
 		} else {
 			if (callback) {
@@ -1100,7 +1100,7 @@ double g_lastSaveTime = -1.0;
 					WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", op.filename.c_str());
 					if (coreState != CORE_STEPPING_CPU && screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
 						// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
-						SaveScreenshot(op.filename, op.callback, op.cbUserData);
+						SaveScreenshot(op.filename);
 					}
 				} else {
 					screenshotFailures = 0;
