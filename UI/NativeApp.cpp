@@ -949,22 +949,37 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 	}
 
 	// First, find a free filename.
+	//
+	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
+	// So let's just grab the full file listing, and then find a name that's not in it.
+	//
+	// TODO: Also, we could do this on a thread too. Not sure if worth it.
 
 	const std::string gameId = g_paramSFO.GetDiscID();
 
+	// TODO: Make something like IterateFileInDir instead.
+	std::vector<File::FileInfo> files;
+	const std::string prefix = gameId + "_";
+	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
+	std::set<std::string> existingNames;
+	for (auto &file : files) {
+		existingNames.insert(file.name);
+	}
+
 	Path filename;
 	int i = 0;
-	// TODO: This is really potentially way too slow if there are a lot of images!
-	
-	for (int i = 0; i < 10000; i++) {
-		if (g_Config.bScreenshotsAsPNG)
-			filename = path / StringFromFormat("%s_%05d.png", gameId.c_str(), i);
-		else
-			filename = path / StringFromFormat("%s_%05d.jpg", gameId.c_str(), i);
-		File::FileInfo info;
-		if (!File::Exists(filename))
+	for (int i = 0; i < 20000; i++) {
+		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
+		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
+		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
+			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
 			break;
-		i++;
+		}
+	}
+
+	if (filename.empty()) {
+		// Overwrite this one over and over.
+		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
 	}
 
 	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
