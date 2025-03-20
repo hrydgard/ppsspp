@@ -182,7 +182,7 @@ ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
 				File::CreateDir(path);
 			}
 			screenshotFilename_ = path / ".reporting.jpg";
-			if (TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+			if (TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, 4)) {
 				// Redo the views already, now with a screenshot included.
 				RecreateViews();
 			} else {

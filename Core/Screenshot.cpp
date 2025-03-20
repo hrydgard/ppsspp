@@ -328,9 +328,8 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
+bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes) {
 	GPUDebugBuffer buf;
-	bool success = false;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
@@ -339,45 +338,34 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 			ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
 			return false;
 		}
-		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
+		if (!gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
+			return false;
+		}
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
-		success = ::GetOutputFramebuffer(draw, temp);
-		if (success) {
-			buf = ApplyRotation(temp, g_display.rotation);
+		if (!::GetOutputFramebuffer(draw, temp)) {
+			return false;
 		}
+		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
 		_dbg_assert_(draw);
-		success = ::GetOutputFramebuffer(draw, buf);
+		if (!GetOutputFramebuffer(draw, buf)) {
+			return false;
+		}
 	}
 
-	if (!success) {
+	u8 *flipbuffer = nullptr;
+	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
+	if (!buffer) {
 		return false;
 	}
 
-	if (success) {
-		u8 *flipbuffer = nullptr;
-		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
-		success = buffer != nullptr;
-		if (success) {
-			if (width)
-				*width = w;
-			if (height)
-				*height = h;
-
-			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
-		}
-		delete[] flipbuffer;
-	}
-
-	if (!success) {
-		ERROR_LOG(Log::IO, "Failed to write screenshot.");
-	}
-
-	return success;
+	bool success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
+	delete[] flipbuffer;
+	return true;
 }
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
