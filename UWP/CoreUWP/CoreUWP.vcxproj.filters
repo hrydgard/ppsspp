@@ -1191,7 +1191,6 @@
       <Filter>Ext\libzip</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
-    <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\ControlMapper.cpp" />
     <ClCompile Include="..\..\Core\KeyMapDefaults.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp">
@@ -1912,7 +1911,6 @@
       <Filter>Ext\jpge</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\KeyMap.h" />
-    <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\ControlMapper.h" />
     <ClInclude Include="..\..\Core\KeyMapDefaults.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h">

@@ -952,9 +952,6 @@
     <ClCompile Include="KeyMap.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadPools.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -2032,9 +2029,6 @@
       <Filter>Ext\libzip</Filter>
     </ClInclude>
     <ClInclude Include="KeyMap.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ThreadPools.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h">

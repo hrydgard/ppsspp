@@ -26,6 +26,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -36,7 +37,6 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/ThreadPools.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"

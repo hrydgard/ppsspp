@@ -825,7 +825,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
-	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/AtracTrack.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/MemStick.cpp \

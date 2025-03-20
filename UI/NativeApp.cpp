@@ -84,6 +84,7 @@
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/Thread/ThreadManager.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -109,7 +110,6 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
-#include "Core/ThreadPools.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"

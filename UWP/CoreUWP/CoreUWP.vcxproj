@@ -331,7 +331,6 @@
     <ClInclude Include="..\..\Core\Screenshot.h" />
     <ClInclude Include="..\..\Core\System.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
-    <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
     <ClInclude Include="..\..\Core\Util\AtracTrack.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
@@ -631,7 +630,6 @@
     <ClCompile Include="..\..\Core\SaveState.cpp" />
     <ClCompile Include="..\..\Core\Screenshot.cpp" />
     <ClCompile Include="..\..\Core\System.cpp" />
-    <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\Core\Util\AtracTrack.cpp" />
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
