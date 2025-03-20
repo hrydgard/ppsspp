@@ -84,6 +84,7 @@
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/Thread/ThreadManager.h"
 
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -109,7 +110,6 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
-#include "Core/ThreadPools.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"
@@ -949,45 +949,60 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 	}
 
 	// First, find a free filename.
-	int i = 0;
+	//
+	// NOTE: On Android, the old approach of checking filenames one by one doesn't scale.
+	// So let's just grab the full file listing, and then find a name that's not in it.
+	//
+	// TODO: Also, we could do this on a thread too. Not sure if worth it.
 
-	std::string gameId = g_paramSFO.GetDiscID();
+	const std::string gameId = g_paramSFO.GetDiscID();
+
+	// TODO: Make something like IterateFileInDir instead.
+	std::vector<File::FileInfo> files;
+	const std::string prefix = gameId + "_";
+	File::GetFilesInDir(path, &files, nullptr, 0, prefix);
+	std::set<std::string> existingNames;
+	for (auto &file : files) {
+		existingNames.insert(file.name);
+	}
 
 	Path filename;
-	while (i < 10000){
-		if (g_Config.bScreenshotsAsPNG)
-			filename = path / StringFromFormat("%s_%05d.png", gameId.c_str(), i);
-		else
-			filename = path / StringFromFormat("%s_%05d.jpg", gameId.c_str(), i);
-		File::FileInfo info;
-		if (!File::Exists(filename))
+	int i = 0;
+	for (int i = 0; i < 20000; i++) {
+		const std::string pngName = prefix + StringFromFormat("%05d.png", i);
+		const std::string jpgName = prefix + StringFromFormat("%05d.jpg", i);
+		if (existingNames.find(pngName) == existingNames.end() && existingNames.find(jpgName) == existingNames.end()) {
+			filename = path / (g_Config.bScreenshotsAsPNG ? pngName : jpgName);
 			break;
-		i++;
-	}
-
-	ScreenshotType type = SCREENSHOT_OUTPUT;
-	if (g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage) {
-		type = SCREENSHOT_DISPLAY;
-	}
-
-	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type);
-	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
-				Path *path = reinterpret_cast<Path *>(data);
-				if (clicked) {
-					System_ShowFileInFolder(*path);
-				} else {
-					delete path;
-				}
-			}, new Path(filename));
 		}
-	} else {
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
-		WARN_LOG(Log::System, "Failed to take screenshot.");
 	}
+
+	if (filename.empty()) {
+		// Overwrite this one over and over.
+		filename = path / (prefix + (g_Config.bScreenshotsAsPNG ? "20000.png" : "20000.jpg"));
+	}
+
+	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
+
+	const ScreenshotResult result = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](bool success) {
+		if (success) {
+			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
+					Path *path = reinterpret_cast<Path *>(data);
+					if (clicked) {
+						System_ShowFileInFolder(*path);
+					} else {
+						delete path;
+					}
+				}, new Path(filename));
+			}
+		} else {
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+			WARN_LOG(Log::System, "Failed to take screenshot.");
+		}
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata) {

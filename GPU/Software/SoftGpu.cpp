@@ -1445,8 +1445,7 @@ bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFrame
 	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 
-bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
-{
+bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	const u32 pixels = 1024 / bpp;
 

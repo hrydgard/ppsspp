@@ -1084,7 +1084,6 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
-    <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="TiltEventProcessor.cpp" />
     <ClCompile Include="Util\AtracTrack.cpp" />
     <ClCompile Include="Util\AudioFormat.cpp" />
@@ -1470,7 +1469,6 @@
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
-    <ClInclude Include="ThreadPools.h" />
     <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="Util\AtracTrack.h" />
     <ClInclude Include="Util\AudioFormat.h" />

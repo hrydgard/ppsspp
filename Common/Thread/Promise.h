@@ -7,6 +7,22 @@
 #include "Common/Thread/Channel.h"
 #include "Common/Thread/ThreadManager.h"
 
+// Nobody needs to wait for this (except threadpool shutdown).
+template<class T>
+class IndependentTask : public Task {
+public:
+	IndependentTask(TaskType type, TaskPriority prio, T func) : func_(std::move(func)), type_(type), prio_(prio) {}
+	TaskType Type() const override { return type_; }
+	TaskPriority Priority() const override { return prio_; }
+	void Run() override {
+		func_();
+	}
+private:
+	T func_;
+	TaskType type_;
+	TaskPriority prio_;
+};
+
 template<class T>
 class PromiseTask : public Task {
 public:

@@ -153,12 +153,12 @@ struct GPUDebugBuffer {
 
 	void ZeroBytes();
 
+	u32 GetRawPixel(int x, int y) const;
+	void SetRawPixel(int x, int y, u32 c);
+
 	u8 *GetData() {
 		return data_;
 	}
-
-	u32 GetRawPixel(int x, int y) const;
-	void SetRawPixel(int x, int y, u32 c);
 
 	const u8 *GetData() const {
 		return data_;

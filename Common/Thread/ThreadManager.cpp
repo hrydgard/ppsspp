@@ -24,6 +24,8 @@ const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
 
+ThreadManager g_threadManager;
+
 struct GlobalThreadContext {
 	std::mutex mutex;
 	std::deque<Task *> compute_queue[TASK_PRIORITY_COUNT];

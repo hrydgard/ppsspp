@@ -182,21 +182,22 @@ ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
 				File::CreateDir(path);
 			}
 			screenshotFilename_ = path / ".reporting.jpg";
-			if (TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
-				// Redo the views already, now with a screenshot included.
-				RecreateViews();
-			} else {
-				// Good news (?), the views are good as-is without a screenshot.
-				screenshotFilename_.clear();
-			}
+			ScreenshotResult ignored = TakeGameScreenshot(screenManager()->getDrawContext(), screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_RENDER, 4, [this](bool success) {
+				if (success) {
+					// Redo the views already, now with a screenshot included.
+					RecreateViews();
+				} else {
+					// Good news (?), the views are good as-is without a screenshot.
+					screenshotFilename_.clear();
+				}
+			});
 			tookScreenshot_ = true;
 		}
 	}
 
 	// We take the screenshot first, then we start rendering.
 	// We are the only screen visible so this avoid starting and then trying to resume a backbuffer render pass.
-	ScreenRenderFlags flags = UIScreen::render(mode);
-
+	const ScreenRenderFlags flags = UIScreen::render(mode);
 	return flags;
 }
 

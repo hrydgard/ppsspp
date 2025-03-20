@@ -619,7 +619,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/TiltEventProcessor.cpp \
-  $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/DisassemblyManager.cpp \
