@@ -471,8 +471,7 @@ double g_lastSaveTime = -1.0;
 		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, nullptr, nullptr));
 	}
 
-	bool CanRewind()
-	{
+	bool CanRewind() {
 		return !rewindStates.Empty();
 	}
 
@@ -966,11 +965,9 @@ double g_lastSaveTime = -1.0;
 
 		bool readbackImage = false;
 
-		for (size_t i = 0, n = operations.size(); i < n; ++i) {
-			Operation &op = operations[i];
+		for (const auto &op : operations) {
 			CChunkFileReader::Error result;
 			Status callbackResult;
-			bool tempResult;
 			std::string callbackMessage;
 			std::string title;
 
@@ -1056,7 +1053,8 @@ double g_lastSaveTime = -1.0;
 				break;
 
 			case SAVESTATE_VERIFY:
-				tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
+			{
+				int tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (tempResult) {
 					INFO_LOG(Log::SaveState, "Verified save state system");
@@ -1064,6 +1062,7 @@ double g_lastSaveTime = -1.0;
 					ERROR_LOG(Log::SaveState, "Save state system verification failed");
 				}
 				break;
+			}
 
 			case SAVESTATE_REWIND:
 				INFO_LOG(Log::SaveState, "Rewinding to recent savestate snapshot");
@@ -1093,18 +1092,32 @@ double g_lastSaveTime = -1.0;
 
 			case SAVESTATE_SAVE_SCREENSHOT:
 			{
+				_dbg_assert_(!op.callback);
+
 				int maxResMultiplier = 2;
-				tempResult = TakeGameScreenshot(nullptr, op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, maxResMultiplier);
-				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
-				if (!tempResult) {
+				ScreenshotResult tempResult = TakeGameScreenshot(nullptr, op.filename, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, maxResMultiplier, [](bool success) {
+					if (success) {
+						screenshotFailures = 0;
+					}
+				});
+				
+				switch (tempResult) {
+				case ScreenshotResult::ScreenshotNotPossible:
+					// Try again soon, for a short while.
+					callbackResult = Status::FAILURE;
 					WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", op.filename.c_str());
 					if (coreState != CORE_STEPPING_CPU && screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
 						// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
 						SaveScreenshot(op.filename);
 					}
-				} else {
-					screenshotFailures = 0;
+					break;
+				case ScreenshotResult::DelayedResult:
+				case ScreenshotResult::Success:
+					// We might not know if the file write succeeded yet though.
+					callbackResult = Status::SUCCESS;
+					break;
 				}
+
 				readbackImage = true;
 				break;
 			}

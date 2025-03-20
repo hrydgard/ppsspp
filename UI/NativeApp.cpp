@@ -949,12 +949,14 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 	}
 
 	// First, find a free filename.
-	int i = 0;
 
-	std::string gameId = g_paramSFO.GetDiscID();
+	const std::string gameId = g_paramSFO.GetDiscID();
 
 	Path filename;
-	while (i < 10000){
+	int i = 0;
+	// TODO: This is really potentially way too slow if there are a lot of images!
+	
+	for (int i = 0; i < 10000; i++) {
 		if (g_Config.bScreenshotsAsPNG)
 			filename = path / StringFromFormat("%s_%05d.png", gameId.c_str(), i);
 		else
@@ -965,29 +967,27 @@ static void TakeScreenshot(Draw::DrawContext *draw) {
 		i++;
 	}
 
-	ScreenshotType type = SCREENSHOT_OUTPUT;
-	if (g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage) {
-		type = SCREENSHOT_DISPLAY;
-	}
+	const ScreenshotType type = g_Config.iScreenshotMode == (int)ScreenshotMode::GameImage ? SCREENSHOT_DISPLAY : SCREENSHOT_OUTPUT;
 
-	bool success = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type);
-	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
-				Path *path = reinterpret_cast<Path *>(data);
-				if (clicked) {
-					System_ShowFileInFolder(*path);
-				} else {
-					delete path;
-				}
-			}, new Path(filename));
+	const ScreenshotResult result = TakeGameScreenshot(draw, filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](bool success) {
+		if (success) {
+			g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToVisualString(), 0.0f, "screenshot_link");
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
+					Path *path = reinterpret_cast<Path *>(data);
+					if (clicked) {
+						System_ShowFileInFolder(*path);
+					} else {
+						delete path;
+					}
+				}, new Path(filename));
+			}
+		} else {
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
+			WARN_LOG(Log::System, "Failed to take screenshot.");
 		}
-	} else {
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
-		WARN_LOG(Log::System, "Failed to take screenshot.");
-	}
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata) {

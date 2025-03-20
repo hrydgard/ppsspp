@@ -1384,7 +1384,7 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 	buffer.Allocate(size.x, size.y, fmt);
 
 	const int depth = fmt == GE_FORMAT_8888 ? 4 : 2;
-	u8 *dst = buffer.GetDataWrite();
+	u8 *dst = buffer.GetData();
 	const int byteWidth = size.x * depth;
 	for (int16_t y = 0; y < size.y; ++y) {
 		memcpy(dst, src, byteWidth);
@@ -1404,7 +1404,7 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 
 	const int depth = 2;
 	const u8 *src = depthbuf.data;
-	u8 *dst = buffer.GetDataWrite();
+	u8 *dst = buffer.GetData();
 	for (int16_t y = 0; y < size.y; ++y) {
 		memcpy(dst, src, size.x * depth);
 		dst += size.x * depth;
@@ -1430,7 +1430,7 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 	DrawingCoords size = GetTargetSize(gstate.FrameBufStride());
 	buffer.Allocate(size.x, size.y, GPU_DBG_FORMAT_8BIT);
 
-	u8 *row = buffer.GetDataWrite();
+	u8 *row = buffer.GetData();
 	for (int16_t y = 0; y < size.y; ++y) {
 		for (int16_t x = 0; x < size.x; ++x) {
 			row[x] = GetPixelStencil(gstate.FrameBufFormat(), gstate.FrameBufStride(), x, y);
@@ -1445,13 +1445,12 @@ bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFrame
 	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 
-bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
-{
+bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	const u32 pixels = 1024 / bpp;
 
 	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
-	memcpy(buffer.GetDataWrite(), clut, 1024);
+	memcpy(buffer.GetData(), clut, 1024);
 	return true;
 }
 

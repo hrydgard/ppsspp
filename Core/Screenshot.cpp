@@ -26,7 +26,10 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
 #include "Common/System/Display.h"
+#include "Common/System/NativeApp.h"
+#include "Common/Thread/Promise.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -328,7 +331,7 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes) {
+ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int maxRes, std::function<void(bool success)> callback) {
 	GPUDebugBuffer buf;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
@@ -336,10 +339,10 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
 		if (!gpuDebug) {
 			ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
-			return false;
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
 		if (!gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
-			return false;
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
@@ -347,25 +350,35 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
 		if (!::GetOutputFramebuffer(draw, temp)) {
-			return false;
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
 		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
 		_dbg_assert_(draw);
 		if (!GetOutputFramebuffer(draw, buf)) {
-			return false;
+			return ScreenshotResult::ScreenshotNotPossible;
 		}
 	}
 
+	if (callback) {
+		g_threadManager.EnqueueTask(new IndependentTask(TaskType::CPU_COMPUTE, TaskPriority::LOW,
+			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h]() {
+			u8 *flipbuffer = nullptr;
+			u32 width = w, height = h;
+			const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, width, height);
+			bool success = Save888RGBScreenshot(filename, fmt, buffer, width, height);
+			delete[] flipbuffer;
+			System_RunOnMainThread([success, callback = std::move(callback)]() {
+				callback(success);
+			});
+		}));
+		return ScreenshotResult::DelayedResult;
+	}
 	u8 *flipbuffer = nullptr;
 	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
-	if (!buffer) {
-		return false;
-	}
-
 	bool success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
 	delete[] flipbuffer;
-	return true;
+	return success ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
 }
 
 bool Save888RGBScreenshot(const Path &filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
