@@ -118,7 +118,8 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x300, 0x00000000, "av_avcodec", &NotifyLoadStatusAvcodec),  // AudioCodec
 	ModuleLoadInfo(0x301, 0x00000000, "av_sascore"),
 	// The size varies a bit per version, from about 0x3C00 to 0x4500 bytes. We could make a lookup table...
-	ModuleLoadInfo(0x302, 0x00004000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
+	// Changing this breaks some bad cheats though..
+	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),

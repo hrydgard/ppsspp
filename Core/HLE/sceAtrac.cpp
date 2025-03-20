@@ -1080,6 +1080,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	int bytesWritten = 0;
 
 	int retval = atrac->DecodeLowLevel(srcp, &bytesConsumed, outp, &bytesWritten);
+	*srcConsumed = bytesConsumed;
+	*outWritten = bytesWritten;
 
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, bytesWritten, "AtracLowLevelDecode");
 	return hleDelayResult(hleLogDebug(Log::ME, retval), "low level atrac decode data", atracDecodeDelay);
