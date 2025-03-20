@@ -216,7 +216,7 @@ static AtracBase *getAtrac(int atracID) {
 static int AllocAndRegisterAtrac(int codecType) {
 	for (int i = 0; i < g_atracMaxContexts; ++i) {
 		if (atracContextTypes[i] == codecType && atracContexts[i] == 0) {
-			if (g_Config.bUseExperimentalAtrac && g_atracBSS != 0) {
+			if (!g_Config.bUseOldAtrac && g_atracBSS != 0) {
 				atracContexts[i] = new Atrac2(GetAtracContextAddress(i), codecType);
 			} else {
 				atracContexts[i] = new Atrac(i, codecType);

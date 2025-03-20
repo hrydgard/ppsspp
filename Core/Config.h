@@ -298,7 +298,7 @@ public:
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;
-	bool bUseExperimentalAtrac;
+	bool bUseOldAtrac;
 
 	// iOS only for now
 	bool bAudioMixWithOthers;

@@ -416,10 +416,6 @@ void EmuScreen::bootComplete() {
 	}
 #endif
 
-	if (g_Config.bUseExperimentalAtrac) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, dev->T("Use experimental sceAtrac"));
-	}
-
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		const char *renderer = gl_extensions.model;

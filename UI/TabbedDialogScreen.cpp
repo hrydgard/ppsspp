@@ -54,6 +54,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);
 	}
+
 	tabHolder_->SetTag(tag());  // take the tag from the screen.
 	root_->SetDefaultFocusView(tabHolder_);
 	settingTabContents_.clear();

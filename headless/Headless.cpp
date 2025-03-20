@@ -351,7 +351,7 @@ int main(int argc, const char* argv[])
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 	int debuggerPort = -1;
-	bool newAtrac = false;
+	bool oldAtrac = false;
 	bool outputDebugStringLog = false;
 
 	std::vector<std::string> testFilenames;
@@ -392,8 +392,8 @@ int main(int argc, const char* argv[])
 			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
-		else if (!strcmp(argv[i], "--new-atrac"))
-			newAtrac = true;
+		else if (!strcmp(argv[i], "--old-atrac"))
+			oldAtrac = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
@@ -533,7 +533,7 @@ int main(int argc, const char* argv[])
 	g_Config.iGameVolume = VOLUMEHI_FULL;
 	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();
-	g_Config.bUseExperimentalAtrac = newAtrac;
+	g_Config.bUseOldAtrac = oldAtrac;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
