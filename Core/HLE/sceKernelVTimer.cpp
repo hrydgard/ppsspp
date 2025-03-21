@@ -28,6 +28,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelVTimer.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 
 static int vtimerTimer = -1;
 static SceUID runningVTimer = 0;

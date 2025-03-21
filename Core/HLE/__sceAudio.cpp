@@ -34,6 +34,7 @@
 #include "Core/WaveFile.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceKernelTime.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "StringUtils.h"
 #endif
 #include "Core/HLE/__sceAudio.h"

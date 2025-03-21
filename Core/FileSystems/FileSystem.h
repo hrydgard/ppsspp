@@ -26,6 +26,7 @@
 #include "Common.h"
 #include "Common/File/Path.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
 
 enum FileAccess {
 	FILEACCESS_NONE     = 0,

@@ -5,6 +5,7 @@
 #include "Common/StringUtils.h"
 #include "Core/HLE/NetInetConstants.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLE.h"
 #ifdef __MINGW32__
 #include <mswsock.h>

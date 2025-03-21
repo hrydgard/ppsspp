@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceVaudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/__sceAudio.h"

@@ -31,6 +31,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPS.h"

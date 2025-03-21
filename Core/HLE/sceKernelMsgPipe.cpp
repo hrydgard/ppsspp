@@ -24,6 +24,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMsgPipe.h"
 #include "Core/HLE/sceKernelMemory.h"

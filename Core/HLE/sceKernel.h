@@ -24,8 +24,6 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 
-#include "Core/HLE/ErrorCodes.h"
-
 class PointerWrap;
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
@@ -193,7 +191,7 @@ public:
 				outError = T::GetMissingErrorCode();
 				return nullptr;
 			}
-			outError = SCE_KERNEL_ERROR_OK;
+			outError = 0; // SCE_KERNEL_ERROR_OK but don't want to include the header here.
 			return t;
 		}
 	}
