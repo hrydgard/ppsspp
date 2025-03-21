@@ -1,5 +1,3 @@
-#include "sceFont.h"
-
 #include "Common/TimeUtil.h"
 
 #include <cmath>
@@ -11,6 +9,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceFont.h"
 #include "Core/HLE/sceKernel.h"
@@ -23,15 +22,6 @@
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Font/PGF.h"
-
-enum {
-	ERROR_FONT_OUT_OF_MEMORY        = 0x80460001,
-	ERROR_FONT_INVALID_LIBID        = 0x80460002,
-	ERROR_FONT_INVALID_PARAMETER    = 0x80460003,
-	ERROR_FONT_HANDLER_OPEN_FAILED  = 0x80460005,
-	ERROR_FONT_TOO_MANY_OPEN_FONTS  = 0x80460009,
-	ERROR_FONT_INVALID_FONT_DATA    = 0x8046000a,
-};
 
 constexpr int MAX_FONT_REFS = 4;
 
@@ -623,12 +613,12 @@ public:
 			foundFontIndex = FindFreeIndex();
 
 		if (foundFontIndex < 0 || fontRefCount_[foundFontIndex] >= MAX_FONT_REFS) {
-			error = ERROR_FONT_TOO_MANY_OPEN_FONTS;
+			error = SCE_FONT_ERROR_TOO_MANY_OPEN_FONTS;
 			ERROR_LOG(Log::sceFont, "OpenFont: Too many fonts opened in FontLib");
 			return nullptr;
 		}
 		if (!font->IsValid()) {
-			error = ERROR_FONT_INVALID_FONT_DATA;
+			error = SCE_FONT_ERROR_INVALID_FONT_DATA;
 			ERROR_LOG(Log::sceFont, "OpenFont: Invalid font data");
 			return nullptr;
 		}
@@ -795,7 +785,7 @@ void PostAllocCallback::run(MipsCall &call) {
 	if (v0 == 0) {
 		// TODO: Who deletes fontLib?
 		if (errorCodePtr_)
-			Memory::Write_U32(ERROR_FONT_OUT_OF_MEMORY, errorCodePtr_);
+			Memory::Write_U32(SCE_FONT_ERROR_OUT_OF_MEMORY, errorCodePtr_);
 		call.setReturnValue(0);
 	} else {
 		_dbg_assert_(fontLibID_ >= 0);
@@ -827,7 +817,7 @@ void PostCharInfoAllocCallback::run(MipsCall &call) {
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (v0 == 0) {
-		call.setReturnValue(ERROR_FONT_OUT_OF_MEMORY); // From JPCSP, if alloc size is 0, still this error value?
+		call.setReturnValue(SCE_FONT_ERROR_OUT_OF_MEMORY); // From JPCSP, if alloc size is 0, still this error value?
 	} else {
 		fontLib->SetCharInfoBitmapAddress(v0);
 	}
@@ -1031,7 +1021,7 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 
 	if (!Memory::IsValidAddress(params->allocFuncAddr) || !Memory::IsValidAddress(params->freeFuncAddr)) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontNewLib(%08x, %08x): missing alloc func", paramPtr, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleLogError(Log::sceFont, 0);
 	}
 
@@ -1065,11 +1055,11 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleLogWarning(Log::sceFont, 0, "invalid font lib");
 	}
 	if (index >= internalFonts.size()) {
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleLogWarning(Log::sceFont, 0, "invalid font index");
 	}
 
@@ -1092,17 +1082,17 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 		return hleReportError(Log::sceFont, -1, "invalid error address");
 	}
 	if (!Memory::IsValidAddress(memoryFontPtr)) {
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleReportError(Log::sceFont, 0, "invalid address");
 	}
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleReportError(Log::sceFont, 0, "invalid font lib");
 	}
 	if (memoryFontLength == 0) {
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleReportError(Log::sceFont, 0, "invalid size");
 	}
 
@@ -1128,17 +1118,17 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 errorCodePtr) {
 	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
-		return hleReportError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid error address");
+		return hleReportError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid error address");
 	}
 
 	if (!fileName) {
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleReportError(Log::sceFont, 0, "invalid filename");
 	}
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleReportError(Log::sceFont, 0, "invalid font lib");
 	}
 
@@ -1149,7 +1139,7 @@ static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u3
 
 	std::vector<u8> buffer;
 	if (pspFileSystem.ReadEntireFile(fileName, buffer) != 0) {
-		*errorCode = ERROR_FONT_HANDLER_OPEN_FAILED;
+		*errorCode = SCE_FONT_ERROR_HANDLER_OPEN_FAILED;
 		return hleLogError(Log::sceFont, 0, "file does not exist");
 	}
 
@@ -1187,13 +1177,13 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleReportError(Log::sceFont, 0, "invalid font lib");
 	}
 
 	if (!Memory::IsValidAddress(fontStylePtr)) {
 		// Yes, actually.  Must've been a typo in the library.
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleReportError(Log::sceFont, 0, "invalid style address");
 	}
 
@@ -1266,13 +1256,13 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (!fontLib) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFindFont(%08x, %08x, %08x): invalid font lib", libHandle, fontStylePtr, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleNoLog(0);
 	}
 
 	if (!Memory::IsValidAddress(fontStylePtr)) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFindFont(%08x, %08x, %08x): invalid style address", libHandle, fontStylePtr, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_PARAMETER;
+		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleNoLog(0);
 	}
 
@@ -1306,11 +1296,11 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 
 static int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	if (!Memory::IsValidAddress(fontInfoPtr)) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad fontInfo pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad fontInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 
 	auto fi = PSPPointer<PGFFontInfo>::Create(fontInfoPtr);
@@ -1324,14 +1314,14 @@ static int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 i
 	auto fontStyle = PSPPointer<PGFFontStyle>::Create(fontInfoPtr);
 	FontLib *fl = GetFontLib(libHandle);
 	if (!fl || fl->handle() == 0) {
-		int error = !fl ? ERROR_FONT_INVALID_LIBID : ERROR_FONT_INVALID_PARAMETER;
+		int error = !fl ? SCE_FONT_ERROR_INVALID_LIBID : SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleLogError(Log::sceFont, error, "invalid font lib");
 	}
 	if (index >= internalFonts.size()) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid font index");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid font index");
 	}
 	if (!fontStyle.IsValid()) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid info pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid info pointer");
 	}
 
 	auto font = internalFonts[index];
@@ -1343,12 +1333,12 @@ static int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 i
 static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(charInfoPtr)) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad charInfo pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad charInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		// The PSP crashes, but we assume it'd work like sceFontGetFontInfo(), and not touch charInfo.
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 
 	DEBUG_LOG(Log::sceFont, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
@@ -1382,11 +1372,11 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 static int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(charInfoPtr)) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad charInfo pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad charInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 
 	DEBUG_LOG(Log::sceFont, "sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
@@ -1401,10 +1391,10 @@ static int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr
 	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 	if (!charRect.IsValid()) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid rect pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid rect pointer");
 	}
 
 	PGFCharInfo charInfo;
@@ -1419,10 +1409,10 @@ static int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectP
 	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 	if (!charRect.IsValid()) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid rect pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid rect pointer");
 	}
 
 	PGFCharInfo charInfo;
@@ -1436,11 +1426,11 @@ static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImage
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(Log::sceFont, "sceFontGetCharGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return SCE_FONT_ERROR_INVALID_PARAMETER;
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
@@ -1451,11 +1441,11 @@ static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImage
 static int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad glyphImage pointer");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad glyphImage pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "bad font");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad font");
 	}
 
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
@@ -1468,7 +1458,7 @@ static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontSetAltCharacterCode(%08x, %08x): invalid font lib", fontLibHandle, charCode);
-		return hleNoLog(ERROR_FONT_INVALID_LIBID);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_LIBID);
 	}
 
 	fl->SetAltCharCode(charCode & 0xFFFF);
@@ -1479,7 +1469,7 @@ static int sceFontFlush(u32 fontHandle) {
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontFlush(%08x): bad font", fontHandle);
-		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_PARAMETER);
 	}
 
 	if (font->GetFontLib()) {
@@ -1495,11 +1485,11 @@ static int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts)
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetFontList(%08x, %08x, %i): invalid font lib", fontLibHandle, fontStylePtr, numFonts);
-		return ERROR_FONT_INVALID_LIBID;
+		return SCE_FONT_ERROR_INVALID_LIBID;
 	}
 	if (!fontStyles.IsValid()) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetFontList(%08x, %08x, %i): invalid style pointer", fontLibHandle, fontStylePtr, numFonts);
-		return ERROR_FONT_INVALID_PARAMETER;
+		return SCE_FONT_ERROR_INVALID_PARAMETER;
 	}
 
 	DEBUG_LOG(Log::sceFont, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
@@ -1515,11 +1505,11 @@ static int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts)
 static int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {
 	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "invalid error address");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "invalid error address");
 	}
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleLogError(Log::sceFont, 0, "invalid font lib");
 	}
 	*errorCode = 0;
@@ -1529,10 +1519,10 @@ static int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {
 static int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_LIBID, "invalid font lib");
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_LIBID, "invalid font lib");
 	}
 	if (hRes <= 0.0f || vRes <= 0.0f) {
-		return hleLogError(Log::sceFont, ERROR_FONT_INVALID_PARAMETER, "negative value in hRes %f or vRes %f", hRes, vRes);
+		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "negative value in hRes %f or vRes %f", hRes, vRes);
 	}
 	fl->SetResolution(hRes, vRes);
 	return hleLogInfo(Log::sceFont, 0);
@@ -1547,7 +1537,7 @@ static float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 erro
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontPixelToPointH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsH, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return 0.0f;
 	}
 	DEBUG_LOG(Log::sceFont, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
@@ -1564,7 +1554,7 @@ static float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 erro
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontPixelToPointV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPixelsV, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return 0.0f;
 	}
 	DEBUG_LOG(Log::sceFont, "sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
@@ -1581,7 +1571,7 @@ static float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 erro
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontPointToPixelH(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsH, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return 0.0f;
 	}
 	DEBUG_LOG(Log::sceFont, "sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
@@ -1598,7 +1588,7 @@ static float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 erro
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontPointToPixelV(%08x, %f, %08x): invalid font lib", fontLibHandle, fontPointsV, errorCodePtr);
-		*errorCode = ERROR_FONT_INVALID_LIBID;
+		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return 0.0f;
 	}
 	DEBUG_LOG(Log::sceFont, "sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
@@ -1615,12 +1605,12 @@ static int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphIma
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(Log::sceFont, "sceFontGetShadowGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
-		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_PARAMETER);
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetShadowGlyphImage(%x, %x, %x): bad font", fontHandle, charCode, glyphImagePtr);
-		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_PARAMETER);
 	}
 
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
@@ -1632,12 +1622,12 @@ static int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 gly
 	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(Log::sceFont, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_PARAMETER);
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
 		ERROR_LOG_REPORT(Log::sceFont, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad font", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
-		return hleNoLog(ERROR_FONT_INVALID_PARAMETER);
+		return hleNoLog(SCE_FONT_ERROR_INVALID_PARAMETER);
 	}
 
 	auto glyph = PSPPointer<const GlyphImage>::Create(glyphImagePtr);
