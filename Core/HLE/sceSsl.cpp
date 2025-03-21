@@ -18,14 +18,10 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceSsl.h"
-
-#define ERROR_SSL_NOT_INIT          0x80435001;
-#define ERROR_SSL_ALREADY_INIT      0x80435020;
-#define ERROR_SSL_OUT_OF_MEMORY     0x80435022;
-#define ERROR_SSL_INVALID_PARAMETER 0x804351FE;
 
 bool isSslInit;
 u32 maxMemSize;
@@ -54,11 +50,11 @@ static int sceSslInit(int heapSize)
 	DEBUG_LOG(Log::HLE, "sceSslInit %d", heapSize);
 	if (isSslInit) 
 	{
-		return ERROR_SSL_ALREADY_INIT;
+		return SCE_SSL_ERROR_ALREADY_INIT;
 	}
 	if (heapSize <= 0) 
 	{
-		return ERROR_SSL_INVALID_PARAMETER;
+		return SCE_SSL_ERROR_INVALID_PARAMETER;
 	}
 
 	maxMemSize = heapSize;
@@ -72,7 +68,7 @@ static int sceSslEnd()
 	DEBUG_LOG(Log::HLE, "sceSslEnd");
 	if (!isSslInit) 
 	{
-		return ERROR_SSL_NOT_INIT;
+		return SCE_SSL_ERROR_NOT_INIT;
 	}
 	isSslInit = false;
 	return 0;
@@ -83,7 +79,7 @@ static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
 	if (!isSslInit) 
 	{
-		return ERROR_SSL_NOT_INIT;
+		return SCE_SSL_ERROR_NOT_INIT;
 	}
 
 	if (Memory::IsValidAddress(maxMemPtr))
@@ -98,7 +94,7 @@ static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
 	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
 	if (!isSslInit) 
 	{
-		return ERROR_SSL_NOT_INIT;
+		return SCE_SSL_ERROR_NOT_INIT;
 	}
 
 	if (Memory::IsValidAddress(currentMemPtr))

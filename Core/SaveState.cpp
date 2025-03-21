@@ -1115,10 +1115,13 @@ double g_lastSaveTime = -1.0;
 				case ScreenshotResult::Success:
 					// We might not know if the file write succeeded yet though.
 					callbackResult = Status::SUCCESS;
+					readbackImage = true;
+					break;
+				case ScreenshotResult::FailedToWriteFile:
+					// Can't reach here when we pass in a callback to TakeGameScreenshot.
+					callbackResult = Status::SUCCESS;
 					break;
 				}
-
-				readbackImage = true;
 				break;
 			}
 			default:

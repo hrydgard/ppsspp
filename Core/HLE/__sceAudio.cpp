@@ -18,6 +18,7 @@
 #include <atomic>
 #include <mutex>
 #include <algorithm>
+
 #include "Common/Common.h"
 #include "Common/File/Path.h"
 #include "Common/Serialize/Serializer.h"
@@ -25,17 +26,17 @@
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Common/System/System.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/StringUtils.h"
+
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
-#ifndef MOBILE_DEVICE
 #include "Core/WaveFile.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceKernelTime.h"
-#include "StringUtils.h"
-#endif
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
@@ -283,7 +284,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	return ret;
 }
 
-inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
+void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
 	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {

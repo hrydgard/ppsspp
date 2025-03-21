@@ -28,6 +28,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 
 #include "Core/Debugger/MemBlockInfo.h"

@@ -23,6 +23,7 @@
 #include "Core/HLE/sceKernelAlarm.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 

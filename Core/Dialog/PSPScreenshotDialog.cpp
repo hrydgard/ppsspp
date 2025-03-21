@@ -20,6 +20,7 @@
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPScreenshotDialog.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 

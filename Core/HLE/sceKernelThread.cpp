@@ -29,6 +29,7 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"

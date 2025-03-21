@@ -36,6 +36,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
@@ -1033,7 +1034,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	case 'I':
 		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
-			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
+			fmt = "%s%s=%s(%s)%s";
 		} else {
 			fmt = "%s%lld=%s(%s)%s";
 			errStr = nullptr;  // We check errstr later to determine which format to use.

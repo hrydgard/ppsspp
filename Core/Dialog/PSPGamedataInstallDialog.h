@@ -19,7 +19,6 @@
 
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"
-#include "Core/HLE/ErrorCodes.h"
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;

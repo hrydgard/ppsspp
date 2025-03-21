@@ -26,6 +26,7 @@
 #include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
 

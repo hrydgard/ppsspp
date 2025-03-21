@@ -23,6 +23,7 @@
 #include "Common/Math/math_util.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceKernel.h"

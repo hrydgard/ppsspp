@@ -26,6 +26,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNp.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/Dialog/PSPNpSigninDialog.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Reporting.h"

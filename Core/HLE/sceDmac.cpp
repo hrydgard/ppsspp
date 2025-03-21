@@ -21,6 +21,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceDmac.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"

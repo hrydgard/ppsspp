@@ -22,18 +22,6 @@
 
 class PointerWrap;
 
-enum {
-	ERROR_MPEG_BAD_VERSION                              = 0x80610002,
-	ERROR_MPEG_NO_MEMORY                                = 0x80610022,
-	ERROR_MPEG_INVALID_ADDR                             = 0x80610103,
-	ERROR_MPEG_INVALID_VALUE                            = 0x806101fe,
-	ERROR_MPEG_NO_DATA                                  = 0x80618001,
-	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
-	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
-	ERROR_MPEG_AVC_INVALID_VALUE                        = 0x806201fe,
-	ERROR_MPEG_AVC_DECODE_FATAL                         = 0x80628002,
-};
-
 // MPEG statics.
 static const u32 PSMF_MAGIC = 0x464D5350;
 static const int PSMF_STREAM_VERSION_OFFSET = 0x4;

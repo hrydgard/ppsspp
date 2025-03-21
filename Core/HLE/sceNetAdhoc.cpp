@@ -41,6 +41,7 @@
 #include "Core/MemMapHelpers.h"
 
 #include "Core/HLE/HLEHelperThread.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"

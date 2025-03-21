@@ -5,6 +5,7 @@
 #include "Common/Log.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
 #include "Core/HLE/AtracCtx2.h"
