@@ -6,7 +6,7 @@
 #include "Common/System/Display.h"
 #include "UI/TabbedDialogScreen.h"
 
-UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, bool isSearch) {
+void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch) {
 	using namespace UI;
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scroll->SetTag(tag);
@@ -16,7 +16,7 @@ UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag
 	scroll->Add(contents);
 	tabHolder_->AddTab(title, scroll);
 
-	return contents;
+	createCallback(contents);
 }
 
 void TabbedUIDialogScreenWithGameBackground::CreateViews() {
@@ -74,24 +74,25 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 		// Hide search if screen is too small.
 		int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 		if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
-			auto se = GetI18NCategory(I18NCat::SEARCH);
-			auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 			// Search
-			LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+			auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+			AddTab("GameSettingsSearch", ms->T("Search"), [this](UI::LinearLayout *searchSettings) {
+				auto se = GetI18NCategory(I18NCat::SEARCH);
 
-			searchSettings->Add(new ItemHeader(se->T("Find settings")));
-			searchSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([=](UI::EventParams &e) {
-				System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
-				return UI::EVENT_DONE;
-			});
+				searchSettings->Add(new ItemHeader(se->T("Find settings")));
+				searchSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([=](UI::EventParams &e) {
+					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
+					return UI::EVENT_DONE;
+				});
 
-			clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-			clearSearchChoice_->OnClick.Add([=](UI::EventParams &e) {
-				System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
-				return UI::EVENT_DONE;
-			});
+				clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+				clearSearchChoice_->OnClick.Add([=](UI::EventParams &e) {
+					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
+					return UI::EVENT_DONE;
+				});
 
-			noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+				noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+			}, true);
 
 			ApplySearchFilter();
 		}

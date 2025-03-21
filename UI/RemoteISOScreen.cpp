@@ -278,12 +278,14 @@ RemoteISOScreen::RemoteISOScreen(const Path &filename) : TabbedUIDialogScreenWit
 void RemoteISOScreen::CreateTabs() {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	UI::LinearLayout *connect = AddTab("Connect", ri->T("Connect"));
-	connect->SetSpacing(5.0f);
-	CreateConnectTab(connect);
+	AddTab("Connect", ri->T("Connect"), [this](UI::LinearLayout *connect) {
+		connect->SetSpacing(5.0f);
+		CreateConnectTab(connect);
+	});
 
-	UI::LinearLayout *settings = AddTab("Settings", ri->T("Settings"));
-	CreateSettingsTab(settings);
+	AddTab("Settings", ri->T("Settings"), [this](UI::LinearLayout *settings) {
+		CreateSettingsTab(settings);
+	});
 }
 
 void RemoteISOScreen::update() {

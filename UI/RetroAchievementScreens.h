@@ -66,6 +66,7 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
+	void CreateLeaderboardTab(UI::LinearLayout *layout, const rc_client_leaderboard_t *leaderboard);
 	void FetchEntries();
 	void Poll();
 

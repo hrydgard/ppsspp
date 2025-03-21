@@ -666,11 +666,13 @@ void SavedataScreen::CreateTabs() {
 	using namespace UI;
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
-	LinearLayout *savedata = AddTab("SavedataBrowser", sa->T("Save Data"));
-	CreateSavedataTab(savedata);
+	AddTab("SavedataBrowser", sa->T("Save Data"), [this](UI::LinearLayout *parent) {
+		CreateSavedataTab(parent);
+	});
 
-	LinearLayout *savestate = AddTab("SavedataStatesBrowser", sa->T("Save States"));
-	CreateSavestateTab(savestate);
+	AddTab("SavedataStatesBrowser", sa->T("Save States"), [this](UI::LinearLayout *parent) {
+		CreateSavestateTab(parent);
+	});
 }
 
 void SavedataScreen::CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {

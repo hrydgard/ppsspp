@@ -154,6 +154,8 @@ private:
 	bool lastImguiEnabled_ = false;
 
 	std::vector<VirtKey> queuedVirtKeys_;
+
+	ImGuiContext *ctx_ = nullptr;
 };
 
 bool MustRunBehind();
