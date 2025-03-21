@@ -139,6 +139,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 	}
 	SetCurrentThreadName(thread->name);
 
+	// Should we do this on all threads?
 	if (thread->type == TaskType::IO_BLOCKING) {
 		AttachThreadToJNI();
 	}
