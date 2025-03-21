@@ -1720,11 +1720,13 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, const std::string &sav
 	}
 
 	if (GetPspParam()->newData.IsValid() && GetPspParam()->newData->buf.IsValid()) {
-		// We have a png to show
+		// We may have a png to show
 		if (!noSaveIcon) {
 			noSaveIcon = new SaveFileInfo();
 			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
-			noSaveIcon->texture = new PPGeImage(newData->buf.ptr, (SceSize)newData->size);
+			if (Memory::IsValidRange(newData->buf.ptr, newData->size)) {
+				noSaveIcon->texture = new PPGeImage(newData->buf.ptr, (SceSize)newData->size);
+			}
 		}
 		saveInfo.texture = noSaveIcon->texture;
 	} else if ((u32)GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_SAVE && GetPspParam()->icon0FileData.buf.IsValid()) {

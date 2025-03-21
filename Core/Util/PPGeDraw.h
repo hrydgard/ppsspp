@@ -146,14 +146,14 @@ private:
 	std::string filename_;
 
 	// Only valid if filename_.empty().
-	u32 png_;
-	size_t size_;
+	u32 png_ = 0;
+	size_t size_ = 0;
 
 	u32 texture_ = 0;
-	int width_;
-	int height_;
+	int width_ = 0;
+	int height_ = 0;
 
-	int lastFrame_;
+	int lastFrame_ = 0;
 	bool loadFailed_ = false;
 };
 
