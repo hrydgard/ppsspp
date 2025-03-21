@@ -361,7 +361,7 @@ ScreenshotResult TakeGameScreenshot(Draw::DrawContext *draw, const Path &filenam
 	}
 
 	if (callback) {
-		g_threadManager.EnqueueTask(new IndependentTask(TaskType::CPU_COMPUTE, TaskPriority::LOW,
+		g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::LOW,
 			[buf = std::move(buf), callback = std::move(callback), filename, fmt, w, h]() {
 			u8 *flipbuffer = nullptr;
 			u32 width = w, height = h;
