@@ -25,6 +25,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -910,8 +911,8 @@ static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channel
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
 	}
 	if (psmf->currentStreamType != -1) {
-		Memory::Write_U32(psmf->currentStreamType, typeAddr);
-		Memory::Write_U32(psmf->currentStreamChannel, channelAddr);
+		Memory::WriteUnchecked_U32(psmf->currentStreamType, typeAddr);
+		Memory::WriteUnchecked_U32(psmf->currentStreamChannel, channelAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -923,7 +924,7 @@ static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "invalid psmf");
 	}
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(psmf->streamSize, sizeAddr);
+		Memory::WriteUnchecked_U32(psmf->streamSize, sizeAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -932,7 +933,7 @@ static u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
 	WARN_LOG(Log::ME, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
 	if (Memory::IsValidAddress(offsetAddr)) {
-		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
+		Memory::WriteUnchecked_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
 	return 0;
 }
@@ -941,7 +942,7 @@ static u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	WARN_LOG(Log::ME, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
+		Memory::WriteUnchecked_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
 	return 0;
 }
@@ -953,7 +954,7 @@ static u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 		return hleLogError(Log::ME, ERROR_PSMF_NOT_FOUND, "invalid psmf");
 	}
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(psmf->headerSize, sizeAddr);
+		Memory::WriteUnchecked_U32(psmf->headerSize, sizeAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -1013,7 +1014,7 @@ static u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 	}
 	DEBUG_LOG(Log::ME, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
 	if (Memory::IsValidAddress(endTimeAddr)) {
-		Memory::Write_U32(psmf->presentationEndTime, endTimeAddr);
+		Memory::WriteUnchecked_U32(psmf->presentationEndTime, endTimeAddr);
 	}
 	return 0;
 }
@@ -1134,7 +1135,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 	}
 	if (!psmfPlayerMap.empty()) {
 		*player = 0;
-		return hleReportError(Log::ME, ERROR_MPEG_ALREADY_INIT, "already have an active player");
+		return hleReportError(Log::ME, SCE_MPEG_ERROR_ALREADY_INIT, "already have an active player");
 	}
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1473,6 +1474,7 @@ static int scePsmfPlayerDelete(u32 psmfPlayer)
 	}
 
 	delete psmfplayer;
+
 	psmfPlayerMap.erase(Memory::Read_U32(psmfPlayer));
 	Memory::Write_U32(0, psmfPlayer);
 
@@ -1676,11 +1678,11 @@ static u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	if (psmfplayer->psmfPlayerAvcAu.pts < 0) {
 		return hleLogVerbose(Log::ME, ERROR_PSMFPLAYER_NO_MORE_DATA, "no frame yet");
 	}
-
 	if (Memory::IsValidAddress(currentPtsAddr)) {
-		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
+		// TODO: Should this be a 64-bit write?
+		Memory::WriteUnchecked_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
 	}
-	return hleLogDebug(Log::ME, 0, "pts: %d", psmfplayer->psmfPlayerAvcAu.pts);
+	return hleLogDebug(Log::ME, 0, "pts: %d", (int)psmfplayer->psmfPlayerAvcAu.pts);
 }
 
 static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthAddr, u32 heightAddr) {
@@ -1712,10 +1714,10 @@ static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthA
 		// Can't ask mediaengine for width/height here, it's too early, so we grabbed it from the
 		// header in scePsmfPlayerSetPsmf.
 		if (Memory::IsValidAddress(widthAddr) && psmfplayer->videoWidth) {
-			Memory::Write_U32(psmfplayer->videoWidth, widthAddr);
+			Memory::WriteUnchecked_U32(psmfplayer->videoWidth, widthAddr);
 		}
 		if (Memory::IsValidAddress(heightAddr) && psmfplayer->videoHeight) {
-			Memory::Write_U32(psmfplayer->videoHeight, heightAddr);
+			Memory::WriteUnchecked_U32(psmfplayer->videoHeight, heightAddr);
 		}
 	}
 	return hleLogDebug(Log::ME, 0);
@@ -1729,10 +1731,10 @@ static u32 scePsmfPlayerGetCurrentPlayMode(u32 psmfPlayer, u32 playModeAddr, u32
 	}
 
 	if (Memory::IsValidAddress(playModeAddr)) {
-		Memory::Write_U32(psmfplayer->playMode, playModeAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->playMode, playModeAddr);
 	}
 	if (Memory::IsValidAddress(playSpeedAddr)) {
-		Memory::Write_U32(psmfplayer->playSpeed, playSpeedAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->playSpeed, playSpeedAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -1748,10 +1750,10 @@ static u32 scePsmfPlayerGetCurrentVideoStream(u32 psmfPlayer, u32 videoCodecAddr
 	}
 
 	if (Memory::IsValidAddress(videoCodecAddr)) {
-		Memory::Write_U32(psmfplayer->videoCodec == 0x0E ? 0 : psmfplayer->videoCodec, videoCodecAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->videoCodec == 0x0E ? 0 : psmfplayer->videoCodec, videoCodecAddr);
 	}
 	if (Memory::IsValidAddress(videoStreamNumAddr)) {
-		Memory::Write_U32(psmfplayer->videoStreamNum, videoStreamNumAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->videoStreamNum, videoStreamNumAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -1767,10 +1769,10 @@ static u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr
 	}
 
 	if (Memory::IsValidAddress(audioCodecAddr)) {
-		Memory::Write_U32(psmfplayer->audioCodec == 0x0F ? 1 : psmfplayer->audioCodec, audioCodecAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->audioCodec == 0x0F ? 1 : psmfplayer->audioCodec, audioCodecAddr);
 	}
 	if (Memory::IsValidAddress(audioStreamNumAddr)) {
-		Memory::Write_U32(psmfplayer->audioStreamNum, audioStreamNumAddr);
+		Memory::WriteUnchecked_U32(psmfplayer->audioStreamNum, audioStreamNumAddr);
 	}
 	return hleLogInfo(Log::ME, 0);
 }
