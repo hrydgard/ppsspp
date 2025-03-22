@@ -1902,7 +1902,7 @@ void DeveloperToolsScreen::CreateViews() {
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
-	list->Add(new CheckBox(&g_Config.bUseExperimentalAtrac, dev->T("Use experimental sceAtrac")));
+	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
 
 	AddOverlayList(list, screenManager());
 
