@@ -298,6 +298,7 @@ public:
 		AddTabContents(title, tabContents);
 		return tabContents;
 	}
+	void AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb);
 	void EnableTab(int tab, bool enabled) {
 		tabStrip_->EnableChoice(tab, enabled);
 	}
@@ -311,6 +312,8 @@ public:
 
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
+	void EnsureAllCreated();
+
 	LinearLayout *Container() { return tabContainer_; }
 
 	const std::vector<ViewGroup *> &GetTabContentViews() const {
@@ -320,6 +323,7 @@ public:
 private:
 	void AddTabContents(std::string_view title, ViewGroup *tabContents);
 	EventReturn OnTabClick(EventParams &e);
+	void EnsureTab(int index);
 
 	View *bannerView_ = nullptr;
 	LinearLayout *tabContainer_ = nullptr;
@@ -330,6 +334,7 @@ private:
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;
+	std::vector<std::function<ViewGroup *()>> createFuncs_;
 };
 
 class CollapsibleHeader;

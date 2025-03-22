@@ -8,15 +8,16 @@
 
 void TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch) {
 	using namespace UI;
-	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	scroll->SetTag(tag);
 
-	LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
-	contents->SetSpacing(0);
-	scroll->Add(contents);
-	tabHolder_->AddTab(title, scroll);
-
-	createCallback(contents);
+	tabHolder_->AddTabDeferred(title, [this, createCallback = std::move(createCallback), tag, title, isSearch]() -> UI::ViewGroup * {
+		ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		scroll->SetTag(tag);
+		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL);
+		contents->SetSpacing(0);
+		scroll->Add(contents);
+		createCallback(contents);
+		return scroll;
+	});
 }
 
 void TabbedUIDialogScreenWithGameBackground::CreateViews() {
@@ -32,7 +33,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	auto se = GetI18NCategory(I18NCat::SEARCH);
-	filterNotice_ = new TextView(se->T("Filtering settings by '%1'"), new LinearLayoutParams(Margins(20, 5)));
+	filterNotice_ = new TextView("(filter notice, you shouldn't see this text", new LinearLayoutParams(Margins(20, 5)));
 	filterNotice_->SetVisibility(V_GONE);
 
 	if (vertical) {
@@ -94,7 +95,6 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 				noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
 			}, true);
 
-			ApplySearchFilter();
 		}
 	}
 }
@@ -118,6 +118,8 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
+
+	tabHolder_->EnsureAllCreated();
 
 	// Show an indicator that a filter is applied.
 	filterNotice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);

@@ -34,6 +34,7 @@ private:
 	UI::TextView *filterNotice_ = nullptr;
 	UI::Choice *clearSearchChoice_ = nullptr;
 	UI::TextView *noSearchResults_ = nullptr;
+
 	// If we recreate the views while this is active we show it again
 	std::string oldSettingInfo_;
 	std::string searchFilter_;
