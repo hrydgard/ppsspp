@@ -265,7 +265,6 @@ enum class Aspect {
 	STENCIL_BIT = 4,
 
 	// Implementation specific
-	SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
 	VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
 	FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
@@ -621,9 +620,6 @@ struct DeviceCaps {
 	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
 
-	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.
-	bool supportsD3D9;
-
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;
 
@@ -828,7 +824,6 @@ public:
 	// * Vulkan: VkImageView
 	// * D3D11: ID3D11ShaderResourceView*
 	// * OpenGL: GLRTexture
-	// * D3D9: LPDIRECT3DTEXTURE9
 	virtual void BindNativeTexture(int sampler, void *nativeTexture) = 0;
 
 	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.

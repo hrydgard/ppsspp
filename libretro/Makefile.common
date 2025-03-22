@@ -984,14 +984,6 @@ SOURCES_CXX += \
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += \
-	$(GPUDIR)/Directx9/DrawEngineDX9.cpp \
-	$(GPUDIR)/Directx9/FramebufferManagerDX9.cpp \
-	$(GPUDIR)/Directx9/GPU_DX9.cpp \
-	$(GPUDIR)/Directx9/ShaderManagerDX9.cpp \
-	$(GPUDIR)/Directx9/StateMappingDX9.cpp \
-	$(GPUDIR)/Directx9/TextureCacheDX9.cpp
-
-SOURCES_CXX += \
 	$(GPUDIR)/D3D11/DrawEngineD3D11.cpp \
 	$(GPUDIR)/D3D11/FramebufferManagerD3D11.cpp \
 	$(GPUDIR)/D3D11/GPU_D3D11.cpp \
@@ -1002,10 +994,6 @@ SOURCES_CXX += \
    $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
-	$(COMMONDIR)/GPU/D3D9/D3D9ShaderCompiler.cpp \
-	$(COMMONDIR)/GPU/D3D9/D3D9StateCache.cpp \
-	$(COMMONDIR)/GPU/D3D9/D3DCompilerLoader.cpp \
-	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
 	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
 	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
 

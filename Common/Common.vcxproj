@@ -496,9 +496,6 @@
     <ClInclude Include="File\VFS\VFS.h" />
     <ClInclude Include="File\VFS\ZipFileReader.h" />
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
-    <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h" />
-    <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
-    <ClInclude Include="GPU\D3D9\D3D9StateCache.h" />
     <ClInclude Include="GPU\DataFormat.h" />
     <ClInclude Include="GPU\GPUBackendCommon.h" />
     <ClInclude Include="GPU\MiscTypes.h" />
@@ -991,10 +988,6 @@
     <ClCompile Include="File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
     <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp" />
-    <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp" />
-    <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp" />
-    <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp" />
-    <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp" />
     <ClCompile Include="GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="GPU\OpenGL\DataFormatGL.cpp" />
     <ClCompile Include="GPU\OpenGL\gl3stub.c" />

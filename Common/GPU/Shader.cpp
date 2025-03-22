@@ -11,7 +11,6 @@ const char *ShaderLanguageAsString(ShaderLanguage lang) {
 	case GLSL_1xx: return "GLSL 1.x";
 	case GLSL_3xx: return "GLSL 3.x";
 	case GLSL_VULKAN: return "GLSL-VK";
-	case HLSL_D3D9: return "HLSL-D3D9";
 	case HLSL_D3D11: return "HLSL-D3D11";
 	default: return "(combination)";
 	}
@@ -88,22 +87,17 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		coefsFromBuffers = true;
 		vertexIndex = true;
 		break;
-	case HLSL_D3D9:
 	case HLSL_D3D11:
-		if (lang == HLSL_D3D11) {
-			fragColor0 = "outfragment.target";
-			fragColor1 = "outfragment.target1";
-			vertexIndex = true;  // if declared as a semantic input
-		} else {
-			fragColor0 = "outfragment.target";
-		}
+		fragColor0 = "outfragment.target";
+		fragColor1 = "outfragment.target1";
+		vertexIndex = true;  // if declared as a semantic input
 		varying_fs = "in";
 		varying_vs = "out";
 		attribute = "in";
 		bitwiseOps = lang == HLSL_D3D11;
 		framebufferFetchExtension = nullptr;
 		gles = false;
-		glslES30 = true;  // Hm, D3D9 too?
+		glslES30 = true;
 		glslVersionNumber = 0;
 		lastFragData = nullptr;
 		texture = "texture";
