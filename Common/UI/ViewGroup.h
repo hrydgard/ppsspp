@@ -291,7 +291,7 @@ private:
 
 class TabHolder : public LinearLayout {
 public:
-	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0);
+	TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams = 0);
 
 	template <class T>
 	T *AddTab(std::string_view title, T *tabContents) {
@@ -317,10 +317,11 @@ private:
 	void AddTabContents(std::string_view title, View *tabContents);
 	EventReturn OnTabClick(EventParams &e);
 
+	View *bannerView_ = nullptr;
 	LinearLayout *tabContainer_ = nullptr;
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
-	AnchorLayout *contents_ = nullptr;
+	ViewGroup *contents_ = nullptr;
 
 	int currentTab_ = 0;
 	std::vector<View *> tabs_;

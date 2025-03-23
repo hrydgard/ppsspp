@@ -957,7 +957,7 @@ std::string GridLayoutList::DescribeText() const {
 	return DescribeListOrdered(u->T("List:"));
 }
 
-TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
+TabHolder::TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
@@ -979,8 +979,14 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 
 	Add(new Spacer(4.0f))->SetSeparator();
 
-	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	Add(contents_)->SetClip(true);
+	ViewGroup *contentHolder_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	if (bannerView) {
+		contentHolder_->Add(bannerView);
+		bannerView_ = bannerView;
+	}
+	contents_ = contentHolder_->Add(new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+	contents_->SetClip(true);
+	Add(contentHolder_);
 }
 
 void TabHolder::AddBack(UIScreen *parent) {

@@ -1007,7 +1007,7 @@ void ShaderListScreen::CreateViews() {
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
-	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
+	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, nullptr, new LinearLayoutParams(1.0));
 	tabs_->SetTag("DevShaderList");
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -1083,7 +1083,7 @@ void FrameDumpTestScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *tabHolder;
-	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	AddStandardBack(root_);
 	tabHolder->SetTag("DumpTypes");

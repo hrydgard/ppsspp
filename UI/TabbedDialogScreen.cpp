@@ -43,13 +43,13 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	if (vertical) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
+		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, nullptr, new LinearLayoutParams(1.0f));
 		verticalLayout->Add(tabHolder_);
 		CreateExtraButtons(verticalLayout, 0);
 		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		root_->Add(verticalLayout);
 	} else {
-		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, new TextView("I am a banner"), new AnchorLayoutParams(10, 0, 10, 0, false));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);

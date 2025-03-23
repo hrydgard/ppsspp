@@ -2538,7 +2538,7 @@ void GestureMappingScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	AddStandardBack(root_);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
 	tabHolder->AddTab(co->T("Gesture"), rightPanel);
