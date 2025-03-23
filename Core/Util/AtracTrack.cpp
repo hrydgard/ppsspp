@@ -25,6 +25,16 @@ static u32 Read32(const u8 *buffer, int offset) {
 
 int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *error) {
 	// 72 is about the size of the minimum required data to even be valid.
+	if (size < 72) {
+		return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+	}
+
+	// If the pointer is bad, let's try to survive, although I'm pretty sure that on a real PSP,
+	// we crash here.
+	if (!buffer) {
+		_dbg_assert_(false);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 
 	// TODO: Validate stuff more.
 	if (Read32(buffer, 0) != RIFF_CHUNK_MAGIC) {
@@ -238,10 +248,17 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 }
 
 int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std::string *error) {
+	// TODO: Make sure this validation is correct, more testing.
 	if (size < 10) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
-	// TODO: Make sure this validation is correct, more testing.
+
+	// If the pointer is bad, let's try to survive, although I'm pretty sure that on a real PSP,
+	// we crash here.
+	if (!buffer) {
+		_dbg_assert_(false);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
 		return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
