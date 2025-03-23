@@ -396,6 +396,11 @@ inline u32 GetAddressFromHostPointer(const void* host_ptr) {
 	return address;
 }
 
+// Like GetPointer, but bad values don't result in a memory exception, instead nullptr is returned.
+inline const u8* GetPointerOrNull(const u32 address) {
+	return IsValidAddress(address) ? GetPointerUnchecked(address) : nullptr;
+}
+
 }  // namespace Memory
 
 // Avoiding a global include for NotifyMemInfo.
