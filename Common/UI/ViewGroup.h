@@ -295,7 +295,7 @@ public:
 
 	template <class T>
 	T *AddTab(std::string_view title, T *tabContents) {
-		AddTabContents(title, (View *)tabContents);
+		AddTabContents(title, tabContents);
 		return tabContents;
 	}
 	void EnableTab(int tab, bool enabled) {
@@ -318,7 +318,7 @@ public:
 	}
 
 private:
-	void AddTabContents(std::string_view title, View *tabContents);
+	void AddTabContents(std::string_view title, ViewGroup *tabContents);
 	EventReturn OnTabClick(EventParams &e);
 
 	View *bannerView_ = nullptr;
@@ -328,7 +328,7 @@ private:
 	ViewGroup *contents_ = nullptr;
 
 	int currentTab_ = 0;
-	std::vector<View *> tabs_;
+	std::vector<ViewGroup *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;
 };
 

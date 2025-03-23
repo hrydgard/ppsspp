@@ -996,7 +996,7 @@ void TabHolder::AddBack(UIScreen *parent) {
 	}
 }
 
-void TabHolder::AddTabContents(std::string_view title, View *tabContents) {
+void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
 	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabs_.push_back(tabContents);
 	tabStrip_->AddChoice(title);
