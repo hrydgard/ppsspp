@@ -1351,7 +1351,7 @@ PPGeImage::PPGeImage(std::string_view pspFilename)
 
 PPGeImage::PPGeImage(u32 pngPointer, size_t pngSize)
 	: filename_(""), png_(pngPointer), size_(pngSize) {
-	if (!Memory::IsValidRange(this->png_, this->size_)) {
+	if (!Memory::IsValidRange(this->png_, (u32)this->size_)) {
 		WARN_LOG(Log::sceGe, "Created PPGeImage from invalid memory range %08x (%08x bytes). Will not be drawn.");
 	}
 }
@@ -1417,7 +1417,7 @@ bool PPGeImage::IsValid() {
 	if (loadFailed_)
 		return false;
 
-	if (!Memory::IsValidRange(this->png_, this->size_)) {
+	if (!Memory::IsValidRange(this->png_, (u32)this->size_)) {
 		return false;
 	}
 

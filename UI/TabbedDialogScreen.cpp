@@ -16,10 +16,6 @@ UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag
 	scroll->Add(contents);
 	tabHolder_->AddTab(title, scroll);
 
-	if (!isSearch) {
-		settingTabContents_.push_back(contents);
-	}
-
 	return contents;
 }
 
@@ -56,7 +52,6 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 
 	tabHolder_->SetTag(tag());  // take the tag from the screen.
 	root_->SetDefaultFocusView(tabHolder_);
-	settingTabContents_.clear();
 
 	float leftSide = 40.0f;
 	if (!vertical) {
@@ -120,6 +115,7 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 }
 
 void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
+	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 
 	// Show an indicator that a filter is applied.
@@ -127,8 +123,26 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	filterNotice_->SetText(ApplySafeSubstitutions(se->T("Filtering settings by '%1'"), searchFilter_));
 
 	bool matches = searchFilter_.empty();
-	for (int t = 0; t < (int)settingTabContents_.size(); ++t) {
-		auto tabContents = settingTabContents_[t];
+
+	const std::vector<ViewGroup *> settingTabs = tabHolder_->GetTabContentViews();
+
+	for (int t = 0; t < (int)settingTabs.size(); ++t) {
+		const ViewGroup *tabContents = settingTabs[t];
+		std::string_view tag = tabContents->Tag();
+
+		// Dive down to the actual list of settings.
+		// TODO: Do this recursively instead.
+		while (tabContents->GetNumSubviews() == 1) {
+			View *v = tabContents->GetViewByIndex(0);
+			if (v->IsViewGroup()) {
+				tabContents = (ViewGroup *)v;
+			}
+		}
+
+		if (tag == "GameSettingsSearch") {
+			continue;
+		}
+
 		bool tabMatches = searchFilter_.empty();
 
 		UI::View *lastHeading = nullptr;

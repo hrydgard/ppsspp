@@ -30,7 +30,6 @@ private:
 	void ApplySearchFilter();
 
 	UI::TabHolder *tabHolder_ = nullptr;
-	std::vector<UI::LinearLayout *> settingTabContents_;
 	UI::TextView *filterNotice_ = nullptr;
 	UI::Choice *clearSearchChoice_ = nullptr;
 	UI::TextView *noSearchResults_ = nullptr;

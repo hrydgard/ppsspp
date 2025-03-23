@@ -71,7 +71,7 @@ public:
 
 	void Clear();
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
-	View *GetViewByIndex(int index) { return views_[index]; }
+	View *GetViewByIndex(int index) const { return views_[index]; }
 	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 	void SetDropShadowExpand(float s) { dropShadowExpand_ = s; }
@@ -312,6 +312,10 @@ public:
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
 	LinearLayout *Container() { return tabContainer_; }
+
+	const std::vector<ViewGroup *> &GetTabContentViews() const {
+		return tabs_;
+	}
 
 private:
 	void AddTabContents(std::string_view title, View *tabContents);
