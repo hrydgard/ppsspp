@@ -697,6 +697,9 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 
 	_dbg_assert_(samplesToDecode <= info.SamplesPerFrame());
 	if (samplesToDecode != info.SamplesPerFrame()) {
+		if (!decodeTemp_) {
+			decodeTemp_ = new int16_t[info.SamplesPerFrame() * outputChannels_];
+		}
 		outPtr = decodeTemp_;
 	} else {
 		outPtr = outbufAddr ? (int16_t *)Memory::GetPointer(outbufAddr) : 0;  // outbufAddr can be 0 during skip!
@@ -705,9 +708,14 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	context_->codec.inBuf = inAddr;
 	context_->codec.outBuf = outbufAddr;
 
+	if (!Memory::IsValidAddress(inAddr)) {
+		ERROR_LOG(Log::ME, "DecodeInternal: Bad inAddr %08x", inAddr);
+		return SCE_ERROR_ATRAC_API_FAIL;
+	}
+
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	if (!decoder_->Decode(Memory::GetPointer(inAddr), info.sampleSize, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
+	if (!decoder_->Decode(Memory::GetPointerUnchecked(inAddr), info.sampleSize, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
 		// Decode failed.
 		*finish = 0;
 		// TODO: The error code here varies based on what the problem is, but not sure of the right values.
@@ -839,12 +847,6 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		info.loopNum = 0;
 		info.loopStart = 0;
 		info.loopEnd = 0;
-	}
-
-	if (!decodeTemp_) {
-		_dbg_assert_(track.channels <= 2);
-		decodeTemp_ = new int16_t[track.SamplesPerFrame() * outputChannels + 1];
-		decodeTemp_[track.SamplesPerFrame() * outputChannels] = 1337;  // Sentinel
 	}
 
 	context_->codec.inBuf = bufferAddr;

@@ -1349,13 +1349,13 @@ namespace Libretro
          {
             case EmuThreadState::START_REQUESTED:
                emuThreadState = EmuThreadState::RUNNING;
-               /* fallthrough */
+               [[fallthrough]];
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
             case EmuThreadState::PAUSE_REQUESTED:
                emuThreadState = EmuThreadState::PAUSED;
-               /* fallthrough */
+               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;

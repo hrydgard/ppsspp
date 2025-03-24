@@ -91,6 +91,10 @@ public:
 	}
 	StringWriter(const StringWriter &) = delete;
 
+	size_t size() const {
+		return p_ - start_;
+	}
+
 	// Assumes the input is zero-terminated.
 	// C: Copies a string literal (which always are zero-terminated, the count includes the zero) directly to the stream.
 	template<size_t T>

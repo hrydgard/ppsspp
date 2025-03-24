@@ -114,7 +114,7 @@ bool HitAnyAsserts();
 void ResetHitAnyAsserts();
 void SetExtraAssertInfo(const char *info);
 typedef void (*AssertNoCallbackFunc)(const char *message, void *userdata);
-void SetAssertNoCallback(AssertNoCallbackFunc callback, void *userdata);
+void SetAssertCancelCallback(AssertNoCallbackFunc callback, void *userdata);
 void SetCleanExitOnAssert();
 void BreakIntoPSPDebugger(const char *reason = "(userbreak)");
 

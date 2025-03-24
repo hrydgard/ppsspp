@@ -1544,6 +1544,30 @@ void DrawHLEModules(ImConfig &config) {
 			}
 			ImGui::TreePop();
 		}
+		if (ImGui::BeginPopupContextItem(label.c_str())) {
+			if (ImGui::MenuItem("Copy as JpscpTrace")) {
+				char *buffer = new char[1000000];
+				StringWriter w(buffer, 1000000);
+
+				for (int j = 0; j < mod->numFunctions; j++) {
+					auto &func = mod->funcTable[j];
+					// Translate the argmask to fit jpscptrace
+					std::string amask = func.argmask;
+					for (int i = 0; i < amask.size(); i++) {
+						switch (amask[i]) {
+						case 'i':
+						case 'I': amask[i] = 'd'; break;
+						case 'f':
+						case 'F': amask[i] = 'x'; break;
+						}
+					}
+					w.F("%s 0x%08x %d %s", func.name, func.ID, strlen(func.argmask), amask.c_str()).endl();
+				}
+				System_CopyStringToClipboard(std::string_view(buffer, w.size()));
+				delete[] buffer;
+			}
+			ImGui::EndPopup();
+		}
 	}
 
 	ImGui::End();
@@ -1684,6 +1708,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("OS HLE")) {
+			ImGui::MenuItem("HLE module browser", nullptr, &cfg_.hleModulesOpen);
 			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
 			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
 			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
