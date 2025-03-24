@@ -526,10 +526,12 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
 			break;
 		// else fallthrough! Don't change the check above.
+		[[fallthrough]];
 	case VOICETYPE_PCM:
 		if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
 			break;
 		// else fallthrough! Don't change the check above.
+		[[fallthrough]];
 	default:
 		// This feels a bit hacky.  The first 32 samples after a keyon are 0s.
 		int delay = 0;

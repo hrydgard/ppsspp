@@ -117,7 +117,7 @@ static bool startDumping;
 
 extern bool g_TakeScreenshot;
 
-static void AssertNoCallback(const char *message, void *userdata) {
+static void AssertCancelCallback(const char *message, void *userdata) {
 	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
 	Core_Break(BreakReason::AssertChoice);
 	g_Config.bShowImDebugger = true;
@@ -304,7 +304,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
-	SetAssertNoCallback(&AssertNoCallback, this);
+	SetAssertCancelCallback(&AssertCancelCallback, this);
 
 	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id, info->GetTitle());
@@ -472,7 +472,7 @@ EmuScreen::~EmuScreen() {
 	g_OSD.ClearAchievementStuff();
 
 	SetExtraAssertInfo(nullptr);
-	SetAssertNoCallback(nullptr, nullptr);
+	SetAssertCancelCallback(nullptr, nullptr);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bDumpFrames && startDumping)
@@ -1832,7 +1832,7 @@ void EmuScreen::runImDebugger() {
 void EmuScreen::renderImDebugger() {
 	if (g_Config.bShowImDebugger) {
 		Draw::DrawContext *draw = screenManager()->getDrawContext();
-		if (PSP_IsInited()) {
+		if (PSP_IsInited() && imDebugger_) {
 			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
 		}
 	}

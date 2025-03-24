@@ -1414,7 +1414,7 @@ void D3D11DrawContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCo
 		if (draws[i].bindTexture) {
 			ComPtr<ID3D11ShaderResourceView> view = ((D3D11Texture *)draws[i].bindTexture)->View();
 			context_->PSSetShaderResources(0, 1, view.GetAddressOf());
-		} else {
+		} else if (draws[i].bindFramebufferAsTex) {
 			ComPtr<ID3D11ShaderResourceView> view = ((D3D11Framebuffer *)draws[i].bindFramebufferAsTex)->colorSRView;
 			switch (draws[i].aspect) {
 			case Aspect::DEPTH_BIT:
