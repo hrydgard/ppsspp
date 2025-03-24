@@ -705,9 +705,14 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	context_->codec.inBuf = inAddr;
 	context_->codec.outBuf = outbufAddr;
 
+	if (!Memory::IsValidAddress(inAddr)) {
+		ERROR_LOG(Log::ME, "DecodeInternal: Bad inAddr %08x", inAddr);
+		return SCE_ERROR_ATRAC_API_FAIL;
+	}
+
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	if (!decoder_->Decode(Memory::GetPointer(inAddr), info.sampleSize, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
+	if (!decoder_->Decode(Memory::GetPointerUnchecked(inAddr), info.sampleSize, &bytesConsumed, outputChannels_, outPtr, &outSamples)) {
 		// Decode failed.
 		*finish = 0;
 		// TODO: The error code here varies based on what the problem is, but not sure of the right values.
