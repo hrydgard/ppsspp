@@ -771,6 +771,7 @@ void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
 	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
 	storage->Add(new InfoItem("Scoped Storage", scoped ? di->T("Yes") : di->T("No")));
