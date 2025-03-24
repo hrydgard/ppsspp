@@ -250,29 +250,37 @@ void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	LinearLayout *graphicsSettings = AddTab("GameSettingsGraphics", ms->T("Graphics"));
-	CreateGraphicsSettings(graphicsSettings);
+	AddTab("GameSettingsGraphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
+		CreateGraphicsSettings(parent);
+	});
 
-	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
-	CreateControlsSettings(controlsSettings);
+	AddTab("GameSettingsControls", ms->T("Controls"), [this](UI::LinearLayout *parent) {
+		CreateControlsSettings(parent);
+	});
 
-	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
-	CreateAudioSettings(audioSettings);
+	AddTab("GameSettingsAudio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
+		CreateAudioSettings(parent);
+	});
 
-	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
-	CreateNetworkingSettings(networkingSettings);
+	AddTab("GameSettingsNetworking", ms->T("Networking"), [this](UI::LinearLayout *parent) {
+		CreateNetworkingSettings(parent);
+	});
 
-	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
-	CreateToolsSettings(tools);
+	AddTab("GameSettingsTools", ms->T("Tools"), [this](UI::LinearLayout *parent) {
+		CreateToolsSettings(parent);
+	});
 
-	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
-	systemSettings->SetSpacing(0);
-	CreateSystemSettings(systemSettings);
+	AddTab("GameSettingsSystem", ms->T("System"), [this](UI::LinearLayout *parent) {
+		parent->SetSpacing(0);
+		CreateSystemSettings(parent);
+	});
+	
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
-		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
-		CreateVRSettings(vrSettings);
+		AddTab("GameSettingsVR", ms->T("VR"), [this](UI::LinearLayout *parent) {
+			CreateVRSettings(parent);
+		});
 	}
 }
 
@@ -2538,7 +2546,7 @@ void GestureMappingScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	AddStandardBack(root_);
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
 	tabHolder->AddTab(co->T("Gesture"), rightPanel);

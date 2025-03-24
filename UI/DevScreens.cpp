@@ -523,9 +523,44 @@ void SystemInfoScreen::CreateTabs() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	LinearLayout *deviceSpecs = AddTab("Device Info", si->T("Device Info"));
+	AddTab("Device Info", si->T("Device Info"), [this](UI::LinearLayout *parent) {
+		CreateDeviceInfoTab(parent);
+	});
+	AddTab("Storage", si->T("Storage"), [this](UI::LinearLayout *parent) {
+		CreateStorageTab(parent);
+	});
+	AddTab("DevSystemInfoBuildConfig", si->T("Build Config"), [this](UI::LinearLayout *parent) {
+		CreateBuildConfigTab(parent);
+	});
+	AddTab("DevSystemInfoCPUExt", si->T("CPU Extensions"), [this](UI::LinearLayout *parent) {
+		CreateCPUExtensionsTab(parent);
+	});
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		AddTab("DevSystemInfoOGLExt", si->T("OGL Extensions"), [this](UI::LinearLayout *parent) {
+			CreateOpenGLExtsTab(parent);
+		});
+	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
+		AddTab("DevSystemInfoVulkanExt", si->T("Vulkan Extensions"), [this](UI::LinearLayout *parent) {
+			CreateVulkanExtsTab(parent);
+		});
+	}
+	AddTab("DevSystemInfoDriverBugs", si->T("Driver bugs"), [this](UI::LinearLayout *parent) {
+		CreateDriverBugsTab(parent);
+	});
+	AddTab("DevSystemInfoInternals", si->T("Internals"), [this](UI::LinearLayout *parent) {
+		CreateInternalsTab(parent);
+	});
+}
 
-	CollapsibleSection *systemInfo = deviceSpecs->Add(new CollapsibleSection(si->T("System Information")));
+void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
+	using namespace Draw;
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
 
 	systemInfo->Add(new Choice(si->T("Copy summary to clipboard")))->OnClick.Handle(this, &SystemInfoScreen::CopySummaryToClipboard);
 	systemInfo->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
@@ -546,7 +581,7 @@ void SystemInfoScreen::CreateTabs() {
 		systemInfo->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
 	}
 
-	CollapsibleSection *cpuInfo = deviceSpecs->Add(new CollapsibleSection(si->T("CPU Information")));
+	UI::CollapsibleSection *cpuInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
 	if (strcmp(cpu_info.brand_string, "Unknown") != 0) {
@@ -721,8 +756,12 @@ void SystemInfoScreen::CreateTabs() {
 			}
 		}
 	}
+}
 
-	LinearLayout *storage = AddTab("Storage", si->T("Storage"));
+void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
@@ -732,6 +771,7 @@ void SystemInfoScreen::CreateTabs() {
 	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
 	storage->Add(new InfoItem("Scoped Storage", scoped ? di->T("Yes") : di->T("No")));
@@ -740,8 +780,12 @@ void SystemInfoScreen::CreateTabs() {
 		storage->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
 	}
 #endif
+}
 
-	LinearLayout *buildConfig = AddTab("DevSystemInfoBuildConfig", si->T("Build Config"));
+void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
 #ifdef ANDROID_LEGACY
@@ -773,17 +817,28 @@ void SystemInfoScreen::CreateTabs() {
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
+}
 
-	LinearLayout *cpuExtensions = AddTab("DevSystemInfoCPUExt", si->T("CPU Extensions"));
+void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+
 	cpuExtensions->Add(new ItemHeader(si->T("CPU Extensions")));
 	std::vector<std::string> exts = cpu_info.Features();
 	for (std::string &ext : exts) {
 		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
+}
 
-	LinearLayout *driverBugs = AddTab("DevSystemInfoDriverBugs", si->T("Driver bugs"));
+void SystemInfoScreen::CreateDriverBugsTab(UI::LinearLayout *driverBugs) {
+	using namespace UI;
+	using namespace Draw;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	bool anyDriverBugs = false;
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
 		if (draw->GetBugs().Has(i)) {
 			anyDriverBugs = true;
@@ -794,90 +849,92 @@ void SystemInfoScreen::CreateTabs() {
 	if (!anyDriverBugs) {
 		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
+}
 
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("OGL Extensions"));
+void SystemInfoScreen::CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions) {
+	using namespace UI;
 
-		if (!gl_extensions.IsGLES) {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
-		} else if (gl_extensions.GLES3) {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 3.0 Extensions")));
-		} else {
-			gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 2.0 Extensions")));
-		}
-		exts.clear();
-		SplitString(g_all_gl_extensions, ' ', exts);
-		std::sort(exts.begin(), exts.end());
-		for (auto &extension : exts) {
-			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-		exts.clear();
-		SplitString(g_all_egl_extensions, ' ', exts);
-		std::sort(exts.begin(), exts.end());
-
-		// If there aren't any EGL extensions, no need to show the tab.
-		if (exts.size() > 0) {
-			LinearLayout *eglExtensions = AddTab("EglExt", si->T("EGL Extensions"));
-			eglExtensions->SetSpacing(0);
-			eglExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
-			for (auto &extension : exts) {
-				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-			}
-		}
-	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
-		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("Vulkan Features"));
-
-		CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
-		std::vector<std::string> features = draw->GetFeatureList();
-		for (auto &feature : features) {
-			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-
-		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
-		for (auto mode : draw->GetPresentModeList(di->T("Current"))) {
-			presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-
-		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
-		for (auto &format : draw->GetSurfaceFormatList()) {
-			colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-
-		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
-		std::vector<std::string> extensions = draw->GetExtensionList(true, true);
-		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
-			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-		// Also get instance extensions
-		enabledExtensions->Add(new ItemHeader(si->T("Instance")));
-		extensions = draw->GetExtensionList(false, true);
-		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
-			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-
-		CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
-		extensions = draw->GetExtensionList(true, false);
-		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
-			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
-
-		vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
-		// Also get instance extensions
-		extensions = draw->GetExtensionList(false, false);
-		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
-			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-		}
+	if (!gl_extensions.IsGLES) {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
+	} else if (gl_extensions.GLES3) {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 3.0 Extensions")));
+	} else {
+		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 2.0 Extensions")));
 	}
 
-#ifdef _DEBUG
-	LinearLayout *internals = AddTab("DevSystemInfoInternals", si->T("Internals"));
-	CreateInternalsTab(internals);
-#endif
+	std::vector<std::string> exts;
+	SplitString(g_all_gl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
+	for (auto &extension : exts) {
+		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	exts.clear();
+	SplitString(g_all_egl_extensions, ' ', exts);
+	std::sort(exts.begin(), exts.end());
+
+	// If there aren't any EGL extensions, no need to show the tab.
+	gpuExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
+	for (auto &extension : exts) {
+		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+}
+
+void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
+	using namespace UI;
+
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
+	std::vector<std::string> features = draw->GetFeatureList();
+	for (const auto &feature : features) {
+		vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
+	for (const auto &mode : draw->GetPresentModeList(di->T("Current"))) {
+		presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
+	for (const auto &format : draw->GetSurfaceFormatList()) {
+		colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
+	std::vector<std::string> extensions = draw->GetExtensionList(true, true);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+	// Also get instance extensions
+	enabledExtensions->Add(new ItemHeader(si->T("Instance")));
+	extensions = draw->GetExtensionList(false, true);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
+	extensions = draw->GetExtensionList(true, false);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
+
+	vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
+	// Also get instance extensions
+	extensions = draw->GetExtensionList(false, false);
+	std::sort(extensions.begin(), extensions.end());
+	for (auto &extension : extensions) {
+		vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+	}
 }
 
 void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
@@ -1007,7 +1064,7 @@ void ShaderListScreen::CreateViews() {
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
-	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
+	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, nullptr, new LinearLayoutParams(1.0));
 	tabs_->SetTag("DevShaderList");
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -1083,7 +1140,7 @@ void FrameDumpTestScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *tabHolder;
-	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, nullptr, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	AddStandardBack(root_);
 	tabHolder->SetTag("DumpTypes");

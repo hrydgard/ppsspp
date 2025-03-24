@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include <functional>
 
 #include "Common/UI/UIScreen.h"
 #include "Common/System/System.h"
@@ -11,7 +12,7 @@ class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBack
 public:
 	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
-	UI::LinearLayout *AddTab(const char *tag, std::string_view title, bool isSearch = false);
+	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, bool isSearch = false);
 	void CreateViews() override;
 
 protected:
@@ -30,10 +31,10 @@ private:
 	void ApplySearchFilter();
 
 	UI::TabHolder *tabHolder_ = nullptr;
-	std::vector<UI::LinearLayout *> settingTabContents_;
-	std::vector<UI::TextView *> settingTabFilterNotices_;
+	UI::TextView *filterNotice_ = nullptr;
 	UI::Choice *clearSearchChoice_ = nullptr;
 	UI::TextView *noSearchResults_ = nullptr;
+
 	// If we recreate the views while this is active we show it again
 	std::string oldSettingInfo_;
 	std::string searchFilter_;

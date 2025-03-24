@@ -957,7 +957,7 @@ std::string GridLayoutList::DescribeText() const {
 	return DescribeListOrdered(u->T("List:"));
 }
 
-TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
+TabHolder::TabHolder(Orientation orientation, float stripSize, View *bannerView, LayoutParams *layoutParams)
 	: LinearLayout(Opposite(orientation), layoutParams) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
@@ -979,8 +979,14 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 
 	Add(new Spacer(4.0f))->SetSeparator();
 
-	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	Add(contents_)->SetClip(true);
+	ViewGroup *contentHolder_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	if (bannerView) {
+		contentHolder_->Add(bannerView);
+		bannerView_ = bannerView;
+	}
+	contents_ = contentHolder_->Add(new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+	contents_->SetClip(true);
+	Add(contentHolder_);
 }
 
 void TabHolder::AddBack(UIScreen *parent) {
@@ -990,16 +996,56 @@ void TabHolder::AddBack(UIScreen *parent) {
 	}
 }
 
-void TabHolder::AddTabContents(std::string_view title, View *tabContents) {
-	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+void TabHolder::AddTabContents(std::string_view title, ViewGroup *tabContents) {
 	tabs_.push_back(tabContents);
 	tabStrip_->AddChoice(title);
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
 		tabContents->SetVisibility(V_GONE);
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	// Will be filled in later.
 	tabTweens_.push_back(nullptr);
+	// This entry doesn't need one.
+	createFuncs_.push_back(nullptr);
+}
+
+void TabHolder::AddTabDeferred(std::string_view title, std::function<ViewGroup *()> createCb) {
+	tabs_.push_back(nullptr);  // marker
+	tabStrip_->AddChoice(title);
+	tabTweens_.push_back(nullptr);
+	createFuncs_.push_back(createCb);
+
+	// Pre-create the first tab in a non-deferred way.
+	if (tabs_.size() == 1) {
+		EnsureTab(0);
+	}
+}
+
+void TabHolder::EnsureAllCreated() {
+	for (int i = 0; i < createFuncs_.size(); i++) {
+		if (createFuncs_[i]) {
+			EnsureTab(i);
+			tabs_[i]->SetVisibility(i == currentTab_ ? V_VISIBLE : V_GONE);
+		}
+	}
+}
+
+void TabHolder::EnsureTab(int index) {
+	_dbg_assert_(index >= 0 && index < createFuncs_.size());
+
+	if (!tabs_[index]) {
+		_dbg_assert_(index < createFuncs_.size());
+		_dbg_assert_(createFuncs_[index]);
+		std::function<UI::ViewGroup * ()> func;
+		createFuncs_[index].swap(func);
+
+		ViewGroup *tabContents = func();
+		tabs_[index] = tabContents;
+		contents_->Add(tabContents);
+
+		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	}
 }
 
 void TabHolder::SetCurrentTab(int tab, bool skipTween) {
@@ -1008,7 +1054,10 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		return;
 	}
 
+	EnsureTab(tab);
+
 	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
+		_dbg_assert_(view != nullptr);
 		if (tween)
 			return;
 
@@ -1051,6 +1100,7 @@ void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		tabs_[tab]->SetVisibility(V_VISIBLE);
 
 		currentTab_ = tab;
+		EnsureTab(currentTab_);
 	}
 	tabStrip_->SetSelection(tab, false);
 }
@@ -1059,6 +1109,7 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
+		EnsureTab(e.a);
 		SetCurrentTab((int)e.a);
 	}
 	return EVENT_DONE;

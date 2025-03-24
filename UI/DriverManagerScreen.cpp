@@ -152,8 +152,9 @@ void DriverManagerScreen::CreateTabs() {
 	using namespace UI;
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	LinearLayout *drivers = AddTab("DriverManagerDrivers", gr->T("Drivers"));
-	CreateDriverTab(drivers);
+	AddTab("DriverManagerDrivers", gr->T("Drivers"), [this](UI::LinearLayout *parent) {
+		CreateDriverTab(parent);
+	});
 }
 
 void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
