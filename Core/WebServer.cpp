@@ -426,8 +426,8 @@ static void ExecuteWebServer() {
 	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
-		http->RunSlice(1.0);
-
+		constexpr double webServerSliceSeconds = 0.2f;
+		http->RunSlice(webServerSliceSeconds);
 		double now = time_now_d();
 		if (now > lastRegister + 540.0) {
 			RegisterServer(http->Port());
