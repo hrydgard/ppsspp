@@ -212,7 +212,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
+bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileType type) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -227,8 +227,6 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	Path filename = g_CoreParameter.fileToStart;
-
-	IdentifiedFileType type = Identify_File(loadedFile, errorString);
 
 	// TODO: Put this somewhere better?
 	if (!g_CoreParameter.mountIso.empty()) {
@@ -414,9 +412,12 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 
 	Path filename = g_CoreParameter.fileToStart;
 	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
-#if PPSSPP_ARCH(AMD64)
+
+	IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
+	g_CoreParameter.fileType = type;
+
 	if (g_Config.bCacheFullIsoInRam) {
-		switch (coreParam.fileType) {
+		switch (g_CoreParameter.fileType) {
 		case IdentifiedFileType::PSP_ISO:
 		case IdentifiedFileType::PSP_ISO_NP:
 			loadedFile = new RamCachingFileLoader(loadedFile);
@@ -426,7 +427,6 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 			break;
 		}
 	}
-#endif
 
 	if (g_Config.bAchievementsEnable) {
 		// Need to re-identify after ResolveFileLoaderTarget - although in practice probably not,
@@ -436,7 +436,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		Achievements::SetGame(filename, type, loadedFile);
 	}
 
-	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
+	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile, type)) {
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
