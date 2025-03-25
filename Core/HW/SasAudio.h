@@ -137,11 +137,10 @@ private:
 
 class SasAtrac3 {
 public:
-	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
-	~SasAtrac3() { delete sampleQueue_; }
+	~SasAtrac3() { delete sampleQueue_; delete[] buf_; }
+	int AtracID() const { return atracID_; }  // for the debugger
 	int SetContext(u32 context);
-	int id() const { return atracID_; }
-	void getNextSamples(s16 *outbuf, int wantedSamples);
+	void GetNextSamples(s16 *outbuf, int wantedSamples);
 	int Concatenate(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
 	bool End() const {
@@ -149,10 +148,11 @@ public:
 	}
 
 private:
-	u32 contextAddr_;
-	int atracID_;
-	BufferQueue *sampleQueue_;
-	bool end_;
+	u32 contextAddr_ = 0;
+	int atracID_ = -1;
+	BufferQueue *sampleQueue_ = nullptr;
+	bool end_ = false;
+	s16 *buf_ = nullptr;
 };
 
 class ADSREnvelope {

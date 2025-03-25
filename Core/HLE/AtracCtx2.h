@@ -33,7 +33,6 @@ public:
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
 	int AddStreamData(u32 bytesToAdd) override;
-	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
@@ -42,6 +41,9 @@ public:
 
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
+
+	void CheckForSas() override;
+	int EnqueueForSas(u32 address, u32 ptr) override;
 	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) override;
 
 	u32 GetNextSamples() override;
@@ -73,6 +75,10 @@ private:
 
 	// This is hidden state inside sceSas, really. Not visible in the context.
 	// But it doesn't really matter whether it's here or there.
-	u32 sasBasePtr_ = 0;
-	int sasReadOffset_ = 0;
+	u32 sasBufferPtr_[2]{};
+	u32 sasBufferSize_[2]{};
+	int sasStreamOffset_ = 0;
+	int sasFileOffset_ = 0;
+	int sasCurBuffer_ = 0;
+	bool sasIsStreaming_ = false;
 };

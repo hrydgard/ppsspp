@@ -1103,7 +1103,7 @@ u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	if (!atrac) {
 		WARN_LOG(Log::ME, "bad atrac ID");
 	}
-	return atrac->AddStreamDataSas(bufPtr, bytesToAdd);
+	return atrac->EnqueueForSas(bufPtr, bytesToAdd);
 }
 
 void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
@@ -1140,7 +1140,7 @@ int AtracSasBindContextAndGetID(u32 contextAddr) {
 
 	// Not actually a hack, this happens.
 	AtracBase *atrac = getAtrac(atracID);
-	atrac->SetOutputChannels(1);
+	atrac->CheckForSas();
 	return atracID;
 }
 

@@ -175,15 +175,16 @@ Atrac2::Atrac2(u32 contextAddr, int codecType) {
 		info.state = ATRAC_STATUS_NO_DATA;
 		info.curBuffer = 0;
 
-		sasReadOffset_ = 0;
-		sasBasePtr_ = 0;
+		sasStreamOffset_ = 0;
+		sasBufferPtr_[0] = 0;
+		sasBufferPtr_[1] = 0;
 	} else {
 		// We're loading state, we'll restore the context in DoState.
 	}
 }
 
 void Atrac2::DoState(PointerWrap &p) {
-	auto s = p.Section("Atrac2", 1, 2);
+	auto s = p.Section("Atrac2", 1, 3);
 	if (!s)
 		return;
 
@@ -191,10 +192,17 @@ void Atrac2::DoState(PointerWrap &p) {
 	// The only thing we need to save now is the outputChannels_ and the context pointer. And technically, not even that since
 	// it can be computed. Still, for future proofing, let's save it.
 	Do(p, context_);
+
 	// Actually, now we also need to save sas state. I guess this could also be saved on the Sas side, but this is easier.
 	if (s >= 2) {
-		Do(p, sasReadOffset_);
-		Do(p, sasBasePtr_);
+		Do(p, sasStreamOffset_);
+		Do(p, sasBufferPtr_[0]);
+	}
+	// Added support for streaming sas audio, need some more context state.
+	if (s >= 3) {
+		Do(p, sasBufferPtr_[1]);
+		Do(p, sasBufferSize_);
+		Do(p, sasIsStreaming_);
 	}
 
 	const SceAtracIdInfo &info = context_->info;
@@ -497,20 +505,6 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 	return 0;
 }
 
-u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
-	SceAtracIdInfo &info = context_->info;
-	// Internal API, seems like a combination of GetStreamDataInfo and AddStreamData, for use when
-	// an Atrac context is bound to an sceSas channel.
-	// Sol Trigger is the only game I know that uses this.
-	_dbg_assert_(false);
-
-	u8 *dest = Memory::GetPointerWrite(sasBasePtr_ + sasReadOffset_);
-	memcpy(dest, Memory::GetPointer(bufPtr), bytesToAdd);
-	info.buffer += bytesToAdd;
-	info.streamDataByte += bytesToAdd;
-	return 0;
-}
-
 static int ComputeLoopedStreamWritableBytes(const SceAtracIdInfo &info, const int loopStartFileOffset, const u32 loopEndFileOffset) {
 	const u32 writeOffset = info.curFileOff + info.streamDataByte;
 	if (writeOffset >= loopEndFileOffset) {
@@ -679,6 +673,10 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER && info.dataOff + info.streamDataByte < nextFileOff) {
 		*finish = 0;
 		return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
+	}
+
+	if (info.state == ATRAC_STATUS_FOR_SCESAS) {
+		_dbg_assert_(false);
 	}
 
 	u32 streamOff;
@@ -1039,27 +1037,97 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 	return 0;
 }
 
+void Atrac2::CheckForSas() {
+	SceAtracIdInfo &info = context_->info;
+	if (info.numChan != 1) {
+		WARN_LOG(Log::ME, "Caller forgot to set channels to 1");
+	}
+	if (info.state != 0x10) {
+		WARN_LOG(Log::ME, "Caller forgot to set state to 0x10");
+	}
+	sasIsStreaming_ = info.fileDataEnd >= info.bufferByte;
+}
+
+int Atrac2::EnqueueForSas(u32 address, u32 ptr) {
+	SceAtracIdInfo &info = context_->info;
+	// Set the new buffer up to be adopted by the next call to Decode that needs more data.
+	// Note: Can't call this if the decoder isn't asking for another buffer to be queued.
+	if (info.secondBuffer != 0xFFFFFFFF) {
+		return SCE_SAS_ERROR_ATRAC3_ALREADY_QUEUED;
+	}
+
+	info.secondBuffer = address;
+	info.secondBufferByte = ptr;
+	return 0;
+}
+
 void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 	SceAtracIdInfo &info = context_->info;
 
-	if (info.buffer) {
-		// Adopt it then zero it.
-		sasBasePtr_ = info.buffer;
-		sasReadOffset_ = 0;
-		info.buffer = 0;
+	// First frame handling. Not sure if accurate. Set up the initial buffer as the current streaming buffer.
+	// Also works for the non-streaming case.
+	if (sasBufferPtr_[0] == 0 && sasCurBuffer_ == 0) {
+		sasBufferPtr_[0] = info.buffer;
+		sasBufferSize_[0] = info.bufferByte - info.streamOff;
+		sasStreamOffset_ = 0;
+		sasFileOffset_ = 0;
 	}
 
-	const u8 *srcData = Memory::GetPointer(sasBasePtr_ + sasReadOffset_);
+	u8 assembly[1000];
+	// Keep decoding from the current buffer until it runs out.
+	if (sasStreamOffset_ + info.sampleSize <= sasBufferSize_[sasCurBuffer_]) {
+		// Just decode.
+		const u8 *srcData = Memory::GetPointer(sasBufferPtr_[sasCurBuffer_] + sasStreamOffset_);
+		int bytesConsumed = 0;
+		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+		if (!decodeResult) {
+			ERROR_LOG(Log::ME, "SAS failed to decode packet");
+		}
+		sasStreamOffset_ += bytesConsumed;
+		sasFileOffset_ += bytesConsumed;
+	} else if (sasIsStreaming_) {
+		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
+ 
+		WARN_LOG(Log::ME, "Streaming, and hit the end of buffer %d, switching over.", sasCurBuffer_);
 
-	int outSamples = 0;
-	int bytesConsumed = 0;
-	decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+		int part1Size = sasBufferSize_[sasCurBuffer_] - sasStreamOffset_;
+		int part2Size = info.sampleSize - part1Size;
+		_dbg_assert_(part1Size >= 0);
+		if (part1Size >= 0) {
+			// Grab the partial packet, before we switch over to the other buffer.
+			Memory::Memcpy(assembly, sasBufferPtr_[sasCurBuffer_] + sasStreamOffset_, part1Size);
+		}
+		// Check that a new buffer actually exists
+		if ((int)info.secondBuffer < 0 || info.secondBuffer == sasBufferPtr_[sasCurBuffer_]) {
+			ERROR_LOG(Log::ME, "AtracSas streaming ran out of data, no secondbuffer pending");
+			*finish = 1;
+			return;
+		}
 
-	sasReadOffset_ += bytesConsumed;
+		// Switch to the other buffer.
+		sasCurBuffer_ ^= 1;
 
+		sasBufferPtr_[sasCurBuffer_] = info.secondBuffer;
+		sasBufferSize_[sasCurBuffer_] = info.secondBufferByte;
+		sasStreamOffset_ = part2Size;
+		info.secondBuffer = 0xFFFFFFFF;  // Signal to the caller that we accept a new next buffer. NOTE: This 
+
+		// Copy the second half (or if part1Size == 0, the whole packet) to the assembly buffer.
+		Memory::Memcpy(assembly + part1Size, sasBufferPtr_[sasCurBuffer_], part2Size);
+		// Decode the packet from the assembly, whether it's was assembled from two or one.
+		const u8 *srcData = assembly;
+		int bytesConsumed = 0;
+		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+		sasFileOffset_ += bytesConsumed;
+		if (!decodeResult) {
+			ERROR_LOG(Log::ME, "SAS failed to decode packet");
+		}
+	}
+
+	/*
 	if (sasReadOffset_ + info.dataOff >= info.fileDataEnd) {
 		*finish = 1;
 	} else {
 		*finish = 0;
-	}
+	}*/
 }

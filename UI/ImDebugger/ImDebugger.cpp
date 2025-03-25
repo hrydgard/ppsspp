@@ -1306,7 +1306,7 @@ void DrawSasAudio(ImConfig &cfg) {
 			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
 			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vagAddr); break;
 			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmAddr); break;
-			case VOICETYPE_ATRAC3: ImGui::Text("atrac: %d", voice.atrac3.id()); break;
+			case VOICETYPE_ATRAC3: ImGui::Text("atrac: %d", voice.atrac3.AtracID()); break;
 			default:
 				ImGui::TextUnformatted("N/A");
 				break;

@@ -681,7 +681,6 @@ static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 	v.playing = true;
 	v.atrac3.SetContext(atrac3Context);
 	Memory::Write_U32(atrac3Context, core + 56 * voiceNum + 20);
-
 	return hleLogDebug(Log::sceSas, 0);
 }
 
@@ -691,11 +690,15 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 	}
 
 	DEBUG_LOG_REPORT_ONCE(concatAtrac3, Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
+
 	__SasDrain();
+
 	SasVoice &v = sas->voices[voiceNum];
-	if (Memory::IsValidAddress(atrac3DataAddr))
+	if (Memory::IsValidAddress(atrac3DataAddr)) {
 		v.atrac3.Concatenate(atrac3DataAddr, atrac3DataLength);
-	return hleNoLog(0);
+	}
+
+	return hleLogDebug(Log::sceSas, 0);
 }
 
 static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
@@ -704,6 +707,7 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	}
 
 	__SasDrain();
+
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type != VOICETYPE_ATRAC3) {
 		return hleLogError(Log::sceSas, SCE_SAS_ERROR_ATRAC3_NOT_SET, "voice is not ATRAC3");
@@ -726,8 +730,7 @@ void __SasGetDebugStats(char *stats, size_t bufsize) {
 	}
 }
 
-const HLEFunction sceSasCore[] =
-{
+const HLEFunction sceSasCore[] = {
 	{0X42778A9F, &WrapU_UUUUU<sceSasInit>,               "__sceSasInit",                  'x', "xxxxx"  },
 	{0XA3589D81, &WrapU_UU<_sceSasCore>,                 "__sceSasCore",                  'x', "xx"     },
 	{0X50A14DFC, &WrapU_UUII<_sceSasCoreWithMix>,        "__sceSasCoreWithMix",           'x', "xxii"   },
