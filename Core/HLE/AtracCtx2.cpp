@@ -1065,10 +1065,10 @@ int Atrac2::EnqueueForSas(u32 address, u32 ptr) {
 	}
 
 	if (address == 0 && ptr == 0) {
-		INFO_LOG(Log::ME, "Caller tries to send us a zero buffer. Something went wrong.");
+		WARN_LOG(Log::ME, "Caller tries to send us a zero buffer. Something went wrong.");
 	}
 
-	INFO_LOG(Log::ME, "Second buffer updated to %08x, sz: %08x", address, ptr);
+	DEBUG_LOG(Log::ME, "EnqueueForSas: Second buffer updated to %08x, sz: %08x", address, ptr);
 	info.secondBuffer = address;
 	info.secondBufferByte = ptr;
 	return 0;
@@ -1101,8 +1101,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		sas_.streamOffset += bytesConsumed;
 	} else if (sas_.isStreaming) {
 		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
- 
-		WARN_LOG(Log::ME, "Streaming, and hit the end of buffer %d", sas_.curBuffer);
+		DEBUG_LOG(Log::ME, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
 
 		// Compute the part sizes using the current size.
 		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;
@@ -1115,7 +1114,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 		// Check if we hit the end.
 		if (sas_.fileOffset >= info.fileDataEnd) {
-			WARN_LOG(Log::ME, "Streaming and hit the end.");
+			DEBUG_LOG(Log::ME, "Streaming and hit the file end.");
 			*bytesWritten = 0;
 			*finish = 1;
 			return;
@@ -1129,7 +1128,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 			return;
 		}
 
-		if ((int)info.secondBuffer < 0 || info.secondBuffer == sas_.bufPtr[sas_.curBuffer]) {
+		if ((int)info.secondBuffer < 0) {
 			ERROR_LOG(Log::ME, "AtracSas streaming ran out of data, no secondbuffer pending");
 			*bytesWritten = 0;
 			*finish = 1;
@@ -1138,7 +1137,6 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 		// Switch to the other buffer.
 		sas_.curBuffer ^= 1;
-		WARN_LOG(Log::ME, "Switching over to buffer %d, updating buffer to %08x, sz: %08x", sas_.curBuffer, info.secondBuffer, info.secondBufferByte);
 
 		sas_.bufPtr[sas_.curBuffer] = info.secondBuffer;
 		sas_.bufSize[sas_.curBuffer] = info.secondBufferByte;
@@ -1150,12 +1148,13 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		if (sas_.fileOffset >= info.fileDataEnd) {
 			// We've reached the end.
 			info.secondBuffer = 0;
-			WARN_LOG(Log::ME, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
+			DEBUG_LOG(Log::ME, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
 		} else {
 			// Signal to the caller that we accept a new next buffer.
 			info.secondBuffer = 0xFFFFFFFF;
-			WARN_LOG(Log::ME, "Signalling for more data (%08x < %08x).", sas_.fileOffset, info.fileDataEnd);
 		}
+
+		DEBUG_LOG(Log::ME, "Switching over to buffer %d, updating buffer to %08x, sz: %08x. %s", sas_.curBuffer, info.secondBuffer, info.secondBufferByte, info.secondBuffer == 0xFFFFFFFF ? "Signalling for more data." : "");
 
 		// Copy the second half (or if part1Size == 0, the whole packet) to the assembly buffer.
 		Memory::Memcpy(assembly + part1Size, sas_.bufPtr[sas_.curBuffer], part2Size);
@@ -1167,11 +1166,4 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 			ERROR_LOG(Log::ME, "SAS failed to decode assembled packet");
 		}
 	}
-
-	/*
-	if (sasReadOffset_ + info.dataOff >= info.fileDataEnd) {
-		*finish = 1;
-	} else {
-		*finish = 0;
-	}*/
 }

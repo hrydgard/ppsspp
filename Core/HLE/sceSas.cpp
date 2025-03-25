@@ -416,7 +416,7 @@ static u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, in
 	v.volumeRight = rightVol;
 	v.effectLeft = effectLeftVol;
 	v.effectRight = effectRightVol;
-	return hleLogDebug(Log::sceSas, 0);
+	return hleLogVerbose(Log::sceSas, 0);
 }
 
 static u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
