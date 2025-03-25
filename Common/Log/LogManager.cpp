@@ -45,7 +45,8 @@ LogManager g_logManager;
 
 const char *hleCurrentThreadName = nullptr;
 
-bool *g_bLogEnabledSetting = nullptr;
+bool g_bDummySetting = true;
+bool *g_bLogEnabledSetting = &g_bDummySetting;
 
 static const char level_to_char[8] = "-NEWIDV";
 
@@ -59,17 +60,18 @@ static const char level_to_char[8] = "-NEWIDV";
 void AndroidLog(const LogMessage &message);
 #endif
 
+bool GenericLogEnabled(LogLevel level, Log type) {
+	return (*g_bLogEnabledSetting) && g_logManager.IsEnabled(level, type);
+}
+
 void GenericLog(LogLevel level, Log type, const char *file, int line, const char* fmt, ...) {
-	if (g_bLogEnabledSetting && !(*g_bLogEnabledSetting))
+	if (!(*g_bLogEnabledSetting) || !g_logManager.IsEnabled(level, type)) {
 		return;
+	}
 	va_list args;
 	va_start(args, fmt);
 	g_logManager.LogLine(level, type, file, line, fmt, args);
 	va_end(args);
-}
-
-bool GenericLogEnabled(LogLevel level, Log type) {
-	return (*g_bLogEnabledSetting) && g_logManager.IsEnabled(level, type);
 }
 
 // NOTE: Needs to be kept in sync with the Log enum.
@@ -244,8 +246,10 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 	char msgBuf[1024];
 
 	const LogChannel &log = log_[(size_t)type];
-	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0)
+	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0) {
+		// If we get here, it should have been caught earlier.
 		return;
+	}
 
 	LogMessage message;
 	message.level = level;
