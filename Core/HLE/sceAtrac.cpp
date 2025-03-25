@@ -1096,7 +1096,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 
 // This is __sceSasConcatenateATRAC3.
-// The context's fileOff is incremented by the caller, but we need to bump the other pointers.
+// The context's fileOff is incremented by the caller. No other pointers are bumped, except
+// internally in sceSas on the real hardware.
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
@@ -1110,16 +1111,20 @@ void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 	if (!atrac) {
 		WARN_LOG(Log::ME, "bad atrac ID");
 	}
+	// NOTE: If streaming, this will write 0xFFFFFFFF to secondBuffer in the context when close to running
+	// out of data. It'll then expect __sceSasConcatenateATRAC3 to concatenate a new buffer, which cannot
+	// be at the same address as the old one. I think you need to double buffer, and we in fact continouously
+	// read out of these.
 	atrac->DecodeForSas((s16 *)outbuf, SamplesNum, finish);
 }
 
-// Ugly hack, but needed to support both old and new contexts.
 int AtracSasBindContextAndGetID(u32 contextAddr) {
+	// Ugly hack, but needed to support both old and new contexts.
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
 	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
 	} else {
-		// Let's just loop around the contexts and find it.
+		// Let's just loop around the contexts and find it by address.
 		atracID = -1;
 		for (int i = 0; i < PSP_MAX_ATRAC_IDS; i++) {
 			if (!atracContexts[i]) {

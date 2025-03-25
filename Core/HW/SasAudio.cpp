@@ -188,9 +188,10 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, end_);
 }
 
-int SasAtrac3::setContext(u32 contextAddr) {
+int SasAtrac3::SetContext(u32 contextAddr) {
 	contextAddr_ = contextAddr;
-	// Note: This atracID_ is also stored in the loopNum member of the context.
+	// Note: On hardware, atracID_ is also stored in the loopNum member of the context.
+	// But we don't actually mirror our struct to memory, so it doesn't really matter.
 	atracID_ = AtracSasBindContextAndGetID(contextAddr);
 	if (!sampleQueue_)
 		sampleQueue_ = new BufferQueue();
@@ -219,7 +220,7 @@ void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
 	end_ = finish == 1;
 }
 
-int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
+int SasAtrac3::Concatenate(u32 bufPtr, u32 addbytes) {
 	if (atracID_ > 0) {
 		AtracSasAddStreamData(atracID_, bufPtr, addbytes);
 	}
