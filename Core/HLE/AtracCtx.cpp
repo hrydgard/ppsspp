@@ -948,6 +948,7 @@ int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, i
 
 void Atrac::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 	// Disabled, can't work now that we changed the interface.
+	*bytesWritten = 0;
 	*finish = 1;
 }
 

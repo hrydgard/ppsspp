@@ -37,6 +37,14 @@ struct AtracResetBufferInfo {
 	AtracSingleResetBufferInfo second;
 };
 
+struct AtracSasStreamState {
+	u32 bufPtr[2]{};
+	u32 bufSize[2]{};
+	int streamOffset = 0;
+	int fileOffset = 0;
+	int curBuffer = 0;
+	bool isStreaming = false;
+};
 
 const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
@@ -127,6 +135,7 @@ public:
 	virtual void CheckForSas() = 0;
 	virtual int EnqueueForSas(u32 address, u32 ptr) = 0;
 	virtual void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) = 0;
+	virtual const AtracSasStreamState *StreamStateForSas() const { return nullptr; }
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 

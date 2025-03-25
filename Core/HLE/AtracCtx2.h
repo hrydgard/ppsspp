@@ -45,6 +45,7 @@ public:
 	void CheckForSas() override;
 	int EnqueueForSas(u32 address, u32 ptr) override;
 	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) override;
+	const AtracSasStreamState *StreamStateForSas() const { return context_->info.state == 0x10 ? &sas_ : nullptr; }
 
 	u32 GetNextSamples() override;
 
@@ -57,7 +58,6 @@ public:
 	void NotifyGetContextAddress() override {}
 
 	int GetContextVersion() const override { return 2; }
-
 	u32 GetInternalCodecError() const override;
 
 private:
@@ -75,10 +75,5 @@ private:
 
 	// This is hidden state inside sceSas, really. Not visible in the context.
 	// But it doesn't really matter whether it's here or there.
-	u32 sasBufferPtr_[2]{};
-	u32 sasBufferSize_[2]{};
-	int sasStreamOffset_ = 0;
-	int sasFileOffset_ = 0;
-	int sasCurBuffer_ = 0;
-	bool sasIsStreaming_ = false;
+	AtracSasStreamState sas_;
 };
