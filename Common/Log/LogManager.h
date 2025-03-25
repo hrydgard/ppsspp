@@ -73,19 +73,11 @@ private:
 	int count_ = 0;
 };
 
-struct LogChannel {
-#if defined(_DEBUG)
-	LogLevel level = LogLevel::LDEBUG;
-#else
-	LogLevel level = LogLevel::LDEBUG;
-#endif
-	bool enabled = true;
-};
-
 class Section;
 class ConsoleListener;
 
 typedef void (*LogCallback)(const LogMessage &message, void *userdata);
+extern bool *g_bLogEnabledSetting;
 
 class LogManager {
 public:
@@ -111,33 +103,26 @@ public:
 	void LogLine(LogLevel level, Log type,
 				 const char *file, int line, const char *fmt, va_list args);
 
-	bool IsEnabled(LogLevel level, Log type) const {
-		const LogChannel &log = log_[(size_t)type];
-		if (level > log.level || !log.enabled)
-			return false;
-		return true;
-	}
-
 	LogChannel *GetLogChannel(Log type) {
-		return &log_[(size_t)type];
+		return &g_log[(size_t)type];
 	}
 
 	void SetLogLevel(Log type, LogLevel level) {
-		log_[(size_t)type].level = level;
+		g_log[(size_t)type].level = level;
 	}
 
 	void SetAllLogLevels(LogLevel level) {
 		for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
-			log_[i].level = level;
+			g_log[i].level = level;
 		}
 	}
 
 	void SetEnabled(Log type, bool enable) {
-		log_[(size_t)type].enabled = enable;
+		g_log[(size_t)type].enabled = enable;
 	}
 
 	LogLevel GetLogLevel(Log type) {
-		return log_[(size_t)type].level;
+		return g_log[(size_t)type].level;
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -172,7 +157,6 @@ private:
 
 	bool initialized_ = false;
 
-	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *consoleLog_ = nullptr;
 #endif
