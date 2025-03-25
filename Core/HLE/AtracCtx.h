@@ -44,6 +44,12 @@ struct AtracSasStreamState {
 	int fileOffset = 0;
 	int curBuffer = 0;
 	bool isStreaming = false;
+
+	int CurPos() const {
+		int retval = fileOffset - bufSize[curBuffer] + streamOffset;
+		_dbg_assert_(retval >= 0);
+		return retval;
+	}
 };
 
 const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;

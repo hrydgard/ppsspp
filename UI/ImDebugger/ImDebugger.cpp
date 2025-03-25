@@ -1028,14 +1028,14 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 			char header[32];
 			snprintf(header, sizeof(header), "Atrac context %d", cfg.selectedAtracCtx);
 			if (ctx && ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
-				int pos;
-				ctx->GetNextDecodePosition(&pos);
-				int endSample, loopStart, loopEnd;
-				ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
-				ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
-				ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
-				if (ctx->BufferState() <= ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-					ImGui::Text("cur/end sample: %d/%d/%d", pos, endSample);
+				bool isNormal = AtracStatusIsNormal(ctx->BufferState());
+				if (isNormal) {
+					int pos;
+					ctx->GetNextDecodePosition(&pos);
+					int endSample, loopStart, loopEnd;
+					ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
+					ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
+					ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));	ImGui::Text("cur/end sample: %d/%d/%d", pos, endSample);
 				}
 				if (ctx->context_.IsValid()) {
 					ImGui::Text("ctx addr: ");
@@ -1044,25 +1044,41 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 				}
 				if (ctx->context_.IsValid() && ctx->GetContextVersion() >= 2) {
 					const auto &info = ctx->context_->info;
-					ImGui::Text("Buffer: (size: %d / %08x) Frame: %d", info.bufferByte, info.bufferByte, info.sampleSize);
-					ImGui::SameLine();
-					ImClickableValue("buffer", info.buffer, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
-					if (info.secondBuffer || info.secondBufferByte) {
-						ImGui::Text("Second: (size: %d / %08x)", info.secondBufferByte, info.secondBufferByte);
+					if (isNormal) {
+						ImGui::Text("Buffer: (size: %d / %08x) Frame: %d", info.bufferByte, info.bufferByte, info.sampleSize);
 						ImGui::SameLine();
-						ImClickableValue("second", info.secondBuffer, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+						ImClickableValue("buffer", info.buffer, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+						if (info.secondBuffer || info.secondBufferByte) {
+							ImGui::Text("Second: (size: %d / %08x)", info.secondBufferByte, info.secondBufferByte);
+							ImGui::SameLine();
+							ImClickableValue("second", info.secondBuffer, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+						}
+						ImGui::Text("Data: %d/%d", info.dataOff, info.fileDataEnd);
+						if (info.state != ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+							ImGui::Text("LoopNum: %d (%d-%d)", info.loopNum, info.loopStart, info.loopEnd);
+						}
+						ImGui::Text("DecodePos: %d EndSample: %d", info.decodePos, info.fileDataEnd);
+						if (AtracStatusIsStreaming(info.state)) {
+							ImGui::Text("Stream: offset %d, streamDataBytes: %d", info.streamOff, info.streamDataByte);
+						}
+						ImGui::Text("numFrame: %d curBuffer: %d streamOff2: %d", info.numSkipFrames, info.curBuffer, info.secondStreamOff);
+					} else if (ctx->BufferState() == ATRAC_STATUS_FOR_SCESAS) {
+						// A different set of state!
+						const AtracSasStreamState *sas = ctx->StreamStateForSas();
+						if (sas) {
+							ImGui::ProgressBar((float)sas->CurPos() / (float)info.fileDataEnd, ImVec2(200.0f, 0.0f));
+							ImGui::ProgressBar((float)sas->streamOffset / (float)sas->bufSize[sas->curBuffer], ImVec2(200.0f, 0.0f));
+							ImGui::Text("Cur pos: %08x File offset: %08x File end: %08x%s", sas->CurPos(), sas->fileOffset, info.fileDataEnd, sas->fileOffset >= info.fileDataEnd ? " (END)" : "");
+							ImGui::Text("Second (next buffer): %08x (sz: %08x)", info.secondBuffer, info.secondBufferByte);
+							ImGui::Text("Cur buffer: %d (%08x, sz: %08x)", sas->curBuffer, sas->bufPtr[sas->curBuffer], sas->bufSize[sas->curBuffer]);
+							ImGui::Text("2nd buffer: %d (%08x, sz: %08x)", sas->curBuffer ^ 1, sas->bufPtr[sas->curBuffer ^ 1], sas->bufSize[sas->curBuffer ^ 1]);
+							ImGui::Text("Loop points: %08x, %08x", info.loopStart, info.loopEnd);
+							ImGui::TextUnformatted(sas->isStreaming ? "Streaming mode!" : "Non-streaming mode");
+						} else {
+							ImGui::Text("can't access sas state");
+						}
 					}
-					ImGui::Text("Data: %d/%d", info.dataOff, info.fileDataEnd);
-					if (info.state != ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-						ImGui::Text("LoopNum: %d (%d-%d)", info.loopNum, info.loopStart, info.loopEnd);
-					}
-					ImGui::Text("DecodePos: %d EndSample: %d", info.decodePos, info.fileDataEnd);
-					if (AtracStatusIsStreaming(info.state)) {
-						ImGui::Text("Stream: offset %d, streamDataBytes: %d", info.streamOff, info.streamDataByte);
-					}
-					// Display unknown vars.
-					ImGui::Text("numFrame: %d curBuffer: %d streamOff2: %d", info.numSkipFrames, info.curBuffer, info.secondStreamOff);
-				} else {
+				} else  {
 					ImGui::Text("loop: %d", ctx->LoopNum());
 				}
 			}
