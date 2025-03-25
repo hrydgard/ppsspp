@@ -92,7 +92,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 					return UI::EVENT_DONE;
 				});
 
-				noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
 			}, true);
 
 		}

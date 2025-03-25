@@ -175,15 +175,16 @@ Atrac2::Atrac2(u32 contextAddr, int codecType) {
 		info.state = ATRAC_STATUS_NO_DATA;
 		info.curBuffer = 0;
 
-		sasReadOffset_ = 0;
-		sasBasePtr_ = 0;
+		sas_.streamOffset = 0;
+		sas_.bufPtr[0] = 0;
+		sas_.bufPtr[1] = 0;
 	} else {
 		// We're loading state, we'll restore the context in DoState.
 	}
 }
 
 void Atrac2::DoState(PointerWrap &p) {
-	auto s = p.Section("Atrac2", 1, 2);
+	auto s = p.Section("Atrac2", 1, 3);
 	if (!s)
 		return;
 
@@ -191,10 +192,20 @@ void Atrac2::DoState(PointerWrap &p) {
 	// The only thing we need to save now is the outputChannels_ and the context pointer. And technically, not even that since
 	// it can be computed. Still, for future proofing, let's save it.
 	Do(p, context_);
+
 	// Actually, now we also need to save sas state. I guess this could also be saved on the Sas side, but this is easier.
 	if (s >= 2) {
-		Do(p, sasReadOffset_);
-		Do(p, sasBasePtr_);
+		Do(p, sas_.streamOffset);
+		Do(p, sas_.bufPtr[0]);
+	}
+	// Added support for streaming sas audio, need some more context state.
+	if (s >= 3) {
+		Do(p, sas_.bufPtr[1]);
+		Do(p, sas_.bufSize[0]);
+		Do(p, sas_.bufSize[1]);
+		Do(p, sas_.isStreaming);
+		Do(p, sas_.curBuffer);
+		Do(p, sas_.fileOffset);
 	}
 
 	const SceAtracIdInfo &info = context_->info;
@@ -497,20 +508,6 @@ int Atrac2::AddStreamData(u32 bytesToAdd) {
 	return 0;
 }
 
-u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
-	SceAtracIdInfo &info = context_->info;
-	// Internal API, seems like a combination of GetStreamDataInfo and AddStreamData, for use when
-	// an Atrac context is bound to an sceSas channel.
-	// Sol Trigger is the only game I know that uses this.
-	_dbg_assert_(false);
-
-	u8 *dest = Memory::GetPointerWrite(sasBasePtr_ + sasReadOffset_);
-	memcpy(dest, Memory::GetPointer(bufPtr), bytesToAdd);
-	info.buffer += bytesToAdd;
-	info.streamDataByte += bytesToAdd;
-	return 0;
-}
-
 static int ComputeLoopedStreamWritableBytes(const SceAtracIdInfo &info, const int loopStartFileOffset, const u32 loopEndFileOffset) {
 	const u32 writeOffset = info.curFileOff + info.streamDataByte;
 	if (writeOffset >= loopEndFileOffset) {
@@ -679,6 +676,10 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	if (info.state == ATRAC_STATUS_HALFWAY_BUFFER && info.dataOff + info.streamDataByte < nextFileOff) {
 		*finish = 0;
 		return SCE_ERROR_ATRAC_BUFFER_IS_EMPTY;
+	}
+
+	if (info.state == ATRAC_STATUS_FOR_SCESAS) {
+		_dbg_assert_(false);
 	}
 
 	u32 streamOff;
@@ -1039,27 +1040,132 @@ int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, 
 	return 0;
 }
 
-void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
+void Atrac2::CheckForSas() {
 	SceAtracIdInfo &info = context_->info;
+	if (info.numChan != 1) {
+		WARN_LOG(Log::ME, "Caller forgot to set channels to 1");
+	}
+	if (info.state != 0x10) {
+		WARN_LOG(Log::ME, "Caller forgot to set state to 0x10");
+	}
+	sas_.isStreaming = info.fileDataEnd > info.bufferByte;
+	if (sas_.isStreaming) {
+		INFO_LOG(Log::ME, "SasAtrac stream mode");
+	} else {
+		INFO_LOG(Log::ME, "SasAtrac non-streaming mode");
+	}
+}
 
-	if (info.buffer) {
-		// Adopt it then zero it.
-		sasBasePtr_ = info.buffer;
-		sasReadOffset_ = 0;
-		info.buffer = 0;
+int Atrac2::EnqueueForSas(u32 address, u32 ptr) {
+	SceAtracIdInfo &info = context_->info;
+	// Set the new buffer up to be adopted by the next call to Decode that needs more data.
+	// Note: Can't call this if the decoder isn't asking for another buffer to be queued.
+	if (info.secondBuffer != 0xFFFFFFFF) {
+		return SCE_SAS_ERROR_ATRAC3_ALREADY_QUEUED;
 	}
 
-	const u8 *srcData = Memory::GetPointer(sasBasePtr_ + sasReadOffset_);
+	if (address == 0 && ptr == 0) {
+		WARN_LOG(Log::ME, "Caller tries to send us a zero buffer. Something went wrong.");
+	}
 
-	int outSamples = 0;
-	int bytesConsumed = 0;
-	decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+	DEBUG_LOG(Log::ME, "EnqueueForSas: Second buffer updated to %08x, sz: %08x", address, ptr);
+	info.secondBuffer = address;
+	info.secondBufferByte = ptr;
+	return 0;
+}
 
-	sasReadOffset_ += bytesConsumed;
+// Completely different streaming setup!
+void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
+	SceAtracIdInfo &info = context_->info;
+	*bytesWritten = 0;
 
-	if (sasReadOffset_ + info.dataOff >= info.fileDataEnd) {
-		*finish = 1;
-	} else {
-		*finish = 0;
+	// First frame handling. Not sure if accurate. Set up the initial buffer as the current streaming buffer.
+	// Also works for the non-streaming case.
+	if (info.buffer) {
+		sas_.curBuffer = 0;
+		sas_.bufPtr[0] = info.buffer;
+		sas_.bufSize[0] = info.bufferByte - info.streamOff;  // also equals info.streamDataByte
+		sas_.streamOffset = 0;
+		sas_.fileOffset = info.bufferByte;  // Possibly should just set it to info.curFileOff
+		info.buffer = 0;  // yes, this happens.
+	}
+
+	u8 assembly[1000];
+	// Keep decoding from the current buffer until it runs out.
+	if (sas_.streamOffset + info.sampleSize <= sas_.bufSize[sas_.curBuffer]) {
+		// Just decode.
+		const u8 *srcData = Memory::GetPointer(sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset);
+		int bytesConsumed = 0;
+		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+		if (!decodeResult) {
+			ERROR_LOG(Log::ME, "SAS failed to decode regular packet");
+		}
+		sas_.streamOffset += bytesConsumed;
+	} else if (sas_.isStreaming) {
+		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
+		DEBUG_LOG(Log::ME, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
+
+		// Compute the part sizes using the current size.
+		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;
+		int part2Size = info.sampleSize - part1Size;
+		_dbg_assert_(part1Size >= 0);
+		if (part1Size >= 0) {
+			// Grab the partial packet, before we switch over to the other buffer.
+			Memory::Memcpy(assembly, sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset, part1Size);
+		}
+
+		// Check if we hit the end.
+		if (sas_.fileOffset >= info.fileDataEnd) {
+			DEBUG_LOG(Log::ME, "Streaming and hit the file end.");
+			*bytesWritten = 0;
+			*finish = 1;
+			return;
+		}
+
+		// Check that a new buffer actually exists
+		if (info.secondBuffer == sas_.bufPtr[sas_.curBuffer]) {
+			ERROR_LOG(Log::ME, "Can't enqueue the same buffer twice in a row!");
+			*bytesWritten = 0;
+			*finish = 1;
+			return;
+		}
+
+		if ((int)info.secondBuffer < 0) {
+			ERROR_LOG(Log::ME, "AtracSas streaming ran out of data, no secondbuffer pending");
+			*bytesWritten = 0;
+			*finish = 1;
+			return;
+		}
+
+		// Switch to the other buffer.
+		sas_.curBuffer ^= 1;
+
+		sas_.bufPtr[sas_.curBuffer] = info.secondBuffer;
+		sas_.bufSize[sas_.curBuffer] = info.secondBufferByte;
+		sas_.fileOffset += info.secondBufferByte;
+
+		sas_.streamOffset = part2Size;
+
+		// If we'll reach the end during this buffer, set second buffer to 0, signaling that we don't need more data.
+		if (sas_.fileOffset >= info.fileDataEnd) {
+			// We've reached the end.
+			info.secondBuffer = 0;
+			DEBUG_LOG(Log::ME, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
+		} else {
+			// Signal to the caller that we accept a new next buffer.
+			info.secondBuffer = 0xFFFFFFFF;
+		}
+
+		DEBUG_LOG(Log::ME, "Switching over to buffer %d, updating buffer to %08x, sz: %08x. %s", sas_.curBuffer, info.secondBuffer, info.secondBufferByte, info.secondBuffer == 0xFFFFFFFF ? "Signalling for more data." : "");
+
+		// Copy the second half (or if part1Size == 0, the whole packet) to the assembly buffer.
+		Memory::Memcpy(assembly + part1Size, sas_.bufPtr[sas_.curBuffer], part2Size);
+		// Decode the packet from the assembly, whether it's was assembled from two or one.
+		const u8 *srcData = assembly;
+		int bytesConsumed = 0;
+		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+		if (!decodeResult) {
+			ERROR_LOG(Log::ME, "SAS failed to decode assembled packet");
+		}
 	}
 }

@@ -188,9 +188,10 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, end_);
 }
 
-int SasAtrac3::setContext(u32 contextAddr) {
+int SasAtrac3::SetContext(u32 contextAddr) {
 	contextAddr_ = contextAddr;
-	// Note: This atracID_ is also stored in the loopNum member of the context.
+	// Note: On hardware, atracID_ is also stored in the loopNum member of the context.
+	// But we don't actually mirror our struct to memory, so it doesn't really matter.
 	atracID_ = AtracSasBindContextAndGetID(contextAddr);
 	if (!sampleQueue_)
 		sampleQueue_ = new BufferQueue();
@@ -199,19 +200,23 @@ int SasAtrac3::setContext(u32 contextAddr) {
 	return 0;
 }
 
-void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
+void SasAtrac3::GetNextSamples(s16 *outbuf, int wantedSamples) {
 	if (atracID_ < 0) {
 		end_ = true;
 		return;
 	}
+
+	if (!buf_) {
+		buf_ = new s16[0x800];
+	}
+
 	int finish = 0;
 	int wantedbytes = wantedSamples * sizeof(s16);
 	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
 		int numSamples = 0;
-		static s16 buf[0x800];
-		AtracSasDecodeData(atracID_, (u8*)buf, &numSamples, &finish);
+		AtracSasDecodeData(atracID_, (u8*)buf_, &numSamples, &finish);
 		if (numSamples > 0)
-			sampleQueue_->push((u8*)buf, numSamples * sizeof(s16));
+			sampleQueue_->push((u8*)buf_, numSamples * sizeof(s16));
 		else
 			finish = 1;
 	}
@@ -219,8 +224,8 @@ void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
 	end_ = finish == 1;
 }
 
-int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
-	if (atracID_ > 0) {
+int SasAtrac3::Concatenate(u32 bufPtr, u32 addbytes) {
+	if (atracID_ >= 0) {
 		AtracSasAddStreamData(atracID_, bufPtr, addbytes);
 	}
 	return 0;
@@ -496,7 +501,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		}
 		break;
 	case VOICETYPE_ATRAC3:
-		atrac3.getNextSamples(output, numSamples);
+		atrac3.GetNextSamples(output, numSamples);
 		break;
 	default:
 		memset(output, 0, numSamples * sizeof(s16));

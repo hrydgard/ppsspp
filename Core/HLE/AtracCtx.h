@@ -37,6 +37,20 @@ struct AtracResetBufferInfo {
 	AtracSingleResetBufferInfo second;
 };
 
+struct AtracSasStreamState {
+	u32 bufPtr[2]{};
+	u32 bufSize[2]{};
+	int streamOffset = 0;
+	int fileOffset = 0;
+	int curBuffer = 0;
+	bool isStreaming = false;
+
+	int CurPos() const {
+		int retval = fileOffset - bufSize[curBuffer] + streamOffset;
+		_dbg_assert_(retval >= 0);
+		return retval;
+	}
+};
 
 const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
@@ -112,7 +126,6 @@ public:
 
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
-	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
 	virtual int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;
 	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) = 0;
@@ -121,9 +134,14 @@ public:
 	virtual int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) = 0;
 	virtual int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) = 0;
-	virtual void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) = 0;
+
 	virtual u32 GetNextSamples() = 0;
 	virtual void InitLowLevel(const Atrac3LowLevelParams &params, int codecType) = 0;
+
+	virtual void CheckForSas() = 0;
+	virtual int EnqueueForSas(u32 address, u32 ptr) = 0;
+	virtual void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) = 0;
+	virtual const AtracSasStreamState *StreamStateForSas() const { return nullptr; }
 
 	virtual int GetSoundSample(int *endSample, int *loopStartSample, int *loopEndSample) const = 0;
 
@@ -205,7 +223,6 @@ public:
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	// Notify the player that the user has written some new data.
 	int AddStreamData(u32 bytesToAdd) override;
-	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
 	int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) override;
 	int GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) override;
 	int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels) override;
@@ -213,6 +230,9 @@ public:
 	int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
+
+	void CheckForSas() override;
+	int EnqueueForSas(u32 address, u32 ptr) override;
 	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) override;
 
 	// Returns how many samples the next DecodeData will write.
