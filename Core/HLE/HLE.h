@@ -181,7 +181,7 @@ __attribute__((format(printf, 7, 8)))
 #endif
 NO_INLINE
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, const char *reasonFmt, ...) {
-	if (!GenericLogEnabled(level, t)) {
+	if (!GenericLogEnabled(t, level)) {
 		if (leave) {
 			hleLeave();
 		}
@@ -221,7 +221,7 @@ template <bool leave, bool convert_code, typename T>
 [[nodiscard]]
 NO_INLINE
 T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag) {
-	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) && !reportTag) {
+	if (((int)level > MAX_LOGLEVEL || !GenericLogEnabled(t, level)) && !reportTag) {
 		if (leave) {
 			hleLeave();
 		}

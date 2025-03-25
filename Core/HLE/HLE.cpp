@@ -1057,13 +1057,13 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) ? "K " : "";
 	if (retmask != 'v') {
 		if (errStr) {
-			GenericLog(level, t, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
+			GenericLog(t, level, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
 		} else {
-			GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
+			GenericLog(t, level, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
 		}
 	} else {
 		// Skipping the res argument for this format string.
-		GenericLog(level, t, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
+		GenericLog(t, level, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
 	}
 
 	if (reportTag) {

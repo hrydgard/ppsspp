@@ -1267,7 +1267,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		// Save num of folder found
 		param->idList->resultCount = (u32)validDir.size();
 		// Log out the listing.
-		if (GenericLogEnabled(LogLevel::LINFO, Log::sceUtility)) {
+		if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
 			for (int i = 0; i < validDir.size(); i++) {
 				INFO_LOG(Log::sceUtility, "%s: mode %08x, ctime: %s, atime: %s, mtime: %s",
@@ -1387,7 +1387,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 		entry->name[15] = '\0';
 	}
 
-	if (GenericLogEnabled(LogLevel::LINFO, Log::sceUtility)) {
+	if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 		INFO_LOG(Log::sceUtility, "FILES: %d files listed (+ %d system, %d secure)", fileList->resultNumNormalEntries, fileList->resultNumSystemEntries, fileList->resultNumSecureEntries);
 		if (fileList->normalEntries.IsValid()) {
 			for (int i = 0; i < (int)fileList->resultNumNormalEntries; i++) {

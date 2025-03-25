@@ -41,11 +41,13 @@
 #include "Common/Data/Format/IniFile.h"
 #include "Common/StringUtils.h"
 
+LogChannel g_log[(size_t)Log::NUMBER_OF_LOGS];
 LogManager g_logManager;
 
 const char *hleCurrentThreadName = nullptr;
 
-bool *g_bLogEnabledSetting = nullptr;
+bool g_bDummySetting = true;
+bool *g_bLogEnabledSetting = &g_bDummySetting;
 
 static const char level_to_char[8] = "-NEWIDV";
 
@@ -59,17 +61,11 @@ static const char level_to_char[8] = "-NEWIDV";
 void AndroidLog(const LogMessage &message);
 #endif
 
-void GenericLog(LogLevel level, Log type, const char *file, int line, const char* fmt, ...) {
-	if (g_bLogEnabledSetting && !(*g_bLogEnabledSetting))
-		return;
+void GenericLog(Log type, LogLevel level, const char *file, int line, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	g_logManager.LogLine(level, type, file, line, fmt, args);
 	va_end(args);
-}
-
-bool GenericLogEnabled(LogLevel level, Log type) {
-	return (*g_bLogEnabledSetting) && g_logManager.IsEnabled(level, type);
 }
 
 // NOTE: Needs to be kept in sync with the Log enum.
@@ -127,11 +123,11 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 	initialized_ = true;
 
 	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == (size_t)Log::NUMBER_OF_LOGS);
-	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == ARRAY_SIZE(log_));
+	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == ARRAY_SIZE(g_log));
 
-	for (size_t i = 0; i < ARRAY_SIZE(log_); i++) {
-		log_[i].enabled = true;
-		log_[i].level = LogLevel::LINFO;
+	for (size_t i = 0; i < ARRAY_SIZE(g_log); i++) {
+		g_log[i].enabled = true;
+		g_log[i].level = LogLevel::LINFO;
 	}
 }
 
@@ -151,12 +147,12 @@ void LogManager::Shutdown() {
 	ringLog_.Clear();
 	initialized_ = false;
 
-	for (size_t i = 0; i < ARRAY_SIZE(log_); i++) {
-		log_[i].enabled = true;
+	for (size_t i = 0; i < ARRAY_SIZE(g_log); i++) {
+		g_log[i].enabled = true;
 #if defined(_DEBUG)
-		log_[i].level = LogLevel::LDEBUG;
+		g_log[i].level = LogLevel::LDEBUG;
 #else
-		log_[i].level = LogLevel::LINFO;
+		g_log[i].level = LogLevel::LINFO;
 #endif
 	}
 }
@@ -217,8 +213,8 @@ void LogManager::ChangeFileLog(const Path &filename) {
 
 void LogManager::SaveConfig(Section *section) {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
-		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), log_[i].enabled);
-		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)log_[i].level);
+		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), g_log[i].enabled);
+		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)g_log[i].level);
 	}
 }
 
@@ -228,8 +224,8 @@ void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
 		int level = 0;
 		section->Get((std::string(g_logTypeNames[i]) + "Enabled"), &enabled, true);
 		section->Get((std::string(g_logTypeNames[i]) + "Level"), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
-		log_[i].enabled = enabled;
-		log_[i].level = (LogLevel)level;
+		g_log[i].enabled = enabled;
+		g_log[i].level = (LogLevel)level;
 	}
 }
 
@@ -243,9 +239,11 @@ void LogManager::SetOutputsEnabled(LogOutput outputs) {
 void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, const char *format, va_list args) {
 	char msgBuf[1024];
 
-	const LogChannel &log = log_[(size_t)type];
-	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0)
+	const LogChannel &log = g_log[(size_t)type];
+	if (level > log.level || !log.enabled || outputs_ == (LogOutput)0) {
+		// If we get here, it should have been caught earlier.
 		return;
+	}
 
 	LogMessage message;
 	message.level = level;
