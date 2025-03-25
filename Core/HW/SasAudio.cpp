@@ -225,7 +225,7 @@ void SasAtrac3::GetNextSamples(s16 *outbuf, int wantedSamples) {
 }
 
 int SasAtrac3::Concatenate(u32 bufPtr, u32 addbytes) {
-	if (atracID_ > 0) {
+	if (atracID_ >= 0) {
 		AtracSasAddStreamData(atracID_, bufPtr, addbytes);
 	}
 	return 0;

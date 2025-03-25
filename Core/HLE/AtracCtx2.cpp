@@ -1083,9 +1083,9 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 	// Also works for the non-streaming case.
 	if (sas_.bufPtr[0] == 0 && sas_.curBuffer == 0) {
 		sas_.bufPtr[0] = info.buffer;
-		sas_.bufSize[0] = info.bufferByte - info.streamOff;
+		sas_.bufSize[0] = info.bufferByte - info.streamOff;  // also equals info.streamDataByte
 		sas_.streamOffset = 0;
-		sas_.fileOffset = info.bufferByte;
+		sas_.fileOffset = info.bufferByte;  // Possibly should just set it to info.curFileOff
 	}
 
 	u8 assembly[1000];
