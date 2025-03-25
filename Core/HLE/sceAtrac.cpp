@@ -1138,7 +1138,6 @@ int AtracSasBindContextAndGetID(u32 contextAddr) {
 		_dbg_assert_(atracID != -1);
 	}
 
-	// Not actually a hack, this happens.
 	AtracBase *atrac = getAtrac(atracID);
 	atrac->CheckForSas();
 	return atracID;

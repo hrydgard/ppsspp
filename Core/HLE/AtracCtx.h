@@ -231,8 +231,8 @@ public:
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, int *remains) override;
 	int DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) override;
 
-	void CheckForSas() {}
-	int EnqueueForSas(u32 address, u32 ptr) override { return 0; }
+	void CheckForSas() override;
+	int EnqueueForSas(u32 address, u32 ptr) override;
 	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) override;
 
 	// Returns how many samples the next DecodeData will write.

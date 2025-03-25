@@ -946,10 +946,29 @@ int Atrac::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, i
 	return 0;
 }
 
+void Atrac::CheckForSas() {
+	SetOutputChannels(1);
+}
+
+int Atrac::EnqueueForSas(u32 bufPtr, u32 bytesToAdd) {
+	int addbytes = std::min(bytesToAdd, track_.fileSize - first_.fileoffset - track_.FirstOffsetExtra());
+	Memory::Memcpy(dataBuf_ + first_.fileoffset + track_.FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
+	first_.size += bytesToAdd;
+	if (first_.size >= track_.fileSize) {
+		first_.size = track_.fileSize;
+		if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
+			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+	}
+	first_.fileoffset += addbytes;
+	// refresh context_
+	WriteContextToPSPMem();
+	return 0;
+}
+
 void Atrac::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
-	// Disabled, can't work now that we changed the interface.
-	*bytesWritten = 0;
-	*finish = 1;
+	// Hack, but works.
+	int samplesNum;
+	DecodeData((u8 *)dstData, 0, &samplesNum, finish, nullptr);
 }
 
 void Atrac::NotifyGetContextAddress() {
