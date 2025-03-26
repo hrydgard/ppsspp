@@ -47,7 +47,8 @@ void FreeMemoryPages(void* ptr, size_t size);
 
 // Regular aligned memory. Don't try to apply memory protection willy-nilly to memory allocated this way as in-page alignment is unknown (though could be checked).
 // No longer asserts, will return nullptr on failure.
-void* AllocateAlignedMemory(size_t size, size_t alignment);
+// WARNING: Not necessarily malloc-compatible!
+void *AllocateAlignedMemory(size_t size, size_t alignment);
 void FreeAlignedMemory(void* ptr);
 
 int GetMemoryProtectPageSize();

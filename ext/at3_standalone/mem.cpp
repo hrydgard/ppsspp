@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "Common/MemoryUtil.h"
+
 #include "compat.h"
 #include "intreadwrite.h"
 #include "mem.h"
@@ -39,8 +41,7 @@
   * Multiply two size_t values checking for overflow.
   * @return  0 if success, AVERROR(EINVAL) if overflow.
   */
-static inline int av_size_mult(size_t a, size_t b, size_t *r)
-{
+static inline int av_size_mult(size_t a, size_t b, size_t *r) {
     size_t t = a * b;
     /* Hack inspired from glibc: only try the division if nelem and elsize
      * are both greater than sqrt(SIZE_MAX). */
@@ -50,55 +51,30 @@ static inline int av_size_mult(size_t a, size_t b, size_t *r)
     return 0;
 }
 
-#define ALIGN (HAVE_AVX ? 32 : 16)
-
-void *av_malloc(size_t size)
-{
+void *av_malloc(size_t size) {
     void *ptr = NULL;
-    ptr = malloc(size);
-    if(!ptr && !size) {
-        size = 1;
-        ptr= av_malloc(1);
+
+    // Some code requires av malloc to have an alignment of 32 at least. See #20155
+    ptr = AllocateAlignedMemory(size, 32);
+    if (!ptr && !size) {
+        // Compensate for platforms that don't allow zero-size allocations (not sure if this is actually an issue)
+        return av_malloc(1);
     }
     return ptr;
 }
 
-void *av_realloc(void *ptr, size_t size)
-{
-    return realloc(ptr, size + !size);
+void av_free(void *ptr) {
+    FreeAlignedMemory(ptr);
 }
 
-void *av_realloc_f(void *ptr, size_t nelem, size_t elsize)
-{
-    size_t size;
-    void *r;
-
-    if (av_size_mult(elsize, nelem, &size)) {
-        av_free(ptr);
-        return NULL;
-    }
-    r = av_realloc(ptr, size);
-    if (!r && size)
-        av_free(ptr);
-    return r;
-}
-
-void av_free(void *ptr)
-{
-    free(ptr);
-}
-
-void av_freep(void *arg)
-{
+void av_freep(void *arg) {
     void *val;
-
     memcpy(&val, arg, sizeof(val));
     memset(arg, 0, sizeof(val));
     av_free(val);
 }
 
-void *av_mallocz(size_t size)
-{
+void *av_mallocz(size_t size) {
     void *ptr = av_malloc(size);
     if (ptr)
         memset(ptr, 0, size);
