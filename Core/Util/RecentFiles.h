@@ -2,9 +2,13 @@
 
 #include <functional>
 #include <vector>
+#include <queue>
 #include <string>
+#include <string_view>
 #include <mutex>
+#include <condition_variable>
 #include <thread>
+#include <memory>
 
 #include "Common/Data/Format/IniFile.h"
 
@@ -18,23 +22,43 @@ public:
 
 	void Load(const Section *recent, int maxRecent);
 	void Save(Section *recent, int maxRecent);
-	void Add(const std::string &filename);
-	void Remove(const std::string &filename);
+	void Add(std::string_view filename);
+	void Remove(std::string_view filename);
 	void Clean();
 	bool HasAny() const;
 	void Clear();
-	bool ContainsFile(const std::string &filename);
+	bool ContainsFile(std::string_view filename);
 
 	std::vector<std::string> GetRecentFiles() const;
 private:
-	void ResetThread();
-	void SetThread(std::function<void()> f);
-	void RemoveResolved(const std::string &resolvedFilename);
-	std::vector<std::string> recentIsos;
-	mutable std::mutex recentIsosLock;
-	mutable std::mutex recentIsosThreadLock;
-	mutable std::thread recentIsosThread;
-	bool recentIsosThreadPending = false;
+	enum class RecentCmd {
+		Exit,
+		Clear,
+		CleanMissing,
+		Add,
+		Remove,
+		ReplaceAll,
+	};
+
+	struct RecentCommand {
+		RecentCmd cmd;
+		std::unique_ptr<std::vector<std::string>> varg;
+		std::unique_ptr<std::string> sarg;
+	};
+
+	void PerformCleanMissing();
+	void WipePendingCommandsUnderLock();
+	void ThreadFunc();
+
+	std::queue<RecentCommand> cmds_;
+
+	mutable std::mutex recentLock_;
+	std::vector<std::string> recentFiles_;
+
+	std::thread thread_;
+	std::mutex cmdLock_;
+	std::condition_variable cmdCondVar_;
+
 };
 
 // Singleton, don't make more.
