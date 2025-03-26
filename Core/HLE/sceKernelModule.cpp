@@ -990,12 +990,12 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		return false;
 	}
 
-	u32_le *entryPos = (u32_le *)Memory::GetPointerUnchecked(module->libstub);
-	u32_le *entryEnd = (u32_le *)Memory::GetPointerUnchecked(module->libstubend);
+	const u32_le *entryPos = (const u32_le *)Memory::GetPointerUnchecked(module->libstub);
+	const u32_le *entryEnd = (const u32_le *)Memory::GetPointerUnchecked(module->libstubend);
 
 	bool needReport = false;
 	while (entryPos < entryEnd) {
-		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
+		const PspLibStubEntry *entry = (const PspLibStubEntry *)entryPos;
 		entryPos += entry->size;
 
 		const char *modulename;
@@ -1071,7 +1071,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 				}
 
 				WriteVarSymbolState state;
-				u32_le *varRef = (u32_le *)Memory::GetPointerUnchecked(varRefsPtr);
+				const u32_le *varRef = (const u32_le *)Memory::GetPointerUnchecked(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
 					var.nid = nid;
 					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
@@ -1089,9 +1089,9 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 	if (needReport) {
 		std::string debugInfo;
-		entryPos = (u32_le *)Memory::GetPointer(module->libstub);
+		entryPos = (const u32_le *)Memory::GetPointer(module->libstub);
 		while (entryPos < entryEnd) {
-			PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
+			const PspLibStubEntry *entry = (const PspLibStubEntry *)entryPos;
 			entryPos += entry->size;
 
 			char temp[512];
@@ -1209,10 +1209,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	bool reportedModule = false;
 	u32 devkitVersion = 0;
 	u8 *newptr = 0;
-	u32_le *magicPtr = (u32_le *) ptr;
+	const u32_le *magicPtr = (const u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
 
-		u32 headerSize = *(u32_le*)(ptr + 4);
+		u32 headerSize = *(const u32_le*)(ptr + 4);
 		if (headerSize < elfSize) {
 			// Parse and print the lib info
 			parsePrxLibInfo(ptr, headerSize);
@@ -1220,7 +1220,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Advance the pointer to the relevant data
 			ptr += headerSize;
 			elfSize -= headerSize;
-			magicPtr = (u32_le *)ptr;
+			magicPtr = (const u32_le *)ptr;
 		}
 		else {
 			ERROR_LOG(Log::sceModule, "~SCE module: bad data");
@@ -1229,7 +1229,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e && elfSize > sizeof(PSP_Header)) { // "~PSP"
 		DEBUG_LOG(Log::sceModule, "Decrypting ~PSP file");
-		PSP_Header *head = (PSP_Header*)ptr;
+		const PSP_Header *head = (const PSP_Header*)ptr;
 		devkitVersion = head->devkitversion;
 
 		if (IsHLEVersionedModule(head->modname)) {
@@ -1254,7 +1254,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		magicPtr = (u32_le *)ptr;
+		magicPtr = (const u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 		if (ret <= 0 && *(u32_le *)&ptr[0x150] == 0x464c457f) {
 			ret = head->psp_size - 0x150;
@@ -1371,7 +1371,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 
 	// Open ELF reader
-	ElfReader reader((void*)ptr, elfSize);
+	ElfReader reader((const void *)ptr, elfSize);
 
 	int result = reader.LoadInto(loadAddress, fromTop);
 	if (result != SCE_KERNEL_ERROR_OK) {
@@ -1388,7 +1388,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	currentMIPS->InvalidateICache(module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
-	PspModuleInfo *modinfo;
+	const PspModuleInfo *modinfo;
 
 	u32 modinfoaddr;
 
@@ -1407,7 +1407,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		return nullptr;
 	}
 
-	modinfo = (PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
+	modinfo = (const PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
@@ -1539,8 +1539,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	// Look at the exports, too.
 
-	struct PspLibEntEntry
-	{
+	struct PspLibEntEntry {
 		u32_le name; /* ent's name (module name) address */
 		u16_le version;
 		u16_le flags;
@@ -1589,8 +1588,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			continue;
 		}
 
-		u32_le *residentPtr = (u32_le *)Memory::GetPointerUnchecked(ent->resident);
-		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
+		const u32_le *residentPtr = (const u32_le *)Memory::GetPointerUnchecked(ent->resident);
+		const u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
 		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {
 			WARN_LOG_REPORT(Log::Loader, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=%08x", ent->size, ent->vcountNew, ent->unknown1, ent->unknown2);
@@ -1962,7 +1961,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
-	const u32 codeStartAddr = PSP_GetUserMemoryBase();
+	constexpr u32 codeStartAddr = PSP_GetUserMemoryBase();
 	mipsr4k.pc = codeStartAddr;
 
 	GPURecord::WriteRunDumpCode(codeStartAddr);
@@ -2094,9 +2093,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModule: unsupported flags: %08x", flags);
 	}
-	SceKernelLMOption *lmoption = 0;
+	const SceKernelLMOption *lmoption = 0;
 	if (optionAddr) {
-		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(Log::Loader, "sceKernelLoadModule(%s): invalid position (%i)", name, (int)lmoption->position);
 			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "module loaded", 500);
@@ -2547,9 +2546,9 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported flags: %08x", flags);
 	}
-	SceKernelLMOption *lmoption = 0;
+	const SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
-		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	u32 pos = (u32)pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
@@ -2608,9 +2607,9 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
 	}
-	SceKernelLMOption *lmoption = 0;
+	const SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
-		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	std::string error_string;
