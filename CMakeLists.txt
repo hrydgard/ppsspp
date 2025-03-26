@@ -2361,8 +2361,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/HTTPFileLoader.h
 	Core/FileLoaders/LocalFileLoader.cpp
 	Core/FileLoaders/LocalFileLoader.h
-	Core/FileLoaders/RamCachingFileLoader.cpp
-	Core/FileLoaders/RamCachingFileLoader.h
 	Core/FileLoaders/RetryingFileLoader.cpp
 	Core/FileLoaders/RetryingFileLoader.h
 	Core/MIPS/MIPS.cpp
