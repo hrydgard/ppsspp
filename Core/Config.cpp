@@ -1087,7 +1087,6 @@ Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
-	ResetRecentIsosThread();
 }
 
 void Config::LoadLangValuesMapping() {
@@ -1242,7 +1241,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	if (iMaxRecent > 0) {
-		LoadRecentIsos(recent, iMaxRecent);
+		g_recentFiles.Load(recent, iMaxRecent);
 	}
 
 	// Time tracking
@@ -1339,7 +1338,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		loadGameConfig(gameId_, gameIdTitle_);
 	}
 
-	CleanRecent();
+	g_recentFiles.Clean();
 
 	PostLoadCleanup(false);
 
@@ -1362,7 +1361,7 @@ bool Config::Save(const char *saveReason) {
 
 		PreSaveCleanup(false);
 
-		CleanRecent();
+		g_recentFiles.Clean();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
 			WARN_LOG(Log::Loader, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
@@ -1379,7 +1378,7 @@ bool Config::Save(const char *saveReason) {
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
-		SaveRecentIsos(recent, iMaxRecent);
+		g_recentFiles.Save(recent, iMaxRecent);
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();
@@ -1572,23 +1571,6 @@ void Config::DismissUpgrade() {
 	g_Config.dismissedVersion = g_Config.upgradeVersion;
 }
 
-void Config::AddRecent(const std::string &filename) {
-	// Don't bother with this if the user disabled recents (it's -1).
-	if (iMaxRecent <= 0)
-		return;
-
-	// We'll add it back below.  This makes sure it's at the front, and only once.
-	::AddRecent(filename, iMaxRecent);
-}
-
-void Config::RemoveRecent(const std::string &filename) {
-	if (iMaxRecent <= 0) {
-		return;
-	}
-
-	::RemoveRecent(filename);
-}
-
 // On iOS, the path to the app documents directory changes on each launch.
 // Example path:
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
@@ -1615,22 +1597,6 @@ bool TryUpdateSavedPath(Path *path) {
 #else
 	return false;
 #endif
-}
-
-void Config::CleanRecent() {
-	CleanRecentIsos();
-}
-
-std::vector<std::string> Config::RecentIsos() const {
-	return GetRecentIsos();
-}
-
-bool Config::HasRecentIsos() const {
-	return ::HasRecentIsos();
-}
-
-void Config::ClearRecentIsos() {
-	::CleanRecentIsos();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
@@ -1686,7 +1652,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		}
 
 		if (whatToRestore & RestoreSettingsBits::RECENT) {
-			ClearRecentIsos();
+			g_recentFiles.Clear();
 			currentDirectory = defaultCurrentDirectory;
 		}
 	}

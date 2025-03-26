@@ -620,11 +620,6 @@ public:
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	// Utility functions for "recent" management
-	void AddRecent(const std::string &file);
-	void RemoveRecent(const std::string &file);
-	void CleanRecent();
-
 	static void DownloadCompletedCallback(http::Request &download);
 	void DismissUpgrade();
 
@@ -641,10 +636,6 @@ public:
 			return iForceFullScreen == 1;
 		return bFullScreen;
 	}
-
-	std::vector<std::string> RecentIsos() const;
-	bool HasRecentIsos() const;
-	void ClearRecentIsos();
 
 	const std::map<std::string, std::pair<std::string, int>, std::less<>> &GetLangValuesMapping();
 	bool LoadAppendedConfig();

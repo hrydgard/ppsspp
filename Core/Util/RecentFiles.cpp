@@ -10,37 +10,54 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 
-// Not in Config.h because it's #included a lot.
-std::mutex recentIsosLock;
-std::mutex recentIsosThreadLock;
-std::thread recentIsosThread;
-bool recentIsosThreadPending = false;
+RecentFilesManager g_recentFiles;
 
-std::vector<std::string> recentIsos;
+RecentFilesManager::RecentFilesManager() {
 
-std::vector<std::string> GetRecentIsos() {
+}
+
+RecentFilesManager::~RecentFilesManager() {
+	ResetThread();
+}
+
+std::vector<std::string> RecentFilesManager::GetRecentFiles() const {
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	return recentIsos;
 }
 
-bool HasRecentIsos() {
+bool RecentFilesManager::ContainsFile(const std::string &filename) {
+	if (g_Config.iMaxRecent <= 0)
+		return false;
+	// Unfortunately this resolve needs to be done synchonously.
+	std::string resolvedFilename = File::ResolvePath(filename);
+
+	std::lock_guard<std::mutex> guard(recentIsosLock);
+	for (const auto & file : recentIsos) {
+		if (file == resolvedFilename) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool RecentFilesManager::HasAny() const {
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	return !recentIsos.empty();
 }
 
-void ClearRecentIsos() {
-	ResetRecentIsosThread();
+void RecentFilesManager::Clear() {
+	ResetThread();
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	recentIsos.clear();
 }
 
-void ResetRecentIsosThread() {
+void RecentFilesManager::ResetThread() {
 	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
 	if (recentIsosThreadPending && recentIsosThread.joinable())
 		recentIsosThread.join();
 }
 
-void SetRecentIsosThread(std::function<void()> f) {
+void RecentFilesManager::SetThread(std::function<void()> f) {
 	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
 	if (recentIsosThreadPending && recentIsosThread.joinable())
 		recentIsosThread.join();
@@ -48,8 +65,8 @@ void SetRecentIsosThread(std::function<void()> f) {
 	recentIsosThreadPending = true;
 }
 
-void LoadRecentIsos(const Section *recent, int maxRecent) {
-	ResetRecentIsosThread();
+void RecentFilesManager::Load(const Section *recent, int maxRecent) {
+	ResetThread();
 
 	std::vector<std::string> newRecent;
 	for (int i = 0; i < maxRecent; i++) {
@@ -66,8 +83,8 @@ void LoadRecentIsos(const Section *recent, int maxRecent) {
 	recentIsos = newRecent;
 }
 
-void SaveRecentIsos(Section *recent, int maxRecent) {
-	ResetRecentIsosThread();
+void RecentFilesManager::Save(Section *recent, int maxRecent) {
+	ResetThread();
 
 	std::vector<std::string> recentCopy;
 	{
@@ -86,8 +103,8 @@ void SaveRecentIsos(Section *recent, int maxRecent) {
 	}
 }
 
-void RemoveRecentResolved(const std::string &resolvedFilename) {
-	ResetRecentIsosThread();
+void RecentFilesManager::RemoveResolved(const std::string &resolvedFilename) {
+	ResetThread();
 
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [resolvedFilename](const auto &str) {
@@ -97,24 +114,32 @@ void RemoveRecentResolved(const std::string &resolvedFilename) {
 	recentIsos.erase(iter, recentIsos.end());
 }
 
-void AddRecent(const std::string &filename, int maxRecent) {
-	std::string resolvedFilename = File::ResolvePath(filename);
-	RemoveRecentResolved(resolvedFilename);
+void RecentFilesManager::Add(const std::string &filename) {
+	if (g_Config.iMaxRecent <= 0) {
+		return;
+	}
 
-	ResetRecentIsosThread();
+	std::string resolvedFilename = File::ResolvePath(filename);
+	RemoveResolved(resolvedFilename);
+
+	ResetThread();
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	recentIsos.insert(recentIsos.begin(), resolvedFilename);
-	if ((int)recentIsos.size() > maxRecent)
-		recentIsos.resize(maxRecent);
+	if ((int)recentIsos.size() > g_Config.iMaxRecent)
+		recentIsos.resize(g_Config.iMaxRecent);
 }
 
-void RemoveRecent(const std::string &filename) {
+void RecentFilesManager::Remove(const std::string &filename) {
+	if (g_Config.iMaxRecent <= 0) {
+		return;
+	}
+
 	std::string resolvedFilename = File::ResolvePath(filename);
-	RemoveRecentResolved(resolvedFilename);
+	RemoveResolved(resolvedFilename);
 }
 
-void CleanRecentIsos() {
-	SetRecentIsosThread([] {
+void RecentFilesManager::Clean() {
+	SetThread([this] {
 		SetCurrentThreadName("RecentISOs");
 
 		AndroidJNIThreadContext jniContext;  // destructor detaches
