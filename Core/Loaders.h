@@ -148,6 +148,6 @@ Path ResolvePBPFile(const Path &filename);
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
 // Can modify the string filename, as it calls IdentifyFile above.
-bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
+bool LoadFile(FileLoader **fileLoaderPtr, IdentifiedFileType type, std::string *error_string);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);

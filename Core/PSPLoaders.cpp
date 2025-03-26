@@ -65,14 +65,7 @@ static void UseLargeMem(int memsize) {
 	}
 }
 
-// We gather the game info before actually loading/booting the ISO
-// to determine if the emulator should enable extra memory and
-// double-sized texture coordinates.
-void InitMemoryForGameISO(FileLoader *fileLoader) {
-	if (!fileLoader->Exists()) {
-		return;
-	}
-
+bool MountGameISO(FileLoader *fileLoader) {
 	std::shared_ptr<IFileSystem> fileSystem;
 	std::shared_ptr<IFileSystem> blockSystem;
 
@@ -81,39 +74,46 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
-		// Can't init anything without a block device...
-		if (!bd)
-			return;
+		if (!bd) {
+			// Can only fail if the ISO is bad.
+			return false;
+		}
 
-		fileSystem = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
-		blockSystem = std::make_shared<ISOBlockSystem>(fileSystem);
+		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
+		fileSystem = iso;
+		blockSystem = std::make_shared<ISOBlockSystem>(iso);
 	}
 
 	pspFileSystem.Mount("umd0:", blockSystem);
 	pspFileSystem.Mount("umd1:", blockSystem);
-	pspFileSystem.Mount("disc0:", fileSystem);
 	pspFileSystem.Mount("umd:", blockSystem);
-	// TODO: Should we do this?
-	//pspFileSystem.Mount("host0:", fileSystem);
+	pspFileSystem.Mount("disc0:", fileSystem);
+	return true;
+}
 
-	std::string gameID;
-	std::string umdData;
-
+bool LoadParamSFOFromDisc() {
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
-
 	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
-			UseLargeMem(g_paramSFO.GetValueInt("MEMSIZE"));
-			gameID = g_paramSFO.GetValueString("DISC_ID");
+			return true;
 		}
+	}
+	return false;
+}
 
-		std::vector<u8> umdDataBin;
-		if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-			umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
-		}
+// We gather the game info before actually loading/booting the ISO
+// to determine if the emulator should enable extra memory and
+// double-sized texture coordinates.
+void InitMemorySizeForGame() {
+	std::string gameID;
+	std::string umdData;
+
+	if (g_paramSFO.IsValid()) {
+		UseLargeMem(g_paramSFO.GetValueInt("MEMSIZE"));
+		gameID = g_paramSFO.GetValueString("DISC_ID");
 	}
 
 	for (size_t i = 0; i < g_HDRemastersCount; i++) {
@@ -121,6 +121,14 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (entry.gameID != gameID) {
 			continue;
 		}
+
+		if (umdData.empty()) {
+			std::vector<u8> umdDataBin;
+			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
+				umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
+			}
+		}
+
 		if (entry.umdDataValue && umdData.find(entry.umdDataValue) == umdData.npos) {
 			continue;
 		}
@@ -135,50 +143,14 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	}
 }
 
-bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
-	if (!fileLoader->Exists()) {
-		return false;
-	}
-
-	std::shared_ptr<IFileSystem> fileSystem;
-	std::shared_ptr<IFileSystem> blockSystem;
-
-	if (fileLoader->IsDirectory()) {
-		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
-		blockSystem = fileSystem;
-	} else {
-		auto bd = constructBlockDevice(fileLoader);
-		if (!bd)
-			return false;
-
-		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
-		fileSystem = iso;
-		blockSystem = std::make_shared<ISOBlockSystem>(iso);
-	}
-
-	pspFileSystem.Remount("umd0:", blockSystem);
-	pspFileSystem.Remount("umd1:", blockSystem);
-	pspFileSystem.Remount("umd:", blockSystem);
-	pspFileSystem.Remount("disc0:", fileSystem);
-
-	return true;
-}
-
-void InitMemoryForGamePBP(FileLoader *fileLoader) {
-	if (!fileLoader->Exists()) {
-		return;
-	}
-
+bool LoadParamSFOFromPBP(FileLoader *fileLoader) {
 	PBPReader pbp(fileLoader);
 	if (pbp.IsValid() && !pbp.IsELF()) {
 		std::vector<u8> sfoData;
 		if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+			// Carefully parse param SFO for PBP files.
 			ParamSFOData paramSFO;
 			if (paramSFO.ReadSFO(sfoData)) {
-				// This is the parameter CFW uses to determine homebrew wants the full 64MB.
-				UseLargeMem(paramSFO.GetValueInt("MEMSIZE"));
-
-				// Take this moment to bring over the title, if set.
 				std::string title = paramSFO.GetValueString("TITLE");
 				if (g_paramSFO.GetValueString("TITLE").empty() && !title.empty()) {
 					g_paramSFO.SetValue("TITLE", title, (int)title.size());
@@ -200,9 +172,11 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 						ver = "1.00";
 					g_paramSFO.SetValue("DISC_VERSION", ver, (int)ver.size());
 				}
+				return true;
 			}
 		}
 	}
+	return false;
 }
 
 
@@ -232,16 +206,13 @@ static const char * const altBootNames[] = {
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
-	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
-	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
-	if (fileInfo.exists) {
-		std::vector<u8> paramsfo;
-		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo)) {
-			std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-			INFO_LOG(Log::Loader, "%s", title.c_str());
-			System_SetWindowTitle(title);
-		}
+	if (g_paramSFO.IsValid()) {
+		std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+		INFO_LOG(Log::Loader, "%s", title.c_str());
+		System_SetWindowTitle(title);
+	} else {
+		// Should have been loaded earlier in the process.
+		_dbg_assert_(false);
 	}
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");

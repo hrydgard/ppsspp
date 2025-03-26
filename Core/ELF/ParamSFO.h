@@ -59,6 +59,7 @@ public:
 	// If not found, returns a negative value.
 	int GetDataOffset(const u8 *paramsfo, const char *dataName);
 
+	bool IsValid() const { return !values.empty(); }
 	void Clear();
 
 private:
