@@ -62,13 +62,12 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
-#include "Common/File/FileUtil.h"
+#include "Core/Util/RecentFiles.h"
 #include "Common/StringUtils.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Playback.h"
 #include "GPU/Debugger/RecordFormat.h"
-#include "Core/RetroAchievements.h"
 
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
@@ -316,7 +315,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	}
 
 	if (g_CoreParameter.updateRecent) {
-		g_Config.AddRecent(g_CoreParameter.fileToStart.ToString());
+		g_recentFiles.Add(g_CoreParameter.fileToStart.ToString());
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);

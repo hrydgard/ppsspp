@@ -111,6 +111,8 @@ fi
 # Strict errors. Any non-zero return exits this script
 set -e
 
+echo Building with $CORES_COUNT threads
+
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
 

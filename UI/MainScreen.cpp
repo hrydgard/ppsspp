@@ -43,6 +43,7 @@
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Core/System.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
@@ -685,7 +686,7 @@ bool GameBrowser::DisplayTopBar() {
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
-		for (auto &str : g_Config.RecentIsos()) {
+		for (auto &str : g_recentFiles.GetRecentFiles()) {
 			filenames.emplace_back(str);
 		}
 		return true;
@@ -1117,7 +1118,7 @@ void MainScreen::CreateViews() {
 		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
 	bool storageIsTemporary = IsTempPath(GetSysDirectory(DIRECTORY_SAVEDATA)) && !confirmedTemporary_;
 	if (showRecent && !hasStorageAccess) {
-		showRecent = g_Config.HasRecentIsos();
+		showRecent = g_recentFiles.HasAny();
 	}
 
 	if (showRecent) {
@@ -1198,7 +1199,7 @@ void MainScreen::CreateViews() {
 			tabRemote->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 		}
 
-		if (g_Config.HasRecentIsos()) {
+		if (g_recentFiles.HasAny()) {
 			tabHolder_->SetCurrentTab(std::clamp(g_Config.iDefaultTab, 0, g_Config.bRemoteTab ? 3 : 2), true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);	
@@ -1432,6 +1433,8 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 			LaunchFile(screenManager(), Path(std::string(value)));
 		}
 	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
+		RecreateViews();
+	} else if (message == UIMessage::RECENT_FILES_CHANGED) {
 		RecreateViews();
 	}
 }
@@ -1703,7 +1706,7 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer());
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
-	if (g_Config.HasRecentIsos()) {
+	if (g_recentFiles.HasAny()) {
 		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1, true);
@@ -1774,7 +1777,7 @@ UI::EventReturn GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_Config.ClearRecentIsos();
+	g_recentFiles.Clear();
 	OnRecentChanged.Trigger(e);
 	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;

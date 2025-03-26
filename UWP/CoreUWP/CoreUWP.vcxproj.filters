@@ -1234,6 +1234,9 @@
     <ClCompile Include="..\..\Core\Util\AtracTrack.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Util\RecentFiles.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1950,6 +1953,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Util\AtracTrack.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Util\RecentFiles.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>

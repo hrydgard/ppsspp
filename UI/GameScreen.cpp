@@ -39,6 +39,7 @@
 #include "Core/Loaders.h"
 #include "Core/Util/GameDB.h"
 #include "Core/HLE/Plugins.h"
+#include "Core/Util/RecentFiles.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
@@ -266,7 +267,7 @@ void GameScreen::CreateViews() {
 		});
 	}
 
-	if (isRecentGame(gamePath_)) {
+	if (g_recentFiles.ContainsFile(gamePath_.ToString())) {
 		Choice *removeButton = rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))));
 		removeButton->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 		if (inGame_) {
@@ -577,21 +578,8 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 	}
 }
 
-bool GameScreen::isRecentGame(const Path &gamePath) {
-	if (g_Config.iMaxRecent <= 0)
-		return false;
-
-	const std::string resolved = File::ResolvePath(gamePath.ToString());
-	for (const auto &iso : g_Config.RecentIsos()) {
-		const std::string recent = File::ResolvePath(iso);
-		if (resolved == recent)
-			return true;
-	}
-	return false;
-}
-
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
-	g_Config.RemoveRecent(gamePath_.ToString());
+	g_recentFiles.Remove(gamePath_.ToString());
 	screenManager()->switchScreen(new MainScreen());
 	return UI::EVENT_DONE;
 }

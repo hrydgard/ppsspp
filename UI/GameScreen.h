@@ -47,7 +47,6 @@ protected:
 	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);
-	bool isRecentGame(const Path &gamePath);
 
 private:
 	UI::Choice *AddOtherChoice(UI::Choice *choice);

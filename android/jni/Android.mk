@@ -759,6 +759,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/GameManager.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
+  $(SRC)/Core/Util/RecentFiles.cpp \
   $(SRC)/git-version.cpp
 
 LOCAL_MODULE := ppsspp_core

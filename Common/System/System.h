@@ -279,6 +279,7 @@ enum class UIMessage {
 	GAMESETTINGS_SEARCH,
 	SAVEDATA_SEARCH,
 	RESTART_GRAPHICS,
+	RECENT_FILES_CHANGED,
 };
 
 std::string System_GetProperty(SystemProperty prop);

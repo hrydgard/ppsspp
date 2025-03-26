@@ -20,9 +20,10 @@
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
-#include "Core/Config.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
+#include "Core/Util/RecentFiles.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -622,14 +623,14 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
     std::shared_ptr<I18NCategory> mainmenuLocalization = GetI18NCategory(I18NCat::MAINMENU);
 #define MAINMENU_LOCALIZED(key) @(mainmenuLocalization->T_cstr(key))
 
-    std::vector<std::string> recentIsos = g_Config.RecentIsos();
+    std::vector<std::string> recentFiles = g_recentFiles.GetRecentFiles();
     NSMenuItem *openRecent = [[NSMenuItem alloc] initWithTitle:MAINMENU_LOCALIZED("Recent") action:nil keyEquivalent:@""];
     NSMenu *recentsMenu = [[NSMenu alloc] init];
-    if (recentIsos.empty())
+    if (recentFiles.empty())
         openRecent.enabled = NO;
     
-    for (int i = 0; i < recentIsos.size(); i++) {
-        std::string filename = Path(recentIsos[i]).GetFilename();
+    for (const auto &file : recentFiles) {
+        std::string filename = Path(file).GetFilename();
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@(filename.c_str()) action:@selector(openRecentItem:) keyEquivalent:@""];
         item.target = self;
         [recentsMenu addItem:item];
@@ -640,7 +641,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_Config.RecentIsos()[item.tag].c_str());
+    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_recentFiles.GetRecentFiles()[item.tag].c_str());
 }
 
 -(void)openSystemFileBrowser {

@@ -41,6 +41,7 @@
 #include "Core/System.h"
 #include "Core/Loaders.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
 
@@ -81,7 +82,7 @@ bool GameInfo::Delete() {
 			Path fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
-			g_Config.RemoveRecent(filePath_.ToString());
+			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
@@ -94,7 +95,7 @@ bool GameInfo::Delete() {
 				ERROR_LOG(Log::System, "Failed to delete file");
 				return false;
 			}
-			g_Config.CleanRecent();
+			g_recentFiles.Clean();
 			return true;
 		}
 	case IdentifiedFileType::PSP_ELF:
@@ -109,7 +110,7 @@ bool GameInfo::Delete() {
 			const Path &fileToRemove = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
-			g_Config.RemoveRecent(filePath_.ToString());
+			g_recentFiles.Remove(filePath_.ToString());
 			return true;
 		}
 

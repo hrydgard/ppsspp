@@ -52,11 +52,12 @@
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
-#include "Core/Loaders.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Instance.h"
+#include "Core/Util/RecentFiles.h"
+
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 // TODO: Find a better place for this.
@@ -66,24 +67,13 @@ Config g_Config;
 
 static bool jitForcedOff;
 
-// Not in Config.h because it's #included a lot.
-struct ConfigPrivate {
-	std::mutex recentIsosLock;
-	std::mutex recentIsosThreadLock;
-	std::thread recentIsosThread;
-	bool recentIsosThreadPending = false;
-
-	void ResetRecentIsosThread();
-	void SetRecentIsosThread(std::function<void()> f);
-};
-
 #ifdef _DEBUG
 static const char * const logSectionName = "LogDebug";
 #else
 static const char * const logSectionName = "Log";
 #endif
 
-static bool TryUpdateSavedPath(Path *path);
+bool TryUpdateSavedPath(Path *path);
 
 std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -1091,30 +1081,12 @@ static void IterateSettings(std::function<void(const ConfigSetting &setting)> fu
 	}
 }
 
-void ConfigPrivate::ResetRecentIsosThread() {
-	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThreadPending && recentIsosThread.joinable())
-		recentIsosThread.join();
-}
-
-void ConfigPrivate::SetRecentIsosThread(std::function<void()> f) {
-	std::lock_guard<std::mutex> guard(recentIsosThreadLock);
-	if (recentIsosThreadPending && recentIsosThread.joinable())
-		recentIsosThread.join();
-	recentIsosThread = std::thread(f);
-	recentIsosThreadPending = true;
-}
-
-Config::Config() {
-	private_ = new ConfigPrivate();
-}
+Config::Config() {}
 
 Config::~Config() {
 	if (bUpdatedInstanceCounter) {
 		ShutdownInstanceCounter();
 	}
-	private_->ResetRecentIsosThread();
-	delete private_;
 }
 
 void Config::LoadLangValuesMapping() {
@@ -1269,18 +1241,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	if (iMaxRecent > 0) {
-		private_->ResetRecentIsosThread();
-		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-		recentIsos.clear();
-		for (int i = 0; i < iMaxRecent; i++) {
-			char keyName[64];
-			std::string fileName;
-
-			snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-				recentIsos.push_back(fileName);
-			}
-		}
+		g_recentFiles.Load(recent, iMaxRecent);
 	}
 
 	// Time tracking
@@ -1377,7 +1338,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		loadGameConfig(gameId_, gameIdTitle_);
 	}
 
-	CleanRecent();
+	g_recentFiles.Clean();
 
 	PostLoadCleanup(false);
 
@@ -1400,7 +1361,7 @@ bool Config::Save(const char *saveReason) {
 
 		PreSaveCleanup(false);
 
-		CleanRecent();
+		g_recentFiles.Clean();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
 			WARN_LOG(Log::Loader, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
@@ -1417,18 +1378,7 @@ bool Config::Save(const char *saveReason) {
 
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
-
-		private_->ResetRecentIsosThread();
-		for (int i = 0; i < iMaxRecent; i++) {
-			char keyName[64];
-			snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-			if (i < (int)recentIsos.size()) {
-				recent->Set(keyName, recentIsos[i]);
-			} else {
-				recent->Delete(keyName); // delete the nonexisting FileName
-			}
-		}
+		g_recentFiles.Save(recent, iMaxRecent);
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();
@@ -1621,44 +1571,11 @@ void Config::DismissUpgrade() {
 	g_Config.dismissedVersion = g_Config.upgradeVersion;
 }
 
-void Config::AddRecent(const std::string &file) {
-	// Don't bother with this if the user disabled recents (it's -1).
-	if (iMaxRecent <= 0)
-		return;
-
-	// We'll add it back below.  This makes sure it's at the front, and only once.
-	RemoveRecent(file);
-
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	const std::string filename = File::ResolvePath(file);
-	recentIsos.insert(recentIsos.begin(), filename);
-	if ((int)recentIsos.size() > iMaxRecent)
-		recentIsos.resize(iMaxRecent);
-}
-
-void Config::RemoveRecent(const std::string &file) {
-	// Don't bother with this if the user disabled recents (it's -1).
-	if (iMaxRecent <= 0)
-		return;
-
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	
-	const std::string filename = File::ResolvePath(file);
-	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
-		const std::string recent = File::ResolvePath(str);
-		return filename == recent;
-	});
-	// remove_if is weird.
-	recentIsos.erase(iter, recentIsos.end());
-}
-
 // On iOS, the path to the app documents directory changes on each launch.
 // Example path:
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
 // The GUID part changes on each launch.
-static bool TryUpdateSavedPath(Path *path) {
+bool TryUpdateSavedPath(Path *path) {
 #if PPSSPP_PLATFORM(IOS)
 	INFO_LOG(Log::Loader, "Original path: %s", path->c_str());
 	std::string pathStr = path->ToString();
@@ -1680,77 +1597,6 @@ static bool TryUpdateSavedPath(Path *path) {
 #else
 	return false;
 #endif
-}
-
-void Config::CleanRecent() {
-	private_->SetRecentIsosThread([this] {
-		SetCurrentThreadName("RecentISOs");
-
-		AndroidJNIThreadContext jniContext;  // destructor detaches
-
-		double startTime = time_now_d();
-
-		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-		std::vector<std::string> cleanedRecent;
-		if (recentIsos.empty()) {
-			INFO_LOG(Log::Loader, "No recents list found.");
-		}
-
-		for (size_t i = 0; i < recentIsos.size(); i++) {
-			bool exists = false;
-			Path path = Path(recentIsos[i]);
-			switch (path.Type()) {
-			case PathType::CONTENT_URI:
-			case PathType::NATIVE:
-				exists = File::Exists(path);
-				if (!exists) {
-					if (TryUpdateSavedPath(&path)) {
-						exists = File::Exists(path);
-						INFO_LOG(Log::Loader, "Exists=%d when checking updated path: %s", exists, path.c_str());
-					}
-				}
-				break;
-			default:
-				FileLoader *loader = ConstructFileLoader(path);
-				exists = loader->ExistsFast();
-				delete loader;
-				break;
-			}
-
-			if (exists) {
-				std::string pathStr = path.ToString();
-				// Make sure we don't have any redundant items.
-				auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), pathStr);
-				if (duplicate == cleanedRecent.end()) {
-					cleanedRecent.push_back(pathStr);
-				}
-			} else {
-				DEBUG_LOG(Log::Loader, "Removed %s from recent. errno=%d", path.c_str(), errno);
-			}
-		}
-
-		double recentTime = time_now_d() - startTime;
-		if (recentTime > 0.1) {
-			INFO_LOG(Log::System, "CleanRecent took %0.2f", recentTime);
-		}
-		recentIsos = cleanedRecent;
-	});
-}
-
-std::vector<std::string> Config::RecentIsos() const {
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	return recentIsos;
-}
-
-bool Config::HasRecentIsos() const {
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	return !recentIsos.empty();
-}
-
-void Config::ClearRecentIsos() {
-	private_->ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	recentIsos.clear();
 }
 
 void Config::SetSearchPath(const Path &searchPath) {
@@ -1806,7 +1652,7 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore) {
 		}
 
 		if (whatToRestore & RestoreSettingsBits::RECENT) {
-			ClearRecentIsos();
+			g_recentFiles.Clear();
 			currentDirectory = defaultCurrentDirectory;
 		}
 	}

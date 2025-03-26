@@ -45,6 +45,7 @@
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Util/RecentFiles.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PostShader.h"
@@ -211,7 +212,7 @@ public:
 			lastIndex_ = nextIndex_;
 		}
 
-		if (g_Config.HasRecentIsos()) {
+		if (g_recentFiles.HasAny()) {
 			std::shared_ptr<GameInfo> lastInfo = GetInfo(dc, lastIndex_);
 			std::shared_ptr<GameInfo> nextInfo = GetInfo(dc, nextIndex_);
 			dc.Flush();
@@ -228,12 +229,14 @@ public:
 
 private:
 	void CheckNext(UIContext &dc, double t) {
-		if (!g_Config.HasRecentIsos()) {
+		if (!g_recentFiles.HasAny()) {
 			return;
 		}
 
+		std::vector<std::string> recents = g_recentFiles.GetRecentFiles();
+
 		for (int index = lastIndex_ + 1; index != lastIndex_; ++index) {
-			if (index < 0 || index >= (int)g_Config.RecentIsos().size()) {
+			if (index < 0 || index >= (int)recents.size()) {
 				if (lastIndex_ == -1)
 					break;
 				index = 0;
@@ -258,9 +261,9 @@ private:
 		if (index < 0) {
 			return nullptr;
 		}
-		const auto recentIsos = g_Config.RecentIsos();
+		const auto recentIsos = g_recentFiles.GetRecentFiles();
 		if (index >= (int)recentIsos.size())
-			return nullptr;
+			return std::shared_ptr<GameInfo>();
 		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
