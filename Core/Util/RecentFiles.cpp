@@ -50,27 +50,36 @@ void SetRecentIsosThread(std::function<void()> f) {
 
 void LoadRecentIsos(const Section *recent, int maxRecent) {
 	ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(recentIsosLock);
-	recentIsos.clear();
+
+	std::vector<std::string> newRecent;
 	for (int i = 0; i < maxRecent; i++) {
 		char keyName[64];
 		std::string fileName;
 
 		snprintf(keyName, sizeof(keyName), "FileName%d", i);
 		if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-			recentIsos.push_back(fileName);
+			newRecent.push_back(fileName);
 		}
 	}
+
+	std::lock_guard<std::mutex> guard(recentIsosLock);
+	recentIsos = newRecent;
 }
 
 void SaveRecentIsos(Section *recent, int maxRecent) {
 	ResetRecentIsosThread();
+
+	std::vector<std::string> recentCopy;
+	{
+		std::lock_guard<std::mutex> guard(recentIsosLock);
+		recentCopy = recentIsos;
+	}
+
 	for (int i = 0; i < maxRecent; i++) {
 		char keyName[64];
 		snprintf(keyName, sizeof(keyName), "FileName%d", i);
-		std::lock_guard<std::mutex> guard(recentIsosLock);
-		if (i < (int)recentIsos.size()) {
-			recent->Set(keyName, recentIsos[i]);
+		if (i < (int)recentCopy.size()) {
+			recent->Set(keyName, recentCopy[i]);
 		} else {
 			recent->Delete(keyName); // delete the nonexisting FileName
 		}
