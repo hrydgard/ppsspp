@@ -75,7 +75,7 @@ struct CoreParameter {
 	int pixelWidth;
 	int pixelHeight;
 
-	// Can be modified at runtime.
+	// Can be modified at runtime. Do not belong here.
 	bool fastForward = false;
 	FPSLimit fpsLimit = FPSLimit::NORMAL;
 	int analogFpsLimit = 0;

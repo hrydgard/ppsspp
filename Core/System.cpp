@@ -225,12 +225,6 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	g_DoubleTextureCoordinates = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
-	Path filename = g_CoreParameter.fileToStart;
-
-	// TODO: Put this somewhere better?
-	if (!g_CoreParameter.mountIso.empty()) {
-		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
-	}
 	g_CoreParameter.fileType = type;
 
 	MIPSAnalyst::Reset();
@@ -243,7 +237,10 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		MountGameISO(loadedFile);
+		if (!MountGameISO(loadedFile)) {
+			*errorString = "Failed to mount ISO file - invalid format?";
+			return false;
+		}
 		if (LoadParamSFOFromDisc()) {
 			InitMemorySizeForGame();
 		}
@@ -264,7 +261,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		// Try to grab the disc ID from the filename or GE dump.
-		if (DiscIDFromGEDumpPath(filename, loadedFile, &geDumpDiscID)) {
+		if (DiscIDFromGEDumpPath(g_CoreParameter.fileToStart, loadedFile, &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
 		}
@@ -281,16 +278,17 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	// likely to collide with any commercial ones.
 	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
 
-	InitVFPU();
-
-	if (allowPlugins)
-		HLEPlugins::Init();
+	// Initialize the memory map as early as possible (now that we've read the PARAM.SFO).
 	if (!Memory::Init()) {
 		// We're screwed.
 		*errorString = "Memory init failed";
 		return false;
 	}
-	mipsr4k.Reset();
+
+	InitVFPU();
+
+	if (allowPlugins)
+		HLEPlugins::Init();
 
 	LoadSymbolsIfSupported();
 
@@ -299,19 +297,26 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	// Init all the HLE modules
 	HLEInit();
 
+	// TODO: Put this somewhere better?
+	if (!g_CoreParameter.mountIso.empty()) {
+		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
+	}
+
+	mipsr4k.Reset();
+
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
 	g_loadedFile = loadedFile;
-	if (!LoadFile(&loadedFile, &g_CoreParameter.errorString)) {
+	if (!LoadFile(&loadedFile, type, &g_CoreParameter.errorString)) {
 		CPU_Shutdown();
 		g_CoreParameter.fileToStart.clear();
 		return false;
 	}
 
 	if (g_CoreParameter.updateRecent) {
-		g_Config.AddRecent(filename.ToString());
+		g_Config.AddRecent(g_CoreParameter.fileToStart.ToString());
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);
@@ -424,7 +429,6 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		// Need to re-identify after ResolveFileLoaderTarget - although in practice probably not,
 		// but also, re-using the identification would require some plumbing, to be done later.
 		std::string errorString;
-		IdentifiedFileType type = Identify_File(loadedFile, &errorString);
 		Achievements::SetGame(filename, type, loadedFile);
 	}
 

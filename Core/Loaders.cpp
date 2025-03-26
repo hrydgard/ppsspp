@@ -249,9 +249,8 @@ Path ResolvePBPFile(const Path &filename) {
 	}
 }
 
-bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
+bool LoadFile(FileLoader **fileLoaderPtr, IdentifiedFileType type, std::string *error_string) {
 	FileLoader *&fileLoader = *fileLoaderPtr;
-	IdentifiedFileType type = Identify_File(fileLoader, error_string);
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		{
