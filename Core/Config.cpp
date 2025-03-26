@@ -1578,8 +1578,7 @@ void Config::AddRecent(const std::string &filename) {
 		return;
 
 	// We'll add it back below.  This makes sure it's at the front, and only once.
-	const std::string resolvedFilename = File::ResolvePath(filename);
-	AddRecentResolved(resolvedFilename, iMaxRecent);
+	::AddRecent(filename, iMaxRecent);
 }
 
 void Config::RemoveRecent(const std::string &filename) {
@@ -1587,8 +1586,7 @@ void Config::RemoveRecent(const std::string &filename) {
 		return;
 	}
 
-	std::string resolvedFilename = File::ResolvePath(filename);
-	RemoveRecentResolved(resolvedFilename);
+	::RemoveRecent(filename);
 }
 
 // On iOS, the path to the app documents directory changes on each launch.

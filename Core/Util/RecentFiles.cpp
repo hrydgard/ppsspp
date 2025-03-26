@@ -77,16 +77,6 @@ void SaveRecentIsos(Section *recent, int maxRecent) {
 	}
 }
 
-void AddRecentResolved(const std::string &resolvedFilename, int maxRecent) {
-	RemoveRecentResolved(resolvedFilename);
-
-	ResetRecentIsosThread();
-	std::lock_guard<std::mutex> guard(recentIsosLock);
-	recentIsos.insert(recentIsos.begin(), resolvedFilename);
-	if ((int)recentIsos.size() > maxRecent)
-		recentIsos.resize(maxRecent);
-}
-
 void RemoveRecentResolved(const std::string &resolvedFilename) {
 	ResetRecentIsosThread();
 
@@ -97,6 +87,22 @@ void RemoveRecentResolved(const std::string &resolvedFilename) {
 	});
 	// remove_if is weird.
 	recentIsos.erase(iter, recentIsos.end());
+}
+
+void AddRecent(const std::string &filename, int maxRecent) {
+	std::string resolvedFilename = File::ResolvePath(filename);
+	RemoveRecentResolved(resolvedFilename);
+
+	ResetRecentIsosThread();
+	std::lock_guard<std::mutex> guard(recentIsosLock);
+	recentIsos.insert(recentIsos.begin(), resolvedFilename);
+	if ((int)recentIsos.size() > maxRecent)
+		recentIsos.resize(maxRecent);
+}
+
+void RemoveRecent(const std::string &filename) {
+	std::string resolvedFilename = File::ResolvePath(filename);
+	RemoveRecentResolved(resolvedFilename);
 }
 
 void CleanRecentIsos() {
