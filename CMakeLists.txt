@@ -2425,6 +2425,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
+	Core/Util/RecentFiles.cpp
+	Core/Util/RecentFiles.h
 	${GPU_SOURCES}
 	ext/disarm.cpp
 	ext/disarm.h

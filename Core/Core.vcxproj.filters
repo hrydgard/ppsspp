@@ -1339,6 +1339,9 @@
     <ClCompile Include="Util\AtracTrack.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\RecentFiles.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2158,6 +2161,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="Util\AtracTrack.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\RecentFiles.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>

@@ -328,7 +328,7 @@ std::string ResolvePath(const std::string &path) {
 	}
 
 	if (Android_IsContentUri(path)) {
-		// Nothing to do?
+		// Nothing to do? We consider these to only have one canonical form.
 		return path;
 	}
 

@@ -35,7 +35,6 @@ namespace http {
 }
 
 struct UrlEncoder;
-struct ConfigPrivate;
 
 class Section;
 
@@ -670,7 +669,6 @@ private:
 	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
-	std::vector<std::string> recentIsos;
 	std::map<std::string, std::pair<std::string, int>, std::less<>> langValuesMapping_;
 	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
@@ -679,10 +677,10 @@ private:
 	Path appendedConfigFileName_;
 	// A set make more sense, but won't have many entry, and I dont want to include the whole std::set header here
 	std::vector<std::string> appendedConfigUpdatedGames_;
-	ConfigPrivate *private_ = nullptr;
 };
 
 std::string CreateRandMAC();
+bool TryUpdateSavedPath(Path *path);
 
 // TODO: Find a better place for this.
 extern http::RequestManager g_DownloadManager;
