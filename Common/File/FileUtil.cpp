@@ -370,12 +370,13 @@ std::string ResolvePath(std::string_view path) {
 
 #elif PPSSPP_PLATFORM(IOS)
 	// Resolving has wacky effects on documents paths.
-	return path;
+	return std::string(path);
 #else
 	std::unique_ptr<char[]> buf(new char[PATH_MAX + 32768]);
-	if (realpath(path.c_str(), buf.get()) == nullptr)
-		return path;
-	return buf.get();
+	std::string spath(path);
+	if (realpath(spath.c_str(), buf.get()) == nullptr)
+		return spath;
+	return std::string(buf.get());
 #endif
 }
 
