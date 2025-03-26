@@ -87,6 +87,9 @@
     <ClCompile Include="..\rcheevos\src\rc_client_raintegration.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
+    <ClCompile Include="..\rcheevos\src\rc_client_external.c">
+      <Filter>rcheevos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h">
@@ -151,6 +154,12 @@
     </ClInclude>
     <ClInclude Include="..\rcheevos\src\rhash\md5.h">
       <Filter>rhash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rcheevos\src\rc_client_external.h">
+      <Filter>rcheevos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rcheevos\src\rc_client_external_versions.h">
+      <Filter>rcheevos</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

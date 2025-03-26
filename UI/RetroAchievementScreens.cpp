@@ -138,7 +138,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	viewGroup->Add(new ItemHeader(ac->T("Leaderboards")));
 
-	std::vector<rc_client_leaderboard_t *> leaderboards;
+	std::vector<const rc_client_leaderboard_t *> leaderboards;
 	rc_client_leaderboard_list_t *list = rc_client_create_leaderboard_list(Achievements::GetClient(), RC_CLIENT_LEADERBOARD_LIST_GROUPING_NONE);
 	for (uint32_t i = 0; i < list->num_buckets; i++) {
 		const rc_client_leaderboard_bucket_t &bucket = list->buckets[i];
