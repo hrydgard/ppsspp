@@ -81,7 +81,7 @@ static int alloc_table(VLC *vlc, int size, int use_static)
         if (use_static)
             abort(); // cannot do anything, init_vlc() is used with too little memory
         vlc->table_allocated += (1 << vlc->bits);
-        vlc->table = (VLC_TYPE(*)[2])av_realloc_f(vlc->table, vlc->table_allocated, sizeof(VLC_TYPE) * 2);
+        vlc->table = (VLC_TYPE(*)[2])realloc(vlc->table, vlc->table_allocated);
         if (!vlc->table) {
             vlc->table_allocated = 0;
             vlc->table_size = 0;
@@ -311,14 +311,15 @@ int ff_init_vlc_sparse(VLC *vlc_arg, int nb_bits, int nb_codes,
     } else {
         av_free(buf);
         if (ret < 0) {
-            av_freep(&vlc->table);
+            free(vlc->table);
+            vlc->table = 0;
             return ret;
         }
     }
     return 0;
 }
 
-void ff_free_vlc(VLC *vlc)
-{
-    av_freep(&vlc->table);
+void ff_free_vlc(VLC *vlc) {
+    free(vlc->table);
+    vlc->table = nullptr;
 }
