@@ -82,8 +82,7 @@ void RemoveRecentResolved(const std::string &resolvedFilename) {
 
 	std::lock_guard<std::mutex> guard(recentIsosLock);
 	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [resolvedFilename](const auto &str) {
-		const std::string recent = File::ResolvePath(str);
-		return resolvedFilename == recent;
+		return str == resolvedFilename;
 	});
 	// remove_if is weird.
 	recentIsos.erase(iter, recentIsos.end());
