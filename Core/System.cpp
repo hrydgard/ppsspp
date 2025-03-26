@@ -244,13 +244,17 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		MountGameISO(loadedFile);
-		InitMemoryForGameISO(loadedFile);
+		if (LoadParamSFOFromDisc()) {
+			InitMemorySizeForGame();
+		}
 		break;
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
-		InitMemoryForGamePBP(loadedFile);
+		if (LoadParamSFOFromPBP(loadedFile)) {
+			InitMemorySizeForGame();
+		}
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {

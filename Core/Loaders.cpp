@@ -261,7 +261,9 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
 					MountGameISO(fileLoader);
-					InitMemoryForGameISO(fileLoader);
+					if (LoadParamSFOFromDisc()) {
+						InitMemorySizeForGame();
+					}
 					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 					return Load_PSP_ISO(fileLoader, error_string);
 				}
