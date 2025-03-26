@@ -10,6 +10,7 @@
 #import "PSPNSApplicationDelegate.h"
 
 #include "Common/System/System.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/SaveState.h"
 #include "Core/Config.h"
 
@@ -33,7 +34,7 @@
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender {
 	// TODO: Actually implement a dock menu thingy.
-	for (std::string iso : g_Config.RecentIsos()) {
+	for (std::string iso : g_recentFiles.GetRecentFiles()) {
 		// printf("%s\n", iso.c_str());
 	}
 	
