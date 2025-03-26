@@ -306,9 +306,6 @@
     <ClCompile Include="..\..\Core\FileLoaders\LocalFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\FileLoaders\RamCachingFileLoader.cpp">
-      <Filter>FileLoaders</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\FileLoaders\RetryingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
@@ -1393,9 +1390,6 @@
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\FileLoaders\LocalFileLoader.h">
-      <Filter>FileLoaders</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\FileLoaders\RamCachingFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\FileLoaders\RetryingFileLoader.h">

@@ -661,9 +661,6 @@
     <ClCompile Include="HW\SasReverb.cpp">
       <Filter>HW</Filter>
     </ClCompile>
-    <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
-      <Filter>FileLoaders</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\IR\IRCompALU.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
@@ -1886,9 +1883,6 @@
     </ClInclude>
     <ClInclude Include="HW\SasReverb.h">
       <Filter>HW</Filter>
-    </ClInclude>
-    <ClInclude Include="FileLoaders\RamCachingFileLoader.h">
-      <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\IR\IRJit.h">
       <Filter>MIPS\IR</Filter>

@@ -591,15 +591,6 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.iLockedCPUSpeed = atoi(var.value);
 
-   var.key = "ppsspp_cache_iso";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bCacheFullIsoInRam = false;
-      else
-         g_Config.bCacheFullIsoInRam = true;
-   }
-
    var.key = "ppsspp_cheats";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {

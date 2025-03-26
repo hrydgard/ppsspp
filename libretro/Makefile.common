@@ -656,7 +656,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/RetryingFileLoader.cpp \
-	       $(COREDIR)/FileLoaders/RamCachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/LocalFileLoader.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
