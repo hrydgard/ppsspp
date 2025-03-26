@@ -20,6 +20,7 @@
 #include <fstream>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <time.h>
 #include <cstdint>
 
@@ -56,7 +57,7 @@ enum OpenFlag {
 int OpenFD(const Path &filename, OpenFlag flags);
 
 // Resolves symlinks and similar.
-std::string ResolvePath(const std::string &path);
+std::string ResolvePath(std::string_view path);
 
 // Returns true if file filename exists
 bool Exists(const Path &path);

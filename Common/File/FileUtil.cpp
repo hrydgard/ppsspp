@@ -315,21 +315,21 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 }
 #endif
 
-std::string ResolvePath(const std::string &path) {
+std::string ResolvePath(std::string_view path) {
 	if (LOG_IO) {
-		INFO_LOG(Log::System, "ResolvePath %s", path.c_str());
+		INFO_LOG(Log::System, "ResolvePath %.*s", (int)path.size(), path.data());
 	}
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
 	}
 
 	if (startsWith(path, "http://") || startsWith(path, "https://")) {
-		return path;
+		return std::string(path);
 	}
 
 	if (Android_IsContentUri(path)) {
 		// Nothing to do? We consider these to only have one canonical form.
-		return path;
+		return std::string(path);
 	}
 
 #ifdef _WIN32
