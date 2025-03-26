@@ -58,9 +58,8 @@ public:
 		Reset();
 	}
 
+	// Will replace the existing mount if already exists.
 	void Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system);
-	// Fails if there's not already a file system at prefix.
-	bool Remount(const std::string &prefix, std::shared_ptr<IFileSystem> system);
 
 	void UnmountAll();
 	void Unmount(const std::string &prefix);

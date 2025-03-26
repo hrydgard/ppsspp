@@ -260,6 +260,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				INFO_LOG(Log::Loader, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
 				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
+					MountGameISO(fileLoader);
 					InitMemoryForGameISO(fileLoader);
 					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 					return Load_PSP_ISO(fileLoader, error_string);
@@ -386,8 +387,8 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 
 	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
-	if (!loadedFile->Exists()) {
-		error = loadedFile->GetPath().ToVisualString() + " doesn't exist";
+	if (!loadedFile || !loadedFile->Exists()) {
+		error = loadedFile ? (loadedFile->GetPath().ToVisualString() + " doesn't exist") : "no loaded file";
 		delete loadedFile;
 		return false;
 	}
@@ -404,8 +405,8 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		if (!ReInitMemoryForGameISO(loadedFile)) {
-			error = "reinit memory failed";
+		if (!MountGameISO(loadedFile)) {
+			error = "mounting the new ISO failed";
 			return false;
 		}
 		break;

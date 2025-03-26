@@ -243,6 +243,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		MountGameISO(loadedFile);
 		InitMemoryForGameISO(loadedFile);
 		break;
 	case IdentifiedFileType::PSP_PBP:

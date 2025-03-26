@@ -65,14 +65,7 @@ static void UseLargeMem(int memsize) {
 	}
 }
 
-// We gather the game info before actually loading/booting the ISO
-// to determine if the emulator should enable extra memory and
-// double-sized texture coordinates.
-void InitMemoryForGameISO(FileLoader *fileLoader) {
-	if (!fileLoader->Exists()) {
-		return;
-	}
-
+bool MountGameISO(FileLoader *fileLoader) {
 	std::shared_ptr<IFileSystem> fileSystem;
 	std::shared_ptr<IFileSystem> blockSystem;
 
@@ -81,21 +74,27 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
-		// Can't init anything without a block device...
-		if (!bd)
-			return;
+		if (!bd) {
+			// Can only fail if the ISO is bad.
+			return false;
+		}
 
-		fileSystem = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
-		blockSystem = std::make_shared<ISOBlockSystem>(fileSystem);
+		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
+		fileSystem = iso;
+		blockSystem = std::make_shared<ISOBlockSystem>(iso);
 	}
 
 	pspFileSystem.Mount("umd0:", blockSystem);
 	pspFileSystem.Mount("umd1:", blockSystem);
-	pspFileSystem.Mount("disc0:", fileSystem);
 	pspFileSystem.Mount("umd:", blockSystem);
-	// TODO: Should we do this?
-	//pspFileSystem.Mount("host0:", fileSystem);
+	pspFileSystem.Mount("disc0:", fileSystem);
+	return true;
+}
 
+// We gather the game info before actually loading/booting the ISO
+// to determine if the emulator should enable extra memory and
+// double-sized texture coordinates.
+void InitMemoryForGameISO(FileLoader *fileLoader) {
 	std::string gameID;
 	std::string umdData;
 
@@ -133,35 +132,6 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	if (g_RemasterMode) {
 		INFO_LOG(Log::Loader, "HDRemaster found, using increased memory");
 	}
-}
-
-bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
-	if (!fileLoader->Exists()) {
-		return false;
-	}
-
-	std::shared_ptr<IFileSystem> fileSystem;
-	std::shared_ptr<IFileSystem> blockSystem;
-
-	if (fileLoader->IsDirectory()) {
-		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
-		blockSystem = fileSystem;
-	} else {
-		auto bd = constructBlockDevice(fileLoader);
-		if (!bd)
-			return false;
-
-		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
-		fileSystem = iso;
-		blockSystem = std::make_shared<ISOBlockSystem>(iso);
-	}
-
-	pspFileSystem.Remount("umd0:", blockSystem);
-	pspFileSystem.Remount("umd1:", blockSystem);
-	pspFileSystem.Remount("umd:", blockSystem);
-	pspFileSystem.Remount("disc0:", fileSystem);
-
-	return true;
 }
 
 void InitMemoryForGamePBP(FileLoader *fileLoader) {
