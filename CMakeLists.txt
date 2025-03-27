@@ -638,6 +638,9 @@ set(CommonVR
 )
 include_directories(ext/OpenXR-SDK/include)
 
+# For ext/sol includes, that are usually included as sol/*.hpp
+include_directories(ext)
+
 add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
