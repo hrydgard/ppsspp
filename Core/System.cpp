@@ -425,15 +425,17 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
 	g_CoreParameter.fileType = type;
 
-	if (g_Config.bCacheFullIsoInRam) {
-		switch (g_CoreParameter.fileType) {
-		case IdentifiedFileType::PSP_ISO:
-		case IdentifiedFileType::PSP_ISO_NP:
-			loadedFile = new RamCachingFileLoader(loadedFile);
-			break;
-		default:
-			INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
-			break;
+	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
+		if (g_Config.bCacheFullIsoInRam) {
+			switch (g_CoreParameter.fileType) {
+			case IdentifiedFileType::PSP_ISO:
+			case IdentifiedFileType::PSP_ISO_NP:
+				loadedFile = new RamCachingFileLoader(loadedFile);
+				break;
+			default:
+				INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+				break;
+			}
 		}
 	}
 

@@ -219,6 +219,8 @@ enum SystemProperty {
 
 	SYSPROP_CAN_READ_BATTERY_PERCENTAGE,
 	SYSPROP_BATTERY_PERCENTAGE,
+
+	SYSPROP_ENOUGH_RAM_FOR_FULL_ISO,
 };
 
 enum class SystemNotification {

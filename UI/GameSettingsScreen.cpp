@@ -1341,7 +1341,10 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
 		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 
-	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
+	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
+		systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
+	}
+
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
 	static const char *screenshotModeChoices[] = { "Final processed image", "Raw game image" };
