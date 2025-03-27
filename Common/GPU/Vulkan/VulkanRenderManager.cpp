@@ -1629,7 +1629,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingTypesCount);
 
 	VkDescriptorSetLayoutBinding bindings[VKRPipelineLayout::MAX_DESC_SET_BINDINGS];
-	for (int i = 0; i < bindingTypesCount; i++) {
+	for (int i = 0; i < (int)bindingTypesCount; i++) {
 		bindings[i].binding = i;
 		bindings[i].descriptorCount = 1;
 		bindings[i].pImmutableSamplers = nullptr;
@@ -1869,7 +1869,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 void VulkanRenderManager::SanityCheckPassesOnAdd() {
 #if _DEBUG
 	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
-	for (int i = 0; i < steps_.size(); i++) {
+	for (int i = 0; i < (int)steps_.size(); i++) {
 		if (steps_[i]->stepType == VKRStepType::RENDER) {
 			_dbg_assert_msg_(steps_[i]->render.framebuffer != nullptr, "Adding second backbuffer pass? Not good!");
 		}
