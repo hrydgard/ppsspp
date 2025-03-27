@@ -21,6 +21,7 @@ protected:
 	virtual void CreateTabs() = 0;
 	virtual void CreateExtraButtons(UI::LinearLayout *verticalLayout, int margins) {}
 	virtual bool ShowSearchControls() const { return true; }
+	virtual void EnsureTabs();
 
 	void RecreateViews() override;
 	void sendMessage(UIMessage message, const char *value) override;

@@ -635,7 +635,6 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	if (!searchFilter_.empty())
 		dataBrowser_->SetSearchFilter(searchFilter_);
 	dataBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
-
 }
 
 void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
@@ -699,7 +698,10 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_DONE;
 	}
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), ginfo->GetTitle());
+
+	// Sanitize the title.
+	std::string title = SanitizeString(ginfo->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), title);
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}
@@ -716,7 +718,10 @@ void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 
 void SavedataScreen::sendMessage(UIMessage message, const char *value) {
 	UIDialogScreenWithGameBackground::sendMessage(message, value);
+
 	if (message == UIMessage::SAVEDATA_SEARCH) {
+		EnsureTabs();
+
 		searchFilter_ = value;
 		dataBrowser_->SetSearchFilter(searchFilter_);
 		stateBrowser_->SetSearchFilter(searchFilter_);

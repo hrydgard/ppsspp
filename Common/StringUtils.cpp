@@ -112,6 +112,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 	// First, remove any chars not in A-Za-z0-9_-. This will effectively get rid of any Unicode char, emojis etc too.
 	std::string sanitized;
 	sanitized.reserve(input.size());
+	bool lastWasLineBreak = false;
 	for (auto c : input) {
 		switch (restriction) {
 		case StringRestriction::None:
@@ -125,6 +126,17 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 				sanitized.push_back(c);
 			}
 			break;
+		case StringRestriction::NoLineBreaksOrSpecials:
+			if (c >= 32) {
+				sanitized.push_back(c);
+				lastWasLineBreak = false;
+			} else if (c == 10 || c == 13) {
+				// Collapse line breaks/feeds to single spaces.
+				if (!lastWasLineBreak) {
+					sanitized.push_back(' ');
+				}
+				lastWasLineBreak = true;
+			}
 		}
 	}
 
