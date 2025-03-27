@@ -635,7 +635,6 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	if (!searchFilter_.empty())
 		dataBrowser_->SetSearchFilter(searchFilter_);
 	dataBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
-
 }
 
 void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
@@ -716,7 +715,10 @@ void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 
 void SavedataScreen::sendMessage(UIMessage message, const char *value) {
 	UIDialogScreenWithGameBackground::sendMessage(message, value);
+
 	if (message == UIMessage::SAVEDATA_SEARCH) {
+		EnsureTabs();
+
 		searchFilter_ = value;
 		dataBrowser_->SetSearchFilter(searchFilter_);
 		stateBrowser_->SetSearchFilter(searchFilter_);

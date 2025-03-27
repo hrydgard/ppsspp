@@ -115,6 +115,10 @@ void TabbedUIDialogScreenWithGameBackground::RecreateViews() {
 	UIScreen::RecreateViews();
 }
 
+void TabbedUIDialogScreenWithGameBackground::EnsureTabs() {
+	tabHolder_->EnsureAllCreated();
+}
+
 void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);
