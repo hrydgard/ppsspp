@@ -55,6 +55,12 @@
     <ClCompile Include="..\rcheevos\src\rcheevos\trigger.c" />
     <ClCompile Include="..\rcheevos\src\rcheevos\value.c" />
     <ClCompile Include="..\rcheevos\src\rc_client.c" />
+    <ClCompile Include="..\rcheevos\src\rc_client_external.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\rcheevos\src\rc_client_raintegration.c" />
     <ClCompile Include="..\rcheevos\src\rc_compat.c" />
     <ClCompile Include="..\rcheevos\src\rc_util.c" />
@@ -78,6 +84,8 @@
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h" />
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_internal.h" />
     <ClInclude Include="..\rcheevos\src\rcheevos\rc_validate.h" />
+    <ClInclude Include="..\rcheevos\src\rc_client_external.h" />
+    <ClInclude Include="..\rcheevos\src\rc_client_external_versions.h" />
     <ClInclude Include="..\rcheevos\src\rc_client_internal.h" />
     <ClInclude Include="..\rcheevos\src\rc_compat.h" />
     <ClInclude Include="..\rcheevos\src\rc_version.h" />
