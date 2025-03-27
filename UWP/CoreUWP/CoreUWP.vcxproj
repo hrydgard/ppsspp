@@ -163,6 +163,7 @@
     <ClInclude Include="..\..\Core\FileLoaders\DiskCachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\HTTPFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\LocalFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\RamCachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\RetryingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlockDevices.h" />
@@ -425,6 +426,7 @@
     <ClCompile Include="..\..\Core\FileLoaders\DiskCachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\HTTPFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\LocalFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\RamCachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\RetryingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlockDevices.cpp" />

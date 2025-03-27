@@ -625,7 +625,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
-default:
+	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+#if defined(MOBILE_DEVICE)
+		return false;
+#else
+		return true;
+#endif
+	default:
 		return false;
 	}
 }

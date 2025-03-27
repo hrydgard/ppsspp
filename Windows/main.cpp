@@ -406,6 +406,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
+	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+		return true;
 	default:
 		return false;
 	}
