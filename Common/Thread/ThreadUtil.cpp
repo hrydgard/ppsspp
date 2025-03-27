@@ -30,9 +30,10 @@ AttachDetachFunc g_detach;
 void AttachThreadToJNI() {
 	if (g_attach) {
 		g_attach();
+	} else {
+		ERROR_LOG(Log::System, "Couldn't attach thread - g_attach not set");
 	}
 }
-
 
 void DetachThreadFromJNI() {
 	if (g_detach) {

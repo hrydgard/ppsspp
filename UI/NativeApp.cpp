@@ -108,6 +108,7 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -340,6 +341,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	ShaderTranslationInit();
 
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
+
+	g_recentFiles.EnsureThread();
 
 	// Make sure UI state is MENU.
 	ResetUIState();

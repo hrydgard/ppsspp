@@ -29,8 +29,11 @@ public:
 	void Clear();
 	bool ContainsFile(std::string_view filename);
 
+	void EnsureThread();
+
 	std::vector<std::string> GetRecentFiles() const;
 private:
+
 	enum class RecentCmd {
 		Exit,
 		Clear,
@@ -58,7 +61,6 @@ private:
 	std::thread thread_;
 	std::mutex cmdLock_;
 	std::condition_variable cmdCondVar_;
-
 };
 
 // Singleton, don't make more.

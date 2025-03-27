@@ -45,7 +45,7 @@ public:
 	void CheckForSas() override;
 	int EnqueueForSas(u32 address, u32 ptr) override;
 	void DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) override;
-	const AtracSasStreamState *StreamStateForSas() const { return context_->info.state == 0x10 ? &sas_ : nullptr; }
+	const AtracSasStreamState *StreamStateForSas() const override { return context_->info.state == 0x10 ? &sas_ : nullptr; }
 
 	u32 GetNextSamples() override;
 
