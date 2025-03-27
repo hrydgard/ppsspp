@@ -13,19 +13,31 @@
 
 RecentFilesManager g_recentFiles;
 
-RecentFilesManager::RecentFilesManager() {
-	thread_ = std::thread([this] {
-		ThreadFunc();
-	});
-}
+RecentFilesManager::RecentFilesManager() {}
 
 RecentFilesManager::~RecentFilesManager() {
-	{
-		std::lock_guard<std::mutex> guard(cmdLock_);
-		cmds_.push(RecentCommand{ RecentCmd::Exit });
-		cmdCondVar_.notify_one();
+	if (thread_.joinable()) {
+		{
+			std::lock_guard<std::mutex> guard(cmdLock_);
+			cmds_.push(RecentCommand{ RecentCmd::Exit });
+			cmdCondVar_.notify_one();
+		}
+		thread_.join();
 	}
-	thread_.join();
+}
+
+void RecentFilesManager::EnsureThread() {
+	if (thread_.joinable()) {
+		return;
+	}
+	std::lock_guard<std::mutex> guard(cmdLock_);
+	thread_ = std::thread([this] {
+		// NOTE: Can't create the thread in the constructor, because at that point,
+		// JNI attachment doesn't yet work.
+		SetCurrentThreadName("RecentISOThreadFunc");
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+		ThreadFunc();
+	});
 }
 
 std::vector<std::string> RecentFilesManager::GetRecentFiles() const {
@@ -137,9 +149,6 @@ void RecentFilesManager::Clean() {
 }
 
 void RecentFilesManager::ThreadFunc() {
-	SetCurrentThreadName("RecentISOs");
-	AndroidJNIThreadContext jniContext;  // destructor detaches
-
 	while (true) {
 		RecentCommand cmd;
 		{

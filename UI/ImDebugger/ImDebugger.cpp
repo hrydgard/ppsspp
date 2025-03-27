@@ -1035,7 +1035,8 @@ void DrawAudioDecodersView(ImConfig &cfg, ImControl &control) {
 					int endSample, loopStart, loopEnd;
 					ctx->GetSoundSample(&endSample, &loopStart, &loopEnd);
 					ImGui::ProgressBar((float)pos / (float)endSample, ImVec2(200.0f, 0.0f));
-					ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));	ImGui::Text("cur/end sample: %d/%d/%d", pos, endSample);
+					ImGui::Text("Status: %s", AtracStatusToString(ctx->BufferState()));
+					ImGui::Text("cur/end sample: %d/%d", pos, endSample);
 				}
 				if (ctx->context_.IsValid()) {
 					ImGui::Text("ctx addr: ");
