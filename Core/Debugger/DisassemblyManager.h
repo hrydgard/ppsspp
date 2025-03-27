@@ -43,13 +43,13 @@ struct DisassemblyLineInfo
 	u32 totalSize;
 };
 
-enum LineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
+enum DisasmLineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
 
 struct BranchLine
 {
 	u32 first;
 	u32 second;
-	LineType type;
+	DisasmLineType type;
 	int laneIndex;
 
 	bool operator<(const BranchLine& other) const

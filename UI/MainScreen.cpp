@@ -40,7 +40,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Core/System.h"
 #include "Core/Util/RecentFiles.h"

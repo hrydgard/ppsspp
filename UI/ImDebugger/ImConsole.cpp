@@ -7,10 +7,11 @@
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImConsole.h"
 #include "Core/LuaContext.h"
+#include "Common/StringUtils.h"
 
 ImConsole::ImConsole() {
-	ClearLog();
 	memset(InputBuf, 0, sizeof(InputBuf));
+
 	HistoryPos = -1;
 
 	// "CLASSIFY" is here to provide the test case where "C"+[tab] completes to "CL" and display multiple matches.
@@ -19,14 +20,11 @@ ImConsole::ImConsole() {
 	Commands.push_back("CLEAR");
 	AutoScroll = true;
 	ScrollToBottom = false;
-	AddLog("Welcome to Dear ImGui!");
 }
 
 ImConsole::~ImConsole() {
-	ClearLog();
 	for (int i = 0; i < History.Size; i++)
 		ImGui::MemFree(History[i]);
-	AddLog("# Enter 'HELP' for help.");
 }
 
 // Portable helpers
@@ -34,23 +32,6 @@ static int   Stricmp(const char* s1, const char* s2) { int d; while ((d = touppe
 static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
 static char* Strdup(const char* s) { IM_ASSERT(s); size_t len = strlen(s) + 1; void* buf = ImGui::MemAlloc(len); IM_ASSERT(buf); return (char*)memcpy(buf, (const void*)s, len); }
 static void  Strtrim(char* s) { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
-
-void ImConsole::ClearLog() {
-	for (int i = 0; i < Items.Size; i++)
-		ImGui::MemFree(Items[i]);
-	Items.clear();
-}
-
-void ImConsole::AddLog(const char* fmt, ...) IM_FMTARGS(2) {
-	// FIXME-OPT
-	char buf[1024];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buf, IM_ARRAYSIZE(buf), fmt, args);
-	buf[IM_ARRAYSIZE(buf) - 1] = 0;
-	va_end(args);
-	Items.push_back(Strdup(buf));
-}
 
 // In C++11 you'd be better off using lambdas for this sort of forwarding callbacks
 static int TextEditCallbackStub(ImGuiInputTextCallbackData* data) {
@@ -60,27 +41,18 @@ static int TextEditCallbackStub(ImGuiInputTextCallbackData* data) {
 
 void ImConsole::Draw(ImConfig &cfg) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Console", &cfg.luaConsoleOpen)) {
+	if (!ImGui::Begin("Lua Console", &cfg.luaConsoleOpen)) {
 		ImGui::End();
 		return;
 	}
 
-	ImGui::TextWrapped("Lua console. Enter 'HELP' for help.");
-
-	if (ImGui::SmallButton("Add Debug Text")) {
-		AddLog("%d some text", Items.Size);
-	}
-	ImGui::SameLine();
-	if (ImGui::SmallButton("Add Debug Error")) {
-		AddLog("[error] something went wrong");
-	}
-	ImGui::SameLine();
 	if (ImGui::SmallButton("Clear")) {
-		ClearLog();
+		g_lua.Clear();
 	}
+
 	ImGui::SameLine();
+
 	bool copy_to_clipboard = ImGui::SmallButton("Copy");
-	
 	ImGui::Separator();
 
 	// Options menu
@@ -99,10 +71,10 @@ void ImConsole::Draw(ImConfig &cfg) {
 
 	// Reserve enough left-over height for 1 separator + 1 input text
 	const float footer_height_to_reserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-	if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NavFlattened)) {
+	if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar | ImGuiChildFlags_NavFlattened)) {
 		if (ImGui::BeginPopupContextWindow()) {
 			if (ImGui::Selectable("Clear"))
-				ClearLog();
+				g_lua.Clear();
 			ImGui::EndPopup();
 		}
 
@@ -133,22 +105,35 @@ void ImConsole::Draw(ImConfig &cfg) {
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
 		if (copy_to_clipboard)
 			ImGui::LogToClipboard();
-		for (const char* item : Items) {
-			if (!Filter.PassFilter(item))
+		for (const auto &item : g_lua.GetLines()) {
+			if (!Filter.PassFilter(item.line.c_str()))
 				continue;
-
-			// Normally you would store more information in your item than just a string.
-			// (e.g. make Items[] an array of structure, store color/type etc.)
 			ImVec4 color;
-			bool has_color = false;
-			if (strstr(item, "[error]")) {
-				color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); has_color = true;
-			} else if (strncmp(item, "# ", 2) == 0) {
-				color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f); has_color = true;
+			bool has_color = true;
+
+			switch (item.type) {
+			case LogLineType::Cmd:      color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f); break;
+			case LogLineType::Error:    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); break;
+			case LogLineType::External: color = ImVec4(0.8f, 0.8f, 1.0f, 1.0f); break;
+			case LogLineType::Integer:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
+			case LogLineType::String:   color = ImVec4(0.8f, 1.0f, 0.8f, 1.0f); break;
+			default:
+				has_color = false;
+				break;
 			}
+
 			if (has_color)
 				ImGui::PushStyleColor(ImGuiCol_Text, color);
-			ImGui::TextUnformatted(item);
+			switch (item.type) {
+			case LogLineType::Url:
+				if (ImGui::TextLink(item.line.c_str())) {
+					System_LaunchUrl(LaunchUrlType::BROWSER_URL, item.line.c_str());
+				}
+				break;
+			default:
+				ImGui::TextUnformatted(item.line.data(), item.line.data() + item.line.size());
+				break;
+			}
 			if (has_color)
 				ImGui::PopStyleColor();
 		}
@@ -187,8 +172,6 @@ void ImConsole::Draw(ImConfig &cfg) {
 }
 
 void ImConsole::ExecCommand(const char* command_line) {
-	AddLog("# %s\n", command_line);
-
 	// Insert into history. First find match and delete it so it can be pushed to the back.
 	// This isn't trying to be smart or optimal.
 	HistoryPos = -1;
@@ -201,23 +184,24 @@ void ImConsole::ExecCommand(const char* command_line) {
 		}
 	History.push_back(Strdup(command_line));
 
+	g_lua.Print(LogLineType::Cmd, std::string(command_line));
+
 	// Process command
-	if (Stricmp(command_line, "CLEAR") == 0) {
-		ClearLog();
-	} else if (Stricmp(command_line, "HELP") == 0) {
-		AddLog("Commands:");
+	if (Stricmp(command_line, "clear") == 0) {
+		g_lua.Clear();
+	} else if (Stricmp(command_line, "help") == 0) {
+		g_lua.Print("Available non-Lua commands:");
 		for (int i = 0; i < Commands.Size; i++)
-			AddLog("- %s", Commands[i]);
-	} else if (Stricmp(command_line, "HISTORY") == 0) {
+			g_lua.Print(StringFromFormat("- %s", Commands[i]));
+		g_lua.Print("For Lua help:");
+		g_lua.Print(LogLineType::Url, "https://www.lua.org/manual/5.3/");
+		// TODO: Also print available Lua commands.
+	} else if (Stricmp(command_line, "history") == 0) {
 		int first = History.Size - 10;
 		for (int i = first > 0 ? first : 0; i < History.Size; i++)
-			AddLog("%3d: %s\n", i, History[i]);
+			g_lua.Print(StringFromFormat("%3d: %s", i, History[i]));
 	} else {
-		// TODO: Anything else, forward to Lua.
-		// AddLog("Unknown command: '%s'\n", command_line);
-		std::string response;
-		g_lua.Execute(command_line, &response);
-		AddLog("%s", response.c_str());
+		g_lua.ExecuteConsoleCommand(command_line);
 	}
 
 	// On command input, we scroll to bottom even if AutoScroll==false
@@ -248,9 +232,11 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 			if (Strnicmp(Commands[i], word_start, (int)(word_end - word_start)) == 0)
 				candidates.push_back(Commands[i]);
 
+		// TODO: Add lua globals to candidates!
+
 		if (candidates.Size == 0) {
-			// No match
-			AddLog("No match for \"%.*s\"!\n", (int)(word_end - word_start), word_start);
+			// No match. TODO: Match against lua globals.
+			g_lua.Print(StringFromFormat("No match for \"%.*s\"!", (int)(word_end - word_start), word_start));
 		} else if (candidates.Size == 1) {
 			// Single match. Delete the beginning of the word and replace it entirely so we've got nice casing.
 			data->DeleteChars((int)(word_start - data->Buf), (int)(word_end - word_start));
@@ -279,9 +265,9 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 			}
 
 			// List matches
-			AddLog("Possible matches:\n");
+			g_lua.Print("Possible matches:");
 			for (int i = 0; i < candidates.Size; i++) {
-				AddLog("- %s\n", candidates[i]);
+				g_lua.Print(StringFromFormat("- %s", candidates[i]));
 			}
 		}
 
