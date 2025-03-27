@@ -698,7 +698,10 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_DONE;
 	}
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), ginfo->GetTitle());
+
+	// Sanitize the title.
+	std::string title = SanitizeString(ginfo->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), title);
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}
