@@ -447,6 +447,9 @@
     <ClInclude Include="..\ext\lua\lzio.h" />
     <ClInclude Include="..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\ext\naett\naett.h" />
+    <ClInclude Include="..\ext\sol\config.hpp" />
+    <ClInclude Include="..\ext\sol\forward.hpp" />
+    <ClInclude Include="..\ext\sol\sol.hpp" />
     <ClInclude Include="..\ext\vma\vk_mem_alloc.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Arm64Emitter.h" />

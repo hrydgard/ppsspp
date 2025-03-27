@@ -54,6 +54,11 @@
 #include "Core/Instance.h"
 #include "proAdhoc.h" 
 
+#ifdef _WIN32
+#undef errno
+#define errno WSAGetLastError()
+#endif
+
 #if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
 // Missing toolchain define
 #define INADDR_NONE 0xFFFFFFFF

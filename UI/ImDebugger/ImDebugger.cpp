@@ -1757,6 +1757,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Tools")) {
+			ImGui::MenuItem("Lua Console", nullptr, &cfg_.luaConsoleOpen);
 			ImGui::MenuItem("Debug stats", nullptr, &cfg_.debugStatsOpen);
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
@@ -1957,6 +1958,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		break;
 	case ImCmd::SHOW_IN_PIXEL_VIEWER:
 		break;
+	}
+	if (cfg_.luaConsoleOpen) {
+		luaConsole_.Draw(cfg_);
 	}
 }
 
@@ -2317,6 +2321,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("internalsOpen", &internalsOpen, false);
 	sync.Sync("sasAudioOpen", &sasAudioOpen, false);
 	sync.Sync("logConfigOpen", &logConfigOpen, false);
+	sync.Sync("luaConsoleOpen", &luaConsoleOpen, false);
 	sync.Sync("utilityModulesOpen", &utilityModulesOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];

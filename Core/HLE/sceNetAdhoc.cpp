@@ -53,6 +53,10 @@
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+#ifdef _WIN32
+#undef errno
+#define errno WSAGetLastError()
+#endif
 
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.

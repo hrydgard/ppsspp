@@ -278,6 +278,7 @@
     <ClInclude Include="..\..\Core\KeyMap.h" />
     <ClInclude Include="..\..\Core\KeyMapDefaults.h" />
     <ClInclude Include="..\..\Core\Loaders.h" />
+    <ClInclude Include="..\..\Core\LuaContext.h" />
     <ClInclude Include="..\..\Core\MemFault.h" />
     <ClInclude Include="..\..\Core\MemMap.h" />
     <ClInclude Include="..\..\Core\MemMapHelpers.h" />
@@ -539,6 +540,7 @@
     <ClCompile Include="..\..\Core\KeyMap.cpp" />
     <ClCompile Include="..\..\Core\KeyMapDefaults.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
+    <ClCompile Include="..\..\Core\LuaContext.cpp" />
     <ClCompile Include="..\..\Core\MemFault.cpp" />
     <ClCompile Include="..\..\Core\MemMap.cpp" />
     <ClCompile Include="..\..\Core\MemMapFunctions.cpp" />
@@ -1031,6 +1033,9 @@
     </ProjectReference>
     <ProjectReference Include="..\libchdr_UWP\libchdr_UWP.vcxproj">
       <Project>{191b6f52-ad66-4172-bd20-733eeeceef8c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\lua\lua.vcxproj">
+      <Project>{3cea9e74-a31d-4044-a378-ed2e485931f2}</Project>
     </ProjectReference>
     <ProjectReference Include="..\miniupnpc_UWP\miniupnpc_UWP.vcxproj">
       <Project>{d31fd4f0-53eb-477c-9dc7-149796f628e2}</Project>

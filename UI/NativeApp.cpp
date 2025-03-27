@@ -27,6 +27,7 @@
 
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
+#include <errno.h>
 
 #include <clocale>
 #include <algorithm>
