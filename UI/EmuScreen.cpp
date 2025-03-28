@@ -255,7 +255,6 @@ void EmuScreen::bootGame(const Path &filename) {
 		return;
 	if (PSP_IsInited()) {
 		bootPending_ = false;
-		invalid_ = false;
 		bootComplete();
 		return;
 	}
@@ -266,8 +265,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		bootPending_ = !PSP_InitUpdate(&error_string);
 
 		if (!bootPending_) {
-			invalid_ = !PSP_IsInited();
-			if (invalid_) {
+			if (!PSP_IsInited()) {
 				errorMessage_ = error_string;
 				ERROR_LOG(Log::Boot, "isIniting bootGame error: %s", errorMessage_.c_str());
 				return;
@@ -282,8 +280,6 @@ void EmuScreen::bootGame(const Path &filename) {
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
 		return;
-
-	invalid_ = true;
 
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, GameInfoFlags::PARAM_SFO);
@@ -362,7 +358,6 @@ void EmuScreen::bootGame(const Path &filename) {
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
 		bootPending_ = false;
-		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(Log::Boot, "InitStart bootGame error: %s", errorMessage_.c_str());
 	}
@@ -463,7 +458,7 @@ EmuScreen::~EmuScreen() {
 	g_Config.TimeTracker().Stop(gameID);
 
 	// If we were invalid, it would already be shutdown.
-	if (!invalid_ || bootPending_) {
+	if (!bootPending_) {
 		PSP_Shutdown();
 	}
 
@@ -552,12 +547,10 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		PSP_Shutdown();
 		bootPending_ = false;
 		stopRender_ = true;
-		invalid_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		PSP_Shutdown();
 		bootPending_ = true;
-		invalid_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
 
 		std::string resetError;
@@ -1388,7 +1381,7 @@ void EmuScreen::update() {
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres * bounds.h / g_display.dp_yres;
 #endif
 
-	if (!invalid_) {
+	if (PSP_IsInited()) {
 		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
@@ -1410,7 +1403,7 @@ void EmuScreen::update() {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 
-	if (invalid_)
+	if (!PSP_IsInited())
 		return;
 
 	double now = time_now_d();
@@ -1451,7 +1444,6 @@ void EmuScreen::update() {
 bool EmuScreen::checkPowerDown() {
 	if (PSP_IsRebooting()) {
 		bootPending_ = true;
-		invalid_ = true;
 	}
 
 	if (coreState == CORE_POWERDOWN && !PSP_IsIniting() && !PSP_IsRebooting()) {
@@ -1463,7 +1455,6 @@ bool EmuScreen::checkPowerDown() {
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
-		invalid_ = true;
 		return shutdown;
 	}
 	return false;
@@ -1481,7 +1472,7 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 			return false;
 		}
 
-		if (invalid_) {
+		if (!PSP_IsInited()) {
 			return false;
 		}
 
@@ -1589,7 +1580,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		return flags;
 	}
 
-	if (invalid_) {
+	if (!PSP_IsInited()) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		if (mode & ScreenRenderMode::TOP) {
@@ -1883,7 +1874,7 @@ void EmuScreen::renderUI() {
 		root_->Draw(*ctx);
 	}
 
-	if (!invalid_) {
+	if (!PSP_IsInited()) {
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
 			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_);
 		}

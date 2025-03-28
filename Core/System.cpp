@@ -218,8 +218,6 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 
 	g_symbolMap = new SymbolMap();
 
-	g_lua.Init();
-
 	// Default memory settings
 	// Seems to be the safest place currently..
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
@@ -233,6 +231,8 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	MIPSAnalyst::Reset();
 	Replacement_Init();
 
+	g_lua.Init();
+
 	bool allowPlugins = true;
 	std::string geDumpDiscID;
 
@@ -242,6 +242,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		if (!MountGameISO(loadedFile)) {
 			*errorString = "Failed to mount ISO file - invalid format?";
+			CPU_Shutdown();
 			return false;
 		}
 		if (LoadParamSFOFromDisc()) {
@@ -271,8 +272,10 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 		allowPlugins = false;
 		break;
 	default:
-		// Can we even get here?
+		// Can we even get here? Yes, by drag-dropping files while a game is underway.
+		// Should check earlier.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		CPU_Shutdown();
 		return false;
 	}
 
@@ -285,6 +288,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 	if (!Memory::Init()) {
 		// We're screwed.
 		*errorString = "Memory init failed";
+		CPU_Shutdown();
 		return false;
 	}
 

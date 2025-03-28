@@ -100,8 +100,6 @@ private:
 	bool bootPending_ = true;
 	Path gamePath_;
 
-	// Something invalid was loaded, don't try to emulate
-	bool invalid_ = true;
 	bool quit_ = false;
 	bool stopRender_ = false;
 	std::string errorMessage_;
