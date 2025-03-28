@@ -325,7 +325,7 @@ void DisplayLayoutScreen::CreateViews() {
 		settingsVisible_.resize(g_Config.vPostShaderNames.size());
 	}
 
-	static ContextMenuItem postShaderContextMenu[] = {
+	static const ContextMenuItem postShaderContextMenu[] = {
 		{ "Move Up", "I_ARROW_UP" },
 		{ "Move Down", "I_ARROW_DOWN" },
 		{ "Remove", "I_TRASHCAN" },

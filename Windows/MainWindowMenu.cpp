@@ -513,7 +513,9 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_RESET:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			if (MainWindow::ConfirmAction(hWnd, true)) {
+				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			}
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
@@ -756,7 +758,7 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIPTYPE_PRCNT:    setFrameSkippingType(FRAMESKIPTYPE_PRCNT); break;
 
 		case ID_FILE_EXIT:
-			if (MainWindow::ConfirmExit(hWnd)) {
+			if (MainWindow::ConfirmAction(hWnd, false)) {
 				DestroyWindow(hWnd);
 			}
 			break;

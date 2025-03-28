@@ -1365,12 +1365,6 @@ void EmuScreen::update() {
 		}
 	}
 
-	if (bootPending_) {
-		// Keep trying the boot until bootPending_ is lifted.
-		// It may be delayed due to RetroAchievements or any other cause.
-		bootGame(gamePath_);
-	}
-
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
 	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
@@ -1472,7 +1466,7 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 			return false;
 		}
 
-		if (!PSP_IsInited()) {
+		if (!PSP_IsInited() && !bootPending_) {
 			return false;
 		}
 
@@ -1498,6 +1492,14 @@ void EmuScreen::darken() {
 }
 
 ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
+	// Moved from update, because we want it to be possible for booting to happen even when the screen
+	// is in the background, like when choosing Reset from the pause menu.
+	if (bootPending_) {
+		// Keep trying the boot until bootPending_ is lifted.
+		// It may be delayed due to RetroAchievements or any other cause.
+		bootGame(gamePath_);
+	}
+
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
 	Draw::Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
 	using namespace Draw;
@@ -1556,7 +1558,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
 		}
-		if (gpu->PresentedThisFrame()) {
+		if (gpu && gpu->PresentedThisFrame()) {
 			framebufferBound = true;
 		}
 		if (!framebufferBound) {
