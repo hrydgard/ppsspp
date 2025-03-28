@@ -113,7 +113,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 	std::string sanitized;
 	sanitized.reserve(input.size());
 	bool lastWasLineBreak = false;
-	for (auto c : input) {
+	for (char c : input) {
 		switch (restriction) {
 		case StringRestriction::None:
 			sanitized.push_back(c);
@@ -127,15 +127,15 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 			}
 			break;
 		case StringRestriction::NoLineBreaksOrSpecials:
-			if (c >= 32) {
+			if ((uint8_t)c >= 32) {
 				sanitized.push_back(c);
 				lastWasLineBreak = false;
 			} else if (c == 10 || c == 13) {
 				// Collapse line breaks/feeds to single spaces.
 				if (!lastWasLineBreak) {
 					sanitized.push_back(' ');
+					lastWasLineBreak = true;
 				}
-				lastWasLineBreak = true;
 			}
 		}
 	}
