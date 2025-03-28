@@ -165,7 +165,6 @@ public:
 	bool key(const KeyInput &key);
 	void axis(const AxisInput *axes, size_t count);
 
-	// Generic facility for gross hacks :P
 	void sendMessage(UIMessage message, const char *value);
 
 	const Screen *topScreen() const {

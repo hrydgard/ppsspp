@@ -273,8 +273,10 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 		backgroundScreen_->sendMessage(message, value);
 	}
 
-	if (!stack_.empty()) {
-		stack_.back().screen->sendMessage(message, value);
+	// NOTE: Changed this to send the message to all screens, instead of just the top one,
+	// to allow EmuScreen to receive messages from popup menus. Hope this didn't break anything..
+	for (auto &iter : stack_) {
+		iter.screen->sendMessage(message, value);
 	}
 }
 

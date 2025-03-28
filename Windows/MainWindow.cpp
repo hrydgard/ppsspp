@@ -825,7 +825,7 @@ namespace MainWindow
 		};
 	}
 
-	bool ConfirmExit(HWND hWnd) {
+	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
 			return true;
@@ -837,8 +837,12 @@ namespace MainWindow
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		confirmExitMessage += '\n';
-		confirmExitMessage += di->T("Are you sure you want to exit?");
+		if (!actionIsReset) {
+			confirmExitMessage += '\n';
+			confirmExitMessage += di->T("Are you sure you want to exit?");
+		} else {
+			// Reset is bit rarer, let's just omit the extra message for now.
+		}
 		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
@@ -1121,7 +1125,7 @@ namespace MainWindow
 
 		case WM_CLOSE:
 		{
-			if (ConfirmExit(hWnd)) {
+			if (ConfirmAction(hWnd, false)) {
 				DestroyWindow(hWnd);
 			}
 			return 0;

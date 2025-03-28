@@ -540,6 +540,40 @@ void GamePauseScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 
+	Button *menuButton = middleColumn->Add(new Button("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
+
+	menuButton->OnClick.Add([this, menuButton](UI::EventParams &e) {
+		static const ContextMenuItem ingameContextMenu[] = {
+			{ "Reset" },
+		};
+		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(ingameContextMenu, ARRAY_SIZE(ingameContextMenu), I18NCat::DIALOG, menuButton);
+		screenManager()->push(contextMenu);
+		contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
+			switch (e.a) {
+			case 0:  // Reset
+			{
+				std::string confirmMessage = GetConfirmExitMessage();
+				if (!confirmMessage.empty()) {
+					auto di = GetI18NCategory(I18NCat::DIALOG);
+					screenManager()->push(new PromptScreen(gamePath_, confirmMessage, di->T("Reset"), di->T("Cancel"), [=](bool result) {
+						if (result) {
+							System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+						}
+					}));
+				} else {
+					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+					break;
+				}
+			}
+			default:
+				break;
+			}
+			return UI::EVENT_DONE;
+		});
+
+		return UI::EVENT_DONE;
+	});
+
 	// What's this for?
 	rightColumnHolder->Add(new Spacer(10.0f));
 }
@@ -561,9 +595,10 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	} else {
 		if (tag == "Game") {
 			g_BackgroundAudio.SetGame(Path());
+		} else if (tag != "ContextMenuPopup") {
+			// There may have been changes to our savestates, so let's recreate.
+			RecreateViews();
 		}
-		// There may have been changes to our savestates, so let's recreate.
-		RecreateViews();
 	}
 }
 
@@ -609,7 +644,6 @@ std::string GetConfirmExitMessage() {
 			// No need to ask for this type of confirmation for dumps.
 			return confirmMessage;
 		}
-
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		confirmMessage = ApplySafeSubstitutions(di->T("You haven't saved your progress for %1."), NiceTimeFormat((int)unsavedSeconds));
 		confirmMessage += '\n';
