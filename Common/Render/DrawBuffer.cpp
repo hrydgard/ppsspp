@@ -412,6 +412,15 @@ void DrawBuffer::DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x
 	float vm = (v2 + v1) * 0.5f;
 	float iw2 = (image->w * 0.5f) * corner_scale;
 	float ih2 = (image->h * 0.5f) * corner_scale;
+
+	// Automatically reduce corner scale radius if it can't fit.
+	if (iw2 > (x2 - x1) * 0.5f) {
+		iw2 = (x2 - x1) * 0.5f;
+	}
+	if (ih2 > (y2 - y1) * 0.5f) {
+		ih2 = (y2 - y1) * 0.5f;
+	}
+
 	float xa = x1 + iw2;
 	float xb = x2 - iw2;
 	float ya = y1 + ih2;

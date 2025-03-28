@@ -61,19 +61,22 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto category = GetI18NCategory(category_);
 
 	for (size_t i = 0; i < itemCount_; i++) {
+		Choice *choice;
 		if (items_[i].imageID) {
-			Choice *choice = new Choice(category->T(items_[i].text), ImageID(items_[i].imageID));
-			parent->Add(choice);
-			if (enabled_[i]) {
-				choice->OnClick.Add([=](EventParams &p) {
-					TriggerFinish(DR_OK);
-				p.a = (uint32_t)i;
-				OnChoice.Dispatch(p);
-				return EVENT_DONE;
-					});
-			} else {
-				choice->SetEnabled(false);
-			}
+			choice = new Choice(category->T(items_[i].text), ImageID(items_[i].imageID));
+		} else {
+			choice = new Choice(category->T(items_[i].text));
+		}
+		parent->Add(choice);
+		if (enabled_[i]) {
+			choice->OnClick.Add([=](EventParams &p) {
+				TriggerFinish(DR_OK);
+			p.a = (uint32_t)i;
+			OnChoice.Dispatch(p);
+			return EVENT_DONE;
+				});
+		} else {
+			choice->SetEnabled(false);
 		}
 	}
 
