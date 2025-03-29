@@ -31,6 +31,7 @@
 #include <android/log.h>
 #elif PPSSPP_PLATFORM(WINDOWS)
 #include "CommonWindows.h"
+static HWND g_dialogParent;
 #endif
 
 #define LOG_BUF_SIZE 2048
@@ -43,6 +44,14 @@ static double g_assertInfoTime = 0.0;
 static bool g_exitOnAssert;
 static AssertNoCallbackFunc g_assertCancelCallback = 0;
 static void *g_assertCancelCallbackUserData = 0;
+
+
+
+void SetAssertDialogParent(void *handle) {
+#if PPSSPP_PLATFORM(WINDOWS)
+g_dialogParent = (HWND)handle;
+#endif
+}
 
 void SetExtraAssertInfo(const char *info) {
 	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
@@ -106,7 +115,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 		OutputDebugStringA(formatted);
 		printf("%s\n", formatted);
 		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
-		switch (MessageBox(0, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
+		switch (MessageBox(g_dialogParent, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
 		case IDYES:
 			return true;
 		case IDNO:

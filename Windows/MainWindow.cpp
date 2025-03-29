@@ -861,6 +861,7 @@ namespace MainWindow
 			if (g_darkModeSupported) {
 				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
 			}
+			SetAssertDialogParent(hWnd);
 			break;
 
 		case WM_USER_RUN_CALLBACK:
