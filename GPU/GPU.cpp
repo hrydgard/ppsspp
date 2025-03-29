@@ -31,10 +31,6 @@
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Software/SoftGpu.h"
 
-#if PPSSPP_API(D3D9)
-#include "GPU/Directx9/GPU_DX9.h"
-#endif
-
 #if PPSSPP_API(D3D11)
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
@@ -86,13 +82,6 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	case GPUCORE_SOFTWARE:
 		SetGPU(new SoftGPU(ctx, draw));
 		break;
-	case GPUCORE_DIRECTX9:
-#if PPSSPP_API(D3D9)
-		SetGPU(new GPU_DX9(ctx, draw));
-		break;
-#else
-		return false;
-#endif
 	case GPUCORE_DIRECTX11:
 #if PPSSPP_API(D3D11)
 		SetGPU(new GPU_D3D11(ctx, draw));
