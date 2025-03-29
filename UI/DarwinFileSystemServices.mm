@@ -88,7 +88,7 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"db"]];
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"wav", @"mp3"]];
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"wav", @"mp3", nil]];
 			break;
 		case BrowseFileType::SYMBOL_MAP:
 			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"ppsym"]];
