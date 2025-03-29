@@ -104,6 +104,7 @@ enum class BrowseFileType {
 	SOUND_EFFECT,
 	ZIP,
 	SYMBOL_MAP,
+	SYMBOL_MAP_NOCASH,
 	ATRAC3,
 	ANY,
 };

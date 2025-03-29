@@ -88,7 +88,13 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"db"]];
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"wav"]];
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"wav", @"mp3", nil]];
+			break;
+		case BrowseFileType::SYMBOL_MAP:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"ppsym"]];
+			break;
+		case BrowseFileType::SYMBOL_MAP_NOCASH:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"sym"]];
 			break;
 		case BrowseFileType::ATRAC3:
 			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"at3"]];
@@ -113,21 +119,21 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		UIViewController *rootViewController = UIApplication.sharedApplication
 			.keyWindow
 			.rootViewController;
-		
+
 		// get current window view controller
 		if (!rootViewController)
 			return;
-		
+
 		NSMutableArray<NSString *> *types = [NSMutableArray array];
 		UIDocumentPickerMode pickerMode = UIDocumentPickerModeOpen;
-		
+
 		if (allowDirectories)
 			[types addObject: (__bridge NSString *)kUTTypeFolder];
 		if (allowFiles) {
 			[types addObject: (__bridge NSString *)kUTTypeItem];
 			pickerMode = UIDocumentPickerModeImport;
 		}
-		
+
 		UIDocumentPickerViewController *pickerVC = [[UIDocumentPickerViewController alloc] initWithDocumentTypes: types inMode: pickerMode];
 		// What if you wanted to go to heaven, but then God showed you the next few lines?
 		// serious note: have to do this, because __pickerDelegate has to stay retained as a class property
@@ -142,7 +148,7 @@ Path DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse() {
     NSString *userPreferred = [[NSUserDefaults standardUserDefaults] stringForKey:@(PreferredMemoryStickUserDefaultsKey)];
     if (userPreferred)
         return Path(userPreferred.UTF8String);
-    
+
     return defaultMemoryStickPath();
 }
 

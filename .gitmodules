@@ -65,3 +65,6 @@
 [submodule "ext/lua"]
 	path = ext/lua
 	url = https://github.com/hrydgard/ppsspp-lua.git
+[submodule "ext/portable-file-dialogs"]
+	path = ext/portable-file-dialogs
+	url = git@github.com:samhocevar/portable-file-dialogs.git

@@ -436,7 +436,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 	{
-		// Do actual check 
+		// Do actual check
 		// touch devices has input pane, we need to depend on it
 		// I don't know any possible way to display input dialog in non-xaml apps
 		return isKeyboardAvailable() || isTouchAvailable();
@@ -518,6 +518,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			break;
 		case BrowseFileType::SYMBOL_MAP:
 			supportedExtensions = { ".ppmap" };
+			break;
+		case BrowseFileType::SYMBOL_MAP_NOCASH:
+			supportedExtensions = { ".sym" };
 			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
