@@ -126,6 +126,12 @@ void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, floa
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}
 
+#if 0 && defined(_DEBUG)
+	if (str.find('\r') != std::string_view::npos) {
+		_dbg_assert_msg_(false, "carriage return found in string to measure");
+	}
+#endif
+
 	std::string toMeasure(str);
 
 	std::vector<std::string_view> lines;
@@ -135,8 +141,11 @@ void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, floa
 	for (auto &line : lines) {
 		SIZE size;
 		std::wstring wstr = ConvertUTF8ToWString(line);
+		if (wstr.empty() && lines.size() > 1) {
+			// Measure empty lines as if it was a space.
+			wstr = L" ";
+		}
 		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-
 		if (size.cx > extW)
 			extW = size.cx;
 		extH += size.cy;

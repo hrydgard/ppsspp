@@ -75,7 +75,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		mTime_->SetTextColor(textStyle.fgColor);
 		toprow->Add(topright);
 		Add(new Spacer(3.0));
-		detail_ = Add(new TextView(ReplaceAll(savedataDetail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
+		detail_ = Add(new TextView(SanitizeString(savedataDetail, StringRestriction::ConvertToUnixEndings), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
 		detail_->SetTextColor(textStyle.fgColor);
 		Add(new Spacer(3.0));
 	} else {
@@ -92,15 +92,16 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	}
 }
 
+// TODO: This runs every frame, which is a bit silly.
 void SavedataView::UpdateGame(GameInfo *ginfo) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE)) {
 		return;
 	}
 	if (savedataTitle_) {
-		savedataTitle_->SetText(ginfo->GetParamSFO().GetValueString("SAVEDATA_TITLE"));
+		savedataTitle_->SetText(SanitizeString(ginfo->GetParamSFO().GetValueString("SAVEDATA_TITLE"), StringRestriction::NoLineBreaksOrSpecials));
 	}
 	if (detail_) {
-		detail_->SetText(ginfo->GetParamSFO().GetValueString("SAVEDATA_DETAIL"));
+		detail_->SetText(SanitizeString(ginfo->GetParamSFO().GetValueString("SAVEDATA_DETAIL"), StringRestriction::ConvertToUnixEndings));
 	}
 	if (fileSize_) {
 		fileSize_->SetText(NiceSizeFormat(ginfo->gameSizeOnDisk));

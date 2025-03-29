@@ -137,10 +137,16 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 					lastWasLineBreak = true;
 				}
 			}
+			break;
+		case StringRestriction::ConvertToUnixEndings:  // Strips off carriage returns, keeps line feeds.
+			if (c != '\r') {
+				sanitized.push_back(c);
+			}
+			break;
 		}
 	}
 
-	if (minLength >= 0) {
+	if (minLength > 0) {
 		if ((int)sanitized.size() < minLength) {
 			// Just reject it by returning an empty string, as we can't really
 			// conjure up new characters here.
