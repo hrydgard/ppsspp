@@ -1876,7 +1876,7 @@ void EmuScreen::renderUI() {
 		root_->Draw(*ctx);
 	}
 
-	if (!PSP_IsInited()) {
+	if (PSP_IsInited()) {
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
 			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_);
 		}
