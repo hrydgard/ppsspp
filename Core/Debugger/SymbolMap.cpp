@@ -309,25 +309,26 @@ bool SymbolMap::LoadNocashSym(const Path &filename) {
 	return true;
 }
 
-void SymbolMap::SaveNocashSym(const Path &filename) const {
+bool SymbolMap::SaveNocashSym(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return false;
 	}
 
-	FILE* f = File::OpenCFile(filename, "w");
-	if (f == NULL)
-		return;
+	FILE *f = File::OpenCFile(filename, "w");
+	if (!f)
+		return false;
 
 	// only write functions, the rest isn't really interesting
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module),GetLabelNameRel(e.start, e.module), e.size);
+		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module), GetLabelNameRel(e.start, e.module), e.size);
 	}
-	
+
 	fclose(f);
+	return true;
 }
 
 SymbolType SymbolMap::GetSymbolType(u32 address) {

@@ -1660,34 +1660,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Don't break on start", nullptr, &g_Config.bAutoRun);  // should really invert this bool!
 			ImGui::MenuItem("Fast memory", nullptr, &g_Config.bFastMemory);
 			ImGui::Separator();
-
-			/*
-			// Symbol stuff. Move to separate menu?
-			// Doesn't quite seem to work yet.
-			if (ImGui::MenuItem("Load symbol map...")) {
-				System_BrowseForFile(reqToken_, "Load symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
-					Path path(responseString);
-					if (!g_symbolMap->LoadSymbolMap(path)) {
-						ERROR_LOG(Log::Common, "Failed to load symbol map");
-					}
-					disasm_.DirtySymbolMap();
-				});
-			}
-			if (ImGui::MenuItem("Save symbol map...")) {
-				System_BrowseForFileSave(reqToken_, "Save symbol map", "symbols.map", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
-					Path path(responseString);
-					if (!g_symbolMap->SaveSymbolMap(path)) {
-						ERROR_LOG(Log::Common, "Failed to save symbol map");
-					}
-				});
-			}
-			*/
-			if (ImGui::MenuItem("Reset symbol map")) {
-				g_symbolMap->Clear();
-				disasm_.DirtySymbolMap();
-				// NotifyDebuggerMapLoaded();
-			}
-			ImGui::Separator();
 			if (ImGui::MenuItem("Take screenshot")) {
 				g_TakeScreenshot = true;
 			}
@@ -1713,6 +1685,49 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
 			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Symbols")) {
+			if (ImGui::MenuItem("Load .ppmap...")) {
+				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to load symbol map");
+					}
+					disasm_.DirtySymbolMap();
+				});
+			}
+			if (ImGui::MenuItem("Save .ppmap...")) {
+				System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to save symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Load No$ .sym...")) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
+					}
+					disasm_.DirtySymbolMap();
+				});
+			}
+			if (ImGui::MenuItem("Save No$ .sym...")) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
+					}
+				});
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Reset symbol map")) {
+				g_symbolMap->Clear();
+				disasm_.DirtySymbolMap();
+				// NotifyDebuggerMapLoaded();
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Memory")) {
@@ -1765,12 +1780,15 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Misc")) {
-			if (ImGui::MenuItem("Close Debugger")) {
-				g_Config.bShowImDebugger = false;
-			}
 			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
+			ImGui::EndMenu();
+		}
+
+		// Let's have this at the top level, to help anyone confused.
+		if (ImGui::BeginMenu("Close Debugger")) {
+			g_Config.bShowImDebugger = false;
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();

@@ -970,7 +970,8 @@ void GameBrowser::Refresh() {
 
 bool GameBrowser::IsCurrentPathPinned() {
 	const auto paths = g_Config.vPinnedPaths;
-	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath().ToString())) != paths.end();
+	std::string resolved = File::ResolvePath(path_.GetPath().ToString());
+	return std::find(paths.begin(), paths.end(), resolved) != paths.end();
 }
 
 std::vector<Path> GameBrowser::GetPinnedPaths() const {
