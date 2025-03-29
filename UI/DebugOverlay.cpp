@@ -455,7 +455,7 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 
 	char temp[256];
-	StringWriter w(temp, sizeof(temp));
+	StringWriter w(temp);
 
 	if ((g_Config.iShowStatusFlags & ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
 		// Both at the same time gets a shorter formulation.

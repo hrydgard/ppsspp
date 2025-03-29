@@ -281,6 +281,13 @@ int OpenFD(const Path &path, OpenFlag flags) {
 	return descriptor;
 }
 
+void CloseFD(int fd) {
+#if PPSSPP_PLATFORM(ANDROID)
+	close(fd);
+#endif
+}
+
+
 #ifdef _WIN32
 static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSize) {
 	typedef DWORD(WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);

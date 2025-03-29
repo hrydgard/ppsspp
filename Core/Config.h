@@ -122,6 +122,7 @@ public:
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	bool bCompressSymbols;
 	bool bCacheFullIsoInRam;
 	int iRemoteISOPort;
 	std::string sLastRemoteISOServer;

@@ -42,7 +42,9 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Buffer.h"
 #include "Core/MemMap.h"
+#include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 
 #ifndef NO_ARMIPS
@@ -189,10 +191,10 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 
 		if (!strcmp(name, ".text") || !strcmp(name, ".init") || strlen(name) <= 1) {
-
+			// Ignored
 		} else {
-			switch (type)
-			{
+			// Seems legit
+			switch (type) {
 			case ST_FUNCTION:
 				AddFunction(name, vaddress, size, moduleIndex);
 				break;
@@ -209,6 +211,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		}
 	}
 	gzclose(f);
+	activeNeedUpdate_ = true;
 	SortSymbols();
 	return started;
 }
@@ -221,33 +224,49 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 		return true;
 	}
 
-	// TODO(scoped): Use gzdopen
-#if defined(_WIN32) && defined(UNICODE)
-	gzFile f = gzopen_w(filename.ToWString().c_str(), "w9");
-#else
-	gzFile f = gzopen(filename.c_str(), "w9");
-#endif
-
-	if (f == Z_NULL)
-		return false;
-
-	gzprintf(f, ".text\n");
-
+	Buffer buf;
+	buf.Printf(".text\n");
 	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
 		const ModuleEntry &mod = *it;
-		gzprintf(f, ".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
+		buf.Printf(".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
 	}
 
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
+		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
 	}
 
 	for (auto it = data.begin(), end = data.end(); it != end; ++it) {
 		const DataEntry& e = it->second;
-		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
+		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
-	gzclose(f);
+
+	std::string data;
+	buf.TakeAll(&data);
+	if (g_Config.bCompressSymbols) {
+		// TODO: Wrap this in some nicer way.
+		gzFile f;
+		if (filename.Type() == PathType::CONTENT_URI) {
+			int fd = File::OpenFD(filename, File::OPEN_WRITE);
+			f = gzdopen(fd, "w9");
+			if (f == Z_NULL) {
+				File::CloseFD(fd);
+				return false;
+			}
+		} else {
+			f = gzopen(filename.c_str(), "w9");
+			if (f == Z_NULL) {
+				return false;
+			}
+		}
+		gzwrite(f, data.data(), (unsigned int)data.size());
+		gzclose(f);
+	} else {
+		// Just plain write it.
+		FILE *file = File::OpenCFile(filename, "wb");
+		fwrite(data.data(), 1, data.size(), file);
+		fclose(file);
+	}
 	return true;
 }
 
@@ -291,43 +310,43 @@ bool SymbolMap::LoadNocashSym(const Path &filename) {
 			}
 		} else {				// labels
 			unsigned int size = 1;
-			char* seperator = strchr(value, ',');
-			if (seperator != NULL) {
-				*seperator = 0;
-				sscanf(seperator+1,"%08X",&size);
+			char *separator = strchr(value, ',');
+			if (separator != NULL) {
+				*separator = '\0';
+				sscanf(separator + 1, "%08X", &size);
 			}
 
 			if (size != 1) {
-				AddFunction(value, address,size, 0);
+				AddFunction(value, address, size, 0);
 			} else {
 				AddLabel(value, address, 0);
 			}
 		}
 	}
-
 	fclose(f);
 	return true;
 }
 
-void SymbolMap::SaveNocashSym(const Path &filename) const {
+bool SymbolMap::SaveNocashSym(const Path &filename) const {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	// Don't bother writing a blank file.
 	if (!File::Exists(filename) && functions.empty() && data.empty()) {
-		return;
+		return false;
 	}
 
-	FILE* f = File::OpenCFile(filename, "w");
-	if (f == NULL)
-		return;
+	FILE *f = File::OpenCFile(filename, "w");
+	if (!f)
+		return false;
 
 	// only write functions, the rest isn't really interesting
 	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 		const FunctionEntry& e = it->second;
-		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module),GetLabelNameRel(e.start, e.module), e.size);
+		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module), GetLabelNameRel(e.start, e.module), e.size);
 	}
-	
+
 	fclose(f);
+	return true;
 }
 
 SymbolType SymbolMap::GetSymbolType(u32 address) {
@@ -421,7 +440,7 @@ std::string SymbolMap::GetDescription(unsigned int address) {
 	return descriptionTemp;
 }
 
-std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
+std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
@@ -720,8 +739,8 @@ void SymbolMap::AssignFunctionIndices() {
 	}
 }
 
+// Copies functions, labels and data to the active set depending on which modules are "active".
 void SymbolMap::UpdateActiveSymbols() {
-	// return;   (slow in debug mode)
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	activeFunctions.clear();

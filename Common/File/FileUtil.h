@@ -56,6 +56,9 @@ enum OpenFlag {
 // of DirectoryFileSystem::Open here eventually for symmetry.
 int OpenFD(const Path &filename, OpenFlag flags);
 
+// Cross-platform way to close FDs, corresponsing in platform support with OpenFD above.
+void CloseFD(int fd);
+
 // Resolves symlinks and similar.
 std::string ResolvePath(std::string_view path);
 

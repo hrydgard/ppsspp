@@ -45,11 +45,9 @@ static bool g_exitOnAssert;
 static AssertNoCallbackFunc g_assertCancelCallback = 0;
 static void *g_assertCancelCallbackUserData = 0;
 
-
-
 void SetAssertDialogParent(void *handle) {
 #if PPSSPP_PLATFORM(WINDOWS)
-g_dialogParent = (HWND)handle;
+	g_dialogParent = (HWND)handle;
 #endif
 }
 

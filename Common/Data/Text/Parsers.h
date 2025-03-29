@@ -86,7 +86,11 @@ std::string NiceTimeFormat(int seconds);
 // TODO: We actually also have Buffer, with .Printf(), which is almost as convenient. Should maybe improve that instead?
 class StringWriter {
 public:
-	explicit StringWriter(char *buffer, size_t bufSize) : start_(buffer), p_(buffer), bufSize_(bufSize) {
+	StringWriter(char *buffer, size_t bufSize) : start_(buffer), p_(buffer), bufSize_(bufSize) {
+		buffer[0] = '\0';
+	}
+	template<size_t sz>
+	explicit StringWriter(char (&buffer)[sz]) : start_(buffer), p_(buffer), bufSize_(sz) {
 		buffer[0] = '\0';
 	}
 	StringWriter(const StringWriter &) = delete;
