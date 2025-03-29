@@ -209,7 +209,7 @@ void WebSocketHLEFuncList(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
 
-	auto functions = g_symbolMap->GetAllSymbols(ST_FUNCTION);
+	auto functions = g_symbolMap->GetAllActiveSymbols(ST_FUNCTION);
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("functions");

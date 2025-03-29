@@ -280,6 +280,7 @@ static const ConfigSetting generalSettings[] = {
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default", CfgFlag::DEFAULT),
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false, CfgFlag::PER_GAME),
+	ConfigSetting("CompressSymbols", &g_Config.bCompressSymbols, true, CfgFlag::DEFAULT),
 	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false, CfgFlag::PER_GAME),
 	ConfigSetting("RemoteISOPort", &g_Config.iRemoteISOPort, 0, CfgFlag::DEFAULT),
 	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, "", CfgFlag::DEFAULT),
@@ -1211,11 +1212,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	// For iOS, issue #19211
 	TryUpdateSavedPath(&currentDirectory);
-
-	// This check is probably not really necessary here anyway, you can always
-	// press Home or Browse if you're in a bad directory.
-	if (!File::Exists(currentDirectory))
-		currentDirectory = defaultCurrentDirectory;
 
 	Section *log = iniFile.GetOrCreateSection(logSectionName);
 

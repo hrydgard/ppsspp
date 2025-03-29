@@ -72,13 +72,13 @@ public:
 	bool LoadSymbolMap(const Path &filename);
 	bool SaveSymbolMap(const Path &filename) const;
 	bool LoadNocashSym(const Path &filename);
-	void SaveNocashSym(const Path &filename) const;
+	bool SaveNocashSym(const Path &filename) const;
 
 	SymbolType GetSymbolType(u32 address);
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION);
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
 	std::string GetDescription(unsigned int address);
-	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
+	std::vector<SymbolEntry> GetAllActiveSymbols(SymbolType symmask);
 
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType);
