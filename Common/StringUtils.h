@@ -80,9 +80,10 @@ enum class StringRestriction {
 	None,
 	AlphaNumDashUnderscore,  // Used for infrastructure usernames
 	NoLineBreaksOrSpecials,  // Used for savedata UI. Removes line breaks, backslashes and similar.
+	ConvertToUnixEndings,
 };
 
-std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength, int maxLength);
+std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength = 0, int maxLength = -1);
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool lineBreaks = true);
 void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t size, std::string* output);
