@@ -71,64 +71,6 @@ std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_vi
 	return ConvertWStringToUTF8(selectedFolder);
 }
 
-	static int CALLBACK BrowseFolderCallback(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
-		if (uMsg == BFFM_INITIALIZED) {
-			LPCTSTR path = reinterpret_cast<LPCTSTR>(lpData);
-			::SendMessage(hwnd, BFFM_SETSELECTION, true, (LPARAM)path);
-		}
-		return 0;
-	}
-
-	std::string BrowseForFolder(HWND parent, const wchar_t *title, std::string_view initialPath) {
-		BROWSEINFO info{};
-		info.hwndOwner = parent;
-		info.lpszTitle = title;
-		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI | BIF_NEWDIALOGSTYLE;
-
-		std::wstring initialPathW;
-
-		if (!initialPath.empty()) {
-			initialPathW = ConvertUTF8ToWString(initialPath);
-			info.lParam = reinterpret_cast<LPARAM>(initialPathW.c_str());
-			info.lpfn = BrowseFolderCallback;
-		}
-
-		//info.pszDisplayName
-		auto idList = SHBrowseForFolder(&info);
-		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
-		typedef BOOL (WINAPI *SHGetPathFromIDListEx_f)(PCIDLIST_ABSOLUTE pidl, PWSTR pszPath, DWORD cchPath, GPFIDL_FLAGS uOpts);
-		SHGetPathFromIDListEx_f SHGetPathFromIDListEx_ = nullptr;
-		if (shell32)
-			SHGetPathFromIDListEx_ = (SHGetPathFromIDListEx_f)GetProcAddress(shell32, "SHGetPathFromIDListEx");
-
-		std::string result;
-		if (SHGetPathFromIDListEx_) {
-			std::wstring temp;
-			do {
-				// Assume it's failing if it goes on too long.
-				if (temp.size() > 32768 * 10) {
-					temp.clear();
-					break;
-				}
-				temp.resize(temp.size() + MAX_PATH);
-			} while (SHGetPathFromIDListEx_(idList, &temp[0], (DWORD)temp.size(), GPFIDL_DEFAULT) == 0);
-			result = ConvertWStringToUTF8(temp);
-		} else {
-			wchar_t temp[MAX_PATH]{};
-			SHGetPathFromIDList(idList, temp);
-			result = ConvertWStringToUTF8(temp);
-		}
-
-		CoTaskMemFree(idList);
-		return result;
-	}
-
-	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
-		std::wstring titleString = ConvertUTF8ToWString(title);
-		return BrowseForFolder(parent, titleString.c_str(), initialPath);
-	}
-
-
 	bool BrowseForFileName(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
 		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension,
 		std::string &_strFileName) {
