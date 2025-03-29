@@ -1723,6 +1723,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				});
 			}
 			ImGui::Separator();
+			ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
 			if (ImGui::MenuItem("Reset symbol map")) {
 				g_symbolMap->Clear();
 				disasm_.DirtySymbolMap();
@@ -2221,7 +2222,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
 		if (symCache_.empty() || symsDirty_) {
-			symCache_ = g_symbolMap->GetAllSymbols(SymbolType::ST_FUNCTION);
+			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
 			symsDirty_ = false;
 		}
 
