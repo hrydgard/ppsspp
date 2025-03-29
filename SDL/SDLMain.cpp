@@ -24,6 +24,8 @@ SDLJoystick *joystick = NULL;
 #include <thread>
 #include <locale>
 
+#include "ext/portable-file-dialogs/portable-file-dialogs.h"
+
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -221,6 +223,47 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
+static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType type) {
+	switch (type) {
+	case BrowseFileType::BOOTABLE:
+		filters.push_back("All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)");
+		filters.push_back("*.pbp *.elf *.iso *.cso *.chd *.prx *.zip *.ppdmp");
+		break;
+	case BrowseFileType::INI:
+		filters.push_back("Ini files");
+		filters.push_back("*.ini");
+		break;
+	case BrowseFileType::ZIP:
+		filters.push_back("ZIP files");
+		filters.push_back("*.zip");
+		break;
+	case BrowseFileType::DB:
+		filters.push_back("Cheat db files");
+		filters.push_back("*.db");
+		break;
+	case BrowseFileType::SOUND_EFFECT:
+		filters.push_back("Sound effect files (wav, mp3)");
+		filters.push_back("*.wav *.mp3");
+		break;
+	case BrowseFileType::SYMBOL_MAP:
+		filters.push_back("PPSSPP Symbol Map files (ppmap)");
+		filters.push_back("*.ppmap");
+		break;
+	case BrowseFileType::SYMBOL_MAP_NOCASH:
+		filters.push_back("No$ symbol Map files (sym)");
+		filters.push_back("*.sym");
+		break;
+	case BrowseFileType::ATRAC3:
+		filters.push_back("Atrac3 files (at3)");
+		filters.push_back("*.at3");
+		break;
+	case BrowseFileType::ANY:
+		break;
+	}
+	filters.push_back("All files (*.*)");
+	filters.push_back("*");
+}
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
@@ -286,6 +329,44 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices::presentDirectoryPanel(callback, /* allowFiles = */ false, /* allowDirectories = */ true);
+		return true;
+	}
+#else
+	case SystemRequestType::BROWSE_FOR_FILE:
+	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
+	{
+		// TODO: Add non-blocking support.
+		const BrowseFileType browseType = (BrowseFileType)param3;
+		std::string initialFilename = param2;
+		const std::string &title = param1;
+		std::vector<std::string> filters;
+		InitializeFilters(filters, browseType);
+		if (type == SystemRequestType::BROWSE_FOR_FILE) {
+			std::vector<std::string> result = pfd::open_file(title, initialFilename, filters).result();
+			if (!result.empty()) {
+				g_requestManager.PostSystemSuccess(requestId, result[0]);
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		} else {
+			std::string result = pfd::save_file(title, initialFilename, filters).result();
+			if (!result.empty()) {
+				g_requestManager.PostSystemSuccess(requestId, result);
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		// TODO: Add non-blocking support.
+		std::string result = pfd::select_folder(param1, param2).result();
+		if (!result.empty()) {
+			g_requestManager.PostSystemSuccess(requestId, result);
+		} else {
+			g_requestManager.PostSystemFailure(requestId);
+		}
 		return true;
 	}
 #endif
@@ -606,16 +687,18 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
-	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR: 
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
 #endif
+case SYSPROP_HAS_FOLDER_BROWSER:
+case SYSPROP_HAS_FILE_BROWSER:
 #if PPSSPP_PLATFORM(MAC)
-	case SYSPROP_HAS_FOLDER_BROWSER:
-	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
+#else
+		return pfd::settings::available();
 #endif
 	case SYSPROP_HAS_ACCELEROMETER:
 #if defined(MOBILE_DEVICE)
@@ -1501,7 +1584,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ThreadStart();
 
 	InputStateTracker inputTracker{};
-	
+
 #if PPSSPP_PLATFORM(MAC)
 	// setup menu items for macOS
 	initializeOSXExtras();
