@@ -135,8 +135,11 @@ void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, floa
 	for (auto &line : lines) {
 		SIZE size;
 		std::wstring wstr = ConvertUTF8ToWString(line);
+		if (wstr.empty()) {
+			// Measure empty lines as if it was a space.
+			wstr = L" ";
+		}
 		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-
 		if (size.cx > extW)
 			extW = size.cx;
 		extH += size.cy;
