@@ -96,7 +96,6 @@ bool HasAchievementsOrLeaderboards();
 bool LoginAsync(const char *username, const char *password);
 void Logout();
 
-bool IsReadyToStart();
 void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader);
 void ChangeUMD(const Path &path, FileLoader *fileLoader);  // for in-game UMD change
 void UnloadGame();  // Call when leaving a game.

@@ -251,6 +251,8 @@ void __PPGeInit() {
 	int height[12]{};
 	int flags = 0;
 
+	// TODO: Load the atlas on a thread!
+
 	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
 	if (!skipZIM && !loadedZIM) {
 		ERROR_LOG(Log::sceGe, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");

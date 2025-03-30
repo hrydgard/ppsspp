@@ -355,10 +355,9 @@ void EmuScreen::bootGame(const Path &filename) {
 	coreParam.pixelWidth = g_display.pixel_xres;
 	coreParam.pixelHeight = g_display.pixel_yres;
 
-	std::string error_string;
-	if (!PSP_InitStart(coreParam, &error_string)) {
+	// PSP_InitStart can't really fail anymore, unless it's called at the wrong time. It just starts the loader thread.
+	if (!PSP_InitStart(coreParam)) {
 		bootPending_ = false;
-		errorMessage_ = error_string;
 		ERROR_LOG(Log::Boot, "InitStart bootGame error: %s", errorMessage_.c_str());
 	}
 
@@ -552,10 +551,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		PSP_Shutdown();
 		bootPending_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
-
-		std::string resetError;
-		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
-			ERROR_LOG(Log::Loader, "Error resetting: %s", resetError.c_str());
+		if (!PSP_InitStart(PSP_CoreParameter())) {
+			ERROR_LOG(Log::Loader, "Error resetting");
 			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			return;

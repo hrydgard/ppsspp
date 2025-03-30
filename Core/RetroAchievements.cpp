@@ -966,10 +966,6 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 	g_isIdentifying = false;
 }
 
-bool IsReadyToStart() {
-	return !g_isLoggingIn;
-}
-
 void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader) {
 	bool homebrew = false;
 	switch (fileType) {

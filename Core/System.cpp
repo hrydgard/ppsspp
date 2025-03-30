@@ -40,6 +40,7 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/AndroidContentURI.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/RetroAchievements.h"
 #include "Core/MemFault.h"
@@ -83,6 +84,7 @@ CoreParameter g_CoreParameter;
 static FileLoader *g_loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
+static std::thread g_loadingThread;
 
 bool coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
@@ -218,7 +220,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 #ifdef WIN32
 		*errorString = "RAR file detected (Require WINRAR)";
 #else
-		*error_string = "RAR file detected (Require UnRAR)";
+		*errorString = "RAR file detected (Require UnRAR)";
 #endif
 		break;
 
@@ -226,7 +228,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 #ifdef WIN32
 		*errorString = "ZIP file detected (Require WINRAR)";
 #else
-		*error_string = "ZIP file detected (Require UnRAR)";
+		*errorString = "ZIP file detected (Require UnRAR)";
 #endif
 		break;
 
@@ -249,8 +251,6 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
 static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
-	coreState = CORE_POWERUP;
-
 	// Default memory settings
 	// Seems to be the safest place currently..
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
@@ -416,10 +416,6 @@ PSP_LoadingLock::~PSP_LoadingLock() {
 void CPU_Shutdown() {
 	UninstallExceptionHandler();
 
-	// Since we load on a background thread, wait for startup to complete.
-	PSP_LoadingLock lock;
-	PSPLoaders_Shutdown();
-
 	GPURecord::Replay_Unload();
 
 	if (g_Config.bAutoSaveSymbolMap) {
@@ -441,15 +437,14 @@ void CPU_Shutdown() {
 	g_loadedFile = nullptr;
 
 	delete g_CoreParameter.mountIsoLoader;
+	g_CoreParameter.mountIsoLoader = nullptr;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
 
 	g_lua.Shutdown();
-
-	g_CoreParameter.mountIsoLoader = nullptr;
 }
 
-// TODO: Maybe loadedFile doesn't even belong here...
+// Used for UMD switching only.
 void UpdateLoadedFile(FileLoader *fileLoader) {
 	delete g_loadedFile;
 	g_loadedFile = fileLoader;
@@ -477,20 +472,14 @@ void PSP_ForceDebugStats(bool enable) {
 	_assert_(coreCollectDebugStatsCounter >= 0);
 }
 
-bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
+bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (pspIsIniting || pspIsQuitting) {
+		ERROR_LOG(Log::System, "Can't start loader thread - initing or quitting");
 		return false;
 	}
 
-	if (!Achievements::IsReadyToStart()) {
-		return false;
-	}
+	coreState = CORE_POWERUP;
 
-	// TODO: Move almost all of this into the thread.
-
-	NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
-
-	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 	GraphicsContext *temp = g_CoreParameter.graphicsContext;
 	g_CoreParameter = coreParam;
 	if (g_CoreParameter.graphicsContext == nullptr) {
@@ -499,47 +488,69 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	g_CoreParameter.errorString.clear();
 	pspIsIniting = true;
 
-	Path filename = g_CoreParameter.fileToStart;
-	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
+	std::string *error_string = &g_CoreParameter.errorString;
 
-	IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
-	g_CoreParameter.fileType = type;
+	INFO_LOG(Log::System, "Starting loader thread...");
 
-	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
-		if (g_Config.bCacheFullIsoInRam) {
-			switch (g_CoreParameter.fileType) {
-			case IdentifiedFileType::PSP_ISO:
-			case IdentifiedFileType::PSP_ISO_NP:
-				loadedFile = new RamCachingFileLoader(loadedFile);
-				break;
-			default:
-				INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
-				break;
+	g_loadingThread = std::thread([error_string]() {
+		SetCurrentThreadName("ExecLoader");
+		PSP_LoadingLock guard;
+		if (coreState != CORE_POWERUP)
+			return;
+
+		AndroidJNIThreadContext jniContext;
+
+		NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
+
+		Core_NotifyLifecycle(CoreLifecycle::STARTING);
+
+		Path filename = g_CoreParameter.fileToStart;
+		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
+
+		IdentifiedFileType type = Identify_File(loadedFile, &g_CoreParameter.errorString);
+		g_CoreParameter.fileType = type;
+
+		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
+			if (g_Config.bCacheFullIsoInRam) {
+				switch (g_CoreParameter.fileType) {
+				case IdentifiedFileType::PSP_ISO:
+				case IdentifiedFileType::PSP_ISO_NP:
+					loadedFile = new RamCachingFileLoader(loadedFile);
+					break;
+				default:
+					INFO_LOG(Log::System, "RAM caching is on, but file is not an ISO, so ignoring");
+					break;
+				}
 			}
 		}
-	}
 
-	if (g_Config.bAchievementsEnable) {
-		// Need to re-identify after ResolveFileLoaderTarget - although in practice probably not,
-		// but also, re-using the identification would require some plumbing, to be done later.
-		std::string errorString;
-		Achievements::SetGame(filename, type, loadedFile);
-	}
-
-	// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
-	// it gets written to from the loader thread that gets spawned.
-	if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
-		CPU_Shutdown();
-		*error_string = g_CoreParameter.errorString;
-		if (error_string->empty()) {
-			*error_string = "Failed initializing CPU/Memory";
+		if (g_Config.bAchievementsEnable) {
+			std::string errorString;
+			Achievements::SetGame(filename, type, loadedFile);
 		}
-		pspIsIniting = false;
-		return false;
-	}
 
-	// After CPU_Init returns, the loader thread will keep working for a bit, while we exit here and come back later through
-	// PSP_InitUpdate.
+		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
+		// it gets written to from the loader thread that gets spawned.
+		if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
+			CPU_Shutdown();
+			coreState = CORE_BOOT_ERROR;
+			g_CoreParameter.fileToStart.clear();
+			*error_string = g_CoreParameter.errorString;
+			if (error_string->empty()) {
+				*error_string = "Failed initializing CPU/Memory";
+			}
+			pspIsIniting = false;
+			return;
+		}
+
+		if (PSP_CoreParameter().startBreak) {
+			coreState = CORE_STEPPING_CPU;
+			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+		} else {
+			coreState = CORE_RUNNING_CPU;
+		}
+	});
+
 	return true;
 }
 
@@ -556,6 +567,10 @@ bool PSP_InitUpdate(std::string *error_string) {
 	if (!g_CoreParameter.errorString.empty()) {
 		*error_string = g_CoreParameter.errorString;
 	}
+
+	// Since we load on a background thread, wait for startup to complete.
+	_dbg_assert_(g_loadingThread.joinable());
+	g_loadingThread.join();
 
 	if (success && gpu == nullptr) {
 		INFO_LOG(Log::System, "Starting graphics...");
@@ -591,7 +606,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 // Most platforms should not use this one, they should call PSP_InitStart and then do their thing
 // while repeatedly calling PSP_InitUpdate. This is basically just for libretro convenience.
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
-	if (!PSP_InitStart(coreParam, error_string))
+	// InitStart doesn't really fail anymore.
+	if (!PSP_InitStart(coreParam))
 		return false;
 
 	while (!PSP_InitUpdate(error_string))
