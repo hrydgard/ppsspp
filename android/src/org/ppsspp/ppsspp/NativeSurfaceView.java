@@ -84,7 +84,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				if (NativeActivity.useModernMouseEvents) {
 					return;
 				}
-				Log.i(TAG, "Surface Action down. button state: " + ev.getButtonState());
+				//Log.i(TAG, "Surface Action down. button state: " + ev.getButtonState());
 				NativeApp.mouse(ev.getX(), ev.getY(), 1, 1);
 				break;
 			}
@@ -92,13 +92,13 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				if (NativeActivity.useModernMouseEvents) {
 					return;
 				}
-				Log.i(TAG, "Surface Action up. button state: " + ev.getButtonState());
+				//Log.i(TAG, "Surface Action up. button state: " + ev.getButtonState());
 				NativeApp.mouse(ev.getX(), ev.getY(), 1, 2);
 				break;
 			}
 			case MotionEvent.ACTION_MOVE: {
 				// This still needs handling here, even if new events are used.
-				Log.i(TAG, "Surface Action move. button state: " + ev.getButtonState());
+				//Log.i(TAG, "Surface Action move. button state: " + ev.getButtonState());
 				NativeApp.mouse(ev.getX(), ev.getY(), 0, 0);
 				break;
 			}
@@ -130,13 +130,13 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			switch (action) {
 			case MotionEvent.ACTION_DOWN:
 			case MotionEvent.ACTION_POINTER_DOWN:
-				Log.i(TAG, "ACTION_DOWN");
+				// Log.i(TAG, "ACTION_DOWN");
 				if (ev.getActionIndex() == i)
 					code = 2;
 				break;
 			case MotionEvent.ACTION_UP:
 			case MotionEvent.ACTION_POINTER_UP:
-				Log.i(TAG, "ACTION_UP");
+				// Log.i(TAG, "ACTION_UP");
 				if (ev.getActionIndex() == i)
 					code = 4;
 				break;
