@@ -483,8 +483,7 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->Add(new Spacer(20.0));
 
-	std::string gameId = g_paramSFO.GetDiscID();
-	if (g_Config.hasGameConfig(gameId)) {
+	if (g_paramSFO.IsValid() && g_Config.hasGameConfig(g_paramSFO.GetDiscID())) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
 	} else {

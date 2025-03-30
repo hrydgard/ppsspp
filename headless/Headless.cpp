@@ -199,7 +199,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 
 	std::string error_string;
-	while (!PSP_InitUpdate(&error_string))
+	while (PSP_InitUpdate(&error_string) == BootState::Booting)
 		sleep_ms(1, "auto-test");
 
 	if (!PSP_IsInited()) {
@@ -265,7 +265,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		draw->EndFrame();
 	}
 
-	PSP_Shutdown();
+	PSP_Shutdown(true);
 
 	if (!opt.bench)
 		headlessHost->FlushDebugOutput();

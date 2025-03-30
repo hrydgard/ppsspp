@@ -250,16 +250,6 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		return false;
 	}
 
-	// OK, pretty confident we have a PSP game.
-	if (g_paramSFO.IsValid()) {
-		std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-		INFO_LOG(Log::Loader, "%s", title.c_str());
-		System_SetWindowTitle(title);
-	} else {
-		// Should have been loaded earlier in the process.
-		_dbg_assert_(false);
-	}
-
 	//in case we didn't go through EmuScreen::boot
 	g_Config.loadGameConfig(id, g_paramSFO.GetValueString("TITLE"));
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
@@ -375,16 +365,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		homebrewName = homebrewName.substr(lslash + 1);
 	if (rslash != homebrewName.npos)
 		homebrewName = homebrewName.substr(rslash + 1);
-	std::string homebrewTitle = g_paramSFO.GetValueString("TITLE");
-	if (homebrewTitle.empty())
-		homebrewTitle = homebrewName;
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
 	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
-
-	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
-	INFO_LOG(Log::Loader, "%s", title.c_str());
-	System_SetWindowTitle(title);
 
 	// Migrate old save states from old versions of fake game IDs.
 	// Ugh, this might actually be slow on Android.

@@ -58,7 +58,7 @@ WebSocketGPURecordState::~WebSocketGPURecordState() {
 //
 // Note: recording may take a moment.
 void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
-	if (!PSP_IsInited()) {
+	if (PSP_GetBootState() != BootState::Complete) {
 		return req.Fail("CPU not started");
 	}
 

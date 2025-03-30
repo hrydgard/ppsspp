@@ -57,7 +57,7 @@ private:
 //
 // Sent unexpectedly with no other properties.
 void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	if (PSP_IsInited()) {
+	if (PSP_GetBootState() == BootState::Complete) {
 		int steppingCounter = Core_GetSteppingCounter();
 		// We ignore CORE_POWERDOWN as a stepping state.
 		if (coreState == CORE_STEPPING_CPU && steppingCounter != lastCounter_) {

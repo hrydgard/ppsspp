@@ -229,7 +229,6 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 		return false;
 
 	case PERMISSION_STATUS_DENIED:
-		stopRender_ = true;
 		screenManager()->switchScreen(new MainScreen());
 		return false;
 
@@ -251,37 +250,42 @@ void EmuScreen::bootGame(const Path &filename) {
 		return;
 	}
 
-	if (PSP_IsRebooting())
+	std::string error_string = "(unknown error)";
+	BootState state = PSP_InitUpdate(&error_string);
+
+	switch (state) {
+	case BootState::Booting:
+		// Keep trying.
 		return;
-	if (PSP_IsInited()) {
+	case BootState::Failed:
+		// Failure.
+		PSP_CancelBoot();
+		_dbg_assert_(!error_string.empty());
+		g_BackgroundAudio.SetGame(Path());
 		bootPending_ = false;
+		errorMessage_ = error_string;
+		ERROR_LOG(Log::Boot, "Boot failed: %s", errorMessage_.c_str());
+		return;
+	case BootState::Complete:
+		// Done booting!
+		g_BackgroundAudio.SetGame(Path());
+		bootPending_ = false;
+		errorMessage_.clear();
 		bootComplete();
+		// Reset views in case controls are in a different place.
+		RecreateViews();
 		return;
+	case BootState::Off:
+		// Gotta start the boot process! Continue below.
+		break;
 	}
-
-	if (PSP_IsIniting()) {
-		std::string error_string = "(unknown error)";
-
-		bootPending_ = !PSP_InitUpdate(&error_string);
-
-		if (!bootPending_) {
-			if (!PSP_IsInited()) {
-				errorMessage_ = error_string;
-				ERROR_LOG(Log::Boot, "isIniting bootGame error: %s", errorMessage_.c_str());
-				return;
-			}
-			bootComplete();
-		}
-		return;
-	}
-
-	g_BackgroundAudio.SetGame(Path());
 
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
 		return;
 
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
+	// TODO: Actually, we read this info again during bootup, so this is not really necessary.
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, GameInfoFlags::PARAM_SFO);
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
@@ -303,10 +307,6 @@ void EmuScreen::bootGame(const Path &filename) {
 	SetAssertCancelCallback(&AssertCancelCallback, this);
 
 	if (!info->id.empty()) {
-		g_Config.loadGameConfig(info->id, info->GetTitle());
-		// Reset views in case controls are in a different place.
-		RecreateViews();
-
 		g_Discord.SetPresenceGame(info->GetTitle());
 	} else {
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
@@ -359,21 +359,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!PSP_InitStart(coreParam)) {
 		bootPending_ = false;
 		ERROR_LOG(Log::Boot, "InitStart bootGame error: %s", errorMessage_.c_str());
-	}
-
-	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 10.0f);
-	}
-
-	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BlockTransferRequired", "Warning: This game requires Skip GPU Readbacks be set to No."), 10.0f);
-	}
-
-	if (PSP_CoreParameter().compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
+		return;
 	}
 
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
@@ -386,6 +372,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	}
 }
 
+// Only call this on successful boot.
 void EmuScreen::bootComplete() {
 	UpdateUIState(UISTATE_INGAME);
 	System_Notify(SystemNotification::BOOT_DONE);
@@ -456,9 +443,8 @@ EmuScreen::~EmuScreen() {
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
-	// If we were invalid, it would already be shutdown.
 	if (!bootPending_) {
-		PSP_Shutdown();
+		PSP_Shutdown(true);
 	}
 
 	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
@@ -543,17 +529,15 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
-		PSP_Shutdown();
+		PSP_Shutdown(true);
 		bootPending_ = false;
-		stopRender_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
-		PSP_Shutdown();
+		PSP_Shutdown(true);
 		bootPending_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
 		if (!PSP_InitStart(PSP_CoreParameter())) {
 			ERROR_LOG(Log::Loader, "Error resetting");
-			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			return;
 		}
@@ -567,7 +551,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
 			SaveState::Load(Path(value), -1, &AfterStateBoot);
 		} else {
-			PSP_Shutdown();
+			PSP_Shutdown(true);
 			bootPending_ = true;
 			gamePath_ = Path(value);
 			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
@@ -1433,14 +1417,11 @@ void EmuScreen::update() {
 }
 
 bool EmuScreen::checkPowerDown() {
-	if (PSP_IsRebooting()) {
-		bootPending_ = true;
-	}
-
-	if (coreState == CORE_POWERDOWN && !PSP_IsIniting() && !PSP_IsRebooting()) {
+	// This is for handling things like sceKernelExitGame().
+	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete) {
 		bool shutdown = false;
 		if (PSP_IsInited()) {
-			PSP_Shutdown();
+			PSP_Shutdown(true);
 			shutdown = true;
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");

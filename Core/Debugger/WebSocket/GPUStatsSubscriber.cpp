@@ -150,7 +150,7 @@ void WebSocketGPUStatsState::FlipListener() {
 // Note: stats are returned after the next flip completes (paused if CPU or GPU in break.)
 // Note: info and timing may not be accurate if certain settings are disabled.
 void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");
 
 	std::lock_guard<std::mutex> guard(pendingLock_);
@@ -169,7 +169,7 @@ void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 //
 // Note: info and timing will be accurate after the first frame.
 void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");
 	bool enable = true;
 	if (!req.ParamBool("enable", &enable, DebuggerParamType::OPTIONAL))

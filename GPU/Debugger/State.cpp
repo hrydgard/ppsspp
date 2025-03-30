@@ -563,7 +563,7 @@ static void FormatVertColRawType(char *dest, size_t destSize, const void *data, 
 static void FormatVertColRawColor(char *dest, size_t destSize, const void *data, int type);
 
 void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col) {
-	if (!PSP_IsInited()) {
+	if (PSP_GetBootState() != BootState::Complete) {
 		truncate_cpy(dest, destSize, "Invalid");
 		return;
 	}

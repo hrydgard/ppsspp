@@ -71,6 +71,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Playback.h"
 #include "GPU/Debugger/RecordFormat.h"
+#include "UI/DiscordIntegration.h"
 
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
@@ -94,11 +95,11 @@ static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
 
-// Ugly!
-static volatile bool pspIsInited = false;
-static volatile bool pspIsIniting = false;
-static volatile bool pspIsQuitting = false;
-static volatile bool pspIsRebooting = false;
+static BootState g_bootState = BootState::Off;
+
+BootState PSP_GetBootState() {
+	return g_bootState;
+}
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
@@ -131,21 +132,7 @@ std::string GetGPUBackendDevice() {
 	return gpuBackendDevice;
 }
 
-bool CPU_IsReady() {
-	if (coreState == CORE_POWERUP)
-		return false;
-	return cpuThreadState == CPU_THREAD_RUNNING || cpuThreadState == CPU_THREAD_NOT_RUNNING;
-}
-
-bool CPU_IsShutdown() {
-	return cpuThreadState == CPU_THREAD_NOT_RUNNING;
-}
-
-bool CPU_HasPendingAction() {
-	return cpuThreadState != CPU_THREAD_RUNNING;
-}
-
-void CPU_Shutdown();
+void CPU_Shutdown(bool success);
 
 static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	File::FileInfo info{};
@@ -249,6 +236,24 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 	}
 }
 
+static void ShowCompatWarnings(const Compatibility &compat) {
+	// UI changes are best done after PSP_InitStart.
+	if (compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 10.0f);
+	}
+
+	if (compat.flags().RequireBlockTransfer && g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BlockTransferRequired", "Warning: This game requires Skip GPU Readbacks be set to No."), 10.0f);
+	}
+
+	if (compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
+	}
+}
+
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
 static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
 	// Default memory settings
@@ -262,6 +267,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	g_CoreParameter.fileType = type;
 
 	std::string geDumpDiscID;
+
+	std::string gameTitle = "Unidentified PSP title";
 
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
@@ -294,6 +301,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		if (DiscIDFromGEDumpPath(g_CoreParameter.fileToStart, fileLoader, &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
+			gameTitle = g_CoreParameter.fileToStart.GetFilename();
 		}
 		break;
 	default:
@@ -305,6 +313,15 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		return false;
 	}
 	}
+
+	// OK, pretty confident we have a PSP game.
+	if (g_paramSFO.IsValid()) {
+		gameTitle = SanitizeString(g_paramSFO.GetValueString("TITLE"), StringRestriction::NoLineBreaksOrSpecials);
+	}
+
+	std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), gameTitle.c_str());
+	INFO_LOG(Log::Loader, "%s", title.c_str());
+	System_SetWindowTitle(title);
 
 	currentMIPS = &mipsr4k;
 
@@ -319,6 +336,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
 	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
+	ShowCompatWarnings(g_CoreParameter.compat);
 
 	// Compat settings can override the software renderer, take care of that here.
 	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
@@ -329,7 +347,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	if (!Memory::Init()) {
 		// We're screwed.
 		*errorString = "Memory init failed";
-		CPU_Shutdown();
 		return false;
 	}
 
@@ -370,7 +387,10 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			dir = ResolvePBPDirectory(Path(dir)).ToString();
 			pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 		}
-		return Load_PSP_ELF_PBP(fileLoader, errorString);
+		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+			return false;
+		}
+		break;
 	}
 	// Looks like a wrong fall through but is not, both paths are handled above.
 
@@ -378,17 +398,26 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ELF:
 	{
 		INFO_LOG(Log::Loader, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
-		return Load_PSP_ELF_PBP(fileLoader, errorString);
+		if (!Load_PSP_ELF_PBP(fileLoader, errorString)) {
+			return false;
+		}
+		break;
 	}
 
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
-		return Load_PSP_ISO(fileLoader, errorString);
+		if (!Load_PSP_ISO(fileLoader, errorString)) {
+			return false;
+		}
+		break;
 
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
-		return Load_PSP_GE_Dump(fileLoader, errorString);
+		if (!Load_PSP_GE_Dump(fileLoader, errorString)) {
+			return false;
+		}
+		break;
 
 	default:
 		GetBootError(type, errorString);
@@ -405,20 +434,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	return true;
 }
 
-PSP_LoadingLock::PSP_LoadingLock() {
-	loadingLock.lock();
-}
-
-PSP_LoadingLock::~PSP_LoadingLock() {
-	loadingLock.unlock();
-}
-
-void CPU_Shutdown() {
+void CPU_Shutdown(bool success) {
 	UninstallExceptionHandler();
 
 	GPURecord::Replay_Unload();
 
-	if (g_Config.bAutoSaveSymbolMap) {
+	if (g_Config.bAutoSaveSymbolMap && success) {
 		SaveSymbolMapIfSupported();
 	}
 
@@ -473,12 +494,16 @@ void PSP_ForceDebugStats(bool enable) {
 }
 
 bool PSP_InitStart(const CoreParameter &coreParam) {
-	if (pspIsIniting || pspIsQuitting) {
-		ERROR_LOG(Log::System, "Can't start loader thread - initing or quitting");
+	if (g_bootState != BootState::Off) {
+		ERROR_LOG(Log::System, "Can't start loader thread - already on.");
 		return false;
 	}
 
+	_dbg_assert_(coreState != CORE_POWERUP);
+
 	coreState = CORE_POWERUP;
+
+	g_bootState = BootState::Booting;
 
 	GraphicsContext *temp = g_CoreParameter.graphicsContext;
 	g_CoreParameter = coreParam;
@@ -486,17 +511,15 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		g_CoreParameter.graphicsContext = temp;
 	}
 	g_CoreParameter.errorString.clear();
-	pspIsIniting = true;
 
 	std::string *error_string = &g_CoreParameter.errorString;
 
 	INFO_LOG(Log::System, "Starting loader thread...");
 
+	_dbg_assert_(!g_loadingThread.joinable());
+
 	g_loadingThread = std::thread([error_string]() {
 		SetCurrentThreadName("ExecLoader");
-		PSP_LoadingLock guard;
-		if (coreState != CORE_POWERUP)
-			return;
 
 		AndroidJNIThreadContext jniContext;
 
@@ -532,14 +555,14 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
 		// it gets written to from the loader thread that gets spawned.
 		if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
-			CPU_Shutdown();
+			CPU_Shutdown(false);
 			coreState = CORE_BOOT_ERROR;
 			g_CoreParameter.fileToStart.clear();
 			*error_string = g_CoreParameter.errorString;
 			if (error_string->empty()) {
 				*error_string = "Failed initializing CPU/Memory";
 			}
-			pspIsIniting = false;
+			g_bootState = BootState::Failed;
 			return;
 		}
 
@@ -549,101 +572,84 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		} else {
 			coreState = CORE_RUNNING_CPU;
 		}
+
+		g_bootState = BootState::Complete;
 	});
 
 	return true;
 }
 
-bool PSP_InitUpdate(std::string *error_string) {
-	if (pspIsInited || !pspIsIniting) {
-		return true;
+BootState PSP_InitUpdate(std::string *error_string) {
+	if (g_bootState == BootState::Booting || g_bootState == BootState::Off) {
+		// We're done already.
+		return g_bootState;
 	}
 
-	if (!CPU_IsReady()) {
-		return false;
-	}
-
-	bool success = !g_CoreParameter.fileToStart.empty();
-	if (!g_CoreParameter.errorString.empty()) {
-		*error_string = g_CoreParameter.errorString;
-	}
+	_dbg_assert_(g_bootState == BootState::Complete || g_bootState == BootState::Failed);
 
 	// Since we load on a background thread, wait for startup to complete.
 	_dbg_assert_(g_loadingThread.joinable());
 	g_loadingThread.join();
 
-	if (success && gpu == nullptr) {
+	if (g_bootState == BootState::Failed) {
+		// Failed! (Note: PSP_Shutdown was already called on the loader thread).
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+		*error_string = g_CoreParameter.errorString;
+		return g_bootState;
+	}
+
+	// Ok, async boot completed, let's finish up things on the main thread.
+
+	if (!gpu) {  // should be!
 		INFO_LOG(Log::System, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
-		success = GPU_Init(g_CoreParameter.graphicsContext, draw);
+		bool success = GPU_Init(g_CoreParameter.graphicsContext, draw);
 		if (!success) {
 			*error_string = "Unable to initialize rendering engine.";
+			PSP_Shutdown(false);
+			g_bootState = BootState::Failed;
+			return g_bootState;
 		}
 	}
-	if (!success) {
-		pspIsRebooting = false;
-		PSP_Shutdown();
-		return true;
+
+	// TODO: This should all be checked during GPU_Init.
+	if (!GPU_IsStarted()) {
+		*error_string = "Unable to initialize rendering engine.";
+		PSP_Shutdown(false);
+		g_bootState = BootState::Failed;
 	}
 
-	pspIsInited = GPU_IsReady();
-	pspIsIniting = !pspIsInited;
-	if (pspIsInited) {
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		pspIsRebooting = false;
-
-		// If GPU init failed during IsReady checks, bail.
-		if (!GPU_IsStarted()) {
-			*error_string = "Unable to initialize rendering engine.";
-			pspIsRebooting = false;
-			PSP_Shutdown();
-			return true;
-		}
-	}
-	return pspIsInited;
+	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	return g_bootState;
 }
 
 // Most platforms should not use this one, they should call PSP_InitStart and then do their thing
 // while repeatedly calling PSP_InitUpdate. This is basically just for libretro convenience.
-bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	// InitStart doesn't really fail anymore.
 	if (!PSP_InitStart(coreParam))
-		return false;
+		return BootState::Failed;
 
-	while (!PSP_InitUpdate(error_string))
-		sleep_ms(10, "psp-init-poll");
-	return pspIsInited;
+	while (true) {
+		BootState state = PSP_InitUpdate(error_string);
+		if (state != BootState::Booting) {
+			return state;
+		}
+		sleep_ms(5, "psp-init-poll");
+	}
 }
 
-bool PSP_IsIniting() {
-	return pspIsIniting;
-}
-
-bool PSP_IsInited() {
-	return pspIsInited && !pspIsQuitting && !pspIsRebooting;
-}
-
-bool PSP_IsRebooting() {
-	return pspIsRebooting;
-}
-
-bool PSP_IsQuitting() {
-	return pspIsQuitting;
-}
-
-void PSP_Shutdown() {
+void PSP_Shutdown(bool success) {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
 
 	Achievements::UnloadGame();
 
 	// Do nothing if we never inited.
-	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {
+	if (g_bootState == BootState::Off) {
 		return;
 	}
 
-	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuitting = !pspIsRebooting;
 	if (coreState == CORE_RUNNING_CPU)
 		Core_Stop();
 
@@ -651,29 +657,42 @@ void PSP_Shutdown() {
 		MIPSAnalyst::StoreHashMap();
 	}
 
-	if (pspIsIniting)
+	if (g_bootState == BootState::Booting) {
+		// This should only happen during failures.
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	}
 	Core_NotifyLifecycle(CoreLifecycle::STOPPING);
-	CPU_Shutdown();
+
+	CPU_Shutdown(success);
 	GPU_Shutdown();
 	g_paramSFO.Clear();
 	System_SetWindowTitle("");
-	currentMIPS = 0;
-	pspIsInited = false;
-	pspIsIniting = false;
-	pspIsQuitting = false;
+
+	currentMIPS = nullptr;
+
 	g_Config.unloadGameConfig();
+
 	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
+
+	if (success) {
+		g_bootState = BootState::Off;
+	}
 }
 
-bool PSP_Reboot(std::string *error_string) {
-	if (!pspIsInited || pspIsQuitting)
-		return false;
+// Call this after handling BootState::Failed.
+void PSP_CancelBoot() {
+	_dbg_assert_(g_bootState == BootState::Failed);
+	g_bootState = BootState::Off;
+}
 
-	pspIsRebooting = true;
+BootState PSP_Reboot(std::string *error_string) {
+	if (g_bootState != BootState::Complete) {
+		return g_bootState;
+	}
+
 	Core_Stop();
 	Core_WaitInactive();
-	PSP_Shutdown();
+	PSP_Shutdown(true);
 	std::string resetError;
 	return PSP_Init(PSP_CoreParameter(), error_string);
 }

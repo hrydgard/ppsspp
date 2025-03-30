@@ -101,7 +101,6 @@ private:
 	Path gamePath_;
 
 	bool quit_ = false;
-	bool stopRender_ = false;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.

@@ -120,7 +120,7 @@ private:
 DisplayLayoutScreen::DisplayLayoutScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
 
 void DisplayLayoutScreen::DrawBackground(UIContext &dc) {
-	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+	if (PSP_GetBootState() == BootState::Complete && !g_Config.bSkipBufferEffects) {
 		// We normally rely on the PSP screen showing through.
 	} else {
 		// But if it's not present (we're not in game, or skip buffer effects is used),
