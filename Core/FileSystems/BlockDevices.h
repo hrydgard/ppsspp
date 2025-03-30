@@ -24,6 +24,7 @@
 // with CISO images.
 
 #include <mutex>
+#include <memory>
 
 #include "Common/CommonTypes.h"
 
