@@ -273,12 +273,6 @@ void SavedataButton::UpdateDateSeconds() {
 	hasDateSeconds_ = true;
 }
 
-static std::string CleanSaveString(std::string_view str) {
-	std::string s = ReplaceAll(str, "\n", " ");
-	s = ReplaceAll(s, "\r", " ");
-	return s;
-}
-
 bool SavedataButton::UpdateText() {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 	if (ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
@@ -291,12 +285,12 @@ bool SavedataButton::UpdateText() {
 void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 	const std::string currentTitle = ginfo->GetTitle();
 	if (!currentTitle.empty()) {
-		title_ = CleanSaveString(currentTitle);
+		title_ = SanitizeString(currentTitle, StringRestriction::NoLineBreaksOrSpecials);
 	}
 	if (subtitle_.empty() && ginfo->gameSizeOnDisk > 0) {
 		std::string date = ginfo->GetMTime();
 		std::string savedata_title = ginfo->GetParamSFO().GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + " (" + NiceSizeFormat(ginfo->gameSizeOnDisk) + ", " + date + ")";
+		subtitle_ = SanitizeString(savedata_title, StringRestriction::NoLineBreaksOrSpecials) + " (" + NiceSizeFormat(ginfo->gameSizeOnDisk) + ", " + date + ")";
 	}
 }
 

@@ -1700,7 +1700,7 @@ Path Config::getGameConfigFile(const std::string &pGameId, bool *exists) {
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId, const std::string &title) {
+bool Config::saveGameConfig(const std::string &pGameId, const std::string &titleForComment) {
 	if (pGameId.empty()) {
 		return false;
 	}
@@ -1711,7 +1711,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	IniFile iniFile;
 
 	Section *top = iniFile.GetOrCreateSection("");
-	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), title.c_str()));
+	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), titleForComment.c_str()));
 
 	PreSaveCleanup(true);
 

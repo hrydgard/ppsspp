@@ -47,6 +47,20 @@ struct TinySet {
 		slowLookup_->push_back(t);
 		return *slowLookup_->back();
 	}
+	void reserve(size_t size) {
+		if (size < MaxFastSize) {
+			return;
+		}
+		if (slowLookup_) {
+			if (size < MaxFastSize + slowLookup_->capacity()) {
+				return;
+			}
+			slowLookup_->reserve(size - MaxFastSize);
+		} else {
+			slowLookup_ = new std::vector<T>();
+			slowLookup_->reserve(size - MaxFastSize);
+		}
+	}
 	void append(const TinySet<T, MaxFastSize> &other) {
 		size_t otherSize = other.size();
 		if (size() + otherSize <= MaxFastSize) {

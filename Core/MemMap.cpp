@@ -313,7 +313,7 @@ bool Init() {
 }
 
 void Reinit() {
-	_assert_msg_(PSP_IsInited(), "Cannot reinit during startup/shutdown");
+	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
 	Shutdown();
 	Init();

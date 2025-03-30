@@ -196,7 +196,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 
 	while (address < end && start <= address)
 	{
-		if (!PSP_IsInited())
+		if (PSP_GetBootState() != BootState::Complete)
 			return;
 
 		std::lock_guard<std::recursive_mutex> guard(entriesLock_);
@@ -406,7 +406,7 @@ void DisassemblyManager::clear()
 
 DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_address), size(_size)
 {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return;
 
 	hash = computeHash(address,size);
@@ -419,7 +419,7 @@ DisassemblyFunction::~DisassemblyFunction() {
 
 void DisassemblyFunction::recheck()
 {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return;
 
 	HashType newHash = computeHash(address,size);
@@ -872,14 +872,14 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 
 DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
 {
-	_dbg_assert_(PSP_IsInited());
+	_dbg_assert_(PSP_GetBootState() == BootState::Complete);
 	hash = computeHash(address,size);
 	createLines();
 }
 
 void DisassemblyData::recheck()
 {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return;
 
 	HashType newHash = computeHash(address,size);

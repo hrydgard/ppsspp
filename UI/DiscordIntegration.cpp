@@ -5,7 +5,7 @@
 #include "ppsspp_config.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
-#include "DiscordIntegration.h"
+#include "UI/DiscordIntegration.h"
 #include "Common/Data/Text/I18n.h"
 
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(UWP)

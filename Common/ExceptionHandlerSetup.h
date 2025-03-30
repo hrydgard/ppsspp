@@ -14,4 +14,6 @@
 typedef bool (*BadAccessHandler)(uintptr_t address, void *context);
 
 void InstallExceptionHandler(BadAccessHandler accessHandler);
+
+// Implementation note: This must be a no-op if InstallExceptionHandler hasn't been called.
 void UninstallExceptionHandler();

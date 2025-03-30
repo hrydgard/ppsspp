@@ -53,10 +53,6 @@ static void SetGPU(T *obj) {
 #undef new
 #endif
 
-bool GPU_IsReady() {
-	return gpu != nullptr;
-}
-
 bool GPU_IsStarted() {
 	if (gpu)
 		return gpu->IsStarted();

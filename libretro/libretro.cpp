@@ -1474,8 +1474,8 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
-   if (!PSP_InitStart(coreParam, &error_string))
-   {
+   if (!PSP_InitStart(coreParam)) {
+      // Can't really fail, the errors happen later during InitUpdate
       ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       return false;
    }
@@ -1505,7 +1505,7 @@ void retro_unload_game(void)
 	if (Libretro::useEmuThread)
 		Libretro::EmuThreadStop();
 
-	PSP_Shutdown();
+	PSP_Shutdown(true);
 	g_VFS.Clear();
 
 	delete ctx;
@@ -1517,9 +1517,9 @@ void retro_reset(void)
 {
    std::string error_string;
 
-   PSP_Shutdown();
+   PSP_Shutdown(true);
 
-   if (!PSP_Init(PSP_CoreParameter(), &error_string))
+   if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &error_string))
    {
       ERROR_LOG(Log::Boot, "%s", error_string.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
@@ -1626,17 +1626,19 @@ static void retro_input(void)
 
 void retro_run(void)
 {
-   if (PSP_IsIniting())
+   if (PSP_GetBootState() != BootState::Complete)
    {
       std::string error_string;
-      while (!PSP_InitUpdate(&error_string))
+      while (true) {
+         BootState state = PSP_InitUpdate(&error_string);
+         if (state == BootState::Failed) {
+            ERROR_LOG(Log::Boot, "%s", error_string.c_str());
+            environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+            return;
+         } else if (state == BootState::Complete) {
+            break;
+         }
          sleep_ms(4, "libretro-init-poll");
-
-      if (!PSP_IsInited())
-      {
-         ERROR_LOG(Log::Boot, "%s", error_string.c_str());
-         environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
-         return;
       }
 
       if (softwareRenderInitHack)

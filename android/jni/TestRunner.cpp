@@ -120,7 +120,7 @@ bool RunTests() {
 		INFO_LOG(Log::System, "Preparing to execute '%s'", testName.c_str());
 		std::string error_string;
 		output.clear();
-		if (!PSP_Init(coreParam, &error_string)) {
+		if (BootState::Complete != PSP_Init(coreParam, &error_string)) {
 			ERROR_LOG(Log::System, "Failed to init unittest %s : %s", testsToRun[i], error_string.c_str());
 			PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 			PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
@@ -177,7 +177,7 @@ bool RunTests() {
 				break;
 			}
 		}
-		PSP_Shutdown();
+		PSP_Shutdown(true);
 	}
 	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;

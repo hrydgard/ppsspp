@@ -71,26 +71,40 @@ void SetGPUBackend(GPUBackend type, const std::string &device = "");
 GPUBackend GetGPUBackend();
 std::string GetGPUBackendDevice();
 
-bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
-bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
-bool PSP_InitUpdate(std::string *error_string);
-bool PSP_IsIniting();
-bool PSP_IsInited();
-bool PSP_IsRebooting();
-bool PSP_IsQuitting();
-void PSP_Shutdown();
-bool PSP_Reboot(std::string *error_string);
+enum class BootState {
+	Off,
+	Booting,
+	Complete,
+	Failed,
+};
+
+BootState PSP_GetBootState();
+inline bool PSP_IsInited() {
+	return PSP_GetBootState() == BootState::Complete;
+}
+
+// Call this once, then call PSP_InitUpdate repeatedly to monitor progress.
+bool PSP_InitStart(const CoreParameter &coreParam);
+
+// Check the return value of this - if Booting, keep calling.
+// If Complete or Failed, handle as appropriate, and stop calling.
+BootState PSP_InitUpdate(std::string *error_string);
+
+// Blocking wrapper around the two above functions, used for convenience in a couple of places.
+// Should be avoided/removed eventually.
+// Returns either BootState::Complete or BootState::Failed.
+BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
+// Call this after handling BootState::Failed from PSP_Init.
+void PSP_CancelBoot();
+
+void PSP_Shutdown(bool success);
+BootState PSP_Reboot(std::string *error_string);
+
 
 void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
 void PSP_RunLoopWhileState();
 void PSP_RunLoopFor(int cycles);
-
-// Used to wait for background loading thread.
-struct PSP_LoadingLock {
-	PSP_LoadingLock();
-	~PSP_LoadingLock();
-};
 
 // Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
 void PSP_UpdateDebugStats(bool collectStats);

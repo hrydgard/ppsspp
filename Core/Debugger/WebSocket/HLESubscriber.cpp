@@ -101,7 +101,7 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 }
 
 static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
-	if (!PSP_IsInited()) {
+	if (PSP_GetBootState() != BootState::Complete) {
 		req.Fail("CPU not active");
 		return false;
 	}

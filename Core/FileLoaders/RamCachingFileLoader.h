@@ -64,8 +64,8 @@ private:
 
 	std::vector<u8> blocks_;
 	std::mutex blocksMutex_;
-	u32 aheadRemaining_;
-	s64 aheadPos_;
+	u32 aheadRemaining_ = 0;
+	s64 aheadPos_ = 0;
 	std::thread aheadThread_;
 	bool aheadThreadRunning_ = false;
 	bool aheadCancel_ = false;

@@ -326,9 +326,7 @@ std::string __KernelStateSummary() {
 	return __KernelThreadingSummary();
 }
 
-
-void sceKernelExitGame()
-{
+void sceKernelExitGame() {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGame");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();

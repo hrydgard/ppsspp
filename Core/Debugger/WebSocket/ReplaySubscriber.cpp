@@ -71,7 +71,7 @@ void WebSocketReplayAbort(DebuggerRequest &req) {
 //  - version: unsigned integer, version number of data.
 //  - base64: base64 encode of binary data.
 void WebSocketReplayFlush(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("Game not running");
 
 	std::vector<uint8_t> data;
@@ -90,7 +90,7 @@ void WebSocketReplayFlush(DebuggerRequest &req) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayExecute(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("Game not running");
 
 	uint32_t version = -1;
@@ -130,7 +130,7 @@ void WebSocketReplayStatus(DebuggerRequest &req) {
 // Response (same event name):
 //  - value: unsigned integer, may have more than 32 integer bits.
 void WebSocketReplayTimeGet(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("Game not running");
 
 	JsonWriter &json = req.Respond();
@@ -144,7 +144,7 @@ void WebSocketReplayTimeGet(DebuggerRequest &req) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayTimeSet(DebuggerRequest &req) {
-	if (!PSP_IsInited())
+	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("Game not running");
 
 	uint32_t value;
