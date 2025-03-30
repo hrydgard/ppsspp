@@ -38,9 +38,9 @@
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Common/File/AndroidContentURI.h"
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
-
 #include "Core/RetroAchievements.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
@@ -212,8 +212,43 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
+static void GetBootError(IdentifiedFileType type, std::string *errorString) {
+	switch (type) {
+	case IdentifiedFileType::ARCHIVE_RAR:
+#ifdef WIN32
+		*errorString = "RAR file detected (Require WINRAR)";
+#else
+		*error_string = "RAR file detected (Require UnRAR)";
+#endif
+		break;
+
+	case IdentifiedFileType::ARCHIVE_ZIP:
+#ifdef WIN32
+		*errorString = "ZIP file detected (Require WINRAR)";
+#else
+		*error_string = "ZIP file detected (Require UnRAR)";
+#endif
+		break;
+
+	case IdentifiedFileType::ARCHIVE_7Z: *errorString = "7z file detected (Require 7-Zip)"; break;
+	case IdentifiedFileType::ISO_MODE2:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
+	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
+	case IdentifiedFileType::UNKNOWN_BIN:
+	case IdentifiedFileType::UNKNOWN_ELF:
+	case IdentifiedFileType::UNKNOWN_ISO:
+	case IdentifiedFileType::UNKNOWN: *errorString = "Unknown executable file type."; break;
+	case IdentifiedFileType::ERROR_IDENTIFYING: *errorString = "Error identifying file."; break;
+	default:
+		*errorString = StringFromFormat("Unhandled identified file type %d", (int)type);
+		break;
+	}
+}
+
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
-static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::string *errorString) {
+static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
 	coreState = CORE_POWERUP;
 
 	// Default memory settings
@@ -232,9 +267,8 @@ static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		if (!MountGameISO(loadedFile)) {
+		if (!MountGameISO(fileLoader)) {
 			*errorString = "Failed to mount ISO file - invalid format?";
-			CPU_Shutdown();
 			return false;
 		}
 		if (LoadParamSFOFromDisc()) {
@@ -245,7 +279,7 @@ static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
-		if (LoadParamSFOFromPBP(loadedFile)) {
+		if (LoadParamSFOFromPBP(fileLoader)) {
 			InitMemorySizeForGame();
 		}
 		break;
@@ -257,7 +291,7 @@ static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::strin
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		// Try to grab the disc ID from the filename or GE dump.
-		if (DiscIDFromGEDumpPath(g_CoreParameter.fileToStart, loadedFile, &geDumpDiscID)) {
+		if (DiscIDFromGEDumpPath(g_CoreParameter.fileToStart, fileLoader, &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
 		}
@@ -266,7 +300,6 @@ static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::strin
 	{
 		// Trying to boot other things lands us here. We need to return a sensible error string.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
-		CPU_Shutdown();
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		*errorString = sy->T("Not a PSP game");  // best string we have.
 		return false;
@@ -323,9 +356,43 @@ static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::strin
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
-	g_loadedFile = loadedFile;
-	if (!LoadFile(&loadedFile, type, &g_CoreParameter.errorString)) {
-		CPU_Shutdown();
+	g_loadedFile = fileLoader;
+
+	switch (type) {
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	{
+		std::string dir = fileLoader->GetPath().GetDirectory();
+		if (fileLoader->GetPath().Type() == PathType::CONTENT_URI) {
+			dir = AndroidContentURI(dir).FilePath();
+		}
+		size_t pos = dir.find("PSP/GAME/");
+		if (pos != std::string::npos) {
+			dir = ResolvePBPDirectory(Path(dir)).ToString();
+			pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
+		}
+		return Load_PSP_ELF_PBP(fileLoader, errorString);
+	}
+	// Looks like a wrong fall through but is not, both paths are handled above.
+
+	case IdentifiedFileType::PSP_PBP:
+	case IdentifiedFileType::PSP_ELF:
+	{
+		INFO_LOG(Log::Loader, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
+		return Load_PSP_ELF_PBP(fileLoader, errorString);
+	}
+
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
+		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
+		return Load_PSP_ISO(fileLoader, errorString);
+
+	case IdentifiedFileType::PPSSPP_GE_DUMP:
+		return Load_PSP_GE_Dump(fileLoader, errorString);
+
+	default:
+		GetBootError(type, errorString);
+		coreState = CORE_BOOT_ERROR;
 		g_CoreParameter.fileToStart.clear();
 		return false;
 	}
@@ -462,6 +529,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
 	// it gets written to from the loader thread that gets spawned.
 	if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
+		CPU_Shutdown();
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
