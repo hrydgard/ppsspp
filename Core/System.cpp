@@ -370,6 +370,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	LoadSymbolsIfSupported();
 
+	mipsr4k.Reset();
+
 	CoreTiming::Init();
 
 	// Init all the HLE modules
@@ -379,8 +381,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	if (!g_CoreParameter.mountIso.empty()) {
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
-
-	mipsr4k.Reset();
 
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
