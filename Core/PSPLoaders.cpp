@@ -204,17 +204,6 @@ static const char * const altBootNames[] = {
 };
 
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
-	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
-
-	if (g_paramSFO.IsValid()) {
-		std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-		INFO_LOG(Log::Loader, "%s", title.c_str());
-		System_SetWindowTitle(title);
-	} else {
-		// Should have been loaded earlier in the process.
-		_dbg_assert_(false);
-	}
-
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 
 	// Bypass Chinese translation patches, see comment above.
@@ -235,8 +224,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 
 	bool hasEncrypted = false;
 	int fd;
-	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0)
-	{
+	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0) {
 		u8 head[4];
 		pspFileSystem.ReadFile(fd, head, 4);
 		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
@@ -244,6 +232,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		}
 		pspFileSystem.CloseFile(fd);
 	}
+
 	if (!hasEncrypted) {
 		// try unencrypted Boot.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
@@ -265,6 +254,16 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		}
 		coreState = CORE_BOOT_ERROR;
 		return false;
+	}
+
+	// OK, pretty confident we have a PSP game.
+	if (g_paramSFO.IsValid()) {
+		std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+		INFO_LOG(Log::Loader, "%s", title.c_str());
+		System_SetWindowTitle(title);
+	} else {
+		// Should have been loaded earlier in the process.
+		_dbg_assert_(false);
 	}
 
 	//in case we didn't go through EmuScreen::boot
@@ -422,6 +421,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	System_SetWindowTitle(title);
 
 	// Migrate old save states from old versions of fake game IDs.
+	// Ugh, this might actually be slow on Android.
 	const Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 	for (int i = 0; i < 5; ++i) {
 		Path newPrefix = savestateDir / StringFromFormat("%s_%s_%d", discID.c_str(), discVersion.c_str(), i);

@@ -212,11 +212,9 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileType type) {
+// NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
+static bool CPU_Init(FileLoader *loadedFile, IdentifiedFileType type, std::string *errorString) {
 	coreState = CORE_POWERUP;
-	currentMIPS = &mipsr4k;
-
-	g_symbolMap = new SymbolMap();
 
 	// Default memory settings
 	// Seems to be the safest place currently..
@@ -228,12 +226,6 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 
 	g_CoreParameter.fileType = type;
 
-	MIPSAnalyst::Reset();
-	Replacement_Init();
-
-	g_lua.Init();
-
-	bool allowPlugins = true;
 	std::string geDumpDiscID;
 
 	switch (type) {
@@ -269,20 +261,36 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
 		}
-		allowPlugins = false;
 		break;
 	default:
-		// Can we even get here? Yes, by drag-dropping files while a game is underway.
-		// Should check earlier.
+	{
+		// Trying to boot other things lands us here. We need to return a sensible error string.
 		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
 		CPU_Shutdown();
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		*errorString = sy->T("Not a PSP game");  // best string we have.
 		return false;
 	}
+	}
+
+	currentMIPS = &mipsr4k;
+
+	g_symbolMap = new SymbolMap();
+
+	MIPSAnalyst::Reset();
+	Replacement_Init();
+
+	g_lua.Init();
 
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
 	g_CoreParameter.compat.Load(g_paramSFO.GetDiscID());
+
+	// Compat settings can override the software renderer, take care of that here.
+	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
+		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
+	}
 
 	// Initialize the memory map as early as possible (now that we've read the PARAM.SFO).
 	if (!Memory::Init()) {
@@ -294,7 +302,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile, IdentifiedFileTy
 
 	InitVFPU();
 
-	if (allowPlugins)
+	if (type != IdentifiedFileType::PPSSPP_GE_DUMP)
 		HLEPlugins::Init();
 
 	LoadSymbolsIfSupported();
@@ -411,13 +419,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 	}
 
-#if defined(_WIN32) && PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
-#elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
-	NOTICE_LOG(Log::Boot, "PPSSPP %s Windows 32 bit", PPSSPP_GIT_VERSION);
-#else
+	// TODO: Move almost all of this into the thread.
+
 	NOTICE_LOG(Log::Boot, "PPSSPP %s", PPSSPP_GIT_VERSION);
-#endif
 
 	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 	GraphicsContext *temp = g_CoreParameter.graphicsContext;
@@ -455,7 +459,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		Achievements::SetGame(filename, type, loadedFile);
 	}
 
-	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile, type)) {
+	// TODO: The reason we pass in g_CoreParameter.errorString here is that it's persistent -
+	// it gets written to from the loader thread that gets spawned.
+	if (!CPU_Init(loadedFile, type, &g_CoreParameter.errorString)) {
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
@@ -464,21 +470,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 	}
 
-	// Compat flags get loaded in CPU_Init (which is a bit of a misnomer) so we check for SW renderer here.
-	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
-		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
-	}
-
-	*error_string = g_CoreParameter.errorString;
-	bool success = !g_CoreParameter.fileToStart.empty();
-	if (!success) {
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		pspIsRebooting = false;
-		// In this case, we must call shutdown since the caller won't know to.
-		// It must've partially started since CPU_Init returned true.
-		PSP_Shutdown();
-	}
-	return success;
+	// After CPU_Init returns, the loader thread will keep working for a bit, while we exit here and come back later through
+	// PSP_InitUpdate.
+	return true;
 }
 
 bool PSP_InitUpdate(std::string *error_string) {
@@ -526,9 +520,9 @@ bool PSP_InitUpdate(std::string *error_string) {
 	return pspIsInited;
 }
 
+// Most platforms should not use this one, they should call PSP_InitStart and then do their thing
+// while repeatedly calling PSP_InitUpdate. This is basically just for libretro convenience.
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
-	// Spawn a lua instance
-
 	if (!PSP_InitStart(coreParam, error_string))
 		return false;
 
